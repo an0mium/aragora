@@ -472,11 +472,17 @@ def _git_blob_oid(repo_root: Path, ref: str, path: str) -> str | None:
 
 
 def _workflow_paths_at_ref(repo_root: Path, ref: str) -> list[str]:
+    # Non-recursive ls-tree by design: GitHub Actions only executes workflow
+    # files that live directly in .github/workflows/ — files in nested
+    # subdirectories are ignored by GitHub, so they can never pull an
+    # authority-root reference into the executable closure. Both .yml and
+    # .yaml are runnable workflow extensions and must be discovered. Keep in
+    # agreement with check_contract_drift_ratchet._validate_authority_manifest.
     out = _git_read(repo_root, "ls-tree", "--name-only", ref, f"{WORKFLOW_DIR}/")
     if out is None:
         return []
     names = out.decode("utf-8", errors="replace").splitlines()
-    return sorted(name for name in names if name.endswith(".yml"))
+    return sorted(name for name in names if name.endswith((".yml", ".yaml")))
 
 
 def _discover_artifact_path(

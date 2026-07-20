@@ -13,8 +13,22 @@ import pytest
 
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
+from tests.scripts import cdg_synthetic_artifacts as cdg
 
 PROGRAM_REL = "scripts/baselines/contract_drift_program.json"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _cdg_artifact_env(tmp_path_factory):
+    """Guarantee canonical mission artifacts for every test in this module.
+
+    Real multi-MB artifacts are used when available; otherwise small
+    synthetic artifacts are generated and the pinned digest constants of
+    both scripts are patched in-process so the boundary/authority validation
+    surface runs hermetically in CI instead of skipping.
+    """
+    with cdg.artifact_environment(tmp_path_factory) as env:
+        yield env
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -1167,18 +1181,15 @@ def test_pr_mode_program_parameter_change_fails(tmp_path: Path):
 
 
 def _canonical_artifact_paths() -> tuple[Path, Path]:
-    mission_dir = os.environ.get("FACTORY_MISSION_DIR")
-    runtime_settings = os.environ.get("FACTORY_RUNTIME_SETTINGS_PATH")
-    if mission_dir:
-        library = Path(mission_dir) / "library"
-    elif runtime_settings:
-        library = Path(runtime_settings).resolve().parent / "library"
-    else:
-        library = None
-    cohort = library / "contract-drift-original-cohort-v1.json" if library else None
-    provenance = library / "contract-drift-sdk-provenance-v1.json" if library else None
-    if cohort is None or provenance is None or not cohort.exists() or not provenance.exists():
-        pytest.skip("canonical Contract Drift mission artifacts are unavailable")
+    """Artifact paths provided by the module-scoped `_cdg_artifact_env`
+    fixture (real mission artifacts when available, synthetic otherwise) —
+    boundary tests never skip in CI anymore."""
+    library = Path(os.environ["FACTORY_MISSION_DIR"]) / "library"
+    cohort = library / gen.COHORT_ARTIFACT_FILENAME
+    provenance = library / gen.PROVENANCE_ARTIFACT_FILENAME
+    assert cohort.is_file() and provenance.is_file(), (
+        "the _cdg_artifact_env fixture must provide the canonical artifacts"
+    )
     return cohort, provenance
 
 
@@ -1193,15 +1204,24 @@ def _boundary_repo() -> tuple[Path, str]:
     return repo, sha
 
 
+_AUTHORITY_MANIFEST_CACHE: dict[tuple[str, str], str] = {}
+
+
 def _authority_manifest(sha: str) -> dict:
     cohort_artifact, provenance_artifact = _canonical_artifact_paths()
     repo, _head = _boundary_repo()
-    return gen._build_authority_manifest(
-        repo,
-        sha,
-        cohort_artifact,
-        provenance_artifact,
-    )
+    cache_key = (sha, str(cohort_artifact))
+    cached = _AUTHORITY_MANIFEST_CACHE.get(cache_key)
+    if cached is None:
+        manifest = gen._build_authority_manifest(
+            repo,
+            sha,
+            cohort_artifact,
+            provenance_artifact,
+        )
+        cached = json.dumps(manifest)
+        _AUTHORITY_MANIFEST_CACHE[cache_key] = cached
+    return json.loads(cached)
 
 
 def _redigest_authority(authority: dict) -> None:
@@ -1332,15 +1352,17 @@ def test_boundary_mode_validates_schema_one_independently(tmp_path: Path):
     assert len(result["manifest_sha256"]) == 64
 
 
-def test_boundary_mode_accepts_standalone_generator_manifest(tmp_path: Path):
+def test_boundary_mode_accepts_standalone_generator_manifest(monkeypatch, capsys, tmp_path: Path):
+    # In-process CLI invocation (not a subprocess) so the synthetic-artifact
+    # fixture's pinned-constant patches apply and the test runs hermetically.
     cohort_artifact, provenance_artifact = _canonical_artifact_paths()
     repo, sha = _boundary_repo()
     authority_path = tmp_path / "authority.json"
-    proc = subprocess.run(
+    monkeypatch.setattr(
+        sys,
+        "argv",
         [
-            sys.executable,
-            "-B",
-            str(repo / "scripts/generate_contract_drift_inventory.py"),
+            "generate_contract_drift_inventory.py",
             "--authority-manifest",
             "--ref",
             sha,
@@ -1352,12 +1374,11 @@ def test_boundary_mode_accepts_standalone_generator_manifest(tmp_path: Path):
             "--sdk-provenance-artifact",
             str(provenance_artifact),
         ],
-        check=True,
-        capture_output=True,
-        text=True,
     )
-    authority_path.write_text(proc.stdout, encoding="utf-8")
-    authority = json.loads(proc.stdout)
+    assert gen.main() == 0
+    stdout = capsys.readouterr().out
+    authority_path.write_text(stdout, encoding="utf-8")
+    authority = json.loads(stdout)
     evidence_path = tmp_path / "evidence.json"
     _write_json(
         evidence_path,
@@ -1418,7 +1439,12 @@ def test_boundary_cli_autodiscovers_artifacts_and_blocks_without_evidence(
     assert result["status"] == "blocked"
     assert result["passing"] is False
     assert result["evidence"]["status"] == "unavailable"
-    assert result["canonical_artifacts"]["original_cohort"]["byte_length"] == 1_692_125
+    # COHORT_ARTIFACT reflects whichever artifacts back this run (the real
+    # ratified descriptor, or the synthetic fixture's patched descriptor).
+    assert (
+        result["canonical_artifacts"]["original_cohort"]["byte_length"]
+        == ratchet.COHORT_ARTIFACT["byte_length"]
+    )
 
 
 def test_unsupported_schema_version_fails_closed(tmp_path: Path):
@@ -1692,3 +1718,156 @@ def test_boundary_mode_is_deterministic_and_read_only(tmp_path: Path):
             break
     assert first == second
     assert before == after
+
+
+def test_boundary_manifest_forged_inventory_digest_fails_closed(tmp_path: Path):
+    """Quorum P2: inventory_facts.inventory_sha256 used to be accepted as any
+    64-hex string, so a supplied manifest could forge it and simply re-derive
+    authority_manifest_sha256 over the forged value. The validator must
+    recompute the digest from the canonical artifacts and require equality."""
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    repo, sha, authority_path, evidence_path = _write_boundary_inputs(tmp_path)
+    authority = json.loads(authority_path.read_text())
+    authority["inventory_facts"]["inventory_sha256"] = "3" * 64
+    _redigest_authority(authority)
+    _write_json(authority_path, authority)
+    evidence = json.loads(evidence_path.read_text())
+    evidence["authority_manifest_sha256"] = authority["authority_manifest_sha256"]
+    _write_json(evidence_path, evidence)
+    with pytest.raises(ValueError, match="recomputed from the canonical artifacts"):
+        ratchet.build_boundary_result(
+            repo_root=repo,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref=sha,
+            end_ref=sha,
+            authority_manifest_path=authority_path,
+            cohort_artifact_path=cohort_artifact,
+            sdk_provenance_artifact_path=provenance_artifact,
+            evidence_path=evidence_path,
+        )
+
+
+def test_boundary_cli_standalone_error_emits_structured_fail(monkeypatch, capsys):
+    """Quorum P2: auto-build path failures raise StandaloneError (e.g.
+    policy_module_ref_mismatch); the boundary CLI must emit the structured
+    fail-closed JSON carrying the standalone code, never a raw traceback."""
+    repo, sha = _boundary_repo()
+    real_blob_at_ref = gen._git_blob_at_ref
+
+    def _tampered(repo_root: Path, ref: str, path: str):
+        blob = real_blob_at_ref(repo_root, ref, path)
+        if path == gen.CANONICAL_CLASSIFIER_PATH and blob is not None:
+            return blob + b"\n# drifted policy\n"
+        return blob
+
+    monkeypatch.setattr(gen, "_git_blob_at_ref", _tampered)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--mode",
+            "boundary",
+            "--schema-version",
+            "1",
+            "--boundary",
+            "corrective_bootstrap",
+            "--start-ref",
+            sha,
+            "--end-ref",
+            sha,
+            "--repo-root",
+            str(repo),
+            "--json",
+        ],
+    )
+    assert ratchet.main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "fail"
+    assert result["passing"] is False
+    assert result["error_code"] == "boundary_validation_failed"
+    assert result["standalone_error_code"] == "policy_module_ref_mismatch"
+
+
+def test_boundary_cli_missing_active_inventory_emits_structured_fail(
+    monkeypatch, capsys, tmp_path: Path
+):
+    """The other StandaloneError shape from the quorum finding: the governed
+    ref lacking the active inventory must fail closed with the structured
+    active_inventory_missing code, not a traceback."""
+    repo, sha = cdg.init_authority_repo(tmp_path, include_inventory=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--mode",
+            "boundary",
+            "--schema-version",
+            "1",
+            "--boundary",
+            "corrective_bootstrap",
+            "--start-ref",
+            sha,
+            "--end-ref",
+            sha,
+            "--repo-root",
+            str(repo),
+            "--json",
+        ],
+    )
+    assert ratchet.main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "fail"
+    assert result["error_code"] == "boundary_validation_failed"
+    assert result["standalone_error_code"] == "active_inventory_missing"
+
+
+def test_boundary_pass_intentionally_unreachable_is_documented(tmp_path: Path):
+    """Quorum P3: status="pass" is deliberately unreachable until an
+    independent live read-only GitHub verification of release immutability
+    exists; the result document must say so explicitly so consumers treat
+    blocked (exit 2) as the designed steady state, not a hard failure."""
+    for release_immutable in (False, True):
+        case_dir = tmp_path / f"immutable-{release_immutable}"
+        case_dir.mkdir()
+        result = _boundary_result(case_dir, release_immutable=release_immutable)
+        assert result["status"] == "blocked"
+        assert result["pass_unreachable_pending"] == (
+            "independent live read-only GitHub verification of release immutability"
+        )
+
+
+def test_boundary_authority_closure_includes_yaml_workflows(tmp_path: Path):
+    """Quorum P2: GitHub runs both .yml and .yaml workflows; generator and
+    validator must agree on the executable closure for both extensions
+    (verified end-to-end: the auto-built manifest must satisfy the
+    validator's independently recomputed closure). Workflows in nested
+    subdirectories never run on GitHub and stay excluded by design."""
+    cohort_artifact, provenance_artifact = _canonical_artifact_paths()
+    root_ref = "scripts/check_sdk_parity.py"  # a canonical authority root
+    workflows = {
+        "drift-gate.yml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+        "drift-gate.yaml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+        "unrelated.yaml": "jobs:\n  noop:\n    run: echo ok\n",
+        "nested/deep.yaml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+    }
+    repo, sha = cdg.init_authority_repo(tmp_path, workflows=workflows)
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=sha,
+        end_ref=sha,
+        authority_manifest_path=None,
+        cohort_artifact_path=cohort_artifact,
+        sdk_provenance_artifact_path=provenance_artifact,
+        evidence_path=None,
+    )
+    repo_files = result["authority"]["authority_repo_files"]
+    assert ".github/workflows/drift-gate.yml" in repo_files
+    assert ".github/workflows/drift-gate.yaml" in repo_files
+    assert ".github/workflows/unrelated.yaml" not in repo_files
+    assert ".github/workflows/nested/deep.yaml" not in repo_files
+    assert result["status"] == "blocked"  # no independent evidence supplied

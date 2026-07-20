@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import scripts.generate_contract_drift_inventory as gen
+from tests.scripts import cdg_synthetic_artifacts as cdg
 
 VERIFY = {
     "python_sdk_drift": ["GET /a", "GET /b"],
@@ -284,6 +285,26 @@ def test_discovered_provenance_requires_reference_in_committed_inventory():
 REPO_ROOT = Path(gen.__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "generate_contract_drift_inventory.py"
 
+# Located BEFORE any fixture patches env/constants: the real multi-MB mission
+# artifacts, or None. Import/collection runs before fixtures, and the check
+# is size-pinned, so a synthetic library can never masquerade as real.
+REAL_ARTIFACTS = cdg.find_real_artifacts()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _cdg_artifact_env(tmp_path_factory):
+    """Guarantee canonical mission artifacts for every test in this module.
+
+    Real multi-MB artifacts are used when available; otherwise small
+    synthetic artifacts are generated and the pinned digest constants are
+    patched in-process so the standalone authority/inventory surface runs
+    hermetically in CI instead of skipping. Tests that spawn the CLI in a
+    subprocess cannot see the in-process patches and must use
+    `_require_real_artifacts` (skip-if-absent) instead.
+    """
+    with cdg.artifact_environment(tmp_path_factory) as env:
+        yield env
+
 
 def _canonical_bytes(doc: dict) -> bytes:
     return json.dumps(doc, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -307,13 +328,24 @@ def _artifact_paths() -> tuple[Path, Path] | None:
 
 
 def _require_artifacts() -> tuple[Path, Path]:
+    """Canonical artifacts for IN-PROCESS tests (never skips: the module
+    fixture provides synthetic artifacts when the real ones are absent)."""
     found = _artifact_paths()
-    if found is None:
-        pytest.skip(
-            "canonical mission artifacts unavailable "
-            "(set FACTORY_MISSION_DIR or provide <repo>/library)"
-        )
+    assert found is not None, "the _cdg_artifact_env fixture must provide the canonical artifacts"
     return found
+
+
+def _require_real_artifacts() -> tuple[Path, Path]:
+    """The REAL multi-MB mission artifacts, for tests that spawn the CLI in
+    a subprocess where the synthetic fixture's in-process constant patches
+    cannot apply."""
+    if REAL_ARTIFACTS is None:
+        pytest.skip(
+            "real canonical mission artifacts unavailable "
+            "(set FACTORY_MISSION_DIR or provide <repo>/library); "
+            "hermetic coverage runs in-process via the synthetic-artifact fixture"
+        )
+    return REAL_ARTIFACTS
 
 
 def _artifact_args(artifacts: tuple[Path, Path]) -> list[str]:
@@ -359,7 +391,8 @@ def _independent_closure(sha: str) -> set[str]:
     ).stdout.splitlines()
     closure = set(roots) | {"aragora/cli/commands/review_queue.py"}
     for name in names:
-        if not name.endswith(".yml"):
+        # GitHub runs both .yml and .yaml workflows (top level only).
+        if not name.endswith((".yml", ".yaml")):
             continue
         blob = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "show", f"{sha}:{name}"],
@@ -373,7 +406,7 @@ def _independent_closure(sha: str) -> set[str]:
 
 
 def test_transitive_authority_dependencies_are_tier4():
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
     proc = _run_cli(
         "--authority-manifest",
@@ -504,7 +537,7 @@ def test_standalone_classifier_imports_and_calls_canonical_review_queue_policy(m
 
 
 def test_canonical_tier_cli_is_read_only_and_digest_bound(tmp_path):
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
 
     def _status() -> str:
@@ -564,7 +597,7 @@ def test_canonical_tier_cli_is_read_only_and_digest_bound(tmp_path):
 
 
 def test_read_only_cli_is_deterministic_across_double_run():
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
     art = _artifact_args(artifacts)
     invocations = (
@@ -630,7 +663,7 @@ def test_original_cohort_descriptor_is_immutable_across_authority_versions(monke
 
 
 def test_canonical_cohort_and_provenance_artifacts_are_in_authority_closure():
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
     proc = _run_cli(
         "--authority-manifest",
@@ -952,6 +985,57 @@ def test_authority_manifest_fails_closed_on_policy_module_ref_mismatch(monkeypat
     assert doc["error"]["code"] == "policy_module_ref_mismatch"
 
 
+def test_workflow_closure_includes_yaml_workflows(tmp_path: Path):
+    """Quorum P2: GitHub runs both .yml and .yaml workflow files, so a .yaml
+    workflow referencing an authority root must join the Tier-4 closure
+    exactly like .yml. Workflows in nested subdirectories are never executed
+    by GitHub (only the top level of .github/workflows runs) and stay
+    excluded by design."""
+    artifacts = _require_artifacts()
+    root_ref = "scripts/check_sdk_parity.py"  # a canonical authority root
+    workflows = {
+        "gate.yml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+        "gate.yaml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+        "unrelated.yaml": "jobs:\n  noop:\n    run: echo ok\n",
+        "nested/deep.yaml": f"jobs:\n  gate:\n    run: python {root_ref}\n",
+    }
+    repo, sha = cdg.init_authority_repo(tmp_path, workflows=workflows)
+    manifest = gen._build_authority_manifest(repo, sha, artifacts[0], artifacts[1])
+    repo_files = manifest["repo_files"]
+    assert ".github/workflows/gate.yml" in repo_files
+    assert ".github/workflows/gate.yaml" in repo_files
+    assert ".github/workflows/unrelated.yaml" not in repo_files
+    assert ".github/workflows/nested/deep.yaml" not in repo_files
+
+
+def test_standalone_inventory_mode_happy_path(monkeypatch, capsys):
+    """Hermetic happy path for the standalone inventory mode, including the
+    inventory_sha256 self-digest construction that the boundary validator
+    recomputes (canonical JSON of the document minus the digest field)."""
+    artifacts = _require_artifacts()
+    sha = _head_sha()
+    rc, doc = _run_standalone(
+        monkeypatch,
+        capsys,
+        "--ref",
+        sha,
+        "--json",
+        "--repo-root",
+        str(REPO_ROOT),
+        *_artifact_args(artifacts),
+    )
+    assert rc == 0
+    assert doc["schema"] == gen.INVENTORY_OUTPUT_SCHEMA
+    assert doc["status"] == "ok"
+    assert doc["ref"] == sha
+    assert doc["original_record_total"] == 655
+    assert doc["method_bearing_sdk_records"] == 598
+    assert doc["method_null_route_parity_records"] == 57
+    assert doc["original_record_id_set_sha256"] == gen.RATIFIED_ORIGINAL_ID_SET_SHA256
+    body = {key: value for key, value in doc.items() if key != "inventory_sha256"}
+    assert doc["inventory_sha256"] == hashlib.sha256(_canonical_bytes(body)).hexdigest()
+
+
 def _git_text(*argv: str) -> str:
     return subprocess.run(
         ["git", "-C", str(REPO_ROOT), *argv],
@@ -1187,7 +1271,7 @@ def test_matcher_repair_has_no_parser_dispatch_handler_or_settlement_scope():
 
 
 def test_read_only_cli_hashes_worktree_index_gitdirs_objects_refs_and_reflogs():
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
     argv = (
         "--authority-manifest",
@@ -1220,7 +1304,7 @@ def test_read_only_cli_hashes_worktree_index_gitdirs_objects_refs_and_reflogs():
 
 
 def test_read_only_cli_allows_only_scratch_and_output_writes(tmp_path: Path):
-    artifacts = _require_artifacts()
+    artifacts = _require_real_artifacts()  # subprocess CLI: needs the real artifacts
     sha = _head_sha()
     scratch = tmp_path / "scratch"
     output = tmp_path / "output"

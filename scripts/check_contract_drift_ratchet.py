@@ -37,7 +37,11 @@ Three modes:
   immutable cohort/provenance artifacts, reconstructed projection and
   partition facts, and every supplied evidence digest. Inherited conclusions
   and mutating action traces fail closed; unmet immutable-release or rule-suite
-  prerequisites report ``blocked`` instead of passed.
+  prerequisites report ``blocked`` instead of passed. ``status="pass"`` is
+  intentionally unreachable until an independent live read-only GitHub
+  verification of release immutability exists (surfaced via the
+  ``pass_unreachable_pending`` result field): ``blocked`` (exit 2) is the
+  designed fail-closed steady state, not a hard failure.
 """
 
 from __future__ import annotations
@@ -550,6 +554,7 @@ def _validate_authority_manifest(
     cohort: dict[str, Any],
     provenance: dict[str, Any],
     cohort_summary: dict[str, Any],
+    expected_inventory_sha256: str,
 ) -> dict[str, Any]:
     if manifest.get("schema") != AUTHORITY_MANIFEST_SCHEMA:
         raise ValueError("authority manifest schema mismatch")
@@ -636,6 +641,12 @@ def _validate_authority_manifest(
     ):
         raise ValueError("authority manifest authority roots are incomplete or noncanonical")
     expected_closure = set(authority_roots) | {"aragora/cli/commands/review_queue.py"}
+    # Non-recursive ls-tree by design: GitHub Actions only executes workflow
+    # files that live directly in .github/workflows/ — files in nested
+    # subdirectories are ignored by GitHub, so they can never pull an
+    # authority-root reference into the executable closure. Both .yml and
+    # .yaml are runnable workflow extensions and must be considered. Keep in
+    # agreement with generate_contract_drift_inventory._workflow_paths_at_ref.
     workflow_names = subprocess.run(
         [
             "git",
@@ -651,7 +662,7 @@ def _validate_authority_manifest(
         text=True,
     ).stdout.splitlines()
     for workflow in workflow_names:
-        if not workflow.endswith(".yml"):
+        if not workflow.endswith((".yml", ".yaml")):
             continue
         workflow_blob = subprocess.run(
             ["git", "-C", str(repo_root), "cat-file", "blob", f"{end_sha}:{workflow}"],
@@ -741,6 +752,17 @@ def _validate_authority_manifest(
         str(facts.get("inventory_sha256"))
     ):
         raise ValueError("authority manifest deterministic inventory digest mismatch")
+    # The digest must equal the one RECOMPUTED from the canonical artifacts at
+    # this ref (build_boundary_result rebuilds the standalone inventory
+    # document exactly the way generate_contract_drift_inventory.py does when
+    # it mints inventory_facts). Accepting any well-formed 64-hex value would
+    # let a supplied manifest forge inventory_sha256 and simply re-derive
+    # authority_manifest_sha256 over the forged value.
+    if facts.get("inventory_sha256") != expected_inventory_sha256:
+        raise ValueError(
+            "authority manifest inventory digest does not match the inventory "
+            "document recomputed from the canonical artifacts"
+        )
     if facts.get("membership_anchor") != cohort.get("membership_anchor"):
         raise ValueError("authority manifest membership anchor mismatch")
     if facts.get("membership_sources") != cohort.get("membership_sources"):
@@ -951,6 +973,18 @@ def _validate_boundary_evidence(
     end_sha: str,
     authority_summary: dict[str, Any],
 ) -> tuple[dict[str, Any], str | None]:
+    """Validate independent boundary evidence; returns (summary, blocked_reason).
+
+    Fail-closed by design: ``blocked_reason`` is currently ALWAYS non-None.
+    Even a fully valid evidence file blocks on the external-prerequisite
+    rule, because a self-claimed ``future_release_immutability_enabled`` flag
+    is not an independent live read-only GitHub verification — and no such
+    verification integration exists yet. ``status="pass"`` (exit 0) is
+    therefore intentionally unreachable pending that verification; consumers
+    must treat ``blocked`` (exit 2) as the expected steady state rather than
+    a hard failure. This is surfaced to consumers via the
+    ``pass_unreachable_pending`` field on the boundary result document.
+    """
     if evidence.get("schema") != BOUNDARY_EVIDENCE_SCHEMA:
         raise ValueError("boundary evidence schema mismatch")
     if evidence.get("boundary") != boundary:
@@ -1064,6 +1098,18 @@ def build_boundary_result(
     cohort_summary = _validate_original_cohort(cohort)
     provenance_summary = _validate_sdk_provenance(provenance, cohort_summary)
 
+    # Independently recompute the deterministic standalone inventory document
+    # (and thus inventory_facts.inventory_sha256) from the canonical artifacts
+    # at the boundary end SHA, using the same construction the generator uses.
+    # A StandaloneError here (e.g. policy_module_ref_mismatch,
+    # active_inventory_missing) fails closed via main()'s boundary handler.
+    recomputed_inventory_document = inventory_mod._build_inventory_document(
+        repo_root,
+        end_sha,
+        cohort_artifact_path,
+        sdk_provenance_artifact_path,
+    )
+
     if authority_manifest_path is None:
         authority_manifest = inventory_mod._build_authority_manifest(
             repo_root,
@@ -1083,6 +1129,7 @@ def build_boundary_result(
         cohort=cohort,
         provenance=provenance,
         cohort_summary=cohort_summary,
+        expected_inventory_sha256=recomputed_inventory_document["inventory_sha256"],
     )
     evidence_summary: dict[str, Any]
     blocked_reason: str | None
@@ -1110,6 +1157,15 @@ def build_boundary_result(
         "status": "blocked" if blocked_reason else "pass",
         "passing": blocked_reason is None,
         "blocked_reason": blocked_reason,
+        # status="pass" is intentionally unreachable today: even fully valid
+        # evidence blocks on the external-prerequisite rule until an
+        # independent live read-only GitHub verification of release
+        # immutability exists (see _validate_boundary_evidence). Consumers
+        # must treat "blocked" as the designed fail-closed steady state, not
+        # a hard failure.
+        "pass_unreachable_pending": (
+            "independent live read-only GitHub verification of release immutability"
+        ),
         "boundary": boundary,
         "start_sha": start_sha,
         "end_sha": end_sha,
@@ -1689,7 +1745,16 @@ def main() -> int:
                 sdk_provenance_artifact_path=args.sdk_provenance_artifact,
                 evidence_path=args.boundary_evidence,
             )
-        except (ValueError, subprocess.CalledProcessError) as exc:
+        except (
+            ValueError,
+            subprocess.CalledProcessError,
+            inventory_mod.StandaloneError,
+        ) as exc:
+            # StandaloneError covers the fail-closed standalone surfaces the
+            # boundary path calls into (artifact discovery, the auto-built
+            # authority manifest, and the recomputed inventory document —
+            # e.g. policy_module_ref_mismatch, active_inventory_missing);
+            # it must yield the structured error, never a raw traceback.
             error = {
                 "schema": BOUNDARY_MANIFEST_SCHEMA,
                 "schema_version": args.schema_version,
@@ -1698,6 +1763,8 @@ def main() -> int:
                 "error_code": "boundary_validation_failed",
                 "error": str(exc),
             }
+            if isinstance(exc, inventory_mod.StandaloneError):
+                error["standalone_error_code"] = exc.code
             if args.json:
                 print(json.dumps(error, sort_keys=True, separators=(",", ":")))
             else:
