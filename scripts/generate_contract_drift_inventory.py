@@ -720,26 +720,22 @@ def _resolve_local_uses(
 
 def _run_script_references(source_path: str, run: str) -> list[str]:
     normalized = run.replace("\\\n", " ")
-    dynamic_local = re.search(
-        r"(?:\./)?(?:scripts|aragora|\.github)/[^\s\"']*"
-        r"(?:\$\{\{|\$\{|\$\(|`|\*)[^\s\"']*\.(?:py|sh|ya?ml)",
-        normalized,
-    )
-    if dynamic_local:
-        raise AuthorityClosureError(
-            f"dynamic local run reference is forbidden: {source_path} -> {dynamic_local.group(0)}"
-        )
-    command_target = re.compile(
+    command_invocation = re.compile(
         r"(?:^|[;&|]\s*)"
         r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
         r"(?:(?:-[A-Za-z]+\s+)*)"
-        r"([\"']?(?:\$|\$\(|`)[^\s;&|]*[\"']?)",
+        r"([^\s;&|]+)",
         re.MULTILINE,
-    ).search(normalized)
-    if command_target:
-        raise AuthorityClosureError(
-            f"dynamic local run target is forbidden: {source_path} -> {command_target.group(1)}"
-        )
+    )
+    for match in command_invocation.finditer(normalized):
+        target = match.group(1).strip("\"'")
+        local_target = target.lstrip("./").startswith(("scripts/", "aragora/", ".github/"))
+        if target.startswith(("$", "`")) or (
+            local_target and any(marker in target for marker in ("${{", "${", "$(", "`", "*"))
+        ):
+            raise AuthorityClosureError(
+                f"dynamic local run target is forbidden: {source_path} -> {target}"
+            )
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"
         r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
