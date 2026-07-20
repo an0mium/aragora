@@ -35,6 +35,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Merge-State `UNSTABLE` Settlement | [MERGE_STATE_UNSTABLE_SETTLEMENT.md](./MERGE_STATE_UNSTABLE_SETTLEMENT.md) | Classifying GitHub merge-state blockers from required checks, advisory checks, cancelled CI runs, and the proposed allowlisted non-required cancellation predicate |
 | Proof-First tmux Operator | [RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md](./RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md) | Conductor-led tmux coordination for benchmark/docs/monitor lanes without replacing the unattended proof-first shift |
 | Outbox Disposition | [outbox-disposition-rubric.md](./outbox-disposition-rubric.md) | Read-only rubric for classifying automation outbox-depth blockers before any publisher or reconcile mutation |
+| Harvest Disposition | [harvest-disposition-rubric.md](./harvest-disposition-rubric.md) | Claim, classify, and receipt stale #8993 worktree harvest items without mutating shared-root or source worktree state |
 
 ## Incident Severity Levels
 

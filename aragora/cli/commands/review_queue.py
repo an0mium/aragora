@@ -236,11 +236,17 @@ TIER_3_TITLE_KEYWORDS: tuple[str, ...] = (
     "persistence",
     "public api",
 )
+CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION = 1
+CONTRACT_DRIFT_AUTHORITY_TIER = 4
+# fmt: off
+CONTRACT_DRIFT_AUTHORITY_PREFIXES: tuple[str, ...] = ("scripts/check_contract_drift_ratchet.py", "scripts/generate_contract_drift_inventory.py", "scripts/baselines/contract_drift_inventory.json", "scripts/sdk_path_normalize.py", "scripts/baselines/internal_route_prefixes.json", "scripts/baselines/contract_drift_program.json", "scripts/check_sdk_parity.py", "scripts/validate_openapi_routes.py")
+# fmt: on
 TIER_4_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
     "deploy/",
     "docker/",
     "k8s/",
+    *CONTRACT_DRIFT_AUTHORITY_PREFIXES,
     # Merge-authority self-modification: when a PR changes the code that
     # enforces model-quorum settlement gates, that PR's own quorum is
     # evaluated by the version of the gate it is trying to land. A bug or
@@ -5033,7 +5039,8 @@ def _first_nonempty_line(text: str) -> str:
 
 
 def _matches_prefix(path: str, prefixes: tuple[str, ...]) -> bool:
-    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in prefixes)
+    legacy = TIER_2_PREFIXES.__contains__
+    return any(path == p or ((legacy(p) or p[-1:] == "/") and path.startswith(p)) for p in prefixes)
 
 
 def _is_docs_tests_or_status_path(path: str) -> bool:

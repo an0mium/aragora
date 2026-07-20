@@ -3,6 +3,278 @@
   "generated_by": "scripts/generate_contract_drift_inventory.py",
   "items": [
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/adjust",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/expiring",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/issue",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/admin/credits/{param}/transactions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/costs/recommendations/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/email/daily-digest",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/email/sender-profile",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/actions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/bulk-actions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/command",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/daily-digest",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/reprioritize",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/inbox/sender-profile",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/status",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/integrations/{param}/test",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/authorize",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/capture",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/charge",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/customer",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/customer/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/refund",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/subscription",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/subscription/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/transaction/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/void",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/webhook/authnet",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/payments/webhook/stripe",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/adjust",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/expiring",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/issue",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/admin/credits/{param}/transactions",
+      "provenance": "#9388 wired function missing-spec intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/agent-evolution/elo-trends",
@@ -93,6 +365,46 @@
       "status": "resolved"
     },
     {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/customer/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/subscription/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/transaction/{param}",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/webhook/authnet",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "missing_in_spec:/api/v1/payments/webhook/stripe",
+      "provenance": "#9388 package-reexport wired-route intake",
+      "source": "missing_in_spec",
+      "status": "open"
+    },
+    {
       "class": "start_cohort",
       "discovered_on": "2026-04-17",
       "id": "missing_in_spec:/api/v1/relationship/{param}/*",
@@ -100,6 +412,126 @@
       "resolved_on": "2026-07-16",
       "source": "missing_in_spec",
       "status": "resolved"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/calibration/curve",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/calibration/history",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/devices/apple/shortcuts",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/km/checkpoints/compare",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/matches/stats",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/patterns",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/patterns/hive-mind",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/patterns/map-reduce",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/patterns/review-cycle",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/quotas/request-increase",
+      "provenance": "#9389 unsound legacy->v1 variant-probe removal surfaced mis-suppressed legacy orphan",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/ralph/blockers",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/ralph/campaigns",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/ralph/overview",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/review-queue",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
+    },
+    {
+      "class": "discovered",
+      "discovered_on": "2026-07-17",
+      "id": "orphaned_in_spec:/api/slos",
+      "provenance": "#9388 exact-version orphan intake",
+      "source": "orphaned_in_spec",
+      "status": "open"
     },
     {
       "class": "discovered",
