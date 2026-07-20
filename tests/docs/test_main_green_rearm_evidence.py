@@ -112,103 +112,104 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert 'all(.statuses[]; .found and .latest.state == "success")' in text
 
 
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixture")
-def test_required_policy_unions_rulesets_and_branch_protection() -> None:
-    text = RUNBOOK.read_text(encoding="utf-8")
-    ruleset = [{"context": "ruleset-only", "app_id": 15368}]
-    protection = {
-        "checks": [{"context": "lint", "app_id": 15368}],
-        "legacy_contexts": ["legacy", "ruleset-only"],
-    }
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixtures")
+class TestJqPrograms:
+    def test_required_policy_unions_rulesets_and_branch_protection(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        ruleset = [{"context": "ruleset-only", "app_id": 15368}]
+        protection = {
+            "checks": [{"context": "lint", "app_id": 15368}],
+            "legacy_contexts": ["legacy", "ruleset-only"],
+        }
 
-    result = subprocess.run(
-        [
-            "jq",
-            "-n",
-            "--argjson",
-            "ruleset",
-            json.dumps(ruleset),
-            "--argjson",
-            "protection",
-            json.dumps(protection),
-            _policy_program(text),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+        result = subprocess.run(
+            [
+                "jq",
+                "-n",
+                "--argjson",
+                "ruleset",
+                json.dumps(ruleset),
+                "--argjson",
+                "protection",
+                json.dumps(protection),
+                _policy_program(text),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
-    policy = json.loads(result.stdout)
-    assert policy["checks"] == [
-        {"context": "lint", "app_id": 15368},
-        {"context": "ruleset-only", "app_id": 15368},
-    ]
-    assert policy["legacy_contexts"] == ["legacy"]
-    assert policy["sources"] == {"ruleset": True, "branch_protection": True}
+        policy = json.loads(result.stdout)
+        assert policy["checks"] == [
+            {"context": "lint", "app_id": 15368},
+            {"context": "ruleset-only", "app_id": 15368},
+        ]
+        assert policy["legacy_contexts"] == ["legacy"]
+        assert policy["sources"] == {"ruleset": True, "branch_protection": True}
 
-
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixture")
-def test_required_context_reconciliation_prefers_newer_queued_run() -> None:
-    text = RUNBOOK.read_text(encoding="utf-8")
-    policy = {"checks": [{"context": "lint", "app_id": 15368}], "legacy_contexts": []}
-    runs = [
-        {
-            "id": 100,
-            "name": "lint",
-            "app_id": 15368,
-            "status": "completed",
-            "conclusion": "success",
-            "started_at": "2026-07-17T10:00:01Z",
-        },
-        {
-            "id": 101,
-            "name": "lint",
-            "app_id": 15368,
-            "status": "queued",
-            "conclusion": None,
-            "started_at": None,
-        },
-    ]
-
-    evidence = _reconcile(text, policy=policy, runs=runs)
-    assert evidence["checks"][0]["latest"]["id"] == 101
-    assert evidence["checks"][0]["latest"]["status"] == "queued"
-
-
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixture")
-@pytest.mark.parametrize(
-    "runs",
-    [
-        [],
-        [
+    def test_required_context_reconciliation_prefers_newer_queued_run(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [{"context": "lint", "app_id": 15368}],
+            "legacy_contexts": [],
+        }
+        runs = [
             {
-                "id": 101,
-                "name": "ruleset-only",
+                "id": 100,
+                "name": "lint",
                 "app_id": 15368,
                 "status": "completed",
-                "conclusion": "failure",
-            }
+                "conclusion": "success",
+                "started_at": "2026-07-17T10:00:01Z",
+            },
+            {
+                "id": 101,
+                "name": "lint",
+                "app_id": 15368,
+                "status": "queued",
+                "conclusion": None,
+                "started_at": None,
+            },
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=runs)
+        assert evidence["checks"][0]["latest"]["id"] == 101
+        assert evidence["checks"][0]["latest"]["status"] == "queued"
+
+    @pytest.mark.parametrize(
+        "runs",
+        [
+            [],
+            [
+                {
+                    "id": 101,
+                    "name": "ruleset-only",
+                    "app_id": 15368,
+                    "status": "completed",
+                    "conclusion": "failure",
+                }
+            ],
         ],
-    ],
-)
-def test_ruleset_only_missing_or_red_check_blocks(
-    runs: list[dict[str, object]],
-) -> None:
-    text = RUNBOOK.read_text(encoding="utf-8")
-    policy = {
-        "checks": [{"context": "ruleset-only", "app_id": 15368}],
-        "legacy_contexts": [],
-    }
-    evidence = _reconcile(text, policy=policy, runs=runs)
-
-    result = subprocess.run(
-        ["jq", "-e", _reconciliation_guard(text)],
-        input=json.dumps(evidence),
-        capture_output=True,
-        text=True,
     )
+    def test_ruleset_only_missing_or_red_check_blocks(
+        self,
+        runs: list[dict[str, object]],
+    ) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        policy = {
+            "checks": [{"context": "ruleset-only", "app_id": 15368}],
+            "legacy_contexts": [],
+        }
+        evidence = _reconcile(text, policy=policy, runs=runs)
 
-    assert result.returncode != 0
+        result = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
 
 
 def test_failed_first_rearm_guard_cannot_delete_halt_marker(tmp_path: Path) -> None:
