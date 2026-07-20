@@ -82,6 +82,12 @@ jobs:
               for (const run of runs) {
                 if (run.head_sha === liveHeadSha) continue;
                 if (run.id === selfRunId) continue;
+                const runHeadRepo = String(run.head_repository?.full_name || '').trim();
+                const prHeadRepo = String(pr.head?.repo?.full_name || '').trim();
+                if (!runHeadRepo || !prHeadRepo || runHeadRepo !== prHeadRepo) continue;
+                if (String(run.head_branch || '').trim() !== headBranch) continue;
+                const runPrNumbers = (run.pull_requests || []).map((item) => item.number);
+                if (runPrNumbers.length > 0 && !runPrNumbers.includes(pr.number)) continue;
                 if (run.status !== 'queued') continue;
                 const confirmedLiveHeadSha = await getLiveHeadSha();
                 if (!confirmedLiveHeadSha || confirmedLiveHeadSha !== headSha) break;
