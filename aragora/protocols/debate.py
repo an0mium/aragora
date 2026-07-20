@@ -228,6 +228,11 @@ class DebateProtocol:
     crux_finder_top_k: int = 5
     crux_finder_min_score: float = 0.3
     crux_finder_counterfactual_validation: bool = True
+    # Crux cards (#8227 phase 1): attach detected cruxes from a *standard*
+    # debate to the result/receipt without changing the debate goal. Flag-off
+    # receipts are byte-identical to pre-flag receipts. Reuses the
+    # crux_finder_top_k / crux_finder_min_score tuning above.
+    enable_crux_cards: bool = False
     # Participation quorum: minimum fraction/count of agents that must vote
     min_participation_ratio: float = 0.5
     min_participation_count: int = 2
