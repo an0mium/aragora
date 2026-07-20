@@ -27,20 +27,20 @@ This is the prerequisite work unit recommended by the July 20 Claude Fable 5 con
 
 ### Tasks
 
-- [ ] Survey existing inference construction patterns and existing audit/checker conventions.
-- [ ] Add the static allowlist and deterministic scanner without adding dependencies.
-- [ ] Classify every discovered current production site and require a rationale for direct-only entries.
-- [ ] Add focused scanner/manifest tests and direct-path policy assertions.
-- [ ] Document the maintenance command and classification rules.
+- [x] Survey existing inference construction patterns and existing audit/checker conventions.
+- [x] Add the static allowlist and deterministic scanner without adding dependencies.
+- [x] Classify every discovered current production site and require a rationale for direct-only entries.
+- [x] Add focused scanner/manifest tests and direct-path policy assertions.
+- [x] Document the maintenance command and classification rules in checker help and the generated manifest metadata.
 
 ### Acceptance criteria
 
-- [ ] Current-main inventory is an exact deterministic match with no unclassified or stale entries.
-- [ ] A synthetic new OpenAI/Anthropic inference site fails the checker until classified.
-- [ ] Port 8317 is rejected in scanned source and allowlist data.
-- [ ] CI, production, credential validation, public gateway, and evidence-related paths remain explicitly direct-only where applicable.
-- [ ] `scripts/consult_claude.py` is the only existing non-test `ModelTransportPolicy` consumer and is classified deliberately.
-- [ ] Focused tests, changed-file type/lint gates, charter compliance, and automation preflight pass.
+- [x] Current-main inventory is an exact deterministic match with no unclassified or stale entries.
+- [x] A synthetic new OpenAI/Anthropic inference site fails the checker until classified.
+- [x] Port 8317 is rejected in scanned source and allowlist data.
+- [x] CI, production, credential validation, public gateway, and evidence-related paths remain explicitly direct-only where applicable.
+- [x] `scripts/consult_claude.py` is the only existing non-test `ModelTransportPolicy` consumer and is classified deliberately.
+- [x] Focused tests, changed-file type/lint gates, charter compliance, and automation preflight pass.
 - [ ] Fresh independent review finds no P0-P2 blocker and the final cumulative diff is review-ready.
 
 ### Docs likely touched

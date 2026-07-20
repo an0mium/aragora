@@ -19,3 +19,5 @@
 ## Known traps
 
 - 2026-07-20: A Fable consult is strategy input only. Re-ground main, mailbox, owner, issue overlap, and branch lease before executing its recommendation.
+- 2026-07-20: Fail-closed scanners must surface parse/read failures, track constructor aliases, and avoid suffix-only method matches; a generated manifest still needs stable review lines.
+- 2026-07-20: Port prohibition must cover normalized textual equivalents such as `:08317`, while exempting only the exact central declaration of the forbidden value.

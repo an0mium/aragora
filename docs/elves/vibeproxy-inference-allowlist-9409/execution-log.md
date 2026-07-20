@@ -2,14 +2,14 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 17:16 America/Chicago
-- **Current phase:** In progress
+- **Last updated:** 2026-07-20 17:54 America/Chicago
+- **Current phase:** Final validation and exact-head rereview
 - **Active batch:** Batch 1: Inventory and enforcement
 - **Last completed batch:** none
-- **Next exact batch:** Batch 1: Inventory and enforcement
+- **Next exact batch:** none; final review/cleanup only
 - **Active PR:** #9439
 - **Docs promoted this run:** none
-- **Latest Elves Report:** not generated yet
+- **Latest Elves Report:** pending final exact-head review
 
 ## Session Setup: 2026-07-20 17:06 America/Chicago
 
@@ -79,5 +79,35 @@
 
 **Pre-implementation survey:**
 
-- In progress. A read-only subagent is mapping existing checker/audit patterns and inventory size before implementation.
+- Complete. Existing checker/audit patterns and the current inference surface were mapped before implementation.
 - The generic `elves/pre-batch-1` tag already existed in the shared repository; this run uses the collision-free `elves/vibeproxy-inference-allowlist-9409/pre-batch-1` tag instead.
+
+## Batch 1 Implementation and Validation: 2026-07-20 17:54 America/Chicago
+
+**Implementation:**
+
+- Added `scripts/check_inference_site_allowlist.py`, a standard-library AST/JSON checker using stable path/symbol/provider/protocol anchors.
+- Added the generated, line-reviewable `scripts/inference_site_allowlist.json`: 139 sites, 143 detections, 138 direct-only classifications, and one deliberate proxy-eligible `scripts/consult_claude.py::_run_vibeproxy` entry.
+- Added 23 checker tests covering exact inventory, missing/stale/count drift, protected paths, aliases, method-receiver filtering, unreadable syntax, templates, manifest validation, and literal/zero-padded port 8317.
+- No runtime routing, inference request, evidence, governance, workflow, API, auth/pinning, settlement, or merge change was made.
+
+**Validation:**
+
+- `uv run pytest -q tests/scripts/test_check_inference_site_allowlist.py tests/scripts/test_check_vibeproxy.py tests/agents/transports/test_vibeproxy.py tests/audit/test_ai_systems_audit.py`: PASS, 120 tests, 12 pre-existing deprecation warnings, 32.66s.
+- `uv run ruff check ...`: PASS.
+- `uv run mypy scripts/check_inference_site_allowlist.py`: PASS.
+- `uv run python scripts/check_inference_site_allowlist.py --json`: PASS, 139 sites / 143 detections / 4,762 scanned files / zero scan errors.
+- `uv run python scripts/check_charter_compliance.py --range origin/main...HEAD --format json`: PASS.
+- `bash scripts/automation_pr_preflight.sh origin/main HEAD`: PASS.
+- Non-generated implementation plus test delta: 798 lines; generated manifest is 146 stable review lines.
+
+**Independent review round 1 (`344ab114a6`):**
+
+- P1 whole-file port exemption: fixed at `d3ca833cd3`; only the exact central prohibition declaration is exempt.
+- P2 constructor aliases: fixed and covered for OpenAI and Anthropic.
+- P2 unreadable/invalid sources: fixed fail-closed with `scan_errors`.
+- P2 suffix false positives: fixed by requiring a client receiver; unrelated `store.responses.create()` is rejected by test.
+- P2 zero-padded port and one-line manifest: fixed; `:0*8317` is rejected and the generated manifest has one site per line.
+- P2 scope/stale Elves state: product/test delta is within 800; ephemeral run artifacts and the unrelated broad `.gitignore` entry are scheduled for final cleanup.
+
+**Next action:** commit and push these review fixes, then obtain a fresh independent review on the new exact head before cleanup/readiness.

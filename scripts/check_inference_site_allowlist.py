@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""Check the reviewed inventory of production inference call sites.
-
-The checker scans Python sources under ``aragora/``, ``scripts/``, and
-``.github/``. It groups detections by stable path/symbol/provider/protocol
-anchors so line movement does not churn the inventory, while a new site or a
-changed detection count still fails closed.
-
-Usage:
-    python3 scripts/check_inference_site_allowlist.py
-    python3 scripts/check_inference_site_allowlist.py --json
-    python3 scripts/check_inference_site_allowlist.py --emit-template
-
-``--emit-template`` prints a candidate manifest to stdout. It never writes the
-reviewed allowlist automatically.
-"""
+"""Check the stable, reviewed inventory of production inference call sites."""
 
 from __future__ import annotations
 
@@ -34,7 +20,7 @@ DEFAULT_MANIFEST = Path(__file__).with_name("inference_site_allowlist.json")
 SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
-FORBIDDEN_PORT_RE = re.compile(r":8317\b")
+FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {
@@ -117,6 +103,7 @@ class Discovery:
     raw_detections: int
     policy_consumers: tuple[str, ...]
     forbidden_ports: tuple[str, ...]
+    scan_errors: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -132,9 +119,7 @@ class CheckResult:
     manifest_errors: tuple[str, ...]
     policy_errors: tuple[str, ...]
     forbidden_ports: tuple[str, ...]
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    scan_errors: tuple[str, ...]
 
 
 def _attr_chain(node: ast.AST) -> str:
@@ -147,49 +132,23 @@ def _attr_chain(node: ast.AST) -> str:
     return ".".join(reversed(parts))
 
 
-def _literal_text(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    if isinstance(node, ast.JoinedStr):
-        return "".join(
-            value.value
-            if isinstance(value, ast.Constant) and isinstance(value.value, str)
-            else "{}"
-            for value in node.values
-        )
-    return None
-
-
 def _protocol_for_url(value: str) -> str:
-    lowered = value.lower()
-    for fragment, protocol in PROTOCOL_PATHS:
-        if fragment in lowered:
-            return protocol
-    return "base"
+    return next((name for fragment, name in PROTOCOL_PATHS if fragment in value.lower()), "base")
 
 
 def _provider_for_url(value: str) -> str | None:
-    lowered = value.lower()
-    for host, provider in PROVIDER_HOSTS.items():
-        if host in lowered:
-            return provider
-    return None
+    return next((name for host, name in PROVIDER_HOSTS.items() if host in value.lower()), None)
 
 
 def _contains_forbidden_port(value: Any) -> bool:
-    if isinstance(value, bool):
-        return False
-    if isinstance(value, int):
+    if type(value) is int:
         return value == 8317
     if isinstance(value, str):
         return bool(FORBIDDEN_PORT_RE.search(value))
     if isinstance(value, list):
         return any(_contains_forbidden_port(item) for item in value)
     if isinstance(value, dict):
-        return any(
-            _contains_forbidden_port(key) or _contains_forbidden_port(item)
-            for key, item in value.items()
-        )
+        return any(_contains_forbidden_port(part) for pair in value.items() for part in pair)
     return False
 
 
@@ -200,9 +159,12 @@ def _docstring_nodes(tree: ast.AST) -> set[int]:
         if not body or not isinstance(body, list):
             continue
         first = body[0]
-        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
-            if isinstance(first.value.value, str):
-                result.add(id(first.value))
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            result.add(id(first.value))
     return result
 
 
@@ -213,6 +175,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.docstrings = _docstring_nodes(tree)
         self.detections: list[tuple[SiteKey, str]] = []
         self.mentions_policy = False
+        self.constructor_aliases = dict(CONSTRUCTORS)
 
     def _anchor(self) -> str:
         if not self.scope:
@@ -258,28 +221,33 @@ class _InferenceVisitor(ast.NodeVisitor):
             self._record(provider, _protocol_for_url(node.value), "endpoint-literal")
 
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
-        value = _literal_text(node)
-        if value is not None:
-            provider = _provider_for_url(value)
-            if provider is not None:
-                self._record(provider, _protocol_for_url(value), "endpoint-literal")
+        value = "".join(
+            str(part.value) if isinstance(part, ast.Constant) else "{}" for part in node.values
+        )
+        provider = _provider_for_url(value)
+        if provider is not None:
+            self._record(provider, _protocol_for_url(value), "endpoint-literal")
         for part in node.values:
             if isinstance(part, ast.FormattedValue):
                 self.visit(part.value)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if any(alias.name == "ModelTransportPolicy" for alias in node.names):
-            self.mentions_policy = True
+        for alias in node.names:
+            if alias.name == "ModelTransportPolicy":
+                self.mentions_policy = True
+            if node.module in {"openai", "anthropic"} and alias.name in CONSTRUCTORS:
+                self.constructor_aliases[alias.asname or alias.name] = CONSTRUCTORS[alias.name]
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         chain = _attr_chain(node.func)
         terminal = chain.rsplit(".", 1)[-1]
-        constructor = CONSTRUCTORS.get(terminal)
+        constructor = self.constructor_aliases.get(terminal)
         if constructor is not None:
             self._record(*constructor, "client-constructor")
         for suffix, provider, protocol in METHOD_SUFFIXES:
-            if chain.endswith(suffix):
+            receiver = chain[: -len(suffix)].rstrip(".").rsplit(".", 1)[-1]
+            if chain.endswith(suffix) and "client" in receiver.lower():
                 self._record(provider, protocol, "inference-method")
                 break
         if chain.endswith(("generate_anthropic", "anthropic_message")):
@@ -288,11 +256,7 @@ class _InferenceVisitor(ast.NodeVisitor):
 
 
 def iter_python_files(root: Path) -> tuple[Path, ...]:
-    files: set[Path] = set()
-    for relative_root in SCAN_ROOTS:
-        target = root / relative_root
-        if target.is_dir():
-            files.update(target.rglob("*.py"))
+    files = {path for relative in SCAN_ROOTS for path in (root / relative).rglob("*.py")}
     return tuple(
         sorted(
             path
@@ -306,13 +270,15 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
     grouped: dict[SiteKey, Counter[str]] = {}
     policy_consumers: set[str] = set()
     forbidden_ports: list[str] = []
+    scan_errors: list[str] = []
     files = iter_python_files(root)
     for path in files:
         relative = path.relative_to(root).as_posix()
         try:
             source = path.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=relative)
-        except (OSError, UnicodeDecodeError, SyntaxError):
+        except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+            scan_errors.append(f"{relative}: {type(exc).__name__}: {exc}")
             continue
         source_lines = source.splitlines()
         for line_no, line in enumerate(source_lines, 1):
@@ -351,6 +317,7 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
         raw_detections=sum(sum(site.detectors.values()) for site in sites),
         policy_consumers=tuple(sorted(policy_consumers)),
         forbidden_ports=tuple(forbidden_ports),
+        scan_errors=tuple(scan_errors),
     )
 
 
@@ -464,16 +431,16 @@ def check_allowlist(root: Path = REPO_ROOT, manifest_path: Path = DEFAULT_MANIFE
             "transport policy consumers differ: "
             f"expected={list(expected_consumers)} actual={list(discovery.policy_consumers)}"
         )
-    ok = not any(
-        (
-            unclassified,
-            stale,
-            changed,
-            manifest_errors,
-            policy_errors,
-            discovery.forbidden_ports,
-        )
+    violations = (
+        unclassified,
+        stale,
+        changed,
+        manifest_errors,
+        policy_errors,
+        discovery.forbidden_ports,
+        discovery.scan_errors,
     )
+    ok = not any(violations)
     return CheckResult(
         ok=ok,
         scanned_files=discovery.scanned_files,
@@ -486,6 +453,7 @@ def check_allowlist(root: Path = REPO_ROOT, manifest_path: Path = DEFAULT_MANIFE
         manifest_errors=tuple(manifest_errors),
         policy_errors=tuple(policy_errors),
         forbidden_ports=discovery.forbidden_ports,
+        scan_errors=discovery.scan_errors,
     )
 
 
@@ -493,7 +461,6 @@ def template_manifest(discovery: Discovery) -> dict[str, Any]:
     sites: list[dict[str, Any]] = []
     for site in discovery.sites:
         reasons = protected_reasons(site.path)
-        classification = "direct-only"
         rationale = (
             f"protected {', '.join(reasons)} surface remains direct by issue #9409"
             if reasons
@@ -502,11 +469,12 @@ def template_manifest(discovery: Discovery) -> dict[str, Any]:
         sites.append(
             {
                 **asdict(site),
-                "classification": classification,
+                "classification": "direct-only",
                 "rationale": rationale,
             }
         )
     return {
+        "generated_by": "scripts/check_inference_site_allowlist.py --emit-template",
         "schema_version": 1,
         "transport_policy_consumers": list(discovery.policy_consumers),
         "sites": sites,
@@ -529,6 +497,7 @@ def _print_human(result: CheckResult) -> None:
         "stale",
         "changed",
         "forbidden_ports",
+        "scan_errors",
     ):
         values: Iterable[str] = getattr(result, label)
         for value in values:
@@ -551,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     result = check_allowlist(args.root, args.manifest)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        print(json.dumps(asdict(result), indent=2, sort_keys=True))
     else:
         _print_human(result)
     return 0 if result.ok else 1

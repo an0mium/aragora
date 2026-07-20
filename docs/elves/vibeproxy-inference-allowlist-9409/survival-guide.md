@@ -31,10 +31,10 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 
 ## Stop Gate
 
-- **Planned batches remaining:** 1
+- **Planned batches remaining:** 0
 - **Stop allowed right now:** no
-- **Why:** the approved inventory/static-allowlist batch is not implemented or reviewed.
-- **Next required action:** implement Batch 1 from its contract, then validate and review it.
+- **Why:** implementation and validation are complete, but a fresh independent review of the exact repaired head and final cleanup remain.
+- **Next required action:** commit/push review fixes, obtain exact-head independent review, then clean ephemeral run artifacts and verify readiness.
 
 ## Non-Negotiables
 
@@ -61,13 +61,13 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 
 ## Current Phase
 
-**Status:** In progress
+**Status:** Final validation and review
 
 **Active batch:** Batch 1: Inventory and enforcement
 
-**What was just finished:** Staging passed: PR #9439 is open, automation preflight is green, and the 97-test baseline passed.
+**What was just finished:** Batch implementation, 120-test regression validation, lint/type/charter/preflight gates, and first-review blocker repairs are green.
 
-**Single next action:** Complete the pre-implementation survey and implement the deterministic inventory checker, manifest, tests, and docs.
+**Single next action:** Commit/push the repaired head and request a fresh exact-head independent review.
 
 ## Active Compute
 
@@ -85,10 +85,10 @@ No active paid or long-running compute. The completed Fable consult is advisory 
 
 **Acceptance criteria:**
 
-- [ ] Exact current inventory passes; unclassified and stale entries fail.
-- [ ] Port 8317 fails closed.
-- [ ] Protected direct-only categories are asserted.
-- [ ] Focused and broad gates plus independent review are clean.
+- [x] Exact current inventory passes; unclassified and stale entries fail.
+- [x] Port 8317, including zero-padded textual forms, fails closed.
+- [x] Protected direct-only categories are asserted.
+- [ ] Focused and broad gates are clean; exact repaired-head independent review remains.
 
 **Risk:** Avoid noisy broad string matching and fragile line-number anchors.
 
