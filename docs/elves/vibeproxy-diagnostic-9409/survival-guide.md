@@ -39,8 +39,8 @@ unit on this branch.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** Batch 1 is in progress and product implementation, validation, review, and final readiness remain
-- **Next required action:** implement the recorded Batch 1 contract from the completed architecture survey
+- **Why:** Batch 1 implementation and focused validation are green, but independent review and final readiness remain
+- **Next required action:** run the independent Batch 1 review on product commit `397aa2d651`, then fix or disposition every finding
 
 ## Effort Standard
 
@@ -101,13 +101,13 @@ hard deadline arrives, or a genuine blocker has no safe workaround.
 
 ## Current Phase
 
-**Status:** Batch 1 implementation
+**Status:** Batch 1 independent review
 
 **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 
-**What was just finished:** The branch was integrated with current main at `b97807a1234bd6753cef3654b1b9dab750078c2a`, the exact-tip 85-test baseline passed, the expired lease was safely reclaimed, and the collision-safe rollback tag plus Batch 1 contract were recorded.
+**What was just finished:** Product commit `397aa2d651` added the bounded diagnostic, fake loopback failure matrix, and guide. Exact-tip focused pytest passed 100 tests with no skips; ruff, mypy, changed-file hooks, repository preflight, and the live no-inference 8318 smoke all passed.
 
-**Single next action:** Implement the diagnostic result model, smallest additive client metadata surface, fake-proxy tests, and guide changes described by the contract.
+**Single next action:** Give the cumulative product diff, contract, tests, commit history, and current PR feedback to a fresh independent reviewer.
 
 ## Active Compute
 

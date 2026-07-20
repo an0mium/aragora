@@ -2,8 +2,8 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 12:49 America/Chicago
-- **Current phase:** Batch 1 implementation
+- **Last updated:** 2026-07-20 13:05 America/Chicago
+- **Current phase:** Batch 1 independent review
 - **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
 - **Last completed batch:** none yet
 - **Next exact batch:** Batch 1: Diagnostic Command, Tests, and Documentation
@@ -194,3 +194,52 @@ will be pushed before handoff.
 - The generic `elves/pre-batch-1` tag already pointed to unrelated history, so
   the preservation-safe tag `elves/vibeproxy-diagnostic-9409/pre-batch-1` was
   created and published at `b97807a1234bd6753cef3654b1b9dab750078c2a`.
+
+### Batch 1 implementation and validation checkpoint
+
+**Implementation:** 13 minutes (including delegated coding and coordinator
+inspection) | **Validation so far:** 4 minutes | **Review:** pending
+
+**Product commit:** `397aa2d65149136cad651f3060d4bf3bc10b0805`
+
+**What changed:**
+
+- Extended the existing hardened request seam with typed redirect/malformed
+  response errors, an additive keyword-only catalog timeout, and sanitized root
+  metadata/version parsing.
+- Added `scripts/check_vibeproxy.py` with schema-v1 JSON and human output, a
+  single total deadline, stable error categories, and no POST/inference path.
+- Added a real loopback fake-server suite covering the required success,
+  failure, deadline, denial, and redaction categories.
+- Documented output semantics, trust boundaries, version unknown behavior,
+  process-local freshness, and advertised-vs-verified protocol evidence.
+
+**Validation evidence:**
+
+- Focused exact-tip pytest: 100 passed, 0 skipped, 111 pre-existing warnings in
+  7.30 seconds. Baseline comparison: +15 passing tests, skipped count unchanged.
+- Ruff check and format: PASS on all three changed Python files.
+- Mypy: PASS on `scripts/check_vibeproxy.py` and the shared transport.
+- Changed-file pre-commit: PASS, including gitleaks and portability.
+- `bash scripts/automation_pr_preflight.sh origin/main HEAD`: PASS.
+- Live no-inference smoke against `127.0.0.1:8318`: PASS in 4.587 ms total;
+  54 catalog models, three sanitized advertised routes, version explicitly
+  unknown because the server sent none. Only the code-proven GET metadata path
+  was used; no prompt was supplied.
+
+**Coordinator inspection:**
+
+- The required catalog is queried first and alone determines readiness.
+  Optional root metadata consumes only the remaining shared deadline and
+  reports its status separately.
+- Existing no-argument catalog consumers and return types are unchanged;
+  direct mode remains the policy default.
+- The fake server records exactly `GET /v1/models` and optional `GET /` on the
+  success path, and redirect tests prove the prompt-bearing location is not
+  followed or rendered.
+- Product delta is 694 insertions and 12 deletions. The staging-only plan and
+  Elves operational files must be removed during final cleanup so the final PR
+  remains below the 800-LOC operating-contract cap.
+
+**Next:** fresh independent review of the cumulative product diff and every PR
+feedback surface; apply the bug-fix protocol to any blocking finding.

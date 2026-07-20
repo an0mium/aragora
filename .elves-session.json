@@ -20,7 +20,7 @@
     "remaining_batches": 1,
     "stop_allowed": false,
     "checkpoint_is_stop": true,
-    "next_required_action": "Implement Batch 1 from the recorded contract and pre-implementation survey"
+    "next_required_action": "Run independent Batch 1 review on product commit 397aa2d651, then fix or disposition every finding"
   },
   "test_baseline": {
     "passed": 85,
@@ -32,7 +32,7 @@
   "current_batch": {
     "id": 1,
     "name": "Diagnostic Command, Tests, and Documentation",
-    "status": "in_progress",
+    "status": "review",
     "commit": null,
     "rollback_tag": "elves/vibeproxy-diagnostic-9409/pre-batch-1",
     "started_at": "2026-07-20T12:49:35-05:00",
@@ -42,7 +42,7 @@
     {
       "id": 1,
       "name": "Diagnostic Command, Tests, and Documentation",
-      "status": "in_progress",
+      "status": "review",
       "commit": null,
       "rollback_tag": "elves/vibeproxy-diagnostic-9409/pre-batch-1",
       "started_at": "2026-07-20T12:49:35-05:00",
