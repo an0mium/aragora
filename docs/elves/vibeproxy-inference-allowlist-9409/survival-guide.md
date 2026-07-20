@@ -92,7 +92,7 @@ No active paid or long-running compute. The completed Fable consult is advisory 
 
 **Risk:** Avoid noisy broad string matching and fragile line-number anchors.
 
-**Rollback tag:** `elves/pre-batch-1`
+**Rollback tag:** `elves/vibeproxy-inference-allowlist-9409/pre-batch-1`
 
 ## Post-Push Checklist
 

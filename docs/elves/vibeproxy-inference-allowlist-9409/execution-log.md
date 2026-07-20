@@ -80,3 +80,4 @@
 **Pre-implementation survey:**
 
 - In progress. A read-only subagent is mapping existing checker/audit patterns and inventory size before implementation.
+- The generic `elves/pre-batch-1` tag already existed in the shared repository; this run uses the collision-free `elves/vibeproxy-inference-allowlist-9409/pre-batch-1` tag instead.

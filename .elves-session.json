@@ -35,7 +35,7 @@
       "name": "Inventory and enforcement",
       "status": "in_progress",
       "commit": null,
-      "rollback_tag": "elves/pre-batch-1",
+      "rollback_tag": "elves/vibeproxy-inference-allowlist-9409/pre-batch-1",
       "started_at": "2026-07-20T17:16:00-05:00",
       "completed_at": null
     }
