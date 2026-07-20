@@ -116,10 +116,15 @@ experimental = [
     "playwright>=1.60.0,<2.0",
 ]
 dev = [
-    "mypy>=2.1.0,<3.0",
-    "mypy-baseline>=0.7.4,<0.8",
-    "types-PyYAML>=6.0.12.20260518,<7.0",
-    "types-croniter>=6.2.2.20260518,<7.0",
+    "mypy==2.3.0",
+    "mypy-baseline==0.7.4",
+    "types-croniter==6.2.2.20260518",
+    "types-jsonschema==4.26.0.20260518",
+    "types-PyYAML==6.0.12.20260518",
+    "types-python-dateutil==2.9.0.20260716",
+    "types-redis==4.6.0.20241004",
+    "types-requests==2.33.0.20260712",
+    "types-setuptools==83.0.0.20260716",
     "bandit>=1.9.4,<2.0",
     # Hook runtime for repo-local git hooks. Declaring it here means
     # `uv sync --extra dev` self-heals the development environment, so agents
@@ -317,12 +322,10 @@ module = ["scripts.nomic_loop"]
 disable_error_code = ["misc", "assignment", "no-redef"]
 
 # ``scripts.validate_alertmanager`` uses the same optional-import fallback
-# idiom (``try: import yaml`` / ``except ImportError: yaml = None``). Whether
-# mypy flags the ``yaml = None`` rebinding as [assignment] depends on whether
-# the ``types-PyYAML`` stub is importable in the interpreter running mypy, so
-# the diagnostic is environment-dependent — it is absent from ``.mypy-baseline``
-# (synced without the stub) but fires once the stub is present, breaking the
-# pre-push hook. The rebinding is intentional and guarded before use.
+# idiom (``try: import yaml`` / ``except ImportError: yaml = None``). The
+# canonical typecheck toolchain includes ``types-PyYAML``, so this targeted
+# override records that the guarded rebinding is intentional in every
+# environment instead of making the result depend on stub availability.
 [[tool.mypy.overrides]]
 module = ["scripts.validate_alertmanager"]
 disable_error_code = ["assignment"]

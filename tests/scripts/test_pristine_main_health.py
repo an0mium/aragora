@@ -47,7 +47,7 @@ def _is_runtime_probe(cmd: list[str]) -> bool:
     return cmd == [sys.executable, "-c", "import pytest"]
 
 
-def _write_required_pyproject(pristine: Path, specifier: str = ">=2.1.0,<3.0") -> None:
+def _write_required_pyproject(pristine: Path, specifier: str = "==2.3.0") -> None:
     pristine.mkdir(parents=True, exist_ok=True)
     (pristine / "pyproject.toml").write_text(
         f"""[project.optional-dependencies]
@@ -272,7 +272,7 @@ def test_missing_pytest_records_infra_error_without_touching_halt(
     assert "No module named pytest" in record.data["infra_errors"][0]
 
 
-def test_below_floor_path_mypy_is_infra_error_without_touching_halt(
+def test_mismatched_path_mypy_is_infra_error_without_touching_halt(
     mod, monkeypatch, tmp_path, capsys
 ):
     repo = tmp_path / "repo"
@@ -306,7 +306,7 @@ def test_below_floor_path_mypy_is_infra_error_without_touching_halt(
     stderr = capsys.readouterr().err
     assert "INFRA_ERROR" in stderr
     assert "found 1.19.1" in stderr
-    assert "required mypy>=2.1.0,<3.0" in stderr
+    assert "required mypy==2.3.0" in stderr
     assert str(mypy_path) in stderr
 
     from aragora.nomic.throughput import ThroughputLedger
@@ -319,7 +319,7 @@ def test_below_floor_path_mypy_is_infra_error_without_touching_halt(
 def test_invalid_toolchain_contract_is_infra_error_without_touching_halt(
     mod, monkeypatch, tmp_path, capsys
 ):
-    """A malformed pyproject (no parsable mypy floor) is inconclusive about main:
+    """A malformed pyproject (no mypy requirement) is inconclusive about main:
     it must be classified infra_error, never written as a main-red halt (#9113)."""
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -449,16 +449,29 @@ def test_missing_path_mypy_is_infra_error_without_touching_halt(mod, monkeypatch
     stderr = capsys.readouterr().err
     assert "INFRA_ERROR" in stderr
     assert "required-suite mypy missing from PATH" in stderr
-    assert "required mypy>=2.1.0,<3.0" in stderr
+    assert "required mypy==2.3.0" in stderr
 
 
-def test_path_mypy_satisfying_declared_floor_has_no_toolchain_error(mod, monkeypatch, tmp_path):
+def test_path_mypy_satisfying_exact_requirement_has_no_toolchain_error(mod, monkeypatch, tmp_path):
     pristine = tmp_path / "pristine"
     _write_required_pyproject(pristine)
-    mypy_path = _write_fake_mypy(tmp_path / "bin", "2.2.0")
+    mypy_path = _write_fake_mypy(tmp_path / "bin", "2.3.0")
     monkeypatch.setenv("PATH", str(mypy_path.parent))
 
     assert mod._check_required_toolchain(pristine) is None
+
+
+def test_path_mypy_newer_than_exact_requirement_is_rejected(mod, monkeypatch, tmp_path):
+    pristine = tmp_path / "pristine"
+    _write_required_pyproject(pristine)
+    mypy_path = _write_fake_mypy(tmp_path / "bin", "2.3.1")
+    monkeypatch.setenv("PATH", str(mypy_path.parent))
+
+    error = mod._check_required_toolchain(pristine)
+
+    assert error is not None
+    assert "found 2.3.1" in error
+    assert "required mypy==2.3.0" in error
 
 
 def test_suite_launch_error_is_infra_error_and_never_writes_halt(

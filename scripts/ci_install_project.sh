@@ -50,9 +50,15 @@ LEGACY_CONTROL_PLANE_DEV_DEPS=(
   "black>=23.0,<27.0"
   "ruff>=0.1,<1.0"
   "bandit>=1.7,<2.0"
-  "mypy>=1.19.0,<2.0"                # aligned to pyproject [dev]
-  "types-jsonschema"
-  "types-PyYAML"
+  "mypy==2.3.0"                      # canonical typecheck toolchain
+  "mypy-baseline==0.7.4"
+  "types-croniter==6.2.2.20260518"
+  "types-jsonschema==4.26.0.20260518"
+  "types-PyYAML==6.0.12.20260518"
+  "types-python-dateutil==2.9.0.20260716"
+  "types-redis==4.6.0.20241004"
+  "types-requests==2.33.0.20260712"
+  "types-setuptools==83.0.0.20260716"
   "mutmut>=3.0,<4.0"
   "pre-commit>=3.6,<5.0"
   "datamodel-code-generator==0.54.0"

@@ -369,10 +369,10 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "python_bin=$PYTHON_BIN" >> "$GITHUB_OUTPUT"
 
-      - name: Install mypy and type stubs
+      - name: Install locked typecheck environment
         run: |
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user -e .
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
+          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user uv==0.11.19
+          UV_PYTHON="${{ steps.typecheck_python.outputs.python_bin }}" uv sync --locked --extra dev
 
       - name: Resolve phase-1 typecheck plan
         id: typecheck_plan
@@ -427,7 +427,7 @@ jobs:
 
       - name: Run full typecheck tier
         if: steps.typecheck_plan.outputs.mode == 'full'
-        run: PATH="$HOME/.local/bin:$PATH" bash scripts/test_tiers.sh typecheck
+        run: PATH="$HOME/.local/bin:$PATH" uv run --locked --extra dev bash scripts/test_tiers.sh typecheck
         shell: bash
         # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
 
@@ -439,7 +439,7 @@ jobs:
           mapfile -t TARGETS < "${{ steps.typecheck_plan.outputs.targets_file }}"
           echo "Running mypy on ${#TARGETS[@]} touched aragora file(s)"
           PATH="$HOME/.local/bin:$PATH" \
-            "${{ steps.typecheck_python.outputs.python_bin }}" -m mypy \
+            uv run --locked --extra dev mypy \
             --ignore-missing-imports \
             --follow-imports=skip \
             --show-error-codes \
@@ -509,17 +509,17 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install mypy and dependencies
+      - name: Install locked typecheck environment
         run: |
           python -m pip install --upgrade pip
-          python -m pip install mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
-          python -m pip install -e .
+          python -m pip install uv==0.11.19
+          UV_PYTHON=python uv sync --locked --extra dev
 
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
           # Phase 27: Expanded to 50 modules - gauntlet, workflow, explainability (Feb 2026)
-          python -m mypy \
+          uv run --locked --extra dev mypy \
             aragora/ranking/elo.py \
             aragora/server/stream/servers.py \
             aragora/server/handlers/training.py \

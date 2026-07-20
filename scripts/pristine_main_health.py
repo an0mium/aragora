@@ -25,8 +25,12 @@ import shutil
 import signal
 import subprocess
 import sys
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
+
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.version import InvalidVersion, Version
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
@@ -198,37 +202,31 @@ def _check_test_runtime(repo: Path) -> str | None:
     return None
 
 
-def _version_tuple(value: str) -> tuple[int, int, int]:
-    parts = [int(part) for part in value.split(".")]
-    padded = (parts + [0, 0])[:3]
-    return padded[0], padded[1], padded[2]
-
-
-def _required_mypy_requirement(pristine: Path) -> tuple[str, tuple[int, int, int]]:
-    """Read the declared mypy spec and floor from the dev dependency group."""
+def _required_mypy_requirement(pristine: Path) -> Requirement:
+    """Read the declared mypy requirement from the dev dependency group."""
     pyproject = pristine / "pyproject.toml"
-    text = pyproject.read_text(encoding="utf-8")
-    dev_match = re.search(r"(?ms)^\s*dev\s*=\s*\[(?P<body>.*?)^\s*\]", text)
-    if dev_match is None:
+    project = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    dev_dependencies = project.get("project", {}).get("optional-dependencies", {}).get("dev")
+    if not isinstance(dev_dependencies, list):
         raise ValueError(f"dev dependency group missing from {pyproject}")
-
-    dependency_match = re.search(
-        r"(?m)^\s*[\"']mypy(?P<specifier>\s*[<>=!~][^\"']*)[\"']\s*,?\s*(?:#.*)?$",
-        dev_match.group("body"),
-    )
-    if dependency_match is None:
-        raise ValueError(f"mypy dependency missing from {pyproject}")
-
-    specifier = dependency_match.group("specifier").strip()
-    floor_match = re.search(r"(?:^|,)\s*>=\s*(?P<floor>\d+(?:\.\d+){1,2})(?:\s*,|$)", specifier)
-    if floor_match is None:
-        raise ValueError(f"mypy dependency has no >= floor in {pyproject}: {specifier}")
-    return specifier, _version_tuple(floor_match.group("floor"))
+    for value in dev_dependencies:
+        if not isinstance(value, str):
+            continue
+        try:
+            requirement = Requirement(value)
+        except InvalidRequirement as exc:
+            raise ValueError(f"invalid dependency in {pyproject}: {value}") from exc
+        if requirement.name.lower() == "mypy":
+            if not requirement.specifier:
+                raise ValueError(f"mypy dependency is unbounded in {pyproject}: {value}")
+            return requirement
+    raise ValueError(f"mypy dependency missing from {pyproject}")
 
 
 def _check_required_toolchain(pristine: Path) -> str | None:
-    """Return bounded evidence when PATH mypy cannot satisfy the declared floor."""
-    specifier, floor = _required_mypy_requirement(pristine)
+    """Return bounded evidence when PATH mypy violates the declared requirement."""
+    requirement = _required_mypy_requirement(pristine)
+    specifier = str(requirement.specifier)
     mypy_path = shutil.which("mypy")
     if mypy_path is None:
         return f"required-suite mypy missing from PATH; required mypy{specifier}"
@@ -251,9 +249,13 @@ def _check_required_toolchain(pristine: Path) -> str | None:
         return f"could not parse PATH mypy version at {mypy_path}; required mypy{specifier}\n{evidence}"
 
     found_text = version_match.group("version")
-    if _version_tuple(found_text) < floor:
+    try:
+        found_version = Version(found_text)
+    except InvalidVersion:
+        return f"invalid PATH mypy version {found_text!r} at {mypy_path}; required mypy{specifier}"
+    if found_version not in requirement.specifier:
         return (
-            f"PATH mypy below required floor: found {found_text} at {mypy_path}; "
+            f"PATH mypy does not satisfy requirement: found {found_text} at {mypy_path}; "
             f"required mypy{specifier} from {pristine / 'pyproject.toml'}"
         )
     return None

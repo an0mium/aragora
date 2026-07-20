@@ -35,6 +35,8 @@ intentionally clears a batch of existing errors.
 from __future__ import annotations
 
 import argparse
+from importlib import metadata
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -46,20 +48,41 @@ DEFAULT_MYPY_ARGS: tuple[str, ...] = (
     "scripts/",
     "--config-file=pyproject.toml",
     "--ignore-missing-imports",
+    # Baseline identity must not depend on a developer or runner's prior cache.
+    "--no-incremental",
 )
+MYPY_DIAGNOSTIC_RE = re.compile(r"^[^:\n]+:\d+(?::\d+)?: error:", re.MULTILINE)
+TOOL_FAILURE = 2
+EXPECTED_TOOLCHAIN_VERSIONS = {
+    "mypy": "2.3.0",
+    "mypy-baseline": "0.7.4",
+}
 
 
-def _run_mypy(mypy_args: tuple[str, ...]) -> subprocess.Popen[bytes]:
+def _validate_toolchain_versions() -> str | None:
+    for distribution, expected in EXPECTED_TOOLCHAIN_VERSIONS.items():
+        try:
+            actual = metadata.version(distribution)
+        except metadata.PackageNotFoundError:
+            return f"required distribution {distribution}=={expected} is not installed"
+        if actual != expected:
+            return f"required {distribution}=={expected}, found {actual}"
+    return None
+
+
+def _run_mypy(mypy_args: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
     cmd = [sys.executable, "-m", "mypy", *mypy_args]
-    return subprocess.Popen(
+    return subprocess.run(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
         cwd=str(REPO_ROOT),
     )
 
 
-def _filter(mypy_proc: subprocess.Popen[bytes]) -> int:
+def _filter(mypy_output: str) -> int:
     cmd = [
         sys.executable,
         "-m",
@@ -76,15 +99,16 @@ def _filter(mypy_proc: subprocess.Popen[bytes]) -> int:
         "--ignore-categories",
         "note",
     ]
-    assert mypy_proc.stdout is not None
-    filter_proc = subprocess.Popen(cmd, stdin=mypy_proc.stdout, cwd=str(REPO_ROOT))
-    mypy_proc.stdout.close()
-    filter_rc = filter_proc.wait()
-    mypy_proc.wait()
-    return filter_rc
+    return subprocess.run(
+        cmd,
+        input=mypy_output,
+        text=True,
+        check=False,
+        cwd=str(REPO_ROOT),
+    ).returncode
 
 
-def _sync(mypy_proc: subprocess.Popen[bytes]) -> int:
+def _sync(mypy_output: str) -> int:
     cmd = [
         sys.executable,
         "-m",
@@ -97,12 +121,22 @@ def _sync(mypy_proc: subprocess.Popen[bytes]) -> int:
         "--ignore-categories",
         "note",
     ]
-    assert mypy_proc.stdout is not None
-    sync_proc = subprocess.Popen(cmd, stdin=mypy_proc.stdout, cwd=str(REPO_ROOT))
-    mypy_proc.stdout.close()
-    sync_rc = sync_proc.wait()
-    mypy_proc.wait()
-    return sync_rc
+    return subprocess.run(
+        cmd,
+        input=mypy_output,
+        text=True,
+        check=False,
+        cwd=str(REPO_ROOT),
+    ).returncode
+
+
+def _report_tool_failure(message: str, output: str = "") -> int:
+    if output:
+        sys.stderr.write(output)
+        if not output.endswith("\n"):
+            sys.stderr.write("\n")
+    print(f"typecheck tool failure - failing closed: {message}", file=sys.stderr)
+    return TOOL_FAILURE
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -126,10 +160,30 @@ def main(argv: list[str] | None = None) -> int:
     raw_args = tuple(a for a in args.mypy_args if a != "--")
     mypy_args = raw_args or DEFAULT_MYPY_ARGS
 
-    mypy_proc = _run_mypy(mypy_args)
+    toolchain_error = _validate_toolchain_versions()
+    if toolchain_error is not None:
+        return _report_tool_failure(toolchain_error)
+
+    try:
+        mypy_result = _run_mypy(mypy_args)
+    except OSError as exc:
+        return _report_tool_failure(f"could not start mypy: {exc}")
+
+    output = mypy_result.stdout or ""
+    if mypy_result.returncode not in {0, 1}:
+        return _report_tool_failure(
+            f"mypy exited with unexpected status {mypy_result.returncode}",
+            output,
+        )
+    if mypy_result.returncode == 1 and MYPY_DIAGNOSTIC_RE.search(output) is None:
+        return _report_tool_failure(
+            "mypy exited 1 without recognized file:line[:column]: error diagnostics",
+            output,
+        )
+
     if args.sync:
-        return _sync(mypy_proc)
-    return _filter(mypy_proc)
+        return _sync(output)
+    return _filter(output)
 
 
 if __name__ == "__main__":
