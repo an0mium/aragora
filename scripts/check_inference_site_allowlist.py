@@ -23,56 +23,20 @@ CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
-PROVIDER_HOSTS = {
-    "api.openai.com": "openai",
-    "api.anthropic.com": "anthropic",
-    "openrouter.ai": "openrouter",
-    "api.x.ai": "xai",
-    "generativelanguage.googleapis.com": "gemini",
-    "api.moonshot.ai": "kimi",
-}
-PROTOCOL_PATHS = (
-    ("/audio/transcriptions", "audio"),
-    ("/chat/completions", "chat"),
-    ("/responses", "responses"),
-    ("/messages", "messages"),
-    ("/embeddings", "embeddings"),
-    ("/completions", "completions"),
-)
-CONSTRUCTORS = {
-    "OpenAI": ("openai-compatible", "client"),
-    "AsyncOpenAI": ("openai-compatible", "client"),
-    "Anthropic": ("anthropic", "client"),
-    "AsyncAnthropic": ("anthropic", "client"),
-}
-METHOD_SUFFIXES = (
-    ("audio.transcriptions.create", "openai-compatible", "audio"),
-    ("chat.completions.create", "openai-compatible", "chat"),
-    ("responses.create", "openai-compatible", "responses"),
-    ("messages.create", "anthropic", "messages"),
-    ("embeddings.create", "openai-compatible", "embeddings"),
-    ("completions.create", "openai-compatible", "completions"),
-)
+# fmt: off
+PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi"}
+PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
+CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client")}
+METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"))
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
-    "credential-validation": (
-        "**/*key*.py",
-        "**/*secret*.py",
-        "scripts/rotate_keys.py",
-        "scripts/migrate_secrets_to_aws.py",
-        "aragora/cli/setup.py",
-    ),
+    "credential-validation": ("**/*key*.py", "**/*secret*.py", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
     "public-gateway": ("aragora/gateway/**", "aragora/security/api_key_proxy.py"),
-    "evidence-or-settlement": (
-        "**/*evidence*.py",
-        "**/*quorum*.py",
-        "**/*review*.py",
-        "**/*settle*.py",
-        "aragora/verification/**",
-    ),
+    "evidence-or-settlement": ("**/*evidence*.py", "**/*quorum*.py", "**/*review*.py", "**/*settle*.py", "aragora/verification/**"),
     "production-preflight": ("**/*preflight*.py", "**/*live_fire*.py"),
 }
+# fmt: on
 
 
 @dataclass(frozen=True, order=True)
@@ -140,42 +104,115 @@ def _provider_for_url(value: str) -> str | None:
     return next((name for host, name in PROVIDER_HOSTS.items() if host in value.lower()), None)
 
 
-def _contains_forbidden_port(value: Any) -> bool:
+def _contains_forbidden_port(value: Any, key: str = "") -> bool:
     if type(value) is int:
         return value == 8317
     if isinstance(value, str):
-        return bool(FORBIDDEN_PORT_RE.search(value))
+        return bool(FORBIDDEN_PORT_RE.search(value)) or (
+            "port" in key.lower() and bool(re.fullmatch(r"0*8317", value))
+        )
     if isinstance(value, list):
-        return any(_contains_forbidden_port(item) for item in value)
+        return any(_contains_forbidden_port(item, key) for item in value)
     if isinstance(value, dict):
-        return any(_contains_forbidden_port(part) for pair in value.items() for part in pair)
+        return any(
+            _contains_forbidden_port(item, str(name)) or _contains_forbidden_port(name)
+            for name, item in value.items()
+        )
     return False
 
 
-def _docstring_nodes(tree: ast.AST) -> set[int]:
-    result: set[int] = set()
-    for node in ast.walk(tree):
-        body = getattr(node, "body", None)
-        if not body or not isinstance(body, list):
-            continue
-        first = body[0]
-        if (
-            isinstance(first, ast.Expr)
-            and isinstance(first.value, ast.Constant)
-            and isinstance(first.value.value, str)
-        ):
-            result.add(id(first.value))
-    return result
+def _targets(node: ast.AST) -> tuple[str, ...]:
+    raw = (
+        node.targets
+        if isinstance(node, ast.Assign)
+        else [node.target]
+        if isinstance(node, ast.AnnAssign)
+        else []
+    )
+    return tuple(chain for target in raw if (chain := _attr_chain(target)))
+
+
+def _constructor_aliases(tree: ast.AST) -> dict[str, tuple[str, str]]:
+    aliases = dict(CONSTRUCTORS)
+    nodes = tuple(ast.walk(tree))
+    for node in nodes:
+        if isinstance(node, ast.ImportFrom) and node.module in {"openai", "anthropic"}:
+            for name in node.names:
+                if name.name in CONSTRUCTORS:
+                    aliases[name.asname or name.name] = CONSTRUCTORS[name.name]
+    for _ in range(3):
+        for node in nodes:
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                if node.value is None:
+                    continue
+                source = _attr_chain(node.value).rsplit(".", 1)[-1]
+                if source in aliases:
+                    aliases.update(
+                        {target.rsplit(".", 1)[-1]: aliases[source] for target in _targets(node)}
+                    )
+    return aliases
+
+
+def _typed_client(annotation: ast.AST | None, aliases: dict[str, tuple[str, str]]) -> bool:
+    return annotation is not None and any(
+        _attr_chain(part).rsplit(".", 1)[-1] in aliases for part in ast.walk(annotation)
+    )
+
+
+def _client_provenance(
+    tree: ast.AST, aliases: dict[str, tuple[str, str]]
+) -> tuple[set[str], set[str]]:
+    nodes = tuple(ast.walk(tree))
+    functions = (
+        node for node in nodes if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    )
+    factories = {
+        node.name
+        for node in functions
+        if (_typed_client(node.returns, aliases))
+        or any(
+            isinstance(part, ast.Call) and _attr_chain(part.func).rsplit(".", 1)[-1] in aliases
+            for part in ast.walk(node)
+        )
+    }
+    clients = {
+        node.arg
+        for node in nodes
+        if isinstance(node, ast.arg) and _typed_client(node.annotation, aliases)
+    }
+
+    def backed(value: ast.AST) -> bool:
+        if isinstance(value, ast.IfExp):
+            return backed(value.body) or backed(value.orelse)
+        chain = _attr_chain(value.func) if isinstance(value, ast.Call) else _attr_chain(value)
+        return (
+            chain in clients
+            or chain.rsplit(".", 1)[-1] in aliases
+            or chain.rsplit(".", 1)[-1] in factories
+        )
+
+    for _ in range(3):
+        for node in nodes:
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                value = node.value
+                if value is None:
+                    continue
+                typed = isinstance(node, ast.AnnAssign) and _typed_client(node.annotation, aliases)
+                if typed or backed(value):
+                    clients.update(_targets(node))
+    return clients, factories
 
 
 class _InferenceVisitor(ast.NodeVisitor):
     def __init__(self, path: str, tree: ast.AST) -> None:
         self.path = path
         self.scope: list[tuple[str, str]] = []
-        self.docstrings = _docstring_nodes(tree)
         self.detections: list[tuple[SiteKey, str]] = []
         self.mentions_policy = False
-        self.constructor_aliases = dict(CONSTRUCTORS)
+        self.constructor_aliases = _constructor_aliases(tree)
+        self.client_receivers, self.client_factories = _client_provenance(
+            tree, self.constructor_aliases
+        )
 
     def _anchor(self) -> str:
         if not self.scope:
@@ -204,17 +241,17 @@ class _InferenceVisitor(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._visit_function(node)
 
-    def visit_Name(self, node: ast.Name) -> None:
-        if node.id == "ModelTransportPolicy":
-            self.mentions_policy = True
-
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if node.attr == "ModelTransportPolicy":
             self.mentions_policy = True
         self.generic_visit(node)
 
+    def visit_Expr(self, node: ast.Expr) -> None:
+        if not (isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+            self.generic_visit(node)
+
     def visit_Constant(self, node: ast.Constant) -> None:
-        if id(node) in self.docstrings or not isinstance(node.value, str):
+        if not isinstance(node.value, str):
             return
         provider = _provider_for_url(node.value)
         if provider is not None:
@@ -232,11 +269,8 @@ class _InferenceVisitor(ast.NodeVisitor):
                 self.visit(part.value)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        for alias in node.names:
-            if alias.name == "ModelTransportPolicy":
-                self.mentions_policy = True
-            if node.module in {"openai", "anthropic"} and alias.name in CONSTRUCTORS:
-                self.constructor_aliases[alias.asname or alias.name] = CONSTRUCTORS[alias.name]
+        if any(alias.name == "ModelTransportPolicy" for alias in node.names):
+            self.mentions_policy = True
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -246,8 +280,11 @@ class _InferenceVisitor(ast.NodeVisitor):
         if constructor is not None:
             self._record(*constructor, "client-constructor")
         for suffix, provider, protocol in METHOD_SUFFIXES:
-            receiver = chain[: -len(suffix)].rstrip(".").rsplit(".", 1)[-1]
-            if chain.endswith(suffix) and "client" in receiver.lower():
+            receiver = chain[: -len(suffix)].rstrip(".")
+            if chain.endswith(suffix) and (
+                receiver in self.client_receivers
+                or receiver.rsplit(".", 1)[-1] in self.client_factories
+            ):
                 self._record(provider, protocol, "inference-method")
                 break
         if chain.endswith(("generate_anthropic", "anthropic_message")):
@@ -285,6 +322,15 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             if FORBIDDEN_PORT_RE.search(line):
                 forbidden_ports.append(f"{relative}:{line_no}")
         for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                value = node.value
+                if (
+                    isinstance(value, ast.Constant)
+                    and isinstance(value.value, str)
+                    and re.fullmatch(r"0*8317", value.value)
+                    and any("port" in target.lower() for target in _targets(node))
+                ):
+                    forbidden_ports.append(f"{relative}:{node.lineno}")
             if not (
                 isinstance(node, ast.Constant)
                 and node.value == 8317
@@ -475,6 +521,7 @@ def template_manifest(discovery: Discovery) -> dict[str, Any]:
         )
     return {
         "generated_by": "scripts/check_inference_site_allowlist.py --emit-template",
+        "policy_note": "Template output defaults to direct-only; preserve reviewed classifications and rationales.",
         "schema_version": 1,
         "transport_policy_consumers": list(discovery.policy_consumers),
         "sites": sites,

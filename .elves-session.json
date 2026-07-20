@@ -40,5 +40,24 @@
       "completed_at": null
     }
   ],
-  "review_comments": []
+  "review_comments": [
+    {
+      "reviewed_head": "6917f38a1009a43427efcb4e043dd7842f7cac70",
+      "severity": "P2",
+      "summary": "Replace receiver-name matching with SDK-backed provenance",
+      "status": "resolved_locally"
+    },
+    {
+      "reviewed_head": "6917f38a1009a43427efcb4e043dd7842f7cac70",
+      "severity": "P2",
+      "summary": "Reject string port values under port-related configuration keys",
+      "status": "resolved_locally"
+    },
+    {
+      "reviewed_head": "6917f38a1009a43427efcb4e043dd7842f7cac70",
+      "severity": "P2",
+      "summary": "Preserve reviewed policy when regenerating the manifest template",
+      "status": "resolved_locally"
+    }
+  ]
 }

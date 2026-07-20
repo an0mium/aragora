@@ -65,9 +65,9 @@ Complete the issue #9409 inference-site inventory/static-allowlist prerequisite 
 
 **Active batch:** Batch 1: Inventory and enforcement
 
-**What was just finished:** Batch implementation, 120-test regression validation, lint/type/charter/preflight gates, and first-review blocker repairs are green.
+**What was just finished:** Second-review provenance, bare-port, and regeneration-safety repairs pass 115 combined tests plus lint/type/inventory/charter/preflight gates.
 
-**Single next action:** Commit/push the repaired head and request a fresh exact-head independent review.
+**Single next action:** Commit/push the round-2 repaired head and request a fresh exact-head independent review.
 
 ## Active Compute
 

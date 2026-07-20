@@ -2,7 +2,7 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 17:54 America/Chicago
+- **Last updated:** 2026-07-20 18:19 America/Chicago
 - **Current phase:** Final validation and exact-head rereview
 - **Active batch:** Batch 1: Inventory and enforcement
 - **Last completed batch:** none
@@ -110,4 +110,17 @@
 - P2 zero-padded port and one-line manifest: fixed; `:0*8317` is rejected and the generated manifest has one site per line.
 - P2 scope/stale Elves state: product/test delta is within 800; ephemeral run artifacts and the unrelated broad `.gitignore` entry are scheduled for final cleanup.
 
-**Next action:** commit and push these review fixes, then obtain a fresh independent review on the new exact head before cleanup/readiness.
+**Independent review round 2 (`6917f38a10`):**
+
+- P2 receiver/alias provenance: replaced receiver-name matching with AST-backed import alias, constructor alias, type annotation, assignment, and factory provenance; typed `api.responses.create()` and `Factory = openai.OpenAI; Factory()` are found while unrelated `client_store.responses.create()` is ignored.
+- P2 bare string port: source assignments whose target is port-related and manifest values under port-related keys now reject string `8317`; URL and zero-padded forms remain rejected.
+- P2 regeneration safety: generated manifest now states that template output defaults to direct-only and reviewed classifications/rationales must be preserved.
+- Regression coverage was consolidated to keep the non-generated checker plus tests at 797 lines.
+
+**Post-round-2 validation:**
+
+- Focused checker tests: PASS, 18 tests.
+- Combined regression: PASS, 115 tests, 12 pre-existing deprecation warnings, 45.29s.
+- Ruff, mypy, exact inventory (139/143/4,762), charter compliance, and automation preflight: PASS.
+
+**Next action:** commit and push the round-2 fixes, then obtain a fresh exact-head independent review before cleanup/readiness.

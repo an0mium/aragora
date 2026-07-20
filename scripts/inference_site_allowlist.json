@@ -1,5 +1,6 @@
 {
   "generated_by": "scripts/check_inference_site_allowlist.py --emit-template",
+  "policy_note": "Template output defaults to direct-only; preserve reviewed classifications and rationales.",
   "schema_version": 1,
   "transport_policy_consumers": ["scripts/consult_claude.py"],
   "sites": [

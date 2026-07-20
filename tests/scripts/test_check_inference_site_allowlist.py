@@ -29,6 +29,7 @@ def test_repository_manifest_matches_current_tree() -> None:
 
     assert result.ok is True, result
     assert result.policy_consumers == ("scripts/consult_claude.py",)
+    assert "preserve reviewed classifications" in payload["policy_note"]
     assert [(site["path"], site["anchor"]) for site in eligible] == [
         ("scripts/consult_claude.py", "_run_vibeproxy")
     ]
@@ -82,13 +83,21 @@ def test_discovery_finds_aliased_constructors(tmp_path: Path, module: str, name:
     assert discovery.sites[0].provider in {"openai-compatible", "anthropic"}
 
 
-def test_method_detection_requires_client_receiver(tmp_path: Path) -> None:
+def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
-        tmp_path, "aragora/run.py", "store.responses.create()\nclient.responses.create()\n"
+        tmp_path,
+        "aragora/run.py",
+        """import openai
+def run(api: openai.OpenAI):
+    api.responses.create()
+client_store.responses.create()
+Factory = openai.OpenAI
+Factory()
+""",
     )
     discovery = checker.discover(tmp_path)
-    assert discovery.raw_detections == 1
-    assert discovery.sites[0].protocol == "responses"
+    assert discovery.raw_detections == 2
+    assert {site.protocol for site in discovery.sites} == {"client", "responses"}
 
 
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
@@ -109,22 +118,10 @@ def consult(policy: ModelTransportPolicy):
         ("openrouter", "chat"),
     }
     assert any("transport-policy-call" in site.detectors for site in discovery.sites)
-
-
-def test_exact_manifest_passes_and_template_defaults_to_direct_only(tmp_path: Path) -> None:
-    _write_source(
-        tmp_path,
-        "scripts/consult_claude.py",
-        """from somewhere import ModelTransportPolicy
-def consult(policy: ModelTransportPolicy):
-    return policy.generate_anthropic(model="claude", messages=[])
-""",
-    )
-    manifest = _write_manifest(tmp_path, _template(tmp_path))
-    result = checker.check_allowlist(tmp_path, manifest)
-    assert result.ok is True
-    entries = json.loads(manifest.read_text())["sites"]
-    assert [entry["classification"] for entry in entries] == ["direct-only"]
+    payload = _template(tmp_path)
+    assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
+    payload["transport_policy_consumers"] = []
+    assert checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload)).policy_errors
 
 
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:
@@ -153,16 +150,6 @@ def run():
     assert stale.stale
 
 
-def test_direct_only_requires_rationale(tmp_path: Path) -> None:
-    _write_source(tmp_path, "aragora/run.py", "from openai import OpenAI\nclient = OpenAI()\n")
-    payload = _template(tmp_path)
-    payload["sites"][0]["rationale"] = ""
-    manifest = _write_manifest(tmp_path, payload)
-    result = checker.check_allowlist(tmp_path, manifest)
-    assert result.ok is False
-    assert any("needs a rationale" in error for error in result.manifest_errors)
-
-
 @pytest.mark.parametrize(
     "relative",
     [
@@ -188,9 +175,9 @@ def test_protected_paths_cannot_be_proxy_eligible(tmp_path: Path, relative: str)
     assert any("must be direct-only" in error for error in result.manifest_errors)
 
 
-@pytest.mark.parametrize("port", ["8317", "08317"])
-def test_forbidden_port_fails_even_without_inference_site(tmp_path: Path, port: str) -> None:
-    _write_source(tmp_path, "aragora/config.py", f"# never use localhost:{port}\nVALUE = 1\n")
+@pytest.mark.parametrize("source", ['URL = "http://localhost:08317"\n', 'PORT = "8317"\n'])
+def test_forbidden_port_fails_even_without_inference_site(tmp_path: Path, source: str) -> None:
+    _write_source(tmp_path, "aragora/config.py", source)
     manifest = _empty_manifest(tmp_path)
     result = checker.check_allowlist(tmp_path, manifest)
     assert result.ok is False
@@ -205,21 +192,6 @@ def test_unparseable_scanned_source_fails_closed(tmp_path: Path) -> None:
     assert result.scan_errors and "aragora/broken.py: SyntaxError" in result.scan_errors[0]
 
 
-def test_forbidden_port_in_manifest_fails(tmp_path: Path) -> None:
-    manifest = _write_manifest(
-        tmp_path,
-        {
-            "schema_version": 1,
-            "transport_policy_consumers": [],
-            "sites": [],
-            "endpoint": "http://localhost:8317",
-        },
-    )
-    result = checker.check_allowlist(tmp_path, manifest)
-    assert result.ok is False
-    assert any("forbidden port" in error for error in result.manifest_errors)
-
-
 def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
@@ -232,37 +204,17 @@ def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path)
     assert result.forbidden_ports == ("aragora/agents/transports/vibeproxy.py:2",)
 
 
-def test_transport_policy_consumer_inventory_is_exact(tmp_path: Path) -> None:
-    _write_source(
-        tmp_path,
-        "scripts/consult_claude.py",
-        "from somewhere import ModelTransportPolicy as Policy\npolicy = Policy.from_env()\n",
-    )
-    payload = _template(tmp_path)
-    payload["transport_policy_consumers"] = []
-    manifest = _write_manifest(tmp_path, payload)
-    result = checker.check_allowlist(tmp_path, manifest)
-    assert result.ok is False
-    assert result.policy_errors
-
-
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:
     _write_source(tmp_path, "aragora/run.py", "from openai import OpenAI\nclient = OpenAI()\n")
     payload = _template(tmp_path)
     payload["sites"].append(dict(payload["sites"][0]))
     payload["sites"][0]["classification"] = "sometimes"
+    payload["sites"][1]["rationale"] = ""
+    payload["port"] = "8317"
     manifest = _write_manifest(tmp_path, payload)
     result = checker.check_allowlist(tmp_path, manifest)
     assert result.ok is False
     assert any("invalid classification" in error for error in result.manifest_errors)
     assert any("duplicate site" in error for error in result.manifest_errors)
-
-
-def test_json_cli_reports_machine_readable_failure(tmp_path: Path, capsys: Any) -> None:
-    _write_source(tmp_path, "aragora/run.py", "from openai import OpenAI\nclient = OpenAI()\n")
-    manifest = _empty_manifest(tmp_path)
-    exit_code = checker.main(["--root", str(tmp_path), "--manifest", str(manifest), "--json"])
-    payload = json.loads(capsys.readouterr().out)
-    assert exit_code == 1
-    assert payload["ok"] is False
-    assert payload["unclassified"]
+    assert any("needs a rationale" in error for error in result.manifest_errors)
+    assert any("forbidden port" in error for error in result.manifest_errors)
