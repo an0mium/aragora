@@ -2,6 +2,10 @@
 
 from pathlib import Path
 
+import pytest
+
+tomllib = pytest.importorskip("tomllib")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -31,6 +35,11 @@ def test_readme_advertises_current_pypi_receipt_round_trip() -> None:
         "Current source checkout:",
         "Live review with a provider key:",
     )
+    live_review = _section_between(
+        readme,
+        "Live review with a provider key:",
+        "## Core workflows",
+    )
     pypi_table_row = _line_containing(readme, "Run the current PyPI zero-key receipt demo")
 
     assert "pip install aragora && aragora demo --offline" in readme
@@ -43,6 +52,25 @@ def test_readme_advertises_current_pypi_receipt_round_trip() -> None:
     assert "PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip" in readme
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in source_try_it_now
     assert "aragora receipt verify aragora-demo-receipt.json" in source_try_it_now
+    assert (
+        "aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json"
+        in source_try_it_now
+    )
+    assert "aragora receipt export" not in live_review
+
+
+def test_pypi_long_description_advertises_zero_key_receipt_round_trip() -> None:
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_readme = pyproject["project"]["readme"]
+
+    assert package_readme["content-type"] == "text/markdown"
+    description = package_readme["text"]
+    assert "pip install aragora" in description
+    assert "aragora demo --offline --receipt aragora-demo-receipt.json" in description
+    assert "aragora receipt verify aragora-demo-receipt.json" in description
+    assert "https://github.com/synaptent/aragora#readme" in description
+    assert "https://pypi.org/project/aragora-debate/" in description
+    assert "aragora-debate/ subproject" not in description
 
 
 def test_quickstart_advertises_current_pypi_receipt_round_trip() -> None:

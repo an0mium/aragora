@@ -529,9 +529,12 @@ class TestReceiptGenerationFailure:
 
         assert receipt is not None
         assert receipt.receipt_id is not None
-        assert receipt.verdict in ("PASS", "CONDITIONAL", "FAIL")
-        # With no consensus and 0 confidence, should be FAIL
-        assert receipt.verdict == "FAIL"
+        assert receipt.verdict in ("PASS", "CONDITIONAL", "FAIL", "NO_EVIDENCE")
+        # Intentional semantics change (#9303): a malformed result with no
+        # agent output is NO_EVIDENCE (nothing ran), not FAIL (adversarially
+        # rejected). Graceful handling now also means truthful labeling.
+        assert receipt.verdict == "NO_EVIDENCE"
+        assert receipt.confidence == 0.0
 
     def test_receipt_hash_verification_catches_tampering(self):
         """Tampered receipts fail integrity verification, proving
