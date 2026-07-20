@@ -33,6 +33,8 @@ _km_similarity_cache: TTLCache[list] = TTLCache(maxsize=1000, ttl_seconds=300)
 class KMIntegrationMixin:
     """Mixin providing Knowledge Mound integration for ContinuumMemory."""
 
+    _km_adapter: ContinuumAdapter | None
+
     def set_km_adapter(self: ContinuumMemory, adapter: ContinuumAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 

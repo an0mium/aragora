@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
+from aragora.cli.commands import review_queue_unstable as unstable
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
@@ -240,13 +241,13 @@ CONTRACT_DRIFT_AUTHORITY_POLICY_VERSION = 1
 CONTRACT_DRIFT_AUTHORITY_TIER = 4
 # fmt: off
 CONTRACT_DRIFT_AUTHORITY_PREFIXES: tuple[str, ...] = ("scripts/check_contract_drift_ratchet.py", "scripts/generate_contract_drift_inventory.py", "scripts/baselines/contract_drift_inventory.json", "scripts/sdk_path_normalize.py", "scripts/baselines/internal_route_prefixes.json", "scripts/baselines/contract_drift_program.json", "scripts/check_sdk_parity.py", "scripts/validate_openapi_routes.py")
-# fmt: on
+CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES: tuple[str, ...] = (".github/actions/pr-scope-classifier/action.yml", ".github/actions/setup-python-safe/action.yml", "aragora/__init__.py", "aragora/__main__.py", "aragora/__version__.py", "aragora/cli/__init__.py", "aragora/cli/_mission_parser.py", "aragora/cli/api_keys.py", "aragora/cli/commands/__init__.py", "aragora/cli/commands/review_queue_comment_verdicts.py", "aragora/cli/commands/review_queue_parsers.py", "aragora/cli/commands/review_queue_rest_fallback.py", "aragora/cli/commands/review_queue_transport.py", "aragora/cli/commands/review_queue_unstable.py", "aragora/cli/doctor.py", "aragora/cli/main.py", "aragora/compliance/__init__.py", "aragora/compliance/artifact_generator.py", "aragora/compliance/data_classification.py", "aragora/compliance/eu_ai_act.py", "aragora/compliance/framework.py", "aragora/compliance/monitor.py", "aragora/compliance/phi_detectors.py", "aragora/config/__init__.py", "aragora/config/distributed.py", "aragora/config/env_helpers.py", "aragora/config/feature_flags.py", "aragora/config/provider_readiness.py", "aragora/config/secrets.py", "aragora/config/settings.py", "aragora/config/stability.py", "aragora/config/timeouts.py", "aragora/config/validator.py", "aragora/connectors/__init__.py", "aragora/connectors/exceptions.py", "aragora/exceptions.py", "aragora/modes/__init__.py", "aragora/modes/base.py", "aragora/modes/builtin/__init__.py", "aragora/modes/builtin/architect.py", "aragora/modes/builtin/coder.py", "aragora/modes/builtin/debugger.py", "aragora/modes/builtin/epistemic_hygiene.py", "aragora/modes/builtin/orchestrator.py", "aragora/modes/builtin/reviewer.py", "aragora/modes/custom.py", "aragora/modes/handoff.py", "aragora/modes/tool_groups.py", "aragora/server/__init__.py", "aragora/server/startup/__init__.py", "aragora/server/startup/background.py", "aragora/server/startup/billing.py", "aragora/server/startup/control_plane.py", "aragora/server/startup/database.py", "aragora/server/startup/dr_drilling.py", "aragora/server/startup/event_subscribers.py", "aragora/server/startup/health_check.py", "aragora/server/startup/knowledge_mound.py", "aragora/server/startup/observability.py", "aragora/server/startup/parallel.py", "aragora/server/startup/redis.py", "aragora/server/startup/security.py", "aragora/server/startup/validation.py", "aragora/server/startup/validation_runner.py", "aragora/server/startup/workers.py", "aragora/swarm/__init__.py", "aragora/swarm/github_app_auth.py", "aragora/swarm/merge_quorum_io.py", "aragora/swarm/merge_quorum_reconcile.py", "scripts/__init__.py", "scripts/add_openapi_descriptions.py", "scripts/add_openapi_operation_ids.py", "scripts/add_openapi_param_descriptions.py", "scripts/audit_openapi_docs.py", "scripts/audit_test_skips.py", "scripts/capability_gap_report.py", "scripts/check_capability_matrix_sync.py", "scripts/check_cross_sdk_parity.py", "scripts/check_pentest_findings.py", "scripts/check_portability.py", "scripts/check_sdk_namespace_parity.py", "scripts/check_test_dependencies.py", "scripts/check_version_alignment.py", "scripts/ci_install_project.sh", "scripts/classification_scan.py", "scripts/contract_drift_report.py", "scripts/export_openapi.py", "scripts/generate_api_docs.py", "scripts/generate_capability_matrix.py", "scripts/generate_contract_drift_backlog.py", "scripts/generate_contract_drift_issue_plan.py", "scripts/generate_openapi.py", "scripts/generate_python_sdk_types.py", "scripts/generate_sdk_types.py", "scripts/gh_app_env.py", "scripts/guard_repo_clean.py", "scripts/pre_release_check.py", "scripts/reconcile_status_docs.py", "scripts/run_pip_audit_gate.py", "scripts/smoke_test.py", "scripts/tier4_merge_train.py", "scripts/verify_sdk_contracts.py")
 TIER_4_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
     "deploy/",
     "docker/",
     "k8s/",
-    *CONTRACT_DRIFT_AUTHORITY_PREFIXES,
+    *CONTRACT_DRIFT_AUTHORITY_PREFIXES, *CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES,
     # Merge-authority self-modification: when a PR changes the code that
     # enforces model-quorum settlement gates, that PR's own quorum is
     # evaluated by the version of the gate it is trying to land. A bug or
@@ -278,6 +279,7 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "scripts/settle_one_pr.py",
     "scripts/merge_codex_automation_prs.py",
 )
+# fmt: on
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 OPERATOR_REVIEW_REQUIRED_LABEL = "operator-review-required"
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
@@ -287,6 +289,7 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+_admin_squash_live_gate_blockers = unstable.admin_squash_live_gate_blockers
 
 
 def resolve_repo_root(path_hint: Path) -> Path:
@@ -399,6 +402,7 @@ class ReviewPacket:
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
     labels: list[str] = field(default_factory=list)
     merge_state_status: str = ""
+    unstable_non_required_contexts_ignored: list[dict[str, Any]] = field(default_factory=list)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -2526,6 +2530,7 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     check_surfaces: dict[str, Any]
+    unstable_cancellation_contexts: list[dict[str, Any]] = []
     if settlement_state_block:
         checks_unavailable = False
         checks_summary = f"failing PR state ({settlement_state_block})"
@@ -2557,6 +2562,13 @@ def _build_packet(
     rest_fallback_meta = pr.get("_rest_fallback")
     if isinstance(rest_fallback_meta, dict):
         check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
+    if not settlement_state_block:
+        unstable_cancellation_contexts = unstable.attach_verified_cancellation_contexts(
+            pr=pr,
+            pr_number=number,
+            repo_override=repo_override,
+            check_surfaces=check_surfaces,
+        )
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -2957,25 +2969,10 @@ def _build_packet(
         ),
         labels=labels,
         merge_state_status=str(pr.get("mergeStateStatus") or "").strip().upper(),
+        unstable_non_required_contexts_ignored=unstable_cancellation_contexts,
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
-
-
-def _admin_squash_live_gate_blockers(packet: ReviewPacket) -> list[str]:
-    blockers: list[str] = []
-    labels = {str(label).strip().lower() for label in packet.labels if str(label).strip()}
-    if OPERATOR_REVIEW_REQUIRED_LABEL in labels:
-        blockers.append("operator-review-required label present")
-
-    merge_state_status = str(packet.merge_state_status or "").strip().upper()
-    if not merge_state_status:
-        blockers.append("mergeStateStatus unavailable; admin squash requires CLEAN or BLOCKED")
-    elif merge_state_status not in {"CLEAN", "BLOCKED"}:
-        blockers.append(
-            f"mergeStateStatus={merge_state_status}; admin squash requires CLEAN or BLOCKED"
-        )
-    return blockers
 
 
 def _build_merge_authorization_packet(
@@ -3060,6 +3057,9 @@ def _build_merge_authorization_packet(
             "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
             "merge_state_status": packet.merge_state_status,
+            "unstable_non_required_contexts_ignored": (
+                packet.unstable_non_required_contexts_ignored
+            ),
             "operator_review_required": OPERATOR_REVIEW_REQUIRED_LABEL
             in {str(label).strip().lower() for label in packet.labels if str(label).strip()},
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
@@ -5876,6 +5876,7 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
             f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
             f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
+        unstable.render_verified_cancellations(entry)
         gate_blockers = entry.get("admin_squash_gate_blockers") or []
         if gate_blockers:
             print("  admin squash live-gate blockers:")
