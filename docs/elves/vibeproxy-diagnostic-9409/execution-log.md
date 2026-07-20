@@ -2,11 +2,11 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-20 13:33 America/Chicago
-- **Current phase:** Batch 1 final independent review
+- **Last updated:** 2026-07-20 13:44 America/Chicago
+- **Current phase:** Final report, artifact cleanup, and ready handoff
 - **Active batch:** Batch 1: Diagnostic Command, Tests, and Documentation
-- **Last completed batch:** none yet
-- **Next exact batch:** Batch 1: Diagnostic Command, Tests, and Documentation
+- **Last completed batch:** Batch 1: Diagnostic Command, Tests, and Documentation
+- **Next exact batch:** none; finalization only
 - **Active PR:** #9431
 - **Docs promoted this run:** none
 - **Latest Elves Report:** not generated
@@ -288,3 +288,37 @@ claims were otherwise accepted.
 
 **Next:** commit this exact review packet, wait for current-head checks, then
 ask a fresh independent reviewer for the final cumulative readiness verdict.
+
+### Final Readiness Review
+
+**Reviewed exact head:** `828a7259234eedde0fd1aabd08b831ceefee6fb6`
+**Verdict:** READY; no blocker, warning, or actionable nit.
+
+- The fresh reviewer independently confirmed the credential-echo blocker is
+  fully closed for model IDs, advertised routes, version values, and both JSON
+  and human rendering. The malformed-IPv6 category warning is also closed.
+- It rechecked the one total deadline, optional metadata semantics,
+  no-proxy/no-redirect/bounded-read seam, direct-by-default compatibility, and
+  the absence of any inference or later #9409 unit.
+- Independent validation passed 102 focused tests with zero skips, mypy, and
+  changed-file pre-commit. GitHub showed 83 completed checks, zero pending or
+  failed checks, six required checks green, and zero comments or reviews.
+- Main advanced afterward by one non-overlapping runbook-only commit
+  (`f6d58a3453`). GitHub remained `MERGEABLE/CLEAN`; under the Conductor
+  no-base-freeze rule, the reviewer did not require another merge.
+- Final cleanup was explicitly approved for the staging plan and Elves run
+  artifacts. No inference, evidence, settlement, or merge action is permitted.
+
+## Session Summary
+
+Batch 1 delivered the bounded #9409 readiness diagnostic in four product
+files. The run used one implementation delegate and two independent review
+cycles. The first review caught a real successful-response credential leak;
+the test-first repair reduced that risk at the output boundary and added
+malformed-URL classification proof. Final exact-head local validation and all
+83 GitHub checks passed, and the second cumulative reviewer returned READY.
+
+Finalization remains mechanical: generate the temporary Elves report, remove
+the immutable staging plan plus run-only recovery artifacts, push the
+product-only 785-line diff, poll the resulting checks/comments, mark PR #9431
+ready, post the fallback PR notification, and hand off without merge.
