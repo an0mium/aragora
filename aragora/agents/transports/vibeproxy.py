@@ -165,7 +165,10 @@ def _bounded_float(value: str | int | float, *, name: str, minimum: float) -> fl
 
 def _normalize_base_url(raw: str, api_key: str | None) -> tuple[str, bool]:
     value = raw.strip().rstrip("/")
-    parsed = urllib.parse.urlparse(value)
+    try:
+        parsed = urllib.parse.urlparse(value)
+    except ValueError as exc:
+        raise VibeProxyConfigurationError("VibeProxy URL is malformed") from exc
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise VibeProxyConfigurationError("VibeProxy URL must be an absolute HTTP(S) URL")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:

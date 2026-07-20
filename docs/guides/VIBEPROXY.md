@@ -74,13 +74,17 @@ Schema version `1` contains:
   are never echoed.
 - `version`: an allowlisted HTTP-header value and its exact source, or
   `{ "value": null, "source": "unknown" }`. The diagnostic does not guess a
-  version from model names or make remote use depend on a local app bundle.
+  version from model names or make remote use depend on a local app bundle. A
+  value containing the request credential is omitted with source `redacted`.
 - `protocols.advertised`: sanitized method/path pairs reported by `GET /`.
   `verified_no_inference` separately lists only `GET /v1/models`, which this
   run actually exercised. `aragora_implemented_not_probed` records the
   Anthropic Messages route implemented by Aragora without claiming the
-  diagnostic verified it.
-- `model_inventory`: a sorted model-ID list and count.
+  diagnostic verified it. `advertised_redacted_count` reports routes omitted
+  because they echoed the request credential.
+- `model_inventory`: a sorted model-ID list and server count. IDs containing
+  the request credential or terminal-unsafe characters are omitted from the
+  list and counted in `redacted_count`.
 - `catalog_freshness`: the age and configured TTL of the forced live catalog
   observation. Age and freshness are process-local monotonic-clock values, not
   server timestamps. With a zero TTL, the observation is intentionally not

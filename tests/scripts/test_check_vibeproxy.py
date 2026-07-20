@@ -133,6 +133,7 @@ def test_json_success_is_sanitized_and_never_requests_inference(
     }
     assert result["protocols"] == {
         "advertised": ["GET /v1/models", "POST /v1/chat/completions"],
+        "advertised_redacted_count": 0,
         "verified_no_inference": ["GET /v1/models"],
         "aragora_implemented_not_probed": ["POST /v1/messages"],
         "metadata_status": "verified",
@@ -140,6 +141,7 @@ def test_json_success_is_sanitized_and_never_requests_inference(
     assert result["model_inventory"] == {
         "count": 2,
         "models": ["alpha-model", "zeta-model"],
+        "redacted_count": 0,
     }
     assert result["catalog_freshness"]["scope"] == "process_local"
     assert result["catalog_freshness"]["source"] == "live"
@@ -147,6 +149,36 @@ def test_json_success_is_sanitized_and_never_requests_inference(
     assert result["error"] is None
     assert state.requests == [("GET", "/v1/models"), ("GET", "/")]
     assert secret not in rendered
+
+
+def test_server_echoed_credential_and_control_characters_are_redacted(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret = "LEAK-ME-SENTINEL"
+    injected = "safe-model\nforged-terminal-line"
+    monkeypatch.setenv("ARAGORA_VIBEPROXY_API_KEY", secret)
+    catalog_data = {"data": [{"id": "ordinary-model"}, {"id": secret}, {"id": injected}]}
+    catalog = _Reply(json.dumps(catalog_data).encode())
+    metadata_data = {"endpoints": ["GET /v1/models", f"POST /v1/{secret}"]}
+    metadata = _Reply(
+        json.dumps(metadata_data).encode(),
+        headers={"X-CPA-Version": secret},
+    )
+    with _proxy({"/v1/models": catalog, "/": metadata}) as (base_url, _):
+        json_code, result, json_rendered = _run_json(capsys, base_url)
+        human_code = check_vibeproxy.main(["--base-url", base_url])
+        human = capsys.readouterr()
+
+    rendered = json_rendered + human.out + human.err
+    assert json_code == human_code == 0
+    assert result["model_inventory"]["count"] == 3
+    assert result["model_inventory"]["models"] == ["ordinary-model"]
+    assert result["model_inventory"]["redacted_count"] == 2
+    assert result["protocols"]["advertised"] == ["GET /v1/models"]
+    assert result["protocols"]["advertised_redacted_count"] == 1
+    assert result["version"] == {"value": None, "source": "redacted"}
+    assert secret not in rendered
+    assert "forged-terminal-line" not in rendered
 
 
 def test_human_output_is_concise(capsys: pytest.CaptureFixture[str]) -> None:
@@ -180,7 +212,11 @@ def test_malformed_catalog_has_stable_failure_envelope(
     assert code == 1
     assert result["ok"] is False
     assert result["error"]["category"] == category
-    assert result["model_inventory"] == {"count": 0, "models": []}
+    assert result["model_inventory"] == {
+        "count": 0,
+        "models": [],
+        "redacted_count": 0,
+    }
     assert result["latency_ms"]["catalog"] is not None
     assert state.requests == [("GET", "/v1/models")]
 
@@ -264,6 +300,7 @@ def test_redirect_is_denied_without_following_location_or_leaking_it(
         "http://user:password@127.0.0.1:8318",
         "http://127.0.0.1:8318?token=query-secret",
         "http://192.0.2.1:8318",
+        "http://[::1",
     ],
 )
 def test_unsafe_endpoint_is_rejected_without_echoing_input(

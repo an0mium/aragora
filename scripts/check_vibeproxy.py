@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import sys
 import time
 from typing import Any, Sequence
@@ -29,6 +30,7 @@ from aragora.agents.transports.vibeproxy import (  # noqa: E402
 SCHEMA_VERSION = 1
 DEFAULT_TOTAL_TIMEOUT_SECONDS = 3.0
 ARAGORA_IMPLEMENTED_NOT_PROBED = ("POST /v1/messages",)
+_SAFE_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,11 +80,12 @@ def _empty_result() -> dict[str, Any]:
         "version": {"value": None, "source": "unknown"},
         "protocols": {
             "advertised": [],
+            "advertised_redacted_count": 0,
             "verified_no_inference": [],
             "aragora_implemented_not_probed": list(ARAGORA_IMPLEMENTED_NOT_PROBED),
             "metadata_status": "not_attempted",
         },
-        "model_inventory": {"count": 0, "models": []},
+        "model_inventory": {"count": 0, "models": [], "redacted_count": 0},
         "catalog_freshness": {
             "scope": "process_local",
             "source": "none",
@@ -122,6 +125,12 @@ def _elapsed_ms(started: float, *, now: float | None = None) -> float:
     return round(max(0.0, finished - started) * 1000.0, 3)
 
 
+def _credential_safe(value: str, *, credential: str) -> bool:
+    """Return whether a server-controlled value is safe for operator output."""
+
+    return not credential or credential not in value
+
+
 def diagnose(
     *,
     base_url: str,
@@ -159,7 +168,17 @@ def diagnose(
             catalog_finished = time.monotonic()
             result["latency_ms"]["catalog"] = _elapsed_ms(catalog_started, now=catalog_finished)
         models = sorted(catalog.models)
-        result["model_inventory"] = {"count": len(models), "models": models}
+        credential = client.api_key or ""
+        safe_models = [
+            model
+            for model in models
+            if _SAFE_MODEL_ID.fullmatch(model) and _credential_safe(model, credential=credential)
+        ]
+        result["model_inventory"] = {
+            "count": len(models),
+            "models": safe_models,
+            "redacted_count": len(models) - len(safe_models),
+        }
         age = max(0.0, catalog_finished - catalog.fetched_at)
         result["catalog_freshness"].update(
             {
@@ -180,12 +199,24 @@ def diagnose(
             except VibeProxyUnavailableError as exc:
                 result["protocols"]["metadata_status"] = _error(exc)["category"]
             else:
-                result["protocols"]["advertised"] = list(metadata.advertised_routes)
+                advertised = list(metadata.advertised_routes)
+                safe_advertised = [
+                    route for route in advertised if _credential_safe(route, credential=credential)
+                ]
+                result["protocols"]["advertised"] = safe_advertised
+                result["protocols"]["advertised_redacted_count"] = len(advertised) - len(
+                    safe_advertised
+                )
                 result["protocols"]["metadata_status"] = "verified"
-                result["version"] = {
-                    "value": metadata.version,
-                    "source": metadata.version_source,
-                }
+                if metadata.version is not None and not _credential_safe(
+                    metadata.version, credential=credential
+                ):
+                    result["version"] = {"value": None, "source": "redacted"}
+                else:
+                    result["version"] = {
+                        "value": metadata.version,
+                        "source": metadata.version_source,
+                    }
             finally:
                 result["latency_ms"]["metadata"] = _elapsed_ms(metadata_started)
 
@@ -205,6 +236,8 @@ def _render_human(result: dict[str, Any]) -> None:
         print(f"endpoint={endpoint['url']} loopback={str(endpoint['loopback']).lower()}")
     inventory = result["model_inventory"]
     print(f"models={inventory['count']}")
+    if inventory["redacted_count"]:
+        print(f"models_redacted={inventory['redacted_count']}")
     if inventory["models"]:
         print("model_ids=" + ",".join(inventory["models"]))
     protocols = result["protocols"]
