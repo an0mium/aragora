@@ -775,19 +775,24 @@ def _run_script_references(source_path: str, run: str) -> list[str]:
     )
     for match in module_invocation.finditer(normalized):
         module = match.group(1).strip("\"'")
-        if any(
-            module == prefix or module.startswith(f"{prefix}.")
-            for prefix in REPOSITORY_MODULE_PREFIXES
-        ):
+        if any(marker in module for marker in ("$", "`", "*")):
             raise AuthorityClosureError(
-                f"repository python -m target is forbidden: {source_path} -> {module}"
+                f"dynamic repository python -m target is forbidden: {source_path} -> {module}"
             )
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"
         r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
         r"(?![A-Za-z0-9_.-])"
     )
-    return sorted({match.group(1).lstrip("./") for match in pattern.finditer(normalized)})
+    references = {match.group(1).lstrip("./") for match in pattern.finditer(normalized)}
+    for match in module_invocation.finditer(normalized):
+        module = match.group(1).strip("\"'")
+        if any(
+            module == prefix or module.startswith(f"{prefix}.")
+            for prefix in REPOSITORY_MODULE_PREFIXES
+        ):
+            references.add(f"{module.replace('.', '/')}.py")
+    return sorted(references)
 
 
 def _shell_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:

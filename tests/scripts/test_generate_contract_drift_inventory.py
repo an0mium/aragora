@@ -559,10 +559,17 @@ def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
         _manifest(repo, sha)
 
 
-def test_repository_python_module_run_target_fails_closed(tmp_path: Path):
+def test_repository_python_module_run_target_joins_closure(tmp_path: Path):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference="module")
-    with pytest.raises(gen.AuthorityClosureError, match="repository python -m target"):
-        _manifest(repo, sha)
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert any(
+        edge
+        == {
+            "from": ".github/workflows/authority.yml",
+            "kind": "workflow_run_executable",
+        }
+        for edge in files["scripts/helper.py"]["incoming_edges"]
+    )
 
 
 def test_literal_shell_subprocess_helper_joins_closure(tmp_path: Path):
