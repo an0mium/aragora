@@ -369,6 +369,127 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
+def test_claude_reviewer_uses_successful_vibeproxy_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt: pytest.fail("direct CLI must not run after proxy success"),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "claude",
+        "Verdict: PASS",
+        True,
+        harness="local VibeProxy Anthropic Messages transport",
+    )
+
+
+def test_claude_reviewer_prefer_failure_uses_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=False,
+            text="",
+            error="proxy unavailable",
+            harness="",
+            timeout_seconds=120.0,
+        ),
+    )
+    direct_timeouts: list[float] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout: direct_timeouts.append(timeout)
+        or ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
+    assert direct_timeouts == [480.0]
+
+
+def test_claude_reviewer_required_failure_never_runs_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt: pytest.fail("required mode must not use direct CLI"),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "proxy required but unavailable",
+        allow_transport_fallback=False,
+    )
+
+
+def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_openrouter_reviewer",
+        lambda *_args, **_kwargs: pytest.fail(
+            "required VibeProxy mode must suppress OpenRouter fallback"
+        ),
+    )
+
+    result = qe.default_reviewer_runner("claude", "prompt")
+
+    assert result.allow_transport_fallback is False
+    assert result.error == "proxy required but unavailable"
+
+
 # --- OpenAI reviewer fallback ----------------------------------------------
 
 

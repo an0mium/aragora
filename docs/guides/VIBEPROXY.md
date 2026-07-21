@@ -7,11 +7,11 @@ additional review signal.
 
 ## Current Scope
 
-- Supported now: bounded Fable/Claude advisory consults through the Anthropic
-  Messages protocol. Consults use the direct CLI path unless VibeProxy is
-  explicitly selected.
+- Supported now: bounded Fable/Claude advisory consults and Claude-family
+  merge-quorum review collection through the Anthropic Messages protocol.
+  Both paths remain direct unless VibeProxy is explicitly selected.
 - Direct by default: normal agents, CI, production servers, credential checks,
-  public gateways, and merge-quorum evidence collection.
+  public gateways, and every unconfigured merge-quorum evidence collection.
 - Deferred until contract-tested: web search, tools, embeddings, image, audio,
   and other media capabilities.
 
@@ -113,6 +113,21 @@ ARAGORA_MODEL_TRANSPORT=vibeproxy-prefer \
 ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
   python3 scripts/consult_claude.py --json "Reply with exactly PROXY_ONLY"
 ```
+
+For an exact-head Claude quorum dry-run, select the transport explicitly:
+
+```bash
+ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
+  python3 scripts/collect_quorum_evidence.py \
+    --repo synaptent/aragora --pr <PR> --reviewers claude --json
+```
+
+The resulting evidence still identifies the logical family as Claude and
+discloses the VibeProxy Anthropic Messages harness. Transport selection does
+not grant evidence-posting, settlement, or merge authority. The normal
+exact-head lint, dissent, tier, and human-settlement gates remain unchanged.
+`ARAGORA_COLLECT_EVIDENCE_VIBEPROXY_TIMEOUT_SECONDS` bounds the proxy leg;
+prefer mode also reserves half of the reviewer timeout for the direct fallback.
 
 ## Fallback Rules
 
