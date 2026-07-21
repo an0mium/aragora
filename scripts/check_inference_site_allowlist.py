@@ -32,6 +32,7 @@ PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
+PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
 HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
@@ -112,6 +113,14 @@ def _protocol_for_url(value: str) -> str:
 
 def _provider_for_url(value: str) -> str | None:
     return next((name for host, name in PROVIDER_HOSTS.items() if host in value.lower()), None)
+
+
+def _provider_for_http_endpoint(value: str) -> str | None:
+    provider = _provider_for_url(value)
+    if provider is not None:
+        return provider
+    protocol = _protocol_for_url(value)
+    return PROTOCOL_PROVIDERS.get(protocol) if "{}" in value else None
 
 
 def _contains_forbidden_port(value: Any, key: str = "") -> bool:
@@ -234,15 +243,37 @@ def _url_values(
                 return bindings[key]
         return set()
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return {left + right for left in _url_values(node.left, bindings, anchor, class_name) for right in _url_values(node.right, bindings, anchor, class_name)}  # fmt: skip
+        left_values = _url_values(node.left, bindings, anchor, class_name) or {"{}"}
+        right_values = _url_values(node.right, bindings, anchor, class_name) or {"{}"}
+        return {left + right for left in left_values for right in right_values}
     if isinstance(node, ast.JoinedStr):
         values = {""}
         for part in node.values:
             pieces = {str(part.value)} if isinstance(part, ast.Constant) else _url_values(part.value, bindings, anchor, class_name) if isinstance(part, ast.FormattedValue) else set()  # fmt: skip
             values = {value + piece for value in values for piece in (pieces or {"{}"})}
         return values
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"rstrip", "removesuffix"}:  # fmt: skip
-        return _url_values(node.func.value, bindings, anchor, class_name)
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Attribute) and node.func.attr in {"rstrip", "removesuffix"}:  # fmt: skip
+            return _url_values(node.func.value, bindings, anchor, class_name)
+        chain = _attr_chain(node.func)
+        terminal = chain.rsplit(".", 1)[-1]
+        callees = [
+            f"{class_name}.{terminal}"
+            if class_name and chain.startswith(("self.", "cls."))
+            else chain
+        ]
+        return_keys = tuple((callee, "<return>") for callee in callees)
+        returned = {
+            value
+            for key in return_keys
+            for value in bindings.get(key, set())
+        }
+        if any(key in bindings for key in return_keys):
+            return returned | {
+                value
+                for candidate in (*node.args, *(keyword.value for keyword in node.keywords))
+                for value in _url_values(candidate, bindings, anchor, class_name)
+            }
     return set()
 
 
@@ -250,6 +281,8 @@ class _UrlAssignmentCollector(ast.NodeVisitor):
     def __init__(self) -> None:
         self.scope: list[tuple[str, str]] = []
         self.assignments: list[tuple[str, str | None, ast.Assign | ast.AnnAssign]] = []
+        self.constructor_keywords: list[tuple[str, str, str, ast.AST]] = []
+        self.returns: list[tuple[str, str | None, ast.Return]] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope.append(("class", node.name))
@@ -272,17 +305,41 @@ class _UrlAssignmentCollector(ast.NodeVisitor):
     visit_Assign = _record
     visit_AnnAssign = _record
 
+    def visit_Call(self, node: ast.Call) -> None:
+        class_name = self.scope[0][1] if self.scope and self.scope[0][0] == "class" else None
+        if class_name and _attr_chain(node.func, unwrap_calls=True).endswith(".__init__"):
+            self.constructor_keywords.extend(
+                (_scope_anchor(self.scope), class_name, f"self.{keyword.arg}", keyword.value)
+                for keyword in node.keywords
+                if keyword.arg in {"api_url", "base_url", "endpoint"}
+            )
+        self.generic_visit(node)
+
+    def visit_Return(self, node: ast.Return) -> None:
+        class_name = self.scope[0][1] if self.scope and self.scope[0][0] == "class" else None
+        self.returns.append((_scope_anchor(self.scope), class_name, node))
+        self.generic_visit(node)
+
 
 def _url_bindings(tree: ast.AST) -> dict[tuple[str, str], set[str]]:
     collector = _UrlAssignmentCollector()
     collector.visit(tree)
     bindings: dict[tuple[str, str], set[str]] = {}
     for _ in range(4):
-        for anchor, class_name, node in collector.assignments:
-            if node.value is None:
+        for anchor, class_name, return_node in collector.returns:
+            if return_node.value is not None:
+                bindings.setdefault((anchor, "<return>"), set()).update(
+                    _url_values(return_node.value, bindings, anchor, class_name)
+                )
+        for anchor, class_name, target, value in collector.constructor_keywords:
+            bindings.setdefault((anchor, target), set()).update(
+                _url_values(value, bindings, anchor, class_name)
+            )
+        for anchor, class_name, assignment in collector.assignments:
+            if assignment.value is None:
                 continue
-            values = _url_values(node.value, bindings, anchor, class_name)
-            for target in _targets(node):
+            values = _url_values(assignment.value, bindings, anchor, class_name)
+            for target in _targets(assignment):
                 bindings.setdefault((anchor, target), set()).update(values)
                 if class_name and anchor == class_name and "." not in target:
                     bindings.setdefault((class_name, f"self.{target}"), set()).update(values)
@@ -386,7 +443,7 @@ class _InferenceVisitor(ast.NodeVisitor):
                 (provider, protocol)
                 for candidate in candidates
                 for value in _url_values(candidate, self.url_bindings, self._anchor(), class_name)
-                if (provider := _provider_for_url(value)) is not None
+                if (provider := _provider_for_http_endpoint(value)) is not None
                 if (protocol := _protocol_for_url(value)) != "base"
             }
             for provider, protocol in endpoints:

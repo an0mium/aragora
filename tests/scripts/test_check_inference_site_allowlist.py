@@ -149,6 +149,40 @@ def test_raw_http_url_bindings_do_not_cross_method_scopes(tmp_path: Path) -> Non
     }
 
 
+def test_raw_http_calls_follow_dynamic_instance_and_helper_endpoints(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """def resolve_base_url(env_name, default):
+    return default
+class AnthropicAgent:
+    def __init__(self):
+        super().__init__(base_url=resolve_base_url("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"))
+    async def generate(self, session):
+        url = f"{self.base_url}/messages"
+        await session.post(url)
+class CompatibleAgent:
+    def _get_endpoint_url(self):
+        return f"{self.base_url}/chat/completions"
+    async def generate(self, session):
+        url = self._get_endpoint_url()
+        await session.post(url)
+class MessagingClient:
+    async def send(self, session):
+        await session.post(f"{self.base_url}/messages")
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {
+        (site.anchor, site.provider, site.protocol, site.detectors.get("http-inference-call"))
+        for site in sites
+        if "http-inference-call" in site.detectors
+    } == {
+        ("AnthropicAgent.generate", "anthropic", "messages", 1),
+        ("CompatibleAgent.generate", "openai-compatible", "chat", 1),
+    }
+
+
 def test_javascript_sdk_property_receivers_are_discovered(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
