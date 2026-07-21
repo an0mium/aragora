@@ -22,14 +22,15 @@ EXPECTED_AUTHORITY_PREFIXES = (
     "scripts/validate_openapi_routes.py",
 )
 
-REPORTING_ONLY_PATHS = (
+EXECUTABLE_AUTHORITY_DEPENDENCIES = (
     "scripts/contract_drift_report.py",
     "scripts/generate_contract_drift_backlog.py",
     "scripts/generate_contract_drift_issue_plan.py",
+    "scripts/check_cross_sdk_parity.py",
+    "scripts/tier4_merge_train.py",
 )
 
 UNRELATED_SIBLING_PATHS = (
-    "scripts/check_cross_sdk_parity.py",
     "scripts/sdk_parity_audit.py",
     "scripts/baselines/validate_openapi_routes.json",
     "scripts/baselines/check_sdk_parity.json",
@@ -100,6 +101,10 @@ def test_classifier_and_merge_train_constants_match() -> None:
         == "aragora.cli.commands.review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES"
     )
     assert tier4_merge_train.SERIALIZED_TIER4_PREFIXES == review_queue.TIER_4_PREFIXES
+    assert (
+        tier4_merge_train.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+        == review_queue.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+    )
 
 
 @pytest.mark.parametrize("path", EXPECTED_AUTHORITY_PREFIXES)
@@ -160,8 +165,16 @@ def test_tier2_metric_stem_matches_when_checked_as_single_rule() -> None:
     assert review_queue._matches_prefix(f"{prefix}_health_bridge.py", (prefix,))
 
 
-@pytest.mark.parametrize("path", REPORTING_ONLY_PATHS + UNRELATED_SIBLING_PATHS)
-def test_reporting_and_unrelated_siblings_remain_below_tier4(path: str) -> None:
+@pytest.mark.parametrize("path", EXECUTABLE_AUTHORITY_DEPENDENCIES)
+def test_executable_authority_dependencies_are_tier4(path: str) -> None:
+    tier, _name, _reason = review_queue._classify_model_review_tier([path])
+    assert tier == 4, path
+    assert tier4_merge_train.matches_serialized_path(path) == path
+    assert path not in review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES
+
+
+@pytest.mark.parametrize("path", UNRELATED_SIBLING_PATHS)
+def test_unrelated_siblings_remain_below_tier4(path: str) -> None:
     tier, _name, _reason = review_queue._classify_model_review_tier([path])
     assert tier == 2, path
     assert tier4_merge_train.matches_serialized_path(path) is None
