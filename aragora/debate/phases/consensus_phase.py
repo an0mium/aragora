@@ -1279,11 +1279,29 @@ class ConsensusPhase:
         belief network — an explicit design choice to fail closed — we fall
         back to majority consensus to preserve the debate's protocol
         compatibility.
+
+        The mode is guarded by ``ARAGORA_CRUX_FINDER_ENABLED`` (default off).
+        When disabled, the handler logs a structured event and falls back to
+        majority so no in-flight debate protocol is broken.  Satisfies the
+        DIC-15 (#6025) flag-gate requirement.
         """
-        from aragora.debate.consensus import build_proof_from_crux_finder
-        from aragora.debate.crux_mode import build_crux_finder_result
+        from aragora.debate.crux_mode import build_crux_finder_result, crux_finder_enabled
 
         result = require_phase_result(ctx)
+
+        if not crux_finder_enabled():
+            logger.info(
+                "crux_finder_disabled flag=ARAGORA_CRUX_FINDER_ENABLED falling_back=majority"
+            )
+            if not isinstance(getattr(result, "metadata", None), dict):
+                result.metadata = {}
+            result.metadata["crux_finder_skipped_reason"] = "flag_disabled"
+            result.metadata["crux_finder_fallback_consensus"] = "majority"
+            await self._handle_majority_consensus(ctx)
+            return
+
+        from aragora.debate.consensus import build_proof_from_crux_finder
+
         belief_network = getattr(ctx, "belief_network", None)
 
         if belief_network is None:
