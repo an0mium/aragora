@@ -103,10 +103,10 @@ def consult(policy: MTP):
 """,
     )
     # fmt: off
-    _write_source(tmp_path, "aragora/live/src/run.tsx", 'urls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\n// https://api.x.ai/v1\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
+    _write_source(tmp_path, "aragora/live/src/run.tsx", 'urls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\nthis.#endpoint = "https://api.x.ai/v1"\n// https://api.x.ai/v1/commented\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
     discovery = checker.discover(tmp_path)
     assert discovery.policy_consumers == ("scripts/consult_claude.py",)
-    expected = {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openrouter", "chat"), ("tinker", "base")}
+    expected = {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openrouter", "chat"), ("tinker", "base"), ("xai", "base")}
     # fmt: on
     assert {(site.provider, site.protocol) for site in discovery.sites} == expected
     assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 2

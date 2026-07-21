@@ -343,7 +343,7 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
         source_lines = source.splitlines()
         if tree is None:
             for line_no, line in enumerate(source_lines, 1):
-                content = line.split("#", 1)[0]
+                content = line if path.suffix in JS_SUFFIXES else line.split("#", 1)[0]
                 if re.search(r"(?<!\d)0*8317(?!\d)", content):
                     forbidden_ports.append(f"{relative}:{line_no}")
                 for host, provider in PROVIDER_HOSTS.items():
