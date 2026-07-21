@@ -559,6 +559,14 @@ class TestPreReleaseCheckScript:
     def setup(self):
         self.script = PROJECT_ROOT / "scripts" / "pre_release_check.py"
 
+    def _load_module(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
     def test_script_exists(self):
         assert self.script.exists(), "scripts/pre_release_check.py does not exist"
 
@@ -609,11 +617,7 @@ class TestPreReleaseCheckScript:
             )
 
     def test_pip_audit_gate_invokes_helper_by_absolute_repo_path(self):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = self._load_module()
 
         with patch.object(module, "_run_cmd", return_value=(0, "")) as run_cmd:
             assert module.gate_pip_audit() is True
@@ -621,6 +625,50 @@ class TestPreReleaseCheckScript:
         cmd = run_cmd.call_args.args[0]
         assert Path(cmd[1]).is_absolute()
         assert Path(cmd[1]) == PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+
+    def test_pip_audit_gate_reports_unique_vulnerability_ids(self):
+        module = self._load_module()
+        output = "pkg-a CVE-2026-1234\nrepeated CVE-2026-1234\npkg-b GHSA-abcd-1234-efgh"
+
+        with patch.object(module, "_run_cmd", return_value=(1, output)):
+            assert module.gate_pip_audit() is False
+
+        assert module._results[-1] == ("pip_audit", False, "2 vulnerability/ies detected")
+
+    def test_pip_audit_gate_preserves_non_vulnerability_failure_diagnostic(self):
+        module = self._load_module()
+
+        with patch.object(
+            module,
+            "_run_cmd",
+            return_value=(7, "ERROR: OSV service unavailable while querying locked dependencies"),
+        ):
+            assert module.gate_pip_audit() is False
+
+        _, passed, detail = module._results[-1]
+        assert passed is False
+        assert "audit execution failed without vulnerability findings" in detail
+        assert "OSV service unavailable" in detail
+        assert "0 vulnerability/ies detected" not in detail
+
+    def test_pip_audit_gate_bounds_and_redacts_failure_output(self):
+        module = self._load_module()
+        output = "\n".join(
+            ["old diagnostic"] * 8
+            + [
+                "request failed https://user:password@example.test/audit?token=top-secret",
+                "x" * 500,
+            ]
+        )
+
+        with patch.object(module, "_run_cmd", return_value=(2, output)):
+            assert module.gate_pip_audit() is False
+
+        detail = module._results[-1][2]
+        assert len(detail) <= 864
+        assert "password" not in detail
+        assert "top-secret" not in detail
+        assert "[redacted]" in detail
 
 
 class TestPipAuditGate:

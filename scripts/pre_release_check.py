@@ -331,6 +331,33 @@ def gate_bandit() -> bool:
 # Gate: pip-audit dependency check
 # ---------------------------------------------------------------------------
 
+_PIP_AUDIT_VULN_ID_RE = re.compile(r"\b(?:CVE-\d{4}-\d+|GHSA-[0-9A-Za-z-]+|PYSEC-\d{4}-\d+)\b")
+_ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+_URL_CREDENTIAL_RE = re.compile(r"(https?://)[^/\s:@]+:[^/\s@]+@", re.IGNORECASE)
+_SECRET_QUERY_RE = re.compile(r"(?i)(\b(?:access_token|api[_-]?key|password|secret|token)=)[^&\s]+")
+
+
+def _pip_audit_failure_detail(output: str) -> str:
+    """Classify a failed audit without hiding helper or service failures."""
+    vulnerability_ids = list(dict.fromkeys(_PIP_AUDIT_VULN_ID_RE.findall(output)))
+    if vulnerability_ids:
+        detail = f"{len(vulnerability_ids)} vulnerability/ies detected"
+        if _verbose:
+            detail += "\n" + "\n".join(f"  {vuln_id}" for vuln_id in vulnerability_ids[:5])
+        return detail
+
+    sanitized = _ANSI_ESCAPE_RE.sub("", output)
+    sanitized = _URL_CREDENTIAL_RE.sub(r"\1[redacted]@", sanitized)
+    sanitized = _SECRET_QUERY_RE.sub(r"\1[redacted]", sanitized)
+    lines = [line.strip()[:240] for line in sanitized.splitlines() if line.strip()]
+    if not lines:
+        return "audit execution failed without vulnerability findings or diagnostic output"
+
+    tail = " | ".join(lines[-5:])
+    if len(tail) > 800:
+        tail = "..." + tail[-797:]
+    return f"audit execution failed without vulnerability findings: {tail}"
+
 
 def gate_pip_audit() -> bool:
     """Run the locked project dependency pip-audit gate."""
@@ -342,11 +369,7 @@ def gate_pip_audit() -> bool:
         timeout=180,
     )
     if code != 0:
-        vuln_lines = [l for l in output.splitlines() if "PYSEC" in l or "CVE" in l or "GHSA" in l]
-        detail = f"{len(vuln_lines)} vulnerability/ies detected"
-        if _verbose and vuln_lines:
-            detail += "\n" + "\n".join(f"  {l.strip()}" for l in vuln_lines[:5])
-        return _gate("pip_audit", False, detail)
+        return _gate("pip_audit", False, _pip_audit_failure_detail(output))
     return _gate("pip_audit", True, "no known vulnerabilities")
 
 
