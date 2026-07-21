@@ -178,6 +178,35 @@ def run():
     )
 
 
+def test_tinker_sample_http_calls_use_contextual_provider_provenance(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/training/tinker_client.py",
+        """class TinkerClient:
+    async def sample(self, client):
+        await client.post("/sample", json={})
+    async def sample_stream(self, client):
+        async with client.stream("POST", "/sample", json={}):
+            pass
+class Sampler:
+    async def sample(self, client):
+        await client.post("/sample", json={})
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {
+        (site.anchor, site.provider, site.protocol, tuple(site.detectors.items())) for site in sites
+    } == {
+        ("TinkerClient.sample", "tinker", "sample", (("http-inference-call", 1),)),
+        (
+            "TinkerClient.sample_stream",
+            "tinker",
+            "sample",
+            (("http-inference-call", 1),),
+        ),
+    }
+
+
 def test_raw_http_url_bindings_do_not_cross_class_scopes(tmp_path: Path) -> None:
     _write_source(
         tmp_path,

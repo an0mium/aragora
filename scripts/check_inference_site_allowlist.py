@@ -46,6 +46,7 @@ PYTHON_AST_NEEDLES = (
     "/chat/completions",
     "/responses",
     "/messages",
+    "/sample",
     "/embeddings",
     "/completions",
     "generate_content",
@@ -71,14 +72,15 @@ PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 URL_RE = re.compile(r'''https?://[^\s"'`<>()\[\]{}]+''', re.IGNORECASE)
 PYTHON_NUMBER_RE = re.compile(r"(?<![\w.])(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*)(?![\w.])")
-PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
+PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/sample", "sample"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
 ANTHROPIC_CONTEXT_RE = re.compile(r"(?i)anthropic|claude")
+TINKER_CONTEXT_RE = re.compile(r"(?i)tinker|thinkingmachines")
 SDK_MODULE_PROVIDERS = {"openai": "openai-compatible", "anthropic": "anthropic", "mistralai": "mistral", "google.genai": "gemini", "google.generativeai": "gemini"}
 DYNAMIC_CONSTRUCTOR_NAMES = {"openai-compatible": frozenset({"OpenAI", "AsyncOpenAI"}), "anthropic": frozenset({"Anthropic", "AsyncAnthropic"}), "mistral": frozenset({"Mistral"}), "gemini": frozenset({"Client", "GenerativeModel"})}
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client"), "Mistral": ("mistral", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"), ("audio.transcriptions.complete", "mistral", "audio"), ("chat.complete", "mistral", "chat"), ("chat.stream", "mistral", "chat"), ("agents.complete", "mistral", "messages"), ("agents.stream", "mistral", "messages"), ("fim.complete", "mistral", "completions"))
-HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
+HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request", "stream"})
 URL_HELPER_TERMINALS = frozenset({"build_url", "join_url", "make_url", "resolve_url", "urljoin"})
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
@@ -176,6 +178,8 @@ def _provider_for_http_endpoint(value: str, context: str = "") -> str | None:
     if provider is not None:
         return provider
     protocol = _protocol_for_url(value)
+    if protocol == "sample" and TINKER_CONTEXT_RE.search(context):
+        return "tinker"
     if "{}" not in value:
         return None
     provider = PROTOCOL_PROVIDERS.get(protocol)
@@ -556,7 +560,7 @@ class _InferenceVisitor(ast.NodeVisitor):
                 (provider, protocol)
                 for candidate in candidates
                 for value in _url_values(candidate, self.url_bindings, self._anchor(), class_name)
-                if (provider := _provider_for_http_endpoint(value, f"{self.path} {self._anchor()} {ast.unparse(candidate)}")) is not None
+                if (provider := _provider_for_http_endpoint(value, f"{self._anchor()} {ast.unparse(candidate)}")) is not None
                 if (protocol := _protocol_for_url(value)) != "base"
             }
             for provider, protocol in endpoints:
