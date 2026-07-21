@@ -5,14 +5,34 @@ Supports web search tool for web-capable responses when URLs
 or web-related keywords are detected in the prompt.
 """
 
+import asyncio
 import logging
 import re
+import time
 
 from aragora.agents.api_agents.base import APIAgent
-from aragora.core_types import AgentRole
-from aragora.agents.api_agents.common import get_primary_api_key
+from aragora.agents.api_agents.common import (
+    AgentAPIError,
+    AgentCircuitOpenError,
+    get_primary_api_key,
+)
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.agents.transports.vibeproxy import (
+    ModelTransportPolicy,
+    OpenAIProtocol,
+    TransportMode,
+    VibeProxyConfigurationError,
+    VibeProxyTimeoutError,
+    VibeProxyUnavailableError,
+)
+from aragora.core import Message
+from aragora.core_types import AgentRole
+from aragora.observability.metrics.agents import (
+    record_circuit_breaker_rejection,
+    record_provider_call,
+    record_provider_token_usage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +118,11 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
     ) -> None:
+        import os
+
+        self._uses_official_openai_endpoint = not bool(
+            os.environ.get("OPENAI_BASE_URL", "").strip()
+        )
         super().__init__(
             name=name,
             model=model,
@@ -119,6 +144,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         self._fallback_agent = None
         self.enable_web_search = True  # Enable web search tool by default
         self._current_prompt = ""  # Track current prompt for web search detection
+        self._model_transport_policy = ModelTransportPolicy.from_env(
+            default_mode=TransportMode.DIRECT
+        )
 
     def _needs_web_search(self, prompt: str) -> bool:
         """Detect if the prompt would benefit from web search.
@@ -154,6 +182,121 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                 ]
             }
         return None
+
+    def _can_route_exact_chat(self, full_prompt: str) -> bool:
+        """Return whether this request is inside the contract-tested proxy slice."""
+
+        return (
+            self._model_transport_policy.mode is not TransportMode.DIRECT
+            and self._uses_official_openai_endpoint
+            and not self._needs_web_search(full_prompt)
+        )
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Route exact, non-streaming OpenAI Chat requests through VibeProxy.
+
+        Web search, streaming, custom endpoints, and any request the policy does
+        not resolve exactly continue through the established direct path.
+        """
+
+        full_prompt = prompt
+        if context:
+            full_prompt = self._build_context_prompt(context) + prompt
+        if not self._can_route_exact_chat(full_prompt):
+            return await super().generate(prompt, context)
+
+        cb = getattr(self, "_circuit_breaker", None)
+        if cb is not None and not cb.can_proceed():
+            record_circuit_breaker_rejection(self.agent_type)
+            raise AgentCircuitOpenError(
+                f"Circuit breaker open for {self.name} - too many recent failures",
+                agent_name=self.name,
+            )
+
+        messages = self._build_messages(full_prompt)
+        payload = self._build_payload(messages, stream=False)
+        # Defensively keep future tool-bearing extensions on the direct path.
+        if payload.get("tools"):
+            return await super().generate(prompt, context)
+
+        estimated_budget_usd = self._estimate_budget_cost_usd(payload)
+        from aragora.billing import budget_guard
+
+        budget_guard.assert_within_budget(
+            estimated_budget_usd,
+            label=getattr(self, "name", None),
+        )
+
+        deadline = time.monotonic() + float(self.timeout)
+
+        def remaining_timeout() -> float:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise VibeProxyTimeoutError("VibeProxy OpenAI request timed out")
+            return remaining
+
+        try:
+            route = await asyncio.to_thread(
+                self._model_transport_policy.resolve,
+                "openai",
+                self.model,
+                ("chat",),
+                timeout=remaining_timeout(),
+            )
+            if route.transport == "direct":
+                return await super().generate(prompt, context)
+
+            client = self._model_transport_policy.client
+            if client is None:
+                raise VibeProxyUnavailableError("VibeProxy client is not configured")
+            proxy_payload = dict(payload)
+            proxy_payload["model"] = route.resolved_model
+            data = await asyncio.to_thread(
+                client.openai_request,
+                protocol=OpenAIProtocol.CHAT,
+                model=route.resolved_model,
+                payload=proxy_payload,
+                timeout=remaining_timeout(),
+            )
+        except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
+            if self._model_transport_policy.mode is TransportMode.PREFER:
+                logger.info(
+                    "[%s] VibeProxy OpenAI request unavailable; using direct path: %s",
+                    self.name,
+                    exc,
+                )
+                return await super().generate(prompt, context)
+            raise AgentAPIError(
+                f"required VibeProxy OpenAI request failed: {exc}",
+                agent_name=self.name,
+            ) from exc
+
+        usage = data.get("usage", {})
+        input_tokens = usage.get("prompt_tokens", 0) if isinstance(usage, dict) else 0
+        output_tokens = usage.get("completion_tokens", 0) if isinstance(usage, dict) else 0
+        if not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+            input_tokens = 0
+            output_tokens = 0
+        usage_has_tokens = bool(input_tokens or output_tokens)
+        self._record_token_usage(tokens_in=input_tokens, tokens_out=output_tokens)
+
+        content = self._parse_response(data)
+        if not content or not content.strip():
+            raise AgentAPIError(
+                f"{self._get_error_prefix()} returned empty response",
+                agent_name=self.name,
+            )
+        if not usage_has_tokens and estimated_budget_usd > 0:
+            budget_guard.record_spend(estimated_budget_usd)
+        if cb is not None:
+            cb.record_success()
+        record_provider_call(provider=self.agent_type, success=True, model=self.model)
+        record_provider_token_usage(
+            provider=self.agent_type,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        return content
 
 
 __all__ = ["OpenAIAPIAgent"]

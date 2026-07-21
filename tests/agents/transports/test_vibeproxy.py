@@ -124,7 +124,7 @@ def test_client_disables_environment_proxies_and_redirects(
         for handler in handlers
         if isinstance(handler, vibeproxy.urllib.request.ProxyHandler)
     )
-    assert proxy.proxies == {}
+    assert getattr(proxy, "proxies") == {}
     assert any(isinstance(handler, vibeproxy._NoRedirectHandler) for handler in handlers)
 
 
@@ -252,6 +252,119 @@ def test_prefer_resolves_exact_model() -> None:
     assert route.requested_model == route.resolved_model == "claude-fable-5"
 
 
+@pytest.mark.parametrize(
+    ("protocol", "path"),
+    [
+        (vibeproxy.OpenAIProtocol.CHAT, "/chat/completions"),
+        (vibeproxy.OpenAIProtocol.RESPONSES, "/responses"),
+    ],
+)
+def test_openai_protocol_request_uses_exact_model_and_path(
+    monkeypatch: pytest.MonkeyPatch,
+    protocol: vibeproxy.OpenAIProtocol,
+    path: str,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    seen: dict[str, object] = {}
+
+    def fake_open(request, timeout):
+        seen["url"] = request.full_url
+        seen["authorization"] = request.headers["Authorization"]
+        seen["anthropic_version"] = request.headers.get("Anthropic-version")
+        seen["payload"] = json.loads(request.data)
+        seen["timeout"] = timeout
+        return _Response(json.dumps({"model": "gpt-5.5", "ok": True}).encode())
+
+    monkeypatch.setattr(client._opener, "open", fake_open)
+
+    body = client.openai_request(
+        protocol=protocol,
+        model="gpt-5.5",
+        payload={"model": "gpt-5.5", "input": "hello"},
+        timeout=2.5,
+    )
+
+    assert body == {"model": "gpt-5.5", "ok": True}
+    assert seen == {
+        "url": f"http://127.0.0.1:8318/v1{path}",
+        "authorization": f"Bearer {vibeproxy.LOCAL_API_KEY}",
+        "anthropic_version": None,
+        "payload": {"model": "gpt-5.5", "input": "hello"},
+        "timeout": 2.5,
+    }
+
+
+def test_openai_protocol_request_rejects_payload_model_mismatch() -> None:
+    client = vibeproxy.VibeProxyClient()
+
+    with pytest.raises(vibeproxy.VibeProxyConfigurationError, match="payload model"):
+        client.openai_request(
+            protocol=vibeproxy.OpenAIProtocol.CHAT,
+            model="gpt-5.5",
+            payload={"model": "gpt-5.4"},
+            timeout=1.0,
+        )
+
+
+def test_openai_protocol_request_rejects_response_model_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda *_args, **_kwargs: {"model": "gpt-5.4"},
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="requested model"):
+        client.openai_request(
+            protocol=vibeproxy.OpenAIProtocol.RESPONSES,
+            model="gpt-5.5",
+            payload={"model": "gpt-5.5", "input": "hello"},
+            timeout=1.0,
+        )
+
+
+def test_anthropic_message_keeps_protocol_version_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    seen: dict[str, str | None] = {}
+
+    def fake_open(request, timeout):
+        seen["anthropic_version"] = request.headers.get("Anthropic-version")
+        return _Response(
+            json.dumps(
+                {
+                    "model": "claude-fable-5",
+                    "content": [{"type": "text", "text": "answer"}],
+                }
+            ).encode()
+        )
+
+    monkeypatch.setattr(client._opener, "open", fake_open)
+
+    assert client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1.0) == "answer"
+    assert seen["anthropic_version"] == "2023-06-01"
+
+
+@pytest.mark.parametrize(
+    "protocol", [vibeproxy.OpenAIProtocol.CHAT, vibeproxy.OpenAIProtocol.RESPONSES]
+)
+def test_openai_exact_protocols_are_policy_eligible(
+    protocol: vibeproxy.OpenAIProtocol,
+) -> None:
+    policy = vibeproxy.ModelTransportPolicy(
+        vibeproxy.TransportMode.PREFER,
+        client=_FakeClient({"gpt-5.5"}),  # type: ignore[arg-type]
+    )
+
+    route = policy.resolve("openai", "gpt-5.5", capabilities=(protocol.value,))
+
+    assert route.transport == "vibeproxy"
+    assert route.requested_model == route.resolved_model == "gpt-5.5"
+
+
 def test_alias_is_explicit_and_observable() -> None:
     policy = vibeproxy.ModelTransportPolicy(
         vibeproxy.TransportMode.PREFER,
@@ -320,11 +433,11 @@ def test_unsupported_web_search_uses_direct_in_prefer_mode() -> None:
     route = policy.resolve("openai", "gpt-5.5", capabilities=("chat", "web_search"))
 
     assert route.transport == "direct"
-    assert route.fallback_reason == "unsupported capabilities: chat, web_search"
+    assert route.fallback_reason == "unsupported capabilities: web_search"
 
 
-@pytest.mark.parametrize("provider", ["openai", "grok", "gemini", "kimi"])
-def test_non_anthropic_provider_is_not_advertised(provider: str) -> None:
+@pytest.mark.parametrize("provider", ["grok", "gemini", "kimi"])
+def test_unimplemented_provider_is_not_advertised(provider: str) -> None:
     policy = vibeproxy.ModelTransportPolicy(
         vibeproxy.TransportMode.PREFER,
         client=_FakeClient({"model"}),  # type: ignore[arg-type]
