@@ -127,6 +127,28 @@ class OpenRouter:
     }
 
 
+def test_raw_http_url_bindings_do_not_cross_method_scopes(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """class Router:
+    def kimi(self, client):
+        self.base_url = "https://api.moonshot.cn/v1"
+        client.post(f"{self.base_url}/chat/completions")
+    def openrouter(self, client):
+        self.base_url = "https://openrouter.ai/api/v1"
+        client.post(f"{self.base_url}/chat/completions")
+""",
+    )
+    discovery = checker.discover(tmp_path)
+    assert {
+        (site.anchor, site.provider) for site in discovery.sites if site.protocol == "chat"
+    } == {
+        ("Router.kimi", "kimi"),
+        ("Router.openrouter", "openrouter"),
+    }
+
+
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
     _write_source(
         tmp_path,

@@ -221,7 +221,11 @@ def _url_values(
         return {node.value}
     if isinstance(node, (ast.Name, ast.Attribute)):
         chain = _attr_chain(node)
-        scopes = [class_name] if class_name and chain.startswith(("self.", "cls.")) else [anchor]
+        scopes = (
+            [anchor, f"{class_name}.__init__", class_name]
+            if class_name and chain.startswith(("self.", "cls."))
+            else [anchor]
+        )
         if anchor != "<module>":
             scopes.append("<module>")
         for scope in scopes:
@@ -279,8 +283,7 @@ def _url_bindings(tree: ast.AST) -> dict[tuple[str, str], set[str]]:
                 continue
             values = _url_values(node.value, bindings, anchor, class_name)
             for target in _targets(node):
-                owner = class_name if class_name and target.startswith(("self.", "cls.")) else anchor
-                bindings.setdefault((owner or "<module>", target), set()).update(values)
+                bindings.setdefault((anchor, target), set()).update(values)
                 if class_name and anchor == class_name and "." not in target:
                     bindings.setdefault((class_name, f"self.{target}"), set()).update(values)
     return bindings
