@@ -485,7 +485,14 @@ def _run_read_only(
 ) -> subprocess.CompletedProcess[bytes]:
     _guard_subprocess_argv(argv)
     env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
-    proc = subprocess.run(argv, capture_output=True, env=env, check=False)
+    executable = Path(argv[0]).name
+    if executable == "git":
+        command = ["git", *argv[1:]]
+    elif executable == "gh":
+        command = ["gh", *argv[1:]]
+    else:  # guarded above; retain a fail-closed branch for static analysis
+        raise ValueError(f"unsupported subprocess action rejected: {executable}")
+    proc = subprocess.run(command, capture_output=True, env=env, check=False)
     raw = proc.stdout if proc.returncode == 0 else proc.stderr
     if log_operation:
         _append_operation(
