@@ -2719,7 +2719,7 @@ def _validate_route_truth(
         raise ValueError("OpenAPI truth does not match reconstructed route authority")
     counts = _baseline_category_counts_at_ref(
         repo_root,
-        chronology["route_truth"],
+        proof["proof_end_sha"],
         operation_log=operation_log,
     )
     if counts["routes_missing_in_spec"] != 0 or counts["routes_orphaned_in_spec"] != 0:

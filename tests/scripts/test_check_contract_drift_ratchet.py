@@ -1242,6 +1242,7 @@ def _boundary_git_repo(
     tmp_path: Path,
     *,
     route_debt: bool = False,
+    route_debt_at: str | None = None,
     sdk_debt_partition: str | None = None,
     sdk_debt_at: str | None = None,
 ) -> tuple[Path, str, dict[str, str]]:
@@ -1266,7 +1267,8 @@ def _boundary_git_repo(
     start_sha = _commit(repo, "accepted corrective bootstrap")
     shas: dict[str, str] = {}
     for index, boundary in enumerate(ratchet.BOUNDARY_NAMES, start=1):
-        if route_debt and boundary == "route_truth":
+        effective_route_debt_at = route_debt_at or ("route_truth" if route_debt else None)
+        if boundary == effective_route_debt_at:
             _write_json(
                 baselines / "validate_openapi_routes.json",
                 {
@@ -2129,6 +2131,44 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
         repo_root=repo,
         schema_version=1,
         boundary="route_truth",
+        start_ref=start_sha,
+        end_ref=end_sha,
+    )
+
+    assert result["status"] == "fail"
+    assert "contradicted by exact-ref route baselines" in result["error"]
+
+
+def test_later_boundary_fails_when_route_debt_is_reintroduced(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _require_canonical_fixture_artifacts()
+    repo, start_sha, boundary_shas = _boundary_git_repo(
+        tmp_path,
+        route_debt_at="core_sdk",
+    )
+    end_sha = boundary_shas["core_sdk"]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path,
+        "core_sdk",
+        start_sha,
+        end_sha,
+        boundary_shas,
+        repo=repo,
+    )
+    _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
+
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="core_sdk",
         start_ref=start_sha,
         end_ref=end_sha,
     )
