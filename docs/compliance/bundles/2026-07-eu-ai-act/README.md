@@ -4,6 +4,9 @@
 **Plan:** [`docs/plans/2026-07-09-thirty-day-external-proof-month.md`](../../../plans/2026-07-09-thirty-day-external-proof-month.md) (W3, Jul 23–30)
 **Scope:** GPAI / Art. 50 transparency posture ahead of the **Aug 2, 2026** EU AI Act GPAI deadline, plus the Article 14 human-oversight evidence pack (#8230 / ODR-6).
 **Assembled:** 2026-07-20
+**Status checked:** 2026-07-21 against current main. Issue #9391 remains open;
+its latest recorded external probe (2026-07-20) still classifies production as
+unreachable.
 
 This bundle packages what Aragora can already prove — signed, dissent-preserving
 decision receipts with third-party offline verification — into one auditable
@@ -26,6 +29,18 @@ with an honest pending status and the exact step that closes it.
 | 10 | Signed **production** receipt — **Variant A** | — | **pending-prod** (blocked on AWS reinstatement, [#9391](https://github.com/synaptent/aragora/issues/9391)) |
 | 11 | Crux-cards receipt (`cruxes` block populated) | — | **pending** (see "Crux cards" below) |
 | 12 | Founder earned-claim review of the bundle | — | **pending-founder-review** (W3 exit criterion) |
+
+## Remaining exit gates
+
+| Gate | Class | Smallest completion action |
+|---|---|---|
+| Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
+| Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
+| Crux-cards receipt | machine-capable, credentialed | Run one real provider-backed debate with `enable_crux_cards=True`, verify the populated `cruxes` block, and add the receipt. |
+| Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
+
+The repository can prepare and validate these artifacts, but none of the four
+gates is silently treated as complete by this draft.
 
 ## Signed-receipt contingency (Variant A / Variant B)
 
