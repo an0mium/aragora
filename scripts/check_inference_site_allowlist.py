@@ -204,34 +204,85 @@ def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]]) -> tu
     return clients, factories
 
 
-def _url_values(node: ast.AST, bindings: dict[str, set[str]]) -> set[str]:
+def _scope_anchor(scope: list[tuple[str, str]]) -> str:
+    if not scope:
+        return "<module>"
+    kind, name = scope[0]
+    return f"{name}.{scope[1][1]}" if kind == "class" and len(scope) > 1 else name
+
+
+def _url_values(
+    node: ast.AST,
+    bindings: dict[tuple[str, str], set[str]],
+    anchor: str,
+    class_name: str | None,
+) -> set[str]:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return {node.value}
     if isinstance(node, (ast.Name, ast.Attribute)):
-        return bindings.get(_attr_chain(node), set())
+        chain = _attr_chain(node)
+        scopes = [class_name] if class_name and chain.startswith(("self.", "cls.")) else [anchor]
+        if anchor != "<module>":
+            scopes.append("<module>")
+        for scope in scopes:
+            key = (scope or "<module>", chain)
+            if key in bindings:
+                return bindings[key]
+        return set()
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return {left + right for left in _url_values(node.left, bindings) for right in _url_values(node.right, bindings)}  # fmt: skip
+        return {left + right for left in _url_values(node.left, bindings, anchor, class_name) for right in _url_values(node.right, bindings, anchor, class_name)}  # fmt: skip
     if isinstance(node, ast.JoinedStr):
         values = {""}
         for part in node.values:
-            pieces = {str(part.value)} if isinstance(part, ast.Constant) else _url_values(part.value, bindings) if isinstance(part, ast.FormattedValue) else set()  # fmt: skip
+            pieces = {str(part.value)} if isinstance(part, ast.Constant) else _url_values(part.value, bindings, anchor, class_name) if isinstance(part, ast.FormattedValue) else set()  # fmt: skip
             values = {value + piece for value in values for piece in (pieces or {"{}"})}
         return values
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"rstrip", "removesuffix"}:  # fmt: skip
-        return _url_values(node.func.value, bindings)
+        return _url_values(node.func.value, bindings, anchor, class_name)
     return set()
 
 
-def _url_bindings(tree: ast.AST) -> dict[str, set[str]]:
-    bindings: dict[str, set[str]] = {}
-    assignments = tuple(node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign)))
+class _UrlAssignmentCollector(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.scope: list[tuple[str, str]] = []
+        self.assignments: list[tuple[str, str | None, ast.Assign | ast.AnnAssign]] = []
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.scope.append(("class", node.name))
+        self.generic_visit(node)
+        self.scope.pop()
+
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.scope.append(("function", node.name))
+        self.generic_visit(node)
+        self.scope.pop()
+
+    visit_FunctionDef = _visit_function
+    visit_AsyncFunctionDef = _visit_function
+
+    def _record(self, node: ast.Assign | ast.AnnAssign) -> None:
+        class_name = self.scope[0][1] if self.scope and self.scope[0][0] == "class" else None
+        self.assignments.append((_scope_anchor(self.scope), class_name, node))
+        self.generic_visit(node)
+
+    visit_Assign = _record
+    visit_AnnAssign = _record
+
+
+def _url_bindings(tree: ast.AST) -> dict[tuple[str, str], set[str]]:
+    collector = _UrlAssignmentCollector()
+    collector.visit(tree)
+    bindings: dict[tuple[str, str], set[str]] = {}
     for _ in range(4):
-        for node in assignments:
+        for anchor, class_name, node in collector.assignments:
             if node.value is None:
                 continue
-            values = _url_values(node.value, bindings)
+            values = _url_values(node.value, bindings, anchor, class_name)
             for target in _targets(node):
-                bindings.setdefault(target, set()).update(values)
+                owner = class_name if class_name and target.startswith(("self.", "cls.")) else anchor
+                bindings.setdefault((owner or "<module>", target), set()).update(values)
+                if class_name and anchor == class_name and "." not in target:
+                    bindings.setdefault((class_name, f"self.{target}"), set()).update(values)
     return bindings
 
 
@@ -251,12 +302,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.policy_receivers.update(target for item in ast.walk(tree) if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None and isinstance(item.value, ast.Call) and _attr_chain(item.value.func).split(".", 1)[0] in policy_types for target in _targets(item))  # fmt: skip
 
     def _anchor(self) -> str:
-        if not self.scope:
-            return "<module>"
-        kind, name = self.scope[0]
-        if kind == "class" and len(self.scope) > 1:
-            return f"{name}.{self.scope[1][1]}"
-        return name
+        return _scope_anchor(self.scope)
 
     def _record(self, provider: str, protocol: str, detector: str) -> None:
         self.detections.append((SiteKey(self.path, self._anchor(), provider, protocol), detector))
@@ -332,10 +378,11 @@ class _InferenceVisitor(ast.NodeVisitor):
             self._record(*constructor, "client-constructor")
         if terminal in HTTP_CALL_TERMINALS:
             candidates = (*node.args, *(keyword.value for keyword in node.keywords))
+            class_name = self.scope[0][1] if self.scope and self.scope[0][0] == "class" else None
             endpoints = {
                 (provider, protocol)
                 for candidate in candidates
-                for value in _url_values(candidate, self.url_bindings)
+                for value in _url_values(candidate, self.url_bindings, self._anchor(), class_name)
                 if (provider := _provider_for_url(value)) is not None
                 if (protocol := _protocol_for_url(value)) != "base"
             }
