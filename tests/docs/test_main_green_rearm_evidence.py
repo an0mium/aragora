@@ -24,7 +24,7 @@ def _reconciliation_program(text: str) -> str:
 
 def _collection_shell_program(text: str) -> str:
     match = re.search(
-        r"```bash\n(RULESET_REQUIRED_RAW=.*?\n\)\" \|\| exit 1)\n\n"
+        r"\n(RULESET_REQUIRED_RAW=.*?\n\)\" \|\| exit 1)\n\n"
         r"jq -n \\\n",
         text,
         flags=re.DOTALL,
@@ -37,6 +37,17 @@ def _policy_program(text: str) -> str:
     block = text.split('REQUIRED_POLICY_JSON="$(')[1]
     match = re.search(
         r"--argjson protection .*? \\\n    '(\{\n.*?\n    \})'\n\)\" \|\| exit 1",
+        block,
+        flags=re.DOTALL,
+    )
+    assert match is not None
+    return match.group(1)
+
+
+def _branch_protection_program(text: str) -> str:
+    block = text.split('BRANCH_PROTECTION_REQUIRED_JSON="$(')[1]
+    match = re.search(
+        r"\| jq '(\{\n.*?\n    \})'\n\)\" \|\| exit 1",
         block,
         flags=re.DOTALL,
     )
@@ -197,8 +208,13 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert ".app_id == $requirement.app_id" in text
     assert "| jq '[.[].check_runs[]" in text
     assert 'tee "$EVIDENCE_DIR/required-contexts.json"' in text
+    assert "sh -eu <<'REQUIRED_CONTEXT_EVIDENCE'" in text
+    assert "REQUIRED_CONTEXT_EVIDENCE\n```" in text
+    assert "`jq` is older than 1.7" in text
+    assert "gh` is older than 2.40" in text
     assert '.latest.conclusion == "success"' in text
-    assert '.context == "aragora-merge-quorum"' in text
+    assert 'expected_skip: ($requirement.context == "aragora-merge-quorum")' in text
+    assert ".expected_skip and .latest.conclusion" in text
     assert '.latest.conclusion == "skipped"' in text
     assert 'all(.statuses[]; .found and .latest.state == "success")' in text
 
@@ -268,8 +284,16 @@ class TestJqPrograms:
             {"context": "status-or-check", "app_id": None},
         ]
         protection = {
-            "checks": [{"context": "lint", "app_id": 15368}],
-            "legacy_contexts": ["legacy", "ruleset-only", "status-or-check"],
+            "checks": [
+                {"context": "lint", "app_id": 15368},
+                {"context": "branch-status", "app_id": None},
+            ],
+            "legacy_contexts": [
+                "legacy",
+                "ruleset-only",
+                "status-or-check",
+                "branch-status",
+            ],
         }
 
         result = subprocess.run(
@@ -299,10 +323,72 @@ class TestJqPrograms:
             {"context": "ruleset-only", "app_id": 15368, "sources": ["ruleset"]},
         ]
         assert policy["status_or_checks"] == [
-            {"context": "status-or-check", "sources": ["ruleset"]}
+            {"context": "branch-status", "sources": ["branch_protection"]},
+            {"context": "status-or-check", "sources": ["ruleset"]},
         ]
         assert policy["legacy_contexts"] == ["legacy"]
         assert policy["sources"] == {"ruleset": True, "branch_protection": True}
+
+    def test_unbound_branch_protection_check_accepts_legacy_status(self) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        ruleset: list[dict[str, object]] = []
+        raw_protection = {
+            "contexts": ["external-ci"],
+            "checks": [{"context": "external-ci", "app_id": None}],
+        }
+        normalization_result = subprocess.run(
+            ["jq", _branch_protection_program(text)],
+            input=json.dumps(raw_protection),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        protection = json.loads(normalization_result.stdout)
+
+        policy_result = subprocess.run(
+            [
+                "jq",
+                "-n",
+                "--argjson",
+                "ruleset",
+                json.dumps(ruleset),
+                "--argjson",
+                "protection",
+                json.dumps(protection),
+                _policy_program(text),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        policy = json.loads(policy_result.stdout)
+        statuses = [
+            {
+                "id": 12,
+                "context": "external-ci",
+                "state": "success",
+                "updated_at": "2026-07-21T08:00:00Z",
+            }
+        ]
+
+        evidence = _reconcile(text, policy=policy, runs=[], statuses=statuses)
+        guard = subprocess.run(
+            ["jq", "-e", _reconciliation_guard(text)],
+            input=json.dumps(evidence),
+            capture_output=True,
+            text=True,
+        )
+
+        assert policy["checks"] == []
+        assert protection == {
+            "checks": [{"context": "external-ci", "app_id": None}],
+            "legacy_contexts": [],
+        }
+        assert policy["status_or_checks"] == [
+            {"context": "external-ci", "sources": ["branch_protection"]}
+        ]
+        assert guard.returncode == 0, guard.stderr
+        assert evidence["status_or_checks"][0]["latest_status"]["id"] == 12
 
     def test_required_context_reconciliation_prefers_newer_queued_run(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")

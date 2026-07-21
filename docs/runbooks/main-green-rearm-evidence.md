@@ -69,6 +69,8 @@ python3 --version
 python3 -c 'import sys, pytest; print(sys.executable); print(pytest.__version__)'
 command -v mypy
 mypy --version
+jq --version
+gh --version | head -n 1
 git show "${CANDIDATE_SHA}:pyproject.toml" | grep -nE '"mypy[<>=]'
 ```
 
@@ -79,6 +81,8 @@ suites:
   suite;
 - `mypy` is absent from `PATH`, cannot launch, or its version cannot be parsed;
 - PATH `mypy` is below the declared lower bound or outside the declared range;
+- `jq` is older than 1.7 or `gh` is older than 2.40 for the hosted-policy
+  collection commands below;
 - the pristine worktree cannot be fetched, created, or safely refreshed;
 - a command times out or cannot be launched.
 
@@ -172,7 +176,12 @@ Select matching check runs by their numeric creation-ordered ID so a newer
 queued run with no `started_at` cannot be hidden by an older success; a missing
 or nonnumeric ID fails closed:
 
+Run the collection in a disposable shell so a failed API read terminates this
+evidence pass without exiting the operator's interactive shell:
+
 ```bash
+CANDIDATE_SHA="$CANDIDATE_SHA" EVIDENCE_DIR="$EVIDENCE_DIR" \
+  sh -eu <<'REQUIRED_CONTEXT_EVIDENCE'
 RULESET_REQUIRED_RAW="$(
   gh api --paginate --slurp \
     "repos/synaptent/aragora/rules/branches/main?per_page=100"
@@ -213,6 +222,7 @@ REQUIRED_POLICY_JSON="$(
             | {context, app_id, source: "ruleset"}
           ]
           + [$protection.checks[]
+            | select(.app_id != null and .app_id != -1)
             | {context, app_id, source: "branch_protection"}
           ]
         )
@@ -229,14 +239,24 @@ REQUIRED_POLICY_JSON="$(
           })
       ),
       status_or_checks: (
-        [$ruleset[]
-          | select(.app_id == null or .app_id == -1)
-          | select(
-              (.context | type) == "string"
-              and (.context | length > 0)
-            )
-          | {context, source: "ruleset"}
-        ]
+        (
+          [$ruleset[]
+            | select(.app_id == null or .app_id == -1)
+            | select(
+                (.context | type) == "string"
+                and (.context | length > 0)
+              )
+            | {context, source: "ruleset"}
+          ]
+          + [$protection.checks[]
+            | select(.app_id == null or .app_id == -1)
+            | select(
+                (.context | type) == "string"
+                and (.context | length > 0)
+              )
+            | {context, source: "branch_protection"}
+          ]
+        )
         | sort_by(.context, .source)
         | group_by(.context)
         | map({
@@ -247,6 +267,7 @@ REQUIRED_POLICY_JSON="$(
       legacy_contexts: (
         $protection.legacy_contexts
         - [$ruleset[].context]
+        - [$protection.checks[].context]
         | unique
       ),
       sources: {
@@ -318,6 +339,7 @@ jq -n \
           context: $requirement.context,
           app_id: $requirement.app_id,
           sources: $requirement.sources,
+          expected_skip: ($requirement.context == "aragora-merge-quorum"),
           found: ($matches | length > 0),
           latest: (
             if any($matches[]; (.id | type) != "number")
@@ -371,6 +393,7 @@ jq -n \
           kind: "status_or_check",
           context: $requirement.context,
           sources: $requirement.sources,
+          expected_skip: ($requirement.context == "aragora-merge-quorum"),
           found: ($latest_check != null or $latest_status != null),
           latest_check: $latest_check,
           latest_status: $latest_status,
@@ -412,10 +435,7 @@ jq -e \
       and .latest.status == "completed"
       and (
         .latest.conclusion == "success"
-        or (
-          .context == "aragora-merge-quorum"
-          and .latest.conclusion == "skipped"
-        )
+        or (.expected_skip and .latest.conclusion == "skipped")
       )
     )
     and all(.status_or_checks[];
@@ -426,6 +446,7 @@ jq -e \
     )
     and all(.statuses[]; .found and .latest.state == "success")' \
   "$EVIDENCE_DIR/required-contexts.json"
+REQUIRED_CONTEXT_EVIDENCE
 ```
 
 Inspect every row in all three requirement arrays in `required-contexts.json`.
@@ -436,9 +457,14 @@ empty normalized policy, or missing legacy status is `evidence_incomplete`. A ma
 required check whose latest run did not complete successfully, or a required
 legacy status whose latest state is not `success`, is `main_red`; a check
 designed to skip on main (currently `aragora-merge-quorum`) must remain visible
-and be identified as an expected main-only skip in the packet rather than
-silently treated as green. An API outage, pagination failure, or rate limit is
-`evidence_incomplete`, not green. Retry in a later bounded cycle; do not
+with `expected_skip: true` and be identified as an expected main-only skip in
+the packet rather than silently treated as green. The expected-skip identity is
+currently keyed by the literal context name, so update this runbook if the
+quorum context is renamed. The commit-status payload does not expose a GitHub
+App ID; if an app-bound requirement is reported only through commit statuses,
+this collector cannot attribute it and must classify the result
+`evidence_incomplete`. An API outage, pagination failure, or rate limit is
+also `evidence_incomplete`, not green. Retry in a later bounded cycle; do not
 substitute old PR checks for current-main checks.
 
 ## 5. Build The Human Packet
