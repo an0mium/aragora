@@ -437,11 +437,20 @@ def _guard_subprocess_argv(argv: list[str]) -> None:
         group = argv[1]
         if group == "api":
             method = "GET"
-            for index, item in enumerate(argv[2:]):
-                if item in {"--method", "-X"} and index + 3 < len(argv):
-                    method = argv[index + 3]
+            api_args = argv[2:]
+            for index, item in enumerate(api_args):
+                if item in {"-f", "-F", "--field", "--raw-field", "--input"} or item.startswith(
+                    ("-f=", "-F=", "--field=", "--raw-field=", "--input=")
+                ):
+                    raise ValueError("mutating gh api field/input action rejected")
+                if item in {"--method", "-X"}:
+                    if index + 1 >= len(api_args):
+                        raise ValueError("unsupported gh api method action")
+                    method = api_args[index + 1]
                 elif item.startswith("--method="):
                     method = item.split("=", 1)[1]
+                elif item.startswith("-X") and item != "-X":
+                    method = item[2:].removeprefix("=")
             _guard_http_method(method)
             return
         allowed = {
@@ -486,12 +495,15 @@ def _run_read_only(
     _guard_subprocess_argv(argv)
     env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
     executable = Path(argv[0]).name
-    if executable == "git":
-        proc = subprocess.run(["git", *argv[1:]], capture_output=True, env=env, check=False)
-    elif executable == "gh":
-        proc = subprocess.run(["gh", *argv[1:]], capture_output=True, env=env, check=False)
-    else:  # guarded above; retain a fail-closed branch for static analysis
-        raise ValueError(f"unsupported subprocess action rejected: {executable}")
+    try:
+        if executable == "git":
+            proc = subprocess.run(["git", *argv[1:]], capture_output=True, env=env, check=False)
+        elif executable == "gh":
+            proc = subprocess.run(["gh", *argv[1:]], capture_output=True, env=env, check=False)
+        else:  # guarded above; retain a fail-closed branch for static analysis
+            raise ValueError(f"unsupported subprocess action rejected: {executable}")
+    except OSError as exc:
+        raise ValueError(f"read-only subprocess could not execute: {executable}: {exc}") from exc
     raw = proc.stdout if proc.returncode == 0 else proc.stderr
     if log_operation:
         _append_operation(
@@ -642,14 +654,6 @@ def _snapshot_repository(
         git_output(
             ["rev-parse", "--path-format=absolute", "--git-path", "index"],
             "git-index-path",
-        )
-        .decode()
-        .strip()
-    )
-    object_path = Path(
-        git_output(
-            ["rev-parse", "--path-format=absolute", "--git-path", "objects"],
-            "git-object-path",
         )
         .decode()
         .strip()
@@ -1517,25 +1521,45 @@ def _load_evidence_resources(
         "resource_count": len(resources),
         "resources": authenticated_resources,
         "resource_sha256s": sorted(resource_digests),
+        "source": "external_evidence_index",
     }
 
 
 def _parse_http_response(raw: bytes) -> tuple[dict[str, str], bytes]:
-    normalized = raw.replace(b"\r\n", b"\n")
-    parts = normalized.split(b"\n\n")
-    header_index = -1
-    for index, part in enumerate(parts):
-        if part.startswith(b"HTTP/"):
-            header_index = index
-    if header_index < 0 or header_index + 1 >= len(parts):
+    def split_header_block(payload: bytes) -> tuple[bytes, bytes]:
+        candidates = [
+            (index, separator)
+            for separator in (b"\r\n\r\n", b"\n\n")
+            if (index := payload.find(separator)) >= 0
+        ]
+        if not candidates:
+            raise ValueError("GitHub response did not contain authenticated HTTP headers")
+        index, separator = min(candidates, key=lambda item: item[0])
+        return payload[:index], payload[index + len(separator) :]
+
+    if not raw.startswith(b"HTTP/"):
         raise ValueError("GitHub response did not contain authenticated HTTP headers")
-    header_lines = parts[header_index].decode("utf-8", errors="strict").splitlines()
+    header_block, body = split_header_block(raw)
+    while True:
+        header_lines = header_block.decode("utf-8", errors="strict").splitlines()
+        if not header_lines or not header_lines[0].startswith("HTTP/"):
+            raise ValueError("GitHub response did not contain authenticated HTTP headers")
+        status_parts = header_lines[0].split()
+        if (
+            len(status_parts) >= 2
+            and status_parts[1].isdigit()
+            and 100 <= int(status_parts[1]) < 200
+            and body.startswith(b"HTTP/")
+        ):
+            header_block, body = split_header_block(body)
+            continue
+        break
     headers: dict[str, str] = {}
     for line in header_lines[1:]:
         if ":" in line:
             name, value = line.split(":", 1)
             headers[name.strip().lower()] = value.strip()
-    return headers, b"\n\n".join(parts[header_index + 1 :])
+    return headers, body
 
 
 def _gh_api_get(
@@ -1854,7 +1878,11 @@ def _collect_live_evidence(
     assets_by_name = {
         item.get("name"): item for item in assets if item.get("name") in expected_asset_names
     }
-    if sorted(assets_by_name) != list(expected_asset_names) or len(assets_by_name) != 3:
+    if (
+        len(assets) != len(expected_asset_names)
+        or sorted(assets_by_name) != list(expected_asset_names)
+        or len(assets_by_name) != 3
+    ):
         raise ValueError("immutable release capsule assets are incomplete or duplicated")
 
     asset_bytes: dict[str, bytes] = {}
@@ -2468,6 +2496,41 @@ def _baseline_category_counts_at_ref(
     }
 
 
+def _sdk_debt_original_ids_at_ref(
+    repo_root: Path,
+    ref: str,
+    *,
+    operation_log: list[dict[str, Any]],
+) -> set[str]:
+    baseline = _git_json_at_ref(
+        repo_root,
+        ref,
+        "scripts/baselines/verify_sdk_contracts.json",
+        operation_log=operation_log,
+    )
+    original_ids: set[str] = set()
+    for category in ("python_sdk_drift", "typescript_sdk_drift"):
+        literals = baseline.get(category)
+        if not isinstance(literals, list) or not all(isinstance(item, str) for item in literals):
+            raise ValueError(
+                f"scripts/baselines/verify_sdk_contracts.json at {ref} has malformed {category}"
+            )
+        for literal in literals:
+            original_ids.add(
+                "cdg1:"
+                + _sha256_bytes(
+                    _canonical_json_bytes(
+                        {
+                            "category": category,
+                            "exact_historical_literal_record": literal,
+                            "schema": "cdg-original-record-id-v1",
+                        }
+                    )
+                )
+            )
+    return original_ids
+
+
 def _validate_boundary_chronology(
     resource: dict[str, Any],
     *,
@@ -2670,6 +2733,8 @@ def _validate_sdk_paydown(
     boundary: str,
     chronology: dict[str, str],
     canonical_artifacts: dict[str, Any],
+    repo_root: Path,
+    operation_log: list[dict[str, Any]],
 ) -> list[str]:
     zero_key = "zero_core_debt" if boundary == "core_sdk" else "zero_sdk_debt"
     _require_exact_fields(
@@ -2741,6 +2806,20 @@ def _validate_sdk_paydown(
     }
     if zero["fact"] != expected_zero:
         raise ValueError(f"{boundary} original-cohort debt is not zero")
+    remaining_ids = _sdk_debt_original_ids_at_ref(
+        repo_root,
+        chronology[boundary],
+        operation_log=operation_log,
+    )
+    target_ids = set(
+        canonical_artifacts["sdk_provenance"]["core_original_record_ids"]
+        if boundary == "core_sdk"
+        else canonical_artifacts["sdk_provenance"]["sdk_original_record_ids"]
+    )
+    if remaining_ids & target_ids:
+        raise ValueError(
+            f"{boundary} zero debt is contradicted by exact-ref SDK category baselines"
+        )
     return ["qualifying_paydown", zero_key]
 
 
@@ -3192,6 +3271,8 @@ def _evaluate_boundary_evidence(
                 boundary=name,
                 chronology=chronology,
                 canonical_artifacts=canonical_artifacts,
+                repo_root=repo_root,
+                operation_log=operation_log,
             )
         else:
             checks = _validate_final_seal(
@@ -3561,9 +3642,9 @@ def build_boundary_result(
                     repo_root,
                     operation_log,
                 )
-            except ValueError:
+            except (ValueError, OSError):
                 pass
-    except (ValueError, inventory_mod.AuthorityClosureError) as exc:
+    except (ValueError, OSError, inventory_mod.AuthorityClosureError) as exc:
         result.update(
             {
                 "error": str(exc),
@@ -3581,7 +3662,7 @@ def build_boundary_result(
                     repo_root,
                     operation_log,
                 )
-            except ValueError:
+            except (ValueError, OSError):
                 pass
     return _finalize_boundary_result(result)
 
@@ -4052,15 +4133,6 @@ def main() -> int:
     parser.add_argument("--authority-manifest-sha256", default=None)
     parser.add_argument("--cohort-artifact", type=Path, default=None)
     parser.add_argument("--sdk-provenance-artifact", type=Path, default=None)
-    parser.add_argument(
-        "--evidence-index",
-        "--boundary-evidence",
-        dest="evidence_index",
-        type=Path,
-        default=None,
-    )
-    parser.add_argument("--evidence-index-byte-length", type=int, default=None)
-    parser.add_argument("--evidence-index-sha256", default=None)
     parser.add_argument("--github-repository", default="synaptent/aragora")
     parser.add_argument("--github-branch", default="main")
     parser.add_argument("--scratch-root", type=Path, default=None)
@@ -4152,9 +4224,6 @@ def main() -> int:
             authority_manifest_sha256=args.authority_manifest_sha256,
             cohort_artifact_path=args.cohort_artifact,
             sdk_provenance_artifact_path=args.sdk_provenance_artifact,
-            evidence_index_path=args.evidence_index,
-            evidence_index_byte_length=args.evidence_index_byte_length,
-            evidence_index_sha256=args.evidence_index_sha256,
             github_repository=args.github_repository,
             github_branch=args.github_branch,
             scratch_root=args.scratch_root,

@@ -1224,10 +1224,25 @@ def _fixture_sdk_partitions() -> dict[str, list[str]]:
     return partitions
 
 
+def _fixture_sdk_literal(partition: str) -> tuple[str, str]:
+    cohort_path, provenance_path = _require_canonical_fixture_artifacts()
+    cohort = json.loads(cohort_path.read_bytes())
+    provenance = json.loads(provenance_path.read_bytes())
+    cohort_by_id = {record["original_record_id"]: record for record in cohort["original_records"]}
+    record = next(record for record in provenance["records"] if record["partition"] == partition)
+    cohort_record = cohort_by_id[record["original_record_id"]]
+    return (
+        cohort_record["category"],
+        cohort_record["exact_historical_literal_record"],
+    )
+
+
 def _boundary_git_repo(
     tmp_path: Path,
     *,
     route_debt: bool = False,
+    sdk_debt_partition: str | None = None,
+    sdk_debt_at: str | None = None,
 ) -> tuple[Path, str, dict[str, str]]:
     repo = tmp_path / "boundary-repo"
     repo.mkdir(parents=True)
@@ -1258,6 +1273,11 @@ def _boundary_git_repo(
                     "orphaned_in_spec": [],
                 },
             )
+        if sdk_debt_partition is not None and boundary == sdk_debt_at:
+            category, literal = _fixture_sdk_literal(sdk_debt_partition)
+            verify = {"python_sdk_drift": [], "typescript_sdk_drift": []}
+            verify[category] = [literal]
+            _write_json(baselines / "verify_sdk_contracts.json", verify)
         (repo / "fixture.txt").write_text(f"boundary-{index}\n", encoding="utf-8")
         shas[boundary] = _commit(repo, boundary)
     return repo, start_sha, shas
@@ -1783,6 +1803,52 @@ def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_befo
             )
 
 
+def test_boundary_cli_rejects_caller_supplied_evidence_index(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--mode",
+            "boundary",
+            "--schema-version",
+            "1",
+            "--boundary",
+            "corrective_bootstrap",
+            "--start-ref",
+            "0" * 40,
+            "--end-ref",
+            "1" * 40,
+            "--evidence-index",
+            "forged.json",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        ratchet.main()
+    assert exc_info.value.code == 2
+
+
+def test_parse_http_response_preserves_exact_body_bytes():
+    body = b"binary\r\nbody\n\nHTTP/1.1 200 OK\r\nnot-a-header"
+    headers, parsed = ratchet._parse_http_response(
+        b'HTTP/1.1 200 OK\r\nETag: "fixture"\r\nContent-Type: application/octet-stream'
+        b"\r\n\r\n" + body
+    )
+    assert headers["etag"] == '"fixture"'
+    assert parsed == body
+
+    headers, parsed = ratchet._parse_http_response(
+        b"HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\nETag: final\n\npayload\r\nbytes"
+    )
+    assert headers["etag"] == "final"
+    assert parsed == b"payload\r\nbytes"
+
+    with pytest.raises(ValueError, match="authenticated HTTP headers"):
+        ratchet._parse_http_response(b"headerless")
+
+
 def test_boundary_verifier_independently_reads_resources_and_emits_own_operation_log(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1988,6 +2054,83 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
 
     assert result["status"] == "fail"
     assert "contradicted by exact-ref route baselines" in result["error"]
+
+
+@pytest.mark.parametrize(
+    ("boundary", "partition"),
+    (("core_sdk", "core"), ("extended_sdk", "extended")),
+)
+def test_sdk_zero_debt_fails_when_exact_ref_baseline_contradicts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    boundary: str,
+    partition: str,
+):
+    _require_canonical_fixture_artifacts()
+    repo, start_sha, boundary_shas = _boundary_git_repo(
+        tmp_path,
+        sdk_debt_partition=partition,
+        sdk_debt_at=boundary,
+    )
+    end_sha = boundary_shas[boundary]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path,
+        boundary,
+        start_sha,
+        end_sha,
+        boundary_shas,
+        repo=repo,
+    )
+    _stub_boundary_dependencies(monkeypatch)
+
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary=boundary,
+        start_ref=start_sha,
+        end_ref=end_sha,
+        evidence_index_path=index_path,
+        evidence_index_byte_length=index_length,
+        evidence_index_sha256=index_sha256,
+    )
+
+    assert result["status"] == "fail"
+    assert "contradicted by exact-ref SDK category baselines" in result["error"]
+
+
+def test_core_sdk_allows_remaining_extended_exact_ref_baseline_debt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _require_canonical_fixture_artifacts()
+    repo, start_sha, boundary_shas = _boundary_git_repo(
+        tmp_path,
+        sdk_debt_partition="extended",
+        sdk_debt_at="core_sdk",
+    )
+    end_sha = boundary_shas["core_sdk"]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path,
+        "core_sdk",
+        start_sha,
+        end_sha,
+        boundary_shas,
+        repo=repo,
+    )
+    _stub_boundary_dependencies(monkeypatch)
+
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="core_sdk",
+        start_ref=start_sha,
+        end_ref=end_sha,
+        evidence_index_path=index_path,
+        evidence_index_byte_length=index_length,
+        evidence_index_sha256=index_sha256,
+    )
+
+    assert result["status"] == "pass", result
 
 
 def test_governed_prs_and_receipts_must_reconcile_exact_identities(
@@ -2404,6 +2547,8 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         ["gh", "pr", "merge", "1"],
         ["gh", "run", "rerun", "1"],
         ["gh", "release", "upload", "tag", "asset"],
+        ["gh", "api", "-XPOST", "repos/o/r"],
+        ["gh", "api", "-f", "key=value", "repos/o/r"],
     ):
         with pytest.raises(ValueError, match="mutating|unsupported"):
             ratchet._guard_subprocess_argv(argv)
