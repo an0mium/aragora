@@ -12,7 +12,7 @@ import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -410,6 +410,8 @@ def _site_from_manifest(raw: Any, index: int, errors: list[str]) -> tuple[Site, 
             errors.append(f"sites[{index}] detector counts must be positive integers")
             continue
         normalized[name] = count
+    if classification == "proxy-eligible" and not normalized.get("transport-policy-call"):
+        errors.append(f"sites[{index}] proxy-eligible needs transport-policy-call")
     values = [raw[name] for name in required[:4]]
     if not all(isinstance(value, str) and value for value in values):
         errors.append(f"sites[{index}] identity fields must be non-empty strings")
@@ -429,8 +431,7 @@ def _site_from_manifest(raw: Any, index: int, errors: list[str]) -> tuple[Site, 
 def load_manifest(path: Path) -> tuple[dict[SiteKey, tuple[Site, str]], tuple[str, ...], list[str]]:
     errors: list[str] = []
     try:
-        raw_text = path.read_text(encoding="utf-8")
-        payload = json.loads(raw_text)
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return {}, (), [f"cannot read manifest: {exc}"]
     if _contains_forbidden_port(payload):
@@ -551,8 +552,7 @@ def _print_human(result: CheckResult) -> None:
         "forbidden_ports",
         "scan_errors",
     ):
-        values: Iterable[str] = getattr(result, label)
-        for value in values:
+        for value in getattr(result, label):
             print(f"  {label}: {value}")
 
 

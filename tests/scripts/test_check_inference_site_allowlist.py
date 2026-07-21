@@ -118,8 +118,10 @@ def consult(policy: ModelTransportPolicy):
     assert any("transport-policy-call" in site.detectors for site in discovery.sites)
     payload = _template(tmp_path)
     assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
+    payload["sites"][0]["classification"] = "proxy-eligible"
     payload["transport_policy_consumers"] = []
-    assert checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload)).policy_errors
+    result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
+    assert result.policy_errors and result.manifest_errors
 
 
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:
