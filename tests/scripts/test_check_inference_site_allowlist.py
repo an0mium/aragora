@@ -214,6 +214,9 @@ class CompatibleAgent:
     async def generate(self, session):
         url = self._get_endpoint_url()
         await session.post(url)
+class DynamicAnthropicAgent:
+    async def generate(self, session, base_url):
+        await session.post(f"{base_url}/messages")
 class MessagingClient:
     async def send(self, session):
         await session.post(f"{self.base_url}/messages")
@@ -227,6 +230,7 @@ class MessagingClient:
     } == {
         ("AnthropicAgent.generate", "anthropic", "messages", 1),
         ("CompatibleAgent.generate", "openai-compatible", "chat", 1),
+        ("DynamicAnthropicAgent.generate", "anthropic", "messages", 1),
     }
 
 
@@ -286,6 +290,8 @@ fetch<ChatResponse>(chatUrl)
 axios.post<Response<Payload>>(`${baseUrl}/responses`, {})
 const anthropicBase = "https://api.anthropic.com/v1"
 fetch(`${anthropicBase}/messages`)
+const dynamicAnthropicMessages = `${anthropicUrl}/messages`
+fetch(dynamicAnthropicMessages)
 const ordinaryMessages = `${baseUrl}/messages`
 client.request<MessageResponse>(ordinaryMessages)
 """,
@@ -297,6 +303,12 @@ client.request<MessageResponse>(ordinaryMessages)
         ("openai-compatible", "chat", ("http-inference-call",)),
         ("openai-compatible", "responses", ("http-inference-call",)),
     }
+    assert (
+        next(
+            site for site in sites if site.provider == "anthropic" and site.protocol == "messages"
+        ).detectors["http-inference-call"]
+        == 2
+    )
 
 
 def test_javascript_template_literal_sdk_lookalikes_are_ignored(tmp_path: Path) -> None:

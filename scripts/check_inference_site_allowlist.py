@@ -73,6 +73,7 @@ URL_RE = re.compile(r'''https?://[^\s"'`<>()\[\]{}]+''', re.IGNORECASE)
 PYTHON_NUMBER_RE = re.compile(r"(?<![\w.])(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*)(?![\w.])")
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
+ANTHROPIC_CONTEXT_RE = re.compile(r"(?i)anthropic|claude")
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client"), "Mistral": ("mistral", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"), ("audio.transcriptions.complete", "mistral", "audio"), ("chat.complete", "mistral", "chat"), ("chat.stream", "mistral", "chat"), ("agents.complete", "mistral", "messages"), ("agents.stream", "mistral", "messages"), ("fim.complete", "mistral", "completions"))
 HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
@@ -167,12 +168,17 @@ def _provider_for_url(value: str) -> str | None:
     return next(iter(_providers_for_urls(value)), None)
 
 
-def _provider_for_http_endpoint(value: str) -> str | None:
+def _provider_for_http_endpoint(value: str, context: str = "") -> str | None:
     provider = _provider_for_url(value)
     if provider is not None:
         return provider
     protocol = _protocol_for_url(value)
-    return PROTOCOL_PROVIDERS.get(protocol) if "{}" in value else None
+    if "{}" not in value:
+        return None
+    provider = PROTOCOL_PROVIDERS.get(protocol)
+    if provider is None and protocol == "messages" and ANTHROPIC_CONTEXT_RE.search(context):
+        return "anthropic"
+    return provider
 
 
 def _contains_forbidden_port(value: Any, key: str = "") -> bool:
@@ -513,7 +519,7 @@ class _InferenceVisitor(ast.NodeVisitor):
                 (provider, protocol)
                 for candidate in candidates
                 for value in _url_values(candidate, self.url_bindings, self._anchor(), class_name)
-                if (provider := _provider_for_http_endpoint(value)) is not None
+                if (provider := _provider_for_http_endpoint(value, f"{self.path} {self._anchor()} {ast.unparse(candidate)}")) is not None
                 if (protocol := _protocol_for_url(value)) != "base"
             }
             for provider, protocol in endpoints:
@@ -540,14 +546,14 @@ def _js_endpoint_value(raw: str, bindings: dict[str, str] | None = None) -> str:
     return re.sub(r"\$\{.*?\}", "{}", raw)
 
 
-def _js_http_endpoints(source: str) -> tuple[tuple[str, str], ...]:
+def _js_http_endpoints(source: str, path: str = "") -> tuple[tuple[str, str], ...]:
     bindings: dict[str, str] = {}
     for name, value in JS_VALUE_ASSIGN_RE.findall(source):
         bindings[name] = _js_endpoint_value(value, bindings)
     endpoints: list[tuple[str, str]] = []
     for raw in JS_HTTP_CALL_RE.findall(source):
         value = bindings.get(raw, _js_endpoint_value(raw, bindings))
-        provider = _provider_for_http_endpoint(value)
+        provider = _provider_for_http_endpoint(value, f"{path} {raw}")
         protocol = _protocol_for_url(value)
         if provider is not None and protocol != "base":
             endpoints.append((provider, protocol))
@@ -600,7 +606,7 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
                 count = sum(len(re.findall(rf"(?<![\w$]){re.escape(client)}\.{re.escape(suffix)}", js_compact)) for client in clients) + sum(1 for constructor in constructors for match in re.finditer(rf"\bnew\s+{re.escape(constructor)}\s*\(", js_structure) if (end := _js_constructor_end(js_structure, match.end())) is not None and re.match(rf"\s*\.\s*{suffix_pattern}", js_structure[end:]))  # fmt: skip
                 if count:
                     grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["inference-method"] += count  # fmt: skip
-            for provider, protocol in _js_http_endpoints(source):
+            for provider, protocol in _js_http_endpoints(source, relative):
                 grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["http-inference-call"] += 1  # fmt: skip
             for line_no, line in enumerate(source_lines, 1):
                 content = line if path.suffix in JS_SUFFIXES else line.split("#", 1)[0]
