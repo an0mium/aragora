@@ -60,7 +60,7 @@ JS_IMPORTS = ((r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']openai["\']', "", "op
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
 JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`''')
 JS_VALUE_ASSIGN_RE = re.compile(r'''(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
-JS_HTTP_CALL_RE = re.compile(r'''(?<![\w$])(?:fetch|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\.(?:post|request))\s*\(\s*([A-Za-z_$][\w$]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
+JS_HTTP_CALL_RE = re.compile(r'''(?<![\w$])(?:fetch|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\.(?:post|request))\s*(?:<(?:[^<>()]|<[^<>]*>)+>\s*)?\(\s*([A-Za-z_$][\w$]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_STRING_RE = re.compile(
     r"(?i)(?<![a-z])port(?![a-z])\D{0,8}0*8317(?!\d)|(?:^|\s)-p\s+0*8317(?!\d)"

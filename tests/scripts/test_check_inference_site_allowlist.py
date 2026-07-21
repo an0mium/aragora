@@ -282,10 +282,10 @@ def test_javascript_raw_http_calls_follow_dynamic_url_bindings(tmp_path: Path) -
         tmp_path,
         "aragora/live/src/run.ts",
         """const chatUrl = `${baseUrl}/chat/completions`
-fetch(chatUrl)
-axios.post(`${baseUrl}/responses`, {})
+fetch<ChatResponse>(chatUrl)
+axios.post<Response<Payload>>(`${baseUrl}/responses`, {})
 const ordinaryMessages = `${baseUrl}/messages`
-fetch(ordinaryMessages)
+client.request<MessageResponse>(ordinaryMessages)
 """,
     )
     sites = checker.discover(tmp_path).sites
