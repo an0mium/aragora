@@ -59,6 +59,7 @@ from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
 )
+from aragora.agents.transports.claude_vibeproxy import run_claude_vibeproxy
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -472,6 +473,7 @@ class ReviewerResult:
     ok: bool
     error: str = ""
     harness: str = ""
+    allow_transport_fallback: bool = True
 
 
 @dataclass
@@ -1335,7 +1337,8 @@ def build_review_prompt(
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
 
-    ``claude`` -> claude CLI (or Anthropic API if ANTHROPIC_API_KEY);
+    ``claude`` -> explicitly selected VibeProxy, then Claude CLI (or Anthropic
+    API if ANTHROPIC_API_KEY);
     ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
     ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
     CLI when installed (else API); everything else -> API agent. The CLI-first
@@ -1362,7 +1365,7 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     # explicitly enabled, review via OpenRouter using a same-tier model for the SAME
     # family. Keeps the heterogeneous-family invariant (same family, different
     # transport) so one provider's outage/quota can't stall the quorum.
-    if not result.ok:
+    if not result.ok and result.allow_transport_fallback:
         fallback = _run_openrouter_reviewer(fam, prompt)
         if fallback.ok:
             return fallback
@@ -1483,8 +1486,9 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     return None
 
 
-def _run_claude_cli(prompt: str) -> ReviewerResult:
-    timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
+def _run_claude_cli(prompt: str, *, timeout: float | None = None) -> ReviewerResult:
+    if timeout is None:
+        timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         with _claude_empty_mcp_config_file() as mcp_config_path:
             argv = _claude_reviewer_command(mcp_config_path)
@@ -1521,17 +1525,34 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
 
 
 def _run_claude_reviewer(prompt: str) -> ReviewerResult:
-    """Run Claude evidence via the subscription CLI, then the direct Anthropic API.
+    """Run Claude evidence through explicit VibeProxy policy, CLI, then API.
 
-    The claude subscription CLI is preferred (no metered cost). When it is
-    unavailable or fails — e.g. CI runners and other keyless-CLI environments —
-    fall back to the direct Anthropic API if ``ANTHROPIC_API_KEY`` is set, so the
-    merge gate can still form a western-family quorum from API keys alone rather
-    than depending solely on OpenRouter. If neither path works the original CLI
-    failure is returned, so the generic OpenRouter fallback in
-    :func:`default_reviewer_runner` still applies.
+    VibeProxy is attempted only when ``ARAGORA_MODEL_TRANSPORT`` explicitly
+    selects ``vibeproxy-prefer`` or ``vibeproxy-required``. It remains the Claude
+    family and exact model; the proxy client rejects response-model substitution.
+    Direct mode preserves the existing subscription CLI/API order. Required mode
+    fails closed instead of using a direct or OpenRouter fallback.
     """
-    result = _run_claude_cli(prompt)
+    timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
+    vibeproxy = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
+    if vibeproxy.ok:
+        return ReviewerResult(
+            "claude",
+            _cap_text(vibeproxy.text),
+            True,
+            harness=vibeproxy.harness,
+        )
+    if vibeproxy.required:
+        return ReviewerResult(
+            "claude",
+            "",
+            False,
+            vibeproxy.error,
+            allow_transport_fallback=False,
+        )
+
+    direct_timeout = timeout - vibeproxy.timeout_seconds
+    result = _run_claude_cli(prompt, timeout=direct_timeout)
     if result.ok:
         return result
     if os.environ.get("ANTHROPIC_API_KEY", "").strip():
@@ -1540,6 +1561,14 @@ def _run_claude_reviewer(prompt: str) -> ReviewerResult:
         api = _run_api_agent("anthropic-api", prompt)
         if api.ok:
             return replace(api, family="claude")
+    if vibeproxy.attempted and vibeproxy.error:
+        return replace(
+            result,
+            error=(
+                f"VibeProxy prefer attempt failed: {vibeproxy.error}; "
+                f"direct Claude path failed: {result.error}"
+            ),
+        )
     return result
 
 

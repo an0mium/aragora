@@ -26,7 +26,20 @@ checker = _load_module()
 def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
     payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-    assert result.ok is True and result.policy_consumers == ("aragora/agents/api_agents/openai.py", "scripts/consult_claude.py") and [(site["path"], site["anchor"]) for site in payload["sites"] if site["classification"] == "proxy-eligible"] == [("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"), ("scripts/consult_claude.py", "_run_vibeproxy")], result  # fmt: skip
+    assert result.ok is True, result
+    assert result.policy_consumers == (
+        "aragora/agents/api_agents/openai.py",
+        "aragora/agents/transports/claude_vibeproxy.py",
+        "scripts/consult_claude.py",
+    )
+    assert [
+        (site["path"], site["anchor"])
+        for site in payload["sites"]
+        if site["classification"] == "proxy-eligible"
+    ] == [
+        ("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"),
+        ("scripts/consult_claude.py", "_run_vibeproxy"),
+    ]
 
 
 def _write_source(root: Path, relative: str, source: str) -> Path:
