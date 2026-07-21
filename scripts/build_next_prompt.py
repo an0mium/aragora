@@ -137,15 +137,21 @@ def _repo_runner(repo_root: Path) -> CommandRunner:
 
 
 def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
+    text = (result.stdout or "").strip()
+    if text:
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            if result.returncode == 0:
+                return {"raw": text}
+        else:
+            if result.returncode != 0 and isinstance(payload, dict):
+                payload = dict(payload)
+                payload.setdefault("returncode", result.returncode)
+            return payload
     if result.returncode != 0:
         return {"error": result.stderr.strip(), "returncode": result.returncode}
-    text = (result.stdout or "").strip()
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return {"raw": text}
+    return {}
 
 
 def _run_json(command: list[str], command_runner: CommandRunner) -> Any:
@@ -1071,6 +1077,14 @@ def _live_pr_metadata_blocker(
 def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> str:
     if not isinstance(merge_packet, dict) or not merge_packet:
         return "merge-packet is missing or malformed"
+    if merge_packet.get("transport_blocked") or merge_packet.get("status") == "transport_blocked":
+        kind = _prompt_one_line(merge_packet.get("error_kind")) or "unknown transport"
+        detail = _prompt_one_line(merge_packet.get("error")) or "live GitHub transport unavailable"
+        preserve = "; preserve_no_mutate=true" if merge_packet.get("preserve_no_mutate") else ""
+        return f"merge-packet transport blocked ({kind}): {detail}{preserve}"
+    if merge_packet.get("error"):
+        detail = _prompt_one_line(merge_packet.get("error")) or "command failed without details"
+        return f"merge-packet is unavailable: {detail}"
     entry = _select_merge_ready_entry(merge_packet, pr=pr)
     if not entry:
         target = f"PR #{pr}" if pr is not None else "admin_squash_order"

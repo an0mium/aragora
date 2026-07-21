@@ -998,6 +998,55 @@ def test_merge_ready_prompt_fails_closed_for_string_not_ready_entry(tmp_path: Pa
     assert "I authorize normal protected squash merge" not in prompt
 
 
+def test_merge_ready_packet_preserves_structured_transport_failure(tmp_path: Path) -> None:
+    transport_failure = {
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "error_kind": "github_transport",
+        "error": "gh pr list failed: HTTP 504: Gateway Timeout",
+        "admin_squash_order": [],
+        "entries": [],
+    }
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 1, json.dumps(transport_failure), "")
+
+    packet = prompt_builder.build_merge_ready_packet(
+        repo_root=tmp_path,
+        limit=40,
+        command_runner=fake_runner,
+    )
+
+    assert packet["status"] == "transport_blocked"
+    assert packet["error_kind"] == "github_transport"
+    assert packet["preserve_no_mutate"] is True
+    assert packet["returncode"] == 1
+
+
+def test_merge_ready_prompt_reports_transport_failure_before_candidate_parsing(
+    tmp_path: Path,
+) -> None:
+    packet = {
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "error_kind": "github_transport",
+        "error": "gh pr list failed: HTTP 504: Gateway Timeout",
+        "admin_squash_order": [],
+        "entries": [],
+        "returncode": 1,
+    }
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "merge-packet transport blocked (github_transport)" in prompt
+    assert "HTTP 504: Gateway Timeout" in prompt
+    assert "preserve_no_mutate=true" in prompt
+    assert "missing a parseable pr_number" not in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
 def test_packet_authorizes_blocks_string_not_ready_pr() -> None:
     packet = {
         "entries": [
