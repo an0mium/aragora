@@ -89,6 +89,18 @@ unrelated.chat.complete(model="not-mistral", messages=[])
     }
 
 
+def test_bare_mistral_types_reach_ast_discovery(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """def run(client: Mistral):
+    client.chat.complete(model="mistral-large", messages=[])
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert [(site.provider, site.protocol) for site in sites] == [("mistral", "chat")]
+
+
 def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
@@ -426,6 +438,22 @@ def test_python_numeric_port_spellings_trigger_ast_enforcement(tmp_path: Path) -
     )
     result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.forbidden_ports == ("aragora/ports.py:1",) * 4
+
+
+def test_python_embedded_string_ports_trigger_ast_enforcement(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/ports.py",
+        "ARGS = ['--port=8317', 'http://localhost/?port=8317', b'port=08317', '-p 8317']\n",
+    )
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
+    assert result.forbidden_ports == ("aragora/ports.py:1",) * 4
+
+
+def test_python_issue_references_are_not_ports(tmp_path: Path) -> None:
+    _write_source(tmp_path, "aragora/history.py", 'NOTE = "review fix #8317"\n')
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
+    assert result.forbidden_ports == ()
 
 
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:

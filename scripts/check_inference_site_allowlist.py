@@ -37,7 +37,7 @@ PYTHON_AST_NEEDLES = (
     "api.moonshot.ai",
     "api.moonshot.cn",
     "api.mistral.ai",
-    "mistralai",
+    "mistral",
     "api.deepseek.com",
     "api.thinkingmachines.ai",
     "/audio/transcriptions",
@@ -58,6 +58,9 @@ JS_IMPORTS = ((r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']openai["\']', "", "op
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
 JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*' ''', re.VERBOSE)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
+PORT_STRING_RE = re.compile(
+    r"(?i)(?<![a-z])port(?![a-z])\D{0,8}0*8317(?!\d)|(?:^|\s)-p\s+0*8317(?!\d)"
+)
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
@@ -584,10 +587,21 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             scan_errors.append(f"{relative}: SyntaxError: {exc}")
             continue
         for node in ast.walk(tree):
+            string_value = (
+                node.value.decode("ascii", errors="ignore")
+                if isinstance(node, ast.Constant) and isinstance(node.value, bytes)
+                else node.value
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                else None
+            )
             if (
                 isinstance(node, ast.Constant)
-                and isinstance(node.value, str)
-                and re.fullmatch(r"0*8317", node.value)
+                and string_value is not None
+                and (
+                    re.fullmatch(r"0*8317", string_value)
+                    or PORT_STRING_RE.search(string_value)
+                )
+                and not FORBIDDEN_PORT_RE.search(string_value)
             ):
                 forbidden_ports.append(f"{relative}:{node.lineno}")
             if not (
