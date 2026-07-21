@@ -23,6 +23,7 @@ CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
 # fmt: off
 TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
+JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
@@ -328,13 +329,11 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             scan_errors.append(f"{relative}: {type(exc).__name__}: {exc}")
             continue
         if path.suffix in JS_SUFFIXES:
-            source = re.sub(r"/\*.*?\*/", lambda match: "\n" * match.group().count("\n"), source, flags=re.DOTALL)  # fmt: skip
+            source = JS_COMMENT_RE.sub(lambda match: match.group(1) or "\n" * match.group(0).count("\n"), source)  # fmt: skip
         source_lines = source.splitlines()
         if tree is None:
             for line_no, line in enumerate(source_lines, 1):
                 content = line.split("#", 1)[0]
-                if path.suffix in JS_SUFFIXES:
-                    content = re.sub(r"(?<!:)//.*$", "", content)
                 if re.search(r"(?<!\d)0*8317(?!\d)", content):
                     forbidden_ports.append(f"{relative}:{line_no}")
                 for host, provider in PROVIDER_HOSTS.items():
