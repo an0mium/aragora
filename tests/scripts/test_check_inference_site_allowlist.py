@@ -91,12 +91,11 @@ def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
 def run(api: openai.OpenAI):
     api.responses.create()
 client_store.responses.create()
-Factory = openai.OpenAI
-Factory()
+openai.OpenAI().responses.create()
 """,
     )
     discovery = checker.discover(tmp_path)
-    assert discovery.raw_detections == 2
+    assert discovery.raw_detections == 3
     assert {site.protocol for site in discovery.sites} == {"client", "responses"}
 
 

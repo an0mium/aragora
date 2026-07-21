@@ -86,9 +86,12 @@ class CheckResult:
     scan_errors: tuple[str, ...]
 
 
-def _attr_chain(node: ast.AST) -> str:
+def _attr_chain(node: ast.AST, *, unwrap_calls: bool = False) -> str:
     parts: list[str] = []
-    while isinstance(node, ast.Attribute):
+    while isinstance(node, ast.Attribute) or (unwrap_calls and isinstance(node, ast.Call)):
+        if isinstance(node, ast.Call):
+            node = node.func
+            continue
         parts.append(node.attr)
         node = node.value
     if isinstance(node, ast.Name):
@@ -274,7 +277,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        chain = _attr_chain(node.func)
+        chain = _attr_chain(node.func, unwrap_calls=True)
         terminal = chain.rsplit(".", 1)[-1]
         constructor = self.constructor_aliases.get(terminal)
         if constructor is not None:
@@ -283,7 +286,8 @@ class _InferenceVisitor(ast.NodeVisitor):
             receiver = chain[: -len(suffix)].rstrip(".")
             if chain.endswith(suffix) and (
                 receiver in self.client_receivers
-                or receiver.rsplit(".", 1)[-1] in self.client_factories
+                or receiver.rsplit(".", 1)[-1]
+                in self.client_factories | self.constructor_aliases.keys()
             ):
                 self._record(provider, protocol, "inference-method")
                 break
