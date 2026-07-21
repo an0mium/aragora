@@ -138,6 +138,10 @@ def _constructor_aliases(tree: ast.AST) -> dict[str, tuple[str, str]]:
     aliases = dict(CONSTRUCTORS)
     nodes = tuple(ast.walk(tree))
     for node in nodes:
+        if isinstance(node, ast.Import):
+            aliases.update({f"{name.asname or name.name}.Client": ("gemini", "client") for name in node.names if name.name == "google.genai"})  # fmt: skip
+        if isinstance(node, ast.ImportFrom) and node.module in {"google", "google.genai"}:
+            aliases.update({f"{name.asname or name.name}{'.Client' if node.module == 'google' else ''}": ("gemini", "client") for name in node.names if name.name == ("genai" if node.module == "google" else "Client")})  # fmt: skip
         if isinstance(node, ast.ImportFrom) and node.module in {"openai", "anthropic"}:
             for name in node.names:
                 if name.name in CONSTRUCTORS:
@@ -147,17 +151,20 @@ def _constructor_aliases(tree: ast.AST) -> dict[str, tuple[str, str]]:
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
                 if node.value is None:
                     continue
-                source = _attr_chain(node.value).rsplit(".", 1)[-1]
-                if source in aliases:
+                source = _attr_chain(node.value)
+                terminal = source.rsplit(".", 1)[-1]
+                constructor = aliases.get(source) or (aliases.get(terminal) if terminal != "Client" or "." not in source else None)  # fmt: skip
+                if constructor is not None:
                     aliases.update(
-                        {target.rsplit(".", 1)[-1]: aliases[source] for target in _targets(node)}
+                        {target.rsplit(".", 1)[-1]: constructor for target in _targets(node)}
                     )
     return aliases
 
 
+# fmt: off
 def _typed_client(annotation: ast.AST | None, aliases: dict[str, tuple[str, str]]) -> bool:
     return annotation is not None and any(
-        _attr_chain(part).rsplit(".", 1)[-1] in aliases for part in ast.walk(annotation)
+        (chain := _attr_chain(part)) in aliases or ((terminal := chain.rsplit(".", 1)[-1]) in aliases and (terminal != "Client" or "." not in chain)) for part in ast.walk(annotation)
     )
 
 
@@ -173,7 +180,7 @@ def _client_provenance(
         for node in functions
         if (_typed_client(node.returns, aliases))
         or any(
-            isinstance(part, ast.Call) and _attr_chain(part.func).rsplit(".", 1)[-1] in aliases
+            isinstance(part, ast.Call) and ((chain := _attr_chain(part.func)) in aliases or ((terminal := chain.rsplit(".", 1)[-1]) in aliases and (terminal != "Client" or "." not in chain)))  # fmt: skip
             for part in ast.walk(node)
         )
     }
@@ -182,14 +189,14 @@ def _client_provenance(
         for node in nodes
         if isinstance(node, ast.arg) and _typed_client(node.annotation, aliases)
     }
-
+# fmt: on
     def backed(value: ast.AST) -> bool:
         if isinstance(value, ast.IfExp):
             return backed(value.body) or backed(value.orelse)
         value = value.value if isinstance(value, ast.Await) else value
         chain = _attr_chain(value.func) if isinstance(value, ast.Call) else _attr_chain(value)
         terminal = chain.rsplit(".", 1)[-1]
-        return chain in clients or terminal in aliases or terminal in factories
+        return chain in clients or chain in aliases or (terminal in aliases and (terminal != "Client" or "." not in chain)) or terminal in factories  # fmt: skip
 
     for _ in range(3):
         for node in nodes:
@@ -230,7 +237,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         rooted = receiver in self.client_receivers or receiver.startswith(prefixes)
         terminal = receiver.rsplit(".", 1)[-1]
         known = self.client_factories | self.constructor_aliases.keys()
-        return rooted or terminal in known
+        return rooted or receiver in known or (terminal in known and (terminal != "Client" or "." not in receiver))  # fmt: skip
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope.append(("class", node.name))
@@ -291,7 +298,7 @@ class _InferenceVisitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         chain = _attr_chain(node.func, unwrap_calls=True)
         terminal = chain.rsplit(".", 1)[-1]
-        constructor = self.constructor_aliases.get(terminal)
+        constructor = self.constructor_aliases.get(chain) or (self.constructor_aliases.get(terminal) if terminal != "Client" or "." not in chain else None)  # fmt: skip
         if constructor is not None:
             self._record(*constructor, "client-constructor")
         self.generic_visit(node)
