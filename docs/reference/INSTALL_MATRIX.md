@@ -53,18 +53,21 @@ full exit-code contract and disambiguation from the in-tree `aragora verify`).
 **PyPI install (floor-pinned, recommended):** 0.1.1 adds the `key_id`-equality
 check that closes a signer-label-tampering gap present in 0.1.0 (a relabeled
 `key_id` on an otherwise-valid signature silently passes verification on
-0.1.0 but correctly fails it on 0.1.1). Pin the floor so an install always
-gets that protection:
+0.1.0 but correctly fails it on 0.1.1). Until verifier 0.1.2 is published,
+pin both the verifier and cryptography floors so constrained environments get
+the tamper fix and the security floor already present on main:
 
 <!-- FACT (live-verified 2026-07-21): aragora-verify 0.1.1 IS on PyPI (info.version=0.1.1). Before "correcting" this to unreleased, re-run: curl -s https://pypi.org/pypi/aragora-verify/json | jq .info.version -->
 
 ```bash
-pip install "aragora-verify>=0.1.1"
+pip install -U "aragora-verify>=0.1.1" "cryptography>=48.0.1"
 ```
 
-**Unpinned (also correct today):** PyPI's latest already resolves to 0.1.1,
-so the plain form installs the same secure version — the floor pin is what
-protects you if that ever stops being true:
+**Unpinned verifier (functional, but does not enforce the cryptography
+floor):** PyPI's latest currently resolves to verifier 0.1.1 and a pristine
+2026-07-21 install selected cryptography 49.0.0. Existing constraints may still
+select an older allowed cryptography release, so use the command above for the
+no-trust path:
 
 ```bash
 pip install aragora-verify
