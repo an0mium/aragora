@@ -64,7 +64,37 @@ aragora compliance oversight-pack --window 30d \
 aragora compliance oversight-pack --window 12w \
   --receipts-dir docs/receipts --receipts-dir /path/to/odr/exports \
   --attestations attestations.json
+
+# Auto-fetch human-settlement attestations from the GitHub trail
+# (walks merged PRs' aragora/human-settlement commit statuses via gh)
+aragora compliance oversight-pack --window 30d --fetch-settlements \
+  --repo owner/name   # --repo optional; resolved from cwd via gh
 ```
+
+### Auto-fetched settlement attestations (`--fetch-settlements`)
+
+`aragora/compliance/oversight_fetch.py` automates the `--attestations`
+input from the trail itself: it lists merged PRs in the window, reads each
+head's commit statuses, and converts every successful head-bound
+`aragora/human-settlement` status into an attestation via
+`attestation_from_settlement_status` (status `creator.login` = oversight
+identity, PR author = execution identity). The same honesty rules apply
+end-to-end:
+
+- **Self-settled PRs are refused** — a settlement whose status creator
+  equals the PR's executing author fails the builder's identity-separation
+  check and lands in the pack's `settlement_fetch.skipped` list with the
+  reason, never silently kept *or* dropped.
+- **Windowing is double-checked** — both the PR merge time and the status
+  `created_at` must fall inside the window.
+- **Completeness is persisted** — a scan that fills the PR limit is flagged
+  `truncated`, and per-PR fetch failures are recorded in `skipped`; both
+  live in the pack's `settlement_fetch` section (and the Markdown report),
+  not just console output.
+- Trail settlements are aggregated in the pack's `settlement_attestations`
+  section and count toward the identity-dependent clauses (14(1), 14(3),
+  14(4)(d)) as *mechanism-operating* evidence; alone (unmatched to windowed
+  receipts) they cap those clauses at `partial`, never `satisfied`.
 
 The pack contains: per-receipt entries (id, timestamp, verdict, disposition,
 attestor, mechanism, observed evidence), summary counts, the clause mapping

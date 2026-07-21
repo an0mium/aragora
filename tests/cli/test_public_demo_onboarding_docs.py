@@ -23,8 +23,13 @@ def _line_containing(text: str, needle: str) -> str:
     return matches[0]
 
 
+def _collapsed(text: str) -> str:
+    return " ".join(text.split())
+
+
 def test_readme_advertises_current_pypi_receipt_round_trip() -> None:
     readme = (REPO_ROOT / "README.md").read_text()
+    collapsed_readme = _collapsed(readme)
     pypi_try_it_now = _section_between(
         readme,
         "Current PyPI package:",
@@ -42,14 +47,15 @@ def test_readme_advertises_current_pypi_receipt_round_trip() -> None:
     )
     pypi_table_row = _line_containing(readme, "Run the current PyPI zero-key receipt demo")
 
-    assert "pip install aragora && aragora demo --offline" in readme
+    assert "pip install -U 'aragora>=2.9.0' && aragora demo --offline" in readme
     assert "--offline" in pypi_table_row
     assert "--receipt" in pypi_table_row
     assert "receipt verify" in pypi_table_row
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in pypi_try_it_now
     assert "aragora receipt verify aragora-demo-receipt.json" in pypi_try_it_now
     assert "Current source checkout:" in readme
-    assert "PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip" in readme
+    assert "Use `aragora>=2.9.0` for the explicit offline demo receipt round trip" in readme
+    assert "Earlier PyPI releases do not support the `--offline` receipt flags" in collapsed_readme
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in source_try_it_now
     assert "aragora receipt verify aragora-demo-receipt.json" in source_try_it_now
     assert (
@@ -75,6 +81,7 @@ def test_pypi_long_description_advertises_zero_key_receipt_round_trip() -> None:
 
 def test_quickstart_advertises_current_pypi_receipt_round_trip() -> None:
     quickstart = (REPO_ROOT / "docs" / "quickstart.md").read_text()
+    collapsed_quickstart = _collapsed(quickstart)
     pypi_section = _section_between(
         quickstart,
         "Current PyPI package:",
@@ -84,10 +91,12 @@ def test_quickstart_advertises_current_pypi_receipt_round_trip() -> None:
 
     assert "Current PyPI package" in quickstart
     assert "Current source checkout" in quickstart
+    assert "pip install -U 'aragora>=2.9.0'" in pypi_section
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in pypi_section
     assert "aragora receipt verify aragora-demo-receipt.json" in pypi_section
     assert "aragora demo --offline --receipt aragora-demo-receipt.json" in source_section
     assert "aragora receipt verify aragora-demo-receipt.json" in source_section
+    assert "Use `aragora>=2.9.0` for the explicit offline demo receipt round trip" in quickstart
     assert (
-        "PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip" in quickstart
+        "Earlier PyPI releases do not support the `--offline` receipt flags" in collapsed_quickstart
     )
