@@ -173,9 +173,12 @@ queued run with no `started_at` cannot be hidden by an older success; a missing
 or nonnumeric ID fails closed:
 
 ```bash
-RULESET_REQUIRED_JSON="$(
+RULESET_REQUIRED_RAW="$(
   gh api --paginate --slurp \
-    "repos/synaptent/aragora/rules/branches/main?per_page=100" \
+    "repos/synaptent/aragora/rules/branches/main?per_page=100"
+)" || exit 1
+RULESET_REQUIRED_JSON="$(
+  printf '%s\n' "$RULESET_REQUIRED_RAW" \
     | jq '[
       .[][]
       | select(.type == "required_status_checks")
@@ -186,9 +189,12 @@ RULESET_REQUIRED_JSON="$(
         }
     ]'
 )" || exit 1
+BRANCH_PROTECTION_REQUIRED_RAW="$(
+  gh api repos/synaptent/aragora/branches/main/protection/required_status_checks
+)" || exit 1
 BRANCH_PROTECTION_REQUIRED_JSON="$(
-  gh api repos/synaptent/aragora/branches/main/protection/required_status_checks \
-    --jq '{
+  printf '%s\n' "$BRANCH_PROTECTION_REQUIRED_RAW" \
+    | jq '{
       checks: [(.checks // [])[] | {context, app_id}],
       legacy_contexts: (
         [.contexts[]?] - [(.checks // [])[].context] | unique
@@ -244,14 +250,21 @@ REQUIRED_POLICY_JSON="$(
         | unique
       ),
       sources: {
-        ruleset: true,
-        branch_protection: true
+        ruleset: (($ruleset | type) == "array"),
+        branch_protection: (
+          ($protection | type) == "object"
+          and ($protection.checks | type) == "array"
+          and ($protection.legacy_contexts | type) == "array"
+        )
       }
     }'
 )" || exit 1
-CHECK_RUNS_JSON="$(
+CHECK_RUNS_RAW="$(
   gh api --paginate --slurp \
-    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/check-runs?filter=latest&per_page=100" \
+    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/check-runs?filter=latest&per_page=100"
+)" || exit 1
+CHECK_RUNS_JSON="$(
+  printf '%s\n' "$CHECK_RUNS_RAW" \
     | jq '[.[].check_runs[] | {
         id,
         name,
@@ -263,9 +276,12 @@ CHECK_RUNS_JSON="$(
         completed_at
       }]'
 )" || exit 1
-COMMIT_STATUSES_JSON="$(
+COMMIT_STATUSES_RAW="$(
   gh api --paginate --slurp \
-    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/statuses?per_page=100" \
+    "repos/synaptent/aragora/commits/$CANDIDATE_SHA/statuses?per_page=100"
+)" || exit 1
+COMMIT_STATUSES_JSON="$(
+  printf '%s\n' "$COMMIT_STATUSES_RAW" \
     | jq '[.[][] | {
         id,
         context,
@@ -317,8 +333,7 @@ jq -n \
       | [$statuses[] | select(.context == $requirement.context)] as $status_matches
       | any($check_matches[]; (.id | type) != "number") as $invalid_check_proof
       | any($status_matches[];
-          (.updated_at | type) != "string"
-          or (.updated_at | length) == 0
+          (.id | type) != "number"
         ) as $invalid_status_proof
       | (
           if $invalid_check_proof
@@ -329,7 +344,7 @@ jq -n \
       | (
           if $invalid_status_proof
           then null
-          else ($status_matches | max_by(.updated_at))
+          else ($status_matches | max_by(.id))
           end
         ) as $latest_status
       | (
@@ -377,11 +392,10 @@ jq -n \
           found: ($matches | length > 0),
           latest: (
             if any($matches[];
-              (.updated_at | type) != "string"
-              or (.updated_at | length) == 0
+              (.id | type) != "number"
             )
             then null
-            else ($matches | max_by(.updated_at))
+            else ($matches | max_by(.id))
             end
           )
         }
@@ -472,6 +486,8 @@ sh -euc '
   test "${actual_halt_sha256%% *}" = "$halt_sha256"
   git -C "$repo_root" fetch origin +refs/heads/main:refs/remotes/origin/main
   test "$(git -C "$repo_root" rev-parse origin/main)" = "$candidate_sha"
+  actual_halt_sha256=$(shasum -a 256 "$halt_file")
+  test "${actual_halt_sha256%% *}" = "$halt_sha256"
   rm -- "$halt_file"
   test ! -e "$halt_file"
 ' sh "$HALT_FILE" "$HALT_SHA256" "$REPO_ROOT" "$CANDIDATE_SHA"
