@@ -204,66 +204,63 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixtures")
-@pytest.mark.parametrize(
-    "failure_match",
-    [
-        "rules/branches/main",
-        "branches/main/protection",
-        "check-runs",
-        "/statuses",
-    ],
-)
-def test_context_collection_rejects_partial_output_from_failed_api(
-    tmp_path: Path,
-    failure_match: str,
-) -> None:
-    text = RUNBOOK.read_text(encoding="utf-8")
-    _write_fake_gh(tmp_path)
-    env = os.environ.copy()
-    env.update(
-        {
-            "CANDIDATE_SHA": "deadbeef",
-            "FAIL_MATCH": failure_match,
-            "PATH": f"{tmp_path}:{env['PATH']}",
-        }
-    )
-
-    result = subprocess.run(
-        ["sh", "-c", f"{_collection_shell_program(text)}\nprintf 'CERTIFIED\\n'"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-
-    assert result.returncode != 0
-    assert "CERTIFIED" not in result.stdout
-
-
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixtures")
-def test_context_collection_accepts_complete_api_responses(tmp_path: Path) -> None:
-    text = RUNBOOK.read_text(encoding="utf-8")
-    _write_fake_gh(tmp_path)
-    env = os.environ.copy()
-    env.update(
-        {
-            "CANDIDATE_SHA": "deadbeef",
-            "PATH": f"{tmp_path}:{env['PATH']}",
-        }
-    )
-
-    result = subprocess.run(
-        ["sh", "-c", f"{_collection_shell_program(text)}\nprintf 'CERTIFIED\\n'"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert result.stdout == "CERTIFIED\n"
-
-
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixtures")
 class TestJqPrograms:
+    @pytest.mark.parametrize(
+        "failure_match",
+        [
+            "rules/branches/main",
+            "branches/main/protection",
+            "check-runs",
+            "/statuses",
+        ],
+    )
+    def test_context_collection_rejects_partial_output_from_failed_api(
+        self,
+        tmp_path: Path,
+        failure_match: str,
+    ) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        _write_fake_gh(tmp_path)
+        env = os.environ.copy()
+        env.update(
+            {
+                "CANDIDATE_SHA": "deadbeef",
+                "FAIL_MATCH": failure_match,
+                "PATH": f"{tmp_path}:{env['PATH']}",
+            }
+        )
+
+        result = subprocess.run(
+            ["sh", "-c", f"{_collection_shell_program(text)}\nprintf 'CERTIFIED\\n'"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode != 0
+        assert "CERTIFIED" not in result.stdout
+
+    def test_context_collection_accepts_complete_api_responses(self, tmp_path: Path) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        _write_fake_gh(tmp_path)
+        env = os.environ.copy()
+        env.update(
+            {
+                "CANDIDATE_SHA": "deadbeef",
+                "PATH": f"{tmp_path}:{env['PATH']}",
+            }
+        )
+
+        result = subprocess.run(
+            ["sh", "-c", f"{_collection_shell_program(text)}\nprintf 'CERTIFIED\\n'"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "CERTIFIED\n"
+
     def test_required_policy_unions_rulesets_and_branch_protection(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
         ruleset = [
