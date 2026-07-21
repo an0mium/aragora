@@ -2998,6 +2998,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
     if _result_has_only_agent_failure_outputs(result):
+        # Surface a substantive final answer if one exists (issue #9304): the
+        # engine can synthesize a real answer even when round messages were
+        # placeholders — hiding it behind a bare exit-1 buries user value.
+        final = str(getattr(result, "final_answer", "") or "")
+        if final and not _looks_like_agent_failure_response(final):
+            print("\n" + "=" * 60)
+            print("FINAL ANSWER (degraded run — agent rounds reported errors):")
+            print("=" * 60)
+            print(final)
         print(
             "Debate failed: all selected agents returned provider/error placeholders. "
             f"Run 'aragora validate-env --smoke --agents {agents} --verbose' and retry.",
