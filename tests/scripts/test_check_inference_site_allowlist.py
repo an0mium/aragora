@@ -163,11 +163,14 @@ holder.client = new OpenAIClient()
 holder.client.chat.completions.create({})
 this.embedder = new OpenAIClient()
 this.embedder.embeddings.create({})
+this.#privateClient = new OpenAIClient()
+this.#privateClient.completions.create({})
 """,
     )
     sites = checker.discover(tmp_path).sites
     assert {(site.provider, site.protocol) for site in sites} == {
         ("openai-compatible", "chat"),
+        ("openai-compatible", "completions"),
         ("openai-compatible", "embeddings"),
         ("openai-compatible", "responses"),
     }
