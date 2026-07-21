@@ -160,6 +160,13 @@ table.
 4. **Transparency log** — pending; see `rekor-note.md` for the exact
    publish-and-verify procedure.
 
+## Bundle PR hygiene
+
+Compliance and evidence bundle PRs carry bundle files only. Generated surfaces
+(`METRICS`, `STATUS`, `EXTENDED_README`, `CANONICAL_GOALS`, `ARCHITECTURE`,
+`FEATURE_DISCOVERY`, and their docs-site mirrors) stay owned by main's generators;
+including them guarantees repeated merge-context conflicts.
+
 ## Related documents
 
 - [`docs/compliance/EU_AI_ACT_GUIDE.md`](../../EU_AI_ACT_GUIDE.md) — artifact generation guide (Articles 9/12/13/14/15)
