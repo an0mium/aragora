@@ -26,8 +26,9 @@ PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 # fmt: off
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
-CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client")}
+CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"))
+GEMINI_METHODS = frozenset({"generate_content", "generate_content_async"})
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
@@ -125,13 +126,9 @@ def _contains_forbidden_port(value: Any, key: str = "") -> bool:
 
 
 def _targets(node: ast.AST) -> tuple[str, ...]:
-    raw = (
-        node.targets
-        if isinstance(node, ast.Assign)
-        else [node.target]
-        if isinstance(node, ast.AnnAssign)
-        else []
-    )
+    if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+        return ()
+    raw = node.targets if isinstance(node, ast.Assign) else [node.target]
     return tuple(chain for target in raw if (chain := _attr_chain(target)))
 
 
@@ -187,12 +184,10 @@ def _client_provenance(
     def backed(value: ast.AST) -> bool:
         if isinstance(value, ast.IfExp):
             return backed(value.body) or backed(value.orelse)
+        value = value.value if isinstance(value, ast.Await) else value
         chain = _attr_chain(value.func) if isinstance(value, ast.Call) else _attr_chain(value)
-        return (
-            chain in clients
-            or chain.rsplit(".", 1)[-1] in aliases
-            or chain.rsplit(".", 1)[-1] in factories
-        )
+        terminal = chain.rsplit(".", 1)[-1]
+        return chain in clients or terminal in aliases or terminal in factories
 
     for _ in range(3):
         for node in nodes:
@@ -228,6 +223,13 @@ class _InferenceVisitor(ast.NodeVisitor):
     def _record(self, provider: str, protocol: str, detector: str) -> None:
         self.detections.append((SiteKey(self.path, self._anchor(), provider, protocol), detector))
 
+    def _has_client(self, receiver: str) -> bool:
+        prefixes = tuple(f"{client}." for client in self.client_receivers)
+        rooted = receiver in self.client_receivers or receiver.startswith(prefixes)
+        terminal = receiver.rsplit(".", 1)[-1]
+        known = self.client_factories | self.constructor_aliases.keys()
+        return rooted or terminal in known
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.scope.append(("class", node.name))
         self.generic_visit(node)
@@ -247,6 +249,9 @@ class _InferenceVisitor(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if node.attr == "ModelTransportPolicy":
             self.mentions_policy = True
+        receiver = _attr_chain(node.value, unwrap_calls=True)
+        if node.attr in GEMINI_METHODS and self._has_client(receiver):
+            self._record("gemini", "generate-content", "inference-method")
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
@@ -284,11 +289,7 @@ class _InferenceVisitor(ast.NodeVisitor):
             self._record(*constructor, "client-constructor")
         for suffix, provider, protocol in METHOD_SUFFIXES:
             receiver = chain[: -len(suffix)].rstrip(".")
-            if chain.endswith(suffix) and (
-                receiver in self.client_receivers
-                or receiver.rsplit(".", 1)[-1]
-                in self.client_factories | self.constructor_aliases.keys()
-            ):
+            if chain.endswith(suffix) and self._has_client(receiver):
                 self._record(provider, protocol, "inference-method")
                 break
         if chain.endswith(("generate_anthropic", "anthropic_message")):

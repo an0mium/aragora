@@ -26,7 +26,6 @@ def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
     payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
     eligible = [site for site in payload["sites"] if site["classification"] == "proxy-eligible"]
-
     assert result.ok is True, result
     assert result.policy_consumers == ("scripts/consult_claude.py",)
     assert "preserve reviewed classifications" in payload["policy_note"]
@@ -53,14 +52,12 @@ def _template(root: Path) -> dict[str, Any]:
 
 
 def _empty_manifest(root: Path) -> Path:
-    return _write_manifest(
-        root, {"schema_version": 1, "transport_policy_consumers": [], "sites": []}
-    )
+    payload = {"schema_version": 1, "transport_policy_consumers": [], "sites": []}
+    return _write_manifest(root, payload)
 
 
 def test_discovery_groups_by_stable_symbol_anchor(tmp_path: Path) -> None:
     source = """from openai import AsyncOpenAI
-
 class Runner:
     async def generate(self):
         client = AsyncOpenAI()
@@ -87,16 +84,18 @@ def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
         "aragora/run.py",
-        """import openai
+        """import openai, google.generativeai as genai
 def run(api: openai.OpenAI):
     api.responses.create()
 client_store.responses.create()
 openai.OpenAI().responses.create()
+genai.GenerativeModel().generate_content("hello")
 """,
     )
     discovery = checker.discover(tmp_path)
-    assert discovery.raw_detections == 3
-    assert {site.protocol for site in discovery.sites} == {"client", "responses"}
+    assert discovery.raw_detections == 5
+    protocols = {site.protocol for site in discovery.sites}
+    assert protocols == {"client", "responses", "generate-content"}
 
 
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
@@ -137,13 +136,11 @@ def run():
     changed = checker.check_allowlist(tmp_path, manifest)
     assert changed.ok is False
     assert len(changed.changed) == 1
-
     _write_source(
         tmp_path, "aragora/new.py", "from anthropic import Anthropic\nclient = Anthropic()\n"
     )
     missing = checker.check_allowlist(tmp_path, manifest)
     assert missing.unclassified
-
     path.unlink()
     stale = checker.check_allowlist(tmp_path, manifest)
     assert stale.stale
