@@ -596,6 +596,6 @@ def test_main_package_states_match_appendix_a() -> None:
     assert status == "DRAFT"
     assert package_states == appendix_states
     assert set(package_states) == live_package_dirs
-    assert len(package_states) == 144
+    assert len(package_states) == 145
     assert sum(state == "MAPPED" for state in package_states.values()) == 64
-    assert sum(state == "UNMAPPED" for state in package_states.values()) == 80
+    assert sum(state == "UNMAPPED" for state in package_states.values()) == 81

@@ -347,6 +347,7 @@ package_states:
   aragora/migrations: MAPPED
   aragora/missions: UNMAPPED
   aragora/ml: MAPPED
+  aragora/models: UNMAPPED
   aragora/moderation: UNMAPPED
   aragora/modes: UNMAPPED
   aragora/monitoring: MAPPED

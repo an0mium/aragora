@@ -584,6 +584,7 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/migrations` | L0 | MAPPED | ARCH-031/CHR-X-021 parked consolidation |
 | `aragora/missions` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/ml` | L2 | MAPPED | CHR-X-027 embeddings demote; rest UNMAPPED-adjacent |
+| `aragora/models` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/moderation` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/modes` | — | UNMAPPED | frozen for architectural growth (§2d); triage via R5 amendment |
 | `aragora/monitoring` | L0 | MAPPED | CHR-X-005 shim retire |
@@ -656,6 +657,5 @@ descriptive inventory — the normative machine encoding is `charters.yaml`.
 | `aragora/workspace` | L5 | MAPPED | ARCH-013 delegating wrapper over nomic/stores; CHR-X-043 absorb into nomic/stores AFTER CHR-X-028 (ruled 2026-07-06) |
 | `aragora/worktree` | L5 | MAPPED | ARCH-021 authority; fleet.py mirror-only (ARCH-012) |
 
-Totals: 144 top-level packages — 64 MAPPED, 80 UNMAPPED.
+Totals: 145 top-level packages — 64 MAPPED, 81 UNMAPPED.
 (Top-level single-file modules under `aragora/*.py` follow their nearest package's state; `resilience_patterns.py`/`resilience_config.py` are chartered in CHR-X-006.)
-

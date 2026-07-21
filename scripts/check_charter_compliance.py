@@ -347,6 +347,47 @@ def parse_diff(diff_text: str) -> list[AddedLine]:
     return added
 
 
+def _coalesce_multiline_imports(added_lines: list[AddedLine]) -> list[AddedLine]:
+    expanded = list(added_lines)
+    pending: list[str] = []
+    pending_path: str | None = None
+    pending_line: int | None = None
+    expected_line: int | None = None
+
+    for added_line in added_lines:
+        if pending:
+            if added_line.path != pending_path or added_line.line_no != expected_line:
+                pending = []
+                pending_path = None
+                pending_line = None
+                expected_line = None
+            else:
+                pending.append(added_line.line)
+                expected_line = added_line.line_no + 1 if added_line.line_no is not None else None
+                if ")" in added_line.line:
+                    statement = " ".join(part.strip() for part in pending)
+                    if _from_import(statement) is not None:
+                        expanded.append(AddedLine(added_line.path, pending_line, statement))
+                    pending = []
+                    pending_path = None
+                    pending_line = None
+                    expected_line = None
+                continue
+
+        from_import = FROM_IMPORT_RE.match(added_line.line)
+        if (
+            from_import is not None
+            and from_import.group(2).lstrip().startswith("(")
+            and ")" not in from_import.group(2)
+        ):
+            pending = [added_line.line]
+            pending_path = added_line.path
+            pending_line = added_line.line_no
+            expected_line = added_line.line_no + 1 if added_line.line_no is not None else None
+
+    return expanded
+
+
 def parse_new_files(diff_text: str) -> list[str]:
     new_files: list[str] = []
 
@@ -488,7 +529,7 @@ def check_diff(diff_text: str, *, charter_path: Path | str) -> CheckResult:
     charter_path = Path(charter_path)
     entries, authority_by_ref, _status = load_charter_entries(charter_path)
     package_states, charter_status = load_package_states(charter_path)
-    added_lines = parse_diff(diff_text)
+    added_lines = _coalesce_multiline_imports(parse_diff(diff_text))
     aliases_by_path: dict[str, dict[str, set[str]]] = {}
     for added_line in added_lines:
         for alias, module in _plain_import_aliases(added_line.line).items():
