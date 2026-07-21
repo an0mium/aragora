@@ -70,6 +70,25 @@ def test_discovery_finds_aliased_constructors(tmp_path: Path, module: str, name:
     assert checker.discover(tmp_path).sites[0].provider in {"openai-compatible", "anthropic"}
 
 
+def test_discovery_finds_native_mistral_sdk_calls(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """from mistralai import Mistral as MistralClient
+client = MistralClient(api_key="key")
+client.chat.complete(model="mistral-large", messages=[])
+client.fim.complete(model="codestral", prompt="pass")
+unrelated.chat.complete(model="not-mistral", messages=[])
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol) for site in sites} == {
+        ("mistral", "chat"),
+        ("mistral", "client"),
+        ("mistral", "completions"),
+    }
+
+
 def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
@@ -397,6 +416,16 @@ def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path)
     )
     result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.forbidden_ports == ("aragora/agents/transports/vibeproxy.py:2", "aragora/agents/transports/vibeproxy.py:3")  # fmt: skip
+
+
+def test_python_numeric_port_spellings_trigger_ast_enforcement(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/ports.py",
+        "PORTS = [8_317, 0x207d, 0o20175, 0b10000001111101]\n",
+    )
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
+    assert result.forbidden_ports == ("aragora/ports.py:1",) * 4
 
 
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:

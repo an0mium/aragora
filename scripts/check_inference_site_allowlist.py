@@ -37,6 +37,7 @@ PYTHON_AST_NEEDLES = (
     "api.moonshot.ai",
     "api.moonshot.cn",
     "api.mistral.ai",
+    "mistralai",
     "api.deepseek.com",
     "api.thinkingmachines.ai",
     "/audio/transcriptions",
@@ -61,10 +62,11 @@ PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 URL_RE = re.compile(r'''https?://[^\s"'`<>()\[\]{}]+''', re.IGNORECASE)
+PYTHON_NUMBER_RE = re.compile(r"(?<![\w.])(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*)(?![\w.])")
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
-CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
-METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
+CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client"), "Mistral": ("mistral", "client")}
+METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"), ("audio.transcriptions.complete", "mistral", "audio"), ("chat.complete", "mistral", "chat"), ("chat.stream", "mistral", "chat"), ("agents.complete", "mistral", "messages"), ("agents.stream", "mistral", "messages"), ("fim.complete", "mistral", "completions"))
 HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
@@ -179,6 +181,18 @@ def _contains_forbidden_port(value: Any, key: str = "") -> bool:
     return False
 
 
+def _contains_python_numeric_port_literal(source: str) -> bool:
+    for match in PYTHON_NUMBER_RE.finditer(source):
+        token = match.group().replace("_", "")
+        base = 0 if token.lower().startswith(("0x", "0o", "0b")) else 10
+        try:
+            if int(token, base) == 8317:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def _targets(node: ast.AST) -> tuple[str, ...]:
     if not isinstance(node, (ast.Assign, ast.AnnAssign)):
         return ()
@@ -194,7 +208,7 @@ def _constructor_aliases(tree: ast.AST) -> dict[str, tuple[str, str]]:
             aliases.update({f"{name.asname or name.name}.Client": ("gemini", "client") for name in node.names if name.name == "google.genai"})  # fmt: skip
         if isinstance(node, ast.ImportFrom) and node.module in {"google", "google.genai"}:
             aliases.update({f"{name.asname or name.name}{'.Client' if node.module == 'google' else ''}": ("gemini", "client") for name in node.names if name.name == ("genai" if node.module == "google" else "Client")})  # fmt: skip
-        if isinstance(node, ast.ImportFrom) and node.module in {"openai", "anthropic"}:
+        if isinstance(node, ast.ImportFrom) and node.module in {"openai", "anthropic", "mistralai"}:
             for name in node.names:
                 if name.name in CONSTRUCTORS:
                     aliases[name.asname or name.name] = CONSTRUCTORS[name.name]
@@ -560,7 +574,9 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             if FORBIDDEN_PORT_RE.search(line):
                 forbidden_ports.append(f"{relative}:{line_no}")
         lowered_source = source.lower()
-        if not any(needle in lowered_source for needle in PYTHON_AST_NEEDLES):
+        if not any(
+            needle in lowered_source for needle in PYTHON_AST_NEEDLES
+        ) and not _contains_python_numeric_port_literal(source):
             continue
         try:
             tree = ast.parse(source, filename=relative)
