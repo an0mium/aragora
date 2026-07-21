@@ -34,6 +34,7 @@ PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", 
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
+HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
@@ -203,6 +204,37 @@ def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]]) -> tu
     return clients, factories
 
 
+def _url_values(node: ast.AST, bindings: dict[str, set[str]]) -> set[str]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return {node.value}
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        return bindings.get(_attr_chain(node), set())
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return {left + right for left in _url_values(node.left, bindings) for right in _url_values(node.right, bindings)}  # fmt: skip
+    if isinstance(node, ast.JoinedStr):
+        values = {""}
+        for part in node.values:
+            pieces = {str(part.value)} if isinstance(part, ast.Constant) else _url_values(part.value, bindings) if isinstance(part, ast.FormattedValue) else set()  # fmt: skip
+            values = {value + piece for value in values for piece in (pieces or {"{}"})}
+        return values
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {"rstrip", "removesuffix"}:  # fmt: skip
+        return _url_values(node.func.value, bindings)
+    return set()
+
+
+def _url_bindings(tree: ast.AST) -> dict[str, set[str]]:
+    bindings: dict[str, set[str]] = {}
+    assignments = tuple(node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign)))
+    for _ in range(4):
+        for node in assignments:
+            if node.value is None:
+                continue
+            values = _url_values(node.value, bindings)
+            for target in _targets(node):
+                bindings.setdefault(target, set()).update(values)
+    return bindings
+
+
 class _InferenceVisitor(ast.NodeVisitor):
     def __init__(self, path: str, tree: ast.AST) -> None:
         self.path = path
@@ -213,6 +245,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.client_receivers, self.client_factories = _client_provenance(
             tree, self.constructor_aliases
         )
+        self.url_bindings = _url_bindings(tree)
         policy_types = {"ModelTransportPolicy"} | {alias.asname or alias.name for item in ast.walk(tree) if isinstance(item, ast.ImportFrom) for alias in item.names if alias.name == "ModelTransportPolicy"}  # fmt: skip
         self.policy_receivers = {item.arg for item in ast.walk(tree) if isinstance(item, ast.arg) and item.annotation is not None and _attr_chain(item.annotation).rsplit(".", 1)[-1] in policy_types}  # fmt: skip
         self.policy_receivers.update(target for item in ast.walk(tree) if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None and isinstance(item.value, ast.Call) and _attr_chain(item.value.func).split(".", 1)[0] in policy_types for target in _targets(item))  # fmt: skip
@@ -297,6 +330,17 @@ class _InferenceVisitor(ast.NodeVisitor):
         constructor = self.constructor_aliases.get(chain) or (self.constructor_aliases.get(terminal) if terminal != "Client" or "." not in chain else None)  # fmt: skip
         if constructor is not None:
             self._record(*constructor, "client-constructor")
+        if terminal in HTTP_CALL_TERMINALS:
+            candidates = (*node.args, *(keyword.value for keyword in node.keywords))
+            endpoints = {
+                (provider, protocol)
+                for candidate in candidates
+                for value in _url_values(candidate, self.url_bindings)
+                if (provider := _provider_for_url(value)) is not None
+                if (protocol := _protocol_for_url(value)) != "base"
+            }
+            for provider, protocol in endpoints:
+                self._record(provider, protocol, "http-inference-call")
         self.generic_visit(node)
 
 

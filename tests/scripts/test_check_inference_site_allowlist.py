@@ -86,6 +86,26 @@ genai.GenerativeModel().generate_content("hello")
     assert discovery.raw_detections == 15 and {site.protocol for site in discovery.sites} == {"client", "chat", "responses", "messages", "generate-content"}  # fmt: skip
 
 
+def test_raw_http_calls_follow_provider_url_bindings(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """import requests
+OPENAI_API_URL = "https://api.openai.com/v1"
+def run():
+    requests.post(f"{OPENAI_API_URL}/chat/completions", json={})
+    requests.post("https://example.com/v1/chat/completions", json={})
+""",
+    )
+    discovery = checker.discover(tmp_path)
+    site = next(site for site in discovery.sites if site.anchor == "run")
+    assert (site.provider, site.protocol, site.detectors) == (
+        "openai",
+        "chat",
+        {"http-inference-call": 1},
+    )
+
+
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
