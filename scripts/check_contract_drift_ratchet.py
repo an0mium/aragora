@@ -75,6 +75,8 @@ BOUNDARY_EVIDENCE_INDEX_SCHEMA = "contract-drift-boundary-evidence-index-v1"
 BOUNDARY_MANIFEST_SCHEMA = "contract-drift-boundary-manifest-v1"
 BOUNDARY_CAPSULE_MANIFEST_SCHEMA = "contract-drift-boundary-capsule-manifest-v1"
 BOUNDARY_CAPSULE_PAYLOAD_SCHEMA = "contract-drift-boundary-capsule-payload-v1"
+AUTHORITATIVE_GITHUB_REPOSITORY = "synaptent/aragora"
+AUTHORITATIVE_GITHUB_BRANCH = "main"
 CANONICAL_SERIALIZATION = (
     "UTF-8; no BOM; object keys sorted; compact separators comma/colon; "
     "declared array orders; exactly one terminal LF"
@@ -383,10 +385,11 @@ def _append_operation(
     raw: bytes,
     response_identity: dict[str, Any] | None = None,
     movement: bool = False,
+    authentication: str = "pass",
 ) -> None:
     operation_log.append(
         {
-            "authentication": "pass",
+            "authentication": authentication,
             "byte_length": len(raw),
             "identifier": identifier,
             "kind": kind,
@@ -513,6 +516,7 @@ def _run_read_only(
             identifier=" ".join(_operation_argv(argv)),
             raw=raw,
             response_identity={"returncode": proc.returncode},
+            authentication="pass" if proc.returncode == 0 else "observed_nonzero",
         )
     if check and proc.returncode != 0:
         raise ValueError(
@@ -705,6 +709,40 @@ def _guard_write_path(path: Path, scratch_root: Path, output_root: Path) -> None
     allowed = (scratch_root.resolve(), output_root.resolve())
     if not any(resolved == root or root in resolved.parents for root in allowed):
         raise ValueError(f"write outside explicit scratch/output roots rejected: {path}")
+
+
+def _write_exclusive_private_file(
+    path: Path,
+    raw: bytes,
+    *,
+    scratch_root: Path,
+    output_root: Path,
+) -> None:
+    _guard_write_path(path, scratch_root, output_root)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise ValueError(f"scratch output cannot be created exclusively: {path.name}") from exc
+    try:
+        view = memoryview(raw)
+        written = 0
+        while written < len(view):
+            chunk_size = os.write(descriptor, view[written:])
+            if chunk_size <= 0:
+                raise ValueError(f"scratch output write made no progress: {path.name}")
+            written += chunk_size
+        file_stat = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(file_stat.st_mode)
+            or file_stat.st_nlink != 1
+            or file_stat.st_size != len(raw)
+        ):
+            raise ValueError(f"scratch output is not a unique complete regular file: {path.name}")
+    finally:
+        os.close(descriptor)
 
 
 def _remote_identity_moved(
@@ -2054,8 +2092,12 @@ def _collect_live_evidence(
     local_asset_identities: dict[str, dict[str, Any]] = {}
     for name in expected_asset_names:
         local_path = scratch_root / f"contract-drift-{release_id}-{name}"
-        _guard_write_path(local_path, scratch_root, scratch_root)
-        local_path.write_bytes(asset_bytes[name])
+        _write_exclusive_private_file(
+            local_path,
+            asset_bytes[name],
+            scratch_root=scratch_root,
+            output_root=scratch_root,
+        )
         _append_operation(
             operation_log,
             kind="scratch_write",
@@ -2133,11 +2175,7 @@ def _collect_live_evidence(
                 f"sigstore-attestation:{name}",
             )
         )
-        if (
-            local_path.is_symlink()
-            or local_path.stat().st_nlink != 1
-            or local_path.read_bytes() != asset_bytes[name]
-        ):
+        if _stable_file_bytes(local_path) != asset_bytes[name]:
             raise ValueError(f"scratch release asset moved during verification: {name}")
 
     prerequisite = resources["external_prerequisites"]
@@ -2324,6 +2362,7 @@ def _collect_live_evidence(
             "endpoint_identities": endpoint_identities,
             "github_repository": github_repository,
             "local_asset_identities": local_asset_identities,
+            "snapshot_before": live_before_snapshot,
             "verification_commands": verification_commands,
         },
     )
@@ -2355,9 +2394,12 @@ def _reauthenticate_live_context(
     after_local_assets: dict[str, dict[str, Any]] = {}
     for raw_path, before_identity in sorted(context["local_asset_identities"].items()):
         path = Path(raw_path)
-        if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
-            raise BoundaryBlocked(f"authenticated scratch release asset moved: {path.name}")
-        raw = path.read_bytes()
+        try:
+            raw = _stable_file_bytes(path)
+        except ValueError as exc:
+            raise BoundaryBlocked(
+                f"authenticated scratch release asset moved: {path.name}"
+            ) from exc
         after_identity = {
             "byte_length": len(raw),
             "sha256": _sha256_bytes(raw),
@@ -3438,14 +3480,13 @@ def build_boundary_result(
     authority_manifest_sha256: str | None = None,
     cohort_artifact_path: Path | None = None,
     sdk_provenance_artifact_path: Path | None = None,
-    github_repository: str = "synaptent/aragora",
-    github_branch: str = "main",
     scratch_root: Path | None = None,
     output_root: Path | None = None,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
-    resolved_scratch = (scratch_root or Path(tempfile.gettempdir())).resolve()
-    resolved_output = (output_root or resolved_scratch).resolve()
+    declared_scratch = (scratch_root or Path(tempfile.gettempdir())).resolve()
+    resolved_output = output_root.resolve() if output_root is not None else None
+    private_scratch: tempfile.TemporaryDirectory[str] | None = None
     operation_log: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "blocked_reason": None,
@@ -3468,8 +3509,17 @@ def build_boundary_result(
             )
         if boundary not in BOUNDARY_NAMES:
             raise ValueError(f"unsupported Contract Drift boundary: {boundary}")
-        if not resolved_scratch.is_dir() or not resolved_output.is_dir():
+        if not declared_scratch.is_dir() or (
+            resolved_output is not None and not resolved_output.is_dir()
+        ):
             raise ValueError("declared scratch/output roots must already exist")
+        private_scratch = tempfile.TemporaryDirectory(
+            prefix="contract-drift-boundary-",
+            dir=str(declared_scratch),
+        )
+        resolved_scratch = Path(private_scratch.name).resolve()
+        if resolved_output is None:
+            resolved_output = resolved_scratch
         _guard_write_path(resolved_scratch, resolved_scratch, resolved_output)
         _guard_write_path(resolved_output, resolved_scratch, resolved_output)
         _append_operation(
@@ -3530,8 +3580,8 @@ def build_boundary_result(
         )
         result["authority"] = authority
         resources, evidence_summary, live_context = _collect_live_evidence(
-            github_repository=github_repository,
-            github_branch=github_branch,
+            github_repository=AUTHORITATIVE_GITHUB_REPOSITORY,
+            github_branch=AUTHORITATIVE_GITHUB_BRANCH,
             boundary=boundary,
             start_sha=start_sha,
             end_sha=end_sha,
@@ -3539,15 +3589,21 @@ def build_boundary_result(
             operation_log=operation_log,
         )
         result["evidence"] = evidence_summary
+        before_evidence = live_context.get(
+            "snapshot_before",
+            {
+                "index": evidence_summary["index"],
+                "resources": evidence_summary["resources"],
+            },
+        )
+        if not isinstance(before_evidence, dict):
+            raise ValueError("authenticated evidence before-snapshot is malformed")
         result["remote_snapshot_before"] = _record_remote_snapshot(
             operation_log,
             label="before",
             resource="authenticated_evidence",
             identifier=boundary,
-            snapshot={
-                "index": evidence_summary["index"],
-                "resources": evidence_summary["resources"],
-            },
+            snapshot=before_evidence,
         )
         evaluation = _evaluate_boundary_evidence(
             resources,
@@ -3579,14 +3635,12 @@ def build_boundary_result(
                 label="external authority manifest",
                 operation_log=operation_log,
             )
-        _reauthenticate_live_context(
+        after_evidence = _reauthenticate_live_context(
             live_context,
             operation_log=operation_log,
         )
-        after_evidence = {
-            "index": evidence_summary["index"],
-            "resources": evidence_summary["resources"],
-        }
+        if not isinstance(after_evidence, dict):
+            raise ValueError("authenticated evidence after-snapshot is malformed")
         result["remote_snapshot_after"] = _record_remote_snapshot(
             operation_log,
             label="after",
@@ -3640,7 +3694,10 @@ def build_boundary_result(
                 )
             except (ValueError, OSError):
                 pass
-    return _finalize_boundary_result(result)
+    finalized = _finalize_boundary_result(result)
+    if private_scratch is not None:
+        private_scratch.cleanup()
+    return finalized
 
 
 def _load_json_strict(path: Path, label: str) -> dict[str, Any]:
@@ -4109,8 +4166,6 @@ def main() -> int:
     parser.add_argument("--authority-manifest-sha256", default=None)
     parser.add_argument("--cohort-artifact", type=Path, default=None)
     parser.add_argument("--sdk-provenance-artifact", type=Path, default=None)
-    parser.add_argument("--github-repository", default="synaptent/aragora")
-    parser.add_argument("--github-branch", default="main")
     parser.add_argument("--scratch-root", type=Path, default=None)
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument(
@@ -4200,8 +4255,6 @@ def main() -> int:
             authority_manifest_sha256=args.authority_manifest_sha256,
             cohort_artifact_path=args.cohort_artifact,
             sdk_provenance_artifact_path=args.sdk_provenance_artifact,
-            github_repository=args.github_repository,
-            github_branch=args.github_branch,
             scratch_root=args.scratch_root,
             output_root=args.output_root,
         )
@@ -4217,7 +4270,7 @@ def main() -> int:
         if result["status"] == "pass":
             return 0
         if result["status"] == "blocked":
-            return 2
+            return 3
         return 1
 
     try:

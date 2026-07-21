@@ -17,6 +17,7 @@ import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
 
 PROGRAM_REL = "scripts/baselines/contract_drift_program.json"
+_DISCOVER_CANONICAL_ARTIFACT = ratchet._discover_canonical_artifact
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -1189,8 +1190,8 @@ def _canonical_fixture_artifact_paths() -> tuple[Path, Path] | None:
     repo_root = Path(__file__).resolve().parents[2]
     try:
         return (
-            ratchet._discover_canonical_artifact(None, ratchet.COHORT_ARTIFACT, repo_root),
-            ratchet._discover_canonical_artifact(None, ratchet.PROVENANCE_ARTIFACT, repo_root),
+            _DISCOVER_CANONICAL_ARTIFACT(None, ratchet.COHORT_ARTIFACT, repo_root),
+            _DISCOVER_CANONICAL_ARTIFACT(None, ratchet.PROVENANCE_ARTIFACT, repo_root),
         )
     except ValueError:
         return None
@@ -1208,11 +1209,14 @@ def _fixture_sdk_partitions() -> dict[str, list[str]]:
     if artifact_paths is None:
         return {
             "core": [
-                f"cdg1:{hashlib.sha256(f'fixture-core-{index}'.encode()).hexdigest()}"
+                _fixture_original_record_id("python_sdk_drift", f"fixture-core-{index}")
                 for index in range(75)
             ],
             "extended": [
-                f"cdg1:{hashlib.sha256(f'fixture-extended-{index}'.encode()).hexdigest()}"
+                _fixture_original_record_id(
+                    "typescript_sdk_drift",
+                    f"fixture-extended-{index}",
+                )
                 for index in range(523)
             ],
         }
@@ -1225,8 +1229,22 @@ def _fixture_sdk_partitions() -> dict[str, list[str]]:
     return partitions
 
 
+def _fixture_original_record_id(category: str, literal: str) -> str:
+    payload = {
+        "category": category,
+        "exact_historical_literal_record": literal,
+        "schema": "cdg-original-record-id-v1",
+    }
+    return f"cdg1:{hashlib.sha256(ratchet._canonical_json_bytes(payload)).hexdigest()}"
+
+
 def _fixture_sdk_literal(partition: str) -> tuple[str, str]:
-    cohort_path, provenance_path = _require_canonical_fixture_artifacts()
+    artifact_paths = _canonical_fixture_artifact_paths()
+    if artifact_paths is None:
+        if partition == "core":
+            return "python_sdk_drift", "fixture-core-0"
+        return "typescript_sdk_drift", "fixture-extended-0"
+    cohort_path, provenance_path = artifact_paths
     cohort = json.loads(cohort_path.read_bytes())
     provenance = json.loads(provenance_path.read_bytes())
     cohort_by_id = {record["original_record_id"]: record for record in cohort["original_records"]}
@@ -1593,6 +1611,40 @@ def _write_boundary_index(
 
 
 def _stub_boundary_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    partitions = _fixture_sdk_partitions()
+    monkeypatch.setattr(
+        ratchet,
+        "_authenticate_canonical_artifacts",
+        lambda **_kwargs: {
+            "operation_projection": {"membership_count": 655},
+            "original_cohort": {
+                "byte_length": 1,
+                "record_count": 655,
+                "sha256": "8" * 64,
+            },
+            "sdk_provenance": {
+                "byte_length": 1,
+                "core_original_record_id_set_sha256": ratchet.CORE_ID_SET_SHA256,
+                "core_original_record_ids": partitions["core"],
+                "extended_original_record_id_set_sha256": ratchet.EXTENDED_ID_SET_SHA256,
+                "extended_original_record_ids": partitions["extended"],
+                "record_count": 598,
+                "sdk_original_record_id_set_sha256": ratchet.SDK_ID_SET_SHA256,
+                "sdk_original_record_ids": sorted(partitions["core"] + partitions["extended"]),
+                "sha256": "9" * 64,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        ratchet,
+        "_discover_canonical_artifact",
+        lambda _explicit, _descriptor, _repo_root: Path(__file__).resolve(),
+    )
+    monkeypatch.setattr(
+        ratchet,
+        "_reauthenticate_canonical_input",
+        lambda _path, **_kwargs: None,
+    )
     monkeypatch.setattr(
         ratchet,
         "_authenticate_authority_manifest",
@@ -1641,8 +1693,8 @@ def _stub_boundary_evidence_index(
         _context: dict[str, Any],
         *,
         operation_log: list[dict[str, Any]],
-    ) -> None:
-        ratchet._reauthenticate_evidence_resources(
+    ) -> dict[str, Any]:
+        return ratchet._reauthenticate_evidence_resources(
             evidence_index_path=index_path,
             evidence_summary=state["summary"],
             operation_log=operation_log,
@@ -1660,7 +1712,6 @@ def _boundary_result(
     release_immutability: bool = True,
     mutate: Any | None = None,
 ) -> dict[str, Any]:
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas[boundary]
     index_path, index_length, index_sha256 = _write_boundary_index(
@@ -1873,8 +1924,18 @@ def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_befo
             )
 
 
-def test_boundary_cli_rejects_caller_supplied_evidence_index(
+@pytest.mark.parametrize(
+    ("flag", "value"),
+    (
+        ("--evidence-index", "forged.json"),
+        ("--github-repository", "attacker/mirror"),
+        ("--github-branch", "forged"),
+    ),
+)
+def test_boundary_cli_rejects_caller_supplied_authority(
     monkeypatch: pytest.MonkeyPatch,
+    flag: str,
+    value: str,
 ):
     monkeypatch.setattr(
         sys,
@@ -1891,8 +1952,8 @@ def test_boundary_cli_rejects_caller_supplied_evidence_index(
             "0" * 40,
             "--end-ref",
             "1" * 40,
-            "--evidence-index",
-            "forged.json",
+            flag,
+            value,
         ],
     )
     with pytest.raises(SystemExit) as exc_info:
@@ -1900,11 +1961,13 @@ def test_boundary_cli_rejects_caller_supplied_evidence_index(
     assert exc_info.value.code == 2
 
 
-def test_boundary_python_api_rejects_caller_supplied_evidence_index():
+def test_boundary_python_api_rejects_caller_supplied_evidence_or_github_trust_roots():
     parameters = inspect.signature(ratchet.build_boundary_result).parameters
     assert "evidence_index_path" not in parameters
     assert "evidence_index_byte_length" not in parameters
     assert "evidence_index_sha256" not in parameters
+    assert "github_repository" not in parameters
+    assert "github_branch" not in parameters
 
 
 def test_parse_http_response_preserves_exact_body_bytes():
@@ -1924,6 +1987,77 @@ def test_parse_http_response_preserves_exact_body_bytes():
 
     with pytest.raises(ValueError, match="authenticated HTTP headers"):
         ratchet._parse_http_response(b"headerless")
+
+
+def test_blocked_boundary_exit_code_is_distinct_from_argparse_errors(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "build_boundary_result",
+        lambda **_kwargs: {
+            "blocked_reason": "authenticated prerequisite unavailable",
+            "manifest_sha256": "a" * 64,
+            "status": "blocked",
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_contract_drift_ratchet.py",
+            "--mode",
+            "boundary",
+            "--schema-version",
+            "1",
+            "--boundary",
+            "corrective_bootstrap",
+            "--start-ref",
+            "0" * 40,
+            "--end-ref",
+            "1" * 40,
+        ],
+    )
+    assert ratchet.main() == 3
+
+
+def test_scratch_asset_write_rejects_preexisting_symlink(tmp_path: Path):
+    target = tmp_path / "target"
+    target.write_bytes(b"preserve")
+    candidate = tmp_path / "asset"
+    candidate.symlink_to(target)
+
+    with pytest.raises(ValueError, match="created exclusively"):
+        ratchet._write_exclusive_private_file(
+            candidate,
+            b"replacement",
+            scratch_root=tmp_path,
+            output_root=tmp_path,
+        )
+
+    assert target.read_bytes() == b"preserve"
+
+
+def test_nonzero_read_only_probe_is_not_logged_as_authenticated_pass(tmp_path: Path):
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+    operation_log: list[dict[str, Any]] = []
+    proc = ratchet._run_read_only(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "merge-base",
+            "--is-ancestor",
+            boundary_shas["final_seal"],
+            start_sha,
+        ],
+        operation_log=operation_log,
+        resource="negative-ancestry-probe",
+        check=False,
+    )
+
+    assert proc.returncode == 1
+    assert operation_log[-1]["authentication"] == "observed_nonzero"
 
 
 def test_boundary_verifier_independently_reads_resources_and_emits_own_operation_log(
@@ -1947,7 +2081,6 @@ def test_caller_summaries_and_parse_reserialize_are_not_proof(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     boundary = "corrective_bootstrap"
     end_sha = boundary_shas[boundary]
@@ -2108,7 +2241,6 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path, route_debt=True)
     end_sha = boundary_shas["route_truth"]
     index_path, index_length, index_sha256 = _write_boundary_index(
@@ -2143,7 +2275,6 @@ def test_later_boundary_fails_when_route_debt_is_reintroduced(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(
         tmp_path,
         route_debt_at="core_sdk",
@@ -2187,7 +2318,6 @@ def test_sdk_zero_debt_fails_when_exact_ref_baseline_contradicts(
     boundary: str,
     partition: str,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(
         tmp_path,
         sdk_debt_partition=partition,
@@ -2226,7 +2356,6 @@ def test_core_sdk_allows_remaining_extended_exact_ref_baseline_debt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(
         tmp_path,
         sdk_debt_partition="extended",
@@ -2281,7 +2410,6 @@ def test_evidence_reauthentication_blocks_toctou_movement(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    _require_canonical_fixture_artifacts()
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas["corrective_bootstrap"]
     index_path, index_length, index_sha256 = _write_boundary_index(
@@ -2325,6 +2453,11 @@ def test_deterministic_boundary_fixtures_reach_pass_while_live_release_immutabil
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "_canonical_fixture_artifact_paths",
+        lambda: None,
+    )
     for boundary in ratchet.BOUNDARY_NAMES:
         result = _boundary_result(tmp_path / boundary, monkeypatch, boundary)
         assert result["status"] == "pass", result
@@ -2337,6 +2470,54 @@ def test_deterministic_boundary_fixtures_reach_pass_while_live_release_immutabil
     )
     assert live["status"] == "blocked"
     assert live["passing"] is False
+
+
+def test_boundary_uses_private_scratch_child_and_removes_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path / "repo")
+    boundary = "corrective_bootstrap"
+    end_sha = boundary_shas[boundary]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path,
+        boundary,
+        start_sha,
+        end_sha,
+        boundary_shas,
+        repo=repo,
+    )
+    _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
+    original_collect = ratchet._collect_live_evidence
+    observed: dict[str, Path] = {}
+
+    def collect(**kwargs: Any) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        observed["scratch_root"] = kwargs["scratch_root"]
+        return original_collect(**kwargs)
+
+    monkeypatch.setattr(ratchet, "_collect_live_evidence", collect)
+    shared_parent = tmp_path / "shared-scratch"
+    shared_parent.mkdir()
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary=boundary,
+        start_ref=start_sha,
+        end_ref=end_sha,
+        scratch_root=shared_parent,
+    )
+
+    private_root = observed["scratch_root"]
+    assert result["status"] == "pass", result
+    assert private_root.parent == shared_parent.resolve()
+    assert private_root.name.startswith("contract-drift-boundary-")
+    assert not private_root.exists()
 
 
 def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
