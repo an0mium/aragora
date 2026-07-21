@@ -210,6 +210,28 @@ this.#privateClient.completions.create({})
     }
 
 
+def test_commonjs_sdk_aliases_are_discovered(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/live/src/run.cjs",
+        """const OpenAIClient = require("openai")
+const { Anthropic: ClaudeClient } = require("@anthropic-ai/sdk")
+const { default: GeminiClient } = require("@google/genai")
+const openai = new OpenAIClient()
+openai.chat.completions.create({})
+const claude = new ClaudeClient()
+claude.messages.create({})
+const gemini = new GeminiClient()
+gemini.models.generateContent({})
+""",
+    )
+    assert {(site.provider, site.protocol) for site in checker.discover(tmp_path).sites} == {
+        ("anthropic", "messages"),
+        ("gemini", "generate-content"),
+        ("openai-compatible", "chat"),
+    }
+
+
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
