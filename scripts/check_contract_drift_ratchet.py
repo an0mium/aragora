@@ -1793,6 +1793,34 @@ def _run_live_verification(
     return payload, identity
 
 
+def _attestation_verify_argv(
+    asset_path: Path,
+    *,
+    github_repository: str,
+    end_sha: str,
+) -> list[str]:
+    return [
+        "gh",
+        "attestation",
+        "verify",
+        str(asset_path),
+        "-R",
+        github_repository,
+        "--signer-workflow",
+        f"{github_repository}/.github/workflows/contract-drift-boundary.yml",
+        "--source-digest",
+        end_sha,
+        "--format",
+        "json",
+    ]
+
+
+def _require_attestation_source_digest(argv: list[str], *, end_sha: str) -> None:
+    positions = [index for index, value in enumerate(argv) if value == "--source-digest"]
+    if len(positions) != 1 or positions[0] + 1 >= len(argv) or argv[positions[0] + 1] != end_sha:
+        raise ValueError("gh attestation verify source digest is missing or mismatched")
+
+
 def _collect_live_evidence(
     *,
     github_repository: str,
@@ -2141,36 +2169,19 @@ def _collect_live_evidence(
                 f"release-asset-attestation:{name}",
             )
         )
+        attestation_argv = _attestation_verify_argv(
+            local_path,
+            github_repository=github_repository,
+            end_sha=end_sha,
+        )
         _attestation, identity = _run_live_verification(
-            [
-                "gh",
-                "attestation",
-                "verify",
-                str(local_path),
-                "-R",
-                github_repository,
-                "--signer-workflow",
-                f"{github_repository}/.github/workflows/contract-drift-boundary.yml",
-                "--format",
-                "json",
-            ],
+            attestation_argv,
             operation_log=operation_log,
             resource=f"sigstore-attestation:{name}",
         )
         verification_commands.append(
             (
-                [
-                    "gh",
-                    "attestation",
-                    "verify",
-                    str(local_path),
-                    "-R",
-                    github_repository,
-                    "--signer-workflow",
-                    f"{github_repository}/.github/workflows/contract-drift-boundary.yml",
-                    "--format",
-                    "json",
-                ],
+                attestation_argv,
                 identity,
                 f"sigstore-attestation:{name}",
             )
@@ -2372,6 +2383,7 @@ def _reauthenticate_live_context(
     context: dict[str, Any],
     *,
     operation_log: list[dict[str, Any]],
+    end_sha: str,
 ) -> dict[str, Any]:
     after_endpoints: dict[str, dict[str, Any]] = {}
     for endpoint, before_identity in sorted(context["endpoint_identities"].items()):
@@ -2416,6 +2428,8 @@ def _reauthenticate_live_context(
         )
     verification_identities: list[dict[str, Any]] = []
     for argv, before_identity, resource in context["verification_commands"]:
+        if argv[:3] == ["gh", "attestation", "verify"]:
+            _require_attestation_source_digest(argv, end_sha=end_sha)
         _payload, after_identity = _run_live_verification(
             argv,
             operation_log=operation_log,
@@ -2446,6 +2460,12 @@ def _reauthenticate_live_context(
 def _require_bool(value: Any, *, label: str) -> None:
     if value is not True:
         raise ValueError(f"{label} is false or missing")
+
+
+def _require_string_list(value: Any, *, label: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{label} must be a list of strings")
+    return value
 
 
 def _require_sha256(value: Any, *, label: str) -> None:
@@ -2529,12 +2549,21 @@ def _baseline_category_counts_at_ref(
         )
         for name, path in paths.items()
     }
+    categories = {
+        "python_sdk_drift": ("verify", "python_sdk_drift"),
+        "routes_missing_in_spec": ("routes", "missing_in_spec"),
+        "routes_orphaned_in_spec": ("routes", "orphaned_in_spec"),
+        "sdk_missing_from_both": ("parity", "missing_from_both_sdks"),
+        "typescript_sdk_drift": ("verify", "typescript_sdk_drift"),
+    }
     return {
-        "python_sdk_drift": len(docs["verify"].get("python_sdk_drift", [])),
-        "routes_missing_in_spec": len(docs["routes"].get("missing_in_spec", [])),
-        "routes_orphaned_in_spec": len(docs["routes"].get("orphaned_in_spec", [])),
-        "sdk_missing_from_both": len(docs["parity"].get("missing_from_both_sdks", [])),
-        "typescript_sdk_drift": len(docs["verify"].get("typescript_sdk_drift", [])),
+        count_key: len(
+            _require_string_list(
+                docs[document].get(category),
+                label=category,
+            )
+        )
+        for count_key, (document, category) in categories.items()
     }
 
 
@@ -3638,6 +3667,7 @@ def build_boundary_result(
         after_evidence = _reauthenticate_live_context(
             live_context,
             operation_log=operation_log,
+            end_sha=end_sha,
         )
         if not isinstance(after_evidence, dict):
             raise ValueError("authenticated evidence after-snapshot is malformed")

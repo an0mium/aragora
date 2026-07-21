@@ -1197,11 +1197,226 @@ def _canonical_fixture_artifact_paths() -> tuple[Path, Path] | None:
         return None
 
 
-def _require_canonical_fixture_artifacts() -> tuple[Path, Path]:
-    paths = _canonical_fixture_artifact_paths()
-    if paths is None:
-        pytest.skip("canonical Contract Drift mission artifacts are unavailable")
-    return paths
+def _write_synthetic_canonical_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[Path, Path]:
+    category_sizes = (
+        ("python_sdk_drift", 74),
+        ("routes_missing_in_spec", 11),
+        ("routes_orphaned_in_spec", 17),
+        ("sdk_missing_from_both", 29),
+        ("typescript_sdk_drift", 524),
+    )
+    cohort_records: list[dict[str, Any]] = []
+    sdk_records: list[dict[str, Any]] = []
+    category_indices: dict[str, int] = {}
+    for category, count in category_sizes:
+        for _index in range(count):
+            source_array_index = category_indices.get(category, 0)
+            category_indices[category] = source_array_index + 1
+            literal = f"fixture:{category}:{source_array_index:04d}"
+            payload = {
+                "category": category,
+                "exact_historical_literal_record": literal,
+                "schema": "cdg-original-record-id-v1",
+            }
+            payload_raw = ratchet._canonical_json_bytes(payload)
+            payload_sha256 = hashlib.sha256(payload_raw).hexdigest()
+            record: dict[str, Any] = {
+                "category": category,
+                "exact_historical_literal_record": literal,
+                "id_payload_byte_length": len(payload_raw),
+                "id_payload_sha256": payload_sha256,
+                "original_record_id": f"cdg1:{payload_sha256}",
+                "source_array_index": source_array_index,
+            }
+            if category in {"python_sdk_drift", "typescript_sdk_drift"}:
+                record.update(
+                    {
+                        "method": "GET",
+                        "sdk_language": [
+                            "python" if category == "python_sdk_drift" else "typescript"
+                        ],
+                    }
+                )
+                sdk_records.append(record)
+            cohort_records.append(record)
+
+    provenance_records: list[dict[str, Any]] = []
+    for index, cohort_record in enumerate(sdk_records):
+        core = index < 75
+        atoms = ["agents" if core else "billing"]
+        if index < 12:
+            atoms.append(f"fixture_{index}")
+        partition, matches = ratchet._partition_from_atoms(atoms)
+        occurrences = [
+            {
+                "provenance_atom": atoms[0],
+                "sdk_language": cohort_record["sdk_language"][0],
+            }
+        ]
+        if index < 92:
+            occurrences.append(dict(occurrences[0]))
+        record = {
+            "category": cohort_record["category"],
+            "exact_historical_literal_record": cohort_record["exact_historical_literal_record"],
+            "id_payload_byte_length": cohort_record["id_payload_byte_length"],
+            "id_payload_sha256": cohort_record["id_payload_sha256"],
+            "matched_domains": matches,
+            "original_record_id": cohort_record["original_record_id"],
+            "partition": partition,
+            "provenance_atoms": atoms,
+            "sdk_language": cohort_record["sdk_language"][0],
+            "source_array_index": cohort_record["source_array_index"],
+            "source_occurrences": occurrences,
+        }
+        record_sha256 = hashlib.sha256(ratchet._canonical_json_bytes(record)).hexdigest()
+        record["record_sha256"] = record_sha256
+        cohort_record["sdk_provenance_record_sha256"] = record_sha256
+        provenance_records.append(record)
+
+    projection_records = []
+    for index, cohort_record in enumerate(cohort_records):
+        edge_count = 4 if index == 0 else 2 if index < 9 else 1
+        record = {
+            "operation_edges": [
+                {
+                    "evidence": [f"fixture:{index}:{edge_index}"],
+                    "method": "GET",
+                    "normalized_path": f"/fixture/{index}/{edge_index}",
+                }
+                for edge_index in range(edge_count)
+            ],
+            "original_record_id": cohort_record["original_record_id"],
+        }
+        record_sha256 = hashlib.sha256(ratchet._canonical_json_bytes(record)).hexdigest()
+        record["record_sha256"] = record_sha256
+        projection_records.append(record)
+
+    original_ids = sorted(record["original_record_id"] for record in cohort_records)
+    original_id_set_sha256 = ratchet._digest_set(
+        "cdg-original-record-id-set-v1",
+        original_ids,
+        "original_record_ids",
+    )
+    projection_record_set_sha256 = ratchet._digest_set(
+        "cdg-operation-projection-record-digest-set-v1",
+        [record["record_sha256"] for record in projection_records],
+        "record_sha256_values",
+    )
+    cohort = {
+        "counts": {
+            "by_category": ratchet.EXPECTED_CATEGORY_COUNTS,
+            "method_bearing_sdk_records": 598,
+            "method_null_route_parity_records": 57,
+            "records": 655,
+        },
+        "id_encoding": "fixture",
+        "membership_anchor": "fixture",
+        "membership_sources": ["fixture"],
+        "operation_projection": {
+            "one_to_many_rule": "fixture",
+            "record_digest_set_sha256": projection_record_set_sha256,
+            "records": projection_records,
+            "schema": "cdg-operation-projection-v1",
+            "witness_dependencies": ["fixture"],
+        },
+        "original_record_id_set": {
+            "original_record_ids": original_ids,
+            "sha256": original_id_set_sha256,
+        },
+        "original_records": cohort_records,
+        "schema": "contract-drift-original-cohort-v1",
+    }
+
+    provenance_record_set_sha256 = ratchet._digest_set(
+        "cdg-sdk-provenance-record-digest-set-v1",
+        [record["record_sha256"] for record in provenance_records],
+        "record_sha256_values",
+    )
+    sdk_ids = [record["original_record_id"] for record in provenance_records]
+    core_ids = [
+        record["original_record_id"]
+        for record in provenance_records
+        if record["partition"] == "core"
+    ]
+    extended_ids = [
+        record["original_record_id"]
+        for record in provenance_records
+        if record["partition"] == "extended"
+    ]
+    sdk_id_set_sha256 = ratchet._digest_set(
+        "cdg-sdk-original-record-id-set-v1",
+        sdk_ids,
+        "original_record_ids",
+    )
+    core_id_set_sha256 = ratchet._digest_set(
+        "cdg-core-original-record-id-set-v1",
+        core_ids,
+        "original_record_ids",
+    )
+    extended_id_set_sha256 = ratchet._digest_set(
+        "cdg-extended-original-record-id-set-v1",
+        extended_ids,
+        "original_record_ids",
+    )
+    provenance = {
+        "baseline_birth": "fixture",
+        "counts": {
+            "core": 75,
+            "extended": 523,
+            "python_sdk_drift": 74,
+            "records": 598,
+            "records_with_multiple_distinct_atoms": 12,
+            "source_occurrences": 690,
+            "typescript_sdk_drift": 524,
+        },
+        "dependencies": ["fixture"],
+        "extraction_algorithm": "fixture",
+        "partition": {
+            "core_original_record_id_set_sha256": core_id_set_sha256,
+            "extended_original_record_id_set_sha256": extended_id_set_sha256,
+            "sdk_original_record_id_set_sha256": sdk_id_set_sha256,
+        },
+        "record_digest_set_sha256": provenance_record_set_sha256,
+        "records": provenance_records,
+        "schema": "contract-drift-sdk-provenance-v1",
+    }
+
+    cohort_path = tmp_path / ratchet.COHORT_ARTIFACT["filename"]
+    provenance_path = tmp_path / ratchet.PROVENANCE_ARTIFACT["filename"]
+    cohort_raw = ratchet._canonical_json_bytes(cohort, terminal_lf=True)
+    provenance_raw = ratchet._canonical_json_bytes(provenance, terminal_lf=True)
+    cohort_path.write_bytes(cohort_raw)
+    provenance_path.write_bytes(provenance_raw)
+    monkeypatch.setitem(ratchet.COHORT_ARTIFACT, "byte_length", len(cohort_raw))
+    monkeypatch.setitem(
+        ratchet.COHORT_ARTIFACT,
+        "sha256",
+        hashlib.sha256(cohort_raw).hexdigest(),
+    )
+    monkeypatch.setitem(ratchet.PROVENANCE_ARTIFACT, "byte_length", len(provenance_raw))
+    monkeypatch.setitem(
+        ratchet.PROVENANCE_ARTIFACT,
+        "sha256",
+        hashlib.sha256(provenance_raw).hexdigest(),
+    )
+    monkeypatch.setattr(ratchet, "ORIGINAL_ID_SET_SHA256", original_id_set_sha256)
+    monkeypatch.setattr(
+        ratchet,
+        "PROJECTION_RECORD_SET_SHA256",
+        projection_record_set_sha256,
+    )
+    monkeypatch.setattr(
+        ratchet,
+        "PROVENANCE_RECORD_SET_SHA256",
+        provenance_record_set_sha256,
+    )
+    monkeypatch.setattr(ratchet, "SDK_ID_SET_SHA256", sdk_id_set_sha256)
+    monkeypatch.setattr(ratchet, "CORE_ID_SET_SHA256", core_id_set_sha256)
+    monkeypatch.setattr(ratchet, "EXTENDED_ID_SET_SHA256", extended_id_set_sha256)
+    return cohort_path, provenance_path
 
 
 def _fixture_sdk_partitions() -> dict[str, list[str]]:
@@ -1693,7 +1908,9 @@ def _stub_boundary_evidence_index(
         _context: dict[str, Any],
         *,
         operation_log: list[dict[str, Any]],
+        end_sha: str,
     ) -> dict[str, Any]:
+        del end_sha
         return ratchet._reauthenticate_evidence_resources(
             evidence_index_path=index_path,
             evidence_summary=state["summary"],
@@ -1744,18 +1961,16 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    cohort_path, provenance_path = _require_canonical_fixture_artifacts()
-    monkeypatch.setattr(
-        ratchet,
-        "_snapshot_repository",
-        lambda _repo_root, _operation_log: {
-            "fixture_repository": {
-                "byte_length": 1,
-                "sha256": hashlib.sha256(b"\0").hexdigest(),
-            }
-        },
+    cohort_path, provenance_path = _write_synthetic_canonical_artifacts(
+        tmp_path,
+        monkeypatch,
     )
-    repo_root = Path(__file__).resolve().parents[2]
+    source_repo = Path(__file__).resolve().parents[2]
+    repo_root = tmp_path / "production-repo"
+    subprocess.run(
+        ["git", "clone", "-q", "--no-hardlinks", str(source_repo), str(repo_root)],
+        check=True,
+    )
     start_sha = subprocess.check_output(
         ["git", "-C", str(repo_root), "rev-parse", "HEAD^"],
         text=True,
@@ -1822,9 +2037,6 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         "contract-drift-stage2-verifier-chronology-fact-v1",
         verifier_fact,
     )
-
-    resources_dir = tmp_path / "real-authentication-resources"
-    resources_dir.mkdir()
     selected = {
         "boundary_chronology",
         "corrective_bootstrap",
@@ -1833,36 +2045,130 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         "first_parent_receipts",
         "governed_prs",
     }
-    descriptors = []
-    for name, payload in sorted(payloads.items()):
-        if name not in selected:
-            continue
-        if name == "boundary_chronology":
-            payload["boundaries"] = payload["boundaries"][:1]
-        descriptor = _write_canonical_boundary_json(resources_dir / f"{name}.json", payload)
-        descriptor.update(
-            {
-                "name": name,
-                "path": f"{resources_dir.name}/{name}.json",
-            }
-        )
-        descriptors.append(descriptor)
-    index = {
+    resources = {name: value for name, value in payloads.items() if name in selected}
+    resources["boundary_chronology"]["boundaries"] = resources["boundary_chronology"]["boundaries"][
+        :1
+    ]
+    verification_raw = b'[{"verified":true}]'
+    verification_identity = {
+        "byte_length": len(verification_raw),
+        "sha256": hashlib.sha256(verification_raw).hexdigest(),
+    }
+    attestation_digest = hashlib.sha256(
+        ratchet._canonical_json_bytes([verification_identity] * 7)
+    ).hexdigest()
+    resources["durable_capsule"]["release"] = {
+        "asset_api_ids": [102, 103, 101],
+        "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
+        "exact_full_sha_tag": end_sha,
+        "immutable": True,
+        "release_api_id": 100,
+        "verified": True,
+    }
+    resources["durable_capsule"]["attestation"] = {
+        "bundle_sha256": attestation_digest,
+        "verified": True,
+        "workflow": "actions/attest@v4",
+    }
+    capsule_payload = {
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
-        "resources": descriptors,
-        "schema": ratchet.BOUNDARY_EVIDENCE_INDEX_SCHEMA,
+        "resources": [{"name": name, "value": value} for name, value in sorted(resources.items())],
+        "schema": ratchet.BOUNDARY_CAPSULE_PAYLOAD_SCHEMA,
         "start_sha": start_sha,
     }
-    index_raw = _canonical_boundary_bytes(index)
-    index_path = tmp_path / "real-authentication-index.json"
-    index_path.write_bytes(index_raw)
-    _stub_boundary_evidence_index(
-        monkeypatch,
-        index_path=index_path,
-        index_length=len(index_raw),
-        index_sha256=hashlib.sha256(index_raw).hexdigest(),
-    )
+    payload_raw = _canonical_boundary_bytes(capsule_payload)
+    capsule_manifest = {
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "payload_byte_length": len(payload_raw),
+        "payload_sha256": hashlib.sha256(payload_raw).hexdigest(),
+        "schema": ratchet.BOUNDARY_CAPSULE_MANIFEST_SCHEMA,
+        "start_sha": start_sha,
+    }
+    manifest_raw = _canonical_boundary_bytes(capsule_manifest)
+    checksums_raw = (
+        f"{hashlib.sha256(manifest_raw).hexdigest()}  manifest.json\n"
+        f"{hashlib.sha256(payload_raw).hexdigest()}  payload.json\n"
+    ).encode()
+    assets = {
+        101: checksums_raw,
+        102: manifest_raw,
+        103: payload_raw,
+    }
+    tree_sha = subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", f"{end_sha}^{{tree}}"],
+        text=True,
+    ).strip()
+    real_subprocess_run = subprocess.run
+
+    def github_transport(
+        argv: list[str],
+        *args: Any,
+        **kwargs: Any,
+    ) -> subprocess.CompletedProcess[bytes]:
+        if Path(argv[0]).name != "gh":
+            return real_subprocess_run(argv, *args, **kwargs)
+        if argv[1] != "api":
+            return subprocess.CompletedProcess(argv, 0, stdout=verification_raw, stderr=b"")
+        endpoint = argv[-1]
+        if "/releases/assets/" in endpoint:
+            body = assets[int(endpoint.rsplit("/", 1)[1])]
+        elif endpoint == "repos/synaptent/aragora":
+            body = ratchet._canonical_json_bytes({"full_name": "synaptent/aragora"})
+        elif endpoint.endswith("/branches/main/protection"):
+            body = ratchet._canonical_json_bytes({"required_status_checks": {"strict": False}})
+        elif endpoint.endswith("/immutable-releases"):
+            body = ratchet._canonical_json_bytes({"enabled": True})
+        elif endpoint.endswith("/releases?per_page=100&page=1"):
+            body = ratchet._canonical_json_bytes([{"id": 100, "tag_name": end_sha}])
+        elif endpoint.endswith("/releases/100"):
+            body = ratchet._canonical_json_bytes(
+                {
+                    "assets": [
+                        {"id": 101, "name": "checksums.txt"},
+                        {"id": 102, "name": "manifest.json"},
+                        {"id": 103, "name": "payload.json"},
+                    ],
+                    "draft": False,
+                    "id": 100,
+                    "immutable": True,
+                    "prerelease": False,
+                    "tag_name": end_sha,
+                }
+            )
+        elif endpoint.endswith("/rulesets/rule-suites/987654"):
+            body = ratchet._canonical_json_bytes({"id": 987654, "result": "pass"})
+        elif endpoint.endswith("/pulls/9999/files?per_page=100&page=1"):
+            body = ratchet._canonical_json_bytes([{"filename": "fixture.txt", "id": 1}])
+        elif endpoint.endswith("/pulls/9999"):
+            body = ratchet._canonical_json_bytes(
+                {
+                    "base": {"sha": start_sha},
+                    "changed_files": 1,
+                    "head": {"sha": end_sha},
+                    "merge_commit_sha": end_sha,
+                    "merged_at": "2026-07-20T00:00:00Z",
+                    "number": 9999,
+                }
+            )
+        elif endpoint.endswith(f"/git/commits/{end_sha}"):
+            body = ratchet._canonical_json_bytes(
+                {
+                    "parents": [{"sha": start_sha}],
+                    "sha": end_sha,
+                    "tree": {"sha": tree_sha},
+                }
+            )
+        else:
+            raise AssertionError(endpoint)
+        stdout = (
+            b'HTTP/2 200 OK\r\nETag: "fixture"\r\n'
+            b"Last-Modified: Mon, 20 Jul 2026 00:00:00 GMT\r\n\r\n" + body
+        )
+        return subprocess.CompletedProcess(argv, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", github_transport)
 
     result = ratchet.build_boundary_result(
         repo_root=repo_root,
@@ -1880,6 +2186,10 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     assert result["canonical_artifacts"]["original_cohort"]["record_count"] == 655
     assert result["canonical_artifacts"]["sdk_provenance"]["record_count"] == 598
     assert result["authority"]["repo_file_count"] > 0
+    assert any(
+        entry["resource"] == "sigstore-attestation:manifest.json"
+        for entry in result["operation_log"]
+    )
     authority_reads = [
         entry
         for entry in result["operation_log"]
@@ -2269,6 +2579,67 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
 
     assert result["status"] == "fail"
     assert "contradicted by exact-ref route baselines" in result["error"]
+
+
+@pytest.mark.parametrize(
+    ("category", "path_name"),
+    (
+        ("python_sdk_drift", "verify_sdk_contracts.json"),
+        ("typescript_sdk_drift", "verify_sdk_contracts.json"),
+        ("missing_in_spec", "validate_openapi_routes.json"),
+        ("orphaned_in_spec", "validate_openapi_routes.json"),
+        ("missing_from_both_sdks", "check_sdk_parity.json"),
+    ),
+)
+@pytest.mark.parametrize(
+    ("mode", "value"),
+    (
+        ("missing", None),
+        ("null", None),
+        ("string", "not-a-list"),
+        ("object", {"not": "a-list"}),
+        ("mixed", ["valid", 7]),
+    ),
+)
+def test_exact_ref_baseline_categories_require_lists_of_strings(
+    tmp_path: Path,
+    category: str,
+    path_name: str,
+    mode: str,
+    value: Any,
+):
+    repo, _start_sha, _boundary_shas = _boundary_git_repo(tmp_path)
+    path = repo / "scripts" / "baselines" / path_name
+    payload = json.loads(path.read_text())
+    if mode == "missing":
+        payload.pop(category)
+    else:
+        payload[category] = value
+    _write_json(path, payload)
+    ref = _commit(repo, f"malformed {category} {mode}")
+
+    with pytest.raises(ValueError, match=category):
+        ratchet._baseline_category_counts_at_ref(
+            repo,
+            ref,
+            operation_log=[],
+        )
+
+
+def test_exact_ref_baseline_categories_allow_empty_string_lists(tmp_path: Path):
+    repo, _start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+
+    assert ratchet._baseline_category_counts_at_ref(
+        repo,
+        boundary_shas["final_seal"],
+        operation_log=[],
+    ) == {
+        "python_sdk_drift": 0,
+        "routes_missing_in_spec": 0,
+        "routes_orphaned_in_spec": 0,
+        "sdk_missing_from_both": 0,
+        "typescript_sdk_drift": 0,
+    }
 
 
 def test_later_boundary_fails_when_route_debt_is_reintroduced(
@@ -2674,14 +3045,22 @@ def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
     monkeypatch.setattr(ratchet, "_gh_api_get_stable", stable_get)
     monkeypatch.setattr(ratchet, "_gh_api_paginated", paginated_get)
     monkeypatch.setattr(ratchet, "_gh_api_get_raw_stable", raw_get)
-    monkeypatch.setattr(
-        ratchet,
-        "_run_live_verification",
-        lambda argv, *, operation_log, resource: (
-            {"resource": resource, "verified": bool(argv)},
-            verification_identity,
-        ),
-    )
+    verification_commands: list[list[str]] = []
+
+    def verify(
+        argv: list[str],
+        *,
+        operation_log: list[dict[str, Any]],
+        resource: str,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        del operation_log
+        verification_commands.append(argv)
+        if argv[1:3] == ["attestation", "verify"]:
+            source_index = argv.index("--source-digest")
+            assert argv[source_index + 1] == end_sha
+        return {"resource": resource, "verified": bool(argv)}, verification_identity
+
+    monkeypatch.setattr(ratchet, "_run_live_verification", verify)
 
     discovered, summary, context = ratchet._collect_live_evidence(
         github_repository="synaptent/aragora",
@@ -2698,6 +3077,64 @@ def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
     assert summary["resource_count"] == len(selected)
     assert len(context["asset_identities"]) == 3
     assert any(endpoint.endswith("/pulls/9999") for endpoint in context["endpoint_identities"])
+    assert (
+        len([argv for argv in verification_commands if argv[1:3] == ["attestation", "verify"]]) == 3
+    )
+    assert all(
+        argv[argv.index("--source-digest") + 1] == end_sha
+        for argv, _identity, _resource in context["verification_commands"]
+        if argv[1:3] == ["attestation", "verify"]
+    )
+
+
+@pytest.mark.parametrize("source_digest", (None, "0" * 40))
+def test_live_evidence_replay_rejects_missing_or_wrong_attestation_source_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source_digest: str | None,
+):
+    end_sha = "1" * 40
+    argv = [
+        "gh",
+        "attestation",
+        "verify",
+        str(tmp_path / "asset.json"),
+        "-R",
+        "synaptent/aragora",
+        "--signer-workflow",
+        "synaptent/aragora/.github/workflows/contract-drift-boundary.yml",
+        "--format",
+        "json",
+    ]
+    if source_digest is not None:
+        argv.extend(["--source-digest", source_digest])
+    context = {
+        "asset_identities": {},
+        "endpoint_identities": {},
+        "github_repository": "synaptent/aragora",
+        "local_asset_identities": {},
+        "verification_commands": [
+            (
+                argv,
+                {"byte_length": 1, "sha256": "2" * 64},
+                "sigstore-attestation:asset.json",
+            )
+        ],
+    }
+    monkeypatch.setattr(
+        ratchet,
+        "_run_live_verification",
+        lambda *_args, **_kwargs: pytest.fail(
+            "hostile replay command must fail before transport execution"
+        ),
+    )
+
+    with pytest.raises(ValueError, match="source digest"):
+        ratchet._reauthenticate_live_context(
+            context,
+            operation_log=[],
+            end_sha=end_sha,
+        )
 
 
 def test_live_release_pagination_runs_to_exhaustion(monkeypatch: pytest.MonkeyPatch):
