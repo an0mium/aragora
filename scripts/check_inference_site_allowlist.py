@@ -26,6 +26,7 @@ JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 JS_CONSTRUCTORS = {"OpenAI": "openai-compatible", "Anthropic": "anthropic", "GoogleGenAI": "gemini"}
 JS_IMPORTS = ((r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']openai["\']', "", "openai-compatible"), (r'import\s*\{[^}]*\bOpenAI(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']openai["\']', "OpenAI", "openai-compatible"), (r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']@anthropic-ai/sdk["\']', "", "anthropic"), (r'import\s*\{[^}]*\bAnthropic(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']@anthropic-ai/sdk["\']', "Anthropic", "anthropic"), (r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']@google/genai["\']', "", "gemini"), (r'import\s*\{[^}]*\bGoogleGenAI(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']@google/genai["\']', "GoogleGenAI", "gemini"))
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
+JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*' ''', re.VERBOSE)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
@@ -122,10 +123,7 @@ def _contains_forbidden_port(value: Any, key: str = "") -> bool:
     if isinstance(value, list):
         return any(_contains_forbidden_port(item, key) for item in value)
     if isinstance(value, dict):
-        return any(
-            _contains_forbidden_port(item, str(name)) or _contains_forbidden_port(name)
-            for name, item in value.items()
-        )
+        return any(_contains_forbidden_port(item, str(name)) or _contains_forbidden_port(name) for name, item in value.items())  # fmt: skip
     return False
 
 
@@ -182,11 +180,7 @@ def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]]) -> tu
             for part in ast.walk(node)
         )
     }
-    clients = {
-        node.arg
-        for node in nodes
-        if isinstance(node, ast.arg) and _typed_client(node.annotation, aliases)
-    }
+    clients = {node.arg for node in nodes if isinstance(node, ast.arg) and _typed_client(node.annotation, aliases)}
     clients.update(name.asname or name.name for node in nodes if isinstance(node, ast.Import) for name in node.names if name.name == "openai")  # fmt: skip
 # fmt: on
     def backed(value: ast.AST) -> bool:
@@ -306,6 +300,15 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _js_constructor_end(source: str, start: int) -> int | None:
+    depth = 1
+    for index, char in enumerate(source[start:], start):
+        depth += (char == "(") - (char == ")")
+        if depth == 0:
+            return index + 1
+    return None
+
+
 def iter_scan_files(root: Path) -> tuple[Path, ...]:
     return tuple(
         sorted(
@@ -345,10 +348,12 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             for pattern, default, provider in JS_IMPORTS:
                 js_aliases.update({alias or default: provider for alias in re.findall(pattern, source)})
             js_clients = {provider: (tuple(constructor for constructor, family in js_aliases.items() if family == provider), {client for constructor, family in js_aliases.items() if family == provider for client in re.findall(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+{re.escape(constructor)}\s*\(", source)}) for provider in set(js_aliases.values())}  # fmt: skip
-            js_compact = re.sub(r"\s+", "", source) if js_clients else ""
+            js_structure = JS_CODE_STRING_RE.sub('""', source) if js_clients else ""
+            js_compact = re.sub(r"\s+", "", js_structure)
             for suffix, provider, protocol in METHOD_SUFFIXES:
                 constructors, clients = js_clients.get(provider, ((), set()))
-                count = sum(len(re.findall(rf"(?<![\w$]){re.escape(client)}\.{re.escape(suffix)}", js_compact)) for client in clients) + sum(len(re.findall(rf"\bnew{re.escape(constructor)}\([^)]*\)\.{re.escape(suffix)}", js_compact)) for constructor in constructors)  # fmt: skip
+                suffix_pattern = r"\s*\.\s*".join(re.escape(part) for part in suffix.split("."))
+                count = sum(len(re.findall(rf"(?<![\w$]){re.escape(client)}\.{re.escape(suffix)}", js_compact)) for client in clients) + sum(1 for constructor in constructors for match in re.finditer(rf"\bnew\s+{re.escape(constructor)}\s*\(", js_structure) if (end := _js_constructor_end(js_structure, match.end())) is not None and re.match(rf"\s*\.\s*{suffix_pattern}", js_structure[end:]))  # fmt: skip
                 if count:
                     grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["inference-method"] += count  # fmt: skip
             for line_no, line in enumerate(source_lines, 1):
