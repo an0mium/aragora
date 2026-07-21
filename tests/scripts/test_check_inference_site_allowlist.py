@@ -101,6 +101,22 @@ def test_bare_mistral_types_reach_ast_discovery(tmp_path: Path) -> None:
     assert [(site.provider, site.protocol) for site in sites] == [("mistral", "chat")]
 
 
+def test_modern_gemini_camel_case_calls_reach_ast_discovery(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """from google import genai
+client = genai.Client()
+client.models.generateContent("hello")
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol) for site in sites} == {
+        ("gemini", "client"),
+        ("gemini", "generate-content"),
+    }
+
+
 def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
@@ -451,9 +467,19 @@ def test_python_embedded_string_ports_trigger_ast_enforcement(tmp_path: Path) ->
 
 
 def test_python_issue_references_are_not_ports(tmp_path: Path) -> None:
-    _write_source(tmp_path, "aragora/history.py", 'NOTE = "review fix #8317"\n')
+    _write_source(
+        tmp_path,
+        "aragora/history.py",
+        '"""Review history for #8317."""\n# review fix #8317\nNOTE = "review fix #8317"\n',
+    )
     result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.forbidden_ports == ()
+
+
+def test_manifest_port_strings_and_bytes_are_forbidden(tmp_path: Path) -> None:
+    assert checker._contains_forbidden_port({"note": "--port=8317"})
+    assert checker._contains_forbidden_port({"note": b"port=08317"})
+    assert not checker._contains_forbidden_port({"note": "review fix #8317"})
 
 
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:

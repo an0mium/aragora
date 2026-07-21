@@ -29,8 +29,10 @@ PYTHON_AST_NEEDLES = (
     "modeltransportpolicy",
     "openai",
     "anthropic",
+    "genai",
     "google.genai",
     "generativemodel",
+    "generatecontent",
     "api.x.ai",
     "openrouter.ai",
     "generativelanguage.googleapis.com",
@@ -173,9 +175,13 @@ def _provider_for_http_endpoint(value: str) -> str | None:
 def _contains_forbidden_port(value: Any, key: str = "") -> bool:
     if type(value) is int:
         return value == 8317
-    if isinstance(value, str):
-        return bool(FORBIDDEN_PORT_RE.search(value)) or (
-            "port" in key.lower() and bool(re.fullmatch(r"0*8317", value))
+    if isinstance(value, (str, bytes)):
+        text = value.decode("ascii", errors="ignore") if isinstance(value, bytes) else value
+        return (
+            bool(FORBIDDEN_PORT_RE.search(text))
+            or bool(PORT_STRING_RE.search(text))
+            or bool(re.fullmatch(r"0*8317", text))
+            or ("port" in key.lower() and bool(re.fullmatch(r"0*8317", text)))
         )
     if isinstance(value, list):
         return any(_contains_forbidden_port(item, key) for item in value)
@@ -184,7 +190,9 @@ def _contains_forbidden_port(value: Any, key: str = "") -> bool:
     return False
 
 
-def _contains_python_numeric_port_literal(source: str) -> bool:
+def _may_contain_python_numeric_port_literal(source: str) -> bool:
+    """Cheap raw-text prefilter only; the parsed AST decides whether a port exists."""
+
     for match in PYTHON_NUMBER_RE.finditer(source):
         token = match.group().replace("_", "")
         base = 0 if token.lower().startswith(("0x", "0o", "0b")) else 10
@@ -579,7 +587,7 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
         lowered_source = source.lower()
         if not any(
             needle in lowered_source for needle in PYTHON_AST_NEEDLES
-        ) and not _contains_python_numeric_port_literal(source):
+        ) and not _may_contain_python_numeric_port_literal(source):
             continue
         try:
             tree = ast.parse(source, filename=relative)
