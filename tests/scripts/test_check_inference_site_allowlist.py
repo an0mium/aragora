@@ -25,9 +25,7 @@ checker = _load_module()
 def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
     payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-    eligible = [site for site in payload["sites"] if site["classification"] == "proxy-eligible"]
-    assert result.ok is True and result.policy_consumers == ("scripts/consult_claude.py",), result
-    assert [(site["path"], site["anchor"]) for site in eligible] == [("scripts/consult_claude.py", "_run_vibeproxy")]  # fmt: skip
+    assert result.ok is True and result.policy_consumers == ("scripts/consult_claude.py",) and [(site["path"], site["anchor"]) for site in payload["sites"] if site["classification"] == "proxy-eligible"] == [("scripts/consult_claude.py", "_run_vibeproxy")], result  # fmt: skip
 
 
 def _write_source(root: Path, relative: str, source: str) -> Path:
@@ -69,8 +67,7 @@ class Runner:
 @pytest.mark.parametrize("module,name", [("openai", "OpenAI"), ("anthropic", "Anthropic")])
 def test_discovery_finds_aliased_constructors(tmp_path: Path, module: str, name: str) -> None:
     _write_source(tmp_path, "aragora/run.py", f"from {module} import {name} as Client\nClient()\n")
-    discovery = checker.discover(tmp_path)
-    assert discovery.sites[0].provider in {"openai-compatible", "anthropic"}
+    assert checker.discover(tmp_path).sites[0].provider in {"openai-compatible", "anthropic"}
 
 
 def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
@@ -103,12 +100,12 @@ def consult(policy: MTP):
 """,
     )
     # fmt: off
-    _write_source(tmp_path, "aragora/live/src/run.tsx", 'urls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\nthis.#endpoint = "https://api.x.ai/v1"\n// https://api.x.ai/v1/commented\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
+    _write_source(tmp_path, "aragora/live/src/run.tsx", 'urls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\nthis.#endpoint = "https://api.x.ai/v1"\nconst ai = new OpenAI()\nai.chat\n .completions.create({})\nnew OpenAI({ apiKey }).responses.create({})\nunproven.responses.create({})\n// https://api.x.ai/v1/commented\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
     discovery = checker.discover(tmp_path)
     assert discovery.policy_consumers == ("scripts/consult_claude.py",)
-    expected = {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openrouter", "chat"), ("tinker", "base"), ("xai", "base")}
+    assert {(site.provider, site.protocol) for site in discovery.sites} == {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openai-compatible", "chat"), ("openai-compatible", "responses"), ("openrouter", "chat"), ("tinker", "base"), ("xai", "base")}
+    assert next(site for site in discovery.sites if site.provider == "openai-compatible" and site.protocol == "responses").detectors == {"inference-method": 1}
     # fmt: on
-    assert {(site.provider, site.protocol) for site in discovery.sites} == expected
     assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 2
     payload = _template(tmp_path)
     assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
@@ -172,10 +169,7 @@ def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path)
         'PROHIBITED_PORTS = {8317}\nOTHER_PORT = 8317\nPORTS = ["8317"]\n',
     )
     result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
-    assert result.forbidden_ports == (
-        "aragora/agents/transports/vibeproxy.py:2",
-        "aragora/agents/transports/vibeproxy.py:3",
-    )
+    assert result.forbidden_ports == ("aragora/agents/transports/vibeproxy.py:2", "aragora/agents/transports/vibeproxy.py:3")  # fmt: skip
 
 
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:
@@ -186,6 +180,5 @@ def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:
     payload["sites"][1]["rationale"] = ""
     payload["port"] = "8317"
     result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
-    assert any("invalid classification" in error for error in result.manifest_errors)
-    assert any("duplicate site" in error for error in result.manifest_errors)
-    assert any("forbidden port" in error for error in result.manifest_errors)
+    errors = "\n".join(result.manifest_errors)
+    assert all(message in errors for message in ("invalid classification", "duplicate site", "forbidden port"))

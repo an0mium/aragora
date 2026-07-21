@@ -23,6 +23,7 @@ CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
 # fmt: off
 TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
+JS_CONSTRUCTORS = {"OpenAI": "openai-compatible", "Anthropic": "anthropic", "GoogleGenAI": "gemini"}
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
@@ -30,7 +31,7 @@ PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
-METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
+METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
@@ -343,6 +344,13 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             source = JS_COMMENT_RE.sub(lambda match: match.group(1) or "\n" * match.group(0).count("\n"), source)  # fmt: skip
         source_lines = source.splitlines()
         if tree is None:
+            js_clients = {provider: (constructor, set(re.findall(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+{constructor}\s*\(", source))) for constructor, provider in JS_CONSTRUCTORS.items()} if path.suffix in JS_SUFFIXES else {}  # fmt: skip
+            js_compact = re.sub(r"\s+", "", source) if js_clients else ""
+            for suffix, provider, protocol in METHOD_SUFFIXES:
+                constructor, clients = js_clients.get(provider, ("", set()))
+                count = sum(len(re.findall(rf"(?<![\w$]){re.escape(client)}\.{re.escape(suffix)}", js_compact)) for client in clients) + (len(re.findall(rf"\bnew{constructor}\([^)]*\)\.{re.escape(suffix)}", js_compact)) if constructor else 0)  # fmt: skip
+                if count:
+                    grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["inference-method"] += count  # fmt: skip
             for line_no, line in enumerate(source_lines, 1):
                 content = line if path.suffix in JS_SUFFIXES else line.split("#", 1)[0]
                 if re.search(r"(?<!\d)0*8317(?!\d)", content):
