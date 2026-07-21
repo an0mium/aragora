@@ -149,6 +149,30 @@ def test_raw_http_url_bindings_do_not_cross_method_scopes(tmp_path: Path) -> Non
     }
 
 
+def test_javascript_sdk_property_receivers_are_discovered(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/live/src/run.ts",
+        """import OpenAIClient from "openai"
+class Runner {
+  client = new OpenAIClient()
+  run() { this.client.responses.create({}) }
+}
+const holder = {}
+holder.client = new OpenAIClient()
+holder.client.chat.completions.create({})
+this.embedder = new OpenAIClient()
+this.embedder.embeddings.create({})
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol) for site in sites} == {
+        ("openai-compatible", "chat"),
+        ("openai-compatible", "embeddings"),
+        ("openai-compatible", "responses"),
+    }
+
+
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
     _write_source(
         tmp_path,

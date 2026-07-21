@@ -441,8 +441,8 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             js_aliases = dict(JS_CONSTRUCTORS) if path.suffix in JS_SUFFIXES else {}
             for pattern, default, provider in JS_IMPORTS:
                 js_aliases.update({alias or default: provider for alias in re.findall(pattern, source)})
-            js_clients = {provider: (tuple(constructor for constructor, family in js_aliases.items() if family == provider), {client for constructor, family in js_aliases.items() if family == provider for client in re.findall(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+{re.escape(constructor)}\s*\(", source)}) for provider in set(js_aliases.values())}  # fmt: skip
-            js_structure = JS_CODE_STRING_RE.sub('""', source) if js_clients else ""
+            js_structure = JS_CODE_STRING_RE.sub('""', source) if js_aliases else ""
+            js_clients = {provider: (tuple(constructor for constructor, family in js_aliases.items() if family == provider), {client for constructor, family in js_aliases.items() if family == provider for client in re.findall(rf"(?<![\w$])((?:this\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(?:\s*:\s*[^=;\n]+)?=\s*new\s+{re.escape(constructor)}\s*\(", js_structure)}) for provider in set(js_aliases.values())}  # fmt: skip
             js_compact = re.sub(r"\s+", "", js_structure)
             for suffix, provider, protocol in METHOD_SUFFIXES:
                 constructors, clients = js_clients.get(provider, ((), set()))
