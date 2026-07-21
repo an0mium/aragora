@@ -58,7 +58,9 @@ JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 JS_CONSTRUCTORS = {"OpenAI": "openai-compatible", "Anthropic": "anthropic", "GoogleGenAI": "gemini"}
 JS_IMPORTS = ((r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']openai["\']', "", "openai-compatible"), (r'import\s*\{[^}]*\bOpenAI(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']openai["\']', "OpenAI", "openai-compatible"), (r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']@anthropic-ai/sdk["\']', "", "anthropic"), (r'import\s*\{[^}]*\bAnthropic(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']@anthropic-ai/sdk["\']', "Anthropic", "anthropic"), (r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']@google/genai["\']', "", "gemini"), (r'import\s*\{[^}]*\bGoogleGenAI(?:\s+as\s+([A-Za-z_$][\w$]*))?[^}]*\}\s*from\s*["\']@google/genai["\']', "GoogleGenAI", "gemini"), (r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\(\s*["\']openai["\']\s*\)(?:\.default)?', "", "openai-compatible"), (r'(?:const|let|var)\s*\{[^}]*\b(?:OpenAI|default)(?:\s*:\s*([A-Za-z_$][\w$]*))?[^}]*\}\s*=\s*require\(\s*["\']openai["\']\s*\)', "OpenAI", "openai-compatible"), (r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\(\s*["\']@anthropic-ai/sdk["\']\s*\)(?:\.default)?', "", "anthropic"), (r'(?:const|let|var)\s*\{[^}]*\b(?:Anthropic|default)(?:\s*:\s*([A-Za-z_$][\w$]*))?[^}]*\}\s*=\s*require\(\s*["\']@anthropic-ai/sdk["\']\s*\)', "Anthropic", "anthropic"), (r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\(\s*["\']@google/genai["\']\s*\)(?:\.default)?', "", "gemini"), (r'(?:const|let|var)\s*\{[^}]*\b(?:GoogleGenAI|default)(?:\s*:\s*([A-Za-z_$][\w$]*))?[^}]*\}\s*=\s*require\(\s*["\']@google/genai["\']\s*\)', "GoogleGenAI", "gemini"))
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
-JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*' ''', re.VERBOSE)
+JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`''')
+JS_VALUE_ASSIGN_RE = re.compile(r'''(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
+JS_HTTP_CALL_RE = re.compile(r'''(?<![\w$])(?:fetch|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\.(?:post|request))\s*\(\s*([A-Za-z_$][\w$]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_STRING_RE = re.compile(
     r"(?i)(?<![a-z])port(?![a-z])\D{0,8}0*8317(?!\d)|(?:^|\s)-p\s+0*8317(?!\d)"
@@ -527,6 +529,27 @@ def _js_constructor_end(source: str, start: int) -> int | None:
     return None
 
 
+def _js_endpoint_value(raw: str) -> str:
+    if raw[:1] in {'"', "'", "`"} and raw[-1:] == raw[:1]:
+        raw = raw[1:-1]
+    return re.sub(r"\$\{.*?\}", "{}", raw)
+
+
+def _js_http_endpoints(source: str) -> tuple[tuple[str, str], ...]:
+    bindings = {
+        name: _js_endpoint_value(value)
+        for name, value in JS_VALUE_ASSIGN_RE.findall(source)
+    }
+    endpoints: list[tuple[str, str]] = []
+    for raw in JS_HTTP_CALL_RE.findall(source):
+        value = bindings.get(raw, _js_endpoint_value(raw))
+        provider = _provider_for_http_endpoint(value)
+        protocol = _protocol_for_url(value)
+        if provider is not None and protocol != "base":
+            endpoints.append((provider, protocol))
+    return tuple(endpoints)
+
+
 def iter_scan_files(root: Path) -> tuple[Path, ...]:
     return tuple(
         sorted(
@@ -565,7 +588,7 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             for pattern, default, provider in JS_IMPORTS:
                 js_aliases.update({alias or default: provider for alias in re.findall(pattern, source)})
             js_structure = JS_CODE_STRING_RE.sub('""', source) if js_aliases else ""
-            js_clients = {provider: (tuple(constructor for constructor, family in js_aliases.items() if family == provider), {client for constructor, family in js_aliases.items() if family == provider for client in re.findall(rf"(?<![\w$#])((?:this\.)?#?[A-Za-z_$][\w$]*(?:\.#?[A-Za-z_$][\w$]*)*)\s*(?:\s*:\s*[^=;\n]+)?=\s*new\s+{re.escape(constructor)}\s*\(", js_structure)}) for provider in set(js_aliases.values())}  # fmt: skip
+            js_clients = {provider: (tuple(constructor for constructor, family in js_aliases.items() if family == provider), {client for constructor, family in js_aliases.items() if family == provider for client in (*re.findall(rf"(?<![\w$#])((?:this\.)?#?[A-Za-z_$][\w$]*(?:\.#?[A-Za-z_$][\w$]*)*)\s*(?:\s*:\s*[^=;\n]+)?=\s*new\s+{re.escape(constructor)}\s*\(", js_structure), *re.findall(rf"(?<![\w$#])((?:this\.)?#?[A-Za-z_$][\w$]*(?:\.#?[A-Za-z_$][\w$]*)*)\s*\??\s*:\s*{re.escape(constructor)}\b", js_structure))}) for provider in set(js_aliases.values())}  # fmt: skip
             js_compact = re.sub(r"\s+", "", js_structure)
             for suffix, provider, protocol in METHOD_SUFFIXES:
                 constructors, clients = js_clients.get(provider, ((), set()))
@@ -573,6 +596,8 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
                 count = sum(len(re.findall(rf"(?<![\w$]){re.escape(client)}\.{re.escape(suffix)}", js_compact)) for client in clients) + sum(1 for constructor in constructors for match in re.finditer(rf"\bnew\s+{re.escape(constructor)}\s*\(", js_structure) if (end := _js_constructor_end(js_structure, match.end())) is not None and re.match(rf"\s*\.\s*{suffix_pattern}", js_structure[end:]))  # fmt: skip
                 if count:
                     grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["inference-method"] += count  # fmt: skip
+            for provider, protocol in _js_http_endpoints(source):
+                grouped.setdefault(SiteKey(relative, "<file>", provider, protocol), Counter())["http-inference-call"] += 1  # fmt: skip
             for line_no, line in enumerate(source_lines, 1):
                 content = line if path.suffix in JS_SUFFIXES else line.split("#", 1)[0]
                 if re.search(r"(?<!\d)0*8317(?!\d)", content):

@@ -257,6 +257,54 @@ this.#privateClient.completions.create({})
     }
 
 
+def test_javascript_typed_sdk_receivers_are_discovered(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/live/src/run.ts",
+        """import OpenAIClient from "openai"
+import { Anthropic as ClaudeClient } from "@anthropic-ai/sdk"
+function run(client: OpenAIClient, claude: ClaudeClient) {
+  client.chat.completions.create({})
+  claude.messages.create({})
+  untyped.responses.create({})
+}
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol) for site in sites} == {
+        ("anthropic", "messages"),
+        ("openai-compatible", "chat"),
+    }
+
+
+def test_javascript_raw_http_calls_follow_dynamic_url_bindings(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/live/src/run.ts",
+        """const chatUrl = `${baseUrl}/chat/completions`
+fetch(chatUrl)
+axios.post(`${baseUrl}/responses`, {})
+const ordinaryMessages = `${baseUrl}/messages`
+fetch(ordinaryMessages)
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol, tuple(site.detectors)) for site in sites} == {
+        ("openai-compatible", "chat", ("http-inference-call",)),
+        ("openai-compatible", "responses", ("http-inference-call",)),
+    }
+
+
+def test_javascript_template_literal_sdk_lookalikes_are_ignored(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/live/src/run.ts",
+        'import OpenAI from "openai"\nconst client = new OpenAI()\nconst text = `client.responses.create({})`\n',
+    )
+    sites = checker.discover(tmp_path).sites
+    assert sites == ()
+
+
 def test_commonjs_sdk_aliases_are_discovered(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
