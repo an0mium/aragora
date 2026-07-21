@@ -83,9 +83,7 @@ genai.GenerativeModel().generate_content("hello")
 """,
     )
     discovery = checker.discover(tmp_path)
-    protocols = {site.protocol for site in discovery.sites}
-    expected = {"client", "chat", "responses", "messages", "generate-content"}
-    assert discovery.raw_detections == 15 and protocols == expected
+    assert discovery.raw_detections == 15 and {site.protocol for site in discovery.sites} == {"client", "chat", "responses", "messages", "generate-content"}  # fmt: skip
 
 
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
@@ -100,11 +98,12 @@ def consult(policy: MTP):
 """,
     )
     # fmt: off
-    _write_source(tmp_path, "aragora/live/src/run.tsx", 'urls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\nthis.#endpoint = "https://api.x.ai/v1"\nconst ai = new OpenAI()\nai.chat\n .completions.create({})\nnew OpenAI({ apiKey }).responses.create({})\nunproven.responses.create({})\n// https://api.x.ai/v1/commented\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
+    _write_source(tmp_path, "aragora/live/src/run.tsx", 'import OpenAIClient from "openai"\nimport { Anthropic as ClaudeClient } from "@anthropic-ai/sdk"\nimport { GoogleGenAI as GeminiClient } from "@google/genai"\nurls = ["https://api.openai.com/v1/responses",\n "https://api.mistral.ai/v1",\n "https://api.deepseek.com/v1",\n "https://api.moonshot.cn/v1",\n "https://api.thinkingmachines.ai/v1/*quoted*/"]\nthis.#endpoint = "https://api.x.ai/v1"\nconst ai = new OpenAI()\nai.chat\n .completions.create({})\nnew OpenAI({ apiKey }).responses.create({})\nconst alias = new OpenAIClient()\nalias.responses.create({})\nconst claude = new ClaudeClient()\nclaude.messages.create({})\nconst gemini = new GeminiClient()\ngemini.models.generateContent({})\nunproven.responses.create({})\n// https://api.x.ai/v1/commented\n/*\nhttps://generativelanguage.googleapis.com/v1\n*/\n')
     discovery = checker.discover(tmp_path)
     assert discovery.policy_consumers == ("scripts/consult_claude.py",)
-    assert {(site.provider, site.protocol) for site in discovery.sites} == {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openai-compatible", "chat"), ("openai-compatible", "responses"), ("openrouter", "chat"), ("tinker", "base"), ("xai", "base")}
-    assert next(site for site in discovery.sites if site.provider == "openai-compatible" and site.protocol == "responses").detectors == {"inference-method": 1}
+    assert {(site.provider, site.protocol) for site in discovery.sites} == {("anthropic", "messages"), ("deepseek", "base"), ("gemini", "generate-content"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openai-compatible", "chat"), ("openai-compatible", "responses"), ("openrouter", "chat"), ("tinker", "base"), ("xai", "base")}
+    assert {(site.provider, site.protocol) for site in discovery.sites if site.path.endswith("run.tsx")} >= {("anthropic", "messages"), ("gemini", "generate-content"), ("openai-compatible", "chat"), ("openai-compatible", "responses")}
+    assert next(site for site in discovery.sites if site.provider == "openai-compatible" and site.protocol == "responses").detectors == {"inference-method": 2}
     # fmt: on
     assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 2
     payload = _template(tmp_path)
