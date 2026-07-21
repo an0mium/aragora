@@ -3438,9 +3438,6 @@ def build_boundary_result(
     authority_manifest_sha256: str | None = None,
     cohort_artifact_path: Path | None = None,
     sdk_provenance_artifact_path: Path | None = None,
-    evidence_index_path: Path | None = None,
-    evidence_index_byte_length: int | None = None,
-    evidence_index_sha256: str | None = None,
     github_repository: str = "synaptent/aragora",
     github_branch: str = "main",
     scratch_root: Path | None = None,
@@ -3532,27 +3529,15 @@ def build_boundary_result(
             operation_log=operation_log,
         )
         result["authority"] = authority
-        live_context: dict[str, Any] | None = None
-        if evidence_index_path is None:
-            resources, evidence_summary, live_context = _collect_live_evidence(
-                github_repository=github_repository,
-                github_branch=github_branch,
-                boundary=boundary,
-                start_sha=start_sha,
-                end_sha=end_sha,
-                scratch_root=resolved_scratch,
-                operation_log=operation_log,
-            )
-        else:
-            resources, evidence_summary = _load_evidence_resources(
-                evidence_index_path=evidence_index_path,
-                evidence_index_byte_length=evidence_index_byte_length,
-                evidence_index_sha256=evidence_index_sha256,
-                boundary=boundary,
-                start_sha=start_sha,
-                end_sha=end_sha,
-                operation_log=operation_log,
-            )
+        resources, evidence_summary, live_context = _collect_live_evidence(
+            github_repository=github_repository,
+            github_branch=github_branch,
+            boundary=boundary,
+            start_sha=start_sha,
+            end_sha=end_sha,
+            scratch_root=resolved_scratch,
+            operation_log=operation_log,
+        )
         result["evidence"] = evidence_summary
         result["remote_snapshot_before"] = _record_remote_snapshot(
             operation_log,
@@ -3594,23 +3579,14 @@ def build_boundary_result(
                 label="external authority manifest",
                 operation_log=operation_log,
             )
-        if live_context is None:
-            if evidence_index_path is None:
-                raise ValueError("boundary evidence source is unavailable")
-            after_evidence = _reauthenticate_evidence_resources(
-                evidence_index_path=evidence_index_path,
-                evidence_summary=evidence_summary,
-                operation_log=operation_log,
-            )
-        else:
-            _reauthenticate_live_context(
-                live_context,
-                operation_log=operation_log,
-            )
-            after_evidence = {
-                "index": evidence_summary["index"],
-                "resources": evidence_summary["resources"],
-            }
+        _reauthenticate_live_context(
+            live_context,
+            operation_log=operation_log,
+        )
+        after_evidence = {
+            "index": evidence_summary["index"],
+            "resources": evidence_summary["resources"],
+        }
         result["remote_snapshot_after"] = _record_remote_snapshot(
             operation_log,
             label="after",

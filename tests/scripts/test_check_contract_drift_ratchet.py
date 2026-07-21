@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import subprocess
 import sys
@@ -1606,6 +1607,49 @@ def _stub_boundary_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def _stub_boundary_evidence_index(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    index_path: Path,
+    index_length: int,
+    index_sha256: str,
+) -> None:
+    state: dict[str, dict[str, Any]] = {}
+
+    def collect(
+        **kwargs: Any,
+    ) -> tuple[
+        dict[str, dict[str, Any]],
+        dict[str, Any],
+        dict[str, Any],
+    ]:
+        resources, summary = ratchet._load_evidence_resources(
+            evidence_index_path=index_path,
+            evidence_index_byte_length=index_length,
+            evidence_index_sha256=index_sha256,
+            boundary=kwargs["boundary"],
+            start_sha=kwargs["start_sha"],
+            end_sha=kwargs["end_sha"],
+            operation_log=kwargs["operation_log"],
+        )
+        state["summary"] = summary
+        return resources, summary, {"fixture_evidence_index": True}
+
+    def reauthenticate(
+        _context: dict[str, Any],
+        *,
+        operation_log: list[dict[str, Any]],
+    ) -> None:
+        ratchet._reauthenticate_evidence_resources(
+            evidence_index_path=index_path,
+            evidence_summary=state["summary"],
+            operation_log=operation_log,
+        )
+
+    monkeypatch.setattr(ratchet, "_collect_live_evidence", collect)
+    monkeypatch.setattr(ratchet, "_reauthenticate_live_context", reauthenticate)
+
+
 def _boundary_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1628,15 +1672,18 @@ def _boundary_result(
         mutate=mutate,
     )
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
     return ratchet.build_boundary_result(
         repo_root=repo,
         schema_version=1,
         boundary=boundary,
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=index_length,
-        evidence_index_sha256=index_sha256,
     )
 
 
@@ -1757,6 +1804,12 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     index_raw = _canonical_boundary_bytes(index)
     index_path = tmp_path / "real-authentication-index.json"
     index_path.write_bytes(index_raw)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=len(index_raw),
+        index_sha256=hashlib.sha256(index_raw).hexdigest(),
+    )
 
     result = ratchet.build_boundary_result(
         repo_root=repo_root,
@@ -1766,9 +1819,6 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         end_ref=end_sha,
         cohort_artifact_path=cohort_path,
         sdk_provenance_artifact_path=provenance_path,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=len(index_raw),
-        evidence_index_sha256=hashlib.sha256(index_raw).hexdigest(),
         scratch_root=tmp_path,
         output_root=tmp_path,
     )
@@ -1848,6 +1898,13 @@ def test_boundary_cli_rejects_caller_supplied_evidence_index(
     assert exc_info.value.code == 2
 
 
+def test_boundary_python_api_rejects_caller_supplied_evidence_index():
+    parameters = inspect.signature(ratchet.build_boundary_result).parameters
+    assert "evidence_index_path" not in parameters
+    assert "evidence_index_byte_length" not in parameters
+    assert "evidence_index_sha256" not in parameters
+
+
 def test_parse_http_response_preserves_exact_body_bytes():
     body = b"binary\r\nbody\n\nHTTP/1.1 200 OK\r\nnot-a-header"
     headers, parsed = ratchet._parse_http_response(
@@ -1905,15 +1962,18 @@ def test_caller_summaries_and_parse_reserialize_are_not_proof(
     raw = _canonical_boundary_bytes(index)
     index_path.write_bytes(raw)
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=len(raw),
+        index_sha256=hashlib.sha256(raw).hexdigest(),
+    )
     result = ratchet.build_boundary_result(
         repo_root=repo,
         schema_version=1,
         boundary=boundary,
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=len(raw),
-        evidence_index_sha256=hashlib.sha256(raw).hexdigest(),
     )
     assert result["status"] == "fail"
     assert "caller-supplied" in result["error"]
@@ -1922,15 +1982,18 @@ def test_caller_summaries_and_parse_reserialize_are_not_proof(
         json.dumps(json.loads(index_path.read_text()), indent=2, sort_keys=True).encode() + b"\n"
     )
     index_path.write_bytes(pretty)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=len(pretty),
+        index_sha256=hashlib.sha256(pretty).hexdigest(),
+    )
     result = ratchet.build_boundary_result(
         repo_root=repo,
         schema_version=1,
         boundary=boundary,
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=len(pretty),
-        evidence_index_sha256=hashlib.sha256(pretty).hexdigest(),
     )
     assert result["status"] == "fail"
     assert "terminal LF" in result["error"] or "canonical" in result["error"]
@@ -1993,7 +2056,7 @@ def test_boundary_status_blocked_is_only_verified_external_prerequisite_or_movem
     _stub_boundary_dependencies(monkeypatch)
     monkeypatch.setattr(
         ratchet,
-        "_load_evidence_resources",
+        "_collect_live_evidence",
         lambda **_kwargs: (_ for _ in ()).throw(
             ratchet.BoundaryBlocked("authenticated remote resource moved concurrently")
         ),
@@ -2004,9 +2067,6 @@ def test_boundary_status_blocked_is_only_verified_external_prerequisite_or_movem
         boundary="corrective_bootstrap",
         start_ref=start_sha,
         end_ref=boundary_shas["corrective_bootstrap"],
-        evidence_index_path=tmp_path / "movement/index.json",
-        evidence_index_byte_length=1,
-        evidence_index_sha256="0" * 64,
     )
     assert movement["status"] == "blocked"
     assert "moved concurrently" in movement["blocked_reason"]
@@ -2058,6 +2118,12 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
         repo=repo,
     )
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
 
     result = ratchet.build_boundary_result(
         repo_root=repo,
@@ -2065,9 +2131,6 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
         boundary="route_truth",
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=index_length,
-        evidence_index_sha256=index_sha256,
     )
 
     assert result["status"] == "fail"
@@ -2100,6 +2163,12 @@ def test_sdk_zero_debt_fails_when_exact_ref_baseline_contradicts(
         repo=repo,
     )
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
 
     result = ratchet.build_boundary_result(
         repo_root=repo,
@@ -2107,9 +2176,6 @@ def test_sdk_zero_debt_fails_when_exact_ref_baseline_contradicts(
         boundary=boundary,
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=index_length,
-        evidence_index_sha256=index_sha256,
     )
 
     assert result["status"] == "fail"
@@ -2136,6 +2202,12 @@ def test_core_sdk_allows_remaining_extended_exact_ref_baseline_debt(
         repo=repo,
     )
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
 
     result = ratchet.build_boundary_result(
         repo_root=repo,
@@ -2143,9 +2215,6 @@ def test_core_sdk_allows_remaining_extended_exact_ref_baseline_debt(
         boundary="core_sdk",
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=index_length,
-        evidence_index_sha256=index_sha256,
     )
 
     assert result["status"] == "pass", result
@@ -2184,6 +2253,12 @@ def test_evidence_reauthentication_blocks_toctou_movement(
         repo=repo,
     )
     _stub_boundary_dependencies(monkeypatch)
+    _stub_boundary_evidence_index(
+        monkeypatch,
+        index_path=index_path,
+        index_length=index_length,
+        index_sha256=index_sha256,
+    )
     original_evaluate = ratchet._evaluate_boundary_evidence
 
     def evaluate_and_move(*args: Any, **kwargs: Any) -> dict[str, Any]:
@@ -2200,9 +2275,6 @@ def test_evidence_reauthentication_blocks_toctou_movement(
         boundary="corrective_bootstrap",
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=index_length,
-        evidence_index_sha256=index_sha256,
     )
 
     assert result["status"] == "blocked"
@@ -2504,16 +2576,12 @@ def test_read_only_cli_is_deterministic_across_double_run(
     repo = tmp_path / "boundary-repo"
     start_sha = first["start_sha"]
     end_sha = first["end_sha"]
-    index_path = tmp_path / "extended_sdk-evidence-index.json"
     second = ratchet.build_boundary_result(
         repo_root=repo,
         schema_version=1,
         boundary="extended_sdk",
         start_ref=start_sha,
         end_ref=end_sha,
-        evidence_index_path=index_path,
-        evidence_index_byte_length=first["evidence"]["index"]["byte_length"],
-        evidence_index_sha256=first["evidence"]["index"]["sha256"],
     )
     assert ratchet._canonical_json_bytes(first) == ratchet._canonical_json_bytes(second)
 
