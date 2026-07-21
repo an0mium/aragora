@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib  # type: ignore[no-redef]
 
 from packaging.requirements import Requirement
 import yaml
@@ -62,6 +66,18 @@ def test_pyproject_and_lock_pin_the_canonical_toolchain() -> None:
         item["name"] + item.get("specifier", "") for item in aragora["metadata"]["requires-dist"]
     ]
     assert _pins(declared) == _expected_pins()
+
+
+def test_python_310_toml_fallback_is_declared() -> None:
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    requirement = next(
+        Requirement(value)
+        for value in project["project"]["dependencies"]
+        if Requirement(value).name.lower() == "tomli"
+    )
+
+    assert str(requirement.specifier) == "<3.0,>=2.0.1"
+    assert str(requirement.marker) == 'python_version < "3.11"'
 
 
 def test_precommit_delegates_to_the_locked_toolchain() -> None:

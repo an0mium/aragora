@@ -61,6 +61,7 @@ dependencies = [
     "PyYAML>=6.0.3,<7.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
+    "tomli>=2.0.1,<3.0; python_version < '3.11'",
     # Core async runtime floor, audited against the bootable base set in
     # scripts/ci_install_project.sh (LEGACY_CONTROL_PLANE_BASE_DEPS, the floor
     # both Dockerfiles boot from). aiohttp has the widest runtime footprint
