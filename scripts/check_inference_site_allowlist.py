@@ -254,6 +254,8 @@ class _InferenceVisitor(ast.NodeVisitor):
             if chain.endswith(suffix) and self._has_client(receiver):
                 self._record(provider, protocol, "inference-method")
                 break
+        if chain.endswith(("generate_anthropic", "anthropic_message")):
+            self._record("anthropic", "messages", "transport-policy-call")
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
@@ -289,8 +291,6 @@ class _InferenceVisitor(ast.NodeVisitor):
         constructor = self.constructor_aliases.get(terminal)
         if constructor is not None:
             self._record(*constructor, "client-constructor")
-        if chain.endswith(("generate_anthropic", "anthropic_message")):
-            self._record("anthropic", "messages", "transport-policy-call")
         self.generic_visit(node)
 
 
