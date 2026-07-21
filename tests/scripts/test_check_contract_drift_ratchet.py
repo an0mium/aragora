@@ -1684,6 +1684,24 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         boundary_shas,
         repo=repo_root,
     )
+    transition = payloads["corrective_bootstrap"]["corrective_transition"]
+    transition["fact"]["commit_count"] = int(
+        subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-list",
+                "--count",
+                f"{start_sha}..{end_sha}",
+            ],
+            text=True,
+        ).strip()
+    )
+    transition["sha256"] = ratchet._fact_digest(
+        "contract-drift-corrective-transition-fact-v1",
+        transition["fact"],
+    )
     closure_fact = payloads["corrective_bootstrap"]["accepted_stage1_closure"]["fact"]
     closure_fact.update(
         {
