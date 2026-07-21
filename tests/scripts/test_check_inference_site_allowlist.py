@@ -284,12 +284,16 @@ def test_javascript_raw_http_calls_follow_dynamic_url_bindings(tmp_path: Path) -
         """const chatUrl = `${baseUrl}/chat/completions`
 fetch<ChatResponse>(chatUrl)
 axios.post<Response<Payload>>(`${baseUrl}/responses`, {})
+const anthropicBase = "https://api.anthropic.com/v1"
+fetch(`${anthropicBase}/messages`)
 const ordinaryMessages = `${baseUrl}/messages`
 client.request<MessageResponse>(ordinaryMessages)
 """,
     )
     sites = checker.discover(tmp_path).sites
     assert {(site.provider, site.protocol, tuple(site.detectors)) for site in sites} == {
+        ("anthropic", "base", ("endpoint-literal",)),
+        ("anthropic", "messages", ("http-inference-call",)),
         ("openai-compatible", "chat", ("http-inference-call",)),
         ("openai-compatible", "responses", ("http-inference-call",)),
     }

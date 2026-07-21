@@ -60,6 +60,7 @@ JS_IMPORTS = ((r'import\s+([A-Za-z_$][\w$]*)\s+from\s+["\']openai["\']', "", "op
 JS_COMMENT_RE = re.compile(r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', re.DOTALL)
 JS_CODE_STRING_RE = re.compile(r'''"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`''')
 JS_VALUE_ASSIGN_RE = re.compile(r'''(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
+JS_TEMPLATE_IDENTIFIER_RE = re.compile(r"\$\{\s*([A-Za-z_$][\w$]*)\s*\}")
 JS_HTTP_CALL_RE = re.compile(r'''(?<![\w$])(?:fetch|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\.(?:post|request))\s*(?:<(?:[^<>()]|<[^<>]*>)+>\s*)?\(\s*([A-Za-z_$][\w$]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)''', re.DOTALL)
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_STRING_RE = re.compile(
@@ -529,20 +530,23 @@ def _js_constructor_end(source: str, start: int) -> int | None:
     return None
 
 
-def _js_endpoint_value(raw: str) -> str:
+def _js_endpoint_value(raw: str, bindings: dict[str, str] | None = None) -> str:
     if raw[:1] in {'"', "'", "`"} and raw[-1:] == raw[:1]:
         raw = raw[1:-1]
+    if bindings:
+        raw = JS_TEMPLATE_IDENTIFIER_RE.sub(
+            lambda match: bindings.get(match.group(1), "{}"), raw
+        )
     return re.sub(r"\$\{.*?\}", "{}", raw)
 
 
 def _js_http_endpoints(source: str) -> tuple[tuple[str, str], ...]:
-    bindings = {
-        name: _js_endpoint_value(value)
-        for name, value in JS_VALUE_ASSIGN_RE.findall(source)
-    }
+    bindings: dict[str, str] = {}
+    for name, value in JS_VALUE_ASSIGN_RE.findall(source):
+        bindings[name] = _js_endpoint_value(value, bindings)
     endpoints: list[tuple[str, str]] = []
     for raw in JS_HTTP_CALL_RE.findall(source):
-        value = bindings.get(raw, _js_endpoint_value(raw))
+        value = bindings.get(raw, _js_endpoint_value(raw, bindings))
         provider = _provider_for_http_endpoint(value)
         protocol = _protocol_for_url(value)
         if provider is not None and protocol != "base":
