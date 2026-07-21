@@ -260,10 +260,16 @@ def consult(policy: MTP):
     assert result.policy_errors and len(result.manifest_errors) >= 2
 
 
-def test_provider_hosts_require_exact_normalized_url_hostnames(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "relative",
+    ["aragora/run.py", "aragora/run.ts", "scripts/config.json", ".github/config.yml"],
+)
+def test_provider_hosts_require_exact_normalized_url_hostnames(
+    tmp_path: Path, relative: str
+) -> None:
     _write_source(
         tmp_path,
-        "aragora/run.py",
+        relative,
         """URLS = [
     "https://api.openai.com.evil.example/v1/responses",
     "https://evil.example/?next=api.anthropic.com/v1/messages",
@@ -273,6 +279,48 @@ def test_provider_hosts_require_exact_normalized_url_hostnames(tmp_path: Path) -
     )
     sites = checker.discover(tmp_path).sites
     assert [(site.provider, site.protocol) for site in sites] == [("openai", "responses")]
+
+
+def test_scan_excludes_generated_lock_and_baseline_artifacts(tmp_path: Path) -> None:
+    ignored = (
+        "aragora/live/src/types/api.generated.ts",
+        "aragora/live/package-lock.json",
+        "aragora/live/src/api/generated/client.ts",
+        "scripts/baselines/inventory.json",
+    )
+    for relative in ignored:
+        _write_source(tmp_path, relative, 'URL = "https://api.openai.com/v1/responses"\n')
+    _write_source(
+        tmp_path, "aragora/live/src/run.ts", 'URL = "https://api.openai.com/v1/responses"\n'
+    )
+    discovery = checker.discover(tmp_path)
+    assert discovery.scanned_files == 1
+    assert [(site.path, site.provider, site.protocol) for site in discovery.sites] == [
+        ("aragora/live/src/run.ts", "openai", "responses")
+    ]
+
+
+def test_scan_skips_ast_for_irrelevant_python_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for index in range(100):
+        _write_source(tmp_path, f"aragora/module_{index}.py", f"VALUE = {index}\n")
+    _write_source(
+        tmp_path,
+        "aragora/inference.py",
+        'URL = "https://api.openai.com/v1/responses"\n',
+    )
+    real_parse = checker.ast.parse
+    parsed: list[str] = []
+
+    def tracking_parse(source: str, *, filename: str) -> ast.AST:
+        parsed.append(filename)
+        return real_parse(source, filename=filename)
+
+    monkeypatch.setattr(checker.ast, "parse", tracking_parse)
+    discovery = checker.discover(tmp_path)
+    assert discovery.scanned_files == 101
+    assert parsed == ["aragora/inference.py"]
 
 
 def test_proxy_eligible_rejects_mixed_direct_call_detectors(tmp_path: Path) -> None:

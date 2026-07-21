@@ -20,6 +20,33 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = Path(__file__).with_name("inference_site_allowlist.json")
 SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
+SCAN_EXCLUDED_DIRS = frozenset(
+    {"__pycache__", "__tests__", "baselines", "e2e", "generated", "node_modules"}
+)
+SCAN_EXCLUDED_NAMES = frozenset({"package-lock.json", "pnpm-lock.yaml", "yarn.lock"})
+PYTHON_AST_NEEDLES = (
+    "8317",
+    "modeltransportpolicy",
+    "openai",
+    "anthropic",
+    "google.genai",
+    "generativemodel",
+    "api.x.ai",
+    "openrouter.ai",
+    "generativelanguage.googleapis.com",
+    "api.moonshot.ai",
+    "api.moonshot.cn",
+    "api.mistral.ai",
+    "api.deepseek.com",
+    "api.thinkingmachines.ai",
+    "/audio/transcriptions",
+    "/chat/completions",
+    "/responses",
+    "/messages",
+    "/embeddings",
+    "/completions",
+    "generate_content",
+)
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
 DIRECT_CALL_DETECTORS = frozenset({"client-constructor", "http-inference-call", "inference-method"})
 # fmt: off
@@ -114,15 +141,20 @@ def _protocol_for_url(value: str) -> str:
     return next((name for fragment, name in PROTOCOL_PATHS if fragment in value.lower()), "base")
 
 
-def _provider_for_url(value: str) -> str | None:
+def _providers_for_urls(value: str) -> tuple[str, ...]:
+    providers: list[str] = []
     for match in URL_RE.finditer(value):
         try:
             hostname = urlsplit(match.group()).hostname
         except ValueError:
             continue
         if hostname is not None and (provider := PROVIDER_HOSTS.get(hostname.lower())):
-            return provider
-    return None
+            providers.append(provider)
+    return tuple(dict.fromkeys(providers))
+
+
+def _provider_for_url(value: str) -> str | None:
+    return next(iter(_providers_for_urls(value)), None)
 
 
 def _provider_for_http_endpoint(value: str) -> str | None:
@@ -478,10 +510,10 @@ def iter_scan_files(root: Path) -> tuple[Path, ...]:
             for path in (root / relative).rglob("*")
             if path.is_file()
             and path.suffix in TEXT_SUFFIXES
-            and not (
-                {"__tests__", "e2e", "node_modules"}.intersection(path.parts)
-                or any(marker in path.name for marker in (".test.", ".spec."))
-            )
+            and path.name not in SCAN_EXCLUDED_NAMES
+            and ".generated." not in path.name
+            and not SCAN_EXCLUDED_DIRS.intersection(path.parts)
+            and not any(marker in path.name for marker in (".test.", ".spec."))
             and path.relative_to(root).as_posix() != SELF_PATH
         )
     )
@@ -497,14 +529,13 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
         relative = path.relative_to(root).as_posix()
         try:
             source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source, filename=relative) if path.suffix == ".py" else None
-        except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             scan_errors.append(f"{relative}: {type(exc).__name__}: {exc}")
             continue
         if path.suffix in JS_SUFFIXES:
             source = JS_COMMENT_RE.sub(lambda match: match.group(1) or "\n" * match.group(0).count("\n"), source)  # fmt: skip
         source_lines = source.splitlines()
-        if tree is None:
+        if path.suffix != ".py":
             js_aliases = dict(JS_CONSTRUCTORS) if path.suffix in JS_SUFFIXES else {}
             for pattern, default, provider in JS_IMPORTS:
                 js_aliases.update({alias or default: provider for alias in re.findall(pattern, source)})
@@ -521,14 +552,21 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
                 content = line if path.suffix in JS_SUFFIXES else line.split("#", 1)[0]
                 if re.search(r"(?<!\d)0*8317(?!\d)", content):
                     forbidden_ports.append(f"{relative}:{line_no}")
-                for host, provider in PROVIDER_HOSTS.items():
-                    if host in content.lower():
-                        key = SiteKey(relative, "<file>", provider, _protocol_for_url(content))
-                        grouped.setdefault(key, Counter())["endpoint-literal"] += 1
+                for provider in _providers_for_urls(content):
+                    key = SiteKey(relative, "<file>", provider, _protocol_for_url(content))
+                    grouped.setdefault(key, Counter())["endpoint-literal"] += 1
             continue
         for line_no, line in enumerate(source_lines, 1):
             if FORBIDDEN_PORT_RE.search(line):
                 forbidden_ports.append(f"{relative}:{line_no}")
+        lowered_source = source.lower()
+        if not any(needle in lowered_source for needle in PYTHON_AST_NEEDLES):
+            continue
+        try:
+            tree = ast.parse(source, filename=relative)
+        except SyntaxError as exc:
+            scan_errors.append(f"{relative}: SyntaxError: {exc}")
+            continue
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.Constant)
