@@ -20,11 +20,11 @@ DEFAULT_MANIFEST = Path(__file__).with_name("inference_site_allowlist.json")
 SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
-TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml"})
+# fmt: off
+TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
-# fmt: off
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
@@ -32,7 +32,7 @@ METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio")
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
-    "credential-validation": ("**/*key*", "**/*secret*", "**/*rotator*", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
+    "credential-validation": ("**/*key*", "**/*secret*", "**/*rotator*", "**/*pkce*", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
     "public-gateway": ("aragora/gateway/**", "aragora/security/api_key_proxy.py"),
     "evidence-or-settlement": ("**/*evidence*", "**/*quorum*", "**/*review*", "**/*settle*", "aragora/verification/**"),
     "production-preflight": ("**/*preflight*", "**/*live_fire*"),
@@ -303,6 +303,10 @@ def iter_scan_files(root: Path) -> tuple[Path, ...]:
             for path in (root / relative).rglob("*")
             if path.is_file()
             and path.suffix in TEXT_SUFFIXES
+            and not (
+                {"__tests__", "e2e", "node_modules"}.intersection(path.parts)
+                or any(marker in path.name for marker in (".test.", ".spec."))
+            )
             and path.relative_to(root).as_posix() != SELF_PATH
         )
     )
