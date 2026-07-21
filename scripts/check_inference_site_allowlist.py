@@ -25,14 +25,14 @@ FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 # fmt: off
-PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi"}
+PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
-    "credential-validation": ("**/*key*", "**/*secret*", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
+    "credential-validation": ("**/*key*", "**/*secret*", "**/*rotator*", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
     "public-gateway": ("aragora/gateway/**", "aragora/security/api_key_proxy.py"),
     "evidence-or-settlement": ("**/*evidence*", "**/*quorum*", "**/*review*", "**/*settle*", "aragora/verification/**"),
     "production-preflight": ("**/*preflight*", "**/*live_fire*"),

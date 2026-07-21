@@ -109,14 +109,13 @@ def consult(policy: ModelTransportPolicy):
     return policy.generate_anthropic(model="claude", messages=[])
 """,
     )
-    _write_source(tmp_path, ".github/r.yml", 'url: "https://api.openai.com/v1/responses"\n')
+    # fmt: off
+    _write_source(tmp_path, ".github/r.yml", 'urls:\n- "https://api.openai.com/v1/responses"\n- "https://api.mistral.ai/v1"\n- "https://api.deepseek.com/v1"\n- "https://api.moonshot.cn/v1"\n- "https://api.thinkingmachines.ai/v1"\n')
     discovery = checker.discover(tmp_path)
     assert discovery.policy_consumers == ("scripts/consult_claude.py",)
-    assert {(site.provider, site.protocol) for site in discovery.sites} == {
-        ("anthropic", "messages"),
-        ("openai", "responses"),
-        ("openrouter", "chat"),
-    }
+    expected = {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openrouter", "chat"), ("tinker", "base")}
+    # fmt: on
+    assert {(site.provider, site.protocol) for site in discovery.sites} == expected
     assert any("transport-policy-call" in site.detectors for site in discovery.sites)
     payload = _template(tmp_path)
     assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
