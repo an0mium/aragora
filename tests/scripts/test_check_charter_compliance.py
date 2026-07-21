@@ -125,6 +125,25 @@ def test_removed_symbol_readd_is_binding_and_cites_authority(tmp_path: Path) -> 
     assert "create_default_executor" in violation.line
 
 
+def test_multiline_removed_symbol_readd_is_binding(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/some.py b/some.py
+--- a/some.py
++++ b/some.py
+@@ -0,0 +1,4 @@
++from aragora.queue import (
++    create_default_executor,
++)
++executor = create_default_executor()
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.binding_violations] == ["CHR-P4A-004"]
+    assert "create_default_executor" in result.binding_violations[0].line
+
+
 def test_kept_symbol_does_not_trip_path_level_park(tmp_path: Path) -> None:
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/aragora/debate/team_selector.py b/aragora/debate/team_selector.py

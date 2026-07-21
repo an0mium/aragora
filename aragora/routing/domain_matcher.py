@@ -474,11 +474,15 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             # Anthropic's SDK is optional in baseline environments; accept any
             # response block that exposes text content instead of importing SDK
             # classes purely for an isinstance check.
+            if not response.content:
+                logger.warning("Response does not contain content")
+                return None
+
             first_block = response.content[0]
             content_text = getattr(first_block, "text", None)
             if not isinstance(content_text, str):
                 logger.warning("Response does not contain text content")
-                return []
+                return None
             content: str = content_text.strip()
 
             # Extract JSON from response

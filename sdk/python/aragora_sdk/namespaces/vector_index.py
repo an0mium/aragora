@@ -209,7 +209,11 @@ class VectorIndexAPI:
         )
 
     def update_document(
-        self, index_name: str, document_id: str, text: str | None = None, metadata: dict[str, Any] | None = None
+        self,
+        index_name: str,
+        document_id: str,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update a document in an index."""
         data: dict[str, Any] = {}
@@ -217,7 +221,9 @@ class VectorIndexAPI:
             data["text"] = text
         if metadata is not None:
             data["metadata"] = metadata
-        return self._client.request("PUT", f"/api/v1/index/{index_name}/documents/{document_id}", json=data)
+        return self._client.request(
+            "PUT", f"/api/v1/index/{index_name}/documents/{document_id}", json=data
+        )
 
     def delete_documents(self, index_name: str, document_ids: _List[str]) -> dict[str, Any]:
         """Delete documents from an index."""
@@ -277,7 +283,8 @@ class AsyncVectorIndexAPI:
     ) -> dict[str, Any]:
         """Perform semantic similarity search."""
         return await self._client.request(
-            "POST", "/api/v1/ml/search",
+            "POST",
+            "/api/v1/ml/search",
             json={"query": query, "documents": documents, "top_k": top_k, "threshold": threshold},
         )
 
@@ -299,7 +306,11 @@ class AsyncVectorIndexAPI:
         return await self._client.request("GET", f"/api/v1/index/{index_name}")
 
     async def create_index(
-        self, name: str, dimension: int | None = None, metric: str = "cosine", description: str | None = None
+        self,
+        name: str,
+        dimension: int | None = None,
+        metric: str = "cosine",
+        description: str | None = None,
     ) -> dict[str, Any]:
         """Create a new vector index."""
         data: dict[str, Any] = {"name": name, "metric": metric}
@@ -317,14 +328,20 @@ class AsyncVectorIndexAPI:
         """Get statistics for a vector index."""
         return await self._client.request("GET", f"/api/v1/index/{index_name}/stats")
 
-    async def add_documents(self, index_name: str, documents: _List[dict[str, Any]]) -> dict[str, Any]:
+    async def add_documents(
+        self, index_name: str, documents: _List[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Add documents to an index."""
         return await self._client.request(
             "POST", f"/api/v1/index/{index_name}/documents", json={"documents": documents}
         )
 
     async def update_document(
-        self, index_name: str, document_id: str, text: str | None = None, metadata: dict[str, Any] | None = None
+        self,
+        index_name: str,
+        document_id: str,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update a document in an index."""
         data: dict[str, Any] = {}
