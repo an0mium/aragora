@@ -77,18 +77,18 @@ def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
         "aragora/run.py",
-        """import asyncio, openai, google.generativeai as genai; from google import genai as modern_genai; from google.genai import Client as GeminiClient; from anthropic import Anthropic
+        """import asyncio, openai, openai as oai, google.generativeai as genai; from google import genai as modern_genai; from google.genai import Client as GeminiClient; from anthropic import Anthropic
 async def run(api: openai.OpenAI):
     await asyncio.to_thread(api.responses.create); api.responses.stream()
-client_store.responses.create(); modern = modern_genai.Client(); modern.models.generate_content("hi"); modern.models.generate_content_stream("hi"); direct = GeminiClient(); direct.models.generate_content("hi"); Other.Client().models.generate_content("ignore"); anthropic = Anthropic(); anthropic.messages.stream(model="claude", messages=[])
+client_store.responses.create(); openai.chat.completions.create(); oai.responses.create(); modern = modern_genai.Client(); modern.models.generate_content("hi"); modern.models.generate_content_stream("hi"); direct = GeminiClient(); direct.models.generate_content("hi"); Other.Client().models.generate_content("ignore"); anthropic = Anthropic(); anthropic.messages.stream(model="claude", messages=[])
 openai.OpenAI().responses.create()
 genai.GenerativeModel().generate_content("hello")
 """,
     )
     discovery = checker.discover(tmp_path)
     protocols = {site.protocol for site in discovery.sites}
-    expected = {"client", "responses", "messages", "generate-content"}
-    assert discovery.raw_detections == 13 and protocols == expected
+    expected = {"client", "chat", "responses", "messages", "generate-content"}
+    assert discovery.raw_detections == 15 and protocols == expected
 
 
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:

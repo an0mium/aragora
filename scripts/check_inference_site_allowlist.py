@@ -189,6 +189,7 @@ def _client_provenance(
         for node in nodes
         if isinstance(node, ast.arg) and _typed_client(node.annotation, aliases)
     }
+    clients.update(name.asname or name.name for node in nodes if isinstance(node, ast.Import) for name in node.names if name.name == "openai")  # fmt: skip
 # fmt: on
     def backed(value: ast.AST) -> bool:
         if isinstance(value, ast.IfExp):
