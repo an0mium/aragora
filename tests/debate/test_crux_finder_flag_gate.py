@@ -7,6 +7,7 @@ majority with a machine-readable metadata reason when the flag is absent.
 All tests are deterministic and require no live agents, no Arena, and no
 network access.
 """
+
 from __future__ import annotations
 
 import pytest
