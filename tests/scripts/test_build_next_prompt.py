@@ -1047,6 +1047,19 @@ def test_merge_ready_prompt_reports_transport_failure_before_candidate_parsing(
     assert "I authorize normal protected squash merge" not in prompt
 
 
+def test_merge_ready_prompt_rejects_authorized_packet_from_failed_command(
+    tmp_path: Path,
+) -> None:
+    packet = _merge_ready_packet()
+    packet["live_pr"] = _merge_ready_live_pr()
+    packet["returncode"] = 1
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "merge-packet command failed with return code 1" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
 def test_packet_authorizes_blocks_string_not_ready_pr() -> None:
     packet = {
         "entries": [

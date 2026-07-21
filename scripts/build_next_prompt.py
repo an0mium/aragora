@@ -1085,6 +1085,13 @@ def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> 
     if merge_packet.get("error"):
         detail = _prompt_one_line(merge_packet.get("error")) or "command failed without details"
         return f"merge-packet is unavailable: {detail}"
+    if "returncode" in merge_packet:
+        try:
+            returncode = int(merge_packet["returncode"])
+        except (TypeError, ValueError):
+            return "merge-packet has an invalid command return code"
+        if returncode != 0:
+            return f"merge-packet command failed with return code {returncode}"
     entry = _select_merge_ready_entry(merge_packet, pr=pr)
     if not entry:
         target = f"PR #{pr}" if pr is not None else "admin_squash_order"
