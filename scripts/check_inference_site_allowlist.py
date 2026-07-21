@@ -327,15 +327,12 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
             if FORBIDDEN_PORT_RE.search(line):
                 forbidden_ports.append(f"{relative}:{line_no}")
         for node in ast.walk(tree):
-            if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                value = node.value
-                if (
-                    isinstance(value, ast.Constant)
-                    and isinstance(value.value, str)
-                    and re.fullmatch(r"0*8317", value.value)
-                    and any("port" in target.lower() for target in _targets(node))
-                ):
-                    forbidden_ports.append(f"{relative}:{node.lineno}")
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and re.fullmatch(r"0*8317", node.value)
+            ):
+                forbidden_ports.append(f"{relative}:{node.lineno}")
             if not (
                 isinstance(node, ast.Constant)
                 and node.value == 8317

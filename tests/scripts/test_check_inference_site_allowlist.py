@@ -194,12 +194,15 @@ def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path)
     _write_source(
         tmp_path,
         "aragora/agents/transports/vibeproxy.py",
-        "PROHIBITED_PORTS = {8317}\nOTHER_PORT = 8317\n",
+        'PROHIBITED_PORTS = {8317}\nOTHER_PORT = 8317\nPORTS = ["8317"]\n',
     )
     manifest = _empty_manifest(tmp_path)
     result = checker.check_allowlist(tmp_path, manifest)
     assert result.ok is False
-    assert result.forbidden_ports == ("aragora/agents/transports/vibeproxy.py:2",)
+    assert result.forbidden_ports == (
+        "aragora/agents/transports/vibeproxy.py:2",
+        "aragora/agents/transports/vibeproxy.py:3",
+    )
 
 
 def test_malformed_and_duplicate_manifest_entries_fail(tmp_path: Path) -> None:
