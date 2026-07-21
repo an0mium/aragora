@@ -220,6 +220,9 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.client_receivers, self.client_factories = _client_provenance(
             tree, self.constructor_aliases
         )
+        policy_types = {"ModelTransportPolicy"} | {alias.asname or alias.name for item in ast.walk(tree) if isinstance(item, ast.ImportFrom) for alias in item.names if alias.name == "ModelTransportPolicy"}  # fmt: skip
+        self.policy_receivers = {item.arg for item in ast.walk(tree) if isinstance(item, ast.arg) and item.annotation is not None and _attr_chain(item.annotation).rsplit(".", 1)[-1] in policy_types}  # fmt: skip
+        self.policy_receivers.update(target for item in ast.walk(tree) if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None and isinstance(item.value, ast.Call) and _attr_chain(item.value.func).split(".", 1)[0] in policy_types for target in _targets(item))  # fmt: skip
 
     def _anchor(self) -> str:
         if not self.scope:
@@ -264,7 +267,7 @@ class _InferenceVisitor(ast.NodeVisitor):
             if chain.endswith(suffix) and self._has_client(receiver):
                 self._record(provider, protocol, "inference-method")
                 break
-        if chain.endswith(("generate_anthropic", "anthropic_message")):
+        if any(chain.startswith(f"{receiver}.") and chain.endswith(("generate_anthropic", "anthropic_message")) for receiver in self.policy_receivers):  # fmt: skip
             self._record("anthropic", "messages", "transport-policy-call")
         self.generic_visit(node)
 

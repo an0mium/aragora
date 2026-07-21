@@ -95,11 +95,11 @@ def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path)
     _write_source(
         tmp_path,
         "scripts/consult_claude.py",
-        """from somewhere import ModelTransportPolicy
+        """from somewhere import ModelTransportPolicy as MTP
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
 OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
-def consult(policy: ModelTransportPolicy):
-    return policy.generate_anthropic(model="claude", messages=[])
+def consult(policy: MTP):
+    other.anthropic_message(model="fake"); assigned = MTP.from_env(); assigned.client.anthropic_message(model="claude"); return policy.generate_anthropic(model="claude", messages=[])
 """,
     )
     # fmt: off
@@ -109,7 +109,7 @@ def consult(policy: ModelTransportPolicy):
     expected = {("anthropic", "messages"), ("deepseek", "base"), ("kimi", "base"), ("mistral", "base"), ("openai", "responses"), ("openrouter", "chat"), ("tinker", "base")}
     # fmt: on
     assert {(site.provider, site.protocol) for site in discovery.sites} == expected
-    assert any("transport-policy-call" in site.detectors for site in discovery.sites)
+    assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 2
     payload = _template(tmp_path)
     assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
     payload["sites"][0]["classification"] = "proxy-eligible"
@@ -145,11 +145,7 @@ def run():
 @pytest.mark.parametrize("relative", [".github/scripts/check.py", "scripts/ci/check.py", "aragora/server/handler.py", "aragora/live/src/lib/provider-keys.ts", "aragora/gateway/proxy.py", "aragora/compat/openclaw/skills/pr-reviewer/policy.yaml"])
 # fmt: on
 def test_protected_paths_cannot_be_proxy_eligible(tmp_path: Path, relative: str) -> None:
-    _write_source(
-        tmp_path,
-        relative,
-        'URL = "https://api.anthropic.com/v1/messages"\n',
-    )
+    _write_source(tmp_path, relative, 'URL = "https://api.anthropic.com/v1/messages"\n')
     payload = _template(tmp_path)
     payload["sites"][0]["classification"] = "proxy-eligible"
     result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
