@@ -381,8 +381,7 @@ def test_empty_new_file_under_unmapped_package_is_proposed(tmp_path: Path) -> No
     charter_path = _write_charters(tmp_path, _charters_payload())
     diff_text = """diff --git a/aragora/advocates/__init__.py b/aragora/advocates/__init__.py
 new file mode 100644
---- /dev/null
-+++ b/aragora/advocates/__init__.py
+index 0000000..e69de29
 """
 
     result = checker.check_diff(diff_text, charter_path=charter_path)
@@ -391,6 +390,27 @@ new file mode 100644
     assert [violation.entry_id for violation in result.proposed_violations] == [
         "APPENDIX-A:aragora/advocates"
     ]
+
+
+def test_new_top_level_module_absent_from_appendix_a_is_proposed(tmp_path: Path) -> None:
+    charter_path = _write_charters(tmp_path, _charters_payload())
+    diff_text = """diff --git a/aragora/new_architecture.py b/aragora/new_architecture.py
+new file mode 100644
+--- /dev/null
++++ b/aragora/new_architecture.py
+@@ -0,0 +1 @@
++NEW_SURFACE = True
+"""
+
+    result = checker.check_diff(diff_text, charter_path=charter_path)
+
+    assert result.ok is False
+    assert [violation.entry_id for violation in result.proposed_violations] == [
+        "APPENDIX-A:aragora/new_architecture"
+    ]
+    assert result.proposed_violations[0].reason == (
+        "adds a new Python module under a package absent from Appendix A"
+    )
 
 
 def test_renamed_destination_under_unmapped_package_is_proposed(tmp_path: Path) -> None:

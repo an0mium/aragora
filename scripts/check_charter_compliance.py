@@ -355,10 +355,12 @@ def parse_new_files(diff_text: str) -> list[str]:
             new_files.append(path)
 
     old_path: str | None = None
+    diff_new_path: str | None = None
     saw_old_header = False
     for raw_line in diff_text.splitlines():
         if raw_line.startswith("diff --git "):
             old_path = None
+            diff_new_path = None
             saw_old_header = False
             try:
                 parts = shlex.split(raw_line)
@@ -369,6 +371,9 @@ def parse_new_files(diff_text: str) -> list[str]:
                 diff_new_path = _normalize_diff_path(parts[3])
                 if diff_new_path != diff_old_path:
                     remember(diff_new_path)
+            continue
+        if raw_line.startswith("new file mode "):
+            remember(diff_new_path)
             continue
         if raw_line.startswith("--- "):
             old_path = _normalize_diff_path(raw_line[4:].split("\t", 1)[0])
@@ -447,8 +452,10 @@ def load_package_states(charter_path: Path) -> tuple[dict[str, str], str]:
 
 def _top_level_package(path: str) -> str | None:
     parts = path.split("/")
-    if len(parts) < 3 or parts[0] != "aragora":
+    if len(parts) < 2 or parts[0] != "aragora":
         return None
+    if len(parts) == 2:
+        return f"aragora/{Path(parts[1]).stem}"
     return "/".join(parts[:2])
 
 
