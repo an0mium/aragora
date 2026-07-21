@@ -322,7 +322,7 @@ class ConsensusPhase:
         if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
             from aragora.debate.cancellation import DebateCancelled
 
-            raise DebateCancelled(ctx.cancellation_token.reason)
+            raise DebateCancelled(ctx.cancellation_token.reason or "Debate cancelled")
 
         # Trigger PRE_CONSENSUS hook if hook_manager is available
         if ctx.hook_manager:
@@ -369,6 +369,12 @@ class ConsensusPhase:
             consensus_latency = time.perf_counter() - consensus_start
             record_consensus_detection_latency(consensus_latency, consensus_mode)
 
+        # Crux cards (#8227 phase 1): attach load-bearing disagreements to the
+        # result metadata for receipt export. Runs regardless of consensus
+        # outcome — cruxes matter most when consensus was NOT reached.
+        if getattr(self.protocol, "enable_crux_cards", False):
+            self._attach_crux_cards(ctx)
+
         # Always generate final synthesis regardless of consensus mode
         try:
             synthesis_generated = await self._synthesis_generator.generate_mandatory_synthesis(ctx)
@@ -397,6 +403,36 @@ class ConsensusPhase:
         finally:
             logger.info("consensus_phase_emitting_guaranteed_events")
             self._emit_guaranteed_events(ctx)
+
+    def _attach_crux_cards(self, ctx: "DebateContext") -> None:
+        """Attach a crux-cards block to result metadata (``enable_crux_cards``).
+
+        Best-effort enrichment: any failure is logged and swallowed so it can
+        never break the consensus phase. When nothing is detected, the result
+        is left untouched (flag-off receipts stay byte-identical).
+        """
+        try:
+            from aragora.debate.crux_cards import CRUX_CARDS_METADATA_KEY, build_crux_cards
+
+            result = require_phase_result(ctx)
+            cards = build_crux_cards(
+                belief_network=getattr(ctx, "belief_network", None),
+                messages=list(result.messages or []),
+                top_k=int(getattr(self.protocol, "crux_finder_top_k", 5) or 5),
+                min_score=float(getattr(self.protocol, "crux_finder_min_score", 0.3) or 0.3),
+            )
+            if cards:
+                result.metadata[CRUX_CARDS_METADATA_KEY] = cards
+                logger.info("crux_cards_attached count=%d", len(cards["items"]))
+        except (
+            RuntimeError,
+            AttributeError,
+            ImportError,
+            TypeError,
+            ValueError,
+            KeyError,
+        ) as e:
+            logger.warning("crux_cards_failed: %s", e)
 
     def _emit_guaranteed_events(self, ctx: "DebateContext") -> None:
         """Emit consensus and debate_end events with guaranteed delivery."""
@@ -1324,7 +1360,7 @@ class ConsensusPhase:
             await self._handle_majority_consensus(ctx)
             return
 
-        result.consensus_proof = proof
+        setattr(result, "consensus_proof", proof)
         result.consensus_reached = False
         result.final_answer = proof.final_claim
         result.consensus_strength = "weak"
@@ -1835,7 +1871,7 @@ class ConsensusPhase:
                     else None
                 )
             else:
-                verification_result = await asyncio.wait_for(
+                direct_verification_result = await asyncio.wait_for(
                     manager.attempt_formal_verification(
                         claim=result.final_answer,
                         claim_type="DEBATE_CONSENSUS",
@@ -1845,12 +1881,15 @@ class ConsensusPhase:
                     timeout=timeout + 5.0,
                 )
 
-                result.formal_verification = verification_result.to_dict()
-                verification_status = verification_result.status.value
-                verification_is_verified = verification_result.is_verified
+                result.formal_verification = direct_verification_result.to_dict()
+                verification_status = direct_verification_result.status.value
+                verification_is_verified = direct_verification_result.is_verified
                 verification_language = (
-                    verification_result.language.value if verification_result.language else None
+                    direct_verification_result.language.value
+                    if direct_verification_result.language
+                    else None
                 )
+                verification_result = direct_verification_result
 
             logger.info(
                 "formal_verification_complete status=%s language=%s verified=%s",

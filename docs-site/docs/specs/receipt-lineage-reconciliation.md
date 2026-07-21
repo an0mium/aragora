@@ -90,7 +90,9 @@ must be kept in lockstep:
    aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`. To
    exercise this exact checkout instead of the published package, run
    `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from `aragora-verify/`, or
-   `pip install ./aragora-verify` for a local `aragora-verify` console script.
+   `pip install ./aragora-verify` for a local `aragora-verify` console script. Its
+   exit-code contract is `0 verified / 1 failed / 2 usage / 3
+   signatures-present-unchecked`.
 
 Both engines are hand-rolled, dependency-light mirrors of the same normative artifact
 — `aragora/gauntlet/odr_schema.json`, also bundled inside the `aragora-verify` package

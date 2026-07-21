@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from aragora.swarm.mission import normalize_context_policies
-from aragora.utils.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
+from aragora.agents.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
 
 logger = logging.getLogger(__name__)
 

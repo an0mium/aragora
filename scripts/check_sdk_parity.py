@@ -246,9 +246,11 @@ def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
 try:
     # Direct script execution (python scripts/check_sdk_parity.py)
     from sdk_path_normalize import normalize_sdk_path
+    from validate_openapi_routes import is_internal_route, load_internal_prefixes
 except ModuleNotFoundError:
     # Module import context (pytest importing scripts.check_sdk_parity)
     from scripts.sdk_path_normalize import normalize_sdk_path
+    from scripts.validate_openapi_routes import is_internal_route, load_internal_prefixes
 
 
 def normalize_route(route: str) -> str:
@@ -258,6 +260,28 @@ def normalize_route(route: str) -> str:
     validation scripts use a single normalization algorithm.
     """
     return normalize_sdk_path(route)
+
+
+_INTERNAL_PREFIX_CACHE: tuple[str, ...] | None = None
+
+
+def _internal_prefix_families() -> tuple[str, ...]:
+    """Internal-route policy prefixes, normalized like every route here.
+
+    Internal route families (control-plane, v1 SSO, SME, emergency admin, ...)
+    are excluded from the public OpenAPI spec by policy
+    (scripts/baselines/internal_route_prefixes.json), so SDK methods that
+    call them cannot be validated against public-contract route sources.
+    Fails closed (SystemExit) when the policy file is unusable.
+    """
+    global _INTERNAL_PREFIX_CACHE
+    if _INTERNAL_PREFIX_CACHE is None:
+        _INTERNAL_PREFIX_CACHE = tuple(normalize_route(p) for p in load_internal_prefixes())
+    return _INTERNAL_PREFIX_CACHE
+
+
+def _is_internal_family(normalized_path: str) -> bool:
+    return is_internal_route(normalized_path, _internal_prefix_families())
 
 
 # ---------------------------------------------------------------------------
@@ -405,9 +429,14 @@ def build_parity_report(
         handler_to_routes[handler_name] = normalized
         all_handler_paths.update(normalized)
 
-    # Filter out internal routes
+    # Filter out internal routes — both the exact-route legacy set and the
+    # internal-route policy families (scripts/baselines/internal_route_prefixes.json),
+    # so internal handler routes are never flagged as public SDK-coverage gaps
+    # even when no documented-route source is available.
     internal_normalized = {normalize_route(r) for r in INTERNAL_ROUTES}
-    public_handler_paths = all_handler_paths - internal_normalized
+    public_handler_paths = {
+        p for p in all_handler_paths - internal_normalized if not _is_internal_family(p)
+    }
     if documented_routes is not None:
         # SDK coverage should be enforced for documented API routes.
         public_handler_paths = public_handler_paths & documented_routes
@@ -449,8 +478,17 @@ def build_parity_report(
                 return True
         return False
 
-    stale_py = {p for p in all_py_paths if not _covered_by_handler(p)}
-    stale_ts = {p for p in all_ts_paths if not _covered_by_handler(p)}
+    # Internal-family SDK paths are excluded: the internal-route policy keeps
+    # those families out of the public spec (documented_routes), so their
+    # only route source is handler ROUTES — and several internal handlers are
+    # dispatch-based without ROUTES. Staleness of internal SDK surface is not
+    # a public-contract question this gate can answer.
+    stale_py = {
+        p for p in all_py_paths if not _covered_by_handler(p) and not _is_internal_family(p)
+    }
+    stale_ts = {
+        p for p in all_ts_paths if not _covered_by_handler(p) and not _is_internal_family(p)
+    }
     if not handler_routes_available:
         stale_py = set()
         stale_ts = set()
@@ -466,10 +504,14 @@ def build_parity_report(
             return any(sp.startswith(prefix + "/") for sp in sdk_paths)
         return False
 
-    # Per-handler coverage
+    # Per-handler coverage (same internal-route policy as the global buckets)
     handler_coverage: list[dict[str, Any]] = []
     for handler_name, normalized_routes in sorted(handler_to_routes.items()):
-        public_routes = [r for r in normalized_routes if r not in internal_normalized]
+        public_routes = [
+            r
+            for r in normalized_routes
+            if r not in internal_normalized and not _is_internal_family(r)
+        ]
         if not public_routes:
             continue
 

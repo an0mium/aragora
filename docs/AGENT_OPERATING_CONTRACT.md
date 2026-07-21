@@ -245,7 +245,24 @@ a worker implementation lane.
 Dependabot/Tier-3 merge the operator authorized at an exact head) is reported as "merged
 under explicit operator override", never as "the helper said it was safe".
 
+#### Per-object locks (single-conductor rule scope)
+
+The single-conductor rule prevents two lanes mutating the **same object**; it is not a
+global mutex on running processes. Locks are scoped by object type:
+
+- **Branch work** — a `scripts/check_work_lease.py` claim on the branch.
+- **PR settlement** — a conductor ownership declaration on the PR/issue.
+- **Harvest items** (issue #8993 protocol) — a claim comment on the issue: claim first,
+  then execute; on a race, the later claim timestamp yields.
+
+A sighted goal-cycle/consult process elsewhere is **not** a collision absent a conflicting
+claim or lease on the same object; standing down on process sightings alone is the
+false-collision failure mode (observed 2026-07-08 as a three-cycle false breaker).
+
 #### Thin recursive-prompt template (carry this shape forward, not the rules)
+
+Goal preambles handed to lanes should include the wrong-hill disclosure clause, so lanes
+surface mis-specified metrics before cycling instead of grinding them.
 
 ```text
 Start from live repo truth in <repo>. Do not trust prior transcript state.
