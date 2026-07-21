@@ -84,9 +84,9 @@ def test_method_detection_uses_sdk_provenance(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
         "aragora/run.py",
-        """import openai, google.generativeai as genai
-def run(api: openai.OpenAI):
-    api.responses.create()
+        """import asyncio, openai, google.generativeai as genai
+async def run(api: openai.OpenAI):
+    await asyncio.to_thread(api.responses.create)
 client_store.responses.create()
 openai.OpenAI().responses.create()
 genai.GenerativeModel().generate_content("hello")

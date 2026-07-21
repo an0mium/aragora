@@ -27,8 +27,7 @@ PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi"}
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
-METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"))
-GEMINI_METHODS = frozenset({"generate_content", "generate_content_async"})
+METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"))
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
@@ -249,9 +248,12 @@ class _InferenceVisitor(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if node.attr == "ModelTransportPolicy":
             self.mentions_policy = True
-        receiver = _attr_chain(node.value, unwrap_calls=True)
-        if node.attr in GEMINI_METHODS and self._has_client(receiver):
-            self._record("gemini", "generate-content", "inference-method")
+        chain = _attr_chain(node, unwrap_calls=True)
+        for suffix, provider, protocol in METHOD_SUFFIXES:
+            receiver = chain[: -len(suffix)].rstrip(".")
+            if chain.endswith(suffix) and self._has_client(receiver):
+                self._record(provider, protocol, "inference-method")
+                break
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
@@ -287,11 +289,6 @@ class _InferenceVisitor(ast.NodeVisitor):
         constructor = self.constructor_aliases.get(terminal)
         if constructor is not None:
             self._record(*constructor, "client-constructor")
-        for suffix, provider, protocol in METHOD_SUFFIXES:
-            receiver = chain[: -len(suffix)].rstrip(".")
-            if chain.endswith(suffix) and self._has_client(receiver):
-                self._record(provider, protocol, "inference-method")
-                break
         if chain.endswith(("generate_anthropic", "anthropic_message")):
             self._record("anthropic", "messages", "transport-policy-call")
         self.generic_visit(node)
