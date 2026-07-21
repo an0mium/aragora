@@ -20,6 +20,7 @@ DEFAULT_MANIFEST = Path(__file__).with_name("inference_site_allowlist.json")
 SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
+TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml"})
 FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
@@ -31,10 +32,10 @@ METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio")
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
-    "credential-validation": ("**/*key*.py", "**/*secret*.py", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
+    "credential-validation": ("**/*key*", "**/*secret*", "scripts/rotate_keys.py", "scripts/migrate_secrets_to_aws.py", "aragora/cli/setup.py"),
     "public-gateway": ("aragora/gateway/**", "aragora/security/api_key_proxy.py"),
-    "evidence-or-settlement": ("**/*evidence*.py", "**/*quorum*.py", "**/*review*.py", "**/*settle*.py", "aragora/verification/**"),
-    "production-preflight": ("**/*preflight*.py", "**/*live_fire*.py"),
+    "evidence-or-settlement": ("**/*evidence*", "**/*quorum*", "**/*review*", "**/*settle*", "aragora/verification/**"),
+    "production-preflight": ("**/*preflight*", "**/*live_fire*"),
 }
 # fmt: on
 
@@ -294,13 +295,15 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def iter_python_files(root: Path) -> tuple[Path, ...]:
-    files = {path for relative in SCAN_ROOTS for path in (root / relative).rglob("*.py")}
+def iter_scan_files(root: Path) -> tuple[Path, ...]:
     return tuple(
         sorted(
             path
-            for path in files
-            if path.is_file() and path.relative_to(root).as_posix() != SELF_PATH
+            for relative in SCAN_ROOTS
+            for path in (root / relative).rglob("*")
+            if path.is_file()
+            and path.suffix in TEXT_SUFFIXES
+            and path.relative_to(root).as_posix() != SELF_PATH
         )
     )
 
@@ -310,16 +313,26 @@ def discover(root: Path = REPO_ROOT) -> Discovery:
     policy_consumers: set[str] = set()
     forbidden_ports: list[str] = []
     scan_errors: list[str] = []
-    files = iter_python_files(root)
+    files = iter_scan_files(root)
     for path in files:
         relative = path.relative_to(root).as_posix()
         try:
             source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source, filename=relative)
+            tree = ast.parse(source, filename=relative) if path.suffix == ".py" else None
         except (OSError, UnicodeDecodeError, SyntaxError) as exc:
             scan_errors.append(f"{relative}: {type(exc).__name__}: {exc}")
             continue
         source_lines = source.splitlines()
+        if tree is None:
+            for line_no, line in enumerate(source_lines, 1):
+                content = line.split("#", 1)[0]
+                if re.search(r"(?<!\d)0*8317(?!\d)", content):
+                    forbidden_ports.append(f"{relative}:{line_no}")
+                for host, provider in PROVIDER_HOSTS.items():
+                    if host in content.lower():
+                        key = SiteKey(relative, "<file>", provider, _protocol_for_url(content))
+                        grouped.setdefault(key, Counter())["endpoint-literal"] += 1
+            continue
         for line_no, line in enumerate(source_lines, 1):
             if FORBIDDEN_PORT_RE.search(line):
                 forbidden_ports.append(f"{relative}:{line_no}")

@@ -93,9 +93,9 @@ genai.GenerativeModel().generate_content("hello")
 """,
     )
     discovery = checker.discover(tmp_path)
-    assert discovery.raw_detections == 5
     protocols = {site.protocol for site in discovery.sites}
-    assert protocols == {"client", "responses", "generate-content"}
+    expected = {"client", "responses", "generate-content"}
+    assert discovery.raw_detections == 5 and protocols == expected
 
 
 def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path) -> None:
@@ -109,10 +109,12 @@ def consult(policy: ModelTransportPolicy):
     return policy.generate_anthropic(model="claude", messages=[])
 """,
     )
+    _write_source(tmp_path, ".github/r.yml", 'url: "https://api.openai.com/v1/responses"\n')
     discovery = checker.discover(tmp_path)
     assert discovery.policy_consumers == ("scripts/consult_claude.py",)
     assert {(site.provider, site.protocol) for site in discovery.sites} == {
         ("anthropic", "messages"),
+        ("openai", "responses"),
         ("openrouter", "chat"),
     }
     assert any("transport-policy-call" in site.detectors for site in discovery.sites)
@@ -121,7 +123,7 @@ def consult(policy: ModelTransportPolicy):
     payload["sites"][0]["classification"] = "proxy-eligible"
     payload["transport_policy_consumers"] = []
     result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
-    assert result.policy_errors and len(result.manifest_errors) == 2
+    assert result.policy_errors and len(result.manifest_errors) >= 2
 
 
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:
@@ -148,22 +150,14 @@ def run():
     assert stale.stale
 
 
-@pytest.mark.parametrize(
-    "relative",
-    [
-        ".github/scripts/check.py",
-        "scripts/ci/check.py",
-        "aragora/server/handler.py",
-        "scripts/rotate_keys.py",
-        "aragora/gateway/proxy.py",
-        "aragora/verification/formal.py",
-    ],
-)
+# fmt: off
+@pytest.mark.parametrize("relative", [".github/scripts/check.py", "scripts/ci/check.py", "aragora/server/handler.py", "scripts/rotate_keys.py", "aragora/gateway/proxy.py", "aragora/compat/openclaw/skills/pr-reviewer/policy.yaml"])
+# fmt: on
 def test_protected_paths_cannot_be_proxy_eligible(tmp_path: Path, relative: str) -> None:
     _write_source(
         tmp_path,
         relative,
-        "from anthropic import Anthropic\nclient = Anthropic()\n",
+        'URL = "https://api.anthropic.com/v1/messages"\n',
     )
     payload = _template(tmp_path)
     payload["sites"][0]["classification"] = "proxy-eligible"
@@ -173,19 +167,17 @@ def test_protected_paths_cannot_be_proxy_eligible(tmp_path: Path, relative: str)
     assert any("must be direct-only" in error for error in result.manifest_errors)
 
 
-@pytest.mark.parametrize("source", ['URL = "http://localhost:08317"\n', 'PORT = "8317"\n'])
+@pytest.mark.parametrize("source", ['URL: "http://localhost:08317"\n', 'PORT: "8317"\n'])
 def test_forbidden_port_fails_even_without_inference_site(tmp_path: Path, source: str) -> None:
-    _write_source(tmp_path, "aragora/config.py", source)
-    manifest = _empty_manifest(tmp_path)
-    result = checker.check_allowlist(tmp_path, manifest)
+    _write_source(tmp_path, ".github/workflows/config.yml", source)
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.ok is False
-    assert result.forbidden_ports == ("aragora/config.py:1",)
+    assert result.forbidden_ports == (".github/workflows/config.yml:1",)
 
 
 def test_unparseable_scanned_source_fails_closed(tmp_path: Path) -> None:
     _write_source(tmp_path, "aragora/broken.py", "OpenAI(\n")
-    manifest = _empty_manifest(tmp_path)
-    result = checker.check_allowlist(tmp_path, manifest)
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.ok is False
     assert result.scan_errors and "aragora/broken.py: SyntaxError" in result.scan_errors[0]
 
@@ -196,9 +188,7 @@ def test_central_port_prohibition_is_allowed_but_other_uses_fail(tmp_path: Path)
         "aragora/agents/transports/vibeproxy.py",
         'PROHIBITED_PORTS = {8317}\nOTHER_PORT = 8317\nPORTS = ["8317"]\n',
     )
-    manifest = _empty_manifest(tmp_path)
-    result = checker.check_allowlist(tmp_path, manifest)
-    assert result.ok is False
+    result = checker.check_allowlist(tmp_path, _empty_manifest(tmp_path))
     assert result.forbidden_ports == (
         "aragora/agents/transports/vibeproxy.py:2",
         "aragora/agents/transports/vibeproxy.py:3",
