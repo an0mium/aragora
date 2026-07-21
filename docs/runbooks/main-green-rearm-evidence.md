@@ -159,8 +159,15 @@ shasum -a 256 \
 The local pair is invalid if main moved during collection:
 
 ```bash
+CANDIDATE_SHA="$CANDIDATE_SHA" sh -eu <<'HEAD_RECHECK'
 git fetch origin +refs/heads/main:refs/remotes/origin/main
-test "$(git rev-parse origin/main)" = "$CANDIDATE_SHA"
+actual_sha="$(git rev-parse origin/main)"
+if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then
+  printf 'HEAD DRIFT: expected %s, observed %s; discard the evidence pair\n' \
+    "$CANDIDATE_SHA" "$actual_sha" >&2
+  exit 1
+fi
+HEAD_RECHECK
 ```
 
 Also capture both applicable ruleset and branch-protection policy, every page
@@ -188,27 +195,72 @@ RULESET_REQUIRED_RAW="$(
 )" || exit 1
 RULESET_REQUIRED_JSON="$(
   printf '%s\n' "$RULESET_REQUIRED_RAW" \
-    | jq '[
-      .[][]
-      | select(.type == "required_status_checks")
-      | .parameters.required_status_checks[]?
-      | {
-          context: (.context // .name),
-          app_id: (.integration_id // .app_id // null)
-        }
-    ]'
+    | jq -e '
+      if type != "array" or any(.[]; type != "array") then
+        error("ruleset pagination response is not an array of pages")
+      elif any(.[][]; type != "object") then
+        error("ruleset response contains a non-object rule")
+      elif any(
+        .[][] | select(.type == "required_status_checks");
+        ((.parameters | type) != "object")
+        or ((.parameters.required_status_checks | type) != "array")
+      ) then
+        error("required_status_checks rule has an invalid parameters schema")
+      elif any(
+        .[][]
+        | select(.type == "required_status_checks")
+        | .parameters.required_status_checks[];
+        (type != "object")
+        or (((.context // .name) | type) != "string")
+        or (((.context // .name) | length) == 0)
+      ) then
+        error("required_status_checks contains an invalid requirement")
+      else
+        [
+          .[][]
+          | select(.type == "required_status_checks")
+          | .parameters.required_status_checks[]
+          | {
+              context: (.context // .name),
+              app_id: (.integration_id // .app_id // null)
+            }
+        ]
+      end
+    '
 )" || exit 1
 BRANCH_PROTECTION_REQUIRED_RAW="$(
   gh api repos/synaptent/aragora/branches/main/protection/required_status_checks
 )" || exit 1
 BRANCH_PROTECTION_REQUIRED_JSON="$(
   printf '%s\n' "$BRANCH_PROTECTION_REQUIRED_RAW" \
-    | jq '{
-      checks: [(.checks // [])[] | {context, app_id}],
-      legacy_contexts: (
-        [.contexts[]?] - [(.checks // [])[].context] | unique
-      )
-    }'
+    | jq -e '
+      if type != "object"
+        or (.checks | type) != "array"
+        or (.contexts | type) != "array"
+      then
+        error("branch-protection response is missing checks or contexts")
+      elif any(.checks[];
+        type != "object"
+        or (.context | type) != "string"
+        or (.context | length) == 0
+        or (
+          .app_id != null
+          and .app_id != -1
+          and (.app_id | type) != "number"
+        )
+      ) then
+        error("branch-protection checks contain an invalid requirement")
+      elif any(.contexts[]; type != "string" or length == 0) then
+        error("branch-protection contexts contain an invalid name")
+      else
+        {
+          checks: [.checks[] | {context, app_id}],
+          legacy_contexts: (
+            [.contexts[]] - [.checks[].context] | unique
+          )
+        }
+      end
+    '
 )" || exit 1
 REQUIRED_POLICY_JSON="$(
   jq -n \
@@ -269,15 +321,7 @@ REQUIRED_POLICY_JSON="$(
         - [$ruleset[].context]
         - [$protection.checks[].context]
         | unique
-      ),
-      sources: {
-        ruleset: (($ruleset | type) == "array"),
-        branch_protection: (
-          ($protection | type) == "object"
-          and ($protection.checks | type) == "array"
-          and ($protection.legacy_contexts | type) == "array"
-        )
-      }
+      )
     }'
 )" || exit 1
 CHECK_RUNS_RAW="$(
@@ -286,16 +330,38 @@ CHECK_RUNS_RAW="$(
 )" || exit 1
 CHECK_RUNS_JSON="$(
   printf '%s\n' "$CHECK_RUNS_RAW" \
-    | jq '[.[].check_runs[] | {
-        id,
-        name,
-        app_id: (.app.id // null),
-        status,
-        conclusion,
-        details_url,
-        started_at,
-        completed_at
-      }]'
+    | jq -e '
+      if type != "array"
+        or any(.[]; type != "object" or (.check_runs | type) != "array")
+      then
+        error("check-run pagination response has an invalid page schema")
+      elif any(.[].check_runs[];
+        type != "object"
+        or (.id | type) != "number"
+        or (.name | type) != "string"
+        or (.name | length) == 0
+        or (.app | type) != "object"
+        or (.app.id | type) != "number"
+        or (.status | type) != "string"
+        or (
+          .conclusion != null
+          and (.conclusion | type) != "string"
+        )
+      ) then
+        error("check-run response contains an invalid run")
+      else
+        [.[].check_runs[] | {
+          id,
+          name,
+          app_id: .app.id,
+          status,
+          conclusion,
+          details_url,
+          started_at,
+          completed_at
+        }]
+      end
+    '
 )" || exit 1
 COMMIT_STATUSES_RAW="$(
   gh api --paginate --slurp \
@@ -303,14 +369,28 @@ COMMIT_STATUSES_RAW="$(
 )" || exit 1
 COMMIT_STATUSES_JSON="$(
   printf '%s\n' "$COMMIT_STATUSES_RAW" \
-    | jq '[.[][] | {
-        id,
-        context,
-        state,
-        target_url,
-        creator: (.creator.login // null),
-        updated_at
-      }]'
+    | jq -e '
+      if type != "array" or any(.[]; type != "array") then
+        error("commit-status pagination response is not an array of pages")
+      elif any(.[][];
+        type != "object"
+        or (.id | type) != "number"
+        or (.context | type) != "string"
+        or (.context | length) == 0
+        or (.state | type) != "string"
+      ) then
+        error("commit-status response contains an invalid status")
+      else
+        [.[][] | {
+          id,
+          context,
+          state,
+          target_url,
+          creator: (.creator.login // null),
+          updated_at
+        }]
+      end
+    '
 )" || exit 1
 
 jq -n \
@@ -318,7 +398,6 @@ jq -n \
   --argjson runs "$CHECK_RUNS_JSON" \
   --argjson statuses "$COMMIT_STATUSES_JSON" \
   '{
-    sources: $policy.sources,
     policy_requirement_count: (
       ($policy.checks | length)
       + ($policy.status_or_checks | length)
@@ -427,9 +506,7 @@ jq -n \
   | tee "$EVIDENCE_DIR/required-contexts.json"
 
 jq -e \
-  '.sources.ruleset == true
-    and .sources.branch_protection == true
-    and .policy_requirement_count > 0
+  '.policy_requirement_count > 0
     and all(.checks[];
       .found
       and .latest.status == "completed"
@@ -463,8 +540,13 @@ currently keyed by the literal context name, so update this runbook if the
 quorum context is renamed. The commit-status payload does not expose a GitHub
 App ID; if an app-bound requirement is reported only through commit statuses,
 this collector cannot attribute it and must classify the result
-`evidence_incomplete`. An API outage, pagination failure, or rate limit is
-also `evidence_incomplete`, not green. Retry in a later bounded cycle; do not
+`evidence_incomplete`. This procedure currently requires both the ruleset and
+classic branch-protection policy responses. If the repository migrates to
+rulesets-only protection and the classic endpoint returns 404, stop with
+`evidence_incomplete` and revise this collector with a separately reviewed
+proof of non-applicability; never substitute an empty classic policy. An API
+outage, pagination failure, rate limit, or schema mismatch is also
+`evidence_incomplete`, not green. Retry in a later bounded cycle; do not
 substitute old PR checks for current-main checks.
 
 ## 5. Build The Human Packet

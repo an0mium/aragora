@@ -44,10 +44,21 @@ def _policy_program(text: str) -> str:
     return match.group(1)
 
 
+def _ruleset_program(text: str) -> str:
+    block = text.split('RULESET_REQUIRED_JSON="$(')[1]
+    match = re.search(
+        r"\| jq -e '\n(.*?)\n    '\n\)\" \|\| exit 1",
+        block,
+        flags=re.DOTALL,
+    )
+    assert match is not None
+    return match.group(1)
+
+
 def _branch_protection_program(text: str) -> str:
     block = text.split('BRANCH_PROTECTION_REQUIRED_JSON="$(')[1]
     match = re.search(
-        r"\| jq '(\{\n.*?\n    \})'\n\)\" \|\| exit 1",
+        r"\| jq -e '\n(.*?)\n    '\n\)\" \|\| exit 1",
         block,
         flags=re.DOTALL,
     )
@@ -127,6 +138,11 @@ case "$args" in
     exit 2
     ;;
 esac
+if [ -n "${MALFORMED_MATCH:-}" ]; then
+  case "$args" in
+    *"$MALFORMED_MATCH"*) payload='{}' ;;
+  esac
+fi
 printf '%s\n' "$payload"
 if [ -n "${FAIL_MATCH:-}" ]; then
   case "$args" in
@@ -196,19 +212,23 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert "check-runs?filter=latest&per_page=100" in text
     assert "statuses?per_page=100" in text
     assert '"repos/synaptent/aragora/rules/branches/main?per_page=100"' in text
-    assert ".parameters.required_status_checks[]?" in text
+    assert ".parameters.required_status_checks[]" in text
     assert "repos/synaptent/aragora/branches/main/protection/required_status_checks" in text
     assert 'source: "ruleset"' in text
     assert 'source: "branch_protection"' in text
     assert "status_or_checks:" in text
     assert "- [$ruleset[].context]" in text
     assert "sources:" in text
-    assert "app_id: (.app.id // null)" in text
+    assert "app_id: .app.id" in text
     assert "else ($matches | max_by(.id))" in text
     assert ".app_id == $requirement.app_id" in text
-    assert "| jq '[.[].check_runs[]" in text
+    assert "[.[].check_runs[] | {" in text
+    assert "check-run pagination response has an invalid page schema" in text
+    assert "commit-status pagination response is not an array of pages" in text
     assert 'tee "$EVIDENCE_DIR/required-contexts.json"' in text
     assert "sh -eu <<'REQUIRED_CONTEXT_EVIDENCE'" in text
+    assert "sh -eu <<'HEAD_RECHECK'" in text
+    assert "HEAD DRIFT:" in text
     assert "REQUIRED_CONTEXT_EVIDENCE\n```" in text
     assert "`jq` is older than 1.7" in text
     assert "gh` is older than 2.40" in text
@@ -217,6 +237,7 @@ def test_required_context_reconciliation_consumes_all_check_run_pages() -> None:
     assert ".expected_skip and .latest.conclusion" in text
     assert '.latest.conclusion == "skipped"' in text
     assert 'all(.statuses[]; .found and .latest.state == "success")' in text
+    assert ".sources.ruleset" not in text
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required for runbook fixtures")
@@ -230,7 +251,7 @@ class TestJqPrograms:
             "/statuses",
         ],
     )
-    def test_context_collection_rejects_partial_output_from_failed_api(
+    def test_context_collection_rejects_output_from_failed_api(
         self,
         tmp_path: Path,
         failure_match: str,
@@ -276,6 +297,91 @@ class TestJqPrograms:
 
         assert result.returncode == 0, result.stderr
         assert result.stdout == "CERTIFIED\n"
+
+    @pytest.mark.parametrize(
+        "malformed_match",
+        [
+            "rules/branches/main",
+            "branches/main/protection",
+            "check-runs",
+            "/statuses",
+        ],
+    )
+    def test_context_collection_rejects_successful_malformed_api_response(
+        self,
+        tmp_path: Path,
+        malformed_match: str,
+    ) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+        _write_fake_gh(tmp_path)
+        env = os.environ.copy()
+        env.update(
+            {
+                "CANDIDATE_SHA": "deadbeef",
+                "MALFORMED_MATCH": malformed_match,
+                "PATH": f"{tmp_path}:{env['PATH']}",
+            }
+        )
+
+        result = subprocess.run(
+            ["sh", "-c", f"{_collection_shell_program(text)}\nprintf 'CERTIFIED\\n'"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode != 0
+        assert "CERTIFIED" not in result.stdout
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"unexpected": "top-level-shape"},
+            [[{"type": "required_status_checks", "parameters": {}}]],
+            [
+                [
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {"required_status_checks": "lint"},
+                    }
+                ]
+            ],
+        ],
+    )
+    def test_ruleset_normalization_rejects_incomplete_schema(self, payload: object) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+
+        result = subprocess.run(
+            ["jq", "-e", _ruleset_program(text)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"contexts": []},
+            {"checks": []},
+            {"checks": None, "contexts": []},
+            {"checks": [], "contexts": None},
+        ],
+    )
+    def test_branch_protection_normalization_rejects_incomplete_schema(
+        self, payload: object
+    ) -> None:
+        text = RUNBOOK.read_text(encoding="utf-8")
+
+        result = subprocess.run(
+            ["jq", "-e", _branch_protection_program(text)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode != 0
 
     def test_required_policy_unions_rulesets_and_branch_protection(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
@@ -327,7 +433,7 @@ class TestJqPrograms:
             {"context": "status-or-check", "sources": ["ruleset"]},
         ]
         assert policy["legacy_contexts"] == ["legacy"]
-        assert policy["sources"] == {"ruleset": True, "branch_protection": True}
+        assert "sources" not in policy
 
     def test_unbound_branch_protection_check_accepts_legacy_status(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8")
@@ -665,6 +771,14 @@ def test_failed_first_rearm_guard_cannot_delete_halt_marker(tmp_path: Path) -> N
     text = RUNBOOK.read_text(encoding="utf-8")
     halt_file = tmp_path / "merge_executor.halt"
     halt_file.write_text("main_red\n", encoding="utf-8")
+    tool_dir = _write_fake_rearm_tools(tmp_path)
+    env = os.environ.copy()
+    env.update(
+        {
+            "EXPECTED_CANDIDATE_SHA": "deadbeef",
+            "PATH": f"{tool_dir}:{env['PATH']}",
+        }
+    )
 
     result = subprocess.run(
         [
@@ -679,6 +793,7 @@ def test_failed_first_rearm_guard_cannot_delete_halt_marker(tmp_path: Path) -> N
         ],
         capture_output=True,
         text=True,
+        env=env,
     )
 
     assert result.returncode != 0
