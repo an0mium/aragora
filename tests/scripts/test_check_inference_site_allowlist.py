@@ -121,7 +121,7 @@ def consult(policy: ModelTransportPolicy):
     payload["sites"][0]["classification"] = "proxy-eligible"
     payload["transport_policy_consumers"] = []
     result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
-    assert result.policy_errors and result.manifest_errors
+    assert result.policy_errors and len(result.manifest_errors) == 2
 
 
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:

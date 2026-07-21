@@ -396,10 +396,8 @@ def _site_from_manifest(raw: Any, index: int, errors: list[str]) -> tuple[Site, 
     if classification not in CLASSIFICATIONS:
         errors.append(f"sites[{index}] has invalid classification {classification!r}")
     rationale = raw.get("rationale", "")
-    if classification == "direct-only" and not isinstance(rationale, str):
-        errors.append(f"sites[{index}] direct-only rationale must be a string")
-    elif classification == "direct-only" and not rationale.strip():
-        errors.append(f"sites[{index}] direct-only entry needs a rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        errors.append(f"sites[{index}] {classification} entry needs a rationale")
     detectors = raw["detectors"]
     if not isinstance(detectors, dict) or not detectors:
         errors.append(f"sites[{index}] detectors must be a non-empty object")
@@ -463,6 +461,8 @@ def load_manifest(path: Path) -> tuple[dict[SiteKey, tuple[Site, str]], tuple[st
             errors.append(
                 f"protected site {_key_text(site.key)} must be direct-only ({', '.join(reasons)})"
             )
+        if classification == "proxy-eligible" and site.path not in consumers:
+            errors.append(f"proxy-eligible site {_key_text(site.key)} is not a policy consumer")
     return entries, consumers, errors
 
 
