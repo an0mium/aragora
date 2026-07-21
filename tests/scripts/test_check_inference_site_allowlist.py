@@ -70,6 +70,31 @@ def test_discovery_finds_aliased_constructors(tmp_path: Path, module: str, name:
     assert checker.discover(tmp_path).sites[0].provider in {"openai-compatible", "anthropic"}
 
 
+def test_discovery_finds_getattr_sdk_constructors_with_module_provenance(
+    tmp_path: Path,
+) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """import openai as oai
+import anthropic
+openai_client = getattr(oai, "OpenAI")()
+openai_client.responses.create()
+claude_client = getattr(anthropic, "Anthropic")()
+claude_client.messages.create()
+unrelated = getattr(other, "OpenAI")()
+unrelated.responses.create()
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert {(site.provider, site.protocol) for site in sites} == {
+        ("anthropic", "client"),
+        ("anthropic", "messages"),
+        ("openai-compatible", "client"),
+        ("openai-compatible", "responses"),
+    }
+
+
 def test_discovery_finds_native_mistral_sdk_calls(tmp_path: Path) -> None:
     _write_source(
         tmp_path,
@@ -217,6 +242,9 @@ class CompatibleAgent:
 class DynamicAnthropicAgent:
     async def generate(self, session, base_url):
         await session.post(f"{base_url}/messages")
+class HelperAnthropicAgent:
+    async def generate(self, session, base_url):
+        await session.post(build_url(base_url, "/messages"))
 class MessagingClient:
     async def send(self, session):
         await session.post(f"{self.base_url}/messages")
@@ -231,6 +259,7 @@ class MessagingClient:
         ("AnthropicAgent.generate", "anthropic", "messages", 1),
         ("CompatibleAgent.generate", "openai-compatible", "chat", 1),
         ("DynamicAnthropicAgent.generate", "anthropic", "messages", 1),
+        ("HelperAnthropicAgent.generate", "anthropic", "messages", 1),
     }
 
 

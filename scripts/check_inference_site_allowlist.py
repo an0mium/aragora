@@ -74,9 +74,12 @@ PYTHON_NUMBER_RE = re.compile(r"(?<![\w.])(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[b
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
 ANTHROPIC_CONTEXT_RE = re.compile(r"(?i)anthropic|claude")
+SDK_MODULE_PROVIDERS = {"openai": "openai-compatible", "anthropic": "anthropic", "mistralai": "mistral", "google.genai": "gemini", "google.generativeai": "gemini"}
+DYNAMIC_CONSTRUCTOR_NAMES = {"openai-compatible": frozenset({"OpenAI", "AsyncOpenAI"}), "anthropic": frozenset({"Anthropic", "AsyncAnthropic"}), "mistral": frozenset({"Mistral"}), "gemini": frozenset({"Client", "GenerativeModel"})}
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client"), "Mistral": ("mistral", "client")}
 METHOD_SUFFIXES = (("audio.transcriptions.create", "openai-compatible", "audio"), ("chat.completions.create", "openai-compatible", "chat"), ("chat.completions.parse", "openai-compatible", "chat"), ("responses.create", "openai-compatible", "responses"), ("responses.parse", "openai-compatible", "responses"), ("responses.stream", "openai-compatible", "responses"), ("messages.create", "anthropic", "messages"), ("messages.stream", "anthropic", "messages"), ("embeddings.create", "openai-compatible", "embeddings"), ("completions.create", "openai-compatible", "completions"), ("models.generate_content", "gemini", "generate-content"), ("models.generate_content_async", "gemini", "generate-content"), ("models.generate_content_stream", "gemini", "generate-content"), ("models.generateContent", "gemini", "generate-content"), ("models.generateContentStream", "gemini", "generate-content"), ("generate_content", "gemini", "generate-content"), ("generate_content_async", "gemini", "generate-content"), ("audio.transcriptions.complete", "mistral", "audio"), ("chat.complete", "mistral", "chat"), ("chat.stream", "mistral", "chat"), ("agents.complete", "mistral", "messages"), ("agents.stream", "mistral", "messages"), ("fim.complete", "mistral", "completions"))
 HTTP_CALL_TERMINALS = frozenset({"post", "request", "Request"})
+URL_HELPER_TERMINALS = frozenset({"build_url", "join_url", "make_url", "resolve_url", "urljoin"})
 PROTECTED_PATHS = {
     "ci": (".github/**", "scripts/ci/**"),
     "production-server": ("aragora/server/**",),
@@ -220,6 +223,32 @@ def _targets(node: ast.AST) -> tuple[str, ...]:
     return tuple(chain for target in raw if (chain := _attr_chain(target)))
 
 
+def _sdk_module_aliases(tree: ast.AST) -> dict[str, str]:
+    return {
+        name.asname or name.name.split(".", 1)[0]: provider
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for name in node.names
+        if (provider := SDK_MODULE_PROVIDERS.get(name.name)) is not None
+    }
+
+
+def _dynamic_constructor(node: ast.AST, module_aliases: dict[str, str]) -> tuple[str, str] | None:
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Call)):
+        return None
+    lookup = node.func
+    if _attr_chain(lookup.func) != "getattr" or len(lookup.args) < 2:
+        return None
+    module = _attr_chain(lookup.args[0])
+    name_node = lookup.args[1]
+    if not (isinstance(name_node, ast.Constant) and isinstance(name_node.value, str)):
+        return None
+    provider = module_aliases.get(module)
+    if provider is None or name_node.value not in DYNAMIC_CONSTRUCTOR_NAMES[provider]:
+        return None
+    return provider, "client"
+
+
 def _constructor_aliases(tree: ast.AST) -> dict[str, tuple[str, str]]:
     aliases = dict(CONSTRUCTORS)
     nodes = tuple(ast.walk(tree))
@@ -252,7 +281,7 @@ def _typed_client(annotation: ast.AST | None, aliases: dict[str, tuple[str, str]
     return annotation is not None and any((chain := _attr_chain(part)) in aliases or ((terminal := chain.rsplit(".", 1)[-1]) in aliases and (terminal != "Client" or "." not in chain)) for part in ast.walk(annotation))
 
 
-def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]]) -> tuple[set[str], set[str]]:
+def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]], module_aliases: dict[str, str]) -> tuple[set[str], set[str]]:
     nodes = tuple(ast.walk(tree))
     functions = (
         node for node in nodes if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -275,7 +304,7 @@ def _client_provenance(tree: ast.AST, aliases: dict[str, tuple[str, str]]) -> tu
         value = value.value if isinstance(value, ast.Await) else value
         chain = _attr_chain(value.func) if isinstance(value, ast.Call) else _attr_chain(value)
         terminal = chain.rsplit(".", 1)[-1]
-        return chain in clients or chain in aliases or (terminal in aliases and (terminal != "Client" or "." not in chain)) or terminal in factories  # fmt: skip
+        return _dynamic_constructor(value, module_aliases) is not None or chain in clients or chain in aliases or (terminal in aliases and (terminal != "Client" or "." not in chain)) or terminal in factories  # fmt: skip
 
     for _ in range(3):
         for node in nodes:
@@ -350,6 +379,13 @@ def _url_values(
                 for candidate in (*node.args, *(keyword.value for keyword in node.keywords))
                 for value in _url_values(candidate, bindings, anchor, class_name)
             }
+        candidates = (*node.args, *(keyword.value for keyword in node.keywords))
+        if terminal in URL_HELPER_TERMINALS and len(candidates) >= 2:
+            combined = {""}
+            for candidate in candidates:
+                values = _url_values(candidate, bindings, anchor, class_name) or {"{}"}
+                combined = {prefix + value for prefix in combined for value in values}
+            return combined
     return set()
 
 
@@ -429,8 +465,9 @@ class _InferenceVisitor(ast.NodeVisitor):
         self.detections: list[tuple[SiteKey, str]] = []
         self.mentions_policy = False
         self.constructor_aliases = _constructor_aliases(tree)
+        self.module_aliases = _sdk_module_aliases(tree)
         self.client_receivers, self.client_factories = _client_provenance(
-            tree, self.constructor_aliases
+            tree, self.constructor_aliases, self.module_aliases
         )
         self.url_bindings = _url_bindings(tree)
         policy_types = {"ModelTransportPolicy"} | {alias.asname or alias.name for item in ast.walk(tree) if isinstance(item, ast.ImportFrom) for alias in item.names if alias.name == "ModelTransportPolicy"}  # fmt: skip
@@ -509,7 +546,7 @@ class _InferenceVisitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         chain = _attr_chain(node.func, unwrap_calls=True)
         terminal = chain.rsplit(".", 1)[-1]
-        constructor = self.constructor_aliases.get(chain) or (self.constructor_aliases.get(terminal) if terminal != "Client" or "." not in chain else None)  # fmt: skip
+        constructor = _dynamic_constructor(node, self.module_aliases) or self.constructor_aliases.get(chain) or (self.constructor_aliases.get(terminal) if terminal != "Client" or "." not in chain else None)  # fmt: skip
         if constructor is not None:
             self._record(*constructor, "client-constructor")
         if terminal in HTTP_CALL_TERMINALS:
