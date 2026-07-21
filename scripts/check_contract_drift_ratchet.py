@@ -677,18 +677,26 @@ def _snapshot_repository(
         ],
         "snapshot-object-database",
     )
+    separately_captured_common_subtrees = frozenset({"logs", "objects", "refs", "worktrees"})
+    worktree_git_dir_excludes = (
+        separately_captured_common_subtrees if git_dir == common_dir else frozenset()
+    )
     components = {
         "common_git_dir": _path_manifest(
             common_dir,
             content=True,
-            exclude_top_level=frozenset({"logs", "objects", "refs", "worktrees"}),
+            exclude_top_level=separately_captured_common_subtrees,
         ),
         "index": _path_manifest(index_path, content=True),
         "object_database": objects_raw,
         "refs": refs_raw,
         "reflogs": _path_manifest(common_dir / "logs", content=True),
         "worktree": worktree_raw,
-        "worktree_git_dir": _path_manifest(git_dir, content=True),
+        "worktree_git_dir": _path_manifest(
+            git_dir,
+            content=True,
+            exclude_top_level=worktree_git_dir_excludes,
+        ),
     }
     snapshot = {
         name: {"byte_length": len(raw), "sha256": _sha256_bytes(raw)}
@@ -2284,7 +2292,6 @@ def _collect_live_evidence(
             or observed_pr.get("merged_at") is None
             or not isinstance(observed_pr.get("base"), dict)
             or not isinstance(observed_pr.get("head"), dict)
-            or observed_pr["base"].get("sha") != record.get("base_sha")
             or observed_pr["head"].get("sha") != record.get("head_sha")
             or observed_pr.get("merge_commit_sha") != receipt_by_pr.get(number, {}).get("merge_sha")
         ):

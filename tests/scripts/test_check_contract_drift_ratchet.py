@@ -2891,9 +2891,22 @@ def test_boundary_uses_private_scratch_child_and_removes_it(
     assert not private_root.exists()
 
 
-def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
+@pytest.mark.parametrize(
+    ("wrong_first_parent", "expected_error"),
+    (
+        pytest.param(False, None, id="ignores-pr-api-base-sha"),
+        pytest.param(
+            True,
+            "lacks first-parent or tree equality",
+            id="rejects-wrong-merge-first-parent",
+        ),
+    ),
+)
+def test_live_evidence_authenticates_base_from_merge_first_parent(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    wrong_first_parent: bool,
+    expected_error: str | None,
 ):
     _repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas["corrective_bootstrap"]
@@ -2998,7 +3011,7 @@ def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
             return {"id": 987654, "result": "pass"}, identity
         if endpoint.endswith("/pulls/9999"):
             return {
-                "base": {"sha": start_sha},
+                "base": {"sha": "f" * 40},
                 "changed_files": 1,
                 "head": {"sha": end_sha},
                 "merge_commit_sha": end_sha,
@@ -3008,7 +3021,7 @@ def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
         if endpoint.endswith(f"/git/commits/{end_sha}"):
             tree_sha = resources["governed_prs"]["records"][0]["head_tree_sha"]
             return {
-                "parents": [{"sha": start_sha}],
+                "parents": [{"sha": "e" * 40 if wrong_first_parent else start_sha}],
                 "sha": end_sha,
                 "tree": {"sha": tree_sha},
             }, identity
@@ -3061,6 +3074,19 @@ def test_live_evidence_discovers_release_assets_rule_suite_and_prs(
         return {"resource": resource, "verified": bool(argv)}, verification_identity
 
     monkeypatch.setattr(ratchet, "_run_live_verification", verify)
+
+    if expected_error is not None:
+        with pytest.raises(ValueError, match=expected_error):
+            ratchet._collect_live_evidence(
+                github_repository="synaptent/aragora",
+                github_branch="main",
+                boundary="corrective_bootstrap",
+                start_sha=start_sha,
+                end_sha=end_sha,
+                scratch_root=tmp_path,
+                operation_log=[],
+            )
+        return
 
     discovered, summary, context = ratchet._collect_live_evidence(
         github_repository="synaptent/aragora",
@@ -3197,9 +3223,27 @@ def test_stage2_reruns_full_stage1_matrix():
 
 def test_read_only_cli_hashes_worktree_index_gitdirs_objects_refs_and_reflogs(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     repo, _start_sha, _boundary_shas = _boundary_git_repo(tmp_path)
     operation_log: list[dict[str, Any]] = []
+    calls: list[tuple[Path, frozenset[str]]] = []
+    original_path_manifest = ratchet._path_manifest
+
+    def recording_path_manifest(
+        path: Path,
+        *,
+        content: bool,
+        exclude_top_level: frozenset[str] = frozenset(),
+    ) -> bytes:
+        calls.append((path.resolve(), exclude_top_level))
+        return original_path_manifest(
+            path,
+            content=content,
+            exclude_top_level=exclude_top_level,
+        )
+
+    monkeypatch.setattr(ratchet, "_path_manifest", recording_path_manifest)
     snapshot = ratchet._snapshot_repository(repo, operation_log)
     assert set(snapshot) == {
         "common_git_dir",
@@ -3215,6 +3259,85 @@ def test_read_only_cli_hashes_worktree_index_gitdirs_objects_refs_and_reflogs(
         for value in snapshot.values()
     )
     assert operation_log
+
+    git_dir = Path(
+        subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-dir"],
+            text=True,
+        ).strip()
+    ).resolve()
+    common_dir = Path(
+        subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            text=True,
+        ).strip()
+    ).resolve()
+    assert git_dir == common_dir
+    expected_excludes = frozenset({"logs", "objects", "refs", "worktrees"})
+    assert [excludes for path, excludes in calls if path == git_dir].count(expected_excludes) == 2
+
+    fake_common = tmp_path / "fake-common"
+    fake_common.mkdir()
+    metadata = fake_common / "config"
+    metadata.write_text("metadata=v1\n", encoding="utf-8")
+    for subtree in expected_excludes:
+        child = fake_common / subtree / "nested"
+        child.mkdir(parents=True)
+        (child / "separately-captured").write_bytes(b"before")
+    before = original_path_manifest(
+        fake_common,
+        content=True,
+        exclude_top_level=expected_excludes,
+    )
+    for subtree in expected_excludes:
+        (fake_common / subtree / "nested" / "separately-captured").write_bytes(b"after")
+    after_common_mutation = original_path_manifest(
+        fake_common,
+        content=True,
+        exclude_top_level=expected_excludes,
+    )
+    assert after_common_mutation == before
+    metadata.write_text("metadata=v2\n", encoding="utf-8")
+    after_metadata_mutation = original_path_manifest(
+        fake_common,
+        content=True,
+        exclude_top_level=expected_excludes,
+    )
+    assert after_metadata_mutation != before
+
+    linked = tmp_path / "linked"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "--detach", str(linked), "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    calls.clear()
+    linked_before = ratchet._snapshot_repository(linked, [])
+    linked_git_dir = Path(
+        subprocess.check_output(
+            ["git", "-C", str(linked), "rev-parse", "--path-format=absolute", "--git-dir"],
+            text=True,
+        ).strip()
+    ).resolve()
+    assert linked_git_dir != common_dir
+    linked_excludes = [excludes for path, excludes in calls if path == linked_git_dir]
+    assert linked_excludes == [frozenset()]
+    linked_entries = json.loads(
+        original_path_manifest(
+            linked_git_dir,
+            content=True,
+            exclude_top_level=linked_excludes[0],
+        )
+    )
+    linked_paths = {entry["path"] for entry in linked_entries}
+    assert {"HEAD", "commondir", "gitdir", "index"} <= linked_paths
+    (linked_git_dir / "verifier-sentinel").write_bytes(b"linked metadata changed")
+    linked_after = ratchet._snapshot_repository(linked, [])
+    assert linked_after["worktree_git_dir"] != linked_before["worktree_git_dir"]
+    assert {name: value for name, value in linked_after.items() if name != "worktree_git_dir"} == {
+        name: value for name, value in linked_before.items() if name != "worktree_git_dir"
+    }
 
 
 def test_read_only_cli_allows_only_scratch_and_output_writes(tmp_path: Path):
