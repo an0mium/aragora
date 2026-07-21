@@ -260,6 +260,42 @@ def consult(policy: MTP):
     assert result.policy_errors and len(result.manifest_errors) >= 2
 
 
+def test_provider_hosts_require_exact_normalized_url_hostnames(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "aragora/run.py",
+        """URLS = [
+    "https://api.openai.com.evil.example/v1/responses",
+    "https://evil.example/?next=api.anthropic.com/v1/messages",
+    "https://api.openai.com/v1/responses",
+]
+""",
+    )
+    sites = checker.discover(tmp_path).sites
+    assert [(site.provider, site.protocol) for site in sites] == [("openai", "responses")]
+
+
+def test_proxy_eligible_rejects_mixed_direct_call_detectors(tmp_path: Path) -> None:
+    _write_source(
+        tmp_path,
+        "scripts/consult.py",
+        """from somewhere import ModelTransportPolicy
+import requests
+def run(policy: ModelTransportPolicy):
+    policy.generate_anthropic(model="claude", messages=[])
+    requests.post("https://api.anthropic.com/v1/messages", json={})
+""",
+    )
+    payload = _template(tmp_path)
+    payload["sites"][0]["classification"] = "proxy-eligible"
+    payload["transport_policy_consumers"] = ["scripts/consult.py"]
+    result = checker.check_allowlist(tmp_path, _write_manifest(tmp_path, payload))
+    assert any(
+        "proxy-eligible cannot include direct-call detectors: http-inference-call" in error
+        for error in result.manifest_errors
+    )
+
+
 def test_unclassified_stale_and_count_changes_fail(tmp_path: Path) -> None:
     source = """from openai import OpenAI
 def run():

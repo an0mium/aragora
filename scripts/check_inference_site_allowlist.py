@@ -13,6 +13,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,7 @@ DEFAULT_MANIFEST = Path(__file__).with_name("inference_site_allowlist.json")
 SCAN_ROOTS = ("aragora", "scripts", ".github")
 SELF_PATH = "scripts/check_inference_site_allowlist.py"
 CLASSIFICATIONS = frozenset({"proxy-eligible", "direct-only"})
+DIRECT_CALL_DETECTORS = frozenset({"client-constructor", "http-inference-call", "inference-method"})
 # fmt: off
 TEXT_SUFFIXES = frozenset({".py", ".sh", ".bash", ".zsh", ".yml", ".yaml", ".json", ".toml", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 JS_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
@@ -31,6 +33,7 @@ FORBIDDEN_PORT_RE = re.compile(r":0*8317\b")
 PORT_ENFORCEMENT_PATH = "aragora/agents/transports/vibeproxy.py"
 PORT_ENFORCEMENT_LINE = "PROHIBITED_PORTS = {8317}"
 PROVIDER_HOSTS = {"api.openai.com": "openai", "api.anthropic.com": "anthropic", "openrouter.ai": "openrouter", "api.x.ai": "xai", "generativelanguage.googleapis.com": "gemini", "api.moonshot.ai": "kimi", "api.moonshot.cn": "kimi", "api.mistral.ai": "mistral", "api.deepseek.com": "deepseek", "api.thinkingmachines.ai": "tinker"}
+URL_RE = re.compile(r'''https?://[^\s"'`<>()\[\]{}]+''', re.IGNORECASE)
 PROTOCOL_PATHS = (("/audio/transcriptions", "audio"), ("/chat/completions", "chat"), ("/responses", "responses"), ("/messages", "messages"), ("/embeddings", "embeddings"), ("/completions", "completions"))
 PROTOCOL_PROVIDERS = {"audio": "openai-compatible", "chat": "openai-compatible", "responses": "openai-compatible", "embeddings": "openai-compatible", "completions": "openai-compatible"}
 CONSTRUCTORS = {"OpenAI": ("openai-compatible", "client"), "AsyncOpenAI": ("openai-compatible", "client"), "Anthropic": ("anthropic", "client"), "AsyncAnthropic": ("anthropic", "client"), "GenerativeModel": ("gemini", "client")}
@@ -112,7 +115,14 @@ def _protocol_for_url(value: str) -> str:
 
 
 def _provider_for_url(value: str) -> str | None:
-    return next((name for host, name in PROVIDER_HOSTS.items() if host in value.lower()), None)
+    for match in URL_RE.finditer(value):
+        try:
+            hostname = urlsplit(match.group()).hostname
+        except ValueError:
+            continue
+        if hostname is not None and (provider := PROVIDER_HOSTS.get(hostname.lower())):
+            return provider
+    return None
 
 
 def _provider_for_http_endpoint(value: str) -> str | None:
@@ -600,6 +610,12 @@ def _site_from_manifest(raw: Any, index: int, errors: list[str]) -> tuple[Site, 
         normalized[name] = count
     if classification == "proxy-eligible" and not normalized.get("transport-policy-call"):
         errors.append(f"sites[{index}] proxy-eligible needs transport-policy-call")
+    direct_detectors = sorted(DIRECT_CALL_DETECTORS.intersection(normalized))
+    if classification == "proxy-eligible" and direct_detectors:
+        errors.append(
+            f"sites[{index}] proxy-eligible cannot include direct-call detectors: "
+            + ", ".join(direct_detectors)
+        )
     values = [raw[name] for name in required[:4]]
     if not all(isinstance(value, str) and value for value in values):
         errors.append(f"sites[{index}] identity fields must be non-empty strings")
