@@ -9,9 +9,10 @@ the frontend builds and tests successfully with the selected sharp release, the
 dependency delta is fully classified, and the draft PR is independently reviewed
 and ready for operator review.
 
-The base is `origin/main` at
-`24ecf7e79ab7486e91712a4ca33e10aff1973ea7`. This is a separate security lane;
-PR #9477 is context only and is outside this run's authority.
+The branch was created from `origin/main` at
+`24ecf7e79ab7486e91712a4ca33e10aff1973ea7` and then normally merged the newer
+current main at `563331f03e568e5b34c481bde86a5c1f89575c9e` during staging. This is a
+separate security lane; PR #9477 is context only and is outside this run's authority.
 
 ## Scope
 
@@ -118,6 +119,10 @@ operating contract's five-transitive-dependency auto-halt ceiling.
 - Current-main preflight on 2026-07-22 reproduced the finding: the exact audit command
   exited 1 and reported indirect `sharp@0.34.5`, high severity, affected range
   `<0.35.0`, through `next@16.2.9`.
+- Main advanced during staging when PR #9477 merged independently. This lane performed
+  no #9477 evidence, settlement, readiness, or merge action; it normally integrated the
+  new base, confirmed `aragora/live/package*.json` were unchanged, and reproduced the
+  same audit finding again at the newer current-main base.
 - GitHub's reviewed advisory lists 0.35.0 as the first patched version and recommends
   the current 0.35.3 release. The upstream 0.35.0 release notes include breaking
   changes and require Node >=20.9.0.

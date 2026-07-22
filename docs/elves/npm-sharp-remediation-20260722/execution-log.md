@@ -34,8 +34,11 @@
 
 - Git remote / push / `gh` auth: PASS; `gh` is authenticated as `scarmani` and the
   branch has no local or remote collision.
-- Exact base: PASS; remote main and worktree start at
-  `24ecf7e79ab7486e91712a4ca33e10aff1973ea7`.
+- Exact base: PASS; the worktree was created at
+  `24ecf7e79ab7486e91712a4ca33e10aff1973ea7`. When remote main advanced during
+  staging, it was normally integrated at merge commit
+  `23b853cb399a811a26a91583fbb0d0854e27d9f4`; the launch base is now
+  `563331f03e568e5b34c481bde86a5c1f89575c9e`.
 - Coordination: PASS; lane `codex-base-npm-sharp-remediation-20260722` and strict
   lease `9743347e-c13` are held by `elves-npm-sharp-remediation-20260722`; live
   steering returned zero messages and the conflict inventory returned zero lane conflicts.
@@ -47,6 +50,10 @@
 - Frontend baseline: PASS; lint exited 0, Jest reported 257 passed suites plus
   1 skipped suite and 4,025 passed / 27 skipped / 4,052 total tests, and the
   Next.js 16.2.9 production build compiled, typechecked, and generated 228 pages.
+- Concurrent main movement: PR #9477 merged independently as current-main commit
+  `563331f03e`. This lane did not collect its evidence, settle it, mark it ready, or
+  merge it. The normal base integration touched no `aragora/live/package*.json` file;
+  the exact audit was rerun and still exited 1 for the same indirect sharp advisory.
 - Dependency tree: `next@16.2.9 -> sharp@0.34.5`; current lockfile has 26
   sharp-family entries.
 - Upstream/registry check: GitHub's reviewed advisory lists 0.35.0 as first patched

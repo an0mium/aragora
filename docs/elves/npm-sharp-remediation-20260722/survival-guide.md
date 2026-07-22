@@ -17,7 +17,7 @@ review the exact PR head, but never merge it.
 - **May continue after checkpoint:** yes; no checkpoint is configured
 - **Actual stop conditions:** Batch 1 and final readiness are complete, the operator stops the run, or a true authority/collision/safety blocker is recorded
 - **Workspace ownership:** dedicated worktree `$HOME/.codex/worktrees/npm-sharp-remediation-b9Qayh/aragora`, owned only by session `elves-npm-sharp-remediation-20260722`
-- **Branch tip at start:** `24ecf7e79ab7486e91712a4ca33e10aff1973ea7`; unexpected movement is a collision and requires an immediate stop
+- **Branch tip at start:** staged current-main integration commit `23b853cb399a811a26a91583fbb0d0854e27d9f4` (base `563331f03e568e5b34c481bde86a5c1f89575c9e`); only later run-state commits by this session are expected, and any other movement is a collision
 - **Merge policy:** user-merges; never merge or approve a merge
 - **Final-response policy:** allowed for this staging handoff; after launch, disallowed until the Stop Gate again says yes or a true blocker forces it
 - **Batch completion rule:** Every completed batch ends with `update execution log -> update survival guide -> update .elves-session.json -> commit -> push`; no completed work remains only in the working tree
@@ -99,7 +99,7 @@ review the exact PR head, but never merge it.
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** The exact-main baseline and frontend gates passed as expected, and draft PR #9484 now holds the complete run packet.
+**What was just finished:** Main advanced independently, so the branch normally integrated exact current main `563331f03e`; the dependency files were unchanged and the sharp audit failure reproduced.
 
 **Single next action:** Receive the fresh launch command, set the execution Stop Gate to no, and begin Batch 1 from the recorded exact head.
 
@@ -170,7 +170,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Execution log:** `docs/elves/npm-sharp-remediation-20260722/execution-log.md`
 - **Branch:** `codex/npm-sharp-security-remediation`
 - **PR number:** #9484
-- **Plan hash at session start:** `f5004e755589e3d26f3df68a22cd3faf`
+- **Plan hash at session start:** `7a132f9cde57b7476ed40bb9b2260b65`
 
 ## After Any Compaction
 
