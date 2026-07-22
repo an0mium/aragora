@@ -9,11 +9,11 @@ import aragora.swarm.quorum_evidence as qe
 from aragora.swarm.quorum_evidence import ReviewerResult
 
 
-def _cli_ok(_prompt):
+def _cli_ok(_prompt, *, timeout=None):
     return ReviewerResult("claude", "CLI verdict: PASS", True)
 
 
-def _cli_missing(_prompt):
+def _cli_missing(_prompt, *, timeout=None):
     return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
 
 

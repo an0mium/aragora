@@ -115,7 +115,9 @@ def run_claude_vibeproxy(
     timeout = 0.0
     try:
         timeout = _attempt_timeout(reviewer_timeout, resolved_policy.mode)
-        route = resolved_policy.resolve("anthropic", model, capabilities=("chat",))
+        # Bound the catalog /models discovery within the attempt budget instead
+        # of letting it run on the client's connect timeout outside it.
+        route = resolved_policy.resolve("anthropic", model, capabilities=("chat",), timeout=timeout)
         if route.transport != "vibeproxy" or resolved_policy.client is None:
             return ClaudeVibeProxyAttempt(
                 attempted=True,

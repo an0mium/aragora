@@ -404,6 +404,9 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
 def test_claude_reviewer_prefer_failure_uses_direct_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
     monkeypatch.setattr(
         qe,
         "run_claude_vibeproxy",

@@ -22,7 +22,7 @@ class FakeClient:
     base_url: str = "http://127.0.0.1:8318/v1"
     calls: list[dict[str, object]] = field(default_factory=list)
 
-    def catalog(self) -> VibeProxyCatalog:
+    def catalog(self, *, timeout: float | None = None) -> VibeProxyCatalog:
         return VibeProxyCatalog(models=self.models, fetched_at=0.0)
 
     def anthropic_message(self, **kwargs: object) -> str:

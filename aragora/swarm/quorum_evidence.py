@@ -1082,7 +1082,11 @@ def compose_evidence_comment(
     display = FAMILY_DISPLAY.get(fam, fam.title())
     provider = FAMILY_PROVIDERS.get(fam, fam)
     short = head_sha[:7]
-    harness_label = harness or f"the Aragora {display} reviewer"
+    # Sanitize harness to a safe charset: it now carries route.resolved_model,
+    # which an operator can influence via ARAGORA_VIBEPROXY_MODEL_MAP, so it must
+    # not be able to inject markup or hijack the disclosure block.
+    raw_harness = harness or f"the Aragora {display} reviewer"
+    harness_label = re.sub(r"[^A-Za-z0-9:.+\-() ]", "", raw_harness)[:120]
     # Sanitize the timestamp to a safe charset so the disclosure block can never
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
