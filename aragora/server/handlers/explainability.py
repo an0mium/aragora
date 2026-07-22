@@ -707,19 +707,18 @@ class ExplainabilityHandler(BaseHandler):
         )
         _save_batch_job(job)
 
+        response = {
+            "batch_id": batch_id,
+            "status": job.status.value,
+            "total_debates": len(debate_ids),
+            "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
+            "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
+        }
+
         # Start processing in background
         self._start_batch_processing(job)
 
-        return json_response(
-            {
-                "batch_id": batch_id,
-                "status": job.status.value,
-                "total_debates": len(debate_ids),
-                "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
-                "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
-            },
-            status=202,
-        )
+        return json_response(response, status=202)
 
     def _start_batch_processing(self, job: BatchJob) -> None:
         """Start processing batch job asynchronously."""
