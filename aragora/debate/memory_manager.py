@@ -625,7 +625,7 @@ class MemoryManager:
             )
 
             # Build metadata with optional crux claims
-            metadata = {
+            metadata: dict[str, Any] = {
                 "debate_id": result.id,
                 "task": task[:100],
                 "domain": domain,

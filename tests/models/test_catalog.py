@@ -44,6 +44,19 @@ def test_soak_dates_only_on_recent_releases() -> None:
             assert (spec.soak_until - spec.release_date).days == 14
 
 
+def test_is_under_soak_semantics() -> None:
+    """soak_until is a must-not-adopt-BEFORE date: under soak strictly
+    before it, adoptable on the date itself; None = long-established."""
+    for spec in CATALOG.values():
+        if spec.soak_until is None:
+            assert not spec.is_under_soak()
+            assert not spec.is_under_soak(today=date(2020, 1, 1))
+        else:
+            day_before = date.fromordinal(spec.soak_until.toordinal() - 1)
+            assert spec.is_under_soak(today=day_before)
+            assert not spec.is_under_soak(today=spec.soak_until)
+
+
 def test_by_any_id_resolves_every_spelling() -> None:
     for spec in CATALOG.values():
         for mid in spec.all_ids():

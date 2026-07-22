@@ -113,7 +113,7 @@ connectors = [
     "aio-pika>=9.6.2,<10.0",
 ]
 experimental = [
-    "playwright>=1.60.0,<2.0",
+    "playwright>=1.61.0,<2.0",
 ]
 dev = [
     "mypy>=2.1.0,<3.0",
@@ -129,7 +129,7 @@ dev = [
     # Build backend for the in-repo aragora-verify package so the ODR
     # walkthrough CLI smoke tests build the wheel offline-deterministically
     # in CI (tests/gauntlet/test_odr_walkthrough_fixture.py).
-    "hatchling>=1.18,<2.0",
+    "hatchling>=1.30.1,<2.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",
@@ -141,7 +141,7 @@ all = [
     "supabase>=2.31.0,<3.0",
     "aiokafka>=0.14.0,<1.0",
     "aio-pika>=9.6.2,<10.0",
-    "playwright>=1.60.0,<2.0",
+    "playwright>=1.61.0,<2.0",
 ]
 
 [project.urls]
@@ -222,6 +222,9 @@ ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"
 "tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]
 "aragora/**/test_*.py" = ["S101"]
 "aragora/**/tests/*" = ["S101"]
+# Benchmarks intentionally assert SLOs; Liftmode is an operational CLI with an optional-secrets fallback.
+"benchmarks/*.py" = ["S101"]
+"deploy/liftmode/briefing.py" = ["T201", "BLE001"]
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 "deprecated/*" = ["UP"]
