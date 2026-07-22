@@ -8,10 +8,13 @@ additional review signal.
 ## Current Scope
 
 - Supported now: bounded Fable/Claude advisory consults through the Anthropic
-  Messages protocol. Consults use the direct CLI path unless VibeProxy is
-  explicitly selected.
+  Messages protocol, plus exact-model, non-streaming OpenAI Chat Completions.
+  The transport client also contract-tests exact-model OpenAI Responses for
+  callers that already use that protocol. Each path remains direct unless
+  VibeProxy is explicitly selected.
 - Direct by default: normal agents, CI, production servers, credential checks,
-  public gateways, and merge-quorum evidence collection.
+  public gateways, merge-quorum evidence collection, OpenAI web search and
+  tools, OpenAI streaming, and custom `OPENAI_BASE_URL` gateways.
 - Deferred until contract-tested: web search, tools, embeddings, image, audio,
   and other media capabilities.
 
@@ -79,9 +82,9 @@ Schema version `1` contains:
 - `protocols.advertised`: sanitized method/path pairs reported by `GET /`.
   `verified_no_inference` separately lists only `GET /v1/models`, which this
   run actually exercised. `aragora_implemented_not_probed` records the
-  Anthropic Messages route implemented by Aragora without claiming the
-  diagnostic verified it. `advertised_redacted_count` reports routes omitted
-  because they echoed the request credential.
+  Anthropic Messages and OpenAI Chat/Responses routes implemented by Aragora
+  without claiming the diagnostic verified them. `advertised_redacted_count`
+  reports routes omitted because they echoed the request credential.
 - `model_inventory`: a sorted model-ID list and server count. IDs containing
   the request credential or terminal-unsafe characters are omitted from the
   list and counted in `redacted_count`.
@@ -116,7 +119,13 @@ ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
 
 ## Fallback Rules
 
-`vibeproxy-prefer` tries the requested Claude model and configured fallback
-model through VibeProxy before the existing Claude CLI and opt-in paid API
-fallbacks. `vibeproxy-required` never falls through to those backends. Timeout
-budgets include every enabled VibeProxy attempt.
+`vibeproxy-prefer` tries the requested exact model through VibeProxy before
+using the existing direct backend, and only before any output begins.
+`vibeproxy-required` fails closed when an eligible exact model cannot be served.
+In `vibeproxy-prefer`, capabilities outside the supported slices above (web
+search, tools, custom endpoints, streaming) stay direct. In
+`vibeproxy-required` the policy is an egress boundary: those requests raise
+instead of silently reaching a direct provider endpoint.
+One timeout budget covers catalog resolution and each eligible proxy request;
+catalog discovery is additionally capped at a few seconds so an unresponsive
+proxy cannot delay `vibeproxy-prefer` fallback.

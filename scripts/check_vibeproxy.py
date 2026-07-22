@@ -29,7 +29,11 @@ from aragora.agents.transports.vibeproxy import (  # noqa: E402
 
 SCHEMA_VERSION = 1
 DEFAULT_TOTAL_TIMEOUT_SECONDS = 3.0
-ARAGORA_IMPLEMENTED_NOT_PROBED = ("POST /v1/messages",)
+ARAGORA_IMPLEMENTED_NOT_PROBED = (
+    "POST /v1/chat/completions",
+    "POST /v1/messages",
+    "POST /v1/responses",
+)
 _SAFE_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$")
 
 

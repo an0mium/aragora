@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import sys
@@ -25,7 +26,7 @@ checker = _load_module()
 def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
     payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-    assert result.ok is True and result.policy_consumers == ("scripts/consult_claude.py",) and [(site["path"], site["anchor"]) for site in payload["sites"] if site["classification"] == "proxy-eligible"] == [("scripts/consult_claude.py", "_run_vibeproxy")], result  # fmt: skip
+    assert result.ok is True and result.policy_consumers == ("aragora/agents/api_agents/openai.py", "scripts/consult_claude.py") and [(site["path"], site["anchor"]) for site in payload["sites"] if site["classification"] == "proxy-eligible"] == [("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"), ("scripts/consult_claude.py", "_run_vibeproxy")], result  # fmt: skip
 
 
 def _write_source(root: Path, relative: str, source: str) -> Path:
