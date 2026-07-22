@@ -100,6 +100,18 @@ class TestReceiptCruxesField:
         )
         assert receipt.cruxes is None
 
+    def test_schema_downgrade_breaks_integrity(self) -> None:
+        """schema_version is bound into the hash for crux receipts: a
+        1.2 -> 1.1 downgrade must fail verification instead of silently
+        defeating the version signal."""
+        receipt = DecisionReceipt.from_debate_result(
+            _debate_result(metadata={"crux_cards": _sample_cards()})
+        )
+        assert receipt.verify_integrity() is True
+        downgraded = receipt.to_dict()
+        downgraded["schema_version"] = "1.1"
+        assert DecisionReceipt.from_dict(downgraded).verify_integrity() is False
+
     def test_schema_version_bumps_exactly_when_cruxes_attach(self) -> None:
         """Cruxes bind into artifact_hash, so carrying them must bump the
         schema version (1.1 -> 1.2) — older verifiers get a version signal

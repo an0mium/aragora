@@ -463,11 +463,43 @@ def build_crux_receipt_from_proof(
 #   1.0 — original receipt schema
 #   1.1 — current baseline (agent responses, provenance enrichment)
 #   1.2 — carries a ``cruxes`` block (crux cards, #8227). Cruxes are bound
-#         into ``artifact_hash``, so pre-1.2 verifiers recomputing the hash
-#         without them must treat the version bump — not tampering — as the
-#         signal.
+#         into ``artifact_hash`` together with ``schema_version`` itself, so
+#         a 1.2→1.1 downgrade breaks verification instead of silently
+#         defeating the version signal. Pre-1.2 receipts (no cruxes) keep the
+#         original hash recipe (schema_version NOT bound), so existing stored
+#         hashes keep verifying; pre-1.2 verifiers recomputing without cruxes
+#         must treat the version bump — not tampering — as the signal.
 RECEIPT_SCHEMA_VERSION = "1.1"
 RECEIPT_SCHEMA_VERSION_CRUXES = "1.2"
+
+
+def compute_receipt_artifact_hash(data: Any) -> str:
+    """Canonical ``artifact_hash`` recipe for a receipt-shaped mapping.
+
+    Single source of truth for the integrity hash: ``DecisionReceipt.
+    _calculate_hash`` and the standalone ``aragora verify`` command both
+    delegate here, so the hashed field set cannot drift between producer and
+    verifier. Covers the decision-integrity fields (receipt_id, gauntlet_id,
+    input_hash, risk_summary, verdict, confidence) and — for schema >= 1.2
+    receipts carrying a ``cruxes`` block — additionally binds ``cruxes`` and
+    ``schema_version`` (downgrade-tamper protection). Pre-crux receipts hash
+    exactly as before.
+    """
+    if not isinstance(data, dict):
+        data = {}
+    payload: dict[str, Any] = {
+        "receipt_id": data.get("receipt_id", ""),
+        "gauntlet_id": data.get("gauntlet_id", ""),
+        "input_hash": data.get("input_hash", ""),
+        "risk_summary": data.get("risk_summary", {}),
+        "verdict": data.get("verdict", ""),
+        "confidence": data.get("confidence", 0.0),
+    }
+    if data.get("cruxes") is not None:
+        payload["cruxes"] = data.get("cruxes")
+        payload["schema_version"] = data.get("schema_version", "")
+    content = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(content.encode()).hexdigest()
 
 
 def receipt_schema_version(cruxes: dict[str, Any] | None) -> str:
@@ -627,24 +659,26 @@ class DecisionReceipt:
     def _calculate_hash(self) -> str:
         """Calculate content-addressable hash.
 
-        Versioned hash path: crux cards are audit-bearing content, so they
-        are bound into the integrity material when present — tampering with
-        a stored ``cruxes`` block breaks ``verify_integrity()``. Pre-crux
-        receipts (``cruxes is None``) hash exactly as before, so existing
-        stored hashes keep verifying.
+        Delegates to :func:`compute_receipt_artifact_hash` — the single
+        canonical recipe shared with ``aragora verify`` — so producer and
+        verifier cannot drift. Crux cards are audit-bearing content: when
+        present they are bound into the integrity material together with
+        ``schema_version`` (a 1.2→1.1 downgrade breaks
+        ``verify_integrity()``). Pre-crux receipts (``cruxes is None``) hash
+        exactly as before, so existing stored hashes keep verifying.
         """
-        payload: dict[str, Any] = {
-            "receipt_id": self.receipt_id,
-            "gauntlet_id": self.gauntlet_id,
-            "input_hash": self.input_hash,
-            "risk_summary": self.risk_summary,
-            "verdict": self.verdict,
-            "confidence": self.confidence,
-        }
-        if self.cruxes is not None:
-            payload["cruxes"] = self.cruxes
-        content = json.dumps(payload, sort_keys=True)
-        return hashlib.sha256(content.encode()).hexdigest()
+        return compute_receipt_artifact_hash(
+            {
+                "receipt_id": self.receipt_id,
+                "gauntlet_id": self.gauntlet_id,
+                "input_hash": self.input_hash,
+                "risk_summary": self.risk_summary,
+                "verdict": self.verdict,
+                "confidence": self.confidence,
+                "cruxes": self.cruxes,
+                "schema_version": self.schema_version,
+            }
+        )
 
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
