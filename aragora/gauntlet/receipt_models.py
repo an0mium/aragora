@@ -557,6 +557,12 @@ class DecisionReceipt:
     # Tracks queries, retrievals, and injection counts for cross-debate visibility
     km_operations: dict[str, Any] | None = None
 
+    # Crux cards (#8227): load-bearing disagreements detected in the debate,
+    # populated when the debate ran with enable_crux_cards. Additive-only:
+    # None means "not recorded" and serialization omits the key entirely, so
+    # flag-off receipts remain byte-identical to pre-crux receipts.
+    cruxes: dict[str, Any] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -576,18 +582,25 @@ class DecisionReceipt:
             self.artifact_hash = self._calculate_hash()
 
     def _calculate_hash(self) -> str:
-        """Calculate content-addressable hash."""
-        content = json.dumps(
-            {
-                "receipt_id": self.receipt_id,
-                "gauntlet_id": self.gauntlet_id,
-                "input_hash": self.input_hash,
-                "risk_summary": self.risk_summary,
-                "verdict": self.verdict,
-                "confidence": self.confidence,
-            },
-            sort_keys=True,
-        )
+        """Calculate content-addressable hash.
+
+        Versioned hash path: crux cards are audit-bearing content, so they
+        are bound into the integrity material when present — tampering with
+        a stored ``cruxes`` block breaks ``verify_integrity()``. Pre-crux
+        receipts (``cruxes is None``) hash exactly as before, so existing
+        stored hashes keep verifying.
+        """
+        payload: dict[str, Any] = {
+            "receipt_id": self.receipt_id,
+            "gauntlet_id": self.gauntlet_id,
+            "input_hash": self.input_hash,
+            "risk_summary": self.risk_summary,
+            "verdict": self.verdict,
+            "confidence": self.confidence,
+        }
+        if self.cruxes is not None:
+            payload["cruxes"] = self.cruxes
+        content = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
 
     def verify_integrity(self) -> bool:
@@ -1493,6 +1506,14 @@ class DecisionReceipt:
         if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
 
+        # Crux cards (#8227): attached by the consensus phase when the debate
+        # ran with enable_crux_cards. Only carried when items exist — a missing
+        # or empty block keeps the receipt byte-identical to pre-crux output.
+        crux_cards = metadata.get("crux_cards")
+        cruxes: dict[str, Any] | None = None
+        if isinstance(crux_cards, dict) and crux_cards.get("items"):
+            cruxes = crux_cards
+
         # Determine verdict from consensus
         if zero_evidence:
             verdict = "NO_EVIDENCE"
@@ -1558,6 +1579,7 @@ class DecisionReceipt:
             explainability=explainability,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
+            cruxes=cruxes,
             config_used=config_used,
         )
 
@@ -2089,6 +2111,10 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        # Additive crux-cards block: omit the key when not recorded so
+        # flag-off receipts stay byte-identical (#8227).
+        if self.cruxes is not None:
+            data["cruxes"] = self.cruxes
         # Include signature fields if present
         if self.signature:
             data["signature"] = self.signature
@@ -2139,6 +2165,7 @@ class DecisionReceipt:
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
+            cruxes=data.get("cruxes"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),

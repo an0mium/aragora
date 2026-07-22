@@ -1512,6 +1512,12 @@ class CritiqueStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
 
+            # Evaluate the age cutoff once so the archive SELECT and the
+            # DELETE match the exact same rows; separate julianday('now')
+            # calls could straddle the threshold and delete an unarchived row.
+            cursor.execute("SELECT julianday('now') - ?", (max_age_days,))
+            cutoff_julian = cursor.fetchone()[0]
+
             if archive:
                 # Move stale/unsuccessful patterns to archive table
                 cursor.execute(
@@ -1524,26 +1530,26 @@ class CritiqueStore(SQLiteStore):
                            failure_count, avg_severity, surprise_score, example_task,
                            created_at, updated_at
                     FROM patterns
-                    WHERE julianday('now') - julianday(updated_at) >= ?
+                    WHERE julianday(updated_at) <= ?
                       AND (
                         CAST(success_count AS REAL) /
                         NULLIF(success_count + failure_count, 0)
                       ) < ?
                     """,
-                    (max_age_days, min_success_rate),
+                    (cutoff_julian, min_success_rate),
                 )
 
             # Delete stale/unsuccessful patterns
             cursor.execute(
                 """
                 DELETE FROM patterns
-                WHERE julianday('now') - julianday(updated_at) >= ?
+                WHERE julianday(updated_at) <= ?
                   AND (
                     CAST(success_count AS REAL) /
                     NULLIF(success_count + failure_count, 0)
                   ) < ?
                 """,
-                (max_age_days, min_success_rate),
+                (cutoff_julian, min_success_rate),
             )
 
             pruned = cursor.rowcount

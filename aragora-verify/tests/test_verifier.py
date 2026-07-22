@@ -49,6 +49,42 @@ def test_routing_must_be_reserved() -> None:
     assert result.ok is False
 
 
+def test_native_aragora_receipt_fails_with_export_hint() -> None:
+    """A native DecisionReceipt (what ``aragora demo --receipt`` writes) must
+    still FAIL, but the failure names the format mistake and the exact
+    ``aragora receipt export --format odr`` bridge command (issue #9185)."""
+    native = {
+        "receipt_id": "DR-MOCK-BCDFC27A",
+        "schema_version": "1.0",
+        "verdict": "consensus",
+        "artifact_hash": "e4a05033dc61c808",
+        "question": "Should we adopt microservices?",
+    }
+    result = verify(native)
+    assert result.ok is False
+    detail = _check(result, "schema_conformance").detail
+    assert "missing required member: odr_version" in detail
+    assert "native Aragora receipt" in detail
+    assert "aragora receipt export <file> --format odr" in detail
+
+
+def test_non_native_schema_failure_gets_no_native_hint() -> None:
+    """Arbitrary invalid JSON (not recognizably a native receipt) keeps the
+    plain schema errors -- no misleading export suggestion."""
+    result = verify({"receipt_id": "DR-X"})
+    assert result.ok is False
+    assert "native Aragora receipt" not in _check(result, "schema_conformance").detail
+
+
+def test_odr_document_with_schema_errors_gets_no_native_hint() -> None:
+    """A real ODR document with a defect is not misdiagnosed as native."""
+    doc = valid_odr()
+    del doc["claim"]
+    result = verify(doc)
+    assert result.ok is False
+    assert "native Aragora receipt" not in _check(result, "schema_conformance").detail
+
+
 # --- signatures ------------------------------------------------------------
 
 
