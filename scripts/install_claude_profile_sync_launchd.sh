@@ -53,6 +53,9 @@ mkdir -p "$(dirname "$PLIST_PATH")"
 mkdir -p "$(dirname "$LOG_PATH")"
 mkdir -p "${DEPLOY_DIR}"
 
+# The log records profile/email lines (emails masked, but keep it owner-only).
+touch "${LOG_PATH}" && chmod 0600 "${LOG_PATH}"
+
 # Deploy the current repo copy of the sync script to the stable location.
 cp "${REPO_ROOT}/scripts/${SCRIPT_NAME}" "${DEPLOY_PATH}"
 chmod 0755 "${DEPLOY_PATH}"
@@ -105,5 +108,7 @@ echo "Log: ${LOG_PATH}"
 echo "Uninstall: launchctl unload \"${PLIST_PATH}\" && rm \"${PLIST_PATH}\""
 echo
 echo "ONE-TIME bootstrap (the daemon runs without --force and skips native/dead"
-echo "profiles): once your config is filled in, convert them with:"
-echo "  \"${PYTHON_BIN}\" \"${DEPLOY_PATH}\" --apply --force --probe-after"
+echo "profiles): once your config is filled in, convert them with --force. Run it"
+echo "from the repo so --probe-after can find claude_profile.sh (the deployed copy"
+echo "cannot, and would report probe=SKIP):"
+echo "  (cd \"${REPO_ROOT}\" && \"${PYTHON_BIN}\" scripts/${SCRIPT_NAME} --apply --force --probe-after)"

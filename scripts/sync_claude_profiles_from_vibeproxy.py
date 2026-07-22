@@ -67,7 +67,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 VIBEPROXY_AUTH_DIR = Path.home() / ".cli-proxy-api"
-ARAGORA_PROFILE_ROOT = Path.home() / ".aragora-claude"
+# Honor CLAUDE_PROFILE_ROOT like the sibling readers (claude_profile.sh,
+# audit_claude_profiles.py): otherwise the sync writes into ~/.aragora-claude
+# while the router reads the overridden root, silently leaving the pool dead.
+_PROFILE_ROOT_OVERRIDE = os.environ.get("CLAUDE_PROFILE_ROOT", "").strip()
+ARAGORA_PROFILE_ROOT = (
+    Path(_PROFILE_ROOT_OVERRIDE) if _PROFILE_ROOT_OVERRIDE else Path.home() / ".aragora-claude"
+)
 DEFAULT_CONFIG_PATH = Path.home() / ".aragora" / "claude_profile_sync.json"
 # Skip a VibeProxy source whose own token expires within this margin, so a
 # stopped/crashed proxy's stale token never overwrites a profile.
@@ -162,6 +168,15 @@ def _iso_to_epoch_ms(value: str) -> int:
 
 def _now_ms() -> int:
     return int(_dt.datetime.now(_dt.timezone.utc).timestamp() * 1000)
+
+
+def _redact_email(email: str) -> str:
+    """Mask an email for the persistent daemon log (emails are PII here)."""
+    if "@" not in email:
+        return email
+    local, _, domain = email.partition("@")
+    head = local[:1] if local else ""
+    return f"{head}***@{domain}"
 
 
 def _load_json(path: Path) -> dict | None:
@@ -380,7 +395,9 @@ def main(argv: list[str] | None = None) -> int:
                 probe_note = "  probe=" + (
                     "SKIP" if state is None else ("LIVE" if state else "DEAD")
                 )
-            print(f"  {r.profile:8} {r.email:28} {r.action:20} {r.detail}{probe_note}")
+            print(
+                f"  {r.profile:8} {_redact_email(r.email):22} {r.action:20} {r.detail}{probe_note}"
+            )
         synced = sum(1 for r in results if r.action == "synced")
         live = sum(1 for v in probed.values() if v)
         tail = (

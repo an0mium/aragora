@@ -117,6 +117,21 @@ def test_load_config_rejects_one_profile_from_two_emails(tmp_path) -> None:
         sync.load_config(p)
 
 
+def test_redact_email_masks_local_part() -> None:
+    assert sync._redact_email("anomium@gmail.com") == "a***@gmail.com"
+    assert sync._redact_email("") == ""
+    assert sync._redact_email("noatsign") == "noatsign"
+
+
+def test_profile_root_honors_env_override(monkeypatch) -> None:
+    # A fresh import with CLAUDE_PROFILE_ROOT set must point the writer at the
+    # same root the sibling readers use (load an isolated instance so the shared
+    # module under test is untouched).
+    monkeypatch.setenv("CLAUDE_PROFILE_ROOT", "/tmp/custom-root")
+    fresh = _load_module()
+    assert str(fresh.ARAGORA_PROFILE_ROOT) == "/tmp/custom-root"
+
+
 def test_shipped_example_config_is_loadable() -> None:
     example = Path(__file__).resolve().parents[2] / "scripts" / "claude_profile_sync.json.example"
     cfg = sync.load_config(example)

@@ -156,7 +156,7 @@ python3 scripts/sync_claude_profiles_from_vibeproxy.py
 
 # ONE-TIME bootstrap: profiles that still hold a native (or dead) refresh token
 # are protected by default, so convert them to VibeProxy-managed consumers once
-# with --force. After this they carry a blank refresh token and sync freely.
+# with --force. Run from the repo so --probe-after can find claude_profile.sh.
 python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --force --probe-after
 
 # Steady state (no --force): keeps the managed profiles fresh.
