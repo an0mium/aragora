@@ -78,7 +78,7 @@ VIBEPROXY_SYNC_TARGET: dict[str, str] = {
     "synaptent@synaptent.com": "max-09",  # Synaptent team org (VibeProxy's org for this email)
     "verborgen.doel@gmail.com": "max-11",
     "armand@synaptent.com": "max-12",  # Synaptent team org
-    # ringrift.ai@gmail.com is held by VibeProxy but not yet assigned to a profile.
+    "ringrift.ai@gmail.com": "max-13",  # repointed from the max-12 duplicate to this distinct account
 }
 
 # Profiles deliberately NOT VibeProxy-synced, with why. A shared login's distinct
@@ -90,7 +90,6 @@ NATIVE_ONLY_REASON: dict[str, str] = {
         "Synaptent team org for that email (synced to max-09). Native login only."
     ),
     "max-10": "no VibeProxy account for armand.tuzel@gmail.com; native login only",
-    "max-13": "same armand@synaptent.com team seat as max-12; free to repoint at a distinct account",
 }
 
 # Reverse index: profile -> the VibeProxy email that sources it (if any).

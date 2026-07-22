@@ -86,7 +86,7 @@ def test_one_to_one_invariant_no_email_sources_two_profiles() -> None:
 def test_native_only_profiles_are_never_synced() -> None:
     # A shared-login distinct org (max-08) and a duplicate seat (max-13) must be
     # excluded so the sync cannot collapse them onto VibeProxy's org.
-    for profile in ("max-03", "max-08", "max-10", "max-13"):
+    for profile in ("max-03", "max-08", "max-10"):
         result = sync.sync_profile(profile, blank_refresh=True, apply=False)
         assert result.action == "skipped_native_only", profile
     # ...and none of them is also a sync target.
