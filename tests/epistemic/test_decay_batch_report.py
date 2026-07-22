@@ -89,7 +89,9 @@ class TestEvaluateUnitsBasic:
             _unit("c", claims=["x"], failed_claim_policy="fail_closed"),
         ]
         report = evaluate_units(units, claim_results={"x": _fail("x")})
-        assert report.healthy_count + report.degraded_count + report.fail_closed_count == report.total
+        assert (
+            report.healthy_count + report.degraded_count + report.fail_closed_count == report.total
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +203,9 @@ class TestEpistemicDecayBatchReportToDict:
 
     def test_empty_report_dict_has_zero_counts(self):
         d = evaluate_units([]).to_dict()
-        assert d["total"] == d["healthy_count"] == d["degraded_count"] == d["fail_closed_count"] == 0
+        assert (
+            d["total"] == d["healthy_count"] == d["degraded_count"] == d["fail_closed_count"] == 0
+        )
 
 
 # ---------------------------------------------------------------------------
