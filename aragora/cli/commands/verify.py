@@ -125,9 +125,10 @@ def _is_valid_iso_timestamp(value: str) -> bool:
 # (mirrors ``DecisionReceipt._calculate_hash``). These -- and ONLY these -- are the
 # fields whose tampering this command's integrity check detects. Reported to the
 # user via the ``covers`` key so the command does not overclaim coverage of
-# presentational fields (timestamp, ...) the hash does not include. Crux
-# receipts (schema >= 1.2) additionally bind ``cruxes`` and ``schema_version``
-# (downgrade-tamper protection) -- see ``_integrity_hash_fields``.
+# presentational fields (timestamp, ...) the hash does not include. Receipts
+# carrying ``cruxes`` additionally bind the crux block, and receipts stamped
+# schema 1.2 also bind ``schema_version`` (downgrade-tamper protection) -- see
+# ``_integrity_hash_fields``.
 _INTEGRITY_HASH_FIELDS: tuple[str, ...] = (
     "receipt_id",
     "gauntlet_id",
@@ -137,20 +138,23 @@ _INTEGRITY_HASH_FIELDS: tuple[str, ...] = (
     "confidence",
 )
 
-# Additional fields bound into the hash when a receipt carries a ``cruxes``
-# block (crux cards, #8227 / schema >= 1.2). ``schema_version`` is included so
-# a 1.2 -> 1.1 downgrade cannot silently defeat the version signal.
-_CRUX_INTEGRITY_HASH_FIELDS: tuple[str, ...] = (
-    "cruxes",
-    "schema_version",
-)
+# Schema version at which receipts bind ``schema_version`` into the hash
+# (mirrors ``RECEIPT_SCHEMA_VERSION_CRUXES`` in receipt_models; kept as a local
+# literal so this command never hard-depends on the gauntlet package). The
+# binding is version-gated, NOT crux-presence-gated: #9414 shipped crux binding
+# before the 1.2 stamp existed, so receipts with cruxes + schema_version 1.1
+# hashed without schema_version and must keep verifying.
+_SCHEMA_VERSION_CRUXES = "1.2"
 
 
 def _integrity_hash_fields(data: dict[str, Any]) -> tuple[str, ...]:
     """Fields the artifact hash covers for THIS receipt (honest coverage)."""
+    fields = _INTEGRITY_HASH_FIELDS
     if data.get("cruxes") is not None:
-        return _INTEGRITY_HASH_FIELDS + _CRUX_INTEGRITY_HASH_FIELDS
-    return _INTEGRITY_HASH_FIELDS
+        fields = fields + ("cruxes",)
+        if data.get("schema_version") == _SCHEMA_VERSION_CRUXES:
+            fields = fields + ("schema_version",)
+    return fields
 
 
 # Decision-integrity fields covered by the legacy ``checksum`` field.
@@ -187,10 +191,11 @@ def _inline_artifact_hash(data: dict[str, Any]) -> str:
 
     Byte-for-byte equivalent to ``compute_receipt_artifact_hash`` in
     ``aragora.gauntlet.receipt_models`` (equivalence is pinned by tests); used
-    only when the gauntlet package is not importable. Covers the fields in
-    :data:`_INTEGRITY_HASH_FIELDS`, plus :data:`_CRUX_INTEGRITY_HASH_FIELDS`
-    when a ``cruxes`` block is present (schema >= 1.2 downgrade-tamper
-    protection).
+    only when the gauntlet package is not importable. Covers the fields
+    reported by :func:`_integrity_hash_fields`: the base decision-integrity
+    fields, plus ``cruxes`` when present, plus ``schema_version`` only for
+    receipts stamped :data:`_SCHEMA_VERSION_CRUXES` (downgrade-tamper
+    protection, version-gated for #9414-era 1.1 crux receipts).
     """
     payload: dict[str, Any] = {
         "receipt_id": data.get("receipt_id", ""),
@@ -202,7 +207,11 @@ def _inline_artifact_hash(data: dict[str, Any]) -> str:
     }
     if data.get("cruxes") is not None:
         payload["cruxes"] = data.get("cruxes")
-        payload["schema_version"] = data.get("schema_version", "")
+        # Missing schema_version defaults to "1.0" (the from_dict convention)
+        # so the same JSON cannot hash two ways.
+        schema_version = data.get("schema_version", "1.0")
+        if schema_version == _SCHEMA_VERSION_CRUXES:
+            payload["schema_version"] = schema_version
     content = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(content.encode()).hexdigest()
 
@@ -354,6 +363,23 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
     proof_details: list[str] = []
     proof_failures: list[str] = []
     covered_fields: list[str] = []
+    # Crux receipts (a ``cruxes`` block, or a schema 1.2 stamp) MUST be
+    # verified against the full artifact hash: the legacy 16-char checksum
+    # covers neither cruxes nor schema_version, so accepting it alone would
+    # let an attacker strip ``artifact_hash`` and evade crux/downgrade
+    # tamper-protection. Pre-crux receipts keep the legacy fallback.
+    requires_full_artifact_hash = (
+        data.get("cruxes") is not None or data.get("schema_version") == _SCHEMA_VERSION_CRUXES
+    )
+    if (
+        requires_full_artifact_hash
+        and not stored_artifact_hash
+        and not _looks_like_artifact_hash_alias(stored_checksum)
+    ):
+        proof_failures.append(
+            "crux receipt (cruxes present or schema >= 1.2) requires the full "
+            "artifact_hash; the legacy checksum does not cover cruxes/schema_version"
+        )
     if stored_artifact_hash:
         expected_artifact_hash = _recompute_artifact_hash(data)
         covered_fields.extend(_integrity_hash_fields(data))

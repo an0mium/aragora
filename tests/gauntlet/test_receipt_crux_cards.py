@@ -100,6 +100,31 @@ class TestReceiptCruxesField:
         )
         assert receipt.cruxes is None
 
+    def test_pre_stamp_crux_receipt_still_verifies(self) -> None:
+        """#9414 shipped crux binding BEFORE the 1.2 stamp existed: persisted
+        receipts carry cruxes + schema_version 1.1 with a hash computed
+        WITHOUT schema_version. The version binding is gated on the 1.2 stamp
+        so those audit receipts must keep verifying."""
+        receipt = DecisionReceipt.from_debate_result(
+            _debate_result(metadata={"crux_cards": _sample_cards()})
+        )
+        data = receipt.to_dict()
+        data["schema_version"] = "1.1"
+        pre_stamp_material = json.dumps(
+            {
+                "receipt_id": data["receipt_id"],
+                "gauntlet_id": data["gauntlet_id"],
+                "input_hash": data["input_hash"],
+                "risk_summary": data["risk_summary"],
+                "verdict": data["verdict"],
+                "confidence": data["confidence"],
+                "cruxes": data["cruxes"],
+            },
+            sort_keys=True,
+        )
+        data["artifact_hash"] = hashlib.sha256(pre_stamp_material.encode()).hexdigest()
+        assert DecisionReceipt.from_dict(data).verify_integrity() is True
+
     def test_schema_downgrade_breaks_integrity(self) -> None:
         """schema_version is bound into the hash for crux receipts: a
         1.2 -> 1.1 downgrade must fail verification instead of silently
