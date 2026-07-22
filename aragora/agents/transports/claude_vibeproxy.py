@@ -170,9 +170,9 @@ def run_claude_vibeproxy(
             timeout_seconds=timeout,
             elapsed_seconds=_elapsed(),
         )
-    except Exception as exc:
-        # This is the outer transport boundary: unexpected client failures must
-        # not tear down the reviewer chain or expose provider exception details.
+    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        # Contain plausible policy/client implementation failures without
+        # swallowing arbitrary exceptions at the reviewer boundary.
         return ClaudeVibeProxyAttempt(
             attempted=True,
             required=required,
