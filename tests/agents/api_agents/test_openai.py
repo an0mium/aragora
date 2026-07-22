@@ -864,6 +864,22 @@ class TestOpenAIVibeProxyEnvDegradation:
 
         assert agent._model_transport_policy.mode is TransportMode.DIRECT
 
+    def test_explicit_transport_override_ignores_ambient_env(
+        self, mock_env_with_api_keys, monkeypatch
+    ) -> None:
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
+        monkeypatch.setenv("ARAGORA_VIBEPROXY_BASE_URL", "http://127.0.0.1:8318")
+
+        agent = OpenAIAPIAgent(
+            enable_fallback=False,
+            model_transport=ModelTransportPolicy(TransportMode.DIRECT),
+        )
+
+        assert agent._model_transport_policy.mode is TransportMode.DIRECT
+
     def test_required_mode_misconfiguration_stays_fail_closed(
         self, mock_env_with_api_keys, monkeypatch
     ) -> None:

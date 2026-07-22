@@ -131,6 +131,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
+        model_transport: ModelTransportPolicy | None = None,  # None = from env
     ) -> None:
         import os
 
@@ -156,6 +157,12 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         self._fallback_agent = None
         self.enable_web_search = True  # Enable web search tool by default
         self._current_prompt = ""  # Track current prompt for web search detection
+        if model_transport is not None:
+            # Per-instance override: callers that must stay on a fixed
+            # transport (e.g. server surfaces pinning DIRECT) are immune to the
+            # ambient ARAGORA_MODEL_TRANSPORT environment opt-in.
+            self._model_transport_policy = model_transport
+            return
         try:
             self._model_transport_policy = ModelTransportPolicy.from_env(
                 default_mode=TransportMode.DIRECT
@@ -336,25 +343,23 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                 raise VibeProxyUnavailableError("VibeProxy client is not configured")
             proxy_payload = dict(payload)
             proxy_payload["model"] = route.resolved_model
-            try:
-                # The request leg is also wall-clock bounded so executor queue
-                # saturation cannot exceed the caller's timeout contract.
-                data = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        _PROXY_EXECUTOR,
-                        lambda: client.openai_request(
-                            protocol=OpenAIProtocol.CHAT,
-                            model=route.resolved_model,
-                            payload=proxy_payload,
-                            timeout=remaining_timeout(),
-                        ),
-                    ),
+            # The request leg is deliberately NOT wrapped in wait_for: the
+            # executor job cannot be cancelled, so abandoning it on a wall-clock
+            # race could run a duplicate inference (proxy completes after the
+            # direct fallback starts). remaining_timeout() evaluated at thread
+            # start already bounds the leg — it raises immediately if executor
+            # queue wait exhausted the deadline, and otherwise caps the socket
+            # wait at the remaining budget — so the caller is bounded without
+            # an orphaned in-flight inference.
+            data = await loop.run_in_executor(
+                _PROXY_EXECUTOR,
+                lambda: client.openai_request(
+                    protocol=OpenAIProtocol.CHAT,
+                    model=route.resolved_model,
+                    payload=proxy_payload,
                     timeout=remaining_timeout(),
-                )
-            except (TimeoutError, asyncio.TimeoutError) as exc:
-                raise VibeProxyTimeoutError(
-                    "VibeProxy OpenAI request exceeded the agent timeout"
-                ) from exc
+                ),
+            )
             # A well-formed HTTP 200 whose body is malformed or empty is still
             # proxy unavailability: PREFER falls back, REQUIRED fails closed.
             try:
@@ -418,15 +423,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             budget_guard.record_spend(estimated_budget_usd)
         if cb is not None:
             cb.record_success()
-        # Terminal call outcome under the agent's provider, plus the proxy-leg
-        # outcome under "vibeproxy" so that series carries successes as well as
-        # failures (it would otherwise read as a 100% failure rate).
-        record_provider_call(
-            provider=self.agent_type,
-            success=True,
-            latency_seconds=time.perf_counter() - start_time,
-            model=self.model,
-        )
+        # The proxy leg records under "vibeproxy" only (successes and failures
+        # both), never additionally under the agent provider: one logical
+        # inference must not increment two provider series.
         record_provider_call(
             provider="vibeproxy",
             success=True,
