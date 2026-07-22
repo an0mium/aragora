@@ -720,6 +720,61 @@ class TestOpenAIVibeProxyRouting:
         direct_session.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_required_streaming_fails_closed(self, mock_env_with_api_keys) -> None:
+        from aragora.agents.api_agents.common import AgentAPIError
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        client = self.FakeClient()
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent.enable_web_search = False
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.REQUIRED,
+            client=client,  # type: ignore[arg-type]
+        )
+
+        async def fake_direct_stream(_agent, _prompt, _context=None):
+            yield "direct chunk"
+
+        with patch.object(OpenAICompatibleMixin, "generate_stream", fake_direct_stream):
+            with pytest.raises(AgentAPIError, match="vibeproxy-required cannot serve"):
+                async for _ in agent.generate_stream("hello"):
+                    pass
+
+        assert client.calls == []
+
+    @pytest.mark.asyncio
+    async def test_prefer_fallback_records_proxy_leg_failure(
+        self, mock_env_with_api_keys, mock_openai_response
+    ) -> None:
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        client = self.FakeClient(fail=True)
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent.enable_web_search = False
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.PREFER,
+            client=client,  # type: ignore[arg-type]
+        )
+
+        with patch("aragora.agents.api_agents.openai.record_provider_call") as provider_call:
+            with patch(
+                "aragora.agents.api_agents.openai_compatible.create_client_session",
+                return_value=self._direct_session(mock_openai_response),
+            ):
+                result = await agent.generate("hello")
+
+        assert "test response from GPT" in result
+        proxy_leg = next(
+            call
+            for call in provider_call.call_args_list
+            if call.kwargs.get("provider") == "vibeproxy"
+        )
+        assert proxy_leg.kwargs["success"] is False
+
+    @pytest.mark.asyncio
     async def test_proxy_success_records_latency(self, mock_env_with_api_keys) -> None:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode

@@ -122,5 +122,10 @@ ARAGORA_MODEL_TRANSPORT=vibeproxy-required \
 `vibeproxy-prefer` tries the requested exact model through VibeProxy before
 using the existing direct backend, and only before any output begins.
 `vibeproxy-required` fails closed when an eligible exact model cannot be served.
-Capabilities outside the supported slices above stay direct in either mode.
-One timeout budget covers catalog resolution and each eligible proxy request.
+In `vibeproxy-prefer`, capabilities outside the supported slices above (web
+search, tools, custom endpoints, streaming) stay direct. In
+`vibeproxy-required` the policy is an egress boundary: those requests raise
+instead of silently reaching a direct provider endpoint.
+One timeout budget covers catalog resolution and each eligible proxy request;
+catalog discovery is additionally capped at a few seconds so an unresponsive
+proxy cannot delay `vibeproxy-prefer` fallback.
