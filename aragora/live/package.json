@@ -96,6 +96,7 @@
     "typescript-eslint": "^8.54.0"
   },
   "overrides": {
+    "sharp": "^0.35.3",
     "postcss": "^8.5.10",
     "uuid": "^14.0.0",
     "brace-expansion": "^2.0.3"
