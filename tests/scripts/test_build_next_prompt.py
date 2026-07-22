@@ -1024,6 +1024,34 @@ def test_merge_ready_packet_preserves_structured_transport_failure(tmp_path: Pat
     assert packet["returncode"] == 1
 
 
+def test_json_or_empty_wraps_non_dict_json_from_failed_command() -> None:
+    payload = [{"name": "lint", "state": "SUCCESS"}]
+    result = subprocess.CompletedProcess(
+        ["gh", "pr", "checks"],
+        1,
+        json.dumps(payload),
+        "HTTP 502: Bad Gateway",
+    )
+
+    assert prompt_builder._json_or_empty(result) == {
+        "error": "HTTP 502: Bad Gateway",
+        "returncode": 1,
+        "payload": payload,
+    }
+
+
+def test_json_or_empty_preserves_non_dict_json_from_successful_command() -> None:
+    payload = [{"name": "lint", "state": "SUCCESS"}]
+    result = subprocess.CompletedProcess(
+        ["gh", "pr", "checks"],
+        0,
+        json.dumps(payload),
+        "",
+    )
+
+    assert prompt_builder._json_or_empty(result) == payload
+
+
 def test_merge_ready_prompt_reports_transport_failure_before_candidate_parsing(
     tmp_path: Path,
 ) -> None:
