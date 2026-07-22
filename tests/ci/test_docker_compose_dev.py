@@ -6,6 +6,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
+NODE_IMAGE = "node:24.18-alpine"
 
 
 def _compose() -> dict[str, object]:
@@ -18,7 +19,7 @@ def test_frontend_dev_builds_local_sdk_before_starting() -> None:
     volumes = service["volumes"]
     command = " ".join(service["command"].split())
 
-    assert service["image"] == "node:20.19-alpine"
+    assert service["image"] == NODE_IMAGE
     assert "typescript-sdk-dev:/sdk/typescript" in volumes
     assert "frontend-dev-npm-cache:/root/.npm" in volumes
     assert {
@@ -45,3 +46,12 @@ def test_frontend_sdk_dependency_resolves_to_compose_mount() -> None:
     assert posixpath.normpath(posixpath.join("/app", specifier.removeprefix("file:"))) == (
         "/sdk/typescript"
     )
+
+
+def test_frontend_container_images_use_supported_node_lts() -> None:
+    for relative_path in ("deploy/Dockerfile.frontend", "aragora/live/Dockerfile"):
+        dockerfile = (ROOT / relative_path).read_text(encoding="utf-8")
+        from_lines = [line for line in dockerfile.splitlines() if line.startswith("FROM ")]
+
+        assert from_lines
+        assert all(line.split()[1] == NODE_IMAGE for line in from_lines)
