@@ -63,9 +63,9 @@ separate security lane; PR #9477 is context only and is outside this run's autho
   five transitive packages change, or any changed package is outside the
   `sharp` / `@img/sharp*` family, revert the product-file changes and stop for
   explicit operator approval before any implementation commit or push.
-- [x] If the dependency-change ceiling is not crossed, run the complete validation
-  strategy, inspect the cumulative diff, commit, push, and poll all draft-PR checks
-  and comments.
+- [x] After the measured ceiling and family gates are either satisfied or the exact
+  exception set receives operator authority, run the complete validation strategy,
+  inspect the cumulative diff, commit, push, and poll all draft-PR checks and comments.
 - [x] Perform a fresh final readiness review of the exact head without collecting
   countable quorum evidence. Fix blockers and repeat validation before handoff.
 
@@ -97,7 +97,9 @@ operating contract's five-transitive-dependency auto-halt ceiling.
 ## Non-Negotiables
 
 - Do not touch PR #9477 or perform evidence, settlement, readiness, or merge actions.
-- Do not edit workflows, protected files, Next.js, SDK packages, or non-sharp dependencies.
+- Do not edit workflows, protected files, Next.js, SDK packages, or direct dependencies
+  outside sharp. The exact approved generated `@emnapi/runtime` and sharp-nested `semver`
+  lock shifts are the only out-of-family transitive exceptions.
 - Stop before committing or pushing product changes if more than five distinct
   transitive packages change or any changed package is outside the sharp family,
   unless the operator explicitly approves that exact measured delta.

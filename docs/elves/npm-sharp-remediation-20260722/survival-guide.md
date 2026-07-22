@@ -4,8 +4,9 @@
 
 Run one finite, isolated dependency-remediation batch from exact current main. Remove
 the inherited GHSA-f88m-g3jw-g9cj exposure in `aragora/live` without changing Next.js,
-workflows, public behavior, or any non-sharp dependency; validate and independently
-review the exact PR head, but never merge it.
+workflows, public behavior, or any direct dependency outside sharp. The only generated
+transitive exceptions are the exact approved `@emnapi/runtime` and sharp-nested `semver`
+lock shifts. Validate and independently review the exact PR head, but never merge it.
 
 ## Run Control
 
@@ -70,7 +71,9 @@ review the exact PR head, but never merge it.
 
 - PR #9477 is outside this lane: no edits, comments, evidence, settlement, readiness,
   or merge operations.
-- No `.github/**`, governance, merge-authority, Next.js, SDK, or non-sharp dependency changes.
+- No `.github/**`, governance, merge-authority, Next.js, SDK, or direct dependency
+  changes outside sharp. Only the exact approved generated `@emnapi/runtime` and
+  sharp-nested `semver` transitive lock shifts are permitted outside the sharp family.
 - Stop before a product commit/push when the measured delta exceeds five distinct
   transitive packages or includes any out-of-sharp-family package, absent explicit
   operator approval for that exact delta.
@@ -180,7 +183,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Branch:** `codex/npm-sharp-security-remediation`
 - **PR number:** #9484
 - **Plan hash at session start:** `7a132f9cde57b7476ed40bb9b2260b65`
-- **Current plan hash after final readiness clarification:** `623e0bc4cab10a77d533bd81c804775e`
+- **Current plan hash after final readiness clarification:** `d82939cbcb5ff1155f38ee488c013f0b`
 
 ## After Any Compaction
 

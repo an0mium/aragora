@@ -11,7 +11,7 @@
   "worktree": "$HOME/.codex/worktrees/npm-sharp-remediation-b9Qayh/aragora",
   "plan_path": "docs/plans/npm-sharp-security-remediation-20260722.md",
   "plan_hash": "7a132f9cde57b7476ed40bb9b2260b65",
-  "current_plan_hash": "623e0bc4cab10a77d533bd81c804775e",
+  "current_plan_hash": "d82939cbcb5ff1155f38ee488c013f0b",
   "survival_guide_path": "docs/elves/npm-sharp-remediation-20260722/survival-guide.md",
   "learnings_path": "docs/elves/npm-sharp-remediation-20260722/learnings.md",
   "execution_log_path": "docs/elves/npm-sharp-remediation-20260722/execution-log.md",
@@ -19,7 +19,7 @@
   "lane_id": "codex-base-npm-sharp-remediation-20260722",
   "lease_id": "244021ee-273",
   "resume_head_sha": "61403a1e85a6420a22863194197dfa9a47094485",
-  "current_head_sha": "0ca2a4f0a58a726e178893dc3104ef3d79871c0c",
+  "last_reviewed_head_sha": "0ca2a4f0a58a726e178893dc3104ef3d79871c0c",
   "launch_head_sha": "c06ab98ac8cd9d40213eaca457cd2a1c74355d8c",
   "merge_policy": "user-merges",
   "checkpoint": {
@@ -211,6 +211,6 @@
     ".github/**",
     "protected governance files",
     "Next.js version",
-    "non-sharp dependencies"
+    "direct dependencies outside sharp, except the exact approved generated @emnapi/runtime and sharp-nested semver lock shifts"
   ]
 }

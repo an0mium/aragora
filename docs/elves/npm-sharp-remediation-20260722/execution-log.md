@@ -300,7 +300,9 @@ operator approval. Operational artifacts remain in place for safe resumption.
 **Behaviors:**
 
 - Clear the exact high-severity production audit finding without changing Next.js or
-  any non-sharp dependency.
+  any direct dependency outside sharp. The exact approved generated
+  `@emnapi/runtime` and sharp-nested `semver` lock shifts are the only transitive
+  exceptions outside the sharp family.
 - Stop before a product commit/push if the measured transitive delta exceeds authority.
 
 **Build on:**
@@ -310,14 +312,16 @@ operator approval. Operational artifacts remain in place for safe resumption.
 
 **Acceptance criteria:**
 
-- [ ] Audit clean, valid dependency tree, lint/tests/build/diff checks pass.
-- [ ] Exact package-key delta classified and within authority or safely reverted.
-- [ ] Independent exact-head review and all PR feedback/checks are resolved or plainly reported.
+- [x] Audit clean, valid dependency tree, lint/tests/build/diff checks pass.
+- [x] Exact package-key delta classified and within exact operator authority.
+- [x] Independent exact-head review and all PR feedback/checks are resolved or plainly reported.
 
 **Blast radius:**
 
-- `aragora/live/package.json` and `aragora/live/package-lock.json`, modified only for
-  one transitive native dependency family.
+- `aragora/live/package.json` and `aragora/live/package-lock.json`, modified for one
+  transitive native dependency family plus the two exact approved generated lock
+  exceptions, and `aragora/live/Dockerfile`, modified only for the three approved
+  Node 20.11 stage substitutions.
 - Risk: high enough for operator review because the fixed upstream line is breaking
   and contains many platform packages.
 
