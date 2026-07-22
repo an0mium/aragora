@@ -120,9 +120,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     ) -> None:
         import os
 
-        self._uses_official_openai_endpoint = not bool(
-            os.environ.get("OPENAI_BASE_URL", "").strip()
-        )
+        self._uses_official_openai_endpoint = not os.environ.get("OPENAI_BASE_URL", "").strip()
         super().__init__(
             name=name,
             model=model,

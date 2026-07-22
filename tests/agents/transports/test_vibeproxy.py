@@ -69,7 +69,7 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
         nonlocal calls
         calls += 1
         assert request.full_url == "http://127.0.0.1:8318/v1/models"
-        assert timeout == 1.5
+        assert timeout == pytest.approx(1.5, rel=1e-4)
         return _Response(json.dumps({"data": [{"id": "claude-fable-5"}]}).encode())
 
     client = vibeproxy.VibeProxyClient()
@@ -190,6 +190,26 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
     assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
 
 
+def test_shared_opener_lock_obeys_request_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = vibeproxy.VibeProxyClient()
+    opened = False
+
+    def fake_open(*_args, **_kwargs):
+        nonlocal opened
+        opened = True
+        return _Response(b"{}")
+
+    monkeypatch.setattr(client._opener, "open", fake_open)
+    client._request_lock.acquire()
+    try:
+        with pytest.raises(vibeproxy.VibeProxyTimeoutError, match="timed out"):
+            client._request("/models", timeout=0.01)
+    finally:
+        client._request_lock.release()
+
+    assert opened is False
+
+
 def test_client_accepts_response_with_bounded_read_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -271,6 +291,7 @@ def test_openai_protocol_request_uses_exact_model_and_path(
         seen["url"] = request.full_url
         seen["authorization"] = request.headers["Authorization"]
         seen["anthropic_version"] = request.headers.get("Anthropic-version")
+        seen["lock_held"] = client._request_lock.locked()
         seen["payload"] = json.loads(request.data)
         seen["timeout"] = timeout
         return _Response(json.dumps({"model": "gpt-5.5", "ok": True}).encode())
@@ -285,12 +306,13 @@ def test_openai_protocol_request_uses_exact_model_and_path(
     )
 
     assert body == {"model": "gpt-5.5", "ok": True}
+    assert seen.pop("timeout") == pytest.approx(2.5, rel=1e-4)
     assert seen == {
         "url": f"http://127.0.0.1:8318/v1{path}",
         "authorization": f"Bearer {vibeproxy.LOCAL_API_KEY}",
         "anthropic_version": None,
+        "lock_held": True,
         "payload": {"model": "gpt-5.5", "input": "hello"},
-        "timeout": 2.5,
     }
 
 

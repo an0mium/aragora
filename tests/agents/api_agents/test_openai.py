@@ -263,8 +263,9 @@ class TestOpenAIVibeProxyRouting:
     class FakeClient:
         base_url = "http://127.0.0.1:8318/v1"
 
-        def __init__(self, *, fail: bool = False) -> None:
+        def __init__(self, *, fail: bool = False, error: Exception | None = None) -> None:
             self.fail = fail
+            self.error = error
             self.calls: list[dict[str, Any]] = []
 
         def catalog(self, *, timeout: float | None = None):
@@ -275,6 +276,8 @@ class TestOpenAIVibeProxyRouting:
             from aragora.agents.transports.vibeproxy import VibeProxyUnavailableError
 
             self.calls.append({"operation": "request", **kwargs})
+            if self.error is not None:
+                raise self.error
             if self.fail:
                 raise VibeProxyUnavailableError("proxy unavailable")
             model = kwargs["model"]
@@ -459,6 +462,42 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(fail=True)
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent.enable_web_search = False
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.PREFER,
+            client=client,  # type: ignore[arg-type]
+        )
+        response = MagicMock(status=200)
+        response.json = AsyncMock(return_value=mock_openai_response)
+        response.__aenter__ = AsyncMock(return_value=response)
+        response.__aexit__ = AsyncMock(return_value=None)
+        session = MagicMock()
+        session.post = MagicMock(return_value=response)
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session",
+            return_value=session,
+        ):
+            result = await agent.generate("hello")
+
+        assert "test response from GPT" in result
+        assert session.post.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_prefer_timeout_falls_back_direct_before_output(
+        self, mock_env_with_api_keys, mock_openai_response
+    ) -> None:
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import (
+            ModelTransportPolicy,
+            TransportMode,
+            VibeProxyTimeoutError,
+        )
+
+        client = self.FakeClient(error=VibeProxyTimeoutError("proxy timed out"))
         agent = OpenAIAPIAgent(enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
