@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Install a launchd job that keeps aragora Claude profiles alive by consuming
+# VibeProxy's already-fresh access tokens (scripts/sync_claude_profiles_from_vibeproxy.py).
+#
+# Why this exists: Anthropic OAuth single-use-rotates refresh tokens, so two
+# independent refreshers on the same account revoke each other. VibeProxy stays
+# alive because it is the SOLE refresher of its accounts; aragora stops competing
+# and instead syncs VibeProxy's fresh access token into the matching profile,
+# writing it WITHOUT a usable refresh token (pure consumer). Run more often than
+# the ~8h access-token TTL so a synced token never lapses between cycles.
+set -euo pipefail
+
+LABEL="com.aragora.claude-profile-sync"
+INTERVAL_SECONDS=1800  # 30 min: well under the ~8h access-token TTL
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_PATH="${HOME}/.aragora/claude-profile-sync.log"
+PYTHON_BIN="${ARAGORA_PYTHON:-python3}"
+SCRIPT_NAME="sync_claude_profiles_from_vibeproxy.py"
+# Deploy the sync script to a stable location OUTSIDE any git checkout: session
+# worktrees are TTL-cleaned, and pointing launchd at the main checkout would let
+# a later merge of the same tracked filename collide with the untracked copy.
+DEPLOY_DIR="${HOME}/.aragora/bin"
+DEPLOY_PATH="${DEPLOY_DIR}/${SCRIPT_NAME}"
+# launchd runs with a minimal PATH; the sync itself needs only python, but keep
+# the same explicit PATH as the sibling verify job for the optional probe path.
+BIN_PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--interval-seconds <n>] [--python <path>] [--path <PATH>]
+  --interval-seconds <n>   launchd StartInterval (default: ${INTERVAL_SECONDS})
+  --python <path>          Python interpreter (default: ${PYTHON_BIN})
+  --path <PATH>            PATH for the job
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --interval-seconds) INTERVAL_SECONDS="$2"; shift 2 ;;
+    --python) PYTHON_BIN="$2"; shift 2 ;;
+    --path) BIN_PATH="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
+  esac
+done
+
+PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+mkdir -p "$(dirname "$PLIST_PATH")"
+mkdir -p "$(dirname "$LOG_PATH")"
+mkdir -p "${DEPLOY_DIR}"
+
+# Deploy the current repo copy of the sync script to the stable location.
+cp "${REPO_ROOT}/scripts/${SCRIPT_NAME}" "${DEPLOY_PATH}"
+chmod 0755 "${DEPLOY_PATH}"
+
+cat >"${PLIST_PATH}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>export PATH="${BIN_PATH}" &amp;&amp; "${PYTHON_BIN}" "${DEPLOY_PATH}" --apply</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>${INTERVAL_SECONDS}</integer>
+  <key>WorkingDirectory</key>
+  <string>${HOME}</string>
+  <key>StandardOutPath</key>
+  <string>${LOG_PATH}</string>
+  <key>StandardErrorPath</key>
+  <string>${LOG_PATH}</string>
+</dict>
+</plist>
+EOF
+
+launchctl unload "${PLIST_PATH}" >/dev/null 2>&1 || true
+launchctl load "${PLIST_PATH}"
+
+echo "Installed launchd job: ${LABEL}"
+echo "Plist: ${PLIST_PATH}"
+echo "Deployed script: ${DEPLOY_PATH}"
+echo "Interval: ${INTERVAL_SECONDS}s"
+echo "Log: ${LOG_PATH}"
+echo "Uninstall: launchctl unload \"${PLIST_PATH}\" && rm \"${PLIST_PATH}\""

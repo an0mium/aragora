@@ -120,6 +120,43 @@ A receipt is written to `.aragora/review-local/<timestamp>/` (`review.json` + `i
 The verdict status maps to the exit code: `passed` → 0, `changes_requested` → 2, anything
 blocked → 1.
 
+## Staying alive without re-login: VibeProxy token sync
+
+**Why profiles kept expiring.** Anthropic OAuth **single-use-rotates** the refresh
+token on every refresh — once used, the old refresh token is revoked. When the
+same account is refreshed by more than one process, whoever refreshes first wins
+and every other holder is left with a revoked token. In the field this pool ran
+at **0/12 healthy**: 9 of 12 profiles held accounts that VibeProxy's
+`cli-proxy-api` *also* refreshes on its own schedule, and two profile pairs
+shared a single login. The hourly `claude_pool_verify.py` refresh side-effect
+could not win a race it could not see. (Its own docstring predicted this:
+"canNOT revive a revoked refresh token — duplicate accounts, same-org seats, or
+the same account used concurrently.")
+
+**The fix — consume VibeProxy's tokens instead of competing.** VibeProxy stays
+alive because it is the **single owner** of each account's refresh token. So
+aragora stops refreshing and instead copies VibeProxy's already-fresh access
+token into the matching profile, written **without a usable refresh token**
+(pure consumer). aragora can then never rotate VibeProxy's live token, and the
+hourly `claude_pool_verify.py` is automatically safe — a profile with no refresh
+token cannot rotate anything even when probed.
+
+```bash
+# One-shot: sync every mapped profile from VibeProxy (dry-run first, then apply)
+python3 scripts/sync_claude_profiles_from_vibeproxy.py
+python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --probe-after
+
+# Make it durable: a 30-min launchd timer (deploys the script to ~/.aragora/bin,
+# outside any git checkout so worktree TTL-cleanup and merges never touch it)
+bash scripts/install_claude_profile_sync_launchd.sh
+```
+
+This took the pool from 0/12 to **11/12 healthy** in one sync. The single
+exception is any profile whose account VibeProxy does **not** hold (e.g.
+`max-10` / `armand.tuzel@gmail.com`) — add that account to VibeProxy, or keep it
+on the interactive re-login path below. Requirements: VibeProxy running with the
+Claude accounts connected, and its auth files at `~/.cli-proxy-api/claude-*.json`.
+
 ## Re-login runbook
 
 OAuth login is **interactive** and must be done by you (it opens a browser per profile).
@@ -155,5 +192,8 @@ After re-login, always re-run `verify --json` so the health snapshot reflects re
 ## Related
 
 - `scripts/claude_profiles_bootstrap.sh`, `scripts/claude_profile.sh`
+- `scripts/sync_claude_profiles_from_vibeproxy.py`, `scripts/install_claude_profile_sync_launchd.sh` (VibeProxy token sync)
+- `scripts/claude_pool_verify.py` (hourly health probe)
+- `docs/guides/VIBEPROXY.md` (the local transport whose fresh tokens the sync consumes)
 - `aragora/swarm/review_routing.py` (routing, preflight, snapshot, rotation)
 - `aragora/cli/commands/review_pr.py` (`review-pr`, `review-local`)
