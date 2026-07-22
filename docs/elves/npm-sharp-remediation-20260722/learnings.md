@@ -34,6 +34,9 @@ belong in the execution log. Retire rather than silently delete facts that later
 
 ## Known Traps
 
+- 2026-07-22: `aragora/live/Dockerfile` historically pinned Node 18.19 even while
+  the live app's Next 16.2.9 dependency requires Node >=20.9. Dependency reviews
+  must check deploy and self-hosted runtime images, not only local build success.
 - 2026-07-22: sharp 0.35.0 is the first advisory-patched version, but upstream marks
   that release as breaking and raises the Node requirement to >=20.9.0. Next 16.2.9
   declares `sharp: ^0.34.5`, which excludes 0.35.x.

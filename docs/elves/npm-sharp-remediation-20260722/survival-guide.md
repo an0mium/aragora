@@ -37,9 +37,9 @@ review the exact PR head, but never merge it.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** yes
-- **Why:** the exact dependency-delta safety blocker fired: the `sharp: ^0.35.3` experiment changed 29 transitive package entries, including two packages outside the permitted sharp/@img family; both product files were restored exactly before any product commit or push
-- **Next required action:** obtain explicit operator approval for the exact 29-entry delta recorded below, then reopen Batch 1 from the verified rollback tag and a freshly claimed lease
+- **Stop allowed right now:** no
+- **Why:** the operator explicitly authorized the three Docker base-image substitutions; Batch 1 must continue through implementation, repeat validation, exact-head review, cleanup, and final readiness
+- **Next required action:** commit the current run-state updates, push exact head, poll every PR feedback/check surface, and run fresh independent non-countable exact-head review
 
 ## Effort Standard
 
@@ -95,13 +95,13 @@ review the exact PR head, but never merge it.
 
 ## Current Phase
 
-**Status:** Blocked at the dependency-change authority gate
+**Status:** Batch 1 implementation and repeat validation complete; exact-head review pending
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** The exact audit baseline reproduced, and the local `sharp: ^0.35.3` experiment measured 29 changed transitive entries: 27 sharp/@img entries plus out-of-family `@emnapi/runtime` and nested `semver`. The override and regenerated lockfile were fully reverted; neither product file differs from HEAD.
+**What was just finished:** Product commit `9a87a6d9211caed9f413d55a36dc9685792ee44e` contains the exact approved 29-entry sharp delta and three authorized Node 20.11 Docker stages. Audit and dependency-tree checks passed; lint passed; all 4,025 tests passed with 27 skipped; the production build compiled, typechecked, and generated all 228 pages under exact Node 20.11/npm 10.2.4; sharp and Next runtime smokes passed on that same Node line.
 
-**Single next action:** Ask: “Approve the exact 29-entry transitive delta from the `sharp: ^0.35.3` override—27 sharp/@img entries plus `@emnapi/runtime` 1.8.1→1.11.2 and `sharp`'s nested `semver` 7.7.4→7.8.5—so I may reapply it on draft PR #9484 and complete validation, independent non-countable review, operational-artifact cleanup, and final readiness?”
+**Single next action:** Commit run-state updates, push both commits, re-read this guide, then poll PR feedback/checks and start fresh exact-head review.
 
 ## Active Compute
 
@@ -116,6 +116,8 @@ staging, no additional consult was run, and no dev server or remote job was left
 
 - Re-check live steering, branch ownership, exact base, and baseline audit; create the rollback tag.
 - Add only the sharp override, regenerate the lockfile, and classify every changed package.
+- Align all three `aragora/live/Dockerfile` stages from Node 18.19 Alpine to the
+  repository-standard Node 20.11 Alpine under the operator's exact authorization.
 - Enforce the dependency-change auto-halt, then validate, review, and hand off only if authorized.
 
 **Acceptance criteria:**
@@ -123,6 +125,7 @@ staging, no additional consult was run, and no dev server or remote job was left
 - [ ] Exact audit gate exits 0 with unchanged Next.js and a valid patched sharp tree.
 - [ ] Lockfile delta is fully classified and within authority, or product edits are reverted and an exact approval question is emitted.
 - [ ] Lint, tests, build, diff checks, PR checks/comments, and final exact-head review are clean.
+- [ ] The self-hosted/quickstart Docker build target satisfies the shared Node >=20.9 engine floor.
 
 **Risk:** sharp 0.35.x is a breaking upstream line outside Next 16.2.9's declared range,
 and its platform packages may trip the >5-transitive-change auto-halt.
@@ -130,7 +133,8 @@ and its platform packages may trip the >5-transitive-change auto-halt.
 **Measured authority blocker:** 29 transitive entries changed. The in-family portion was
 `sharp` itself plus 26 `@img/sharp*` / `@img/sharp-libvips*` entries. Two out-of-family
 entries also moved: `@emnapi/runtime` 1.8.1→1.11.2 and
-`node_modules/sharp/node_modules/semver` 7.7.4→7.8.5. Product edits are reverted.
+`node_modules/sharp/node_modules/semver` 7.7.4→7.8.5. The operator explicitly
+approved this exact delta at 2026-07-22 11:02 CDT; any different delta requires a new halt.
 
 **Rollback tag:** `elves/npm-sharp-remediation-20260722/pre-batch-1` at `c06ab98ac8cd9d40213eaca457cd2a1c74355d8c`. The requested generic `elves/pre-batch-1` name was already occupied locally by unrelated commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96`, so it was preserved rather than overwritten.
 
@@ -176,6 +180,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Branch:** `codex/npm-sharp-security-remediation`
 - **PR number:** #9484
 - **Plan hash at session start:** `7a132f9cde57b7476ed40bb9b2260b65`
+- **Current plan hash after operator-approved Docker scope expansion:** `065d19cafbbfb72e0f6fa6dd61acac0a`
 
 ## After Any Compaction
 

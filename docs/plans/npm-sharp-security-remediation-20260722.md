@@ -23,6 +23,9 @@ separate security lane; PR #9477 is context only and is outside this run's autho
   object if the advisory and a compatible patched release are both confirmed.
 - Regenerate only `aragora/live/package-lock.json`, then classify every changed
   package entry by dependency family.
+- Replace all three `node:18.19-alpine` stages in `aragora/live/Dockerfile` with
+  the repository-standard `node:20.11-alpine`; this exact scope expansion was
+  operator-approved after independent review found the existing engine mismatch.
 - Run the exact npm audit gate plus focused frontend lint, tests, and production build.
 - Perform an independent, non-countable review and leave a draft PR ready for the
   operator. Security changes remain operator-review-required.
@@ -43,22 +46,22 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 
 **Tasks:**
 
-- [ ] Re-read the survival guide and live operator steering, renew the branch lease,
+- [x] Re-read the survival guide and live operator steering, renew the branch lease,
   verify the branch still starts from the recorded exact base, and create
   `elves/pre-batch-1` before product edits.
-- [ ] Reproduce the baseline with `npm ci --ignore-scripts` followed by
+- [x] Reproduce the baseline with `npm ci --ignore-scripts` followed by
   `npm audit --omit=dev --audit-level=high --json`; stop as `UNFOUNDED` if the
   advisory is absent or below high severity.
-- [ ] Confirm the selected patched sharp release from the npm registry and upstream
+- [x] Confirm the selected patched sharp release from the npm registry and upstream
   advisory. Prefer the upstream-recommended current patched line and document its
   Node engine and breaking-change risk.
-- [ ] Add only a sharp override to the existing overrides block and regenerate the
+- [x] Add only a sharp override to the existing overrides block and regenerate the
   lockfile with lifecycle scripts disabled.
-- [ ] Parse the lockfile diff into distinct changed package entries. If more than
+- [x] Parse the lockfile diff into distinct changed package entries. If more than
   five transitive packages change, or any changed package is outside the
   `sharp` / `@img/sharp*` family, revert the product-file changes and stop for
   explicit operator approval before any implementation commit or push.
-- [ ] If the dependency-change ceiling is not crossed, run the complete validation
+- [x] If the dependency-change ceiling is not crossed, run the complete validation
   strategy, inspect the cumulative diff, commit, push, and poll all draft-PR checks
   and comments.
 - [ ] Perform a fresh final readiness review of the exact head without collecting
@@ -66,18 +69,19 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 
 **Acceptance criteria:**
 
-- [ ] Baseline evidence names `sharp@0.34.5` as an indirect high-severity finding
+- [x] Baseline evidence names `sharp@0.34.5` as an indirect high-severity finding
   through `next@16.2.9` for GHSA-f88m-g3jw-g9cj.
-- [ ] `npm audit --omit=dev --audit-level=high` exits 0 after the change.
-- [ ] `npm ls next sharp --all` reports the unchanged Next.js version and the
+- [x] `npm audit --omit=dev --audit-level=high` exits 0 after the change.
+- [x] `npm ls next sharp --all` reports the unchanged Next.js version and the
   intended patched sharp version with no invalid dependency state.
-- [ ] Every changed lockfile package is listed; there are no unexplained or
+- [x] Every changed lockfile package is listed; there are no unexplained or
   out-of-family changes, and the operating-contract dependency ceiling is respected
   or the run stops before committing the product diff.
-- [ ] `npm run lint`, `npm test -- --runInBand`, and `npm run build` pass in
+- [x] `npm run lint`, `npm test -- --runInBand`, and `npm run build` pass in
   `aragora/live`; `git diff --check` passes from the repo root.
-- [ ] The cumulative product diff is limited to `aragora/live/package.json` and
-  `aragora/live/package-lock.json` after Elves operational artifacts are removed.
+- [x] The cumulative product diff is limited to `aragora/live/package.json`,
+  `aragora/live/package-lock.json`, and the three approved base-image substitutions
+  in `aragora/live/Dockerfile` after Elves operational artifacts are removed.
 - [ ] Independent review finds no unresolved blocker, PR checks are understood, and
   the PR remains unmerged for operator review.
 
@@ -131,3 +135,7 @@ operating contract's five-transitive-dependency auto-halt ceiling.
   not authority to adopt a canary or change Next.js.
 - The current lockfile contains 26 sharp-family entries. The actual changed-entry
   count must be measured after regeneration; do not pre-approve it by assumption.
+- Independent review found that `aragora/live/Dockerfile` pinned Node 18.19 even
+  though existing Next 16.2.9 and selected sharp 0.35.3 both require Node >=20.9.
+  The operator approved aligning its three stages with `deploy/Dockerfile.frontend`
+  and the repository's Node 20 CI standard.

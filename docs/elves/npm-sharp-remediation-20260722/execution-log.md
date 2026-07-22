@@ -2,14 +2,106 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-22 10:35 CDT
-- **Current phase:** Blocked at the dependency-change authority gate
+- **Last updated:** 2026-07-22 13:19 CDT
+- **Current phase:** Implementation and repeat validation complete; exact-head review pending
 - **Active batch:** Batch 1: Prove and remediate the sharp advisory
 - **Last completed batch:** none yet
-- **Next exact batch:** Await exact approval for the measured 29-entry transitive delta
+- **Next exact batch:** Push exact implementation head, poll PR surfaces, and run fresh independent review
 - **Active PR:** #9484
 - **Docs promoted this run:** `docs/elves/npm-sharp-remediation-20260722/learnings.md`
 - **Latest Elves Report:** not generated yet
+
+## Batch 1 Dockerfile Approval and Resume: 2026-07-22 13:19 CDT
+
+- Operator answered “yes” to the exact production-runtime approval question.
+- Authority now additionally covers exactly three substitutions in
+  `aragora/live/Dockerfile`: every `node:18.19-alpine` stage becomes
+  `node:20.11-alpine`.
+- No other Dockerfile, image, dependency, workflow, protected file, or Next.js
+  change is authorized.
+- Reopened the Stop Gate. Live steering added no restriction. The prior lease had
+  expired, so strict lease `244021ee-273` was claimed with exactly the two package
+  files plus `aragora/live/Dockerfile`; active-session inventory reported zero lane
+  conflicts.
+- Local, remote, and PR heads all matched
+  `61403a1e85a6420a22863194197dfa9a47094485`; PR #9484 remained open, draft,
+  clean, and mergeable. Applied exactly the three approved base-image substitutions.
+- Next: rerun the complete validation and review loop.
+
+## Batch 1 Implementation and Repeat Validation: 2026-07-22 13:28 CDT
+
+- Applied exactly three `node:18.19-alpine`→`node:20.11-alpine` substitutions in
+  `aragora/live/Dockerfile`. The separate `deploy/Dockerfile.frontend` and the live
+  frontend CI already use Node 20; no other image or workflow changed.
+- Parsed lockfile comparison again proved exactly the approved 29 changed package
+  entries with zero missing and zero additional keys. Docker diff proof found exactly
+  three removed Node 18 stages and three added Node 20.11 stages.
+- Fresh `npm ci --ignore-scripts --no-audit --no-fund` installed 948 packages.
+  `npm audit --omit=dev --audit-level=high --json` exited 0 with zero vulnerabilities,
+  and `npm ls next sharp --all` exited 0 with `next@16.2.9 -> sharp@0.35.3`.
+- Exact Node 20.11.0/npm 10.2.4 smoke loaded sharp 0.35.3/libvips 8.18.3, generated
+  the expected 95-byte PNG, and reported Next.js 16.2.9.
+- `npm run lint` passed. Full Jest passed 257 suites plus 1 skipped suite and 4,025
+  tests plus 27 skipped tests in 53.855s, exactly matching the captured baseline.
+- The full production build under exact Node 20.11.0/npm 10.2.4 compiled successfully,
+  finished TypeScript, and generated all 228 pages. The build-generated `next-env.d.ts`
+  change was restored; no test or application source was modified.
+- `git diff --check` passed. No Jest, Next build, or npm install process remained active.
+- Product commit: `9a87a6d9211caed9f413d55a36dc9685792ee44e`
+  (`[codex/npm-sharp-security-remediation · Batch 1/1] Override sharp and align Node runtime`).
+- Next: commit these recovery documents, push, poll every PR comment/review/check surface,
+  and run a fresh independent non-countable review of the exact published head.
+
+## Batch 1 Approval and Resume: 2026-07-22 11:02 CDT
+
+- Operator answered “yes” to the exact approval question.
+- Authority now covers exactly 29 changed transitive entries from `sharp: ^0.35.3`:
+  27 sharp/@img entries, `@emnapi/runtime` 1.8.1→1.11.2, and sharp's nested
+  `semver` 7.7.4→7.8.5.
+- A different count, package set, or version delta is not approved and must halt again.
+- Reopened Batch 1 and set the Stop Gate plus `continuation_guard.stop_allowed` to no.
+- Steering remained clear; strict lease `34e3b02a-f90` was claimed with the original
+  package-file allowlist; active-session inventory reported zero lane conflicts.
+- Local, remote, and PR heads matched `61403a1e85a6420a22863194197dfa9a47094485`.
+  Current main and the PR base remained `563331f03e568e5b34c481bde86a5c1f89575c9e`;
+  the PR remained draft, clean, and mergeable.
+- Next: reapply and remeasure the approved override before any product commit.
+
+## Batch 1 Validation and Readiness Blocker: 2026-07-22 13:10 CDT
+
+- Reapplied only `"sharp": "^0.35.3"` and regenerated the lockfile with lifecycle
+  scripts disabled. Parsed comparison against HEAD exactly matched the approved 29-entry
+  manifest: 27 sharp/@img entries, `@emnapi/runtime` 1.8.1→1.11.2, and sharp's nested
+  `semver` 7.7.4→7.8.5; there were no missing or additional package entries.
+- `npm audit --omit=dev --audit-level=high --json` exited 0 with zero vulnerabilities.
+  `npm ls next sharp --all` exited 0 with unchanged `next@16.2.9` resolving
+  `sharp@0.35.3`.
+- Lint passed. The full Jest rerun passed 257 suites plus 1 skipped suite and 4,025
+  tests plus 27 skipped tests. The production build compiled, typechecked, and generated
+  all 228 pages. `git diff --check` passed.
+- Sharp 0.35.3 loaded and generated the expected 2×2 PNG under local Node 25 and under
+  exact Node 18.19. The latter proves the exercised Darwin runtime path works, not that
+  the upstream Node engine requirement or Alpine/musl production target is supported.
+- Independent non-countable review verified the exact delta and all recorded passes, then
+  returned BLOCKED: `aragora/live/Dockerfile` still pins all stages to
+  `node:18.19-alpine`, while both unchanged Next 16.2.9 and sharp 0.35.3 declare
+  Node >=20.9. The separate deployment Dockerfile and repository CI already use Node 20,
+  but this self-hosted/quickstart path remains an unsupported target.
+- The minimal technical remedy is three base-image substitutions to the repository-standard
+  `node:20.11-alpine`. That file is outside the package-only final-diff contract, so no edit
+  was made without explicit operator authority. An explicit production-risk waiver would
+  also resolve the authority decision but is not recommended.
+- No product commit or push occurred. PR #9484 remains draft at published head
+  `61403a1e85a6420a22863194197dfa9a47094485`; its old green checks do not yet attest the
+  implementation. The strict lease remains held and the approved product diff remains
+  uncommitted for safe resumption.
+
+**Exact approval question:**
+
+> Approve expanding draft PR #9484 by one file to replace all three
+> `node:18.19-alpine` stages in `aragora/live/Dockerfile` with the repository-standard
+> `node:20.11-alpine`, after which I will rerun validation, independent exact-head review,
+> operational-artifact cleanup, and final readiness while keeping the PR draft and unmerged?
 
 ## Batch 1 Launch: 2026-07-22 10:28 CDT
 
