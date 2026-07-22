@@ -4,7 +4,10 @@ Pure-core, fixture-driven: the lane decision is exercised against explicit
 open-PR lists, so no ``gh`` subprocess is ever invoked. A drift guard asserts
 the vendored serialized-surface list stays in sync with the canonical
 ``review_queue.TIER_4_PREFIXES`` (skipped when that import's heavy dependency
-closure is unavailable, e.g. in a minimal sandbox).
+closure is unavailable, e.g. in a minimal sandbox). The maintained exact-name
+Stage-1 regressions additionally exercise canonical classification directly;
+those proofs intentionally fail rather than skip when the canonical classifier
+cannot be imported.
 """
 
 from __future__ import annotations

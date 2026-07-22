@@ -1,4 +1,10 @@
-"""Focused guards for the Contract Drift measurement-authority Tier-4 constants."""
+"""Focused guards for the Contract Drift measurement-authority Tier-4 constants.
+
+The historical PR-scope regressions intentionally require a full Git checkout.
+Their purpose is to authenticate immutable before/head/squash objects, so missing
+objects are a failed proof rather than a reason to skip a maintained exact-name
+governance test.
+"""
 
 from __future__ import annotations
 
@@ -180,7 +186,10 @@ def _git_text(repo_root: Path, *args: str) -> str:
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, (
+        "immutable-history governance proof requires the repository's full Git objects: "
+        f"git {' '.join(args)} failed with {result.stderr.strip()!r}"
+    )
     return result.stdout
 
 
