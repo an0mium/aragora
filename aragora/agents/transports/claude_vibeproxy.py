@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 from dataclasses import dataclass
 
 from aragora.agents.transports.vibeproxy import (
@@ -31,23 +32,27 @@ class ClaudeVibeProxyAttempt:
     error: str = ""
     harness: str = ""
     timeout_seconds: float = 0.0
+    # Wall-clock the proxy leg actually consumed. The caller subtracts THIS
+    # (not the allotted ``timeout_seconds``) from the reviewer budget so a
+    # fast proxy failure does not shrink the direct fallback's deadline.
+    elapsed_seconds: float = 0.0
 
 
 def _attempt_timeout(reviewer_timeout: float, mode: TransportMode) -> float:
+    # A malformed timeout env is a timeout-tuning typo, not a transport-intent
+    # signal: degrade to the default like every sibling timeout env
+    # (quorum_evidence._timeout_seconds) rather than raising a config error that
+    # would escalate prefer -> required and suppress all fallbacks.
     raw = os.environ.get(VIBEPROXY_TIMEOUT_ENV, "").strip()
+    configured = DEFAULT_VIBEPROXY_TIMEOUT_SECONDS
     if raw:
         try:
-            configured = float(raw)
-        except ValueError as exc:
-            raise VibeProxyConfigurationError(
-                f"{VIBEPROXY_TIMEOUT_ENV} must be a positive finite number"
-            ) from exc
-        if not math.isfinite(configured) or configured <= 0:
-            raise VibeProxyConfigurationError(
-                f"{VIBEPROXY_TIMEOUT_ENV} must be a positive finite number"
-            )
-    else:
-        configured = DEFAULT_VIBEPROXY_TIMEOUT_SECONDS
+            parsed = float(raw)
+        except ValueError:
+            parsed = DEFAULT_VIBEPROXY_TIMEOUT_SECONDS
+        configured = (
+            parsed if math.isfinite(parsed) and parsed > 0 else (DEFAULT_VIBEPROXY_TIMEOUT_SECONDS)
+        )
 
     # Prefer mode must leave time for the direct reviewer path. Required mode
     # can consume the full reviewer budget because fallback is prohibited.
@@ -64,23 +69,47 @@ def run_claude_vibeproxy(
 ) -> ClaudeVibeProxyAttempt:
     """Run one exact-model Claude attempt when VibeProxy is explicitly selected.
 
-    Direct mode returns ``attempted=False`` without touching the proxy. Invalid
-    configuration fails closed. In prefer mode an unavailable proxy returns a
-    non-required failure so the caller may use its existing direct path.
+    Direct mode returns ``attempted=False`` without touching the proxy. In prefer
+    mode an unavailable proxy (or a malformed transport/timeout env) returns a
+    non-required failure — or degrades to direct — so the caller keeps its
+    existing direct path; only genuine ``vibeproxy-required`` fails closed.
     """
 
-    try:
-        resolved_policy = policy or ModelTransportPolicy.from_env()
-    except VibeProxyConfigurationError as exc:
-        return ClaudeVibeProxyAttempt(
-            attempted=True,
-            required=True,
-            ok=False,
-            error=f"VibeProxy configuration error: {exc}",
-        )
+    start = time.monotonic()
+
+    def _elapsed() -> float:
+        return time.monotonic() - start
+
+    # Kept as two statements (not ``policy or from_env()``) so the assignment
+    # value is a direct ModelTransportPolicy call the inference-site allowlist
+    # gate recognizes as a transport-policy receiver (see the manifest entry for
+    # this site in scripts/inference_site_allowlist.json).
+    resolved_policy = policy
+    if resolved_policy is None:
+        try:
+            resolved_policy = ModelTransportPolicy.from_env()
+        except VibeProxyConfigurationError as exc:
+            # A malformed ARAGORA_MODEL_TRANSPORT (or base URL / model map)
+            # leaves the mode unknown. Fail closed ONLY when the operator
+            # explicitly asked for required; otherwise degrade to direct so a
+            # typo does not silently drop the Claude leg with all fallbacks off.
+            raw_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "").strip().lower()
+            if raw_mode == TransportMode.REQUIRED.value:
+                return ClaudeVibeProxyAttempt(
+                    attempted=True,
+                    required=True,
+                    ok=False,
+                    error=f"VibeProxy configuration error: {exc}",
+                    elapsed_seconds=_elapsed(),
+                )
+            return ClaudeVibeProxyAttempt(
+                attempted=False, required=False, ok=False, elapsed_seconds=_elapsed()
+            )
 
     if resolved_policy.mode is TransportMode.DIRECT:
-        return ClaudeVibeProxyAttempt(attempted=False, required=False, ok=False)
+        return ClaudeVibeProxyAttempt(
+            attempted=False, required=False, ok=False, elapsed_seconds=_elapsed()
+        )
 
     required = resolved_policy.mode is TransportMode.REQUIRED
     timeout = 0.0
@@ -94,6 +123,7 @@ def run_claude_vibeproxy(
                 ok=False,
                 error=route.fallback_reason or "VibeProxy route unavailable",
                 timeout_seconds=timeout,
+                elapsed_seconds=_elapsed(),
             )
         text = resolved_policy.client.anthropic_message(
             model=route.resolved_model,
@@ -107,14 +137,18 @@ def run_claude_vibeproxy(
             ok=False,
             error=str(exc),
             timeout_seconds=timeout,
+            elapsed_seconds=_elapsed(),
         )
     except VibeProxyConfigurationError as exc:
+        # Reachable only in prefer/required mode (the policy already resolved).
+        # Honor the resolved mode instead of forcing required.
         return ClaudeVibeProxyAttempt(
             attempted=True,
-            required=True,
+            required=required,
             ok=False,
             error=str(exc),
             timeout_seconds=timeout,
+            elapsed_seconds=_elapsed(),
         )
     except VibeProxyUnavailableError as exc:
         return ClaudeVibeProxyAttempt(
@@ -123,6 +157,7 @@ def run_claude_vibeproxy(
             ok=False,
             error=str(exc),
             timeout_seconds=timeout,
+            elapsed_seconds=_elapsed(),
         )
     return ClaudeVibeProxyAttempt(
         attempted=True,
@@ -131,6 +166,7 @@ def run_claude_vibeproxy(
         text=text,
         harness=f"{VIBEPROXY_HARNESS} (model: {route.resolved_model})",
         timeout_seconds=timeout,
+        elapsed_seconds=_elapsed(),
     )
 
 

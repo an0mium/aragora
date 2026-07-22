@@ -38,6 +38,7 @@ def test_repository_manifest_matches_current_tree() -> None:
         if site["classification"] == "proxy-eligible"
     ] == [
         ("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"),
+        ("aragora/agents/transports/claude_vibeproxy.py", "run_claude_vibeproxy"),
         ("scripts/consult_claude.py", "_run_vibeproxy"),
     ]
 

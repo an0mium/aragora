@@ -1551,7 +1551,11 @@ def _run_claude_reviewer(prompt: str) -> ReviewerResult:
             allow_transport_fallback=False,
         )
 
-    direct_timeout = timeout - vibeproxy.timeout_seconds
+    # Charge the direct fallback only the wall-clock the proxy leg actually
+    # consumed, not its allotted budget: a proxy that fails in ~1ms must not
+    # cost the direct CLI half its deadline (which still has to cover the
+    # liveness probe). Floor keeps a usable deadline even if elapsed is large.
+    direct_timeout = max(timeout / 2, timeout - vibeproxy.elapsed_seconds)
     result = _run_claude_cli(prompt, timeout=direct_timeout)
     if result.ok:
         return result

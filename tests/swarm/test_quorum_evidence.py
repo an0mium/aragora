@@ -415,6 +415,7 @@ def test_claude_reviewer_prefer_failure_uses_direct_path(
             error="proxy unavailable",
             harness="",
             timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
         ),
     )
     direct_timeouts: list[float] = []
@@ -426,7 +427,9 @@ def test_claude_reviewer_prefer_failure_uses_direct_path(
     )
 
     assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
-    assert direct_timeouts == [480.0]
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
 
 
 def test_claude_reviewer_required_failure_never_runs_direct_path(
