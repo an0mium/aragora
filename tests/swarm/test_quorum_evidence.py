@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import multiprocessing
 import os
@@ -1040,23 +1041,34 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def _claude_passes_others_stall_runner(family: str, prompt: str, delay: float) -> ReviewerResult:
+    """Module-level so it stays picklable under forkserver/spawn contexts.
+
+    ``_reviewer_process_context`` deliberately avoids fork whenever the parent
+    has extra threads (e.g. leaked by an earlier test file), and forkserver and
+    spawn must pickle the runner. A local closure would fail with
+    ``AttributeError: Can't pickle local object``. Parametrize the stall via
+    ``functools.partial`` — partials of module-level functions pickle fine.
+    """
+    if family == "claude":
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+    time.sleep(delay)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(1.5)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    # Deadline must leave room for forkserver/spawn worker boot (fork starts in
+    # ~ms, forkserver re-imports this module in the child) while staying well
+    # under grok's stall so only grok times out.
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=3.0)
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.2,
+        overall_timeout_seconds=0.75,
         **fakes,
     )
 
@@ -1070,17 +1082,12 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
 
 
 def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
-    if "fork" not in multiprocessing.get_all_start_methods():
-        pytest.skip("process-supervised timeout regression requires fork context")
+    # Verified under fork and forkserver (macOS); spawn-only platforms boot a
+    # fresh interpreter per worker, which the tight deadline cannot absorb.
+    if not {"fork", "forkserver"} & set(multiprocessing.get_all_start_methods()):
+        pytest.skip("process-supervised timeout regression needs fork or forkserver")
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(10)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=10)
     started_at = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
@@ -1088,12 +1095,13 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.05,
+        overall_timeout_seconds=1.0,
         **fakes,
     )
     elapsed = time.monotonic() - started_at
 
-    assert elapsed < 1.0
+    # Far below grok's 10s stall: proves the deadline reaps stuck workers.
+    assert elapsed < 5.0
     assert outcome.orchestration_timeout is True
     assert outcome.timed_out_families == ["grok"]
     assert outcome.action == "prepare"
