@@ -68,10 +68,28 @@ def reset_state():
     _reset_managers()
 
 
+class _FakeStorage:
+    """Minimal storage stub: knows a fixed set of debate IDs."""
+
+    def __init__(self, known_ids: set[str]):
+        self.known_ids = set(known_ids)
+
+    def get_debate(self, debate_id: str) -> dict | None:
+        if debate_id in self.known_ids:
+            return {"id": debate_id, "status": "running"}
+        return None
+
+
+# Debate IDs the endpoint tests exercise; the existence gate (added with the
+# CD-098 route wiring) requires the debate to be resolvable via active state
+# or storage before any intervention manager is created.
+KNOWN_DEBATE_IDS = {"abc-123", "test-debate"}
+
+
 @pytest.fixture
 def handler_instance():
-    """Create a DebateInterventionsHandler with empty context."""
-    return DebateInterventionsHandler(ctx={})
+    """Create a DebateInterventionsHandler whose storage knows the test debates."""
+    return DebateInterventionsHandler(ctx={"storage": _FakeStorage(KNOWN_DEBATE_IDS)})
 
 
 # ============================================================================
@@ -325,3 +343,123 @@ class TestPathExtraction:
         debate_id, err = _extract_debate_id_from_path("/api/v1")
         assert debate_id is None
         assert err is not None
+
+
+# ============================================================================
+# Debate existence gate (CD-098 round-2 P2): interventions on nonexistent
+# debates must 404 and must NOT create global intervention manager state.
+# ============================================================================
+
+
+class TestNonexistentDebateReturns404:
+    """Every intervention action 404s for unknown debate IDs, side-effect free."""
+
+    GHOST = "ghost-debate"
+
+    def _assert_no_manager_state(self):
+        from aragora.debate.intervention import get_intervention_manager
+
+        assert get_intervention_manager(self.GHOST, create=False) is None
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_pause_nonexistent_404_no_state(self, mock_uid, handler_instance):
+        result = handler_instance._pause_debate(
+            f"/api/v1/debates/{self.GHOST}/pause", _make_handler()
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_resume_nonexistent_404_no_state(self, mock_uid, handler_instance):
+        result = handler_instance._resume_debate(
+            f"/api/v1/debates/{self.GHOST}/resume", _make_handler()
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_nudge_nonexistent_404_no_state(self, mock_uid, handler_instance):
+        result = handler_instance._nudge_debate(
+            f"/api/v1/debates/{self.GHOST}/nudge",
+            _make_handler({"message": "hint"}),
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_challenge_nonexistent_404_no_state(self, mock_uid, handler_instance):
+        result = handler_instance._challenge_debate(
+            f"/api/v1/debates/{self.GHOST}/challenge",
+            _make_handler({"challenge": "counterpoint"}),
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_inject_evidence_nonexistent_404_no_state(self, mock_uid, handler_instance):
+        result = handler_instance._inject_evidence(
+            f"/api/v1/debates/{self.GHOST}/inject-evidence",
+            _make_handler({"evidence": "some evidence"}),
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    def test_intervention_log_nonexistent_404(self, handler_instance):
+        result = handler_instance._get_intervention_log(
+            f"/api/v1/debates/{self.GHOST}/intervention-log", _make_handler()
+        )
+        assert result.status_code == 404
+        self._assert_no_manager_state()
+
+    def test_intervention_log_existing_debate_empty_log_200(self, handler_instance):
+        """A real debate with no interventions still gets the empty log, not 404."""
+        result = handler_instance._get_intervention_log(
+            "/api/v1/debates/test-debate/intervention-log", _make_handler()
+        )
+        data = _parse(result)
+        assert result.status_code == 200
+        assert data["entry_count"] == 0
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_active_state_only_debate_passes_gate(self, mock_uid):
+        """A debate known only to the active state manager (no storage) is real."""
+        handler_instance = DebateInterventionsHandler(ctx={})
+        state_mgr = MagicMock()
+        state_mgr.get_debate.return_value = object()
+        with patch("aragora.server.state.get_state_manager", return_value=state_mgr):
+            result = handler_instance._pause_debate(
+                "/api/v1/debates/live-only/pause", _make_handler()
+            )
+        assert result.status_code == 200
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_existing_manager_passes_gate_without_state_or_storage(self, mock_uid):
+        """A previously created manager keeps resume working after state/storage move on."""
+        from aragora.debate.intervention import get_intervention_manager
+
+        # Simulate a manager created while the debate was live and validated.
+        get_intervention_manager("was-live", create=True)
+        handler_instance = DebateInterventionsHandler(ctx={})
+        result = handler_instance._pause_debate("/api/v1/debates/was-live/pause", _make_handler())
+        assert result.status_code == 200

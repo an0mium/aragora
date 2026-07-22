@@ -417,7 +417,11 @@ class DebateInterventionsHandler(BaseHandler):
 
         manager = get_intervention_manager(debate_id, create=False)
         if manager is None:
-            # No interventions yet -- return empty log
+            # Distinguish "real debate, no interventions yet" (empty log)
+            # from "debate does not exist" (404) — same existence gate as
+            # the POST actions.
+            if not self._debate_exists(debate_id):
+                return error_response(f"Debate not found: {debate_id}", 404)
             return json_response(
                 {
                     "debate_id": debate_id,
@@ -436,12 +440,48 @@ class DebateInterventionsHandler(BaseHandler):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _debate_exists(self, debate_id: str) -> bool:
+        """Return True if the debate is real: known intervention manager,
+        active debate state, or durable storage.
+
+        Checked BEFORE creating an intervention manager so that arbitrary
+        valid-looking IDs cannot mint global intervention state for
+        nonexistent debates (which would also poison a future debate that
+        reuses the ID). Mirrors the existence resolution used by sibling
+        debates handlers (create.py cancel, costs.py): active state first,
+        then storage.get_debate().
+        """
+        from aragora.debate.intervention import get_intervention_manager
+
+        # An existing manager implies a previously validated debate
+        # (managers are only created after this check passes) — keeps
+        # resume/log working even if state and storage have moved on.
+        if get_intervention_manager(debate_id, create=False) is not None:
+            return True
+
+        try:
+            from aragora.server.state import get_state_manager
+
+            if get_state_manager().get_debate(debate_id) is not None:
+                return True
+        except ImportError:
+            pass  # minimal deployments without the state manager
+
+        storage = self.get_storage()
+        if storage is None:
+            return False
+        return storage.get_debate(debate_id) is not None
+
     def _get_or_create_manager(self, debate_id: str, handler: Any) -> Any:
         """Get or create an InterventionManager for the given debate.
 
-        Returns None if the debate does not exist in state or storage.
+        Returns None if the debate does not exist in state or storage —
+        the manager is only created for debates that pass _debate_exists().
         """
         from aragora.debate.intervention import get_intervention_manager
+
+        if not self._debate_exists(debate_id):
+            return None
 
         # Try to get the stream emitter from the handler for WebSocket events
         emitter = getattr(handler, "stream_emitter", None)
