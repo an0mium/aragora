@@ -557,6 +557,27 @@ def _restore_create_client_session():
 
 
 @pytest.fixture(autouse=True)
+def _fresh_vibeproxy_executor(monkeypatch):
+    """Give each test a private VibeProxy executor and reap its threads.
+
+    The module-level ``_PROXY_EXECUTOR`` in ``api_agents.openai`` keeps its
+    worker threads alive for the rest of the process once a test routes a
+    request through VibeProxy.  Lingering threads flip
+    ``threading.active_count() > 1`` checks elsewhere in the suite — notably
+    ``quorum_evidence._reviewer_process_context()``, which then selects a
+    forkserver context and fails to pickle locally defined reviewer runners.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from aragora.agents.api_agents import openai as openai_module
+
+    executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="vibeproxy-openai-test")
+    monkeypatch.setattr(openai_module, "_PROXY_EXECUTOR", executor)
+    yield
+    executor.shutdown(wait=True, cancel_futures=True)
+
+
+@pytest.fixture(autouse=True)
 def _allow_localhost_for_api_agents(monkeypatch):
     """Ensure localhost is allowed for API agent tests.
 
