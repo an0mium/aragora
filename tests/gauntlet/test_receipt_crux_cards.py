@@ -116,15 +116,22 @@ class TestReceiptCruxesField:
         assert empty.schema_version == "1.1"
 
     def test_crux_block_is_copied_not_aliased(self) -> None:
-        """The receipt must not hold a live reference to result metadata:
-        mutating the source block after receipt creation cannot change the
-        hashed audit content."""
+        """The receipt must not hold a live reference to result metadata at
+        any depth: mutating the source block — including a nested item dict —
+        after receipt creation cannot change the hashed audit content."""
         metadata = {"crux_cards": _sample_cards()}
         receipt = DecisionReceipt.from_debate_result(_debate_result(metadata=metadata))
         assert receipt.cruxes is not metadata["crux_cards"]
+        assert receipt.cruxes["items"] is not metadata["crux_cards"]["items"]
         assert receipt.cruxes == metadata["crux_cards"]
         metadata["crux_cards"]["detector"] = "tampered"
+        metadata["crux_cards"]["items"][0]["statement"] = "tampered nested item"
+        metadata["crux_cards"]["items"][0]["contesting_agents"].append("tampered-agent")
         assert receipt.cruxes["detector"] == "belief_network"
+        assert receipt.cruxes["items"][0]["statement"] == (
+            "The latency budget holds under burst load"
+        )
+        assert receipt.cruxes["items"][0]["contesting_agents"] == ["agent-beta"]
         assert receipt.verify_integrity() is True
 
     def test_integrity_hash_binds_cruxes(self) -> None:

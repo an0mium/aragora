@@ -1696,26 +1696,40 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     # Crux cards (#8227): only the local run_debate path honors
     # enable_crux_cards, so the flag uniformly requires local execution.
-    # Any explicit API configuration (--api, --api-url, ARAGORA_API_URL,
-    # --graph, --matrix) is rejected up front — before context engineering
-    # burns LLM work or ARAGORA_OFFLINE is mutated. Otherwise local execution
-    # is forced below (mirroring --demo), with a Note so the auto-discovery
-    # path is never silent.
+    # Graph/matrix are rejected unconditionally (they conflict with local
+    # execution below anyway). Explicit API configuration (--api, --api-url,
+    # ARAGORA_API_URL) is rejected only when the run is not already local
+    # (--local/--demo/ARAGORA_OFFLINE) — a merely-exported ARAGORA_API_URL
+    # must not reject a run that could never dispatch to it. Checked up
+    # front, before context engineering burns LLM work or ARAGORA_OFFLINE is
+    # mutated. Otherwise local execution is forced below (mirroring --demo),
+    # with a Note so the auto-discovery path is never silent.
     crux_cards_requested = bool(getattr(args, "crux_cards", False))
     if crux_cards_requested:
+        from aragora.utils.env import is_offline_mode as _crux_is_offline
+
+        if getattr(args, "graph", False) or getattr(args, "matrix", False):
+            print(
+                "--crux-cards currently requires local execution; graph/matrix "
+                "debates do not honor it. Remove --graph/--matrix or drop "
+                "--crux-cards.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        already_local = (
+            getattr(args, "local", False) or getattr(args, "demo", False) or _crux_is_offline()
+        )
         crux_api_url = getattr(args, "api_url", None)
-        if (
+        if not already_local and (
             getattr(args, "api", False)
-            or getattr(args, "graph", False)
-            or getattr(args, "matrix", False)
             or _is_explicitly_configured_api_url(
                 crux_api_url or DEFAULT_API_URL, flag_passed=crux_api_url is not None
             )
         ):
             print(
-                "--crux-cards currently requires local execution; API/graph/matrix "
-                "debates do not honor it. Remove --api/--api-url/--graph/--matrix "
-                "and unset ARAGORA_API_URL, or drop --crux-cards.",
+                "--crux-cards currently requires local execution; API debates do "
+                "not honor it. Add --local, remove --api/--api-url and unset "
+                "ARAGORA_API_URL, or drop --crux-cards.",
                 file=sys.stderr,
             )
             raise SystemExit(2)

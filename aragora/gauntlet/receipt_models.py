@@ -13,6 +13,7 @@ The main receipt.py re-exports all models for backward compatibility.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import uuid
@@ -486,15 +487,17 @@ def crux_cards_from_metadata(metadata: Any) -> dict[str, Any] | None:
     Crux cards (#8227) are attached by the consensus phase when the debate ran
     with ``enable_crux_cards``. The block is only carried into receipts when it
     has items — a missing or empty block keeps flag-off receipts byte-identical
-    to pre-crux output. Returns a shallow copy so receipts never alias the live
-    result metadata. Shared by ``DecisionReceipt.from_debate_result`` and the
-    CLI receipt persistence so this invariant cannot drift.
+    to pre-crux output. Returns a deep copy so receipts never alias the live
+    result metadata at any nesting depth (cruxes bind into ``artifact_hash``,
+    so a later nested mutation must not flip ``verify_integrity``). Shared by
+    ``DecisionReceipt.from_debate_result`` and the CLI receipt persistence so
+    this invariant cannot drift.
     """
     if not isinstance(metadata, dict):
         return None
     crux_cards = metadata.get("crux_cards")
     if isinstance(crux_cards, dict) and crux_cards.get("items"):
-        return dict(crux_cards)
+        return copy.deepcopy(crux_cards)
     return None
 
 
