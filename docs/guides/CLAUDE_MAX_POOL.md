@@ -151,11 +151,22 @@ python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --probe-after
 bash scripts/install_claude_profile_sync_launchd.sh
 ```
 
-This took the pool from 0/12 to **11/12 healthy** in one sync. The single
-exception is any profile whose account VibeProxy does **not** hold (e.g.
-`max-10` / `armand.tuzel@gmail.com`) — add that account to VibeProxy, or keep it
-on the interactive re-login path below. Requirements: VibeProxy running with the
-Claude accounts connected, and its auth files at `~/.cli-proxy-api/claude-*.json`.
+This revives every profile VibeProxy can source — one profile per VibeProxy
+account. Requirements: VibeProxy running with the Claude accounts connected, and
+its auth files at `~/.cli-proxy-api/claude-*.json`.
+
+**One profile per VibeProxy account (important).** VibeProxy authenticates by
+**email** and holds exactly **one org per email**. Two profiles that are
+*different orgs under one shared login* — e.g. a personal Max org and a
+Synaptent team org, both under `synaptent@synaptent.com` — cannot both be
+sourced from VibeProxy: syncing both would silently collapse one subscription
+onto the other's org. The sync therefore enforces a strict 1:1 map
+(`VIBEPROXY_SYNC_TARGET`) and refuses to sync the same-email sibling
+(`NATIVE_ONLY_REASON`). Those distinct-org seats, plus any account VibeProxy
+does not hold (e.g. `max-10` / `armand.tuzel@gmail.com`), stay on the
+interactive re-login path below. A profile can be repointed at an unused
+VibeProxy account (e.g. `ringrift.ai@gmail.com`) simply by editing
+`VIBEPROXY_SYNC_TARGET` — the sync is the binding, no native login needed.
 
 ## Re-login runbook
 

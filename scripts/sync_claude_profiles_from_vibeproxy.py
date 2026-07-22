@@ -29,6 +29,16 @@ sync cycle ever lags past the access-token expiry the profile simply reports
 expired until the next cycle heals it -- it never revokes VibeProxy's live token.
 Run this on a short interval (well under the ~8h access-token TTL) via launchd.
 
+One profile per VibeProxy account
+---------------------------------
+VibeProxy authenticates by email and holds exactly one org per email, so two
+profiles that are different orgs under one shared login (a personal Max org and
+a Synaptent team org, both under ``synaptent@synaptent.com``) cannot both be
+sourced from VibeProxy -- syncing both would collapse one subscription onto the
+other's org. ``VIBEPROXY_SYNC_TARGET`` is therefore a strict 1:1 email->profile
+map, and same-email siblings / duplicate seats are listed in
+``NATIVE_ONLY_REASON`` and never synced (they stay on native login).
+
 This script only reads VibeProxy auth files and writes aragora profile
 credentials on the local machine. It never prints token material and never makes
 a network call.
@@ -49,23 +59,43 @@ VIBEPROXY_AUTH_DIR = Path.home() / ".cli-proxy-api"
 ARAGORA_PROFILE_ROOT = Path.home() / ".aragora-claude"
 PROFILE_TOOL = Path(__file__).resolve().parent / "claude_profile.sh"
 
-# Authoritative profile -> account binding (mirrors the static map in
-# scripts/claude_profiles_bootstrap.sh). max-13 is bound at login time to
-# armand@synaptent.com; max-10 has no VibeProxy-held account and is skipped.
-PROFILE_EMAILS: dict[str, str] = {
-    "max-01": "anomium@gmail.com",
-    "max-02": "scarmani@gmail.com",
-    "max-03": "ap@synaptent.com",
-    "max-04": "liftmode@liftmode.com",
-    "max-05": "root@liftmode.com",
-    "max-06": "ap@synaptent.com",
-    "max-07": "radnoem@gmail.com",
-    "max-08": "synaptent@synaptent.com",
-    "max-09": "synaptent@synaptent.com",
-    "max-10": "armand.tuzel@gmail.com",
-    "max-11": "verborgen.doel@gmail.com",
-    "max-12": "armand@synaptent.com",
-    "max-13": "armand@synaptent.com",
+# The single profile each VibeProxy account (keyed by EMAIL) may sync into.
+#
+# INVARIANT: no VibeProxy email is the source for more than one profile. This is
+# load-bearing. VibeProxy authenticates by email and holds exactly ONE org per
+# email, so two profiles that are *different orgs under one shared login* (e.g. a
+# personal Max org and a Synaptent team org, both under synaptent@synaptent.com)
+# cannot both be sourced from VibeProxy -- syncing both would silently collapse
+# one subscription onto the other's org. The non-VibeProxy org stays on native
+# `scripts/claude_profiles_bootstrap.sh login`.
+VIBEPROXY_SYNC_TARGET: dict[str, str] = {
+    "anomium@gmail.com": "max-01",
+    "scarmani@gmail.com": "max-02",
+    "liftmode@liftmode.com": "max-04",
+    "root@liftmode.com": "max-05",
+    "ap@synaptent.com": "max-06",
+    "radnoem@gmail.com": "max-07",
+    "synaptent@synaptent.com": "max-09",  # Synaptent team org (VibeProxy's org for this email)
+    "verborgen.doel@gmail.com": "max-11",
+    "armand@synaptent.com": "max-12",  # Synaptent team org
+    # ringrift.ai@gmail.com is held by VibeProxy but not yet assigned to a profile.
+}
+
+# Profiles deliberately NOT VibeProxy-synced, with why. A shared login's distinct
+# org, or a duplicate of another profile's exact account. These stay native.
+NATIVE_ONLY_REASON: dict[str, str] = {
+    "max-03": "shares ap@synaptent.com with max-06 (its own org); native login only",
+    "max-08": (
+        "personal Max org under synaptent@synaptent.com; VibeProxy holds the "
+        "Synaptent team org for that email (synced to max-09). Native login only."
+    ),
+    "max-10": "no VibeProxy account for armand.tuzel@gmail.com; native login only",
+    "max-13": "same armand@synaptent.com team seat as max-12; free to repoint at a distinct account",
+}
+
+# Reverse index: profile -> the VibeProxy email that sources it (if any).
+PROFILE_TO_EMAIL: dict[str, str] = {
+    profile: email for email, profile in VIBEPROXY_SYNC_TARGET.items()
 }
 
 # Scope/plan fields VibeProxy does not carry; preserved from an existing aragora
@@ -136,13 +166,15 @@ def _current_access_token(cred: dict | None) -> str | None:
 
 def sync_profile(
     profile: str,
-    email: str,
     *,
     blank_refresh: bool,
     apply: bool,
 ) -> SyncResult:
+    if profile in NATIVE_ONLY_REASON:
+        return SyncResult(profile, "", "skipped_native_only", NATIVE_ONLY_REASON[profile])
+    email = PROFILE_TO_EMAIL.get(profile, "")
     if not email:
-        return SyncResult(profile, email, "skipped_no_email")
+        return SyncResult(profile, email, "skipped_no_email", "no VibeProxy source assigned")
     vp = _load_json(_vibeproxy_path(email))
     if vp is None or vp.get("disabled") or not vp.get("access_token"):
         return SyncResult(profile, email, "skipped_no_source", "no live VibeProxy account")
@@ -200,14 +232,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", dest="json_output", action="store_true")
     args = parser.parse_args(argv)
 
-    profiles = args.profiles or list(PROFILE_EMAILS)
+    # Default set = the 1:1 sync targets; native-only profiles are shown only
+    # when named explicitly (so their skip reason is visible on request).
+    profiles = args.profiles or list(VIBEPROXY_SYNC_TARGET.values())
     results: list[SyncResult] = []
     for profile in profiles:
-        email = PROFILE_EMAILS.get(profile, "")
         results.append(
             sync_profile(
                 profile,
-                email,
                 blank_refresh=not args.keep_refresh,
                 apply=args.apply,
             )
