@@ -91,6 +91,16 @@ class DebateInterventionsHandler(BaseHandler):
 
     ROUTES = INTERVENTION_ROUTES
 
+    # RouteIndex.build() stores ROUTES entries as literal exact-match keys, so
+    # the wildcard strings above can never match a real request path. Prefix
+    # registration is what makes these routes reachable: RouteIndex consults
+    # can_handle() for every prefix candidate, and ExplainabilityHandler (the
+    # earlier-registered handler sharing this prefix) rejects intervention
+    # suffixes, so dispatch lands here deterministically. Only the versioned
+    # form is registered — unversioned /api/debates/{id}/* paths are claimed
+    # by DebatesHandler's /api/debates prefix before this handler is scanned.
+    ROUTE_PREFIXES = ["/api/v1/debates/"]
+
     def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         if server_context is not None:
             self.ctx = server_context
@@ -172,8 +182,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("pause debate")
     def _pause_debate(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         manager = self._get_or_create_manager(debate_id, handler)
         if manager is None:
@@ -211,8 +221,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("resume debate")
     def _resume_debate(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         manager = self._get_or_create_manager(debate_id, handler)
         if manager is None:
@@ -250,8 +260,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("nudge debate")
     def _nudge_debate(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -301,8 +311,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("challenge debate")
     def _challenge_debate(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -350,8 +360,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("inject evidence")
     def _inject_evidence(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -400,8 +410,8 @@ class DebateInterventionsHandler(BaseHandler):
     @handle_errors("get intervention log")
     def _get_intervention_log(self, path: str, handler: Any) -> HandlerResult:
         debate_id, err = _extract_debate_id_from_path(path)
-        if err:
-            return error_response(err, 400)
+        if err or debate_id is None:
+            return error_response(err or "Invalid path", 400)
 
         from aragora.debate.intervention import get_intervention_manager
 

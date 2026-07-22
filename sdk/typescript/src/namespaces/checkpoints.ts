@@ -122,9 +122,11 @@ export class CheckpointsAPI {
    * List checkpoints for a specific debate.
    *
    * @deprecated Currently unreachable: CheckpointHandler implements
-   * GET /api/v1/debates/{id}/checkpoints, but the server route index hands
-   * every /api/debates/* path to DebatesHandler first, which has no
-   * checkpoints branch and returns 404 from its slug lookup. Use
+   * GET /api/v1/debates/{id}/checkpoints, but its route-index registration
+   * only covers /api/checkpoints paths (literal ROUTES match exactly, ahead
+   * of the prefix scan). No prefix candidate claims this versioned debates
+   * path, so it falls through to DebatesHandler's /api/debates prefix, which
+   * has no checkpoints branch and returns 404 from its slug lookup. Use
    * {@link list} with `{ debate_id }` (documented GET /api/v1/checkpoints)
    * instead.
    */
@@ -136,10 +138,12 @@ export class CheckpointsAPI {
    * Create a checkpoint for a running debate.
    *
    * @deprecated Currently unreachable: CheckpointHandler implements
-   * POST /api/v1/debates/{id}/checkpoint, but the server route index hands
-   * every /api/debates/* path to DebatesHandler first, which has no
-   * checkpoint branch and returns 404 from its slug lookup. Kept pending a
-   * server wiring fix (wire-or-remove, #9397); there is no documented
+   * POST /api/v1/debates/{id}/checkpoint, but its route-index registration
+   * only covers /api/checkpoints paths (literal ROUTES match exactly, ahead
+   * of the prefix scan). No prefix candidate claims this versioned debates
+   * path, so it falls through to DebatesHandler's /api/debates prefix, which
+   * has no checkpoint branch and returns 404 from its slug lookup.
+   * Wire-or-remove candidate for the operator; there is no documented
    * create-checkpoint alternative today.
    */
   async createForDebate(debateId: string): Promise<Checkpoint> {

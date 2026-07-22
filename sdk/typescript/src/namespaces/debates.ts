@@ -644,11 +644,15 @@ export class DebatesAPI {
    * Add evidence to a debate.
    *
    * @deprecated The server has no POST /api/v1/debates/{id}/evidence endpoint.
-   * This call is a silent no-op that LOOKS successful: the router matches the
-   * GET-only evidence-chain endpoint (ExplainabilityHandler) and returns 200
-   * with the evidence *explanation* — nothing is stored and no evidence_id is
-   * returned. Use {@link injectEvidence} (POST
-   * /api/v1/debates/{id}/inject-evidence, the documented endpoint) instead.
+   * This call is a silent no-op that LOOKS successful: the route index resolves
+   * the versioned path to ExplainabilityHandler (its can_handle claims the
+   * `/evidence` suffix), whose base-class handle_post stub returns None, so
+   * dispatch falls through to its GET handle() and returns 200 with the
+   * evidence *chain* — nothing is stored and no evidence_id is returned. (The
+   * unversioned /api/debates/{id}/evidence would instead hit DebatesHandler's
+   * "/evidence" suffix route, _get_evidence — read-only either way.) Use
+   * {@link injectEvidence} (POST /api/v1/debates/{id}/inject-evidence, the
+   * documented endpoint) instead.
    *
    * @param debateId - The debate ID
    * @param evidence - Evidence content
@@ -2098,10 +2102,14 @@ export class DebatesAPI {
   }
 
   /**
-   * Get per-agent debate statistics using the compatibility route.
+   * Get per-agent debate statistics.
+   *
+   * Targets the versioned GET /api/v1/debates/stats/agents: DebateStatsHandler
+   * only registers the versioned literals, so the unversioned form is claimed
+   * by DebatesHandler's /api/debates prefix and 404s via its slug lookup.
    */
   async getStatsAgents(limit: number = 20): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/debates/stats/agents', {
+    return this.client.request('GET', '/api/v1/debates/stats/agents', {
       params: { limit },
     });
   }
@@ -2114,7 +2122,7 @@ export class DebatesAPI {
    * @deprecated Not served: no handler dispatches
    * GET /api/v1/debates/statistics/agents — the request falls through to
    * DebatesHandler's slug lookup and returns 404. Use {@link getStatsAgents}
-   * (documented GET /api/debates/stats/agents) instead.
+   * (documented GET /api/v1/debates/stats/agents) instead.
    */
   async getAgentStatistics(options?: {
     period?: string;
@@ -2769,11 +2777,13 @@ export class DebatesAPI {
    * Get public spectate status for a shared debate.
    *
    * @deprecated Currently unreachable: DebateShareHandler implements
-   * GET /api/v1/debates/{id}/spectate/public, but the server route index
-   * hands every /api/debates/* path to DebatesHandler first, which has no
-   * spectate branch and returns 404 from its slug lookup. Pending a server
-   * wiring fix (wire-or-remove, #9397), use {@link getPublicDebate} for
-   * publicly shared debates.
+   * GET /api/v1/debates/{id}/spectate/public, but no route-index entry
+   * reaches it for this path (literal ROUTES match exactly, ahead of the
+   * prefix scan, and no prefix candidate claims the spectate suffix), so
+   * both the versioned and unversioned forms fall through to DebatesHandler's
+   * /api/debates prefix, which has no spectate branch and returns 404 from
+   * its slug lookup. Wire-or-remove candidate for the operator; use
+   * {@link getPublicDebate} for publicly shared debates.
    */
   async getPublicSpectate(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
@@ -3242,11 +3252,14 @@ export class DebatesAPI {
    * Returns reasoning chains, key crux points, unresolved disagreements,
    * and intervention data for a debate.
    *
-   * @deprecated Currently unreachable: DebateInterventionHandler implements
-   * GET /api/v1/debates/{id}/reasoning, but it is not registered with the
-   * server route index, so the request is handed to DebatesHandler (no
-   * reasoning branch) and returns 404 from its slug lookup. Kept pending a
-   * server wiring fix (wire-or-remove, #9397).
+   * @deprecated Currently unreachable: DebateInterventionHandler
+   * (aragora/server/handlers/debate_intervention.py) implements
+   * GET /api/v1/debates/{id}/reasoning and is registered, but it declares no
+   * literal ROUTES or route prefix the route index can consume (its
+   * DYNAMIC_ROUTES regex is never consulted), so no prefix candidate claims
+   * the versioned path and it falls through to DebatesHandler (no reasoning
+   * branch), which returns 404 from its slug lookup. Wire-or-remove candidate
+   * for the operator; no documented alternative today.
    *
    * @param debateId - The debate ID
    */
