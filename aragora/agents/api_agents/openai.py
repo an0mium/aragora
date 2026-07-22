@@ -289,18 +289,43 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             # Blocking legs run on a dedicated bounded executor (not the shared
             # default one), and each leg computes its timeout at thread start so
             # executor queue wait consumes the deadline instead of escaping it.
-            # Discovery additionally gets a small bound: a wedged proxy must
-            # not delay PREFER-mode fallback by the agent timeout.
-            route = await loop.run_in_executor(
-                _PROXY_EXECUTOR,
-                lambda: self._model_transport_policy.resolve(
-                    "openai",
-                    self.model,
-                    ("chat",),
-                    timeout=min(remaining_timeout(), _PROXY_DISCOVERY_TIMEOUT_SECONDS),
-                ),
-            )
+            # Discovery is wall-clock bounded by wait_for — covering executor
+            # queue wait, not just the socket timeout — so a wedged proxy can
+            # never delay PREFER-mode fallback by more than the discovery cap.
+            try:
+                route = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        _PROXY_EXECUTOR,
+                        lambda: self._model_transport_policy.resolve(
+                            "openai",
+                            self.model,
+                            ("chat",),
+                            timeout=min(remaining_timeout(), _PROXY_DISCOVERY_TIMEOUT_SECONDS),
+                        ),
+                    ),
+                    timeout=_PROXY_DISCOVERY_TIMEOUT_SECONDS,
+                )
+            except TimeoutError as exc:
+                raise VibeProxyTimeoutError(
+                    "VibeProxy discovery exceeded the wall-clock cap"
+                ) from exc
             if route.transport == "direct":
+                # resolve() downgrades proxy unavailability to a direct route in
+                # PREFER mode; record the proxy-leg failure so a wedged proxy is
+                # not metrically invisible on this path.
+                if route.fallback_reason:
+                    logger.warning(
+                        "[%s] VibeProxy route unavailable; using direct path: %s",
+                        self.name,
+                        route.fallback_reason,
+                    )
+                    record_provider_call(
+                        provider="vibeproxy",
+                        success=False,
+                        error_type=ErrorType.API_ERROR,
+                        latency_seconds=time.perf_counter() - start_time,
+                        model=self.model,
+                    )
                 return await super().generate(prompt, context)
 
             client = self._model_transport_policy.client
@@ -380,8 +405,17 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             budget_guard.record_spend(estimated_budget_usd)
         if cb is not None:
             cb.record_success()
+        # Terminal call outcome under the agent's provider, plus the proxy-leg
+        # outcome under "vibeproxy" so that series carries successes as well as
+        # failures (it would otherwise read as a 100% failure rate).
         record_provider_call(
             provider=self.agent_type,
+            success=True,
+            latency_seconds=time.perf_counter() - start_time,
+            model=self.model,
+        )
+        record_provider_call(
+            provider="vibeproxy",
             success=True,
             latency_seconds=time.perf_counter() - start_time,
             model=self.model,

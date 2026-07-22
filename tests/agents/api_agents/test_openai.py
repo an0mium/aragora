@@ -775,6 +775,47 @@ class TestOpenAIVibeProxyRouting:
         assert proxy_leg.kwargs["success"] is False
 
     @pytest.mark.asyncio
+    async def test_prefer_wedged_discovery_bounded_by_wall_clock(
+        self, mock_env_with_api_keys, mock_openai_response, monkeypatch
+    ) -> None:
+        """A stuck discovery leg (queue wait or socket) must not delay
+        PREFER-mode fallback beyond the wall-clock discovery cap."""
+        import time as time_module
+
+        from aragora.agents.api_agents import openai as openai_module
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        class WedgedClient:
+            base_url = "http://127.0.0.1:8318/v1"
+
+            def catalog(self, *, timeout: float | None = None):
+                time_module.sleep(5.0)
+                return SimpleNamespace(models=frozenset({"gpt-5.5"}))
+
+            def openai_request(self, **kwargs):
+                raise AssertionError("must not reach the request leg")
+
+        monkeypatch.setattr(openai_module, "_PROXY_DISCOVERY_TIMEOUT_SECONDS", 0.2)
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent.enable_web_search = False
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.PREFER,
+            client=WedgedClient(),  # type: ignore[arg-type]
+        )
+
+        started = time_module.perf_counter()
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session",
+            return_value=self._direct_session(mock_openai_response),
+        ):
+            result = await agent.generate("hello")
+        elapsed = time_module.perf_counter() - started
+
+        assert "test response from GPT" in result
+        assert elapsed < 3.0
+
+    @pytest.mark.asyncio
     async def test_proxy_success_records_latency(self, mock_env_with_api_keys) -> None:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
