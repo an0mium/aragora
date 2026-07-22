@@ -147,7 +147,9 @@ def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
         else:
             if result.returncode != 0 and isinstance(payload, dict):
                 payload = dict(payload)
-                payload.setdefault("returncode", result.returncode)
+                # Overwrite (not setdefault): a child that exits nonzero must not
+                # mask the failure via a stale "returncode": 0 in its own stdout.
+                payload["returncode"] = result.returncode
             return payload
     if result.returncode != 0:
         return {"error": result.stderr.strip(), "returncode": result.returncode}
