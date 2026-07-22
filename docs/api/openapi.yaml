@@ -9542,7 +9542,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated debate summary",
+            "description": "Update result with the updated debate summary",
             "headers": {
               "X-Request-ID": {
                 "description": "Unique request identifier for tracing and debugging",
@@ -9561,7 +9561,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Debate"
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "updated_fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "debate": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -9933,7 +9967,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated debate summary",
+            "description": "Update result with the updated debate summary",
             "headers": {
               "X-Request-ID": {
                 "description": "Unique request identifier for tracing and debugging",
@@ -9952,7 +9986,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Debate"
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "updated_fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "debate": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }

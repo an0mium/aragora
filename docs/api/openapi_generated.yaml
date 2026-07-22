@@ -14968,7 +14968,7 @@ paths:
                   type: object
       responses:
         '200':
-          description: Updated debate summary
+          description: Update result with the updated debate summary
           headers: &id097
             X-Request-ID:
               description: Unique request identifier for tracing and debugging
@@ -14982,7 +14982,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Debate'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  debate_id:
+                    type: string
+                  updated_fields:
+                    type: array
+                    items:
+                      type: string
+                  debate:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      status:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
         '400':
           description: Bad request - Invalid input or malformed JSON
           headers: *id097
@@ -73882,12 +73904,34 @@ paths:
                   type: object
       responses:
         '200':
-          description: Updated debate summary
+          description: Update result with the updated debate summary
           headers: *id545
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Debate'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  debate_id:
+                    type: string
+                  updated_fields:
+                    type: array
+                    items:
+                      type: string
+                  debate:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      status:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
         '400':
           description: Bad request - Invalid input or malformed JSON
           headers: *id545

@@ -1002,7 +1002,31 @@ real-time debate progress (proposals, critiques, votes, consensus events).""",
                 },
             },
             "responses": {
-                "200": _ok_response("Updated debate summary", "Debate"),
+                # _patch_debate returns an update envelope, not the full
+                # Debate resource (see debates/crud.py).
+                "200": _ok_response(
+                    "Update result with the updated debate summary",
+                    {
+                        "success": {"type": "boolean"},
+                        "debate_id": {"type": "string"},
+                        "updated_fields": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "debate": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "title": {"type": "string"},
+                                "status": {"type": "string"},
+                                "tags": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                            },
+                        },
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },

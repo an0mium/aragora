@@ -76000,7 +76000,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated debate summary */
+            /** @description Update result with the updated debate summary */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -76010,7 +76010,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Debate"];
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        updated_fields?: string[];
+                        debate?: {
+                            id?: string;
+                            title?: string;
+                            status?: string;
+                            tags?: string[];
+                        };
+                    };
                 };
             };
             /** @description Bad request - Invalid input or malformed JSON */
@@ -124712,7 +124722,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated debate summary */
+            /** @description Update result with the updated debate summary */
             200: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
@@ -124722,7 +124732,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Debate"];
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        updated_fields?: string[];
+                        debate?: {
+                            id?: string;
+                            title?: string;
+                            status?: string;
+                            tags?: string[];
+                        };
+                    };
                 };
             };
             /** @description Bad request - Invalid input or malformed JSON */
