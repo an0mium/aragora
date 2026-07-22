@@ -12,12 +12,12 @@
 
 | Metric | Value | Source | Command |
 |---|---|---|---|
-| Python files under aragora/ | `4299` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
-| Python lines of code under aragora/ | `1986487` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
+| Python files under aragora/ | `4300` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
+| Python lines of code under aragora/ | `1986873` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
 | Top-level modules under aragora/ | `145` | `aragora/` | `git ls-files aragora \| awk -F/ 'NF>2 {print $2}' \| sort -u \| wc -l` |
-| Test files (test_*.py under tests/) | `5501` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
-| Test functions (class + module level) | `224504` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
-| @pytest.mark.parametrize decorators | `901` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
+| Test files (test_*.py under tests/) | `5504` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
+| Test functions (class + module level) | `224578` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
+| @pytest.mark.parametrize decorators | `903` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
 | CLI top-level command modules | `85` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2876` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
 | OpenAPI operations (HTTP verbs) | `3081` | `docs/api/openapi.json` | `python -c "import json; spec=json.load(open('docs/api/openapi.json')); print(sum(1 for p in spec['paths'].values() for m in p if m.lower() in {'get','post','put','delete','patch','head','options'}))"` |
@@ -53,7 +53,7 @@ New metrics (present in the script but not in the committed doc) are reported as
 
 ## Related automation
 
-- `.github/workflows/metrics-drift.yml` runs this script on every PR that touches counted surfaces (`aragora/`, `tests/`, `sdk/`, `docs/api/openapi.json`, `.mypy-baseline`), and on a weekly Monday schedule. It invokes `--check` and fails the job if drift exceeds the threshold. The job does **not** auto-open a refresh PR; it fails loud and a human or follow-up automation decides whether to regenerate.
+- `.github/workflows/metrics-drift.yml` runs this script on every PR that touches counted surfaces (`aragora/`, `tests/`, `sdk/`, `docs/api/openapi.json`, `.mypy-baseline`), and on a weekly Monday schedule. It invokes `--check` and fails the job if drift exceeds the threshold. On PR runs the check also snapshots the metrics at the merge commit's mainline parent (`--base-json`/`--base-doc`) so drift that pre-exists on `main` is reported as `INHERITED:` and does not fail the PR — only drift the PR itself introduces blocks. The weekly scheduled run stays strict and polices accumulated main-side staleness. The job does **not** auto-open a refresh PR; it fails loud and a human or follow-up automation decides whether to regenerate.
 - `tests/scripts/test_regenerate_metrics.py` holds external invariants (e.g. test count > 100K, python file count > 1K) so the bootstrap is not fully self-referential: even if the committed doc were wrong, the invariant tests would catch a gross break.
 - `scripts/reconcile_status.py` cross-references feature claims across CAPABILITY_MATRIX, GA_CHECKLIST, STATUS, ROADMAP.
 - `scripts/validate_openapi_routes.py` verifies OpenAPI paths against actual handler implementations.
