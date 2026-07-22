@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from aragora.cli.commands import review_queue
+from scripts import generate_contract_drift_inventory
 from scripts import tier4_merge_train
 
 
@@ -52,6 +53,7 @@ MATCHER_BASE = "6137552e4419862b895b096eef1ae36ff8ad210a"
 MATCHER_MERGE = "e8a0d165242737d3226b6d3360aa9e8ec014fd75"
 MATCHER_TREE = "65c567a51ed4d19d411b9f874163e8a39675d396"
 STAGE1_MERGE = "9482fc2dffdb6425d2405389c13f46d5954ac467"
+QUORUM_EVIDENCE_PATH = "aragora/swarm/quorum_evidence.py"
 
 
 def _assignment_node(source: str, assignment_name: str) -> ast.Assign | ast.AnnAssign:
@@ -303,6 +305,41 @@ def test_executable_authority_dependencies_are_tier4(path: str) -> None:
     assert tier == 4, path
     assert tier4_merge_train.matches_serialized_path(path) == path
     assert path not in review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES
+
+
+def test_quorum_evidence_module_imports_do_not_resolve_below_tier4(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    ref = _git_text(repo_root, "rev-parse", "HEAD").strip()
+    extraction_root = tmp_path / "exact-ref"
+    generate_contract_drift_inventory._extract_exact_ref(
+        repo_root,
+        ref,
+        extraction_root,
+    )
+    imported_paths = sorted(
+        {
+            path
+            for path, _kind in generate_contract_drift_inventory._python_import_edges(
+                extraction_root,
+                QUORUM_EVIDENCE_PATH,
+                include_function_bodies=False,
+            )
+        }
+    )
+    policy = generate_contract_drift_inventory._invoke_exact_ref_policy(
+        extraction_root,
+        imported_paths,
+        scratch_root=tmp_path / "classifier-scratch",
+    )
+    classifications = {item["path"]: item for item in policy.get("classifications", [])}
+
+    assert set(classifications) == set(imported_paths)
+    below_tier4 = sorted(
+        path for path, classification in classifications.items() if classification.get("tier") != 4
+    )
+    assert below_tier4 == []
 
 
 @pytest.mark.parametrize("path", UNRELATED_SIBLING_PATHS)
