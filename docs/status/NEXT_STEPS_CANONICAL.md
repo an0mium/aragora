@@ -72,11 +72,13 @@ and a *published* `review-pr` GitHub review object is also not counted
 `## Aragora review-pr:` heading resolves to `unknown_model_reviewer`).
 Reaching quorum therefore requires genuinely distinct model **lineages** —
 router/product markers such as `codex` or `factory` do not count as separate
-families. The recognizable-header / lineage-counting fix is tracked by
-[#7472](https://github.com/synaptent/aragora/pull/7472) (Tier 4 pre-approval,
-awaiting operator design-review); until it lands, quorum-blocked PRs are a
-human merge gate, not an evidence-tooling task, and evidence comments must
-never be hand-fabricated.
+families. The Tier 4 recognizable-header pre-approval
+[#7472](https://github.com/synaptent/aragora/pull/7472) and its lineage-counting
+implementation [#7561](https://github.com/synaptent/aragora/pull/7561) are both
+merged. Current evidence must disclose its model family and pass
+`review-queue evidence-lint` for the exact PR head; an uncountable signal with
+no diagnostic reason is a tooling defect to investigate, not permission to
+hand-fabricate evidence or bypass the human merge gate.
 
 ### `B2` guard expansion criteria
 
