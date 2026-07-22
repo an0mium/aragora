@@ -165,20 +165,18 @@ def test_idempotent_on_matching_access_token(monkeypatch, tmp_path) -> None:
     assert r.action == "skipped_fresh"
 
 
-def test_does_not_clobber_fresh_native_login_without_force(monkeypatch, tmp_path) -> None:
+@pytest.mark.parametrize("expires_at", [sync._now_ms() + 3_600_000, sync._now_ms() - 1])
+def test_native_login_protected_regardless_of_access_token_liveness(
+    monkeypatch, tmp_path, expires_at
+) -> None:
+    # Both a live native login AND an idle one (valid refresh, expired access)
+    # must be protected — the refresh token is the thing worth preserving.
     prof_root = _setup(monkeypatch, tmp_path)
     cred = prof_root / "max-99" / ".claude" / ".credentials.json"
     cred.parent.mkdir(parents=True)
-    future = sync._now_ms() + 3_600_000
     cred.write_text(
         json.dumps(
-            {
-                "claudeAiOauth": {
-                    "accessToken": "native",
-                    "refreshToken": "real",
-                    "expiresAt": future,
-                }
-            }
+            {"claudeAiOauth": {"accessToken": "n", "refreshToken": "real", "expiresAt": expires_at}}
         ),
         encoding="utf-8",
     )
@@ -186,22 +184,29 @@ def test_does_not_clobber_fresh_native_login_without_force(monkeypatch, tmp_path
     assert r.action == "skipped_native_login"
     r2 = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True, force=True)
     assert r2.action == "synced"
+    # --force backs up the native cred it is about to destroy.
+    backup = cred.with_name(".credentials.json.bak")
+    assert json.loads(backup.read_text())["claudeAiOauth"]["refreshToken"] == "real"
 
 
-def test_writes_owner_only_credential_and_backup(monkeypatch, tmp_path) -> None:
+def test_writes_owner_only_credential_and_no_backup_for_our_own_cred(monkeypatch, tmp_path) -> None:
+    # Re-syncing over our own blank-refresh cred writes owner-only and does NOT
+    # create a backup (there is no native refresh token worth preserving, and a
+    # backup here would overwrite an earlier real native backup).
     prof_root = _setup(monkeypatch, tmp_path)
     cred = prof_root / "max-99" / ".claude" / ".credentials.json"
     cred.parent.mkdir(parents=True)
-    cred.write_text(json.dumps({"claudeAiOauth": {"accessToken": "old"}}), encoding="utf-8")
+    cred.write_text(
+        json.dumps({"claudeAiOauth": {"accessToken": "old", "refreshToken": ""}}),
+        encoding="utf-8",
+    )
     r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
     assert r.action == "synced"
     assert (cred.stat().st_mode & 0o777) == 0o600
     written = json.loads(cred.read_text())
     assert written["claudeAiOauth"]["accessToken"] == "vp-access"
     assert written["claudeAiOauth"]["refreshToken"] == ""
-    backup = cred.with_name(".credentials.json.bak")
-    assert backup.exists() and (backup.stat().st_mode & 0o777) == 0o600
-    assert json.loads(backup.read_text())["claudeAiOauth"]["accessToken"] == "old"
+    assert not cred.with_name(".credentials.json.bak").exists()
 
 
 def test_total_source_loss_exits_nonzero(monkeypatch, tmp_path) -> None:
@@ -210,3 +215,18 @@ def test_total_source_loss_exits_nonzero(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", tmp_path / "empty")
     rc = sync.main(["--config", str(cfg_path)])
     assert rc == 1
+
+
+def test_all_sources_stale_exits_nonzero(monkeypatch, tmp_path) -> None:
+    # A stopped/crashed proxy leaves files present with expired tokens; that is
+    # a total source loss and must exit non-zero, not look healthy.
+    vp_dir = tmp_path / "vp"
+    vp_dir.mkdir()
+    (vp_dir / "claude-a@e.json").write_text(
+        json.dumps(dict(_VP, expired="2000-01-01T00:00:00+00:00")), encoding="utf-8"
+    )
+    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
+    monkeypatch.setattr(sync, "ARAGORA_PROFILE_ROOT", tmp_path / "profiles")
+    cfg_path = tmp_path / "c.json"
+    cfg_path.write_text(json.dumps({"sync_target": {"a@e": "max-01"}}), encoding="utf-8")
+    assert sync.main(["--config", str(cfg_path), "--apply"]) == 1

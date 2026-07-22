@@ -11,7 +11,11 @@
 set -euo pipefail
 
 LABEL="com.aragora.claude-profile-sync"
-INTERVAL_SECONDS=1800  # 30 min: well under the ~8h access-token TTL
+# 5 min: must be <= VibeProxy's refresh lead (~10 min before the ~8h expiry) so a
+# sync always lands in the [expiry-10min, expiry] window and picks up the newly
+# refreshed token before the old one lapses. A wider interval leaves the profile
+# holding an expired, blank-refresh token for up to (interval - lead) every ~8h.
+INTERVAL_SECONDS=300
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_PATH="${HOME}/.aragora/claude-profile-sync.log"
 PYTHON_BIN="${ARAGORA_PYTHON:-python3}"

@@ -27,8 +27,9 @@ synced aragora credential is written **without a usable refresh token**
 (``--blank-refresh``, the default): aragora becomes a pure token consumer. If a
 sync cycle ever lags past the access-token expiry the profile simply reports
 expired until the next cycle heals it -- it never revokes VibeProxy's live token.
-Run this more often than VibeProxy's refresh lead so a synced token never lapses
-between cycles (VibeProxy refreshes ~10 min before the ~8h access-token expiry).
+Run this on an interval **<= VibeProxy's refresh lead** (it refreshes ~10 min
+before the ~8h access-token expiry) so a sync always lands between the new token
+appearing and the old one lapsing; the installed timer defaults to 5 min.
 
 Mapping lives in a local, untracked config
 -------------------------------------------
@@ -45,9 +46,9 @@ Safety
 ------
 This script only reads VibeProxy auth files and writes aragora profile
 credentials on the local machine. It never prints token material and never makes
-a network call. It refuses to clobber a profile that holds a fresh *native* login
-(live access token + real refresh token) unless ``--force``, and always writes a
-``0600`` ``.bak`` before replacing a credential.
+a network call. It refuses to clobber a profile that holds a **native** login (a
+real, non-blank refresh token) unless ``--force``, and writes a ``0600`` ``.bak``
+of that native credential before ``--force`` replaces it.
 """
 
 from __future__ import annotations
@@ -236,14 +237,16 @@ def sync_profile(
         if existing_oauth.get("accessToken") == vp["access_token"]:
             return SyncResult(profile, email, "skipped_fresh", "already current")
 
-        # Never clobber a fresh NATIVE login (live access token + real refresh
-        # token) without --force: that would destroy a working refresh token.
+        # Never clobber a profile that holds a real (non-blank) refresh token
+        # without --force: that is a NATIVE login whose refresh token we would
+        # destroy. Gate on the refresh token alone, not access-token liveness —
+        # an idle native profile (valid refresh, expired access) is the normal
+        # healthy state and must still be protected. Our own synced creds carry
+        # a blank refresh token, so they re-sync freely.
         existing_refresh = existing_oauth.get("refreshToken") or ""
-        existing_exp = existing_oauth.get("expiresAt")
-        existing_live = isinstance(existing_exp, int) and existing_exp > _now_ms()
-        if existing_refresh and existing_live and not force:
+        if existing_refresh and not force:
             return SyncResult(
-                profile, email, "skipped_native_login", "live native login present (use --force)"
+                profile, email, "skipped_native_login", "native login present (use --force)"
             )
 
         payload = translate_credential(vp, existing_oauth, blank_refresh=blank_refresh)
@@ -251,8 +254,10 @@ def sync_profile(
             return SyncResult(profile, email, "synced", "dry-run")
 
         cred_path.parent.mkdir(parents=True, exist_ok=True)
-        # Back up the existing credential (0600) before replacing it.
-        if cred_path.exists():
+        # Back up ONLY a native credential (real refresh token) before replacing
+        # it — never overwrite that backup with one of our own blank-refresh
+        # creds, which would lose the last recoverable native login.
+        if existing_refresh:
             _write_owner_only(
                 cred_path.with_name(".credentials.json.bak"),
                 cred_path.read_text(encoding="utf-8"),
@@ -302,7 +307,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--keep-refresh",
         action="store_true",
-        help="Keep VibeProxy's refresh token in the synced credential (default: blank it)",
+        help=(
+            "Keep VibeProxy's refresh token in the synced credential (default: blank it). "
+            "UNSAFE: reintroduces the double-refresher race this tool removes — aragora may "
+            "then rotate VibeProxy's token. For debugging only."
+        ),
     )
     parser.add_argument(
         "--force",
@@ -373,16 +382,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Sync: {synced}/{len(results)} profiles updated{tail}")
 
-    # Surface hard problems via exit code so a launchd log flags them:
-    # any per-profile error, a probed-dead profile, or a total source loss
-    # (every mapped profile lost its VibeProxy source).
+    # Surface hard problems via exit code so a launchd log flags them: any
+    # per-profile error, a probed-dead profile, or a total source loss. The
+    # dominant outage (a stopped/crashed proxy) leaves files present with
+    # *stale* tokens, so skipped_stale_source and error must count as source
+    # loss too — otherwise a full VibeProxy outage exits 0 and looks healthy.
     if any(r.action == "error" for r in results):
         return 1
     if probed and any(v is False for v in probed.values()):
         return 1
-    only_targets = [r for r in results if r.action != "skipped_native_only"]
-    if only_targets and all(r.action == "skipped_no_source" for r in only_targets):
-        print("error: no live VibeProxy sources for any mapped profile", file=sys.stderr)
+    _SOURCE_LOSS = {"skipped_no_source", "skipped_stale_source", "error"}
+    _HEALTHY = {"synced", "skipped_fresh", "skipped_native_login"}
+    targets = [r for r in results if r.action != "skipped_native_only"]
+    if (
+        targets
+        and not any(r.action in _HEALTHY for r in targets)
+        and all(r.action in _SOURCE_LOSS for r in targets)
+    ):
+        print("error: no usable VibeProxy source for any mapped profile", file=sys.stderr)
         return 1
     return 0
 

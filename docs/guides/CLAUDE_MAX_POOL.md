@@ -164,10 +164,13 @@ bash scripts/install_claude_profile_sync_launchd.sh
 This revives every profile VibeProxy can source — one profile per VibeProxy
 account. Requirements: VibeProxy running with the Claude accounts connected
 (auth files at `~/.cli-proxy-api/claude-*.json`) and the local config filled in.
-The sync writes a `0600` `.bak` before replacing a credential and refuses to
-overwrite a fresh **native** login (live token + real refresh token) without
-`--force`. Run the timer more often than VibeProxy's refresh lead (it refreshes
-~10 min before the ~8h access-token expiry); 30 min is the default.
+The sync backs up a **native** credential (`0600` `.bak`) before replacing it
+and refuses to overwrite a profile holding a real refresh token without
+`--force`. The timer interval must be **≤ VibeProxy's refresh lead** (it
+refreshes ~10 min before the ~8h access-token expiry) so a sync always lands in
+the window between the new token appearing and the old one lapsing; the default
+is **5 min**. A wider interval would leave a profile on an expired, blank-refresh
+token for up to `(interval − lead)` every ~8h.
 
 **One profile per VibeProxy account (important).** VibeProxy authenticates by
 **email** and holds exactly **one org per email**. Two profiles that are
