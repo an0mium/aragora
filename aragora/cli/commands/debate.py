@@ -2120,6 +2120,18 @@ def cmd_ask(args: argparse.Namespace) -> None:
     if not requested_api and not requested_local:
         use_api = _trusted_server_available(server_url, flag_passed=api_url_flag_passed)
 
+    # Crux cards (#8227): the flag is only plumbed through the local
+    # protocol_overrides path. Fail closed on API/graph/matrix dispatch
+    # instead of silently dropping the promised cruxes block.
+    if getattr(args, "crux_cards", False) and (use_api or graph_mode or matrix_mode):
+        print(
+            "--crux-cards currently requires local execution; API/graph/matrix "
+            "debates do not honor it. Add --local (and remove --api/--graph/--matrix), "
+            "or drop --crux-cards.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
     if use_api:
         try:
             if graph_mode:

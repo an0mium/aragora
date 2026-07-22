@@ -292,6 +292,57 @@ def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
         assert call_kwargs["protocol_overrides"]["enable_crux_cards"] is True
 
 
+def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
+    """--crux-cards is local-only: explicit --api dispatch must fail closed
+    (exit 2) instead of silently dropping the promised cruxes block."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="smoke demo",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=True,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        crux_cards=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+    )
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+        with pytest.raises(SystemExit) as excinfo:
+            debate_cmd.cmd_ask(args)
+
+    assert excinfo.value.code == 2
+    mock_run_debate.assert_not_called()
+
+
 def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
     """Demo/offline asks should not invoke provider repair agents in quality loops."""
     from aragora.cli.commands import debate as debate_cmd

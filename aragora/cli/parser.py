@@ -1218,7 +1218,7 @@ def _add_ask_parser(subparsers) -> None:
     ask_parser.add_argument(
         "--crux-cards",
         action="store_true",
-        help="Attach crux cards (load-bearing disagreements) to the result and decision receipt",
+        help="Attach crux cards (load-bearing disagreements) to the receipt; requires --local",
     )
     ask_parser.add_argument(
         "--preset",
