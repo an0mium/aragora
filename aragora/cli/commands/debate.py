@@ -868,7 +868,11 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         from datetime import datetime, timezone
         from pathlib import Path
 
-        from aragora.gauntlet.receipt_models import DecisionReceipt, crux_cards_from_metadata
+        from aragora.gauntlet.receipt_models import (
+            DecisionReceipt,
+            crux_cards_from_metadata,
+            receipt_schema_version,
+        )
 
         receipts_dir = Path.home() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -983,18 +987,19 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                     "evidence_hash": input_hash,
                 }
             ],
-            "schema_version": "1.1",
         }
         model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
 
         # Crux cards (#8227): attached by the consensus phase when the debate
-        # ran with enable_crux_cards (--crux-cards). Shared helper enforces
-        # the "only carry non-empty blocks" invariant with from_debate_result.
+        # ran with enable_crux_cards (--crux-cards). Shared helpers enforce
+        # the "only carry non-empty blocks" invariant and the schema-version
+        # bump (1.2 when cruxes bind into the hash) with from_debate_result.
         cruxes = crux_cards_from_metadata(metadata)
         if cruxes is not None:
             receipt["cruxes"] = cruxes
+        receipt["schema_version"] = receipt_schema_version(cruxes)
 
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]
@@ -1690,23 +1695,36 @@ def cmd_ask(args: argparse.Namespace) -> None:
             )
 
     # Crux cards (#8227): only the local run_debate path honors
-    # enable_crux_cards. Reject statically invalid explicit API/graph/matrix
-    # combinations up front — before context engineering burns LLM work or
-    # ARAGORA_OFFLINE is mutated — and otherwise force local execution below
-    # (mirroring how --demo forces local).
+    # enable_crux_cards, so the flag uniformly requires local execution.
+    # Any explicit API configuration (--api, --api-url, ARAGORA_API_URL,
+    # --graph, --matrix) is rejected up front — before context engineering
+    # burns LLM work or ARAGORA_OFFLINE is mutated. Otherwise local execution
+    # is forced below (mirroring --demo), with a Note so the auto-discovery
+    # path is never silent.
     crux_cards_requested = bool(getattr(args, "crux_cards", False))
-    if crux_cards_requested and (
-        getattr(args, "api", False)
-        or getattr(args, "graph", False)
-        or getattr(args, "matrix", False)
-    ):
-        print(
-            "--crux-cards currently requires local execution; API/graph/matrix "
-            "debates do not honor it. Remove --api/--graph/--matrix (local is "
-            "used automatically), or drop --crux-cards.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
+    if crux_cards_requested:
+        crux_api_url = getattr(args, "api_url", None)
+        if (
+            getattr(args, "api", False)
+            or getattr(args, "graph", False)
+            or getattr(args, "matrix", False)
+            or _is_explicitly_configured_api_url(
+                crux_api_url or DEFAULT_API_URL, flag_passed=crux_api_url is not None
+            )
+        ):
+            print(
+                "--crux-cards currently requires local execution; API/graph/matrix "
+                "debates do not honor it. Remove --api/--api-url/--graph/--matrix "
+                "and unset ARAGORA_API_URL, or drop --crux-cards.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        if not getattr(args, "local", False):
+            print(
+                "Note: --crux-cards is only honored by local execution; "
+                "running the debate locally.",
+                file=sys.stderr,
+            )
 
     explicit_codebase_context = bool(getattr(args, "codebase_context", False))
     mode_name = str(getattr(args, "mode", "") or "").strip().lower()
@@ -1897,9 +1915,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
     requested_api = getattr(args, "api", False)
     requested_local = getattr(args, "local", False)
     if crux_cards_requested:
-        # Explicit API/graph/matrix requests were rejected above; force the
-        # local path (like --demo does) so enable_crux_cards is honored even
-        # when a trusted API server would otherwise be auto-selected.
+        # Explicit API configuration was rejected above; force the local path
+        # (like --demo does) so enable_crux_cards is honored even when a
+        # trusted API server would otherwise be auto-selected.
         requested_local = True
     graph_mode = getattr(args, "graph", False)
     matrix_mode = getattr(args, "matrix", False)

@@ -245,6 +245,7 @@ def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
     from aragora.core import DebateResult
 
     monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    monkeypatch.delenv("ARAGORA_API_URL", raising=False)
 
     args = argparse.Namespace(
         task="smoke demo",
@@ -269,7 +270,7 @@ def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
         trending=True,
         crux_cards=True,
         mode=None,
-        api_url="http://localhost:8080",
+        api_url=None,
         api_key=None,
         verbose=False,
         graph_rounds=3,
@@ -297,15 +298,17 @@ def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 @pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
-def test_cmd_ask_crux_cards_forces_local_over_auto_api(monkeypatch, tmp_path):
-    """Plain --crux-cards (no --api/--local) must force local execution and
-    never probe or auto-select a trusted API server."""
+def test_cmd_ask_crux_cards_forces_local_over_auto_api(monkeypatch, tmp_path, capsys):
+    """Plain --crux-cards (no explicit API config) must force local execution,
+    print a Note (never a silent path), and never probe or auto-select a
+    trusted API server."""
     from pathlib import Path
 
     from aragora.cli.commands import debate as debate_cmd
     from aragora.core import DebateResult
 
     monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    monkeypatch.delenv("ARAGORA_API_URL", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     args = argparse.Namespace(
@@ -334,7 +337,7 @@ def test_cmd_ask_crux_cards_forces_local_over_auto_api(monkeypatch, tmp_path):
         upgrade_to_good=False,
         quality_fail_closed=False,
         mode=None,
-        api_url="http://localhost:8080",
+        api_url=None,
         api_key=None,
         verbose=False,
         graph_rounds=3,
@@ -364,13 +367,32 @@ def test_cmd_ask_crux_cards_forces_local_over_auto_api(monkeypatch, tmp_path):
         call_kwargs = mock_run_debate.call_args.kwargs
         assert call_kwargs["protocol_overrides"]["enable_crux_cards"] is True
 
+    assert "Note: --crux-cards" in capsys.readouterr().err
 
-def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
-    """--crux-cards is local-only: explicit --api dispatch must fail closed
-    (exit 2) instead of silently dropping the promised cruxes block."""
+
+@pytest.mark.parametrize(
+    "explicit_config",
+    [
+        pytest.param({"api": True}, id="api-flag"),
+        pytest.param({"api_url": "http://localhost:8080"}, id="api-url-flag"),
+        pytest.param({"graph": True}, id="graph"),
+        pytest.param({"matrix": True}, id="matrix"),
+        pytest.param("env", id="aragora-api-url-env"),
+    ],
+)
+def test_cmd_ask_crux_cards_rejects_explicit_api_config(monkeypatch, explicit_config):
+    """--crux-cards is local-only: every explicit API configuration (--api,
+    --api-url, ARAGORA_API_URL, --graph, --matrix) must fail closed (exit 2)
+    before dispatch instead of silently dropping the promised cruxes block."""
     from aragora.cli.commands import debate as debate_cmd
 
     monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    monkeypatch.delenv("ARAGORA_API_URL", raising=False)
+    if explicit_config == "env":
+        monkeypatch.setenv("ARAGORA_API_URL", "http://localhost:8080")
+        overrides = {}
+    else:
+        overrides = explicit_config
 
     args = argparse.Namespace(
         task="smoke demo",
@@ -381,7 +403,7 @@ def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
         learn=True,
         db=":memory:",
         demo=False,
-        api=True,
+        api=False,
         local=False,
         graph=False,
         matrix=False,
@@ -395,7 +417,7 @@ def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
         trending=True,
         crux_cards=True,
         mode=None,
-        api_url="http://localhost:8080",
+        api_url=None,
         api_key=None,
         verbose=False,
         graph_rounds=3,
@@ -407,6 +429,8 @@ def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
         di_plan_strategy="single_task",
         di_execution_mode=None,
     )
+    for key, value in overrides.items():
+        setattr(args, key, value)
 
     with (
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,

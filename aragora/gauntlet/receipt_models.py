@@ -458,20 +458,43 @@ def build_crux_receipt_from_proof(
     )
 
 
+# Receipt schema version changelog:
+#   1.0 — original receipt schema
+#   1.1 — current baseline (agent responses, provenance enrichment)
+#   1.2 — carries a ``cruxes`` block (crux cards, #8227). Cruxes are bound
+#         into ``artifact_hash``, so pre-1.2 verifiers recomputing the hash
+#         without them must treat the version bump — not tampering — as the
+#         signal.
+RECEIPT_SCHEMA_VERSION = "1.1"
+RECEIPT_SCHEMA_VERSION_CRUXES = "1.2"
+
+
+def receipt_schema_version(cruxes: dict[str, Any] | None) -> str:
+    """Schema version for a receipt given its cruxes block.
+
+    Bumps to 1.2 exactly when a cruxes block is carried, giving older
+    verifiers a version signal instead of a spurious tampering report.
+    Shared by ``DecisionReceipt.from_debate_result`` and the CLI receipt
+    persistence so version and content cannot drift apart.
+    """
+    return RECEIPT_SCHEMA_VERSION_CRUXES if cruxes is not None else RECEIPT_SCHEMA_VERSION
+
+
 def crux_cards_from_metadata(metadata: Any) -> dict[str, Any] | None:
     """Return the crux-cards block from debate-result metadata, or None.
 
     Crux cards (#8227) are attached by the consensus phase when the debate ran
     with ``enable_crux_cards``. The block is only carried into receipts when it
     has items — a missing or empty block keeps flag-off receipts byte-identical
-    to pre-crux output. Shared by ``DecisionReceipt.from_debate_result`` and
-    the CLI receipt persistence so this invariant cannot drift.
+    to pre-crux output. Returns a shallow copy so receipts never alias the live
+    result metadata. Shared by ``DecisionReceipt.from_debate_result`` and the
+    CLI receipt persistence so this invariant cannot drift.
     """
     if not isinstance(metadata, dict):
         return None
     crux_cards = metadata.get("crux_cards")
     if isinstance(crux_cards, dict) and crux_cards.get("items"):
-        return crux_cards
+        return dict(crux_cards)
     return None
 
 
@@ -1594,6 +1617,7 @@ class DecisionReceipt:
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
             cruxes=cruxes,
+            schema_version=receipt_schema_version(cruxes),
             config_used=config_used,
         )
 

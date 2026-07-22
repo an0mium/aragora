@@ -208,6 +208,9 @@ def test_receipt_carries_crux_cards_from_metadata(
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert data["cruxes"]["items"][0]["claim_id"] == "c1"
     assert data["cruxes"]["detector"] == "belief_network"
+    # Cruxes bind into artifact_hash, so the schema version must signal it
+    # to older verifiers instead of reading as tampering.
+    assert data["schema_version"] == "1.2"
     assert DecisionReceipt.from_dict(data).verify_integrity() is True
 
 
@@ -222,6 +225,7 @@ def test_receipt_omits_cruxes_when_crux_cards_absent_or_empty(
     assert receipt_path is not None
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert "cruxes" not in data
+    assert data["schema_version"] == "1.1"
 
     empty = _mixed_family_result()
     empty.metadata["crux_cards"] = {"items": []}
@@ -229,3 +233,4 @@ def test_receipt_omits_cruxes_when_crux_cards_absent_or_empty(
     assert receipt_path is not None
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert "cruxes" not in data
+    assert data["schema_version"] == "1.1"

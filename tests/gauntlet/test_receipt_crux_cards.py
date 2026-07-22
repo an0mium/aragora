@@ -100,6 +100,33 @@ class TestReceiptCruxesField:
         )
         assert receipt.cruxes is None
 
+    def test_schema_version_bumps_exactly_when_cruxes_attach(self) -> None:
+        """Cruxes bind into artifact_hash, so carrying them must bump the
+        schema version (1.1 -> 1.2) — older verifiers get a version signal
+        instead of a spurious tampering report. Flag-off stays at 1.1."""
+        without = DecisionReceipt.from_debate_result(_debate_result())
+        with_cards = DecisionReceipt.from_debate_result(
+            _debate_result(metadata={"crux_cards": _sample_cards()})
+        )
+        empty = DecisionReceipt.from_debate_result(
+            _debate_result(metadata={"crux_cards": {"items": []}})
+        )
+        assert without.schema_version == "1.1"
+        assert with_cards.schema_version == "1.2"
+        assert empty.schema_version == "1.1"
+
+    def test_crux_block_is_copied_not_aliased(self) -> None:
+        """The receipt must not hold a live reference to result metadata:
+        mutating the source block after receipt creation cannot change the
+        hashed audit content."""
+        metadata = {"crux_cards": _sample_cards()}
+        receipt = DecisionReceipt.from_debate_result(_debate_result(metadata=metadata))
+        assert receipt.cruxes is not metadata["crux_cards"]
+        assert receipt.cruxes == metadata["crux_cards"]
+        metadata["crux_cards"]["detector"] = "tampered"
+        assert receipt.cruxes["detector"] == "belief_network"
+        assert receipt.verify_integrity() is True
+
     def test_integrity_hash_binds_cruxes(self) -> None:
         """Crux cards are audit content: the artifact hash binds them when
         present (tampering breaks verify_integrity), while pre-crux receipts
