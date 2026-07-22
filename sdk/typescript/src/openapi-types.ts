@@ -6074,7 +6074,12 @@ export interface paths {
         delete: operations["deleteDebatesByid"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update debate metadata
+         * @deprecated
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
+         */
+        patch: operations["patchDebatesByid"];
         trace?: never;
     };
     "/api/debates/{id}/broadcast": {
@@ -30029,7 +30034,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List batch requests
+         * @description List submitted debate batches, optionally filtered by status.
+         */
+        get: operations["listDebateBatchesV1"];
         put?: never;
         /**
          * Submit batch debates
@@ -31129,9 +31138,9 @@ export interface paths {
         head?: never;
         /**
          * Update debate metadata
-         * @description Update debate title, tags, status, or custom metadata. Requires write permission.
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
          */
-        patch: operations["_patch_debate"];
+        patch: operations["patchDebateV1"];
         trace?: never;
     };
     "/api/v1/debates/{id}/archive": {
@@ -75952,6 +75961,69 @@ export interface operations {
                     "application/json": {
                         success?: boolean;
                     };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchDebatesByid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier of the resource */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    tags?: string[];
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "concluded" | "archived";
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated debate summary */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Debate"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Not found - The requested resource does not exist */
@@ -122211,6 +122283,51 @@ export interface operations {
             };
         };
     };
+    listDebateBatchesV1: {
+        parameters: {
+            query?: {
+                /** @description Maximum batches to return. */
+                limit?: number;
+                /** @description Filter by batch status (pending, processing, completed, ...). */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batch list */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batches?: Record<string, never>[];
+                        count?: number;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     submitDebateBatchV1: {
         parameters: {
             query?: never;
@@ -124573,7 +124690,7 @@ export interface operations {
             };
         };
     };
-    _patch_debate: {
+    patchDebateV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -124583,58 +124700,56 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    title?: string;
+                    tags?: string[];
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "concluded" | "archived";
+                    metadata?: Record<string, never>;
+                };
             };
         };
         responses: {
-            /** @description Debate updated successfully */
+            /** @description Updated debate summary */
             200: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        success?: boolean;
-                        debate_id?: string;
-                        updated_fields?: string[];
-                        debate?: {
-                            id?: string;
-                            title?: string;
-                            status?: string;
-                            tags?: string[];
-                        };
-                    };
+                    "application/json": components["schemas"]["Debate"];
                 };
             };
-            /** @description Invalid update data */
+            /** @description Bad request - Invalid input or malformed JSON */
             400: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
-                content?: never;
             };
-            /** @description Debate not found */
+            /** @description Not found - The requested resource does not exist */
             404: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Database error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
-                content?: never;
             };
         };
     };
