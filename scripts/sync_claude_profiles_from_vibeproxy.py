@@ -248,7 +248,19 @@ def sync_profile(
             )
 
         cred_path = _profile_cred_path(profile)
-        existing = _load_json(cred_path)
+        # Distinguish "no credential yet" (proceed) from "present but unreadable"
+        # (a torn/corrupt read — plausible since the CLI rewrites the same file
+        # on refresh). Treating a corrupt read as empty would bypass the
+        # native-login guard and the backup and could destroy a live refresh
+        # token. On any read/parse failure of a PRESENT file, fail closed.
+        existing: dict | None = None
+        if cred_path.exists():
+            try:
+                existing = json.loads(cred_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                return SyncResult(
+                    profile, email, "error", f"existing credential unreadable: {type(exc).__name__}"
+                )
         existing_oauth = _oauth(existing)
 
         # Native-login guard runs BEFORE the idempotency check: a profile holding
@@ -412,26 +424,27 @@ def main(argv: list[str] | None = None) -> int:
     # dominant outage (a stopped/crashed proxy) leaves files present with
     # *stale* tokens, so skipped_stale_source and error must count as source
     # loss too — otherwise a full VibeProxy outage exits 0 and looks healthy.
-    if any(r.action == "error" for r in results):
-        return 1
     if probed and any(v is False for v in probed.values()):
         return 1
-    # "Healthy" = at least one profile is VibeProxy-managed or already current.
-    # skipped_native_login is NOT healthy: a revoked-but-present refresh token is
-    # indistinguishable from a live native login here, so an all-native result
-    # means every profile is unmanaged and the daemon is a silent no-op — the
-    # exact 0/N state this tool exists to fix (needs a one-time --force bootstrap).
+    # Fail loud on ANY mapped profile that is not managed/current, not only on a
+    # total outage: a partially broken pool (some synced, some stuck on
+    # native/no-source/stale/error) must not report success and hide the stuck
+    # profiles. "Healthy" = VibeProxy-managed or already current.
     _HEALTHY = {"synced", "skipped_fresh"}
     targets = [r for r in results if r.action != "skipped_native_only"]
-    if targets and not any(r.action in _HEALTHY for r in targets):
-        if all(r.action == "skipped_native_login" for r in targets):
+    unhealthy = [r for r in targets if r.action not in _HEALTHY]
+    if unhealthy:
+        if targets and all(r.action == "skipped_native_login" for r in targets):
             print(
                 "error: every mapped profile holds a native/dead refresh token and was "
                 "skipped; run once with --force to bootstrap VibeProxy-managed creds",
                 file=sys.stderr,
             )
         else:
-            print("error: no usable VibeProxy source for any mapped profile", file=sys.stderr)
+            detail = ", ".join(sorted(f"{r.profile}={r.action}" for r in unhealthy))
+            print(
+                f"error: {len(unhealthy)} mapped profile(s) not synced: {detail}", file=sys.stderr
+            )
         return 1
     return 0
 

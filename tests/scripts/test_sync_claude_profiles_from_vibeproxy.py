@@ -265,6 +265,34 @@ def test_all_native_profiles_exit_nonzero_needing_bootstrap(monkeypatch, tmp_pat
     assert "--force" in capsys.readouterr().err
 
 
+def test_unreadable_existing_credential_fails_closed(monkeypatch, tmp_path) -> None:
+    # A present-but-corrupt cred (e.g. a torn read) must fail closed, not be
+    # treated as empty (which would bypass the guard/backup and destroy a token).
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("{ this is not json", encoding="utf-8")
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "error"
+    # The unreadable file was NOT overwritten.
+    assert cred.read_text() == "{ this is not json"
+
+
+def test_partial_failure_exits_nonzero(monkeypatch, tmp_path) -> None:
+    # One profile syncs, another has no source -> the stuck profile must not be
+    # masked by the healthy one; the run fails.
+    vp_dir = tmp_path / "vp"
+    vp_dir.mkdir()
+    (vp_dir / "claude-a@e.json").write_text(json.dumps(_VP), encoding="utf-8")  # b@e absent
+    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
+    monkeypatch.setattr(sync, "ARAGORA_PROFILE_ROOT", tmp_path / "profiles")
+    cfg_path = tmp_path / "c.json"
+    cfg_path.write_text(
+        json.dumps({"sync_target": {"a@e": "max-01", "b@e": "max-02"}}), encoding="utf-8"
+    )
+    assert sync.main(["--config", str(cfg_path), "--apply"]) == 1
+
+
 def test_all_sources_stale_exits_nonzero(monkeypatch, tmp_path) -> None:
     # A stopped/crashed proxy leaves files present with expired tokens; that is
     # a total source loss and must exit non-zero, not look healthy.
