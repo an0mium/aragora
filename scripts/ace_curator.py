@@ -21,6 +21,8 @@ UTC = timezone.utc
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_CHARS = 2_000
 DEFAULT_MAX_SOURCES = 80
+SUPPORTED_INPUT_SUFFIXES = frozenset({".json", ".jsonl", ".md", ".markdown"})
+RESERVED_PLAYBOOK_MARKERS = ("ACE-CURATOR:LESSON", "ACE-CURATOR:END")
 PLAYBOOK_HEADER = """\
 # Fleet Operational Playbook
 
@@ -115,6 +117,8 @@ def redact(text: str) -> str:
 
 def _bounded_text(value: Any) -> str:
     text = redact(_single_line(value))
+    for marker in RESERVED_PLAYBOOK_MARKERS:
+        text = text.replace(marker, "[REDACTED_CURATOR_MARKER]")
     if len(text) > MAX_SOURCE_CHARS:
         return f"{text[: MAX_SOURCE_CHARS - 15]} [truncated]"
     return text
@@ -221,10 +225,14 @@ def collect_sources(paths: Sequence[Path], *, max_sources: int) -> list[SourceEn
     deduplicated: list[SourceEntry] = []
     seen_text: set[str] = set()
     for path in paths:
+        suffix = path.suffix.lower()
+        if suffix not in SUPPORTED_INPUT_SUFFIXES:
+            supported = ", ".join(sorted(SUPPORTED_INPUT_SUFFIXES))
+            raise ValueError(f"unsupported input suffix for {path}: expected one of {supported}")
         _check_readable_file(path)
-        if path.suffix == ".jsonl":
+        if suffix == ".jsonl":
             entries = _jsonl_entries(path)
-        elif path.suffix == ".json":
+        elif suffix == ".json":
             entries = _json_entries(path)
         else:
             entries = _markdown_entries(path)
@@ -453,7 +461,7 @@ def apply_decisions(
         source_ids = tuple(source_citations[identifier] for identifier in cited_ids)
 
         if action == "add":
-            stable_key = _single_line(decision.get("stable_key", "")).lower()
+            stable_key = _bounded_text(decision.get("stable_key", "")).lower()
             identifier = lesson_id(stable_key)
             index = by_key.get(stable_key, by_id.get(identifier))
             if index is None:
@@ -543,7 +551,14 @@ def main(argv: list[str] | None = None) -> int:
         result = apply_decisions(lessons, sources, decisions)
         rendered = render_playbook(result.lessons)
         changed = False if args.dry_run else write_playbook(args.output, rendered)
-    except (OSError, UnicodeError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        UnicodeError,
+        ValueError,
+        RuntimeError,
+        json.JSONDecodeError,
+        subprocess.SubprocessError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -255,6 +256,41 @@ def test_collection_applies_source_limit_after_deduplication(tmp_path: Path) -> 
     ]
 
 
+@pytest.mark.parametrize("suffix", [".json", ".jsonl", ".md", ".markdown", ".JSON"])
+def test_collection_accepts_only_documented_input_types(tmp_path: Path, suffix: str) -> None:
+    path = tmp_path / f"evidence{suffix}"
+    if suffix.lower() == ".json":
+        path.write_text(json.dumps({"summary": "bounded evidence"}), encoding="utf-8")
+    elif suffix.lower() == ".jsonl":
+        path.write_text(json.dumps({"summary": "bounded evidence"}) + "\n", encoding="utf-8")
+    else:
+        path.write_text("bounded evidence\n", encoding="utf-8")
+
+    entries = ace_curator.collect_sources([path], max_sources=10)
+    expected = (
+        ["summary: bounded evidence"]
+        if suffix.lower() in {".json", ".jsonl"}
+        else ["bounded evidence"]
+    )
+
+    assert [entry.text for entry in entries] == expected
+
+
+def test_collection_rejects_unsupported_suffix_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / ".env"
+    path.write_text("OPENAI_API_KEY=secret\n", encoding="utf-8")
+
+    def fail_read(*args, **kwargs):
+        raise AssertionError("unsupported input must not be read")
+
+    monkeypatch.setattr(Path, "read_text", fail_read)
+
+    with pytest.raises(ValueError, match="unsupported input suffix"):
+        ace_curator.collect_sources([path], max_sources=10)
+
+
 def test_playbook_round_trip_and_noop_write(tmp_path: Path) -> None:
     lesson = ace_curator.Lesson(
         id=ace_curator.lesson_id("stable"),
@@ -270,6 +306,31 @@ def test_playbook_round_trip_and_noop_write(tmp_path: Path) -> None:
     assert ace_curator.write_playbook(path, rendered) is True
     assert ace_curator.load_playbook(path) == [lesson]
     assert ace_curator.write_playbook(path, rendered) is False
+
+
+def test_model_text_cannot_inject_playbook_markers_or_secret_stable_keys(tmp_path: Path) -> None:
+    result = ace_curator.apply_decisions(
+        [],
+        [source("SRC-A")],
+        [
+            {
+                "action": "add",
+                "stable_key": "API_KEY=stableSecret ACE-CURATOR:LESSON",
+                "lesson": "Never emit ACE-CURATOR:END from model text.",
+                "reason": "ACE-CURATOR:LESSON would corrupt the next parse.",
+                "source_ids": ["SRC-A"],
+            }
+        ],
+        now="2026-07-22T00:00:00Z",
+    )
+    path = tmp_path / "playbook.md"
+    rendered = ace_curator.render_playbook(result.lessons)
+
+    assert "stableSecret" not in rendered
+    assert rendered.count("ACE-CURATOR:LESSON") == 1
+    assert rendered.count("ACE-CURATOR:END") == 1
+    assert ace_curator.write_playbook(path, rendered)
+    assert ace_curator.load_playbook(path) == list(result.lessons)
 
 
 def test_playbook_rejects_malformed_block_after_valid_block(tmp_path: Path) -> None:
@@ -392,3 +453,20 @@ def test_cli_refuses_to_overwrite_decisions_fixture(tmp_path: Path) -> None:
 
     assert rc == 2
     assert decisions.read_text(encoding="utf-8") == original
+
+
+def test_cli_reports_model_timeout_without_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(json.dumps({"summary": "bounded evidence"}) + "\n", encoding="utf-8")
+
+    def time_out(*args, **kwargs):
+        raise subprocess.TimeoutExpired("consult", 1)
+
+    monkeypatch.setattr(ace_curator, "consult_model", time_out)
+
+    rc = ace_curator.main(["--input", str(ledger), "--output", str(tmp_path / "playbook.md")])
+
+    assert rc == 2
+    assert "timed out" in capsys.readouterr().err
