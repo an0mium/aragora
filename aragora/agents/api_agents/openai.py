@@ -362,14 +362,18 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             )
             # A well-formed HTTP 200 whose body is malformed or empty is still
             # proxy unavailability: PREFER falls back, REQUIRED fails closed.
+            # Shape surprises (choices not a list, message None, content not a
+            # str) must not escape as raw TypeError/AttributeError.
             try:
                 content = self._parse_response(data)
-            except AgentAPIError as exc:
+                if not isinstance(content, str) or not content.strip():
+                    raise VibeProxyResponseError("VibeProxy returned an empty response")
+            except VibeProxyResponseError:
+                raise
+            except (AgentAPIError, TypeError, AttributeError) as exc:
                 raise VibeProxyResponseError(
                     "VibeProxy returned a malformed OpenAI response"
                 ) from exc
-            if not content or not content.strip():
-                raise VibeProxyResponseError("VibeProxy returned an empty response")
         except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
             if self._model_transport_policy.mode is TransportMode.PREFER:
                 logger.warning(
