@@ -1222,6 +1222,14 @@ def _add_ask_parser(subparsers) -> None:
         help="Generate and display decision explanation (evidence chains, vote pivots)",
     )
     ask_parser.add_argument(
+        "--crux-cards",
+        action="store_true",
+        help=(
+            "Attach crux cards (load-bearing disagreements) to the debate result "
+            "and decision receipt (sets enable_crux_cards on the protocol)"
+        ),
+    )
+    ask_parser.add_argument(
         "--preset",
         choices=[
             "sme",

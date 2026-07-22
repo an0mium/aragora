@@ -989,6 +989,13 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
 
+        # Crux cards (#8227): attached by the consensus phase when the debate
+        # ran with enable_crux_cards (--crux-cards). Only carried when items
+        # exist so flag-off receipts stay byte-identical.
+        crux_cards = metadata.get("crux_cards") if isinstance(metadata, dict) else None
+        if isinstance(crux_cards, dict) and crux_cards.get("items"):
+            receipt["cruxes"] = crux_cards
+
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]
         content_hash = hashlib.sha256(
@@ -1810,6 +1817,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
         protocol_overrides["enable_evidence_weighting"] = False
     if not getattr(args, "trending", True):
         protocol_overrides["enable_trending_injection"] = False
+    if getattr(args, "crux_cards", False):
+        # Crux cards (#8227): attach load-bearing disagreements to the debate
+        # result metadata so the decision receipt carries a cruxes block.
+        protocol_overrides["enable_crux_cards"] = True
     # Note: ELO weighting is controlled via WeightCalculatorConfig, passed via protocol
 
     # Demo mode forces local execution

@@ -237,6 +237,61 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     assert os.getenv("ARAGORA_OFFLINE") == "1"
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
+def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
+    """--crux-cards should plumb enable_crux_cards into the debate protocol."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="smoke demo",
+        agents="claude,openai",
+        rounds=5,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        crux_cards=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+    )
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+        mock_result = DebateResult(task=args.task, final_answer="demo answer", metadata={})
+        mock_run_debate.return_value = mock_result
+
+        debate_cmd.cmd_ask(args)
+
+        call_kwargs = mock_run_debate.call_args.kwargs
+        assert call_kwargs["protocol_overrides"]["enable_crux_cards"] is True
+
+
 def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
     """Demo/offline asks should not invoke provider repair agents in quality loops."""
     from aragora.cli.commands import debate as debate_cmd
