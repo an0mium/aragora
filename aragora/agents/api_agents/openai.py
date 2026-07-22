@@ -292,7 +292,10 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             # Discovery is wall-clock bounded by wait_for — covering executor
             # queue wait, not just the socket timeout — so a wedged proxy can
             # never delay PREFER-mode fallback by more than the discovery cap.
+            discovery_cap = min(remaining_timeout(), _PROXY_DISCOVERY_TIMEOUT_SECONDS)
             try:
+                # asyncio.TimeoutError is distinct from builtin TimeoutError on
+                # Python 3.10; catch both (they unify from 3.11 onward).
                 route = await asyncio.wait_for(
                     loop.run_in_executor(
                         _PROXY_EXECUTOR,
@@ -300,12 +303,12 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                             "openai",
                             self.model,
                             ("chat",),
-                            timeout=min(remaining_timeout(), _PROXY_DISCOVERY_TIMEOUT_SECONDS),
+                            timeout=discovery_cap,
                         ),
                     ),
-                    timeout=_PROXY_DISCOVERY_TIMEOUT_SECONDS,
+                    timeout=discovery_cap,
                 )
-            except TimeoutError as exc:
+            except (TimeoutError, asyncio.TimeoutError) as exc:
                 raise VibeProxyTimeoutError(
                     "VibeProxy discovery exceeded the wall-clock cap"
                 ) from exc
@@ -333,15 +336,25 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                 raise VibeProxyUnavailableError("VibeProxy client is not configured")
             proxy_payload = dict(payload)
             proxy_payload["model"] = route.resolved_model
-            data = await loop.run_in_executor(
-                _PROXY_EXECUTOR,
-                lambda: client.openai_request(
-                    protocol=OpenAIProtocol.CHAT,
-                    model=route.resolved_model,
-                    payload=proxy_payload,
+            try:
+                # The request leg is also wall-clock bounded so executor queue
+                # saturation cannot exceed the caller's timeout contract.
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        _PROXY_EXECUTOR,
+                        lambda: client.openai_request(
+                            protocol=OpenAIProtocol.CHAT,
+                            model=route.resolved_model,
+                            payload=proxy_payload,
+                            timeout=remaining_timeout(),
+                        ),
+                    ),
                     timeout=remaining_timeout(),
-                ),
-            )
+                )
+            except (TimeoutError, asyncio.TimeoutError) as exc:
+                raise VibeProxyTimeoutError(
+                    "VibeProxy OpenAI request exceeded the agent timeout"
+                ) from exc
             # A well-formed HTTP 200 whose body is malformed or empty is still
             # proxy unavailability: PREFER falls back, REQUIRED fails closed.
             try:
