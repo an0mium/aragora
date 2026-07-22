@@ -10,10 +10,13 @@ network access.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from aragora.debate.crux_mode import (
     CRUX_FINDER_ENV_VAR,
+    CruxFinderDisabledError,
     crux_finder_enabled,
     enable_crux_finder,
 )
@@ -25,8 +28,8 @@ from aragora.debate.crux_mode import (
 
 @pytest.fixture(autouse=True)
 def _isolate_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure each test starts with the flag absent from the environment."""
-    monkeypatch.delenv(CRUX_FINDER_ENV_VAR, raising=False)
+    """Disable the flag through monkeypatch so direct writes are restored."""
+    monkeypatch.setenv(CRUX_FINDER_ENV_VAR, "0")
 
 
 # ---------------------------------------------------------------------------
@@ -34,8 +37,9 @@ def _isolate_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_flag_off_by_default() -> None:
+def test_flag_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """``crux_finder_enabled()`` must return False when the env var is absent."""
+    monkeypatch.delenv(CRUX_FINDER_ENV_VAR)
     assert not crux_finder_enabled()
 
 
@@ -58,6 +62,18 @@ def test_enable_function_activates_flag() -> None:
     assert crux_finder_enabled()
 
 
+def test_enable_function_environment_write_is_restored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A scoped monkeypatch restores direct writes made by the enable helper."""
+    monkeypatch.setenv(CRUX_FINDER_ENV_VAR, "external-value")
+
+    with monkeypatch.context() as scoped:
+        scoped.setenv(CRUX_FINDER_ENV_VAR, "0")
+        enable_crux_finder()
+        assert crux_finder_enabled()
+
+    assert os.environ[CRUX_FINDER_ENV_VAR] == "external-value"
+
+
 def test_env_var_name_is_stable() -> None:
     """Constant must not drift — downstream tooling hard-codes this name."""
     assert CRUX_FINDER_ENV_VAR == "ARAGORA_CRUX_FINDER_ENABLED"
@@ -73,17 +89,13 @@ def test_flag_symbols_exported_in_all() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. Consensus-phase flag-off fallback
+# 2. Consensus-phase flag-off failure
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_flag_off_falls_back_to_majority_with_metadata(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """When the flag is absent the handler must fall back to majority and record
-    a machine-readable ``crux_finder_skipped_reason`` in result.metadata.
-    """
+async def test_flag_off_raises_typed_error_without_majority_fallback() -> None:
+    """A disabled explicit mode request must not silently produce a verdict."""
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
@@ -115,18 +127,15 @@ async def test_flag_off_falls_back_to_majority_with_metadata(
     phase.hooks = {}
     phase._handle_majority_consensus = AsyncMock()  # type: ignore[method-assign]
 
-    await phase._execute_consensus(ctx, "crux_finder")  # type: ignore[arg-type]
+    with pytest.raises(CruxFinderDisabledError, match=CRUX_FINDER_ENV_VAR):
+        await phase._execute_consensus(ctx, "crux_finder")  # type: ignore[arg-type]
 
-    assert result.metadata["crux_finder_skipped_reason"] == "flag_disabled"
-    assert result.metadata["crux_finder_fallback_consensus"] == "majority"
-    phase._handle_majority_consensus.assert_awaited_once_with(ctx)
+    phase._handle_majority_consensus.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_flag_off_leaves_consensus_proof_untouched(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """With the flag off, the handler must not write a crux_finder proof."""
+async def test_flag_off_error_escapes_consensus_phase() -> None:
+    """The phase wrapper must preserve the typed error for library callers."""
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
@@ -147,9 +156,12 @@ async def test_flag_off_leaves_consensus_proof_untouched(
     ctx = SimpleNamespace(
         env=SimpleNamespace(task="q"),
         agents=[],
+        proposals={},
         result=result,
         debate_id="d-no-proof",
         belief_network=None,
+        cancellation_token=None,
+        hook_manager=None,
     )
 
     phase = ConsensusPhase.__new__(ConsensusPhase)
@@ -158,9 +170,25 @@ async def test_flag_off_leaves_consensus_proof_untouched(
     phase.hooks = {}
     phase._handle_majority_consensus = AsyncMock()  # type: ignore[method-assign]
 
-    await phase._execute_consensus(ctx, "crux_finder")  # type: ignore[arg-type]
+    with pytest.raises(CruxFinderDisabledError, match=CRUX_FINDER_ENV_VAR):
+        await phase.execute(ctx)  # type: ignore[arg-type]
 
-    assert result.consensus_proof is None, (
-        "Flag-off must not write a crux_finder proof; "
-        "downstream consumers must not see a __CRUX_MAP__ sentinel."
-    )
+    phase._handle_majority_consensus.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_flag_off_arena_fails_before_debate_execution() -> None:
+    """Library callers must fail before any provider-backed debate work starts."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from aragora.debate.orchestrator import Arena
+
+    arena = Arena.__new__(Arena)
+    arena.protocol = SimpleNamespace(consensus="crux_finder")
+    arena._run_inner = AsyncMock()  # type: ignore[method-assign]
+
+    with pytest.raises(CruxFinderDisabledError, match=CRUX_FINDER_ENV_VAR):
+        await arena.run()
+
+    arena._run_inner.assert_not_awaited()

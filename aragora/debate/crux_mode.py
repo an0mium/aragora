@@ -36,6 +36,10 @@ CRUX_FINDER_ENV_VAR = "ARAGORA_CRUX_FINDER_ENABLED"
 _TRUTHY = {"1", "true", "yes", "on"}
 
 
+class CruxFinderDisabledError(RuntimeError):
+    """Raised when a caller requests crux-finder while its gate is disabled."""
+
+
 def crux_finder_enabled() -> bool:
     """Return True when the crux_finder consensus mode is active.
 
@@ -47,6 +51,15 @@ def crux_finder_enabled() -> bool:
     """
     raw = str(os.environ.get(CRUX_FINDER_ENV_VAR) or "").strip().lower()
     return raw in _TRUTHY
+
+
+def require_crux_finder_enabled() -> None:
+    """Fail closed instead of silently degrading a requested crux-finder run."""
+    if not crux_finder_enabled():
+        raise CruxFinderDisabledError(
+            "crux_finder consensus mode is disabled; set "
+            f"{CRUX_FINDER_ENV_VAR}=1 before requesting this mode"
+        )
 
 
 def enable_crux_finder() -> None:
@@ -170,8 +183,10 @@ def build_crux_finder_result(
 __all__ = [
     "CRUX_FINDER_ENV_VAR",
     "CRUX_MAP_SENTINEL",
+    "CruxFinderDisabledError",
     "CruxFinderResult",
     "build_crux_finder_result",
     "crux_finder_enabled",
     "enable_crux_finder",
+    "require_crux_finder_enabled",
 ]
