@@ -1794,6 +1794,8 @@ def _run_live_verification(
         payload = json.loads(raw, object_pairs_hook=_duplicate_key_object)
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"{resource} returned malformed JSON: {exc}") from exc
+    if not payload:
+        raise ValueError(f"{resource} returned empty verification JSON")
     identity = {
         "byte_length": len(raw),
         "sha256": _sha256_bytes(raw),
@@ -2276,6 +2278,7 @@ def _collect_live_evidence(
     if not isinstance(governed, list) or not isinstance(receipts, list):
         raise ValueError("capsule governed PR or receipt records are malformed")
     receipt_by_pr = {item.get("pr"): item for item in receipts if isinstance(item, dict)}
+    authenticated_pr_changes: dict[int, dict[str, int]] = {}
     for record in governed:
         if not isinstance(record, dict) or not isinstance(record.get("pr"), int):
             raise ValueError("capsule governed PR record is malformed")
@@ -2296,6 +2299,23 @@ def _collect_live_evidence(
             or observed_pr.get("merge_commit_sha") != receipt_by_pr.get(number, {}).get("merge_sha")
         ):
             raise ValueError(f"authenticated governed PR #{number} contradicts capsule evidence")
+        additions = observed_pr.get("additions")
+        deletions = observed_pr.get("deletions")
+        if (
+            isinstance(additions, bool)
+            or not isinstance(additions, int)
+            or additions < 0
+            or isinstance(deletions, bool)
+            or not isinstance(deletions, int)
+            or deletions < 0
+        ):
+            raise ValueError(
+                f"authenticated governed PR #{number} additions/deletions are malformed"
+            )
+        authenticated_pr_changes[number] = {
+            "additions": additions,
+            "deletions": deletions,
+        }
         files, file_identities = _gh_api_paginated(
             f"repos/{github_repository}/pulls/{number}/files",
             operation_log=operation_log,
@@ -2377,6 +2397,7 @@ def _collect_live_evidence(
         },
         {
             "asset_identities": asset_identities,
+            "authenticated_pr_changes": authenticated_pr_changes,
             "endpoint_identities": endpoint_identities,
             "github_repository": github_repository,
             "local_asset_identities": local_asset_identities,
@@ -2811,6 +2832,7 @@ def _validate_sdk_paydown(
     boundary: str,
     chronology: dict[str, str],
     canonical_artifacts: dict[str, Any],
+    governed_prs: list[dict[str, Any]],
     repo_root: Path,
     operation_log: list[dict[str, Any]],
 ) -> list[str]:
@@ -2866,6 +2888,15 @@ def _validate_sdk_paydown(
     max_pr_delta = paydown_fact.get("max_pr_delta")
     if not isinstance(max_pr_delta, int) or not (0 < max_pr_delta <= 800):
         raise ValueError(f"{boundary} violates the per-PR size cap")
+    boundary_prs = [
+        record for record in governed_prs if record.get("head_sha") == paydown_fact["boundary_sha"]
+    ]
+    if len(boundary_prs) != 1:
+        raise ValueError(f"{boundary} paydown does not identify exactly one governed PR")
+    if boundary_prs[0].get("authenticated_pr_delta") != max_pr_delta:
+        raise ValueError(
+            f"{boundary} paydown max_pr_delta does not match authenticated live PR data"
+        )
     zero_schema = (
         "contract-drift-zero-core-debt-fact-v1"
         if boundary == "core_sdk"
@@ -3106,6 +3137,7 @@ def _validate_durable_capsule(
 def _validate_governed_prs(
     resource: dict[str, Any],
     *,
+    authenticated_pr_changes: dict[int, dict[str, int]],
     repo_root: Path,
     operation_log: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -3118,6 +3150,7 @@ def _validate_governed_prs(
     if not isinstance(records, list) or not records:
         raise ValueError("governed PR evidence is missing")
     seen: set[int] = set()
+    validated: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
             raise ValueError("governed PR record is malformed")
@@ -3151,8 +3184,37 @@ def _validate_governed_prs(
             record.get("changed_files_complete"),
             label=f"governed PR #{number} file discovery",
         )
+        changes = authenticated_pr_changes.get(number)
+        if not isinstance(changes, dict):
+            raise ValueError(f"governed PR #{number} lacks authenticated additions/deletions")
+        additions = changes.get("additions")
+        deletions = changes.get("deletions")
+        if (
+            isinstance(additions, bool)
+            or not isinstance(additions, int)
+            or additions < 0
+            or isinstance(deletions, bool)
+            or not isinstance(deletions, int)
+            or deletions < 0
+        ):
+            raise ValueError(
+                f"governed PR #{number} authenticated additions/deletions are malformed"
+            )
+        pr_delta = additions + deletions
+        if pr_delta > 800:
+            raise ValueError(f"governed PR #{number} exceeds the 800-line cap")
+        validated.append(
+            {
+                **record,
+                "authenticated_additions": additions,
+                "authenticated_deletions": deletions,
+                "authenticated_pr_delta": pr_delta,
+            }
+        )
         seen.add(number)
-    return records
+    if set(authenticated_pr_changes) != seen:
+        raise ValueError("authenticated governed PR additions/deletions do not reconcile")
+    return validated
 
 
 def _validate_first_parent_receipts(
@@ -3294,6 +3356,7 @@ def _evaluate_boundary_evidence(
     end_sha: str,
     authority: dict[str, Any],
     canonical_artifacts: dict[str, Any],
+    authenticated_pr_changes: dict[int, dict[str, int]],
     operation_log: list[dict[str, Any]],
 ) -> dict[str, Any]:
     chronology = _validate_boundary_chronology(
@@ -3311,6 +3374,7 @@ def _evaluate_boundary_evidence(
     )
     governed_prs = _validate_governed_prs(
         resources["governed_prs"],
+        authenticated_pr_changes=authenticated_pr_changes,
         repo_root=repo_root,
         operation_log=operation_log,
     )
@@ -3349,6 +3413,7 @@ def _evaluate_boundary_evidence(
                 boundary=name,
                 chronology=chronology,
                 canonical_artifacts=canonical_artifacts,
+                governed_prs=governed_prs,
                 repo_root=repo_root,
                 operation_log=operation_log,
             )
@@ -3634,6 +3699,9 @@ def build_boundary_result(
         )
         if not isinstance(before_evidence, dict):
             raise ValueError("authenticated evidence before-snapshot is malformed")
+        authenticated_pr_changes = live_context.get("authenticated_pr_changes")
+        if not isinstance(authenticated_pr_changes, dict):
+            raise ValueError("authenticated governed PR additions/deletions are unavailable")
         result["remote_snapshot_before"] = _record_remote_snapshot(
             operation_log,
             label="before",
@@ -3649,6 +3717,7 @@ def build_boundary_result(
             end_sha=end_sha,
             authority=authority,
             canonical_artifacts=artifacts,
+            authenticated_pr_changes=authenticated_pr_changes,
             operation_log=operation_log,
         )
         result.update(evaluation)
@@ -3709,7 +3778,7 @@ def build_boundary_result(
                     repo_root,
                     operation_log,
                 )
-            except (ValueError, OSError):
+            except Exception:
                 pass
     except (ValueError, OSError, inventory_mod.AuthorityClosureError) as exc:
         result.update(
@@ -3729,12 +3798,32 @@ def build_boundary_result(
                     repo_root,
                     operation_log,
                 )
-            except (ValueError, OSError):
+            except Exception:
                 pass
-    finalized = _finalize_boundary_result(result)
-    if private_scratch is not None:
-        private_scratch.cleanup()
-    return finalized
+    except Exception as exc:
+        result.update(
+            {
+                "error": f"unexpected boundary exception: {type(exc).__name__}",
+                "error_code": "boundary_unexpected_exception",
+                "passing": False,
+                "status": "fail",
+            }
+        )
+        remote_snapshots = _remote_snapshots_from_log(operation_log)
+        if remote_snapshots is not None and "remote_snapshot_before" not in result:
+            result["remote_snapshot_before"], result["remote_snapshot_after"] = remote_snapshots
+        if before_snapshot is not None and "local_snapshot_after" not in result:
+            try:
+                result["local_snapshot_after"] = _snapshot_repository(
+                    repo_root,
+                    operation_log,
+                )
+            except Exception:
+                pass
+    finally:
+        if private_scratch is not None:
+            private_scratch.cleanup()
+    return _finalize_boundary_result(result)
 
 
 def _load_json_strict(path: Path, label: str) -> dict[str, Any]:

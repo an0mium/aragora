@@ -1882,6 +1882,8 @@ def _stub_boundary_evidence_index(
     index_path: Path,
     index_length: int,
     index_sha256: str,
+    pr_additions: int = 400,
+    pr_deletions: int = 400,
 ) -> None:
     state: dict[str, dict[str, Any]] = {}
 
@@ -1902,7 +1904,22 @@ def _stub_boundary_evidence_index(
             operation_log=kwargs["operation_log"],
         )
         state["summary"] = summary
-        return resources, summary, {"fixture_evidence_index": True}
+        governed = resources["governed_prs"]["records"]
+        authenticated_pr_changes = {
+            record["pr"]: {
+                "additions": pr_additions,
+                "deletions": pr_deletions,
+            }
+            for record in governed
+        }
+        return (
+            resources,
+            summary,
+            {
+                "authenticated_pr_changes": authenticated_pr_changes,
+                "fixture_evidence_index": True,
+            },
+        )
 
     def reauthenticate(
         _context: dict[str, Any],
@@ -1928,6 +1945,8 @@ def _boundary_result(
     *,
     release_immutability: bool = True,
     mutate: Any | None = None,
+    pr_additions: int = 400,
+    pr_deletions: int = 400,
 ) -> dict[str, Any]:
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas[boundary]
@@ -1947,6 +1966,8 @@ def _boundary_result(
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
+        pr_additions=pr_additions,
+        pr_deletions=pr_deletions,
     )
     return ratchet.build_boundary_result(
         repo_root=repo,
@@ -2144,8 +2165,10 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         elif endpoint.endswith("/pulls/9999"):
             body = ratchet._canonical_json_bytes(
                 {
+                    "additions": 400,
                     "base": {"sha": start_sha},
                     "changed_files": 1,
+                    "deletions": 400,
                     "head": {"sha": end_sha},
                     "merge_commit_sha": end_sha,
                     "merged_at": "2026-07-20T00:00:00Z",
@@ -2199,6 +2222,141 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     assert len(authority_reads) == 2
     assert authority_reads[0]["byte_length"] > 0
     assert authority_reads[0]["sha256"] == authority_reads[1]["sha256"]
+
+
+def test_original_cohort_descriptor_is_immutable_across_authority_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    cohort_path, provenance_path = _write_synthetic_canonical_artifacts(
+        tmp_path,
+        monkeypatch,
+    )
+    original_raw = cohort_path.read_bytes()
+
+    def authenticate() -> dict[str, Any]:
+        return ratchet._authenticate_canonical_artifacts(
+            repo_root=tmp_path,
+            cohort_artifact_path=cohort_path,
+            sdk_provenance_artifact_path=provenance_path,
+            scratch_root=tmp_path,
+            operation_log=[],
+        )
+
+    def bind_cohort(raw: bytes) -> None:
+        cohort_path.write_bytes(raw)
+        monkeypatch.setitem(ratchet.COHORT_ARTIFACT, "byte_length", len(raw))
+        monkeypatch.setitem(
+            ratchet.COHORT_ARTIFACT,
+            "sha256",
+            hashlib.sha256(raw).hexdigest(),
+        )
+
+    with pytest.raises(ValueError, match="byte-length mismatch"):
+        cohort_path.write_bytes(original_raw + b" ")
+        authenticate()
+
+    cohort_path.write_bytes(original_raw.replace(b'"fixture"', b'"fixturx"', 1))
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        authenticate()
+
+    cohort = json.loads(original_raw)
+    cohort["original_record_id_set"]["sha256"] = "0" * 64
+    bind_cohort(ratchet._canonical_json_bytes(cohort, terminal_lf=True))
+    with pytest.raises(ValueError, match="original-record ID-set digest mismatch"):
+        authenticate()
+
+    cohort = json.loads(original_raw)
+    cohort["original_records"][1] = copy.deepcopy(cohort["original_records"][0])
+    bind_cohort(ratchet._canonical_json_bytes(cohort, terminal_lf=True))
+    with pytest.raises(ValueError, match="duplicate original record IDs"):
+        authenticate()
+
+
+def test_canonical_cohort_and_provenance_artifacts_are_in_authority_closure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    cohort_path, provenance_path = _write_synthetic_canonical_artifacts(
+        tmp_path,
+        monkeypatch,
+    )
+    original_raw = provenance_path.read_bytes()
+    provenance = json.loads(original_raw)
+    provenance["records"][1] = copy.deepcopy(provenance["records"][0])
+    duplicate_raw = ratchet._canonical_json_bytes(provenance, terminal_lf=True)
+    provenance_path.write_bytes(duplicate_raw)
+    monkeypatch.setitem(ratchet.PROVENANCE_ARTIFACT, "byte_length", len(duplicate_raw))
+    monkeypatch.setitem(
+        ratchet.PROVENANCE_ARTIFACT,
+        "sha256",
+        hashlib.sha256(duplicate_raw).hexdigest(),
+    )
+
+    with pytest.raises(ValueError, match="does not biject"):
+        ratchet._authenticate_canonical_artifacts(
+            repo_root=tmp_path,
+            cohort_artifact_path=cohort_path,
+            sdk_provenance_artifact_path=provenance_path,
+            scratch_root=tmp_path,
+            operation_log=[],
+        )
+
+    provenance_path.write_bytes(original_raw)
+    monkeypatch.setitem(ratchet.PROVENANCE_ARTIFACT, "byte_length", len(original_raw))
+    monkeypatch.setitem(
+        ratchet.PROVENANCE_ARTIFACT,
+        "sha256",
+        hashlib.sha256(original_raw).hexdigest(),
+    )
+    source_repo = Path(__file__).resolve().parents[2]
+    end_sha = subprocess.check_output(
+        ["git", "-C", str(source_repo), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    captured: dict[str, Any] = {}
+    original_build = ratchet.inventory_mod.build_authority_manifest
+
+    def capture_manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        manifest = original_build(*args, **kwargs)
+        captured["manifest"] = manifest
+        return manifest
+
+    monkeypatch.setattr(
+        ratchet.inventory_mod,
+        "build_authority_manifest",
+        capture_manifest,
+    )
+    ratchet._authenticate_authority_manifest(
+        repo_root=source_repo,
+        end_sha=end_sha,
+        authority_manifest_path=None,
+        authority_manifest_byte_length=None,
+        authority_manifest_sha256=None,
+        cohort_artifact_path=cohort_path,
+        sdk_provenance_artifact_path=provenance_path,
+        scratch_root=tmp_path,
+        operation_log=[],
+    )
+
+    external_artifacts = captured["manifest"]["inventory"]["external_artifacts"]
+    assert external_artifacts == sorted(
+        [
+            {
+                "byte_length": cohort_path.stat().st_size,
+                "canonical_bytes": True,
+                "path": cohort_path.name,
+                "sha256": hashlib.sha256(cohort_path.read_bytes()).hexdigest(),
+            },
+            {
+                "byte_length": provenance_path.stat().st_size,
+                "canonical_bytes": True,
+                "path": provenance_path.name,
+                "sha256": hashlib.sha256(provenance_path.read_bytes()).hexdigest(),
+            },
+        ],
+        key=lambda item: item["path"],
+    )
 
 
 def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_before_semantic_digest(
@@ -2547,6 +2705,42 @@ def test_boundary_status_fail_covers_malformed_false_missing_bypass_and_mutation
         assert not result["passing"]
 
 
+@pytest.mark.parametrize(
+    ("pr_additions", "pr_deletions", "max_pr_delta", "expected_error"),
+    (
+        pytest.param(401, 400, 800, "exceeds the 800-line cap", id="live-pr-over-cap"),
+        pytest.param(400, 400, 799, "max_pr_delta", id="paydown-max-mismatch"),
+    ),
+)
+def test_paydown_pr_delta_is_authenticated_and_bounded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    pr_additions: int,
+    pr_deletions: int,
+    max_pr_delta: int,
+    expected_error: str,
+):
+    def mutate(payloads: dict[str, dict[str, Any]]) -> None:
+        paydown = payloads["core_sdk"]["qualifying_paydown"]
+        paydown["fact"]["max_pr_delta"] = max_pr_delta
+        paydown["sha256"] = ratchet._fact_digest(
+            "contract-drift-core-sdk-paydown-fact-v1",
+            paydown["fact"],
+        )
+
+    result = _boundary_result(
+        tmp_path,
+        monkeypatch,
+        "core_sdk",
+        mutate=mutate,
+        pr_additions=pr_additions,
+        pr_deletions=pr_deletions,
+    )
+
+    assert result["status"] == "fail"
+    assert expected_error in result["error"]
+
+
 def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2891,6 +3085,45 @@ def test_boundary_uses_private_scratch_child_and_removes_it(
     assert not private_root.exists()
 
 
+def test_unexpected_boundary_exception_fails_closed_and_cleans_private_scratch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path / "repo")
+    observed: dict[str, Path] = {}
+    original_temporary_directory = ratchet.tempfile.TemporaryDirectory
+
+    def tracking_temporary_directory(*args: Any, **kwargs: Any) -> Any:
+        directory = original_temporary_directory(*args, **kwargs)
+        observed["scratch_root"] = Path(directory.name)
+        return directory
+
+    monkeypatch.setattr(
+        ratchet.tempfile,
+        "TemporaryDirectory",
+        tracking_temporary_directory,
+    )
+    monkeypatch.setattr(
+        ratchet,
+        "_snapshot_repository",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("hostile boundary crash")),
+    )
+
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=start_sha,
+        end_ref=boundary_shas["corrective_bootstrap"],
+        scratch_root=tmp_path,
+    )
+
+    assert result["status"] == "fail"
+    assert result["error_code"] == "boundary_unexpected_exception"
+    assert result["error"] == "unexpected boundary exception: RuntimeError"
+    assert not observed["scratch_root"].exists()
+
+
 @pytest.mark.parametrize(
     ("wrong_first_parent", "expected_error"),
     (
@@ -3011,8 +3244,10 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
             return {"id": 987654, "result": "pass"}, identity
         if endpoint.endswith("/pulls/9999"):
             return {
+                "additions": 400,
                 "base": {"sha": "f" * 40},
                 "changed_files": 1,
+                "deletions": 400,
                 "head": {"sha": end_sha},
                 "merge_commit_sha": end_sha,
                 "merged_at": "2026-07-20T00:00:00Z",
@@ -3111,6 +3346,71 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         for argv, _identity, _resource in context["verification_commands"]
         if argv[1:3] == ["attestation", "verify"]
     )
+
+
+def test_live_verification_rejects_falsey_json_for_initial_and_replay_commands(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    end_sha = "1" * 40
+    commands = (
+        [
+            "gh",
+            "release",
+            "verify-asset",
+            end_sha,
+            str(tmp_path / "asset.json"),
+            "-R",
+            "synaptent/aragora",
+            "--format",
+            "json",
+        ],
+        ratchet._attestation_verify_argv(
+            tmp_path / "asset.json",
+            github_repository="synaptent/aragora",
+            end_sha=end_sha,
+        ),
+    )
+    for raw in (b"null", b"{}", b"[]", b"false", b'""', b"0"):
+        monkeypatch.setattr(
+            ratchet,
+            "_run_read_only",
+            lambda argv, **_kwargs: subprocess.CompletedProcess(
+                argv,
+                0,
+                stdout=raw,
+                stderr=b"",
+            ),
+        )
+        for argv in commands:
+            with pytest.raises(ValueError, match="returned empty verification JSON"):
+                ratchet._run_live_verification(
+                    argv,
+                    operation_log=[],
+                    resource="initial-verification",
+                )
+            context = {
+                "asset_identities": {},
+                "endpoint_identities": {},
+                "github_repository": "synaptent/aragora",
+                "local_asset_identities": {},
+                "verification_commands": [
+                    (
+                        argv,
+                        {
+                            "byte_length": len(raw),
+                            "sha256": hashlib.sha256(raw).hexdigest(),
+                        },
+                        "replay-verification",
+                    )
+                ],
+            }
+            with pytest.raises(ValueError, match="returned empty verification JSON"):
+                ratchet._reauthenticate_live_context(
+                    context,
+                    operation_log=[],
+                    end_sha=end_sha,
+                )
 
 
 @pytest.mark.parametrize("source_digest", (None, "0" * 40))
