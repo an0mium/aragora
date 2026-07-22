@@ -1,9 +1,9 @@
 """Focused guards for the Contract Drift measurement-authority Tier-4 constants.
 
-The historical PR-scope regressions intentionally require a full Git checkout.
-Their purpose is to authenticate immutable before/head/squash objects, so missing
-objects are a failed proof rather than a reason to skip a maintained exact-name
-governance test.
+The historical PR-scope regressions intentionally require a full Git checkout of
+the default-branch history. Their purpose is to authenticate immutable
+before/squash objects, so missing objects are a failed proof rather than a reason
+to skip a maintained exact-name governance test.
 """
 
 from __future__ import annotations
@@ -46,11 +46,11 @@ UNRELATED_SIBLING_PATHS = (
 FILE_ROOT_SUFFIXES = (".bak", ".old", ".pyx", "/child", "x")
 
 CLASSIFIER_BASE = "bf4e49c60b357b80f2bee5956f84570d0f9b140a"
-CLASSIFIER_HEAD = "1286508b40ea0d8c7ae8ea6071bd2b65b7065976"
 CLASSIFIER_MERGE = "ee686e9d116c704ede146a6ec69dfe013b6c32be"
+CLASSIFIER_TREE = "0d50965a26df2b88b8cb9bc29b70156e2d9ce006"
 MATCHER_BASE = "6137552e4419862b895b096eef1ae36ff8ad210a"
-MATCHER_HEAD = "0c817337b4bf1b4d07332614de7eb5235f02ee9d"
 MATCHER_MERGE = "e8a0d165242737d3226b6d3360aa9e8ec014fd75"
+MATCHER_TREE = "65c567a51ed4d19d411b9f874163e8a39675d396"
 STAGE1_MERGE = "9482fc2dffdb6425d2405389c13f46d5954ac467"
 
 
@@ -334,7 +334,7 @@ def test_classifier_pr_changes_are_constants_only() -> None:
     review_queue_path = "aragora/cli/commands/review_queue.py"
     merge_train_path = "scripts/tier4_merge_train.py"
 
-    assert _changed_files(repo_root, CLASSIFIER_BASE, CLASSIFIER_HEAD) == {
+    assert _changed_files(repo_root, CLASSIFIER_BASE, CLASSIFIER_MERGE) == {
         review_queue_path,
         merge_train_path,
         "tests/governance/test_contract_drift_measurement_authority_tier.py",
@@ -344,18 +344,18 @@ def test_classifier_pr_changes_are_constants_only() -> None:
         "merge-base",
         "--is-ancestor",
         CLASSIFIER_BASE,
-        CLASSIFIER_HEAD,
+        CLASSIFIER_MERGE,
     )
     assert (
         _git_text(repo_root, "show", "-s", "--format=%P", CLASSIFIER_MERGE).strip()
         == CLASSIFIER_BASE
     )
-    assert _git_text(repo_root, "rev-parse", f"{CLASSIFIER_HEAD}^{{tree}}") == _git_text(
-        repo_root, "rev-parse", f"{CLASSIFIER_MERGE}^{{tree}}"
+    assert (
+        _git_text(repo_root, "rev-parse", f"{CLASSIFIER_MERGE}^{{tree}}").strip() == CLASSIFIER_TREE
     )
 
     review_base = _source_at_ref(repo_root, CLASSIFIER_BASE, review_queue_path)
-    review_head = _source_at_ref(repo_root, CLASSIFIER_HEAD, review_queue_path)
+    review_head = _source_at_ref(repo_root, CLASSIFIER_MERGE, review_queue_path)
     _assert_only_assignments_changed(
         review_base,
         review_head,
@@ -372,7 +372,7 @@ def test_classifier_pr_changes_are_constants_only() -> None:
     )
 
     train_base = _source_at_ref(repo_root, CLASSIFIER_BASE, merge_train_path)
-    train_head = _source_at_ref(repo_root, CLASSIFIER_HEAD, merge_train_path)
+    train_head = _source_at_ref(repo_root, CLASSIFIER_MERGE, merge_train_path)
     _assert_only_assignments_changed(
         train_base,
         train_head,
@@ -397,14 +397,12 @@ def test_matcher_repair_preserves_eight_constants_and_single_line_authority_tupl
         "aragora/cli/commands/review_queue.py",
         "scripts/tier4_merge_train.py",
     )
-    refs = (MATCHER_BASE, MATCHER_HEAD, MATCHER_MERGE, STAGE1_MERGE)
+    refs = (MATCHER_BASE, MATCHER_MERGE, STAGE1_MERGE)
 
     _git_text(repo_root, "merge-base", "--is-ancestor", CLASSIFIER_MERGE, MATCHER_BASE)
     _git_text(repo_root, "merge-base", "--is-ancestor", MATCHER_MERGE, STAGE1_MERGE)
     assert _git_text(repo_root, "show", "-s", "--format=%P", MATCHER_MERGE).strip() == MATCHER_BASE
-    assert _git_text(repo_root, "rev-parse", f"{MATCHER_HEAD}^{{tree}}") == _git_text(
-        repo_root, "rev-parse", f"{MATCHER_MERGE}^{{tree}}"
-    )
+    assert _git_text(repo_root, "rev-parse", f"{MATCHER_MERGE}^{{tree}}").strip() == MATCHER_TREE
 
     for path in paths:
         sources = {ref: _source_at_ref(repo_root, ref, path) for ref in refs}
@@ -438,17 +436,19 @@ def test_matcher_repair_has_no_parser_dispatch_handler_or_settlement_scope() -> 
     merge_train_path = "scripts/tier4_merge_train.py"
     parser_path = "aragora/cli/parser.py"
 
-    assert _changed_files(repo_root, MATCHER_BASE, MATCHER_HEAD) == {
+    assert _changed_files(repo_root, MATCHER_BASE, MATCHER_MERGE) == {
         review_queue_path,
         "tests/governance/test_contract_drift_measurement_authority_tier.py",
         "tests/scripts/test_tier4_merge_train.py",
     }
-    _git_text(repo_root, "merge-base", "--is-ancestor", MATCHER_BASE, MATCHER_HEAD)
+    _git_text(repo_root, "merge-base", "--is-ancestor", MATCHER_BASE, MATCHER_MERGE)
     _git_text(repo_root, "merge-base", "--is-ancestor", CLASSIFIER_MERGE, MATCHER_BASE)
     _git_text(repo_root, "merge-base", "--is-ancestor", MATCHER_MERGE, STAGE1_MERGE)
+    assert _git_text(repo_root, "show", "-s", "--format=%P", MATCHER_MERGE).strip() == MATCHER_BASE
+    assert _git_text(repo_root, "rev-parse", f"{MATCHER_MERGE}^{{tree}}").strip() == MATCHER_TREE
 
     review_base = _source_at_ref(repo_root, MATCHER_BASE, review_queue_path)
-    review_head = _source_at_ref(repo_root, MATCHER_HEAD, review_queue_path)
+    review_head = _source_at_ref(repo_root, MATCHER_MERGE, review_queue_path)
     assert _without_top_level_functions(
         review_base, {"_matches_prefix"}
     ) == _without_top_level_functions(review_head, {"_matches_prefix"})
@@ -456,10 +456,10 @@ def test_matcher_repair_has_no_parser_dispatch_handler_or_settlement_scope() -> 
         review_head, "_matches_prefix"
     )
     assert _source_at_ref(repo_root, MATCHER_BASE, merge_train_path) == _source_at_ref(
-        repo_root, MATCHER_HEAD, merge_train_path
+        repo_root, MATCHER_MERGE, merge_train_path
     )
     assert _source_at_ref(repo_root, MATCHER_BASE, parser_path) == _source_at_ref(
-        repo_root, MATCHER_HEAD, parser_path
+        repo_root, MATCHER_MERGE, parser_path
     )
 
 
