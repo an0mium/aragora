@@ -87,7 +87,7 @@ review the exact PR head, but never merge it.
 - [x] Execution log initialized with the batch contract and preflight evidence
 - [x] Dedicated branch and worktree created from exact remote main
 - [x] Ownership registry and strict branch lease claimed; no resource conflict found
-- [ ] Draft PR opened and recorded
+- [x] Draft PR #9484 opened and recorded
 - [x] Preflight reproduced the exact high-severity audit finding
 - [x] Run controls and non-negotiables recorded; the hard stop is removed
 - [x] Stop Gate initialized with `Stop allowed right now: no` for launched execution; the staging-only handoff gate above is yes
@@ -95,13 +95,13 @@ review the exact PR head, but never merge it.
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** Launch-ready
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** Exact-main baseline reproduced the indirect sharp high-severity audit failure and the isolated lane was claimed.
+**What was just finished:** The exact-main baseline and frontend gates passed as expected, and draft PR #9484 now holds the complete run packet.
 
-**Single next action:** Commit and push the run packet, open the draft PR, record its number, and stop with the fresh launch prompt.
+**Single next action:** Receive the fresh launch command, set the execution Stop Gate to no, and begin Batch 1 from the recorded exact head.
 
 ## Active Compute
 
@@ -169,7 +169,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Learnings:** `docs/elves/npm-sharp-remediation-20260722/learnings.md`
 - **Execution log:** `docs/elves/npm-sharp-remediation-20260722/execution-log.md`
 - **Branch:** `codex/npm-sharp-security-remediation`
-- **PR number:** pending staging push
+- **PR number:** #9484
 - **Plan hash at session start:** `f5004e755589e3d26f3df68a22cd3faf`
 
 ## After Any Compaction

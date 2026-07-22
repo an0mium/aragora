@@ -2,25 +2,25 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-22 01:20 CDT
-- **Current phase:** Staging
+- **Last updated:** 2026-07-22 01:29 CDT
+- **Current phase:** Launch-ready
 - **Active batch:** Batch 1: Prove and remediate the sharp advisory
 - **Last completed batch:** none yet
 - **Next exact batch:** Batch 1 after a fresh launch call
-- **Active PR:** not created yet
+- **Active PR:** #9484
 - **Docs promoted this run:** `docs/elves/npm-sharp-remediation-20260722/learnings.md`
 - **Latest Elves Report:** not generated yet
 
 ## Session Setup: 2026-07-22 01:20 CDT
 
-**Phase:** Staging in progress
+**Phase:** Staging complete
 **Plan:** `docs/plans/npm-sharp-security-remediation-20260722.md`
 **Survival guide:** `docs/elves/npm-sharp-remediation-20260722/survival-guide.md`
 **Learnings:** `docs/elves/npm-sharp-remediation-20260722/learnings.md`
 **Execution log:** `docs/elves/npm-sharp-remediation-20260722/execution-log.md`
 **Durable docs manifest:** `.ai-docs/manifest.md` if present
 **Branch:** `codex/npm-sharp-security-remediation`
-**PR:** not created yet
+**PR:** #9484
 **Run mode:** finite | **User returns:** not specified
 **Checkpoint semantics:** none | **Actual stop conditions:** batch and final readiness complete, explicit user stop, or true blocker
 **Active compute at launch:** none
@@ -62,10 +62,17 @@
 - Elves install doctor: WARN; installed v1.12.0 reports v2.11.0 available. No skill
   update was attempted during this repo run.
 
-**Launch readiness:** pending draft PR and final staging-state update
+**Launch readiness:** READY
 
-**Launch prompt:** pending PR creation; final prompt will point to the survival guide
-and preserve the separate-authorization boundary around PR #9477.
+**Launch prompt:**
+
+> The run is staged. Start now.
+> Use `$HOME/.codex/worktrees/npm-sharp-remediation-b9Qayh/aragora` and read docs/elves/npm-sharp-remediation-20260722/survival-guide.md first, followed by .elves-session.json, docs/elves/npm-sharp-remediation-20260722/learnings.md, docs/plans/npm-sharp-security-remediation-20260722.md, and docs/elves/npm-sharp-remediation-20260722/execution-log.md.
+> Execute Batch 1 on draft PR #9484 through implementation, validation, independent non-countable review, operational-artifact cleanup, and final readiness. There is no hard stop.
+> Before product edits, set the Stop Gate and continuation_guard.stop_allowed to false, re-read live steering, renew the strict branch lease, verify the exact branch tip, and create elves/pre-batch-1.
+> Do not touch PR #9477, collect quorum evidence, settle, merge, edit workflows or protected files, change Next.js, or run another Fable/inference consult.
+> If the measured lockfile delta changes more than five distinct transitive packages or includes any package outside the sharp/@img sharp family, revert the product-file edits and stop with the exact approval question before committing or pushing them.
+> Do not send a final response unless the survival guide Stop Gate permits it or a true blocker forces it.
 
 ## Batch 1 Contract: 2026-07-22 01:20 CDT
 

@@ -1,7 +1,7 @@
 {
   "session_id": "elves-npm-sharp-remediation-20260722",
   "version": "1.12.0",
-  "status": "staging",
+  "status": "launch_ready",
   "started_at": "2026-07-22T06:20:32Z",
   "base_branch": "main",
   "base_sha": "24ecf7e79ab7486e91712a4ca33e10aff1973ea7",
@@ -12,7 +12,7 @@
   "survival_guide_path": "docs/elves/npm-sharp-remediation-20260722/survival-guide.md",
   "learnings_path": "docs/elves/npm-sharp-remediation-20260722/learnings.md",
   "execution_log_path": "docs/elves/npm-sharp-remediation-20260722/execution-log.md",
-  "pr_number": null,
+  "pr_number": 9484,
   "lane_id": "codex-base-npm-sharp-remediation-20260722",
   "lease_id": "9743347e-c13",
   "merge_policy": "user-merges",
