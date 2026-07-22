@@ -868,7 +868,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         from datetime import datetime, timezone
         from pathlib import Path
 
-        from aragora.gauntlet.receipt_models import DecisionReceipt
+        from aragora.gauntlet.receipt_models import DecisionReceipt, crux_cards_from_metadata
 
         receipts_dir = Path.home() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -990,11 +990,11 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             receipt["model_comparison"] = model_comparison
 
         # Crux cards (#8227): attached by the consensus phase when the debate
-        # ran with enable_crux_cards (--crux-cards). Only carried when items
-        # exist so flag-off receipts stay byte-identical.
-        crux_cards = metadata.get("crux_cards") if isinstance(metadata, dict) else None
-        if isinstance(crux_cards, dict) and crux_cards.get("items"):
-            receipt["cruxes"] = crux_cards
+        # ran with enable_crux_cards (--crux-cards). Shared helper enforces
+        # the "only carry non-empty blocks" invariant with from_debate_result.
+        cruxes = crux_cards_from_metadata(metadata)
+        if cruxes is not None:
+            receipt["cruxes"] = cruxes
 
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]
@@ -1689,6 +1689,25 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 "This task was interpreted from an ambiguous input and requires confirmation."
             )
 
+    # Crux cards (#8227): only the local run_debate path honors
+    # enable_crux_cards. Reject statically invalid explicit API/graph/matrix
+    # combinations up front — before context engineering burns LLM work or
+    # ARAGORA_OFFLINE is mutated — and otherwise force local execution below
+    # (mirroring how --demo forces local).
+    crux_cards_requested = bool(getattr(args, "crux_cards", False))
+    if crux_cards_requested and (
+        getattr(args, "api", False)
+        or getattr(args, "graph", False)
+        or getattr(args, "matrix", False)
+    ):
+        print(
+            "--crux-cards currently requires local execution; API/graph/matrix "
+            "debates do not honor it. Remove --api/--graph/--matrix (local is "
+            "used automatically), or drop --crux-cards.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
     explicit_codebase_context = bool(getattr(args, "codebase_context", False))
     mode_name = str(getattr(args, "mode", "") or "").strip().lower()
     inferred_codebase_context = mode_name == "orchestrator" or _looks_like_self_improvement_task(
@@ -1817,7 +1836,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         protocol_overrides["enable_evidence_weighting"] = False
     if not getattr(args, "trending", True):
         protocol_overrides["enable_trending_injection"] = False
-    if getattr(args, "crux_cards", False):
+    if crux_cards_requested:
         # Crux cards (#8227): attach load-bearing disagreements to the debate
         # result metadata so the decision receipt carries a cruxes block.
         protocol_overrides["enable_crux_cards"] = True
@@ -1877,6 +1896,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     requested_api = getattr(args, "api", False)
     requested_local = getattr(args, "local", False)
+    if crux_cards_requested:
+        # Explicit API/graph/matrix requests were rejected above; force the
+        # local path (like --demo does) so enable_crux_cards is honored even
+        # when a trusted API server would otherwise be auto-selected.
+        requested_local = True
     graph_mode = getattr(args, "graph", False)
     matrix_mode = getattr(args, "matrix", False)
     decision_integrity = bool(getattr(args, "decision_integrity", False))
@@ -2119,18 +2143,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
     use_api = requested_api
     if not requested_api and not requested_local:
         use_api = _trusted_server_available(server_url, flag_passed=api_url_flag_passed)
-
-    # Crux cards (#8227): the flag is only plumbed through the local
-    # protocol_overrides path. Fail closed on API/graph/matrix dispatch
-    # instead of silently dropping the promised cruxes block.
-    if getattr(args, "crux_cards", False) and (use_api or graph_mode or matrix_mode):
-        print(
-            "--crux-cards currently requires local execution; API/graph/matrix "
-            "debates do not honor it. Add --local (and remove --api/--graph/--matrix), "
-            "or drop --crux-cards.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
 
     if use_api:
         try:

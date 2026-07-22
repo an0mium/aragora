@@ -458,6 +458,23 @@ def build_crux_receipt_from_proof(
     )
 
 
+def crux_cards_from_metadata(metadata: Any) -> dict[str, Any] | None:
+    """Return the crux-cards block from debate-result metadata, or None.
+
+    Crux cards (#8227) are attached by the consensus phase when the debate ran
+    with ``enable_crux_cards``. The block is only carried into receipts when it
+    has items — a missing or empty block keeps flag-off receipts byte-identical
+    to pre-crux output. Shared by ``DecisionReceipt.from_debate_result`` and
+    the CLI receipt persistence so this invariant cannot drift.
+    """
+    if not isinstance(metadata, dict):
+        return None
+    crux_cards = metadata.get("crux_cards")
+    if isinstance(crux_cards, dict) and crux_cards.get("items"):
+        return crux_cards
+    return None
+
+
 def _compute_risk_summary_from_critiques(
     critiques: list,
     dissenting_views: list,
@@ -1509,10 +1526,7 @@ class DecisionReceipt:
         # Crux cards (#8227): attached by the consensus phase when the debate
         # ran with enable_crux_cards. Only carried when items exist — a missing
         # or empty block keeps the receipt byte-identical to pre-crux output.
-        crux_cards = metadata.get("crux_cards")
-        cruxes: dict[str, Any] | None = None
-        if isinstance(crux_cards, dict) and crux_cards.get("items"):
-            cruxes = crux_cards
+        cruxes = crux_cards_from_metadata(metadata)
 
         # Determine verdict from consensus
         if zero_evidence:

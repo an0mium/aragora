@@ -282,12 +282,85 @@ def test_cmd_ask_crux_cards_flag_sets_protocol_override(monkeypatch):
         di_execution_mode=None,
     )
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(debate_cmd, "_trusted_server_available", return_value=False),
+    ):
         mock_result = DebateResult(task=args.task, final_answer="demo answer", metadata={})
         mock_run_debate.return_value = mock_result
 
         debate_cmd.cmd_ask(args)
 
+        call_kwargs = mock_run_debate.call_args.kwargs
+        assert call_kwargs["protocol_overrides"]["enable_crux_cards"] is True
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
+def test_cmd_ask_crux_cards_forces_local_over_auto_api(monkeypatch, tmp_path):
+    """Plain --crux-cards (no --api/--local) must force local execution and
+    never probe or auto-select a trusted API server."""
+    from pathlib import Path
+
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    args = argparse.Namespace(
+        task="smoke demo",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=False,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        crux_cards=True,
+        post_consensus_quality=False,
+        upgrade_to_good=False,
+        quality_fail_closed=False,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+    )
+
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(debate_cmd, "_trusted_server_available") as mock_trusted,
+        patch(
+            "aragora.config.provider_readiness.agent_type_has_configured_provider",
+            return_value=True,
+        ),
+    ):
+        mock_result = DebateResult(task=args.task, final_answer="answer", metadata={})
+        mock_run_debate.return_value = mock_result
+
+        debate_cmd.cmd_ask(args)
+
+        mock_trusted.assert_not_called()
         call_kwargs = mock_run_debate.call_args.kwargs
         assert call_kwargs["protocol_overrides"]["enable_crux_cards"] is True
 
@@ -335,7 +408,10 @@ def test_cmd_ask_crux_cards_rejects_api_mode(monkeypatch):
         di_execution_mode=None,
     )
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(debate_cmd, "_trusted_server_available", return_value=False),
+    ):
         with pytest.raises(SystemExit) as excinfo:
             debate_cmd.cmd_ask(args)
 
