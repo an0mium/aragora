@@ -1,0 +1,75 @@
+{
+  "session_id": "elves-npm-sharp-remediation-20260722",
+  "version": "1.12.0",
+  "status": "staging",
+  "started_at": "2026-07-22T06:20:32Z",
+  "base_branch": "main",
+  "base_sha": "24ecf7e79ab7486e91712a4ca33e10aff1973ea7",
+  "branch": "codex/npm-sharp-security-remediation",
+  "worktree": "$HOME/.codex/worktrees/npm-sharp-remediation-b9Qayh/aragora",
+  "plan_path": "docs/plans/npm-sharp-security-remediation-20260722.md",
+  "plan_hash": "f5004e755589e3d26f3df68a22cd3faf",
+  "survival_guide_path": "docs/elves/npm-sharp-remediation-20260722/survival-guide.md",
+  "learnings_path": "docs/elves/npm-sharp-remediation-20260722/learnings.md",
+  "execution_log_path": "docs/elves/npm-sharp-remediation-20260722/execution-log.md",
+  "pr_number": null,
+  "lane_id": "codex-base-npm-sharp-remediation-20260722",
+  "lease_id": "9743347e-c13",
+  "merge_policy": "user-merges",
+  "checkpoint": {
+    "due_by": null,
+    "semantics": "none",
+    "may_continue_after": true,
+    "hard_stop_removed": true
+  },
+  "continuation_guard": {
+    "remaining_batches": 1,
+    "stop_allowed": true,
+    "checkpoint_is_stop": false,
+    "next_required_action": "Receive a fresh launch command, then start Batch 1 after re-reading the run packet"
+  },
+  "test_baseline": {
+    "passed": 4025,
+    "total": 4052,
+    "skipped": 27,
+    "status": "captured",
+    "reason": null
+  },
+  "audit_baseline": {
+    "command": "npm audit --omit=dev --audit-level=high --json",
+    "exit_code": 1,
+    "advisory": "GHSA-f88m-g3jw-g9cj",
+    "package": "sharp",
+    "installed_version": "0.34.5",
+    "severity": "high",
+    "affected_range": "<0.35.0",
+    "parent": "next@16.2.9"
+  },
+  "current_batch": {
+    "id": 1,
+    "name": "Prove and remediate the sharp advisory",
+    "status": "not_started"
+  },
+  "batches": [
+    {
+      "id": 1,
+      "name": "Prove and remediate the sharp advisory",
+      "status": "not_started",
+      "commit": null,
+      "rollback_tag": "elves/pre-batch-1",
+      "started_at": null,
+      "completed_at": null
+    }
+  ],
+  "review_comments": [],
+  "forbidden_targets": [
+    "PR #9477",
+    "quorum evidence",
+    "settlement",
+    "merge",
+    ".github/**",
+    "protected governance files",
+    "Next.js version",
+    "non-sharp dependencies"
+  ]
+}

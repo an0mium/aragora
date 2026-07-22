@@ -1,0 +1,128 @@
+# Plan: Remediate the inherited sharp security advisory
+
+## Mission
+
+Create one isolated, current-main pull request that removes the `sharp <0.35.0`
+exposure reported by `npm audit` in `aragora/live`, while preserving the existing
+Next.js application behavior. Done means the exact production audit gate is clean,
+the frontend builds and tests successfully with the selected sharp release, the
+dependency delta is fully classified, and the draft PR is independently reviewed
+and ready for operator review.
+
+The base is `origin/main` at
+`24ecf7e79ab7486e91712a4ca33e10aff1973ea7`. This is a separate security lane;
+PR #9477 is context only and is outside this run's authority.
+
+## Scope
+
+### In Scope
+
+- Falsify or confirm GHSA-f88m-g3jw-g9cj against the exact current-main lockfile.
+- Add one `sharp` entry to the existing `aragora/live/package.json` `overrides`
+  object if the advisory and a compatible patched release are both confirmed.
+- Regenerate only `aragora/live/package-lock.json`, then classify every changed
+  package entry by dependency family.
+- Run the exact npm audit gate plus focused frontend lint, tests, and production build.
+- Perform an independent, non-countable review and leave a draft PR ready for the
+  operator. Security changes remain operator-review-required.
+
+### Out of Scope
+
+- Any edit, comment, evidence collection, settlement, readiness transition, or
+  merge action on PR #9477.
+- Merge-quorum evidence, human settlement, branch-protection changes, or merging
+  this dependency PR.
+- Changes to `.github/**`, CI/security workflows, protected governance files, the
+  Next.js version, SDK dependencies, or any dependency outside the sharp family.
+- Production deployment, runtime inference requests, or later #9409 work units.
+
+## Batches
+
+### Batch 1: Prove and remediate the sharp advisory
+
+**Tasks:**
+
+- [ ] Re-read the survival guide and live operator steering, renew the branch lease,
+  verify the branch still starts from the recorded exact base, and create
+  `elves/pre-batch-1` before product edits.
+- [ ] Reproduce the baseline with `npm ci --ignore-scripts` followed by
+  `npm audit --omit=dev --audit-level=high --json`; stop as `UNFOUNDED` if the
+  advisory is absent or below high severity.
+- [ ] Confirm the selected patched sharp release from the npm registry and upstream
+  advisory. Prefer the upstream-recommended current patched line and document its
+  Node engine and breaking-change risk.
+- [ ] Add only a sharp override to the existing overrides block and regenerate the
+  lockfile with lifecycle scripts disabled.
+- [ ] Parse the lockfile diff into distinct changed package entries. If more than
+  five transitive packages change, or any changed package is outside the
+  `sharp` / `@img/sharp*` family, revert the product-file changes and stop for
+  explicit operator approval before any implementation commit or push.
+- [ ] If the dependency-change ceiling is not crossed, run the complete validation
+  strategy, inspect the cumulative diff, commit, push, and poll all draft-PR checks
+  and comments.
+- [ ] Perform a fresh final readiness review of the exact head without collecting
+  countable quorum evidence. Fix blockers and repeat validation before handoff.
+
+**Acceptance criteria:**
+
+- [ ] Baseline evidence names `sharp@0.34.5` as an indirect high-severity finding
+  through `next@16.2.9` for GHSA-f88m-g3jw-g9cj.
+- [ ] `npm audit --omit=dev --audit-level=high` exits 0 after the change.
+- [ ] `npm ls next sharp --all` reports the unchanged Next.js version and the
+  intended patched sharp version with no invalid dependency state.
+- [ ] Every changed lockfile package is listed; there are no unexplained or
+  out-of-family changes, and the operating-contract dependency ceiling is respected
+  or the run stops before committing the product diff.
+- [ ] `npm run lint`, `npm test -- --runInBand`, and `npm run build` pass in
+  `aragora/live`; `git diff --check` passes from the repo root.
+- [ ] The cumulative product diff is limited to `aragora/live/package.json` and
+  `aragora/live/package-lock.json` after Elves operational artifacts are removed.
+- [ ] Independent review finds no unresolved blocker, PR checks are understood, and
+  the PR remains unmerged for operator review.
+
+**Docs likely touched:** none beyond temporary Elves run-state documents, which are
+removed from the final product diff after the final readiness review.
+
+**Risk:** sharp 0.35.x is outside Next 16.2.9's declared `^0.34.5` optional range,
+upstream labels 0.35.0 as breaking, and the platform-binary family may exceed the
+operating contract's five-transitive-dependency auto-halt ceiling.
+
+## Non-Negotiables
+
+- Do not touch PR #9477 or perform evidence, settlement, readiness, or merge actions.
+- Do not edit workflows, protected files, Next.js, SDK packages, or non-sharp dependencies.
+- Stop before committing or pushing product changes if more than five distinct
+  transitive packages change or any changed package is outside the sharp family,
+  unless the operator explicitly approves that exact measured delta.
+- Never merge. This security PR requires operator review even after green validation.
+- Every completed batch ends with updated run state, a commit, a push, a survival-guide
+  re-read, and a fresh check of PR comments and checks.
+
+## Test Strategy
+
+- **Baseline:** `npm ci --ignore-scripts`; then
+  `npm audit --omit=dev --audit-level=high --json`.
+- **Dependency proof:** `npm ls next sharp --all` plus a parsed before/after
+  `package-lock.json` package-key comparison.
+- **Primary gates:** `npm run lint`, `npm test -- --runInBand`, and `npm run build`
+  from `aragora/live`.
+- **Repository gate:** `git diff --check` and a cumulative path/stat review against
+  the recorded exact base.
+- **Review gate:** fresh exact-head review of implementation, upstream compatibility,
+  every PR comment, and every reported check; no countable evidence collection.
+- **Durable docs:** update learnings only for a stable, reusable dependency or
+  validation fact discovered during execution.
+
+## Notes
+
+- Current-main preflight on 2026-07-22 reproduced the finding: the exact audit command
+  exited 1 and reported indirect `sharp@0.34.5`, high severity, affected range
+  `<0.35.0`, through `next@16.2.9`.
+- GitHub's reviewed advisory lists 0.35.0 as the first patched version and recommends
+  the current 0.35.3 release. The upstream 0.35.0 release notes include breaking
+  changes and require Node >=20.9.0.
+- At staging, stable `next@16.2.11` still declares `sharp: ^0.34.5`, while
+  `next@16.3.0-canary.93` declares `sharp: ^0.35.3`. This is compatibility evidence,
+  not authority to adopt a canary or change Next.js.
+- The current lockfile contains 26 sharp-family entries. The actual changed-entry
+  count must be measured after regeneration; do not pre-approve it by assumption.
