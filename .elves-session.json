@@ -11,7 +11,7 @@
   "worktree": "$HOME/.codex/worktrees/npm-sharp-remediation-b9Qayh/aragora",
   "plan_path": "docs/plans/npm-sharp-security-remediation-20260722.md",
   "plan_hash": "7a132f9cde57b7476ed40bb9b2260b65",
-  "current_plan_hash": "065d19cafbbfb72e0f6fa6dd61acac0a",
+  "current_plan_hash": "4b8c560f068cba25a65e8ad60228c8fa",
   "survival_guide_path": "docs/elves/npm-sharp-remediation-20260722/survival-guide.md",
   "learnings_path": "docs/elves/npm-sharp-remediation-20260722/learnings.md",
   "execution_log_path": "docs/elves/npm-sharp-remediation-20260722/execution-log.md",
@@ -32,7 +32,7 @@
     "remaining_batches": 1,
     "stop_allowed": false,
     "checkpoint_is_stop": false,
-    "next_required_action": "Commit the current run-state updates, push exact head, poll all PR feedback and checks, then perform fresh independent non-countable exact-head review"
+    "next_required_action": "Commit and push the cycle-1 review documentation fixes and regression attestation, then perform mandatory fresh independent review of the new exact head"
   },
   "test_baseline": {
     "passed": 4025,
@@ -123,17 +123,36 @@
   "independent_review": {
     "kind": "non-countable",
     "reviewed_at": "2026-07-22T18:10:05Z",
-    "verdict": "pending_re_review",
+    "verdict": "cycle_1_product_clean_docs_fix_pending",
     "prior_verdict": "blocked",
     "blocker": "aragora/live/Dockerfile pins node:18.19-alpine while sharp 0.35.3 and existing Next 16.2.9 declare Node >=20.9.0; package-only authority does not permit the Dockerfile fix or a production-risk waiver",
     "recommended_fix": "Replace all three aragora/live/Dockerfile node:18.19-alpine stages with the repository-standard node:20.11-alpine, then rerun validation and exact-head review.",
     "product_commit_or_push_performed": true,
     "product_commit": "9a87a6d9211caed9f413d55a36dc9685792ee44e",
-    "product_pushed": false,
+    "product_pushed": true,
     "authority_resolved": true,
     "authority_resolved_at": "2026-07-22T18:19:04Z",
     "authority_response": "yes",
-    "authorized_fix": "Replace all three aragora/live/Dockerfile node:18.19-alpine stages with node:20.11-alpine in PR #9484."
+    "authorized_fix": "Replace all three aragora/live/Dockerfile node:18.19-alpine stages with node:20.11-alpine in PR #9484.",
+    "cycles": [
+      {
+        "cycle": 1,
+        "head": "40017dc55857fdcede2117e78d3ce30e1f26bcdb",
+        "verdict": "no product blocker; documentation fixes required before cleanup",
+        "required_checks": "all six passed",
+        "feedback": "zero issue comments, inline comments, or reviews",
+        "warnings": [
+          "package-only Docker context retains a pre-existing broken file:../../sdk/typescript link; deploy/Dockerfile.frontend carries the real SDK-copy workaround",
+          "docker-compose.dev.yml independently remains on node:18.19-alpine outside the exact authorized three-line Dockerfile scope",
+          "sharp 0.35.x remains outside Next 16.2.9's declared optional ^0.34.5 range"
+        ],
+        "docs_findings": [
+          "PR body still described staging-only state",
+          "retained plan did not name the two approved out-of-family transitive exceptions",
+          "regression attestation was missing"
+        ]
+      }
+    ]
   },
   "dockerfile_runtime_alignment": {
     "approved_at": "2026-07-22T18:19:04Z",

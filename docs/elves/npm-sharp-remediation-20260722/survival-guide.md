@@ -39,7 +39,7 @@ review the exact PR head, but never merge it.
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
 - **Why:** the operator explicitly authorized the three Docker base-image substitutions; Batch 1 must continue through implementation, repeat validation, exact-head review, cleanup, and final readiness
-- **Next required action:** commit the current run-state updates, push exact head, poll every PR feedback/check surface, and run fresh independent non-countable exact-head review
+- **Next required action:** commit and push cycle-1 review documentation fixes plus the regression attestation, then perform mandatory fresh independent review of the new exact head
 
 ## Effort Standard
 
@@ -95,13 +95,13 @@ review the exact PR head, but never merge it.
 
 ## Current Phase
 
-**Status:** Batch 1 implementation and repeat validation complete; exact-head review pending
+**Status:** Cycle-1 product review clean; documentation fixes and fresh-head review pending
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** Product commit `9a87a6d9211caed9f413d55a36dc9685792ee44e` contains the exact approved 29-entry sharp delta and three authorized Node 20.11 Docker stages. Audit and dependency-tree checks passed; lint passed; all 4,025 tests passed with 27 skipped; the production build compiled, typechecked, and generated all 228 pages under exact Node 20.11/npm 10.2.4; sharp and Next runtime smokes passed on that same Node line.
+**What was just finished:** At published head `40017dc55857fdcede2117e78d3ce30e1f26bcdb`, all six required checks passed and every PR feedback surface was empty. Independent non-countable review found no product blocker. It classified the package-only SDK link and dev-compose Node 18 image as pre-existing warnings, and required corrections to the PR body, retained plan, and regression attestation before cleanup.
 
-**Single next action:** Commit run-state updates, push both commits, re-read this guide, then poll PR feedback/checks and start fresh exact-head review.
+**Single next action:** Commit and push the corrected plan/log/session/guide, re-read this guide, then request a fresh exact-head review before cleanup.
 
 ## Active Compute
 
@@ -180,7 +180,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Branch:** `codex/npm-sharp-security-remediation`
 - **PR number:** #9484
 - **Plan hash at session start:** `7a132f9cde57b7476ed40bb9b2260b65`
-- **Current plan hash after operator-approved Docker scope expansion:** `065d19cafbbfb72e0f6fa6dd61acac0a`
+- **Current plan hash after review clarification:** `4b8c560f068cba25a65e8ad60228c8fa`
 
 ## After Any Compaction
 

@@ -52,6 +52,48 @@
 - Next: commit these recovery documents, push, poll every PR comment/review/check surface,
   and run a fresh independent non-countable review of the exact published head.
 
+## Batch 1 Published-Head Review Cycle 1: 2026-07-22 13:34 CDT
+
+- Pushed exact head `40017dc55857fdcede2117e78d3ce30e1f26bcdb`. All six required
+  checks passed: Generate & Validate, TypeScript SDK Type Check, merge quorum,
+  lint, SDK parity, and typecheck. No check remained failing, cancelled, or pending.
+- PR issue comments, inline comments, and reviews were all empty.
+- Independent non-countable review found the product change clean and classified the
+  package-only Docker context's broken `file:../../sdk/typescript` symlink as a
+  pre-existing out-of-scope warning. The changed surface is covered by exact Node 20.11
+  install/build/runtime proof and required checks; `deploy/Dockerfile.frontend` already
+  carries the SDK-copy workaround.
+- Review found readiness-doc drift: the PR body still described a staging-only branch,
+  and the retained plan's out-of-scope text did not name the two exact operator-approved
+  transitive exceptions. Both are being corrected before final review and cleanup.
+- Corrected the PR body to describe the implemented three-file product scope, exact
+  approved package delta, Node 20.11 proof, risks, and draft/unmerged boundary. Corrected
+  the retained plan to name only `@emnapi/runtime` and sharp's nested `semver` as the
+  approved out-of-family generated-lock exceptions.
+
+**Regression attestation:**
+
+1. **Cumulative diff:** `git diff origin/main...40017dc558 --stat` contains the three
+   intended product files plus five Elves/plan artifacts awaiting cleanup. Product delta:
+   one sharp override, one generated lockfile, and three Docker base-image substitutions.
+   There are no unexpected deletions, application-source edits, workflow edits, SDK edits,
+   Next.js changes, or test changes.
+2. **Shared surfaces:** `aragora/live/Dockerfile` has three repo-visible consumers:
+   `docker-compose.quickstart.yml`, `deploy/self-hosted/docker-compose.yml`, and the direct
+   command in `deploy/README.md`. All consume the same three-stage file and benefit from the
+   engine-floor alignment. The live package manifest/build surface is exercised by 20
+   repository workflow, deploy, and script entrypoint files; its direct dependency graph is
+   unchanged except for the sharp override, and `npm ls` reports a valid tree.
+3. **Test baseline:** baseline and post-change proof are identical: 4,052 total tests,
+   4,025 passed, and 27 skipped. No test was deleted, weakened, edited, or newly skipped.
+4. **Confidence:** HIGH for the authorized change. Exact package-key and Docker-line proofs,
+   Node 20.11 dependency install/runtime/build proof, full local lint/Jest/build, six green
+   required checks, and independent review cover the changed surfaces. Residual warnings are
+   explicit: sharp 0.35.x is outside Next's declared optional range; the package-only Docker
+   context's local SDK link was already broken; and `docker-compose.dev.yml` independently
+   remains on Node 18.19 outside this exact authorization. None is introduced by the approved
+   three-line runtime alignment.
+
 ## Batch 1 Approval and Resume: 2026-07-22 11:02 CDT
 
 - Operator answered “yes” to the exact approval question.

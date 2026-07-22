@@ -37,7 +37,9 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 - Merge-quorum evidence, human settlement, branch-protection changes, or merging
   this dependency PR.
 - Changes to `.github/**`, CI/security workflows, protected governance files, the
-  Next.js version, SDK dependencies, or any dependency outside the sharp family.
+  Next.js version, SDK dependencies, or any direct dependency outside the sharp
+  family. The exact approved generated lock shifts for `@emnapi/runtime` and sharp's
+  nested `semver` are the only out-of-family transitive exceptions.
 - Production deployment, runtime inference requests, or later #9409 work units.
 
 ## Batches
