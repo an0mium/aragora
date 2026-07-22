@@ -27,116 +27,186 @@ sync = _load_module()
 _VP = {
     "access_token": "vp-access",
     "refresh_token": "vp-refresh",
-    "expired": "2026-07-22T18:27:18-05:00",
+    "expired": "2099-01-01T00:00:00+00:00",  # far future so it is never "stale"
     "type": "claude",
     "disabled": False,
 }
 
 
+def _config(sync_target=None, native_only=None):
+    return sync.SyncConfig(
+        sync_target=sync_target or {"x@example.com": "max-99"},
+        native_only=native_only or {},
+    )
+
+
+def _setup(monkeypatch, tmp_path, vp_payload=_VP, email="x@example.com"):
+    vp_dir = tmp_path / "vp"
+    vp_dir.mkdir()
+    (vp_dir / f"claude-{email}.json").write_text(json.dumps(vp_payload), encoding="utf-8")
+    prof_root = tmp_path / "profiles"
+    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
+    monkeypatch.setattr(sync, "ARAGORA_PROFILE_ROOT", prof_root)
+    return prof_root
+
+
+# --- translate_credential ---------------------------------------------------
+
+
 def test_blank_refresh_makes_a_pure_consumer_credential() -> None:
-    out = sync.translate_credential(_VP, None, blank_refresh=True)
-    oauth = out["claudeAiOauth"]
+    oauth = sync.translate_credential(_VP, None, blank_refresh=True)["claudeAiOauth"]
     assert oauth["accessToken"] == "vp-access"
-    # No usable refresh token: aragora can never rotate VibeProxy's live token.
     assert oauth["refreshToken"] == ""
 
 
 def test_keep_refresh_carries_the_vibeproxy_refresh_token() -> None:
-    out = sync.translate_credential(_VP, None, blank_refresh=False)
-    assert out["claudeAiOauth"]["refreshToken"] == "vp-refresh"
+    oauth = sync.translate_credential(_VP, None, blank_refresh=False)["claudeAiOauth"]
+    assert oauth["refreshToken"] == "vp-refresh"
 
 
-def test_expiry_is_translated_iso_to_epoch_ms() -> None:
-    out = sync.translate_credential(_VP, None, blank_refresh=True)
-    expected_ms = int(_dt.datetime.fromisoformat(_VP["expired"]).timestamp() * 1000)
-    assert out["claudeAiOauth"]["expiresAt"] == expected_ms
+def test_expiry_iso_offset_translated_to_epoch_ms() -> None:
+    vp = dict(_VP, expired="2026-07-22T18:27:18-05:00")
+    got = sync.translate_credential(vp, None, blank_refresh=True)["claudeAiOauth"]["expiresAt"]
+    expected = int(_dt.datetime.fromisoformat("2026-07-22T18:27:18-05:00").timestamp() * 1000)
+    assert got == expected
 
 
-def test_plan_and_scope_metadata_preserved_from_existing_credential() -> None:
-    existing = {
-        "scopes": ["user:inference", "custom:scope"],
-        "subscriptionType": "team",
-        "rateLimitTier": "default_claude_max_5x",
-    }
-    out = sync.translate_credential(_VP, existing, blank_refresh=True)
-    oauth = out["claudeAiOauth"]
-    assert oauth["scopes"] == ["user:inference", "custom:scope"]
-    assert oauth["subscriptionType"] == "team"
-    assert oauth["rateLimitTier"] == "default_claude_max_5x"
+def test_expiry_z_suffix_and_naive_treated_as_utc() -> None:
+    z = sync._iso_to_epoch_ms("2026-07-22T18:27:18Z")
+    utc = sync._iso_to_epoch_ms("2026-07-22T18:27:18+00:00")
+    naive = sync._iso_to_epoch_ms("2026-07-22T18:27:18")
+    assert z == utc == naive
 
 
-def test_defaults_applied_when_no_existing_credential() -> None:
-    out = sync.translate_credential(_VP, None, blank_refresh=True)
-    oauth = out["claudeAiOauth"]
-    assert oauth["subscriptionType"] == sync._DEFAULT_SUBSCRIPTION
-    assert oauth["scopes"] == sync._DEFAULT_SCOPES
+def test_plan_and_scope_metadata_preserved_from_existing() -> None:
+    existing = {"scopes": ["s"], "subscriptionType": "team", "rateLimitTier": "t"}
+    oauth = sync.translate_credential(_VP, existing, blank_refresh=True)["claudeAiOauth"]
+    assert oauth["scopes"] == ["s"] and oauth["subscriptionType"] == "team"
+    assert oauth["rateLimitTier"] == "t"
 
 
-def _point_profile_at(monkeypatch, profile: str, email: str) -> None:
-    monkeypatch.setitem(sync.PROFILE_TO_EMAIL, profile, email)
+# --- config loading / 1:1 invariant ----------------------------------------
 
 
-def test_one_to_one_invariant_no_email_sources_two_profiles() -> None:
-    # VIBEPROXY_SYNC_TARGET is email->profile, so an email can never source two
-    # profiles. Assert the inverse index round-trips (the load-bearing property).
-    assert len(sync.PROFILE_TO_EMAIL) == len(sync.VIBEPROXY_SYNC_TARGET)
-    assert set(sync.PROFILE_TO_EMAIL.values()) == set(sync.VIBEPROXY_SYNC_TARGET)
+def test_load_config_missing_raises(tmp_path) -> None:
+    with pytest.raises(sync.ConfigError, match="not found"):
+        sync.load_config(tmp_path / "absent.json")
 
 
-def test_native_only_profiles_are_never_synced() -> None:
-    # A shared-login distinct org (max-08) and a duplicate seat (max-13) must be
-    # excluded so the sync cannot collapse them onto VibeProxy's org.
-    for profile in ("max-03", "max-08", "max-10"):
-        result = sync.sync_profile(profile, blank_refresh=True, apply=False)
-        assert result.action == "skipped_native_only", profile
-    # ...and none of them is also a sync target.
-    assert not (set(sync.NATIVE_ONLY_REASON) & set(sync.PROFILE_TO_EMAIL))
+def test_load_config_empty_sync_target_raises(tmp_path) -> None:
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"sync_target": {}}), encoding="utf-8")
+    with pytest.raises(sync.ConfigError, match="empty"):
+        sync.load_config(p)
 
 
-def test_sync_profile_skips_when_no_vibeproxy_source(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", tmp_path)  # empty dir
-    result = sync.sync_profile("max-01", blank_refresh=True, apply=False)
-    assert result.action == "skipped_no_source"
+def test_load_config_rejects_profile_both_synced_and_native(tmp_path) -> None:
+    p = tmp_path / "c.json"
+    p.write_text(
+        json.dumps({"sync_target": {"a@e": "max-01"}, "native_only": {"max-01": "x"}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(sync.ConfigError, match="both synced and native"):
+        sync.load_config(p)
 
 
-def test_sync_profile_is_idempotent_on_matching_access_token(monkeypatch, tmp_path) -> None:
-    vp_dir = tmp_path / "vp"
-    vp_dir.mkdir()
-    (vp_dir / "claude-x@example.com.json").write_text(json.dumps(_VP), encoding="utf-8")
-    prof_root = tmp_path / "profiles"
+def test_load_config_rejects_one_profile_from_two_emails(tmp_path) -> None:
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"sync_target": {"a@e": "max-01", "b@e": "max-01"}}), encoding="utf-8")
+    with pytest.raises(sync.ConfigError, match=">1 email"):
+        sync.load_config(p)
+
+
+def test_shipped_example_config_is_loadable() -> None:
+    example = Path(__file__).resolve().parents[2] / "scripts" / "claude_profile_sync.json.example"
+    cfg = sync.load_config(example)
+    assert cfg.sync_target and not (set(cfg.sync_target.values()) & set(cfg.native_only))
+
+
+# --- sync_profile behavior --------------------------------------------------
+
+
+def test_native_only_profile_is_skipped() -> None:
+    cfg = _config(native_only={"max-08": "distinct org"})
+    r = sync.sync_profile("max-08", cfg, blank_refresh=True, apply=False)
+    assert r.action == "skipped_native_only"
+
+
+def test_no_source_when_vibeproxy_file_absent(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", tmp_path)  # empty
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=False)
+    assert r.action == "skipped_no_source"
+
+
+def test_stale_source_is_not_synced(monkeypatch, tmp_path) -> None:
+    _setup(monkeypatch, tmp_path, vp_payload=dict(_VP, expired="2000-01-01T00:00:00+00:00"))
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "skipped_stale_source"
+
+
+def test_disabled_source_is_not_synced(monkeypatch, tmp_path) -> None:
+    _setup(monkeypatch, tmp_path, vp_payload=dict(_VP, disabled=True))
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=False)
+    assert r.action == "skipped_no_source"
+
+
+def test_malformed_source_isolates_as_error(monkeypatch, tmp_path) -> None:
+    _setup(monkeypatch, tmp_path, vp_payload=dict(_VP, expired="not-a-date"))
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "error"
+
+
+def test_idempotent_on_matching_access_token(monkeypatch, tmp_path) -> None:
+    prof_root = _setup(monkeypatch, tmp_path)
     cred = prof_root / "max-99" / ".claude" / ".credentials.json"
     cred.parent.mkdir(parents=True)
     cred.write_text(json.dumps({"claudeAiOauth": {"accessToken": "vp-access"}}), encoding="utf-8")
-    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
-    monkeypatch.setattr(sync, "ARAGORA_PROFILE_ROOT", prof_root)
-    _point_profile_at(monkeypatch, "max-99", "x@example.com")
-    result = sync.sync_profile("max-99", blank_refresh=True, apply=True)
-    assert result.action == "skipped_fresh"
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "skipped_fresh"
 
 
-def test_sync_profile_writes_owner_only_credential(monkeypatch, tmp_path) -> None:
-    vp_dir = tmp_path / "vp"
-    vp_dir.mkdir()
-    (vp_dir / "claude-x@example.com.json").write_text(json.dumps(_VP), encoding="utf-8")
-    prof_root = tmp_path / "profiles"
-    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
-    monkeypatch.setattr(sync, "ARAGORA_PROFILE_ROOT", prof_root)
-    _point_profile_at(monkeypatch, "max-99", "x@example.com")
-    result = sync.sync_profile("max-99", blank_refresh=True, apply=True)
-    assert result.action == "synced"
+def test_does_not_clobber_fresh_native_login_without_force(monkeypatch, tmp_path) -> None:
+    prof_root = _setup(monkeypatch, tmp_path)
     cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    future = sync._now_ms() + 3_600_000
+    cred.write_text(
+        json.dumps(
+            {
+                "claudeAiOauth": {
+                    "accessToken": "native",
+                    "refreshToken": "real",
+                    "expiresAt": future,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "skipped_native_login"
+    r2 = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True, force=True)
+    assert r2.action == "synced"
+
+
+def test_writes_owner_only_credential_and_backup(monkeypatch, tmp_path) -> None:
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text(json.dumps({"claudeAiOauth": {"accessToken": "old"}}), encoding="utf-8")
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "synced"
     assert (cred.stat().st_mode & 0o777) == 0o600
     written = json.loads(cred.read_text())
     assert written["claudeAiOauth"]["accessToken"] == "vp-access"
     assert written["claudeAiOauth"]["refreshToken"] == ""
+    backup = cred.with_name(".credentials.json.bak")
+    assert backup.exists() and (backup.stat().st_mode & 0o777) == 0o600
+    assert json.loads(backup.read_text())["claudeAiOauth"]["accessToken"] == "old"
 
 
-def test_disabled_vibeproxy_account_is_not_synced(monkeypatch, tmp_path) -> None:
-    vp_dir = tmp_path / "vp"
-    vp_dir.mkdir()
-    disabled = dict(_VP, disabled=True)
-    (vp_dir / "claude-x@example.com.json").write_text(json.dumps(disabled), encoding="utf-8")
-    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", vp_dir)
-    _point_profile_at(monkeypatch, "max-99", "x@example.com")
-    result = sync.sync_profile("max-99", blank_refresh=True, apply=False)
-    assert result.action == "skipped_no_source"
+def test_total_source_loss_exits_nonzero(monkeypatch, tmp_path) -> None:
+    cfg_path = tmp_path / "c.json"
+    cfg_path.write_text(json.dumps({"sync_target": {"a@e": "max-01"}}), encoding="utf-8")
+    monkeypatch.setattr(sync, "VIBEPROXY_AUTH_DIR", tmp_path / "empty")
+    rc = sync.main(["--config", str(cfg_path)])
+    assert rc == 1

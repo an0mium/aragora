@@ -53,6 +53,16 @@ mkdir -p "${DEPLOY_DIR}"
 cp "${REPO_ROOT}/scripts/${SCRIPT_NAME}" "${DEPLOY_PATH}"
 chmod 0755 "${DEPLOY_PATH}"
 
+# Seed the untracked local mapping config from the example if absent. The map
+# (operator emails) is intentionally NOT in tracked source; fill it in before
+# the daemon can sync anything.
+CONFIG_PATH="${HOME}/.aragora/claude_profile_sync.json"
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  cp "${REPO_ROOT}/scripts/claude_profile_sync.json.example" "${CONFIG_PATH}"
+  chmod 0600 "${CONFIG_PATH}"
+  echo "NOTE: seeded ${CONFIG_PATH} from the example — edit it with your real email->profile map."
+fi
+
 cat >"${PLIST_PATH}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

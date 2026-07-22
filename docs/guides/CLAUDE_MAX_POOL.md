@@ -141,32 +141,44 @@ token into the matching profile, written **without a usable refresh token**
 hourly `claude_pool_verify.py` is automatically safe — a profile with no refresh
 token cannot rotate anything even when probed.
 
+First, declare your account map in an **untracked local config** — the
+email→profile mapping is PII and is deliberately not in the repo:
+
+```bash
+cp scripts/claude_profile_sync.json.example ~/.aragora/claude_profile_sync.json
+chmod 600 ~/.aragora/claude_profile_sync.json
+# then edit it: sync_target = {your-email: profile}, native_only = {profile: reason}
+```
+
 ```bash
 # One-shot: sync every mapped profile from VibeProxy (dry-run first, then apply)
 python3 scripts/sync_claude_profiles_from_vibeproxy.py
 python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --probe-after
 
-# Make it durable: a 30-min launchd timer (deploys the script to ~/.aragora/bin,
-# outside any git checkout so worktree TTL-cleanup and merges never touch it)
+# Make it durable: a launchd timer (deploys the script to ~/.aragora/bin, outside
+# any git checkout so worktree TTL-cleanup and merges never touch it; seeds the
+# config from the example if absent)
 bash scripts/install_claude_profile_sync_launchd.sh
 ```
 
 This revives every profile VibeProxy can source — one profile per VibeProxy
-account. Requirements: VibeProxy running with the Claude accounts connected, and
-its auth files at `~/.cli-proxy-api/claude-*.json`.
+account. Requirements: VibeProxy running with the Claude accounts connected
+(auth files at `~/.cli-proxy-api/claude-*.json`) and the local config filled in.
+The sync writes a `0600` `.bak` before replacing a credential and refuses to
+overwrite a fresh **native** login (live token + real refresh token) without
+`--force`. Run the timer more often than VibeProxy's refresh lead (it refreshes
+~10 min before the ~8h access-token expiry); 30 min is the default.
 
 **One profile per VibeProxy account (important).** VibeProxy authenticates by
 **email** and holds exactly **one org per email**. Two profiles that are
-*different orgs under one shared login* — e.g. a personal Max org and a
-Synaptent team org, both under `synaptent@synaptent.com` — cannot both be
-sourced from VibeProxy: syncing both would silently collapse one subscription
-onto the other's org. The sync therefore enforces a strict 1:1 map
-(`VIBEPROXY_SYNC_TARGET`) and refuses to sync the same-email sibling
-(`NATIVE_ONLY_REASON`). Those distinct-org seats, plus any account VibeProxy
-does not hold (e.g. `max-10` / `armand.tuzel@gmail.com`), stay on the
-interactive re-login path below. A profile can be repointed at an unused
-VibeProxy account (e.g. `ringrift.ai@gmail.com`) simply by editing
-`VIBEPROXY_SYNC_TARGET` — the sync is the binding, no native login needed.
+*different orgs under one shared login* — e.g. a personal Max org and a team org
+under the same address — cannot both be sourced from VibeProxy: syncing both
+would silently collapse one subscription onto the other's org. The config's
+`sync_target` is therefore a strict 1:1 email→profile map, and the same-email
+sibling goes in `native_only`. Those distinct-org seats, plus any account
+VibeProxy does not hold, stay on the interactive re-login path below. A profile
+can be repointed at an unused VibeProxy account by editing `sync_target` — the
+sync is the binding, no native login needed.
 
 ## Re-login runbook
 
