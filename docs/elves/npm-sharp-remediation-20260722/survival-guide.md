@@ -32,14 +32,14 @@ review the exact PR head, but never merge it.
 - **Checkpoint expectation:** launch-ready draft PR and durable run packet from staging
 - **Time budget:** unlimited; no hard stop remains
 - **Average batch time so far:** not started
-- **Batches remaining:** 1 of 1
+- **Batches remaining:** 0 of 1
 
 ## Stop Gate
 
-- **Planned batches remaining:** 1
-- **Stop allowed right now:** no
-- **Why:** the operator explicitly authorized the three Docker base-image substitutions; Batch 1 must continue through implementation, repeat validation, exact-head review, cleanup, and final readiness
-- **Next required action:** commit and push cycle-1 review documentation fixes plus the regression attestation, then perform mandatory fresh independent review of the new exact head
+- **Planned batches remaining:** 0
+- **Stop allowed right now:** yes
+- **Why:** Batch 1 implementation, validation, and the mandatory pre-cleanup exact-head review are complete; only the finite-run report, operational-artifact cleanup, and post-cleanup verification remain
+- **Next required action:** publish and review this final run-state update, generate the Elves Report, remove the operational artifacts, then poll and independently review the post-cleanup exact head
 
 ## Effort Standard
 
@@ -95,13 +95,13 @@ review the exact PR head, but never merge it.
 
 ## Current Phase
 
-**Status:** Cycle-1 product review clean; documentation fixes and fresh-head review pending
+**Status:** Batch 1 complete and pre-cleanup review passed; final report and cleanup in progress
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** At published head `40017dc55857fdcede2117e78d3ce30e1f26bcdb`, all six required checks passed and every PR feedback surface was empty. Independent non-countable review found no product blocker. It classified the package-only SDK link and dev-compose Node 18 image as pre-existing warnings, and required corrections to the PR body, retained plan, and regression attestation before cleanup.
+**What was just finished:** At published head `0ca2a4f0a58a726e178893dc3104ef3d79871c0c`, all six required checks passed and every PR feedback surface was empty. Fresh independent non-countable review returned PASS and found no product or security blocker. The exact 29-entry approved dependency delta, three Node 20.11 Docker stages, audit result, dependency tree, cumulative diff, and readiness documentation are all accounted for.
 
-**Single next action:** Commit and push the corrected plan/log/session/guide, re-read this guide, then request a fresh exact-head review before cleanup.
+**Single next action:** Publish this final run-state update, review the documentation-only head, generate the Elves Report, then perform cleanup and the mandatory post-cleanup review.
 
 ## Active Compute
 
@@ -122,10 +122,10 @@ staging, no additional consult was run, and no dev server or remote job was left
 
 **Acceptance criteria:**
 
-- [ ] Exact audit gate exits 0 with unchanged Next.js and a valid patched sharp tree.
-- [ ] Lockfile delta is fully classified and within authority, or product edits are reverted and an exact approval question is emitted.
-- [ ] Lint, tests, build, diff checks, PR checks/comments, and final exact-head review are clean.
-- [ ] The self-hosted/quickstart Docker build target satisfies the shared Node >=20.9 engine floor.
+- [x] Exact audit gate exits 0 with unchanged Next.js and a valid patched sharp tree.
+- [x] Lockfile delta is fully classified and within exact operator authority.
+- [x] Lint, tests, build, diff checks, PR checks/comments, and final exact-head review are clean.
+- [x] The self-hosted/quickstart Docker build target satisfies the shared Node >=20.9 engine floor.
 
 **Risk:** sharp 0.35.x is a breaking upstream line outside Next 16.2.9's declared range,
 and its platform packages may trip the >5-transitive-change auto-halt.
@@ -180,7 +180,7 @@ notification: pr-comment-only-if-required-for-disposition
 - **Branch:** `codex/npm-sharp-security-remediation`
 - **PR number:** #9484
 - **Plan hash at session start:** `7a132f9cde57b7476ed40bb9b2260b65`
-- **Current plan hash after review clarification:** `4b8c560f068cba25a65e8ad60228c8fa`
+- **Current plan hash after final readiness clarification:** `623e0bc4cab10a77d533bd81c804775e`
 
 ## After Any Compaction
 

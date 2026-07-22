@@ -66,7 +66,7 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 - [x] If the dependency-change ceiling is not crossed, run the complete validation
   strategy, inspect the cumulative diff, commit, push, and poll all draft-PR checks
   and comments.
-- [ ] Perform a fresh final readiness review of the exact head without collecting
+- [x] Perform a fresh final readiness review of the exact head without collecting
   countable quorum evidence. Fix blockers and repeat validation before handoff.
 
 **Acceptance criteria:**
@@ -77,14 +77,14 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 - [x] `npm ls next sharp --all` reports the unchanged Next.js version and the
   intended patched sharp version with no invalid dependency state.
 - [x] Every changed lockfile package is listed; there are no unexplained or
-  out-of-family changes, and the operating-contract dependency ceiling is respected
-  or the run stops before committing the product diff.
+  unapproved out-of-family changes, and the operating-contract dependency ceiling
+  was enforced before the exact exception set received operator approval.
 - [x] `npm run lint`, `npm test -- --runInBand`, and `npm run build` pass in
   `aragora/live`; `git diff --check` passes from the repo root.
 - [x] The cumulative product diff is limited to `aragora/live/package.json`,
   `aragora/live/package-lock.json`, and the three approved base-image substitutions
   in `aragora/live/Dockerfile` after Elves operational artifacts are removed.
-- [ ] Independent review finds no unresolved blocker, PR checks are understood, and
+- [x] Independent review finds no unresolved blocker, PR checks are understood, and
   the PR remains unmerged for operator review.
 
 **Docs likely touched:** none beyond temporary Elves run-state documents, which are
