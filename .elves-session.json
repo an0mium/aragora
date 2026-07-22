@@ -1,7 +1,7 @@
 {
   "session_id": "elves-npm-sharp-remediation-20260722",
   "version": "1.12.0",
-  "status": "launch_ready",
+  "status": "blocked",
   "started_at": "2026-07-22T06:20:32Z",
   "base_branch": "main",
   "initial_base_sha": "24ecf7e79ab7486e91712a4ca33e10aff1973ea7",
@@ -16,7 +16,8 @@
   "execution_log_path": "docs/elves/npm-sharp-remediation-20260722/execution-log.md",
   "pr_number": 9484,
   "lane_id": "codex-base-npm-sharp-remediation-20260722",
-  "lease_id": "9743347e-c13",
+  "lease_id": "b2ccab8b-d8e",
+  "launch_head_sha": "c06ab98ac8cd9d40213eaca457cd2a1c74355d8c",
   "merge_policy": "user-merges",
   "checkpoint": {
     "due_by": null,
@@ -28,7 +29,7 @@
     "remaining_batches": 1,
     "stop_allowed": true,
     "checkpoint_is_stop": false,
-    "next_required_action": "Receive a fresh launch command, then start Batch 1 after re-reading the run packet"
+    "next_required_action": "Obtain explicit approval for the measured 29-entry transitive delta before reapplying or committing product edits"
   },
   "test_baseline": {
     "passed": 4025,
@@ -47,20 +48,75 @@
     "affected_range": "<0.35.0",
     "parent": "next@16.2.9"
   },
+  "dependency_delta_experiment": {
+    "override": "sharp: ^0.35.3",
+    "measured_at": "2026-07-22T15:35:38Z",
+    "changed_transitive_entries": 29,
+    "sharp_family_entries": 27,
+    "outside_family_entries": [
+      {
+        "package_key": "node_modules/@emnapi/runtime",
+        "before": "1.8.1",
+        "after": "1.11.2"
+      },
+      {
+        "package_key": "node_modules/sharp/node_modules/semver",
+        "before": "7.7.4",
+        "after": "7.8.5"
+      }
+    ],
+    "sharp_family_package_keys": [
+      "node_modules/@img/sharp-darwin-arm64",
+      "node_modules/@img/sharp-darwin-x64",
+      "node_modules/@img/sharp-freebsd-wasm32",
+      "node_modules/@img/sharp-libvips-darwin-arm64",
+      "node_modules/@img/sharp-libvips-darwin-x64",
+      "node_modules/@img/sharp-libvips-linux-arm",
+      "node_modules/@img/sharp-libvips-linux-arm64",
+      "node_modules/@img/sharp-libvips-linux-ppc64",
+      "node_modules/@img/sharp-libvips-linux-riscv64",
+      "node_modules/@img/sharp-libvips-linux-s390x",
+      "node_modules/@img/sharp-libvips-linux-x64",
+      "node_modules/@img/sharp-libvips-linuxmusl-arm64",
+      "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "node_modules/@img/sharp-linux-arm",
+      "node_modules/@img/sharp-linux-arm64",
+      "node_modules/@img/sharp-linux-ppc64",
+      "node_modules/@img/sharp-linux-riscv64",
+      "node_modules/@img/sharp-linux-s390x",
+      "node_modules/@img/sharp-linux-x64",
+      "node_modules/@img/sharp-linuxmusl-arm64",
+      "node_modules/@img/sharp-linuxmusl-x64",
+      "node_modules/@img/sharp-wasm32",
+      "node_modules/@img/sharp-webcontainers-wasm32",
+      "node_modules/@img/sharp-win32-arm64",
+      "node_modules/@img/sharp-win32-ia32",
+      "node_modules/@img/sharp-win32-x64",
+      "node_modules/sharp"
+    ],
+    "product_files_reverted": true,
+    "product_diff_clean": true,
+    "product_commit_or_push_performed": false,
+    "approval_question": "Approve the exact 29-entry transitive delta from the sharp: ^0.35.3 override—27 sharp/@img entries plus @emnapi/runtime 1.8.1→1.11.2 and sharp's nested semver 7.7.4→7.8.5—so I may reapply it on draft PR #9484 and complete validation, independent non-countable review, operational-artifact cleanup, and final readiness?"
+  },
   "current_batch": {
     "id": 1,
     "name": "Prove and remediate the sharp advisory",
-    "status": "not_started"
+    "status": "blocked"
   },
   "batches": [
     {
       "id": 1,
       "name": "Prove and remediate the sharp advisory",
-      "status": "not_started",
+      "status": "blocked",
       "commit": null,
-      "rollback_tag": "elves/pre-batch-1",
-      "started_at": null,
-      "completed_at": null
+      "rollback_tag": "elves/npm-sharp-remediation-20260722/pre-batch-1",
+      "requested_rollback_tag": "elves/pre-batch-1",
+      "rollback_tag_note": "Requested generic tag was already occupied by unrelated commit 17af7a7a590e3e04543e1f0f1b9df2faf039dc96 and was preserved.",
+      "started_at": "2026-07-22T15:28:29Z",
+      "completed_at": null,
+      "blocked_at": "2026-07-22T15:35:38Z",
+      "blocker": "The measured sharp 0.35.3 override changes 29 transitive entries and includes two out-of-family packages, exceeding both explicit authority limits."
     }
   ],
   "review_comments": [],

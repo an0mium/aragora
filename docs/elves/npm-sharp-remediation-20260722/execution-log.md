@@ -2,14 +2,72 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-07-22 01:29 CDT
-- **Current phase:** Launch-ready
+- **Last updated:** 2026-07-22 10:35 CDT
+- **Current phase:** Blocked at the dependency-change authority gate
 - **Active batch:** Batch 1: Prove and remediate the sharp advisory
 - **Last completed batch:** none yet
-- **Next exact batch:** Batch 1 after a fresh launch call
+- **Next exact batch:** Await exact approval for the measured 29-entry transitive delta
 - **Active PR:** #9484
 - **Docs promoted this run:** `docs/elves/npm-sharp-remediation-20260722/learnings.md`
 - **Latest Elves Report:** not generated yet
+
+## Batch 1 Launch: 2026-07-22 10:28 CDT
+
+- Fresh launch command received with no hard stop.
+- Re-read the survival guide, structured session state, learnings, plan, execution log,
+  root agent guide, and operating contract.
+- User instruction overrides the general autonomous-cycle consult recommendation for this
+  run: no additional Fable or inference consult will be executed.
+- Set the execution Stop Gate and `continuation_guard.stop_allowed` to no before any
+  product edit.
+- Live steering returned zero messages. The recorded lease had disappeared from the
+  live store, so renewal failed closed with `missing_lease`; the same session then
+  reclaimed strict lease `b2ccab8b-d8e` with the original two-file allowlist.
+- Local HEAD, the remote branch, and PR #9484 all matched exact head
+  `c06ab98ac8cd9d40213eaca457cd2a1c74355d8c`; current main remained
+  `563331f03e568e5b34c481bde86a5c1f89575c9e`; the PR stayed draft, clean, and mergeable.
+- The requested local tag `elves/pre-batch-1` was already occupied by unrelated June
+  commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96`. It was preserved. Created the
+  collision-safe tag `elves/npm-sharp-remediation-20260722/pre-batch-1` at the exact
+  verified PR head instead.
+- Active-session conflict inventory reported zero lane conflicts.
+- Pre-edit gate: PASS. Next: reproduce the exact audit baseline, apply the sharp-only
+  override locally, and measure the complete transitive package delta.
+
+## Batch 1 Authority Blocker: 2026-07-22 10:35 CDT
+
+**Baseline:** PASS. `npm ci --ignore-scripts` installed 947 packages. The exact
+`npm audit --omit=dev --audit-level=high --json` command exited 1 and again reported
+GHSA-f88m-g3jw-g9cj on indirect `sharp@0.34.5` through unchanged `next@16.2.9`.
+
+**Experiment:** Added only `"sharp": "^0.35.3"` to the existing overrides object and
+regenerated the lockfile with `npm install --package-lock-only --ignore-scripts`.
+
+**Measured delta:** AUTO-HALT. Parsed comparison of `package-lock.json.packages`
+against HEAD found 29 distinct changed transitive entries:
+
+- 1 core entry: `sharp` 0.34.5→0.35.3.
+- 26 `@img` entries: 14 existing platform binaries moved 0.34.5→0.35.3; 10
+  `sharp-libvips` binaries moved 1.2.4→1.3.2; and
+  `sharp-freebsd-wasm32@0.35.3` plus `sharp-webcontainers-wasm32@0.35.3` were added.
+- 2 out-of-family entries: `@emnapi/runtime` 1.8.1→1.11.2 and
+  `node_modules/sharp/node_modules/semver` 7.7.4→7.8.5.
+
+**Reversion proof:** Removed the override and restored the generated lockfile to HEAD.
+`git diff --exit-code -- aragora/live/package.json aragora/live/package-lock.json`
+exited 0. No product commit or push occurred.
+
+**Stop disposition:** The explicit >5-transitive and out-of-family gates both fired.
+Batch 1 cannot proceed to validation, independent review, or final cleanup without exact
+operator approval. Operational artifacts remain in place for safe resumption.
+
+**Exact approval question:**
+
+> Approve the exact 29-entry transitive delta from the `sharp: ^0.35.3` override—27
+> sharp/@img entries plus `@emnapi/runtime` 1.8.1→1.11.2 and `sharp`'s nested
+> `semver` 7.7.4→7.8.5—so I may reapply it on draft PR #9484 and complete
+> validation, independent non-countable review, operational-artifact cleanup, and
+> final readiness?
 
 ## Session Setup: 2026-07-22 01:20 CDT
 

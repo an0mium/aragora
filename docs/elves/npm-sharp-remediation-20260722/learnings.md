@@ -39,6 +39,10 @@ belong in the execution log. Retire rather than silently delete facts that later
   declares `sharp: ^0.34.5`, which excludes 0.35.x.
 - 2026-07-22: The current lockfile contains 26 sharp-family package entries. Measure
   the actual changed set and honor the operating contract's >5 transitive-change halt.
+- 2026-07-22: On the staged npm 11 lock, a `sharp: ^0.35.3` override changes 29
+  transitive entries: 27 sharp/@img entries plus `@emnapi/runtime` and sharp's nested
+  `semver`. This exceeds the repo's automatic dependency authority and requires exact
+  operator approval even though the product-file diff is only two files.
 
 ## Retired Learnings
 

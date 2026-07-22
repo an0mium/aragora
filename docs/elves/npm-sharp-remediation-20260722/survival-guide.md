@@ -38,8 +38,8 @@ review the exact PR head, but never merge it.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** yes
-- **Why:** the Elves two-call staging phase is complete and implementation must start only from the fresh launch prompt
-- **Next required action:** receive the fresh launch command, then set this gate and `continuation_guard.stop_allowed` to false before starting Batch 1
+- **Why:** the exact dependency-delta safety blocker fired: the `sharp: ^0.35.3` experiment changed 29 transitive package entries, including two packages outside the permitted sharp/@img family; both product files were restored exactly before any product commit or push
+- **Next required action:** obtain explicit operator approval for the exact 29-entry delta recorded below, then reopen Batch 1 from the verified rollback tag and a freshly claimed lease
 
 ## Effort Standard
 
@@ -95,18 +95,18 @@ review the exact PR head, but never merge it.
 
 ## Current Phase
 
-**Status:** Launch-ready
+**Status:** Blocked at the dependency-change authority gate
 
 **Active batch:** Batch 1: Prove and remediate the sharp advisory
 
-**What was just finished:** Main advanced independently, so the branch normally integrated exact current main `563331f03e`; the dependency files were unchanged and the sharp audit failure reproduced.
+**What was just finished:** The exact audit baseline reproduced, and the local `sharp: ^0.35.3` experiment measured 29 changed transitive entries: 27 sharp/@img entries plus out-of-family `@emnapi/runtime` and nested `semver`. The override and regenerated lockfile were fully reverted; neither product file differs from HEAD.
 
-**Single next action:** Receive the fresh launch command, set the execution Stop Gate to no, and begin Batch 1 from the recorded exact head.
+**Single next action:** Ask: “Approve the exact 29-entry transitive delta from the `sharp: ^0.35.3` override—27 sharp/@img entries plus `@emnapi/runtime` 1.8.1→1.11.2 and `sharp`'s nested `semver` 7.7.4→7.8.5—so I may reapply it on draft PR #9484 and complete validation, independent non-countable review, operational-artifact cleanup, and final readiness?”
 
 ## Active Compute
 
-**No active paid or long-running compute.** The bounded Fable consult completed, and no
-dev server or remote job was left running.
+**No active paid or long-running compute.** The bounded Fable consult completed during
+staging, no additional consult was run, and no dev server or remote job was left running.
 
 ## Next Exact Batch
 
@@ -127,7 +127,12 @@ dev server or remote job was left running.
 **Risk:** sharp 0.35.x is a breaking upstream line outside Next 16.2.9's declared range,
 and its platform packages may trip the >5-transitive-change auto-halt.
 
-**Rollback tag:** `elves/pre-batch-1` (create immediately after launch and before product edits)
+**Measured authority blocker:** 29 transitive entries changed. The in-family portion was
+`sharp` itself plus 26 `@img/sharp*` / `@img/sharp-libvips*` entries. Two out-of-family
+entries also moved: `@emnapi/runtime` 1.8.1→1.11.2 and
+`node_modules/sharp/node_modules/semver` 7.7.4→7.8.5. Product edits are reverted.
+
+**Rollback tag:** `elves/npm-sharp-remediation-20260722/pre-batch-1` at `c06ab98ac8cd9d40213eaca457cd2a1c74355d8c`. The requested generic `elves/pre-batch-1` name was already occupied locally by unrelated commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96`, so it was preserved rather than overwritten.
 
 ## Post-Checkpoint Control Loop
 
