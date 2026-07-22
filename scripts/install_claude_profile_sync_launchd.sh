@@ -70,6 +70,18 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
   echo "NOTE: seeded ${CONFIG_PATH} from the example — edit it with your real email->profile map."
 fi
 
+# launchd runs with a minimal environment, so capture the sync script's override
+# env vars at install time and bake them into the job. Otherwise an operator who
+# uses a non-default profile root / config in their shell installs a daemon that
+# silently writes to the DEFAULT locations, leaving the real pool stale.
+ENV_EXPORTS="export PATH=\"${BIN_PATH}\""
+if [[ -n "${CLAUDE_PROFILE_ROOT:-}" ]]; then
+  ENV_EXPORTS+=" CLAUDE_PROFILE_ROOT=\"${CLAUDE_PROFILE_ROOT}\""
+fi
+if [[ -n "${ARAGORA_PROFILE_SYNC_CONFIG:-}" ]]; then
+  ENV_EXPORTS+=" ARAGORA_PROFILE_SYNC_CONFIG=\"${ARAGORA_PROFILE_SYNC_CONFIG}\""
+fi
+
 cat >"${PLIST_PATH}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -81,7 +93,7 @@ cat >"${PLIST_PATH}" <<EOF
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>export PATH="${BIN_PATH}" &amp;&amp; "${PYTHON_BIN}" "${DEPLOY_PATH}" --apply</string>
+    <string>${ENV_EXPORTS} &amp;&amp; "${PYTHON_BIN}" "${DEPLOY_PATH}" --apply</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

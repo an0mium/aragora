@@ -278,6 +278,29 @@ def test_unreadable_existing_credential_fails_closed(monkeypatch, tmp_path) -> N
     assert cred.read_text() == "{ this is not json"
 
 
+def test_force_recovers_a_corrupt_credential(monkeypatch, tmp_path) -> None:
+    # Without --force a corrupt cred fails closed; WITH --force it is backed up
+    # to .bak.corrupt and rewritten, so a wedged profile can self-heal.
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("{ torn write", encoding="utf-8")
+    assert sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True).action == "error"
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True, force=True)
+    assert r.action == "synced"
+    assert json.loads(cred.read_text())["claudeAiOauth"]["accessToken"] == "vp-access"
+    corrupt_bak = cred.with_name(".credentials.json.bak.corrupt")
+    assert corrupt_bak.exists() and corrupt_bak.read_text() == "{ torn write"
+
+
+def test_non_object_json_credential_fails_closed(monkeypatch, tmp_path) -> None:
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("[]", encoding="utf-8")  # valid JSON, wrong shape
+    assert sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True).action == "error"
+
+
 def test_partial_failure_exits_nonzero(monkeypatch, tmp_path) -> None:
     # One profile syncs, another has no source -> the stuck profile must not be
     # masked by the healthy one; the run fails.

@@ -252,15 +252,27 @@ def sync_profile(
         # (a torn/corrupt read — plausible since the CLI rewrites the same file
         # on refresh). Treating a corrupt read as empty would bypass the
         # native-login guard and the backup and could destroy a live refresh
-        # token. On any read/parse failure of a PRESENT file, fail closed.
+        # token. Without --force a present-but-unreadable file fails closed;
+        # with --force it is backed up to .bak.corrupt and rewritten so a wedged
+        # profile can self-heal instead of erroring forever.
         existing: dict | None = None
+        existing_unreadable = False
         if cred_path.exists():
             try:
-                existing = json.loads(cred_path.read_text(encoding="utf-8"))
+                loaded = json.loads(cred_path.read_text(encoding="utf-8"))
+                if not isinstance(loaded, dict):
+                    raise ValueError("credential is not a JSON object")
+                existing = loaded
             except (OSError, ValueError) as exc:
-                return SyncResult(
-                    profile, email, "error", f"existing credential unreadable: {type(exc).__name__}"
-                )
+                if not force:
+                    return SyncResult(
+                        profile,
+                        email,
+                        "error",
+                        f"existing credential unreadable ({type(exc).__name__}); "
+                        "rerun with --force to back it up and overwrite",
+                    )
+                existing_unreadable = True
         existing_oauth = _oauth(existing)
 
         # Native-login guard runs BEFORE the idempotency check: a profile holding
@@ -289,18 +301,30 @@ def sync_profile(
             return SyncResult(profile, email, "synced", "dry-run")
 
         cred_path.parent.mkdir(parents=True, exist_ok=True)
-        # Back up ONLY a native credential (real refresh token) before replacing
-        # it — never overwrite that backup with one of our own blank-refresh
-        # creds, which would lose the last recoverable native login.
-        if existing_refresh:
+        if existing_unreadable:
+            # Preserve the corrupt bytes under --force so nothing is lost.
+            _write_owner_only(
+                cred_path.with_name(".credentials.json.bak.corrupt"),
+                cred_path.read_text(encoding="utf-8", errors="replace"),
+            )
+        elif existing_refresh:
+            # Back up ONLY a native credential (real refresh token) before
+            # replacing it — never overwrite that backup with one of our own
+            # blank-refresh creds, which would lose the last recoverable native
+            # login.
             _write_owner_only(
                 cred_path.with_name(".credentials.json.bak"),
                 cred_path.read_text(encoding="utf-8"),
             )
-        # Atomic, never-world-readable write.
-        tmp = cred_path.with_name(".credentials.json.tmp")
-        _write_owner_only(tmp, json.dumps(payload))
-        os.replace(tmp, cred_path)
+        # Atomic write via a per-process unique temp name (concurrent daemon +
+        # manual runs must not share one .tmp and tear each other's writes).
+        tmp = cred_path.with_name(f".credentials.json.{os.getpid()}.tmp")
+        try:
+            _write_owner_only(tmp, json.dumps(payload))
+            os.replace(tmp, cred_path)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
         return SyncResult(profile, email, "synced", "applied")
     except (OSError, ValueError, KeyError) as exc:
         # Isolate per-profile failures so one malformed source does not abort the
