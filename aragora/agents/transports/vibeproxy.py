@@ -278,6 +278,9 @@ class VibeProxyClient:
         request_timeout = self.connect_timeout_seconds if timeout is None else timeout
         deadline = time.monotonic() + request_timeout
         try:
+            # The lock guards only the shared opener's open() call (connection
+            # setup); the body read happens outside it so concurrent inferences
+            # are not serialized for the duration of the response.
             acquired = self._request_lock.acquire(timeout=max(0.0, request_timeout))
             if not acquired:
                 raise TimeoutError("VibeProxy request lock exceeded timeout")
@@ -285,15 +288,16 @@ class VibeProxyClient:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError("VibeProxy request lock exceeded timeout")
-                with self._opener.open(request, timeout=remaining) as response:
-                    response_headers = {
-                        name: value.strip()
-                        for name in _VERSION_HEADERS
-                        if (value := getattr(response, "headers", {}).get(name))
-                    }
-                    raw = _read_response_with_deadline(response, deadline=deadline)
+                response = self._opener.open(request, timeout=remaining)
             finally:
                 self._request_lock.release()
+            with response:
+                response_headers = {
+                    name: value.strip()
+                    for name in _VERSION_HEADERS
+                    if (value := getattr(response, "headers", {}).get(name))
+                }
+                raw = _read_response_with_deadline(response, deadline=deadline)
         except urllib.error.HTTPError as exc:
             if 300 <= exc.code < 400:
                 raise VibeProxyRedirectError("VibeProxy redirect was denied") from exc

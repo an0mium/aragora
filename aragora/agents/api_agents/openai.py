@@ -23,12 +23,14 @@ from aragora.agents.transports.vibeproxy import (
     OpenAIProtocol,
     TransportMode,
     VibeProxyConfigurationError,
+    VibeProxyResponseError,
     VibeProxyTimeoutError,
     VibeProxyUnavailableError,
 )
 from aragora.core import Message
 from aragora.core_types import AgentRole
 from aragora.observability.metrics.agents import (
+    ErrorType,
     record_circuit_breaker_rejection,
     record_provider_call,
     record_provider_token_usage,
@@ -142,9 +144,23 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         self._fallback_agent = None
         self.enable_web_search = True  # Enable web search tool by default
         self._current_prompt = ""  # Track current prompt for web search detection
-        self._model_transport_policy = ModelTransportPolicy.from_env(
-            default_mode=TransportMode.DIRECT
-        )
+        try:
+            self._model_transport_policy = ModelTransportPolicy.from_env(
+                default_mode=TransportMode.DIRECT
+            )
+        except VibeProxyConfigurationError as exc:
+            # REQUIRED stays fail-closed on a bad environment; every other mode
+            # degrades to the direct path so agent construction never fails for
+            # callers that never touch VibeProxy.
+            raw_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "").strip().lower()
+            if raw_mode == TransportMode.REQUIRED.value:
+                raise
+            logger.warning(
+                "[%s] invalid VibeProxy transport configuration; using direct transport: %s",
+                name,
+                exc,
+            )
+            self._model_transport_policy = ModelTransportPolicy(TransportMode.DIRECT)
 
     def _needs_web_search(self, prompt: str) -> bool:
         """Detect if the prompt would benefit from web search.
@@ -225,6 +241,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             label=getattr(self, "name", None),
         )
 
+        start_time = time.perf_counter()
         deadline = time.monotonic() + float(self.timeout)
 
         def remaining_timeout() -> float:
@@ -256,6 +273,16 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                 payload=proxy_payload,
                 timeout=remaining_timeout(),
             )
+            # A well-formed HTTP 200 whose body is malformed or empty is still
+            # proxy unavailability: PREFER falls back, REQUIRED fails closed.
+            try:
+                content = self._parse_response(data)
+            except AgentAPIError as exc:
+                raise VibeProxyResponseError(
+                    "VibeProxy returned a malformed OpenAI response"
+                ) from exc
+            if not content or not content.strip():
+                raise VibeProxyResponseError("VibeProxy returned an empty response")
         except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
             if self._model_transport_policy.mode is TransportMode.PREFER:
                 logger.info(
@@ -264,6 +291,19 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
                     exc,
                 )
                 return await super().generate(prompt, context)
+            if cb is not None:
+                cb.record_failure()
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=(
+                    ErrorType.TIMEOUT
+                    if isinstance(exc, VibeProxyTimeoutError)
+                    else ErrorType.API_ERROR
+                ),
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise AgentAPIError(
                 f"required VibeProxy OpenAI request failed: {exc}",
                 agent_name=self.name,
@@ -278,17 +318,16 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         usage_has_tokens = bool(input_tokens or output_tokens)
         self._record_token_usage(tokens_in=input_tokens, tokens_out=output_tokens)
 
-        content = self._parse_response(data)
-        if not content or not content.strip():
-            raise AgentAPIError(
-                f"{self._get_error_prefix()} returned empty response",
-                agent_name=self.name,
-            )
         if not usage_has_tokens and estimated_budget_usd > 0:
             budget_guard.record_spend(estimated_budget_usd)
         if cb is not None:
             cb.record_success()
-        record_provider_call(provider=self.agent_type, success=True, model=self.model)
+        record_provider_call(
+            provider=self.agent_type,
+            success=True,
+            latency_seconds=time.perf_counter() - start_time,
+            model=self.model,
+        )
         record_provider_token_usage(
             provider=self.agent_type,
             input_tokens=input_tokens,
