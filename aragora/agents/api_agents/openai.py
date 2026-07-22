@@ -9,7 +9,7 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
 
 from aragora.agents.api_agents.base import APIAgent
@@ -395,7 +395,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
 
     async def generate_stream(
         self, prompt: str, context: list[Message] | None = None
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         """Streaming is outside the contract-tested proxy slice.
 
         PREFER mode streams through the established direct path; REQUIRED mode
