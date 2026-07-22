@@ -170,6 +170,17 @@ def run_claude_vibeproxy(
             timeout_seconds=timeout,
             elapsed_seconds=_elapsed(),
         )
+    except Exception as exc:
+        # This is the outer transport boundary: unexpected client failures must
+        # not tear down the reviewer chain or expose provider exception details.
+        return ClaudeVibeProxyAttempt(
+            attempted=True,
+            required=required,
+            ok=False,
+            error=f"Unexpected VibeProxy failure: {type(exc).__name__}",
+            timeout_seconds=timeout,
+            elapsed_seconds=_elapsed(),
+        )
     return ClaudeVibeProxyAttempt(
         attempted=True,
         required=required,
