@@ -1175,6 +1175,66 @@ def _canonical_boundary_bytes(payload: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _rule_suite_record(
+    end_sha: str,
+    **overrides: Any,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "after_sha": end_sha,
+        "before_sha": "0" * 40,
+        "evaluation_result": "pass",
+        "id": 987654,
+        "pushed_at": "2026-07-20T00:00:00Z",
+        "ref": "refs/heads/main",
+        "repository_id": 1126097105,
+        "repository_name": "aragora",
+        "result": "pass",
+        "rule_evaluations": [{"result": "pass", "rule_source": {"type": "repository"}}],
+    }
+    record.update(overrides)
+    return record
+
+
+def _rule_suite_claim(
+    end_sha: str,
+    *,
+    delete: str | None = None,
+    bypassed: bool = False,
+    **overrides: Any,
+) -> dict[str, Any]:
+    record = _rule_suite_record(end_sha, **overrides)
+    if delete is not None:
+        record.pop(delete, None)
+    raw = ratchet._canonical_json_bytes(record)
+    claim = {
+        field: copy.deepcopy(record[field])
+        for field in (
+            "after_sha",
+            "before_sha",
+            "evaluation_result",
+            "id",
+            "pushed_at",
+            "ref",
+            "repository_id",
+            "repository_name",
+            "result",
+            "rule_evaluations",
+        )
+        if field in record
+    }
+    claim.update(
+        {
+            "authenticated": True,
+            "available": True,
+            "bypassed": bypassed,
+            "raw_response": raw.decode("utf-8"),
+            "raw_response_byte_length": len(raw),
+            "raw_response_sha256": hashlib.sha256(raw).hexdigest(),
+        }
+    )
+    return claim
+
+
 def _write_canonical_boundary_json(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     raw = _canonical_boundary_bytes(payload)
     path.write_bytes(raw)
@@ -1730,13 +1790,7 @@ def _boundary_payloads(
                 "available": True,
                 "enabled": release_immutability,
             },
-            "rule_suite": {
-                "authenticated": True,
-                "available": True,
-                "bypassed": False,
-                "id": 987654,
-                "result": "pass",
-            },
+            "rule_suite": _rule_suite_claim(end_sha),
             "schema": "contract-drift-external-prerequisites-v1",
         },
         "durable_capsule": {
@@ -1917,7 +1971,10 @@ def _stub_boundary_evidence_index(
             summary,
             {
                 "authenticated_pr_changes": authenticated_pr_changes,
+                "expected_rule_suite_ref": "refs/heads/main",
                 "fixture_evidence_index": True,
+                "repository_id": 1126097105,
+                "repository_name": "aragora",
             },
         )
 
@@ -2136,7 +2193,15 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         if "/releases/assets/" in endpoint:
             body = assets[int(endpoint.rsplit("/", 1)[1])]
         elif endpoint == "repos/synaptent/aragora":
-            body = ratchet._canonical_json_bytes({"full_name": "synaptent/aragora"})
+            body = ratchet._canonical_json_bytes(
+                {
+                    "full_name": "synaptent/aragora",
+                    "id": 1126097105,
+                    "name": "aragora",
+                }
+            )
+        elif endpoint.endswith("/branches/main"):
+            body = ratchet._canonical_json_bytes({"commit": {"sha": end_sha}, "name": "main"})
         elif endpoint.endswith("/branches/main/protection"):
             body = ratchet._canonical_json_bytes({"required_status_checks": {"strict": False}})
         elif endpoint.endswith("/immutable-releases"):
@@ -2158,8 +2223,10 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
                     "tag_name": end_sha,
                 }
             )
+        elif "/rulesets/rule-suites?ref=refs/heads/main&time_period=day" in endpoint:
+            body = ratchet._canonical_json_bytes([_rule_suite_record(end_sha)])
         elif endpoint.endswith("/rulesets/rule-suites/987654"):
-            body = ratchet._canonical_json_bytes({"id": 987654, "result": "pass"})
+            body = ratchet._canonical_json_bytes(_rule_suite_record(end_sha))
         elif endpoint.endswith("/pulls/9999/files?per_page=100&page=1"):
             body = ratchet._canonical_json_bytes([{"filename": "fixture.txt", "id": 1}])
         elif endpoint.endswith("/pulls/9999"):
@@ -2457,6 +2524,144 @@ def test_parse_http_response_preserves_exact_body_bytes():
         ratchet._parse_http_response(b"headerless")
 
 
+def test_boundary_rule_suite_binds_repository_main_ref_and_end_sha():
+    end_sha = "1" * 40
+    rule_suite = _rule_suite_claim(end_sha)
+    operation_log: list[dict[str, Any]] = []
+
+    authenticated = ratchet._authenticate_persisted_rule_suite_claim(
+        rule_suite,
+        repository_id=1126097105,
+        repository_name="aragora",
+        expected_ref="refs/heads/main",
+        end_sha=end_sha,
+        operation_log=operation_log,
+    )
+    ratchet._validate_current_rule_suite_binding(
+        rule_suite,
+        observed_rule_suite=_rule_suite_record(end_sha),
+        observed_identity={
+            "byte_length": rule_suite["raw_response_byte_length"],
+            "raw_response": rule_suite["raw_response"],
+            "response_fields": _rule_suite_record(end_sha),
+            "sha256": rule_suite["raw_response_sha256"],
+        },
+        repository_id=1126097105,
+        repository_name="aragora",
+        expected_ref="refs/heads/main",
+        end_sha=end_sha,
+        operation_log=operation_log,
+    )
+
+    assert authenticated["repository_id"] == 1126097105
+    assert authenticated["repository_name"] == "aragora"
+    assert authenticated["ref"] == "refs/heads/main"
+    assert authenticated["after_sha"] == end_sha
+    assert authenticated["result"] == "pass"
+    raw_entries = [
+        entry
+        for entry in operation_log
+        if entry["resource"] == "github-rule-suite-seal-time-response"
+    ]
+    assert raw_entries
+    assert raw_entries[0]["raw_response"] == rule_suite["raw_response"]
+    assert raw_entries[0]["response_fields"] == _rule_suite_record(end_sha)
+
+
+@pytest.mark.parametrize(
+    ("label", "claim"),
+    (
+        pytest.param(
+            "stale-after-sha",
+            _rule_suite_claim("2" * 40),
+            id="stale-after-sha",
+        ),
+        pytest.param(
+            "wrong-repository-id",
+            _rule_suite_claim("1" * 40, repository_id=7),
+            id="wrong-repository-id",
+        ),
+        pytest.param(
+            "wrong-repository-name",
+            _rule_suite_claim("1" * 40, repository_name="mirror"),
+            id="wrong-repository-name",
+        ),
+        pytest.param(
+            "wrong-ref",
+            _rule_suite_claim("1" * 40, ref="refs/heads/feature"),
+            id="wrong-ref",
+        ),
+        pytest.param(
+            "masked-ref",
+            _rule_suite_claim("1" * 40, ref="refs/__gh__/UNKNOWN"),
+            id="masked-ref",
+        ),
+        pytest.param(
+            "missing-after-sha",
+            _rule_suite_claim("1" * 40, delete="after_sha"),
+            id="missing-after-sha",
+        ),
+        pytest.param(
+            "null-repository-id",
+            _rule_suite_claim("1" * 40, repository_id=None),
+            id="null-repository-id",
+        ),
+        pytest.param(
+            "plain-result-fail",
+            _rule_suite_claim("1" * 40, result="fail"),
+            id="plain-result-fail",
+        ),
+        pytest.param(
+            "result-bypass",
+            _rule_suite_claim("1" * 40, result="bypass"),
+            id="result-bypass",
+        ),
+        pytest.param(
+            "evaluation-bypass",
+            _rule_suite_claim("1" * 40, evaluation_result="bypass"),
+            id="evaluation-bypass",
+        ),
+        pytest.param(
+            "nested-evaluation-bypass",
+            _rule_suite_claim(
+                "1" * 40,
+                rule_evaluations=[{"result": "bypass", "rule_source": {"type": "repository"}}],
+            ),
+            id="nested-evaluation-bypass",
+        ),
+        pytest.param(
+            "capsule-bypassed",
+            _rule_suite_claim("1" * 40, bypassed=True),
+            id="capsule-bypassed",
+        ),
+    ),
+)
+def test_stale_wrong_repository_wrong_ref_missing_fields_or_bypassed_rule_suite_fails_closed(
+    label: str,
+    claim: dict[str, Any],
+):
+    if label != "capsule-bypassed":
+        with pytest.raises(ValueError):
+            ratchet._select_current_rule_suite_candidate(
+                [json.loads(claim["raw_response"])],
+                rule_suite_id=987654,
+                repository_id=1126097105,
+                repository_name="aragora",
+                expected_ref="refs/heads/main",
+                end_sha="1" * 40,
+            )
+    with pytest.raises(ValueError) as exc_info:
+        ratchet._authenticate_persisted_rule_suite_claim(
+            claim,
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="1" * 40,
+            operation_log=[],
+        )
+    assert str(exc_info.value), label
+
+
 def test_blocked_boundary_exit_code_is_distinct_from_argparse_errors(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -2673,6 +2878,29 @@ def test_boundary_status_blocked_is_only_verified_external_prerequisite_or_movem
     )
     assert movement["status"] == "blocked"
     assert "moved concurrently" in movement["blocked_reason"]
+
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path / "no-main-evaluation")
+    monkeypatch.setattr(
+        ratchet,
+        "_collect_live_evidence",
+        lambda **_kwargs: ratchet._select_current_rule_suite_candidate(
+            [],
+            rule_suite_id=987654,
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha=boundary_shas["corrective_bootstrap"],
+        ),
+    )
+    no_main_evaluation = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=start_sha,
+        end_ref=boundary_shas["corrective_bootstrap"],
+    )
+    assert no_main_evaluation["status"] == "blocked"
+    assert "absence of a main rule evaluation" in no_main_evaluation["blocked_reason"]
 
 
 def test_boundary_status_fail_covers_malformed_false_missing_bypass_and_mutation(
@@ -3219,10 +3447,17 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         *,
         operation_log: list[dict[str, Any]],
         attempts: int = 3,
+        preserve_raw: bool = False,
     ) -> tuple[Any, dict[str, Any]]:
         del operation_log, attempts
         if endpoint == "repos/synaptent/aragora":
-            return {"full_name": "synaptent/aragora"}, identity
+            return {
+                "full_name": "synaptent/aragora",
+                "id": 1126097105,
+                "name": "aragora",
+            }, identity
+        if endpoint.endswith("/branches/main"):
+            return {"commit": {"sha": end_sha}, "name": "main"}, identity
         if endpoint.endswith("/branches/main/protection"):
             return {"required_status_checks": {"strict": False}}, identity
         if endpoint.endswith("/immutable-releases"):
@@ -3241,7 +3476,19 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
                 "tag_name": end_sha,
             }, identity
         if endpoint.endswith("/rulesets/rule-suites/987654"):
-            return {"id": 987654, "result": "pass"}, identity
+            payload = _rule_suite_record(end_sha)
+            raw = ratchet._canonical_json_bytes(payload).decode("utf-8")
+            rule_suite_identity = dict(identity)
+            if preserve_raw:
+                rule_suite_identity.update(
+                    {
+                        "byte_length": len(raw.encode("utf-8")),
+                        "raw_response": raw,
+                        "response_fields": payload,
+                        "sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+                    }
+                )
+            return payload, rule_suite_identity
         if endpoint.endswith("/pulls/9999"):
             return {
                 "additions": 400,
@@ -3270,6 +3517,8 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         del operation_log
         if endpoint.endswith("/releases"):
             return [{"id": 100, "tag_name": end_sha}], {f"{endpoint}?page=1": identity}
+        if endpoint.endswith("/rulesets/rule-suites?ref=refs/heads/main&time_period=day"):
+            return [_rule_suite_record(end_sha)], {f"{endpoint}&page=1": identity}
         if endpoint.endswith("/pulls/9999/files"):
             return [{"filename": "fixture.txt", "id": 1}], {f"{endpoint}?page=1": identity}
         raise AssertionError(endpoint)

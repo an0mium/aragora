@@ -1612,6 +1612,7 @@ def _gh_api_get(
     endpoint: str,
     *,
     operation_log: list[dict[str, Any]],
+    preserve_raw: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     proc = _run_read_only(
         ["gh", "api", "--method", "GET", "-i", endpoint],
@@ -1644,6 +1645,12 @@ def _gh_api_get(
         raw=body,
         response_identity=identity,
     )
+    if preserve_raw:
+        raw_response = body.decode("utf-8", errors="strict")
+        operation_log[-1]["raw_response"] = raw_response
+        operation_log[-1]["response_fields"] = payload
+        identity["raw_response"] = raw_response
+        identity["response_fields"] = payload
     return payload, identity
 
 
@@ -1652,15 +1659,18 @@ def _gh_api_get_stable(
     *,
     operation_log: list[dict[str, Any]],
     attempts: int = 3,
+    preserve_raw: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     for _attempt in range(attempts):
         before_payload, before_identity = _gh_api_get(
             endpoint,
             operation_log=operation_log,
+            preserve_raw=preserve_raw,
         )
         after_payload, after_identity = _gh_api_get(
             endpoint,
             operation_log=operation_log,
+            preserve_raw=preserve_raw,
         )
         moved = _remote_identity_moved(before_identity, after_identity)
         operation_log[-2]["movement_observed"] = moved
@@ -1831,6 +1841,221 @@ def _require_attestation_source_digest(argv: list[str], *, end_sha: str) -> None
         raise ValueError("gh attestation verify source digest is missing or mismatched")
 
 
+_RULE_SUITE_REQUIRED_FIELDS = (
+    "id",
+    "before_sha",
+    "after_sha",
+    "ref",
+    "repository_id",
+    "repository_name",
+    "pushed_at",
+    "result",
+)
+_RULE_SUITE_OPTIONAL_FIELDS = ("evaluation_result", "rule_evaluations")
+
+
+def _contains_rule_suite_bypass(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(_contains_rule_suite_bypass(item) for item in value)
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized = key.lower()
+            if normalized in {"result", "evaluation_result"} and item == "bypass":
+                return True
+            if "bypass" in normalized and item not in (False, None, ""):
+                return True
+            if isinstance(item, (dict, list)) and _contains_rule_suite_bypass(item):
+                return True
+    return False
+
+
+def _validate_rule_suite_record_fields(
+    record: Any,
+    *,
+    repository_id: int,
+    repository_name: str,
+    expected_ref: str,
+    end_sha: str,
+) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        raise ValueError("GitHub rule-suite response is malformed")
+    missing = [field for field in _RULE_SUITE_REQUIRED_FIELDS if record.get(field) is None]
+    if missing:
+        raise ValueError(
+            "GitHub rule-suite response is missing required binding fields: " + ", ".join(missing)
+        )
+    if (
+        not isinstance(record["id"], int)
+        or isinstance(record["id"], bool)
+        or record["id"] <= 0
+        or not isinstance(record["repository_id"], int)
+        or isinstance(record["repository_id"], bool)
+        or record["repository_id"] <= 0
+        or not isinstance(record["repository_name"], str)
+        or not record["repository_name"]
+        or not isinstance(record["ref"], str)
+        or not isinstance(record["pushed_at"], str)
+        or not record["pushed_at"]
+        or not isinstance(record["result"], str)
+        or not isinstance(record["before_sha"], str)
+        or FULL_SHA_RE.fullmatch(record["before_sha"]) is None
+        or not isinstance(record["after_sha"], str)
+        or FULL_SHA_RE.fullmatch(record["after_sha"]) is None
+    ):
+        raise ValueError("GitHub rule-suite response has malformed binding fields")
+    if record["repository_id"] != repository_id or record["repository_name"] != repository_name:
+        raise ValueError("GitHub rule-suite response is bound to the wrong repository")
+    if record["ref"] != expected_ref:
+        raise ValueError("GitHub rule-suite response is bound to the wrong ref")
+    if record["after_sha"] != end_sha:
+        raise ValueError("GitHub rule-suite response is stale or unrelated to the boundary end SHA")
+    if record["result"] != "pass":
+        raise ValueError("GitHub rule-suite response is not passing")
+    evaluation_result = record.get("evaluation_result")
+    if evaluation_result is not None and evaluation_result != "pass":
+        raise ValueError("GitHub rule-suite evaluation is not passing")
+    if _contains_rule_suite_bypass(record):
+        raise ValueError("GitHub rule-suite response contains a bypassed evaluation")
+    return record
+
+
+def _authenticate_persisted_rule_suite_claim(
+    claim: Any,
+    *,
+    repository_id: int,
+    repository_name: str,
+    expected_ref: str,
+    end_sha: str,
+    operation_log: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not isinstance(claim, dict):
+        raise ValueError("capsule rule-suite claim is malformed")
+    raw_response = claim.get("raw_response")
+    if not isinstance(raw_response, str):
+        raise ValueError("capsule rule-suite raw response bytes are missing")
+    raw = raw_response.encode("utf-8")
+    if claim.get("raw_response_byte_length") != len(raw) or claim.get(
+        "raw_response_sha256"
+    ) != _sha256_bytes(raw):
+        raise ValueError("capsule rule-suite raw response digest binding mismatch")
+    try:
+        response_fields = json.loads(raw, object_pairs_hook=_duplicate_key_object)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"capsule rule-suite raw response is malformed: {exc}") from exc
+    validated = _validate_rule_suite_record_fields(
+        response_fields,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        expected_ref=expected_ref,
+        end_sha=end_sha,
+    )
+    if (
+        claim.get("authenticated") is not True
+        or claim.get("available") is not True
+        or claim.get("bypassed") is not False
+    ):
+        raise ValueError("capsule rule-suite authentication or bypass claim is invalid")
+    for field in _RULE_SUITE_REQUIRED_FIELDS:
+        if claim.get(field) != validated[field]:
+            raise ValueError(f"capsule rule-suite field does not match raw response: {field}")
+    for field in _RULE_SUITE_OPTIONAL_FIELDS:
+        if (field in claim) != (field in validated) or (
+            field in claim and claim[field] != validated[field]
+        ):
+            raise ValueError(f"capsule rule-suite field does not match raw response: {field}")
+    _append_operation(
+        operation_log,
+        kind="capsule_rule_suite",
+        resource="github-rule-suite-seal-time-response",
+        identifier=str(validated["id"]),
+        raw=raw,
+    )
+    operation_log[-1]["raw_response"] = raw_response
+    operation_log[-1]["response_fields"] = validated
+    return validated
+
+
+def _validate_current_rule_suite_binding(
+    claim: Any,
+    *,
+    observed_rule_suite: Any,
+    observed_identity: dict[str, Any],
+    repository_id: int,
+    repository_name: str,
+    expected_ref: str,
+    end_sha: str,
+    operation_log: list[dict[str, Any]],
+) -> dict[str, Any]:
+    persisted = _authenticate_persisted_rule_suite_claim(
+        claim,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        expected_ref=expected_ref,
+        end_sha=end_sha,
+        operation_log=operation_log,
+    )
+    observed = _validate_rule_suite_record_fields(
+        observed_rule_suite,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        expected_ref=expected_ref,
+        end_sha=end_sha,
+    )
+    raw_response = observed_identity.get("raw_response")
+    response_fields = observed_identity.get("response_fields")
+    observed_raw = raw_response.encode("utf-8") if isinstance(raw_response, str) else b""
+    if (
+        not isinstance(raw_response, str)
+        or observed_identity.get("byte_length") != len(observed_raw)
+        or observed_identity.get("sha256") != _sha256_bytes(observed_raw)
+        or response_fields != observed
+        or observed != persisted
+        or raw_response != claim.get("raw_response")
+    ):
+        raise ValueError("live GitHub rule-suite bytes contradict the immutable capsule claim")
+    return observed
+
+
+def _select_current_rule_suite_candidate(
+    suites: list[dict[str, Any]],
+    *,
+    rule_suite_id: int,
+    repository_id: int,
+    repository_name: str,
+    expected_ref: str,
+    end_sha: str,
+) -> dict[str, Any]:
+    exact_candidates = [
+        item
+        for item in suites
+        if item.get("ref") == expected_ref and item.get("after_sha") == end_sha
+    ]
+    cited_candidates = [item for item in suites if item.get("id") == rule_suite_id]
+    if cited_candidates:
+        if len(cited_candidates) != 1:
+            raise ValueError("authenticated GitHub rule-suite listing duplicated the cited ID")
+        selected = _validate_rule_suite_record_fields(
+            cited_candidates[0],
+            repository_id=repository_id,
+            repository_name=repository_name,
+            expected_ref=expected_ref,
+            end_sha=end_sha,
+        )
+    elif not exact_candidates:
+        raise BoundaryBlocked(
+            "independently verified absence of a main rule evaluation for the boundary end SHA"
+        )
+    else:
+        raise ValueError("capsule rule-suite identifier is stale or replayed")
+    if len(exact_candidates) != 1:
+        raise ValueError(
+            "authenticated GitHub rule-suite listing is ambiguous for the boundary end SHA"
+        )
+    if exact_candidates[0].get("id") != rule_suite_id:
+        raise ValueError("capsule rule-suite identifier is stale, unrelated, or malformed")
+    return selected
+
+
 def _collect_live_evidence(
     *,
     github_repository: str,
@@ -1851,8 +2076,32 @@ def _collect_live_evidence(
         operation_log=operation_log,
     )
     endpoint_identities[f"repos/{github_repository}"] = repository_identity
-    if not isinstance(repository, dict) or repository.get("full_name") != github_repository:
+    if (
+        not isinstance(repository, dict)
+        or repository.get("full_name") != github_repository
+        or not isinstance(repository.get("id"), int)
+        or isinstance(repository.get("id"), bool)
+        or repository["id"] <= 0
+        or repository.get("name") != github_repository.rsplit("/", 1)[-1]
+    ):
         raise ValueError("authenticated GitHub repository identity mismatch")
+    repository_id = cast(int, repository["id"])
+    repository_name = cast(str, repository["name"])
+    branch_endpoint = f"repos/{github_repository}/branches/{github_branch}"
+    branch, branch_identity = _gh_api_get_stable(
+        branch_endpoint,
+        operation_log=operation_log,
+    )
+    endpoint_identities[branch_endpoint] = branch_identity
+    if (
+        not isinstance(branch, dict)
+        or branch.get("name") != github_branch
+        or not isinstance(branch.get("commit"), dict)
+        or not isinstance(branch["commit"].get("sha"), str)
+        or FULL_SHA_RE.fullmatch(branch["commit"]["sha"]) is None
+    ):
+        raise ValueError("authenticated GitHub branch identity mismatch")
+    is_current_boundary = branch["commit"]["sha"] == end_sha
     protection_endpoint = f"repos/{github_repository}/branches/{github_branch}/protection"
     protection, protection_identity = _gh_api_get_stable(
         protection_endpoint,
@@ -2201,28 +2450,76 @@ def _collect_live_evidence(
 
     prerequisite = resources["external_prerequisites"]
     rule_suite = prerequisite.get("rule_suite")
-    if not isinstance(rule_suite, dict) or not isinstance(rule_suite.get("id"), int):
-        raise ValueError("capsule rule-suite identifier is malformed")
-    rule_suite_endpoint = f"repos/{github_repository}/rulesets/rule-suites/{rule_suite['id']}"
-    observed_rule_suite, rule_suite_identity = _gh_api_get_stable(
-        rule_suite_endpoint,
-        operation_log=operation_log,
-    )
-    endpoint_identities[rule_suite_endpoint] = rule_suite_identity
+    expected_rule_suite_ref = f"refs/heads/{github_branch}"
     if (
-        not isinstance(observed_rule_suite, dict)
-        or observed_rule_suite.get("id") != rule_suite["id"]
-        or observed_rule_suite.get("result") != "pass"
+        not isinstance(rule_suite, dict)
+        or not isinstance(rule_suite.get("id"), int)
+        or isinstance(rule_suite.get("id"), bool)
+        or rule_suite["id"] <= 0
     ):
-        raise ValueError("authenticated GitHub rule suite is missing, bypassed, or nonpassing")
-    if rule_suite != {
-        "authenticated": True,
-        "available": True,
-        "bypassed": False,
-        "id": observed_rule_suite["id"],
-        "result": "pass",
-    }:
-        raise ValueError("capsule rule-suite claim contradicts authenticated GitHub evidence")
+        raise ValueError("capsule rule-suite identifier is stale, unrelated, or malformed")
+    rule_suite_id = cast(int, rule_suite["id"])
+    if is_current_boundary:
+        suites_endpoint = (
+            f"repos/{github_repository}/rulesets/rule-suites"
+            f"?ref={expected_rule_suite_ref}&time_period=day"
+        )
+        try:
+            suites, suite_page_identities = _gh_api_paginated(
+                suites_endpoint,
+                operation_log=operation_log,
+            )
+        except ValueError as exc:
+            if "authenticated GitHub GET failed" in str(exc):
+                raise BoundaryBlocked(
+                    "authenticated GitHub rule-suite access is unavailable"
+                ) from exc
+            raise
+        endpoint_identities.update(suite_page_identities)
+        _select_current_rule_suite_candidate(
+            suites,
+            rule_suite_id=rule_suite_id,
+            repository_id=repository_id,
+            repository_name=repository_name,
+            expected_ref=expected_rule_suite_ref,
+            end_sha=end_sha,
+        )
+        rule_suite_endpoint = f"repos/{github_repository}/rulesets/rule-suites/{rule_suite_id}"
+        try:
+            observed_rule_suite, rule_suite_identity = _gh_api_get_stable(
+                rule_suite_endpoint,
+                operation_log=operation_log,
+                preserve_raw=True,
+            )
+        except ValueError as exc:
+            if "authenticated GitHub GET failed" in str(exc):
+                raise BoundaryBlocked(
+                    "the current boundary rule suite is unfetchable within its active window"
+                ) from exc
+            raise
+        _validate_current_rule_suite_binding(
+            rule_suite,
+            observed_rule_suite=observed_rule_suite,
+            observed_identity=rule_suite_identity,
+            repository_id=repository_id,
+            repository_name=repository_name,
+            expected_ref=expected_rule_suite_ref,
+            end_sha=end_sha,
+            operation_log=operation_log,
+        )
+        endpoint_identities[rule_suite_endpoint] = {
+            key: rule_suite_identity.get(key)
+            for key in ("byte_length", "etag", "sha256", "updated_at")
+        }
+    else:
+        _authenticate_persisted_rule_suite_claim(
+            rule_suite,
+            repository_id=repository_id,
+            repository_name=repository_name,
+            expected_ref=expected_rule_suite_ref,
+            end_sha=end_sha,
+            operation_log=operation_log,
+        )
     if prerequisite.get("administration") != {
         "authenticated": True,
         "available": True,
@@ -2265,7 +2562,7 @@ def _collect_live_evidence(
         expected_publication_fields = {
             "attestation_bundle_sha256": attestation_digest,
             "release_api_id": release_id,
-            "rule_suite_id": rule_suite["id"],
+            "rule_suite_id": rule_suite_id,
         }
         if any(
             publication["fact"].get(key) != value
@@ -2399,8 +2696,11 @@ def _collect_live_evidence(
             "asset_identities": asset_identities,
             "authenticated_pr_changes": authenticated_pr_changes,
             "endpoint_identities": endpoint_identities,
+            "expected_rule_suite_ref": expected_rule_suite_ref,
             "github_repository": github_repository,
             "local_asset_identities": local_asset_identities,
+            "repository_id": repository_id,
+            "repository_name": repository_name,
             "snapshot_before": live_before_snapshot,
             "verification_commands": verification_commands,
         },
@@ -3028,7 +3328,15 @@ def _validate_final_seal(
     return ["publication", "complete_paydown", "dated_trajectory", "final_zero"]
 
 
-def _validate_external_prerequisites(resource: dict[str, Any]) -> dict[str, Any]:
+def _validate_external_prerequisites(
+    resource: dict[str, Any],
+    *,
+    repository_id: int,
+    repository_name: str,
+    expected_ref: str,
+    end_sha: str,
+    operation_log: list[dict[str, Any]],
+) -> dict[str, Any]:
     expected_fields = {
         "administration",
         "boundary",
@@ -3064,19 +3372,20 @@ def _validate_external_prerequisites(resource: dict[str, Any]) -> dict[str, Any]
             raise BoundaryBlocked(f"{name} is authenticated and unavailable")
     if release.get("enabled") is not True:
         raise BoundaryBlocked("future GitHub Release immutability is authenticated and unavailable")
-    if rule_suite.get("bypassed") is not False:
-        raise ValueError("GitHub rule suite was bypassed")
-    if rule_suite.get("result") != "pass":
-        raise ValueError("GitHub rule suite did not pass")
-    rule_suite_id = rule_suite.get("id")
-    if not isinstance(rule_suite_id, int) or rule_suite_id <= 0:
-        raise ValueError("GitHub rule-suite ID is malformed")
+    authenticated_rule_suite = _authenticate_persisted_rule_suite_claim(
+        rule_suite,
+        repository_id=repository_id,
+        repository_name=repository_name,
+        expected_ref=expected_ref,
+        end_sha=end_sha,
+        operation_log=operation_log,
+    )
     return {
         "administration_read_verified": True,
         "future_release_immutability_enabled": True,
         "rule_suite": {
             "bypassed": False,
-            "id": rule_suite_id,
+            "id": authenticated_rule_suite["id"],
             "result": "pass",
         },
     }
@@ -3354,6 +3663,9 @@ def _evaluate_boundary_evidence(
     boundary: str,
     start_sha: str,
     end_sha: str,
+    repository_id: int,
+    repository_name: str,
+    expected_rule_suite_ref: str,
     authority: dict[str, Any],
     canonical_artifacts: dict[str, Any],
     authenticated_pr_changes: dict[int, dict[str, int]],
@@ -3367,7 +3679,14 @@ def _evaluate_boundary_evidence(
         end_sha=end_sha,
         operation_log=operation_log,
     )
-    prerequisites = _validate_external_prerequisites(resources["external_prerequisites"])
+    prerequisites = _validate_external_prerequisites(
+        resources["external_prerequisites"],
+        repository_id=repository_id,
+        repository_name=repository_name,
+        expected_ref=expected_rule_suite_ref,
+        end_sha=end_sha,
+        operation_log=operation_log,
+    )
     capsule = _validate_durable_capsule(
         resources["durable_capsule"],
         end_sha=end_sha,
@@ -3702,6 +4021,19 @@ def build_boundary_result(
         authenticated_pr_changes = live_context.get("authenticated_pr_changes")
         if not isinstance(authenticated_pr_changes, dict):
             raise ValueError("authenticated governed PR additions/deletions are unavailable")
+        repository_id = live_context.get("repository_id")
+        repository_name = live_context.get("repository_name")
+        expected_rule_suite_ref = live_context.get("expected_rule_suite_ref")
+        if (
+            not isinstance(repository_id, int)
+            or isinstance(repository_id, bool)
+            or repository_id <= 0
+            or not isinstance(repository_name, str)
+            or not repository_name
+            or not isinstance(expected_rule_suite_ref, str)
+            or not expected_rule_suite_ref
+        ):
+            raise ValueError("authenticated GitHub repository rule-suite identity is unavailable")
         result["remote_snapshot_before"] = _record_remote_snapshot(
             operation_log,
             label="before",
@@ -3715,6 +4047,9 @@ def build_boundary_result(
             boundary=boundary,
             start_sha=start_sha,
             end_sha=end_sha,
+            repository_id=repository_id,
+            repository_name=repository_name,
+            expected_rule_suite_ref=expected_rule_suite_ref,
             authority=authority,
             canonical_artifacts=artifacts,
             authenticated_pr_changes=authenticated_pr_changes,
