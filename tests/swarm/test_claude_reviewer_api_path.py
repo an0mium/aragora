@@ -5,8 +5,19 @@ from API keys alone, without depending on OpenRouter."""
 
 from __future__ import annotations
 
+import pytest
+
 import aragora.swarm.quorum_evidence as qe
 from aragora.swarm.quorum_evidence import ReviewerResult
+
+
+@pytest.fixture(autouse=True)
+def _pin_direct_transport(monkeypatch):
+    # These tests exercise the CLI/API fallback, not the VibeProxy transport.
+    # Pin direct so an ambient ARAGORA_MODEL_TRANSPORT=vibeproxy-prefer (the env
+    # this feature documents enabling) cannot make them build a real client or
+    # hit the network.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
 
 
 def _cli_ok(_prompt, *, timeout=None):

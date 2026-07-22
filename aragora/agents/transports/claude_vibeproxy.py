@@ -19,6 +19,10 @@ DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
 VIBEPROXY_HARNESS = "local VibeProxy Anthropic Messages transport"
 VIBEPROXY_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_VIBEPROXY_TIMEOUT_SECONDS"
 DEFAULT_VIBEPROXY_TIMEOUT_SECONDS = 120.0
+# Cap on the catalog /models discovery leg so it and the message leg SHARE the
+# attempt budget instead of each drawing the full amount (which let one attempt
+# run up to ~2x the intended timeout).
+_DISCOVERY_CAP_SECONDS = 6.0
 
 
 @dataclass(frozen=True)
@@ -115,9 +119,13 @@ def run_claude_vibeproxy(
     timeout = 0.0
     try:
         timeout = _attempt_timeout(reviewer_timeout, resolved_policy.mode)
-        # Bound the catalog /models discovery within the attempt budget instead
-        # of letting it run on the client's connect timeout outside it.
-        route = resolved_policy.resolve("anthropic", model, capabilities=("chat",), timeout=timeout)
+        # Discovery and the message leg SHARE the attempt budget: bound discovery
+        # to a small cap and charge the message leg the remainder, so the two
+        # legs sum to at most ``timeout`` instead of each drawing the full amount.
+        discovery_timeout = min(timeout, _DISCOVERY_CAP_SECONDS)
+        route = resolved_policy.resolve(
+            "anthropic", model, capabilities=("chat",), timeout=discovery_timeout
+        )
         if route.transport != "vibeproxy" or resolved_policy.client is None:
             return ClaudeVibeProxyAttempt(
                 attempted=True,
@@ -127,10 +135,11 @@ def run_claude_vibeproxy(
                 timeout_seconds=timeout,
                 elapsed_seconds=_elapsed(),
             )
+        message_timeout = max(1.0, timeout - discovery_timeout)
         text = resolved_policy.client.anthropic_message(
             model=route.resolved_model,
             prompt=prompt,
-            timeout=timeout,
+            timeout=message_timeout,
         )
     except VibeProxyTimeoutError as exc:
         return ClaudeVibeProxyAttempt(

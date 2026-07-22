@@ -383,12 +383,13 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
             error="",
             harness="local VibeProxy Anthropic Messages transport",
             timeout_seconds=30.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(
         qe,
         "_run_claude_cli",
-        lambda _prompt: pytest.fail("direct CLI must not run after proxy success"),
+        lambda _prompt, *, timeout=None: pytest.fail("direct CLI must not run after proxy success"),
     )
 
     result = qe._run_claude_reviewer("review prompt")
@@ -449,12 +450,13 @@ def test_claude_reviewer_required_failure_never_runs_direct_path(
             error="proxy required but unavailable",
             harness="",
             timeout_seconds=600.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(
         qe,
         "_run_claude_cli",
-        lambda _prompt: pytest.fail("required mode must not use direct CLI"),
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
     )
 
     assert qe._run_claude_reviewer("prompt") == ReviewerResult(
@@ -480,6 +482,7 @@ def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
             error="proxy required but unavailable",
             harness="",
             timeout_seconds=600.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(

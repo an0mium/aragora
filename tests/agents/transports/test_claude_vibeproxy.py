@@ -56,11 +56,13 @@ def test_prefer_mode_runs_exact_model_and_discloses_harness(
     assert result.text == "Verdict: PASS"
     assert result.harness == f"{VIBEPROXY_HARNESS} (model: claude-opus-4-8)"
     assert result.timeout_seconds == 30.0
+    # Message leg gets the budget minus the discovery cap (30 - 6), so the two
+    # legs sum to at most the attempt budget rather than each drawing the full 30.
     assert client.calls == [
         {
             "model": "claude-opus-4-8",
             "prompt": "review prompt",
-            "timeout": 30.0,
+            "timeout": 24.0,
         }
     ]
 
@@ -75,8 +77,10 @@ def test_prefer_mode_reserves_half_the_reviewer_budget(
     result = run_claude_vibeproxy("prompt", reviewer_timeout=80, policy=policy)
 
     assert result.ok is True
+    # Attempt budget is half the reviewer budget (40); the message leg gets that
+    # minus the 6s discovery cap, and the two legs never sum above the budget.
     assert result.timeout_seconds == 40.0
-    assert client.calls[0]["timeout"] == 40.0
+    assert client.calls[0]["timeout"] == 34.0
 
 
 def test_prefer_mode_allows_direct_fallback_when_model_is_unavailable() -> None:
