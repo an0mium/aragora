@@ -370,6 +370,136 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
+def test_claude_reviewer_uses_successful_vibeproxy_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("direct CLI must not run after proxy success"),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "claude",
+        "Verdict: PASS",
+        True,
+        harness="local VibeProxy Anthropic Messages transport",
+    )
+
+
+def test_claude_reviewer_prefer_failure_uses_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=False,
+            text="",
+            error="proxy unavailable",
+            harness="",
+            timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
+        ),
+    )
+    direct_timeouts: list[float] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout: direct_timeouts.append(timeout)
+        or ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
+
+
+def test_claude_reviewer_required_failure_never_runs_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "proxy required but unavailable",
+        allow_transport_fallback=False,
+    )
+
+
+def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_openrouter_reviewer",
+        lambda *_args, **_kwargs: pytest.fail(
+            "required VibeProxy mode must suppress OpenRouter fallback"
+        ),
+    )
+
+    result = qe.default_reviewer_runner("claude", "prompt")
+
+    assert result.allow_transport_fallback is False
+    assert result.error == "proxy required but unavailable"
+
+
 # --- OpenAI reviewer fallback ----------------------------------------------
 
 
