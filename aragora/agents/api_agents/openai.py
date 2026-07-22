@@ -55,6 +55,11 @@ _WEB_SEARCH_PATTERNS = [
 ]
 
 
+# Cap for VibeProxy catalog discovery (4x the client's 1.5s connect timeout):
+# bounds how long a wedged proxy can delay PREFER-mode fallback to direct.
+_PROXY_DISCOVERY_TIMEOUT_SECONDS = 6.0
+
+
 def _resolve_openai_base_url() -> str:
     """OPENAI_BASE_URL override for gateways/proxies (issue #9304)."""
     import os
@@ -206,22 +211,44 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             and not self._needs_web_search(full_prompt)
         )
 
+    def _reject_if_required_ineligible(self, reason: str) -> None:
+        """REQUIRED mode is an egress boundary: never silently fall back to a
+        direct api.openai.com call for requests the proxy slice cannot serve."""
+
+        if self._model_transport_policy.mode is TransportMode.REQUIRED:
+            raise AgentAPIError(
+                f"vibeproxy-required cannot serve this request ({reason}); "
+                "web search, tools, custom endpoints, and streaming are outside "
+                "the contract-tested proxy slice",
+                agent_name=self.name,
+            )
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Route exact, non-streaming OpenAI Chat requests through VibeProxy.
 
-        Web search, streaming, custom endpoints, and any request the policy does
-        not resolve exactly continue through the established direct path.
+        In PREFER mode, web search, streaming, custom endpoints, and any request
+        the policy does not resolve exactly continue through the established
+        direct path. In REQUIRED mode those requests fail closed instead.
         """
 
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
         if not self._can_route_exact_chat(full_prompt):
+            self._reject_if_required_ineligible("web search or custom endpoint requested")
             return await super().generate(prompt, context)
 
+        start_time = time.perf_counter()
         cb = getattr(self, "_circuit_breaker", None)
         if cb is not None and not cb.can_proceed():
             record_circuit_breaker_rejection(self.agent_type)
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=ErrorType.CIRCUIT_OPEN,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise AgentCircuitOpenError(
                 f"Circuit breaker open for {self.name} - too many recent failures",
                 agent_name=self.name,
@@ -231,6 +258,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         payload = self._build_payload(messages, stream=False)
         # Defensively keep future tool-bearing extensions on the direct path.
         if payload.get("tools"):
+            self._reject_if_required_ineligible("tool-bearing payload")
             return await super().generate(prompt, context)
 
         estimated_budget_usd = self._estimate_budget_cost_usd(payload)
@@ -241,7 +269,6 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             label=getattr(self, "name", None),
         )
 
-        start_time = time.perf_counter()
         deadline = time.monotonic() + float(self.timeout)
 
         def remaining_timeout() -> float:
@@ -251,12 +278,14 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             return remaining
 
         try:
+            # Discovery gets a small bound, not the inference budget: a wedged
+            # proxy must not delay PREFER-mode fallback by the agent timeout.
             route = await asyncio.to_thread(
                 self._model_transport_policy.resolve,
                 "openai",
                 self.model,
                 ("chat",),
-                timeout=remaining_timeout(),
+                timeout=min(remaining_timeout(), _PROXY_DISCOVERY_TIMEOUT_SECONDS),
             )
             if route.transport == "direct":
                 return await super().generate(prompt, context)

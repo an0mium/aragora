@@ -460,7 +460,9 @@ class TestOpenAIVibeProxyRouting:
 
         catalog = next(call for call in client.calls if call["operation"] == "catalog")
         request = next(call for call in client.calls if call["operation"] == "request")
-        assert catalog["timeout"] == pytest.approx(10.0)
+        # Discovery is capped so a wedged proxy cannot burn the inference
+        # budget; the request leg still draws from the shared deadline.
+        assert catalog["timeout"] == pytest.approx(6.0)
         assert request["timeout"] == pytest.approx(7.0)
 
     @pytest.mark.asyncio
@@ -669,6 +671,53 @@ class TestOpenAIVibeProxyRouting:
 
         cb.record_failure.assert_called_once()
         cb.record_success.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_required_web_search_prompt_fails_closed(self, mock_env_with_api_keys) -> None:
+        from aragora.agents.api_agents.common import AgentAPIError
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        client = self.FakeClient()
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.REQUIRED,
+            client=client,  # type: ignore[arg-type]
+        )
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as direct_session:
+            with pytest.raises(AgentAPIError, match="vibeproxy-required cannot serve"):
+                await agent.generate("check https://example.com")
+
+        direct_session.assert_not_called()
+        assert client.calls == []
+
+    @pytest.mark.asyncio
+    async def test_required_custom_endpoint_fails_closed(
+        self, mock_env_with_api_keys, monkeypatch
+    ) -> None:
+        from aragora.agents.api_agents.common import AgentAPIError
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
+
+        monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/openai")
+        client = self.FakeClient()
+        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent.enable_web_search = False
+        agent._model_transport_policy = ModelTransportPolicy(
+            TransportMode.REQUIRED,
+            client=client,  # type: ignore[arg-type]
+        )
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as direct_session:
+            with pytest.raises(AgentAPIError, match="vibeproxy-required cannot serve"):
+                await agent.generate("hello")
+
+        direct_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_proxy_success_records_latency(self, mock_env_with_api_keys) -> None:

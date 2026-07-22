@@ -25,6 +25,16 @@ def _clear_catalog_cache():
     vibeproxy._CATALOG_CACHE.clear()
 
 
+def _patch_opener(monkeypatch: pytest.MonkeyPatch, open_fn) -> None:
+    """Route every per-request opener's open() through open_fn."""
+
+    monkeypatch.setattr(
+        vibeproxy.urllib.request,
+        "build_opener",
+        lambda *_handlers: SimpleNamespace(open=open_fn),
+    )
+
+
 @pytest.mark.parametrize(
     "url",
     ["http://localhost:8318", "http://192.168.1.9:8318", "http://proxy.example:8318"],
@@ -73,7 +83,7 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
         return _Response(json.dumps({"data": [{"id": "claude-fable-5"}]}).encode())
 
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(client._opener, "open", fake_urlopen)
+    _patch_opener(monkeypatch, fake_urlopen)
 
     first = client.sanitized_status()
     second = client.sanitized_status()
@@ -90,16 +100,14 @@ def test_catalog_cache_isolated_by_api_key(monkeypatch: pytest.MonkeyPatch) -> N
     first = vibeproxy.VibeProxyClient("https://proxy.example", "first-key")
     second = vibeproxy.VibeProxyClient("https://proxy.example", "second-key")
 
-    def first_open(*_args, **_kwargs):
-        calls["first"] += 1
-        return _Response(json.dumps({"data": [{"id": "first-model"}]}).encode())
-
-    def second_open(*_args, **_kwargs):
+    def fake_open(request, timeout=None):
+        if "first-key" in request.get_header("Authorization", ""):
+            calls["first"] += 1
+            return _Response(json.dumps({"data": [{"id": "first-model"}]}).encode())
         calls["second"] += 1
         return _Response(json.dumps({"data": [{"id": "second-model"}]}).encode())
 
-    monkeypatch.setattr(first._opener, "open", first_open)
-    monkeypatch.setattr(second._opener, "open", second_open)
+    _patch_opener(monkeypatch, fake_open)
 
     assert first.catalog().models == frozenset({"first-model"})
     assert second.catalog().models == frozenset({"second-model"})
@@ -114,25 +122,29 @@ def test_client_disables_environment_proxies_and_redirects(
     def fake_build_opener(*configured: object):
         nonlocal handlers
         handlers = configured
-        return SimpleNamespace()
+        return SimpleNamespace(
+            open=lambda *_args, **_kwargs: _Response(
+                json.dumps({"data": [{"id": "claude-fable-5"}]}).encode()
+            )
+        )
 
     monkeypatch.setattr(vibeproxy.urllib.request, "build_opener", fake_build_opener)
-    vibeproxy.VibeProxyClient()
+    client = vibeproxy.VibeProxyClient()
+    client.catalog(force=True)
 
     proxy = next(
         handler
         for handler in handlers
         if isinstance(handler, vibeproxy.urllib.request.ProxyHandler)
     )
-    assert getattr(proxy, "proxies") == {}
+    assert proxy.proxies == {}
     assert any(isinstance(handler, vibeproxy._NoRedirectHandler) for handler in handlers)
 
 
 def test_client_classifies_url_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(
-        client._opener,
-        "open",
+    _patch_opener(
+        monkeypatch,
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             vibeproxy.urllib.error.URLError(TimeoutError())
         ),
@@ -154,9 +166,8 @@ def test_client_classifies_http_protocol_errors(
     error: http.client.HTTPException,
 ) -> None:
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(
-        client._opener,
-        "open",
+    _patch_opener(
+        monkeypatch,
         lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
     )
 
@@ -182,7 +193,7 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
 
     client = vibeproxy.VibeProxyClient()
     monkeypatch.setattr(vibeproxy.time, "monotonic", lambda: clock["now"])
-    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: SlowResponse())
+    _patch_opener(monkeypatch, lambda *_args, **_kwargs: SlowResponse())
 
     with pytest.raises(vibeproxy.VibeProxyTimeoutError):
         client._request("/models", timeout=1.0)
@@ -190,24 +201,29 @@ def test_client_times_out_slow_streaming_response(monkeypatch: pytest.MonkeyPatc
     assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
 
 
-def test_shared_opener_lock_obeys_request_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_each_request_builds_a_fresh_opener(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No shared opener state: concurrent inferences must not serialize."""
+
+    built = 0
+
+    def fake_build_opener(*_handlers: object):
+        nonlocal built
+        built += 1
+        return SimpleNamespace(
+            open=lambda *_args, **_kwargs: _Response(
+                json.dumps({"data": [{"id": "claude-fable-5"}]}).encode()
+            )
+        )
+
+    monkeypatch.setattr(vibeproxy.urllib.request, "build_opener", fake_build_opener)
     client = vibeproxy.VibeProxyClient()
-    opened = False
 
-    def fake_open(*_args, **_kwargs):
-        nonlocal opened
-        opened = True
-        return _Response(b"{}")
+    client.catalog(force=True)
+    client.catalog(force=True)
 
-    monkeypatch.setattr(client._opener, "open", fake_open)
-    client._request_lock.acquire()
-    try:
-        with pytest.raises(vibeproxy.VibeProxyTimeoutError, match="timed out"):
-            client._request("/models", timeout=0.01)
-    finally:
-        client._request_lock.release()
-
-    assert opened is False
+    assert built == 2
+    assert not hasattr(client, "_opener")
+    assert not hasattr(client, "_request_lock")
 
 
 def test_client_accepts_response_with_bounded_read_only(
@@ -227,7 +243,7 @@ def test_client_accepts_response_with_bounded_read_only(
             return b'{"data": []}' if len(read_amounts) == 1 else b""
 
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: ReadOnlyResponse())
+    _patch_opener(monkeypatch, lambda *_args, **_kwargs: ReadOnlyResponse())
 
     assert client._request("/models", timeout=1.0) == {"data": []}
     assert read_amounts == [vibeproxy.RESPONSE_READ_CHUNK_BYTES] * 2
@@ -244,7 +260,7 @@ def test_client_rejects_response_without_bounded_read_support(
             return False
 
     client = vibeproxy.VibeProxyClient()
-    monkeypatch.setattr(client._opener, "open", lambda *_args, **_kwargs: UnsupportedResponse())
+    _patch_opener(monkeypatch, lambda *_args, **_kwargs: UnsupportedResponse())
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="bounded reads"):
         client._request("/models", timeout=1.0)
@@ -291,12 +307,11 @@ def test_openai_protocol_request_uses_exact_model_and_path(
         seen["url"] = request.full_url
         seen["authorization"] = request.headers["Authorization"]
         seen["anthropic_version"] = request.headers.get("Anthropic-version")
-        seen["lock_held"] = client._request_lock.locked()
         seen["payload"] = json.loads(request.data)
         seen["timeout"] = timeout
         return _Response(json.dumps({"model": "gpt-5.5", "ok": True}).encode())
 
-    monkeypatch.setattr(client._opener, "open", fake_open)
+    _patch_opener(monkeypatch, fake_open)
 
     body = client.openai_request(
         protocol=protocol,
@@ -311,7 +326,6 @@ def test_openai_protocol_request_uses_exact_model_and_path(
         "url": f"http://127.0.0.1:8318/v1{path}",
         "authorization": f"Bearer {vibeproxy.LOCAL_API_KEY}",
         "anthropic_version": None,
-        "lock_held": True,
         "payload": {"model": "gpt-5.5", "input": "hello"},
     }
 
@@ -364,7 +378,7 @@ def test_anthropic_message_keeps_protocol_version_header(
             ).encode()
         )
 
-    monkeypatch.setattr(client._opener, "open", fake_open)
+    _patch_opener(monkeypatch, fake_open)
 
     assert client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1.0) == "answer"
     assert seen["anthropic_version"] == "2023-06-01"

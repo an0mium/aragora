@@ -252,10 +252,6 @@ class VibeProxyClient:
         self.connect_timeout_seconds = _bounded_float(
             connect_timeout_seconds, name="connect timeout", minimum=0.1
         )
-        self._request_lock = threading.Lock()
-        self._opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}), _NoRedirectHandler()
-        )
 
     def _request_document(
         self,
@@ -278,20 +274,19 @@ class VibeProxyClient:
         request_timeout = self.connect_timeout_seconds if timeout is None else timeout
         deadline = time.monotonic() + request_timeout
         try:
-            # The lock guards only the shared opener's open() call (connection
-            # setup); the body read happens outside it so concurrent inferences
-            # are not serialized for the duration of the response.
-            acquired = self._request_lock.acquire(timeout=max(0.0, request_timeout))
-            if not acquired:
-                raise TimeoutError("VibeProxy request lock exceeded timeout")
-            try:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError("VibeProxy request lock exceeded timeout")
-                response = self._opener.open(request, timeout=remaining)
-            finally:
-                self._request_lock.release()
-            with response:
+            # A fresh opener per request: OpenerDirector is not documented
+            # thread-safe, and a shared opener would need a lock — which
+            # serializes whole inferences, because open() blocks until response
+            # headers arrive and a non-streaming completion sends them only
+            # after generation finishes. Per-request construction removes the
+            # shared state instead.
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({}), _NoRedirectHandler()
+            )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("VibeProxy request timed out")
+            with opener.open(request, timeout=remaining) as response:
                 response_headers = {
                     name: value.strip()
                     for name in _VERSION_HEADERS
