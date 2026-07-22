@@ -1169,6 +1169,34 @@ def test_merge_ready_packet_adds_live_metadata_for_selected_pr(tmp_path: Path) -
     ] in calls
 
 
+def test_merge_ready_packet_rejects_failed_live_metadata_with_json_stdout(
+    tmp_path: Path,
+) -> None:
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        if "merge-packet" in command:
+            return subprocess.CompletedProcess(command, 0, json.dumps(_merge_ready_packet()), "")
+        if command[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                json.dumps(_merge_ready_live_pr()),
+                "",
+            )
+        return subprocess.CompletedProcess(command, 1, "", "unexpected")
+
+    packet = prompt_builder.build_merge_ready_packet(
+        repo_root=tmp_path,
+        pr=7828,
+        command_runner=fake_runner,
+    )
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path, pr=7828)
+
+    assert packet["live_pr"]["returncode"] == 1
+    assert packet["live_pr"]["error"] == "command failed with return code 1"
+    assert "live PR metadata for PR #7828 is unavailable" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
 def test_decision_packet_detects_merged_pr_with_active_tmux_evidence_lane(
     tmp_path: Path,
 ) -> None:
