@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-06-08
+Last updated: 2026-07-20
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -10,7 +10,29 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
+**The live execution spine is the Open Decision Receipt (ODR) tranche — ODR-1..7, epic [#8223](https://github.com/synaptent/aragora/issues/8223)** — adopted 2026-06-11 in [FEATURE_GAP_LIST — Active Direction](../FEATURE_GAP_LIST.md#active-direction--open-decision-receipt-odr-june-2026). That pivot supersedes the earlier framing of this section, which named the Foreman/`B0` proof loop as the sole gate. The Foreman/`B0` obligations are not cancelled: they are held open in the background (see the subsection below) and must not regress, but they are maintenance truth, not the execution priority.
+
+ODR tranche state (checked 2026-07-20):
+
+| Code | Issue | State as of 2026-07-20 |
+|------|-------|------------------------|
+| ODR-1 vendor-neutral receipt content profile (JSON Schema + JCS) | [#8224](https://github.com/synaptent/aragora/issues/8224) | Closed (schema shipped via [#8239](https://github.com/synaptent/aragora/pull/8239)) |
+| ODR-2 Ed25519 public-key signing for DecisionReceipts | [#8225](https://github.com/synaptent/aragora/issues/8225) | Open — signing shipped ([#8542](https://github.com/synaptent/aragora/pull/8542)); close targeted with the W3 bundle by Jul 30, PQC hybrid explicitly deferred |
+| ODR-3 `aragora-verify` offline verifier (PyPI) + `/api/receipts/verify` | [#8226](https://github.com/synaptent/aragora/issues/8226) | Closed (`aragora-verify` 0.1.x published on PyPI) |
+| ODR-4 expose the crux finder (API, CLI, SDK, crux set in receipts) | [#8227](https://github.com/synaptent/aragora/issues/8227) | Open — crux cards phase 1 merged behind `enable_crux_cards` ([#9414](https://github.com/synaptent/aragora/pull/9414)); default-on targeted for W4 |
+| ODR-5 calibration report API + calibrated confidence in receipts | [#8229](https://github.com/synaptent/aragora/issues/8229) | Closed |
+| ODR-6 human-oversight attestation + EU AI Act Art.14 / NIST evidence pack | [#8230](https://github.com/synaptent/aragora/issues/8230) | Open — Art.14 attestation + oversight-pack generator merged ([#9417](https://github.com/synaptent/aragora/pull/9417)) |
+| ODR-7 Sigstore Rekor public anchoring | [#8231](https://github.com/synaptent/aragora/issues/8231) | Closed |
+
+`aragora review` now emits ODR receipts on `main` ([#9343](https://github.com/synaptent/aragora/pull/9343)).
+
+**The dated near-term gate is the thirty-day external-proof month (Jul 9 → Aug 9), [2026-07-09-thirty-day-external-proof-month](../plans/2026-07-09-thirty-day-external-proof-month.md) (plan merged as [#9061](https://github.com/synaptent/aragora/pull/9061)).** As of 2026-07-20 the W2 external outcomes (Art.14 attestation [#9417](https://github.com/synaptent/aragora/pull/9417), crux cards phase 1 [#9414](https://github.com/synaptent/aragora/pull/9414)) are merged, and the live gate is **W3 (Jul 23–30): publish the EU AI Act GPAI/Art-50 bundle by Jul 30** (signed prod receipt + verification artifact + Art.14 pack + Rekor note), close ODR-2 [#8225](https://github.com/synaptent/aragora/issues/8225), and flip the work-mix gate to enforcing only if its entry criteria hold. W4 targets the enterprise decision-brief demo and closing ODR-4, after which epic [#8223](https://github.com/synaptent/aragora/issues/8223) closes except deferred PQC. External exposure remains gated by the [QUALITY_BAR](QUALITY_BAR.md) ladder.
+
+Stage-Gate Conductor rule: ODR / m6 / external-proof-month work **is execution against the current gate, not drift**. Foreman-substrate work remains in scope only as "keep the proof loop truthful" maintenance under the background subsection below.
+
+### Held open in the background — proof-loop must not regress (formerly the sole gate)
+
+The standing background obligation is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are closed; the background obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
 Current proof-loop state for `CS-01..03` reconciliation is delegated to the live recurring `B0`/`TW-03` proof surfaces:
 
@@ -103,8 +125,8 @@ What is already true:
 - proof-first shifts now fail closed after repeated recovery failures for the implemented failure classes via [#5867](https://github.com/synaptent/aragora/pull/5867)
 - `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed operator truth on `main` via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868)
 - the future Decision Integrity expansion is now tracked as an additive Epistemic CI / Crux Engine / Epistemic Runtime tranche in [EPISTEMIC_CI_AND_CRUX_ENGINE](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) and issues [#6023](https://github.com/synaptent/aragora/issues/6023)-[#6028](https://github.com/synaptent/aragora/issues/6028) plus [#6030](https://github.com/synaptent/aragora/issues/6030)-[#6033](https://github.com/synaptent/aragora/issues/6033); it is planning truth, not current live queue scope
-- the Dialectical Runtime synthesis layer (DIC-23..28) is tracked as an additive extension of the same tranche in [2026-04-18-dialectical-runtime-synthesis](../plans/2026-04-18-dialectical-runtime-synthesis.md); it is planning truth only, activation-gated on DIC-20/21/22 production-green, and no issues under it may carry `boss-ready` until the proof-first Foreman gate opens
-- the thesis-aligned full-horizon roadmap (Phase 0 H1 closure → Phase 1 LBA tests → Phase 2 H2 design-partner wedge → Phase 3 H3 non-software wedge → Phase 4 marketplace + receipt-tier monetization → Phase 5 organization substrate) is captured in [2026-04-25-aragora-next-steps-roadmap-aligned-to-thesis](../plans/2026-04-25-aragora-next-steps-roadmap-aligned-to-thesis.md); **only Phase 0 is canonical / on the live queue** — it is the four named Implementation gaps already in `docs/THESIS.md` (#6372, #6373, #6374, #6375). Phases 1–5 are planning truth only, gated on Phase 0 closure plus the proof-first Foreman gate, and no issue under those phases may carry `boss-ready` until that gate opens
+- the Dialectical Runtime synthesis layer (DIC-23..28) is tracked as an additive extension of the same tranche in [2026-04-18-dialectical-runtime-synthesis](../plans/2026-04-18-dialectical-runtime-synthesis.md); it is planning truth only, activation-gated on DIC-20/21/22 production-green, and no issues under it may carry `boss-ready` until the proof-first Foreman gate opens — with one carve-out: public exposure of the crux finder now proceeds under ODR-4 [#8227](https://github.com/synaptent/aragora/issues/8227) as part of the current gate
+- the thesis-aligned full-horizon roadmap (Phase 0 H1 closure → Phase 1 LBA tests → Phase 2 H2 design-partner wedge → Phase 3 H3 non-software wedge → Phase 4 marketplace + receipt-tier monetization → Phase 5 organization substrate) is captured in [2026-04-25-aragora-next-steps-roadmap-aligned-to-thesis](../plans/2026-04-25-aragora-next-steps-roadmap-aligned-to-thesis.md); **only Phase 0 is canonical / on the live queue from that roadmap** — it is the four named Implementation gaps already in `docs/THESIS.md` (#6372, #6373, #6374, #6375). Phases 1–5 are planning truth only, gated on Phase 0 closure plus the proof-first Foreman gate, and no issue under those phases may carry `boss-ready` until that gate opens. (Since 2026-06-11 the ODR tranche in the Current Gate section above is the live execution priority alongside this.)
 
 What is still missing:
 
@@ -116,9 +138,9 @@ What is still missing:
 - ongoing discipline so actual external outreach stays no broader than the recurring proof surfaces and the preserved frontier-review evidence
 - delayed decision-integrity work that turns important claims into executable evidence-linked objects and debates into ranked `CruxSet` outputs, after the proof-first Foreman gate is stable
 
-The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
+For this background lane, the work is not “add more speculative autonomy.” It is “make bounded unattended execution boring.” The forward-execution work happens in the ODR tranche above.
 
-Queue rule for this tranche:
+Queue rule for this background tranche:
 
 - only roadmap codes in the **Do now** set may carry or be auto-created with `boss-ready`
 - delayed-track issues may stay open for planning truth, but restock and auto-decomposition should strip them from the live dispatch queue
@@ -131,7 +153,7 @@ Observer rule for this tranche:
 
 ## 30-Day Success Metric
 
-The 30-day target is intentionally narrow:
+The current dated 30-day frame is the external-proof month (Jul 9 → Aug 9) in [2026-07-09-thirty-day-external-proof-month](../plans/2026-07-09-thirty-day-external-proof-month.md), including its weekly kill-switch metrics. The metric below is the standing Foreman/proof-loop target that predates it and remains the background truth bar:
 
 - fixed benchmark corpus of bounded issues
 - context-enriched workers complete **>=50%** of that corpus without human rescue
@@ -201,9 +223,11 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ### Do now
 
-- `CS-01..03`
-- observer truth on current `main`
-- benchmark publication freshness and completeness
+- ODR tranche closure per the external-proof month plan: ODR-2 ([#8225](https://github.com/synaptent/aragora/issues/8225)), ODR-4 ([#8227](https://github.com/synaptent/aragora/issues/8227)), ODR-6 ([#8230](https://github.com/synaptent/aragora/issues/8230))
+- EU AI Act GPAI/Art-50 bundle published by Jul 30 (W3 gate)
+- `CS-01..03` (background)
+- observer truth on current `main` (background)
+- benchmark publication freshness and completeness (background)
 
 ### Delay
 
@@ -225,6 +249,8 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 - generalized memory fabric work that is not directly improving the execution wedge
 
 ## Live Boss-Ready Queue
+
+The active execution lane is the ODR tranche (epic [#8223](https://github.com/synaptent/aragora/issues/8223)) plus the external-proof month plan; the rules below govern the Foreman/proof-loop background queue only.
 
 - There is no dedicated open boss-ready trust-loop issue right now.
 - Keep the live queue empty unless the recurring `TW-01/TW-02/TW-03` publication surfaces expose a fresh repeated rescue class or a concrete regression.
@@ -324,6 +350,9 @@ Capability checkpoints for the booster-rocket thesis (CP-1..CP-5) live in [agent
 
 ## References
 
+- [Feature gap list — Active Direction (ODR)](../FEATURE_GAP_LIST.md)
+- [Thirty-day external-proof month plan](../plans/2026-07-09-thirty-day-external-proof-month.md)
+- [Quality bar / external-exposure ladder](QUALITY_BAR.md)
 - [Evolution roadmap](../plans/ARAGORA_EVOLUTION_ROADMAP.md)
 - [Active execution issues](ACTIVE_EXECUTION_ISSUES.md)
 - [Commercial overview](../COMMERCIAL_OVERVIEW.md)

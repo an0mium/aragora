@@ -477,6 +477,7 @@ class _InferenceVisitor(ast.NodeVisitor):
         policy_types = {"ModelTransportPolicy"} | {alias.asname or alias.name for item in ast.walk(tree) if isinstance(item, ast.ImportFrom) for alias in item.names if alias.name == "ModelTransportPolicy"}  # fmt: skip
         self.policy_receivers = {item.arg for item in ast.walk(tree) if isinstance(item, ast.arg) and item.annotation is not None and _attr_chain(item.annotation).rsplit(".", 1)[-1] in policy_types}  # fmt: skip
         self.policy_receivers.update(target for item in ast.walk(tree) if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None and isinstance(item.value, ast.Call) and _attr_chain(item.value.func).split(".", 1)[0] in policy_types for target in _targets(item))  # fmt: skip
+        self.policy_receivers.update(target for item in ast.walk(tree) if isinstance(item, (ast.Assign, ast.AnnAssign)) and item.value is not None and isinstance(item.value, ast.Attribute) and any(_attr_chain(item.value) == f"{receiver}.client" for receiver in tuple(self.policy_receivers)) for target in _targets(item))  # fmt: skip
 
     def _anchor(self) -> str:
         return _scope_anchor(self.scope)
@@ -518,6 +519,8 @@ class _InferenceVisitor(ast.NodeVisitor):
                 break
         if any(chain.startswith(f"{receiver}.") and chain.endswith(("generate_anthropic", "anthropic_message")) for receiver in self.policy_receivers):  # fmt: skip
             self._record("anthropic", "messages", "transport-policy-call")
+        if any(chain.startswith(f"{receiver}.") and chain.endswith("openai_request") for receiver in self.policy_receivers):  # fmt: skip
+            self._record("openai-compatible", "chat", "transport-policy-call")
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
