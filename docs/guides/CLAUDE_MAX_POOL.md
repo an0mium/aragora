@@ -151,15 +151,28 @@ chmod 600 ~/.aragora/claude_profile_sync.json
 ```
 
 ```bash
-# One-shot: sync every mapped profile from VibeProxy (dry-run first, then apply)
+# Preview the plan (dry-run):
 python3 scripts/sync_claude_profiles_from_vibeproxy.py
-python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --probe-after
+
+# ONE-TIME bootstrap: profiles that still hold a native (or dead) refresh token
+# are protected by default, so convert them to VibeProxy-managed consumers once
+# with --force. After this they carry a blank refresh token and sync freely.
+python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply --force --probe-after
+
+# Steady state (no --force): keeps the managed profiles fresh.
+python3 scripts/sync_claude_profiles_from_vibeproxy.py --apply
 
 # Make it durable: a launchd timer (deploys the script to ~/.aragora/bin, outside
 # any git checkout so worktree TTL-cleanup and merges never touch it; seeds the
 # config from the example if absent)
 bash scripts/install_claude_profile_sync_launchd.sh
 ```
+
+> **First run needs `--force`.** The daemon runs `--apply` without `--force` and
+> refuses to overwrite any non-blank refresh token (it cannot tell a live native
+> login from a revoked one offline). Until you bootstrap once with `--force`, the
+> sync skips every native/dead profile and **exits non-zero** so the launchd log
+> flags it rather than silently reporting success.
 
 This revives every profile VibeProxy can source — one profile per VibeProxy
 account. Requirements: VibeProxy running with the Claude accounts connected

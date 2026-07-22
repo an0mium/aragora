@@ -103,3 +103,7 @@ echo "Deployed script: ${DEPLOY_PATH}"
 echo "Interval: ${INTERVAL_SECONDS}s"
 echo "Log: ${LOG_PATH}"
 echo "Uninstall: launchctl unload \"${PLIST_PATH}\" && rm \"${PLIST_PATH}\""
+echo
+echo "ONE-TIME bootstrap (the daemon runs without --force and skips native/dead"
+echo "profiles): once your config is filled in, convert them with:"
+echo "  \"${PYTHON_BIN}\" \"${DEPLOY_PATH}\" --apply --force --probe-after"

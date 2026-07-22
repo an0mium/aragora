@@ -217,6 +217,39 @@ def test_total_source_loss_exits_nonzero(monkeypatch, tmp_path) -> None:
     assert rc == 1
 
 
+def test_native_login_with_matching_access_token_still_protected(monkeypatch, tmp_path) -> None:
+    # openai P2: the native-login guard must run BEFORE the idempotency check, so
+    # a native profile whose access token coincidentally equals VibeProxy's is
+    # still protected (not classified skipped_fresh, which would leave its live
+    # refresh token to race VibeProxy).
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-99" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text(
+        json.dumps({"claudeAiOauth": {"accessToken": "vp-access", "refreshToken": "real"}}),
+        encoding="utf-8",
+    )
+    r = sync.sync_profile("max-99", _config(), blank_refresh=True, apply=True)
+    assert r.action == "skipped_native_login"
+
+
+def test_all_native_profiles_exit_nonzero_needing_bootstrap(monkeypatch, tmp_path, capsys) -> None:
+    # A pool that still holds native/dead refresh tokens is a silent no-op state;
+    # main() must exit non-zero and point at the one-time --force bootstrap.
+    prof_root = _setup(monkeypatch, tmp_path)
+    cred = prof_root / "max-01" / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text(
+        json.dumps({"claudeAiOauth": {"accessToken": "x", "refreshToken": "revoked"}}),
+        encoding="utf-8",
+    )
+    cfg_path = tmp_path / "c.json"
+    cfg_path.write_text(json.dumps({"sync_target": {"x@example.com": "max-01"}}), encoding="utf-8")
+    rc = sync.main(["--config", str(cfg_path), "--apply"])
+    assert rc == 1
+    assert "--force" in capsys.readouterr().err
+
+
 def test_all_sources_stale_exits_nonzero(monkeypatch, tmp_path) -> None:
     # A stopped/crashed proxy leaves files present with expired tokens; that is
     # a total source loss and must exit non-zero, not look healthy.

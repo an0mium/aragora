@@ -48,7 +48,10 @@ This script only reads VibeProxy auth files and writes aragora profile
 credentials on the local machine. It never prints token material and never makes
 a network call. It refuses to clobber a profile that holds a **native** login (a
 real, non-blank refresh token) unless ``--force``, and writes a ``0600`` ``.bak``
-of that native credential before ``--force`` replaces it.
+of that native credential before ``--force`` replaces it. Because a live refresh
+token cannot be told from a revoked one offline, the FIRST run over native/dead
+profiles needs a one-time ``--force`` to bootstrap them into blank-refresh
+consumers; without it the run skips them all and exits non-zero.
 """
 
 from __future__ import annotations
@@ -233,21 +236,26 @@ def sync_profile(
         existing = _load_json(cred_path)
         existing_oauth = _oauth(existing)
 
-        # Idempotent: profile already holds this exact access token.
-        if existing_oauth.get("accessToken") == vp["access_token"]:
-            return SyncResult(profile, email, "skipped_fresh", "already current")
-
-        # Never clobber a profile that holds a real (non-blank) refresh token
-        # without --force: that is a NATIVE login whose refresh token we would
-        # destroy. Gate on the refresh token alone, not access-token liveness —
-        # an idle native profile (valid refresh, expired access) is the normal
-        # healthy state and must still be protected. Our own synced creds carry
-        # a blank refresh token, so they re-sync freely.
+        # Native-login guard runs BEFORE the idempotency check: a profile holding
+        # a real (non-blank) refresh token is a native login we must not blank
+        # without --force, even if its access token coincidentally matches
+        # VibeProxy's (else the double-refresher race persists). We cannot tell a
+        # live refresh token from a revoked one offline, so the FIRST sync of a
+        # native/dead profile needs a one-time --force to convert it to a
+        # blank-refresh consumer; steady-state syncs (blank refresh) then flow
+        # freely through the idempotency check below.
         existing_refresh = existing_oauth.get("refreshToken") or ""
         if existing_refresh and not force:
             return SyncResult(
-                profile, email, "skipped_native_login", "native login present (use --force)"
+                profile,
+                email,
+                "skipped_native_login",
+                "native login present (use --force to bootstrap)",
             )
+
+        # Idempotent: our own synced (blank-refresh) cred already holds this token.
+        if not existing_refresh and existing_oauth.get("accessToken") == vp["access_token"]:
+            return SyncResult(profile, email, "skipped_fresh", "already current")
 
         payload = translate_credential(vp, existing_oauth, blank_refresh=blank_refresh)
         if not apply:
@@ -391,15 +399,22 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if probed and any(v is False for v in probed.values()):
         return 1
-    _SOURCE_LOSS = {"skipped_no_source", "skipped_stale_source", "error"}
-    _HEALTHY = {"synced", "skipped_fresh", "skipped_native_login"}
+    # "Healthy" = at least one profile is VibeProxy-managed or already current.
+    # skipped_native_login is NOT healthy: a revoked-but-present refresh token is
+    # indistinguishable from a live native login here, so an all-native result
+    # means every profile is unmanaged and the daemon is a silent no-op — the
+    # exact 0/N state this tool exists to fix (needs a one-time --force bootstrap).
+    _HEALTHY = {"synced", "skipped_fresh"}
     targets = [r for r in results if r.action != "skipped_native_only"]
-    if (
-        targets
-        and not any(r.action in _HEALTHY for r in targets)
-        and all(r.action in _SOURCE_LOSS for r in targets)
-    ):
-        print("error: no usable VibeProxy source for any mapped profile", file=sys.stderr)
+    if targets and not any(r.action in _HEALTHY for r in targets):
+        if all(r.action == "skipped_native_login" for r in targets):
+            print(
+                "error: every mapped profile holds a native/dead refresh token and was "
+                "skipped; run once with --force to bootstrap VibeProxy-managed creds",
+                file=sys.stderr,
+            )
+        else:
+            print("error: no usable VibeProxy source for any mapped profile", file=sys.stderr)
         return 1
     return 0
 
