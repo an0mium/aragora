@@ -203,7 +203,7 @@ def test_dormant_capabilities_have_activation_contracts() -> None:
     assert header == [
         "Capability",
         "Where it lives",
-        "Verified state",
+        "Verified state (2026-07-11)",
         "Activation trigger",
         "Minimum first exposure",
         "Owner issue",
@@ -227,13 +227,28 @@ def test_dormant_capabilities_have_activation_contracts() -> None:
         "Pareto provider router",
         "Tamper-evident audit trail",
     }
+    owner_issues: dict[str, str] = {}
     for capability, cells in rows.items():
         assert cells[3], capability
         assert cells[4], capability
         issue_links = re.findall(r"https://github\.com/synaptent/aragora/issues/(\d+)", cells[5])
         assert len(issue_links) == 1, capability
+        owner_issues[capability] = issue_links[0]
+
+    assert {capability for capability, issue in owner_issues.items() if issue == "9046"} == {
+        "Blockchain / ERC-8004",
+        "Marketplace + skills",
+        "Verticals",
+        "Genesis",
+        "Broadcast",
+        "Tournaments",
+        "Inbox trust wedge",
+        "Tamper-evident audit trail",
+    }
 
     policy = text.split("### Dormant-Module Disposition Policy", 1)[1]
     assert "Integrate or park by default; do not archive for tidiness" in policy
     assert "One activation path and one open owner issue per row" in policy
+    assert "#9046](https://github.com/synaptent/aragora/issues/9046) is the standing-open" in policy
+    assert "It must remain\n   open while any row names it" in policy
     assert "Activation requires external evidence" in policy
