@@ -222,6 +222,12 @@ export class ReplaysAPI {
 
   /**
    * Get the replay for a specific debate.
+   *
+   * @deprecated Not served: no handler dispatches
+   * GET /api/debates/{id}/replay — the request falls through to
+   * DebatesHandler's slug lookup and returns 404. Replays are keyed by replay
+   * ID, not debate ID: use {@link list} to find the replay and {@link get}
+   * (documented GET /api/replays/{id}) to fetch it.
    */
   async getFromDebate(debateId: string): Promise<Replay> {
     return this.client.request('GET', `/api/debates/${debateId}/replay`);
