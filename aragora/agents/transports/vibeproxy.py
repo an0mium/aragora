@@ -57,6 +57,13 @@ class TransportMode(str, Enum):
     REQUIRED = "vibeproxy-required"
 
 
+class OpenAIProtocol(str, Enum):
+    """OpenAI protocols contract-tested for non-streaming proxy transport."""
+
+    CHAT = "chat"
+    RESPONSES = "responses"
+
+
 @dataclass(frozen=True)
 class VibeProxyCatalog:
     models: frozenset[str]
@@ -245,9 +252,6 @@ class VibeProxyClient:
         self.connect_timeout_seconds = _bounded_float(
             connect_timeout_seconds, name="connect timeout", minimum=0.1
         )
-        self._opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}), _NoRedirectHandler()
-        )
 
     def _request_document(
         self,
@@ -256,18 +260,33 @@ class VibeProxyClient:
         timeout: float | None = None,
         payload: dict | None = None,
         api_root: bool = False,
+        extra_headers: dict[str, str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         headers = {"authorization": f"Bearer {self.api_key}"}
         data = None
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
-            headers.update({"content-type": "application/json", "anthropic-version": "2023-06-01"})
+            headers["content-type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
         request_base = self.base_url[:-3] if api_root else self.base_url
         request = urllib.request.Request(request_base + path, data=data, headers=headers)
         request_timeout = self.connect_timeout_seconds if timeout is None else timeout
         deadline = time.monotonic() + request_timeout
         try:
-            with self._opener.open(request, timeout=request_timeout) as response:
+            # A fresh opener per request: OpenerDirector is not documented
+            # thread-safe, and a shared opener would need a lock — which
+            # serializes whole inferences, because open() blocks until response
+            # headers arrive and a non-streaming completion sends them only
+            # after generation finishes. Per-request construction removes the
+            # shared state instead.
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({}), _NoRedirectHandler()
+            )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("VibeProxy request timed out")
+            with opener.open(request, timeout=remaining) as response:
                 response_headers = {
                     name: value.strip()
                     for name in _VERSION_HEADERS
@@ -303,9 +322,19 @@ class VibeProxyClient:
         return body, response_headers
 
     def _request(
-        self, path: str, *, timeout: float | None = None, payload: dict | None = None
+        self,
+        path: str,
+        *,
+        timeout: float | None = None,
+        payload: dict | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> dict:
-        body, _headers = self._request_document(path, timeout=timeout, payload=payload)
+        body, _headers = self._request_document(
+            path,
+            timeout=timeout,
+            payload=payload,
+            extra_headers=extra_headers,
+        )
         return body
 
     def catalog(self, *, force: bool = False, timeout: float | None = None) -> VibeProxyCatalog:
@@ -378,7 +407,12 @@ class VibeProxyClient:
         }
         if system:
             payload["system"] = system
-        body = self._request("/messages", timeout=timeout, payload=payload)
+        body = self._request(
+            "/messages",
+            timeout=timeout,
+            payload=payload,
+            extra_headers={"anthropic-version": "2023-06-01"},
+        )
         if body.get("model") != model:
             raise VibeProxyUnavailableError(
                 "VibeProxy response model did not match the requested model"
@@ -396,6 +430,31 @@ class VibeProxyClient:
         if not text:
             raise VibeProxyUnavailableError("VibeProxy returned no Claude text")
         return text
+
+    def openai_request(
+        self,
+        *,
+        protocol: OpenAIProtocol,
+        model: str,
+        payload: dict[str, Any],
+        timeout: float,
+    ) -> dict[str, Any]:
+        """Send one exact-model, non-streaming OpenAI protocol request."""
+
+        if payload.get("model") != model:
+            raise VibeProxyConfigurationError(
+                "OpenAI payload model must match the resolved route model"
+            )
+        path = {
+            OpenAIProtocol.CHAT: "/chat/completions",
+            OpenAIProtocol.RESPONSES: "/responses",
+        }[protocol]
+        body = self._request(path, timeout=timeout, payload=payload)
+        if body.get("model") != model:
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model did not match the requested model"
+            )
+        return body
 
     def sanitized_status(self, *, force: bool = False) -> dict[str, Any]:
         try:
@@ -421,6 +480,7 @@ class ModelTransportPolicy:
 
     CAPABILITIES: dict[str, frozenset[str]] = {
         "anthropic": frozenset({"chat"}),
+        "openai": frozenset({"chat", "responses"}),
     }
 
     def __init__(
@@ -469,6 +529,8 @@ class ModelTransportPolicy:
         provider: str,
         model: str,
         capabilities: Iterable[str] = ("chat",),
+        *,
+        timeout: float | None = None,
     ) -> ResolvedModelRoute:
         requested = frozenset(capabilities)
         direct = ResolvedModelRoute(provider, model, model, "direct", None, requested)
@@ -484,7 +546,9 @@ class ModelTransportPolicy:
             return self._unavailable(direct, "VibeProxy client is not configured")
         mapped = self.model_map.get(f"{provider}:{model}", self.model_map.get(model, model))
         try:
-            catalog = self.client.catalog()
+            catalog = (
+                self.client.catalog() if timeout is None else self.client.catalog(timeout=timeout)
+            )
         except VibeProxyTimeoutError as exc:
             if self.mode is TransportMode.REQUIRED:
                 raise
@@ -514,6 +578,7 @@ class ModelTransportPolicy:
 __all__ = [
     "DEFAULT_BASE_URL",
     "ModelTransportPolicy",
+    "OpenAIProtocol",
     "ResolvedModelRoute",
     "TransportMode",
     "VibeProxyCatalog",

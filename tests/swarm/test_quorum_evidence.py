@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import multiprocessing
 import os
@@ -367,6 +368,136 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--mcp-config" in cmd
     assert cmd[cmd.index("--mcp-config") + 1] == "/tmp/empty-mcp.json"
     assert "--strict-mcp-config" in cmd
+
+
+def test_claude_reviewer_uses_successful_vibeproxy_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("direct CLI must not run after proxy success"),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "claude",
+        "Verdict: PASS",
+        True,
+        harness="local VibeProxy Anthropic Messages transport",
+    )
+
+
+def test_claude_reviewer_prefer_failure_uses_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=False,
+            text="",
+            error="proxy unavailable",
+            harness="",
+            timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
+        ),
+    )
+    direct_timeouts: list[float] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout: direct_timeouts.append(timeout)
+        or ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
+
+
+def test_claude_reviewer_required_failure_never_runs_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "proxy required but unavailable",
+        allow_transport_fallback=False,
+    )
+
+
+def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_openrouter_reviewer",
+        lambda *_args, **_kwargs: pytest.fail(
+            "required VibeProxy mode must suppress OpenRouter fallback"
+        ),
+    )
+
+    result = qe.default_reviewer_runner("claude", "prompt")
+
+    assert result.allow_transport_fallback is False
+    assert result.error == "proxy required but unavailable"
 
 
 # --- OpenAI reviewer fallback ----------------------------------------------
@@ -1040,23 +1171,34 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def _claude_passes_others_stall_runner(family: str, prompt: str, delay: float) -> ReviewerResult:
+    """Module-level so it stays picklable under forkserver/spawn contexts.
+
+    ``_reviewer_process_context`` deliberately avoids fork whenever the parent
+    has extra threads (e.g. leaked by an earlier test file), and forkserver and
+    spawn must pickle the runner. A local closure would fail with
+    ``AttributeError: Can't pickle local object``. Parametrize the stall via
+    ``functools.partial`` — partials of module-level functions pickle fine.
+    """
+    if family == "claude":
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+    time.sleep(delay)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(1.5)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    # Deadline must leave room for forkserver/spawn worker boot (fork starts in
+    # ~ms, forkserver re-imports this module in the child) while staying well
+    # under grok's stall so only grok times out.
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=3.0)
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.2,
+        overall_timeout_seconds=0.75,
         **fakes,
     )
 
@@ -1070,17 +1212,12 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
 
 
 def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
-    if "fork" not in multiprocessing.get_all_start_methods():
-        pytest.skip("process-supervised timeout regression requires fork context")
+    # Verified under fork and forkserver (macOS); spawn-only platforms boot a
+    # fresh interpreter per worker, which the tight deadline cannot absorb.
+    if not {"fork", "forkserver"} & set(multiprocessing.get_all_start_methods()):
+        pytest.skip("process-supervised timeout regression needs fork or forkserver")
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(10)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=10)
     started_at = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
@@ -1088,12 +1225,13 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.05,
+        overall_timeout_seconds=1.0,
         **fakes,
     )
     elapsed = time.monotonic() - started_at
 
-    assert elapsed < 1.0
+    # Far below grok's 10s stall: proves the deadline reaps stuck workers.
+    assert elapsed < 5.0
     assert outcome.orchestration_timeout is True
     assert outcome.timed_out_families == ["grok"]
     assert outcome.action == "prepare"
