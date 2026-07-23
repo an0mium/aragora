@@ -42,10 +42,10 @@ def test_current_frontier_entries_have_positive_rates() -> None:
         "mistralai/mistral-large-2512",
     }
 
+    # Alias spellings are deduped out of the snapshot table (#9364), so
+    # assert through get_estimated_cost, which resolves them via by_any_id.
     for model in expected:
-        pricing = PROVIDER_PRICING[model]
-        assert pricing.input_cost_per_1k > 0
-        assert pricing.output_cost_per_1k > 0
+        assert get_estimated_cost(model, 1_000, 1_000) > 0, model
 
 
 def test_unknown_model_warns_before_returning_zero(caplog: pytest.LogCaptureFixture) -> None:

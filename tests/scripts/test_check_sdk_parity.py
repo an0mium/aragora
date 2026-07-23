@@ -313,3 +313,49 @@ class SampleAPI:
     assert "/api/v1/sync/{param}/private" in sample_paths
     assert "/api/v1/async/request" in sample_paths
     assert "/api/v1/async/{param}/private" in sample_paths
+
+
+def test_stale_sdk_paths_exclude_internal_route_families():
+    """Internal-family SDK paths never count as stale.
+
+    The internal-route policy excludes those families from the public spec,
+    so documented_routes can no longer vouch for them; without this carve-out
+    every internal SDK method whose handler is dispatch-based (no ROUTES)
+    would become stale debt against the decaying budget.
+    """
+    report = check_sdk_parity.build_parity_report(
+        handler_routes={"PublicHandler": ["/api/v1/debates"]},
+        python_sdk={
+            "debates": {"/api/v1/debates"},
+            "control_plane": {"/api/v1/control-plane/health/status"},
+            "sme": {"/api/v1/sme/budgets/{budget_id}"},
+            "stale": {"/api/v1/genuinely-stale"},
+        },
+        typescript_sdk={"control_plane": {"/api/v1/control-plane/stats"}},
+        documented_routes={"/api/debates"},
+    )
+
+    assert report["gaps"]["stale_python_sdk_paths"] == ["/api/genuinely-stale"]
+    assert report["gaps"]["stale_typescript_sdk_paths"] == []
+
+
+def test_handler_coverage_excludes_internal_route_families():
+    """Internal-family handler routes are never public SDK-coverage gaps.
+
+    When no documented-route source is available, coverage enforcement falls
+    back to handler ROUTES alone; the internal-route policy must still keep
+    e.g. control-plane routes out of the missing-coverage buckets.
+    """
+    report = check_sdk_parity.build_parity_report(
+        handler_routes={
+            "PublicHandler": ["/api/v1/debates"],
+            "ControlPlaneHandler": ["/api/v1/control-plane/health/status"],
+        },
+        python_sdk={"debates": {"/api/v1/debates"}},
+        typescript_sdk={"debates": {"/api/v1/debates"}},
+        documented_routes=None,
+    )
+
+    assert report["gaps"]["missing_from_python_sdk"] == []
+    assert report["gaps"]["missing_from_typescript_sdk"] == []
+    assert report["gaps"]["missing_from_both_sdks"] == []
