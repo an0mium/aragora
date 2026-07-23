@@ -332,8 +332,12 @@ jobs:
 
       - name: Commit, publish, and verify draft PR for refreshed trust-loop surfaces
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
+          # BENCHMARK_TRUTH_PR_TOKEN: fine-scoped PAT (pull_requests: write on this
+          # repo only) so draft PR creation works despite the org policy that blocks
+          # the Actions token from creating PRs (#9519, option B). Falls back to the
+          # Actions token, which keeps the branch-backed handoff path as the fallback.
+          GH_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -408,7 +412,7 @@ jobs:
               echo "$create_output"
               if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" <<<"$create_output"; then
                 permission_blocked=1
-                echo "::notice::GitHub Actions token cannot create draft PRs in this repository; leaving a branch-backed handoff instead."
+                echo "::notice::GitHub Actions token cannot create draft PRs in this repository; leaving a branch-backed handoff instead. Configure the BENCHMARK_TRUTH_PR_TOKEN repo secret (fine-scoped PAT, pull_requests: write) to restore auto-PR creation (#9519)."
               fi
             fi
           fi
