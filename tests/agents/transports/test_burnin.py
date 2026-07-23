@@ -56,6 +56,29 @@ def test_append_preserves_alias_disclosure_and_hash_chain(tmp_path: Path) -> Non
     assert load_records(path) == [first, second]
 
 
+def test_append_round_trips_unexpected_alias_family(tmp_path: Path) -> None:
+    path = tmp_path / "calls.jsonl"
+    record = BurninRecorder(path).append(
+        CallOutcome(
+            family="openai",
+            requested_model="gpt-5.4-mini-2026-03-17",
+            resolved_model="gpt-5.4-mini-2026-03-17",
+            response_model="gpt-5.4-mini-2026-03-17",
+            alias_source="ARAGORA_VIBEPROXY_MODEL_MAP",
+            alias_family="openai",
+            latency_ms=10,
+            ok=True,
+        )
+    )
+
+    assert record["alias_disclosure"]["family"] == "openai"
+    assert record["alias_disclosure"]["preserved"] is False
+    assert record["clean"] is False
+    assert record["error_class"] == "family_identity_error"
+    assert record["identity_errors"] == ["unexpected_alias_family"]
+    assert load_records(path) == [record]
+
+
 def test_family_mismatch_is_recorded_fail_closed(tmp_path: Path) -> None:
     record = BurninRecorder(tmp_path / "calls.jsonl").append(
         CallOutcome(

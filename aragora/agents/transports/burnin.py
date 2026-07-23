@@ -320,7 +320,7 @@ class BurninRecorder:
             "identity_errors": list(identity_errors),
             "shadow_review": None,
         }
-        if alias_applied and outcome.alias_family is not None:
+        if outcome.alias_family is not None:
             record["alias_disclosure"]["family"] = outcome.alias_family
         if outcome.call_kind == "shadow_review":
             record["shadow_review"] = {
