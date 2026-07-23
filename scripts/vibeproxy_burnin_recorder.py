@@ -27,6 +27,7 @@ from aragora.agents.transports.burnin import (  # noqa: E402
     CallOutcome,
     DEFAULT_PROOF_PATH,
     DEFAULT_RECORDS_PATH,
+    infer_model_family,
     write_proof_artifact,
 )
 from aragora.agents.transports.claude_vibeproxy import (  # noqa: E402
@@ -36,6 +37,7 @@ from aragora.agents.transports.claude_vibeproxy import (  # noqa: E402
 )
 from aragora.agents.transports.vibeproxy import (  # noqa: E402
     ModelTransportPolicy,
+    OpenAIProtocol,
     ResolvedModelRoute,
     TransportMode,
     VibeProxyConfigurationError,
@@ -44,8 +46,11 @@ from aragora.agents.transports.vibeproxy import (  # noqa: E402
 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_REVIEW_TIMEOUT_SECONDS = 300.0
+DEFAULT_INFERENCE_TIMEOUT_SECONDS = 60.0
+DEFAULT_INFERENCE_MAX_TOKENS = 16
 DEFAULT_GITHUB_TIMEOUT_SECONDS = 60.0
 DEFAULT_MAX_DIFF_CHARS = 120_000
+INFERENCE_PROMPT = "Reply with exactly: ARAGORA_VIBEPROXY_BURNIN_OK"
 _VERDICT = re.compile(r"^\s*Verdict\s*:\s*(PASS|CHANGES-REQUESTED)\s*$", re.MULTILINE)
 
 
@@ -192,6 +197,94 @@ def _extract_verdict(text: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def run_inference(
+    *,
+    family: str,
+    model: str,
+    timeout: float,
+    max_tokens: int,
+    records_path: Path,
+    proof_path: Path,
+) -> tuple[int, dict[str, Any]]:
+    """Run one bounded real inference and append only its sanitized outcome."""
+
+    normalized_family = family.strip().lower()
+    inferred_family = infer_model_family(model)
+    if inferred_family != normalized_family:
+        raise BurninRecordError(
+            f"model {model!r} belongs to {inferred_family or 'an unknown family'}, "
+            f"not {normalized_family!r}"
+        )
+
+    started = time.monotonic()
+    response_model: str | None = None
+    error_class: str | None = None
+    ok = False
+    try:
+        policy = _required_policy()
+        if policy.client is None:
+            raise VibeProxyUnavailableError("required inference has no VibeProxy client")
+
+        discovery_timeout = min(6.0, timeout)
+        catalog = policy.client.catalog(timeout=discovery_timeout)
+        if model not in catalog.models:
+            raise VibeProxyUnavailableError("requested model is absent from VibeProxy catalog")
+        request_timeout = max(0.1, timeout - (time.monotonic() - started))
+
+        if normalized_family == "claude":
+            policy.client.anthropic_message(
+                model=model,
+                prompt=INFERENCE_PROMPT,
+                timeout=request_timeout,
+                max_tokens=max_tokens,
+            )
+            # anthropic_message() returns only after exact response-model
+            # verification inside VibeProxyClient.
+            response_model = model
+        else:
+            body = policy.client.openai_request(
+                protocol=OpenAIProtocol.CHAT,
+                model=model,
+                payload={
+                    "model": model,
+                    "messages": [{"role": "user", "content": INFERENCE_PROMPT}],
+                    "max_tokens": max_tokens,
+                },
+                timeout=request_timeout,
+            )
+            observed_model = body.get("model")
+            response_model = observed_model if isinstance(observed_model, str) else None
+        ok = response_model is not None
+        if not ok:
+            error_class = "missing_response_model"
+    except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
+        error_class = _exception_error_class(exc)
+    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        error_class = _exception_error_class(exc)
+
+    record = BurninRecorder(records_path).append(
+        CallOutcome(
+            family=normalized_family,
+            requested_model=model,
+            resolved_model=model,
+            response_model=response_model,
+            latency_ms=(time.monotonic() - started) * 1000,
+            ok=ok,
+            error_class=error_class,
+        )
+    )
+    proof = write_proof_artifact(records_path, proof_path)
+    result = {
+        "ok": record["clean"],
+        "action": "inference_recorded",
+        "record": record,
+        "proof": proof,
+        "response_body_persisted": False,
+        "countable": False,
+    }
+    return (0 if record["clean"] else 1), result
+
+
 def run_shadow_review(
     *,
     repo: str,
@@ -291,6 +384,15 @@ def run_shadow_review(
 
 
 def _render_human(result: dict[str, Any]) -> str:
+    if result.get("action") == "inference_recorded":
+        record = result["record"]
+        proof = result["proof"]
+        return (
+            f"VibeProxy inference: {'clean' if record['clean'] else 'failed'}; "
+            f"family={record['family']} model={record['resolved_model']} "
+            f"latency_ms={record['latency_ms']} error={record['error_class'] or 'none'}; "
+            f"proof_ready={str(proof['ready']).lower()}"
+        )
     if result.get("action") == "shadow_review_recorded":
         record = result["record"]
         proof = result["proof"]
@@ -310,6 +412,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", dest="json_output")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    inference = subparsers.add_parser(
+        "inference",
+        help="Run one non-countable real inference through vibeproxy-required",
+    )
+    inference.add_argument("--family", required=True)
+    inference.add_argument("--model", required=True)
+    inference.add_argument("--timeout", type=float, default=DEFAULT_INFERENCE_TIMEOUT_SECONDS)
+    inference.add_argument("--max-tokens", type=int, default=DEFAULT_INFERENCE_MAX_TOKENS)
+
     shadow = subparsers.add_parser(
         "shadow-review",
         help="Run one non-countable Claude review through vibeproxy-required",
@@ -328,7 +439,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "shadow-review":
+        if args.command == "inference":
+            if args.timeout <= 0 or args.max_tokens <= 0:
+                parser.error("--timeout and --max-tokens must be positive")
+            code, result = run_inference(
+                family=args.family,
+                model=args.model,
+                timeout=args.timeout,
+                max_tokens=args.max_tokens,
+                records_path=args.records,
+                proof_path=args.proof,
+            )
+        elif args.command == "shadow-review":
             if args.timeout <= 0 or args.max_diff_chars <= 0:
                 parser.error("--timeout and --max-diff-chars must be positive")
             code, result = run_shadow_review(

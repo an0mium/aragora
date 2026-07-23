@@ -7,7 +7,12 @@ from typing import Any
 import pytest
 
 from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
-from aragora.agents.transports.vibeproxy import ResolvedModelRoute, TransportMode
+from aragora.agents.transports.vibeproxy import (
+    ResolvedModelRoute,
+    TransportMode,
+    VibeProxyCatalog,
+    VibeProxyUnavailableError,
+)
 from scripts import vibeproxy_burnin_recorder as cli
 
 
@@ -32,6 +37,58 @@ class _Policy:
         )
 
 
+class _InferenceClient:
+    def __init__(self, models: set[str]) -> None:
+        self.models = frozenset(models)
+        self.response_model: str | None = None
+        self.response_text = "ARAGORA_VIBEPROXY_BURNIN_OK"
+        self.failure: BaseException | None = None
+
+    def catalog(self, *, timeout: float) -> VibeProxyCatalog:
+        assert timeout > 0
+        return VibeProxyCatalog(models=self.models, fetched_at=0)
+
+    def openai_request(
+        self,
+        *,
+        protocol: object,
+        model: str,
+        payload: dict[str, Any],
+        timeout: float,
+    ) -> dict[str, Any]:
+        assert timeout > 0
+        assert payload["model"] == model
+        assert payload["messages"][0]["content"] == cli.INFERENCE_PROMPT
+        if self.failure is not None:
+            raise self.failure
+        return {
+            "model": self.response_model or model,
+            "choices": [{"message": {"content": self.response_text}}],
+        }
+
+    def anthropic_message(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        timeout: float,
+        max_tokens: int,
+    ) -> str:
+        assert timeout > 0
+        assert max_tokens > 0
+        assert prompt == cli.INFERENCE_PROMPT
+        if self.failure is not None:
+            raise self.failure
+        return self.response_text
+
+
+class _InferencePolicy:
+    mode = TransportMode.REQUIRED
+
+    def __init__(self, client: _InferenceClient) -> None:
+        self.client = client
+
+
 def _pr(head: str = "a" * 40) -> dict[str, Any]:
     return {
         "number": 9483,
@@ -43,6 +100,95 @@ def _pr(head: str = "a" * 40) -> dict[str, Any]:
         "url": "https://github.com/synaptent/aragora/pull/9483",
         "files": [{"path": "aragora/agents/transports/claude_vibeproxy.py"}],
     }
+
+
+def test_inference_records_observed_model_without_response_body(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gemini-3-flash"})
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="gemini",
+        model="gemini-3-flash",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 0
+    assert result["record"]["family"] == "gemini"
+    assert result["record"]["response_model"] == "gemini-3-flash"
+    assert result["record"]["clean"] is True
+    assert result["response_body_persisted"] is False
+    assert result["countable"] is False
+    persisted = (tmp_path / "calls.jsonl").read_text(encoding="utf-8")
+    assert client.response_text not in persisted
+
+
+def test_claude_inference_records_proxy_verified_model(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"claude-opus-4-8"})
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="claude",
+        model="claude-opus-4-8",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 0
+    assert result["record"]["response_model"] == "claude-opus-4-8"
+    assert result["record"]["family_identity_ok"] is True
+
+
+def test_inference_failure_is_sanitized_and_recorded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"grok-4.3"})
+    client.failure = VibeProxyUnavailableError("credential=super-secret")
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="grok",
+        model="grok-4.3",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "credential_error"
+    assert "super-secret" not in json.dumps(result)
+    assert "super-secret" not in (tmp_path / "calls.jsonl").read_text(encoding="utf-8")
+
+
+def test_inference_rejects_declared_family_mismatch_before_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gpt-5.5"})
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    with pytest.raises(cli.BurninRecordError, match="not 'gemini'"):
+        cli.run_inference(
+            family="gemini",
+            model="gpt-5.5",
+            timeout=10,
+            max_tokens=16,
+            records_path=tmp_path / "calls.jsonl",
+            proof_path=tmp_path / "latest.json",
+        )
 
 
 def test_shadow_review_is_non_countable_and_never_posts(
