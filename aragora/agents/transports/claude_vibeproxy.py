@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import time
@@ -23,6 +24,8 @@ DEFAULT_VIBEPROXY_TIMEOUT_SECONDS = 120.0
 # attempt budget instead of each drawing the full amount (which let one attempt
 # run up to ~2x the intended timeout).
 _DISCOVERY_CAP_SECONDS = 6.0
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -170,9 +173,12 @@ def run_claude_vibeproxy(
             timeout_seconds=timeout,
             elapsed_seconds=_elapsed(),
         )
-    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
-        # Contain plausible policy/client implementation failures without
-        # swallowing arbitrary exceptions at the reviewer boundary.
+    except Exception as exc:
+        # This is an external transport boundary: contain unexpected provider
+        # failures while allowing BaseException signals to propagate. Log only
+        # the type because provider exception messages can contain credentials
+        # or response bodies.
+        logger.warning("Unexpected VibeProxy failure: %s", type(exc).__name__)
         return ClaudeVibeProxyAttempt(
             attempted=True,
             required=required,
