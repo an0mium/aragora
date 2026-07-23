@@ -22,6 +22,7 @@ from aragora.cli.commands.review_queue import (
     ReviewPacket,
     _build_merge_authorization_packet,
     _build_model_review_quorum,
+    _lint_evidence_comment,
     _build_packet,
     _build_queue,
     _classify_pr,
@@ -1690,7 +1691,10 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
         assert quorum["verdict"] == "admin_squash_allowed"
         assert quorum["admin_squash_allowed"] is True
-        assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
+        # gemini is advisory-only (roster record): its review may be present but
+        # it never appears in counted ids (#9363 openai [P2] — packet consumers
+        # read counted_model_families as "counts toward quorum").
+        assert set(quorum["counted_reviewer_ids"]) == {"claude", "openai"}
 
     def test_single_western_frontier_signal_satisfies_tier_two_quorum(self) -> None:
         # Tiered gate: Tier 2 settles on ONE western-frontier (openai/codex) signal
@@ -1987,6 +1991,65 @@ class TestModelReviewQuorum:
             "advisory finding from gemini" in reason and "advisory-only family" in reason
             for reason in quorum["reasons"]
         )
+
+    def test_advisory_only_family_excluded_from_emitted_counted_ids(self) -> None:
+        # #9363 round-5 openai [P2]: the packet's counted_reviewer_ids /
+        # counted_model_families are consumed by downstream automation as
+        # "counts toward quorum" — an advisory-only family must not appear
+        # there even when its review is grounded and positive. The review
+        # itself stays visible in reviewer_signals.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Gemini independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert "gemini" not in quorum["counted_reviewer_ids"]
+        assert "gemini" not in quorum["counted_model_families"]
+        signal_families = {
+            str(signal.get("reviewer_id", "")) for signal in quorum["reviewer_signals"]
+        }
+        assert "gemini" in signal_families
+
+    def test_evidence_lint_advisory_only_family_would_not_count(self) -> None:
+        # #9363 round-5 openai [P2]: a grounded gemini PASS must lint as
+        # would_count=False with the no-counted-family problems, matching the
+        # "never count" roster contract, so prepared-evidence tooling cannot
+        # treat gemini as a countable family.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9363",
+            head_sha=head,
+            head_committed_at="2026-07-23T00:00:00Z",
+            body=(
+                "## Gemini independent model review\n"
+                f"Current head: {head}\n"
+                "PR: #9363.\n"
+                "Verdict: approve.\n"
+                "Focused adversarial dogfood passed."
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert result["counted_model_families"] == []
+        assert "no_counted_model_family" in result["problems"]
 
     def test_severity_gated_explicit_p2_blocker_still_blocks(
         self,

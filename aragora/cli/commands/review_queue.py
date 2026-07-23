@@ -4172,7 +4172,13 @@ def _counted_model_reviewer_ids(
     reviewer_ids: set[str] = set()
     for item in [*reviewer_signals, *dogfood_evidence]:
         reviewer_id = _known_model_reviewer_id(item)
-        if reviewer_id:
+        # Advisory-only families never count at ANY tier (roster record), so
+        # they must not appear in counted ids either: emitted merge packets
+        # (`counted_reviewer_ids` / `counted_model_families`) and evidence-lint
+        # `would_count` are consumed by downstream automation that treats
+        # membership as "counts toward quorum" (#9363 openai [P2]x2). Their
+        # reviews stay visible as reviewer_signals / advisory_views.
+        if reviewer_id and canonical_family(reviewer_id) not in ADVISORY_ONLY_FAMILIES:
             reviewer_ids.add(reviewer_id)
     return sorted(reviewer_ids)
 
