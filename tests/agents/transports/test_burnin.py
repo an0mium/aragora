@@ -91,6 +91,39 @@ def test_alias_requires_disclosure() -> None:
     assert errors == ("missing_alias_disclosure",)
 
 
+def test_owner_bound_unknown_response_model_preserves_family_identity() -> None:
+    identity_ok, alias_ok, errors = verify_family_identity(
+        family="kimi",
+        requested_model="kimi-k2",
+        resolved_model="k2",
+        response_model="k2",
+        alias_source="VibeProxy /v1/models owned_by=moonshot",
+        alias_family="kimi",
+        ok=True,
+    )
+
+    assert identity_ok is True
+    assert alias_ok is True
+    assert errors == ()
+
+
+def test_owner_binding_cannot_override_known_cross_family_response() -> None:
+    identity_ok, alias_ok, errors = verify_family_identity(
+        family="grok",
+        requested_model="grok-3-mini-fast",
+        resolved_model="gpt-5.5",
+        response_model="gpt-5.5",
+        alias_source="VibeProxy /v1/models owned_by=xai",
+        alias_family="grok",
+        ok=True,
+    )
+
+    assert identity_ok is False
+    assert alias_ok is True
+    assert "resolved_model_family_mismatch" in errors
+    assert "response_model_family_mismatch" in errors
+
+
 def test_refuses_to_append_to_damaged_log(tmp_path: Path) -> None:
     path = tmp_path / "calls.jsonl"
     path.write_text('{"schema_version":"tampered"}\n', encoding="utf-8")

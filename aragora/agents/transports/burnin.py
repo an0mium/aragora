@@ -67,6 +67,7 @@ class CallOutcome:
     ok: bool
     error_class: str | None = None
     alias_source: str | None = None
+    alias_family: str | None = None
     call_kind: str = "inference"
     pr_number: int | None = None
     pr_head_sha: str | None = None
@@ -118,6 +119,7 @@ def verify_family_identity(
     response_model: str | None,
     alias_source: str | None,
     ok: bool,
+    alias_family: str | None = None,
 ) -> tuple[bool, bool, tuple[str, ...]]:
     """Verify family identity and explicit alias disclosure for one call."""
 
@@ -126,25 +128,40 @@ def verify_family_identity(
     requested_family = infer_model_family(requested_model)
     resolved_family = infer_model_family(resolved_model)
     response_family = infer_model_family(response_model or "")
+    disclosed_alias_family = (alias_family or "").strip().lower() or None
+    alias_applied = requested_model != resolved_model
+    owner_bound_alias = alias_applied and disclosed_alias_family == normalized_family
 
     if not normalized_family:
         errors.append("missing_family")
     if requested_family != normalized_family:
         errors.append("requested_model_family_mismatch")
-    if resolved_family != normalized_family:
+    if resolved_family != normalized_family and not (resolved_family is None and owner_bound_alias):
         errors.append("resolved_model_family_mismatch")
     if ok:
         if response_model is None:
             errors.append("missing_response_model")
         elif response_model != resolved_model:
             errors.append("response_model_mismatch")
-        if response_family != normalized_family:
+        if response_family != normalized_family and not (
+            response_family is None and response_model == resolved_model and owner_bound_alias
+        ):
             errors.append("response_model_family_mismatch")
 
-    alias_applied = requested_model != resolved_model
-    alias_disclosure_preserved = not alias_applied or bool((alias_source or "").strip())
-    if not alias_disclosure_preserved:
-        errors.append("missing_alias_disclosure")
+    if alias_applied:
+        source_present = bool((alias_source or "").strip())
+        family_matches = (
+            disclosed_alias_family is None or disclosed_alias_family == normalized_family
+        )
+        alias_disclosure_preserved = source_present and family_matches
+        if not source_present:
+            errors.append("missing_alias_disclosure")
+        if not family_matches:
+            errors.append("alias_family_mismatch")
+    else:
+        alias_disclosure_preserved = disclosed_alias_family is None
+        if disclosed_alias_family is not None:
+            errors.append("unexpected_alias_family")
     return not errors, alias_disclosure_preserved, tuple(errors)
 
 
@@ -185,6 +202,9 @@ def _validate_loaded_record(record: dict[str, Any], *, line_number: int) -> None
         raise BurninRecordError(f"{prefix} response_model must be a string or null")
     if not isinstance(alias, dict):
         raise BurninRecordError(f"{prefix} missing alias disclosure")
+    alias_family = alias.get("family")
+    if alias_family is not None and not isinstance(alias_family, str):
+        raise BurninRecordError(f"{prefix} alias family must be a string or null")
     if record.get("transport") != "vibeproxy-required" or record.get("countable") is not False:
         raise BurninRecordError(f"{prefix} invalid transport/countability boundary")
     if not isinstance(record.get("ok"), bool) or not isinstance(record.get("clean"), bool):
@@ -202,6 +222,7 @@ def _validate_loaded_record(record: dict[str, Any], *, line_number: int) -> None
         response_model=response_model,
         alias_source=alias.get("source") if isinstance(alias.get("source"), str) else None,
         ok=record["ok"],
+        alias_family=alias_family,
     )
     expected_alias_applied = requested_model != resolved_model
     if alias.get("applied") is not expected_alias_applied or alias.get("preserved") is not alias_ok:
@@ -266,6 +287,7 @@ class BurninRecorder:
             response_model=outcome.response_model,
             alias_source=outcome.alias_source,
             ok=outcome.ok,
+            alias_family=outcome.alias_family,
         )
         if not identity_ok and error_class is None:
             error_class = (
@@ -301,6 +323,8 @@ class BurninRecorder:
             "identity_errors": list(identity_errors),
             "shadow_review": None,
         }
+        if alias_applied and outcome.alias_family is not None:
+            record["alias_disclosure"]["family"] = outcome.alias_family
         if outcome.call_kind == "shadow_review":
             record["shadow_review"] = {
                 "pr_number": outcome.pr_number,
