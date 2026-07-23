@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import ast
 import subprocess
+import sys
+from types import ModuleType
 from pathlib import Path
 
 import pytest
@@ -340,6 +342,81 @@ def test_quorum_evidence_module_imports_do_not_resolve_below_tier4(
         path for path, classification in classifications.items() if classification.get("tier") != 4
     )
     assert below_tier4 == []
+
+
+def _install_fake_claude_vibeproxy_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[tuple[str, dict[str, object]]], object]:
+    calls: list[tuple[str, dict[str, object]]] = []
+    result = object()
+    transport = ModuleType("aragora.agents.transports.claude_vibeproxy")
+
+    def fake_run(prompt: str, **kwargs: object) -> object:
+        calls.append((prompt, kwargs))
+        return result
+
+    setattr(transport, "run_claude_vibeproxy", fake_run)
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.agents.transports.claude_vibeproxy",
+        transport,
+    )
+    return calls, result
+
+
+def test_quorum_evidence_lazy_delegate_omits_unset_model_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm import quorum_evidence
+
+    calls, expected_result = _install_fake_claude_vibeproxy_transport(monkeypatch)
+    policy = object()
+
+    result = quorum_evidence.run_claude_vibeproxy(
+        "review prompt",
+        reviewer_timeout=17.5,
+        policy=policy,
+    )
+
+    assert result is expected_result
+    assert calls == [
+        (
+            "review prompt",
+            {
+                "reviewer_timeout": 17.5,
+                "policy": policy,
+            },
+        )
+    ]
+
+
+def test_quorum_evidence_lazy_delegate_forwards_explicit_model_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm import quorum_evidence
+
+    calls, expected_result = _install_fake_claude_vibeproxy_transport(monkeypatch)
+    policy = object()
+    explicit_model = "claude-opus-4-8/custom:exact"
+
+    result = quorum_evidence.run_claude_vibeproxy(
+        "review prompt",
+        reviewer_timeout=23.25,
+        model=explicit_model,
+        policy=policy,
+    )
+
+    assert result is expected_result
+    assert calls == [
+        (
+            "review prompt",
+            {
+                "reviewer_timeout": 23.25,
+                "model": explicit_model,
+                "policy": policy,
+            },
+        )
+    ]
 
 
 @pytest.mark.parametrize("path", UNRELATED_SIBLING_PATHS)

@@ -71,7 +71,7 @@ def run_claude_vibeproxy(
     prompt: str,
     *,
     reviewer_timeout: float,
-    model: str = "claude-opus-4-8",
+    model: str | None = None,
     policy: Any = None,
 ) -> ClaudeVibeProxyAttempt:
     """Call the VibeProxy transport without loading it during module import."""
@@ -79,12 +79,13 @@ def run_claude_vibeproxy(
         run_claude_vibeproxy as run_transport,
     )
 
-    return run_transport(
-        prompt,
-        reviewer_timeout=reviewer_timeout,
-        model=model,
-        policy=policy,
-    )
+    transport_kwargs = {
+        "reviewer_timeout": reviewer_timeout,
+        "policy": policy,
+    }
+    if model is not None:
+        transport_kwargs["model"] = model
+    return run_transport(prompt, **transport_kwargs)
 
 
 # Direct model families whose name appears in the evidence heading and is
