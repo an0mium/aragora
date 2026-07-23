@@ -148,8 +148,15 @@ class DebateInterventionsHandler(BaseHandler):
     # GET handler
     # ------------------------------------------------------------------
 
+    @handle_errors("debate interventions")
+    @require_permission("debates:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Route GET requests."""
+        """Route GET requests.
+
+        Gated by debates:read like every sibling debate read (evidence,
+        checkpoints, analysis): the intervention log contains intervener
+        user_ids and nudge/challenge/injected-evidence text.
+        """
         normalized = _strip_version_prefix(path)
         if normalized.endswith("/intervention-log"):
             return self._get_intervention_log(path, handler)
@@ -510,9 +517,12 @@ class DebateInterventionsHandler(BaseHandler):
         from aragora.debate.intervention import get_intervention_manager
 
         def _verdict(status: str | None) -> tuple[str, str | None]:
-            if status is None or status in _INTERVENTION_LIVE_STATUSES:
+            # Fail CLOSED: an absent/unparseable status is NOT proof of
+            # liveness — treat it as finished rather than minting
+            # intervention state for a debate of unknown standing.
+            if status is not None and status in _INTERVENTION_LIVE_STATUSES:
                 return ("live", status)
-            return ("finished", status)
+            return ("finished", status if status is not None else "unknown")
 
         try:
             from aragora.server.state import get_state_manager
@@ -551,14 +561,24 @@ class DebateInterventionsHandler(BaseHandler):
             return None, error_response(f"Debate not found: {debate_id}", 404)
         if verdict == "finished":
             return None, error_response(
-                f"Debate {debate_id} already finished (status: {status}); "
+                f"Debate {debate_id} is not live (status: {status}); "
                 "interventions are not available",
                 400,
             )
 
         # Try to get the stream emitter from the handler for WebSocket events
         emitter = getattr(handler, "stream_emitter", None)
-        return get_intervention_manager(debate_id, emitter=emitter, create=True), None
+        fresh = get_intervention_manager(debate_id, create=False) is None
+        manager = get_intervention_manager(debate_id, emitter=emitter, create=True)
+        if manager is None:  # pragma: no cover - create=True always yields one
+            return None, error_response(f"Debate not found: {debate_id}", 404)
+        if fresh and status == "paused":
+            # A manager reconstructed for a stored-paused debate (e.g. the
+            # in-memory manager was lost on restart) must not start RUNNING,
+            # or resume() would 400. Existing managers are the in-memory
+            # truth and are never overridden.
+            manager.restore_paused()
+        return manager, None
 
     def _extract_user_id(self, handler: Any) -> str | None:
         """Extract user ID from the request handler, if available."""
