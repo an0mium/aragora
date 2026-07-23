@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+from typing import cast
 
 import pytest
 
@@ -13,6 +15,7 @@ from aragora.agents.transports.vibeproxy import (
     ModelTransportPolicy,
     TransportMode,
     VibeProxyCatalog,
+    VibeProxyClient,
 )
 
 
@@ -30,10 +33,14 @@ class FakeClient:
         return "Verdict: PASS"
 
 
+def _policy(mode: TransportMode, client: FakeClient) -> ModelTransportPolicy:
+    return ModelTransportPolicy(mode, client=cast(VibeProxyClient, client))
+
+
 def test_direct_mode_does_not_touch_vibeproxy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "invalid-but-unused")
     client = FakeClient()
-    policy = ModelTransportPolicy(TransportMode.DIRECT, client=client)
+    policy = _policy(TransportMode.DIRECT, client)
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
 
@@ -47,13 +54,14 @@ def test_prefer_mode_runs_exact_model_and_discloses_harness(
 ) -> None:
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "30")
     client = FakeClient()
-    policy = ModelTransportPolicy(TransportMode.PREFER, client=client)
+    policy = _policy(TransportMode.PREFER, client)
 
     result = run_claude_vibeproxy("review prompt", reviewer_timeout=600, policy=policy)
 
     assert result.ok is True
     assert result.required is False
     assert result.text == "Verdict: PASS"
+    assert result.response_model == "claude-opus-4-8"
     assert result.harness == f"{VIBEPROXY_HARNESS} (model: claude-opus-4-8)"
     assert result.timeout_seconds == 30.0
     # Message leg gets the budget minus the discovery cap (30 - 6), so the two
@@ -72,7 +80,7 @@ def test_prefer_mode_reserves_half_the_reviewer_budget(
 ) -> None:
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "500")
     client = FakeClient()
-    policy = ModelTransportPolicy(TransportMode.PREFER, client=client)
+    policy = _policy(TransportMode.PREFER, client)
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=80, policy=policy)
 
@@ -84,9 +92,9 @@ def test_prefer_mode_reserves_half_the_reviewer_budget(
 
 
 def test_prefer_mode_allows_direct_fallback_when_model_is_unavailable() -> None:
-    policy = ModelTransportPolicy(
+    policy = _policy(
         TransportMode.PREFER,
-        client=FakeClient(models=frozenset()),
+        FakeClient(models=frozenset()),
     )
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
@@ -98,9 +106,9 @@ def test_prefer_mode_allows_direct_fallback_when_model_is_unavailable() -> None:
 
 
 def test_required_mode_fails_closed_when_model_is_unavailable() -> None:
-    policy = ModelTransportPolicy(
+    policy = _policy(
         TransportMode.REQUIRED,
-        client=FakeClient(models=frozenset()),
+        FakeClient(models=frozenset()),
     )
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
@@ -111,12 +119,66 @@ def test_required_mode_fails_closed_when_model_is_unavailable() -> None:
     assert result.error == "model not in VibeProxy catalog: claude-opus-4-8"
 
 
+def test_unexpected_resolve_failure_is_sanitized_and_allows_prefer_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    secret = "vibeproxy-token-must-not-leak"
+    policy = _policy(TransportMode.PREFER, FakeClient())
+
+    def fail_resolve(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(policy, "resolve", fail_resolve)
+    monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "30")
+
+    with caplog.at_level(
+        logging.WARNING,
+        logger="aragora.agents.transports.claude_vibeproxy",
+    ):
+        result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
+
+    assert result.attempted is True
+    assert result.required is False
+    assert result.ok is False
+    assert result.error == "Unexpected VibeProxy failure: RuntimeError"
+    assert "RuntimeError" in caplog.text
+    assert secret not in result.error
+    assert secret not in caplog.text
+    assert result.timeout_seconds == 30.0
+    assert result.elapsed_seconds >= 0.0
+
+
+def test_unexpected_client_failure_is_sanitized_and_required_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "provider-response-must-not-leak"
+    client = FakeClient()
+    policy = _policy(TransportMode.REQUIRED, client)
+
+    def fail_message(**_kwargs: object) -> str:
+        raise ValueError(secret)
+
+    monkeypatch.setattr(client, "anthropic_message", fail_message)
+    monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "30")
+
+    result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
+
+    assert result.attempted is True
+    assert result.required is True
+    assert result.ok is False
+    assert result.error == "Unexpected VibeProxy failure: ValueError"
+    assert secret not in result.error
+    assert result.timeout_seconds == 30.0
+    assert result.elapsed_seconds >= 0.0
+
+
 def test_invalid_timeout_degrades_to_default_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
     # A malformed timeout env is a tuning typo, not a transport-intent signal:
     # it must NOT escalate prefer -> required or suppress fallback. It degrades
     # to the default budget instead (min(120 default, 600/2 half) == 120).
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "not-a-number")
-    policy = ModelTransportPolicy(TransportMode.PREFER, client=FakeClient())
+    policy = _policy(TransportMode.PREFER, FakeClient())
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
 
@@ -129,7 +191,7 @@ def test_invalid_timeout_in_required_mode_still_uses_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "120s")  # unit suffix -> unparseable
-    policy = ModelTransportPolicy(TransportMode.REQUIRED, client=FakeClient())
+    policy = _policy(TransportMode.REQUIRED, FakeClient())
 
     result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
 
