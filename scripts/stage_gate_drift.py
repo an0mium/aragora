@@ -43,7 +43,11 @@ LOG_LABEL = "automation-log"
 LOG_TITLE_PREFIX = "[automation] Stage-Gate Conductor Log"
 DEFAULT_REPO = "synaptent/aragora"
 
-_FINGERPRINT_RE = re.compile(r"drift-fingerprint:\s*`?([A-Za-z0-9][A-Za-z0-9-]*)`?", re.IGNORECASE)
+_FINGERPRINT_RE = re.compile(
+    r"^[ \t]*`?drift-fingerprint:\s*([A-Za-z0-9][A-Za-z0-9-]*)`?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_ISSUE_URL_RE = re.compile(r"https?://[^\s]+/issues/(\d+)(?:[?#][^\s]*)?")
 _MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _GH_TIMEOUT = 30
 
@@ -63,10 +67,10 @@ def render_fingerprint_line(slug: str) -> str:
 
 def extract_fingerprint(body: str) -> str | None:
     """Return the fingerprint slug embedded in an issue body, if any."""
-    match = _FINGERPRINT_RE.search(body or "")
-    if match is None:
+    matches = list(_FINGERPRINT_RE.finditer(body or ""))
+    if not matches:
         return None
-    return match.group(1).lower()
+    return matches[-1].group(1).lower()
 
 
 def find_anchor(issues: list[dict[str, Any]], slug: str) -> dict[str, Any] | None:
@@ -97,7 +101,7 @@ def list_open_drift_issues(*, repo: str, label: str = DRIFT_LABEL) -> list[dict[
             "--state",
             "open",
             "--limit",
-            "200",
+            "1000",
             "--json",
             "number,title,body",
         ]
@@ -121,19 +125,20 @@ def create_issue(*, repo: str, title: str, body: str, labels: list[str]) -> dict
     result = _run_gh(cmd)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue create failed")
-    url = str(result.stdout or "").strip().splitlines()[-1].strip()
-    number_match = re.search(r"/issues/(\d+)$", url)
+    url_matches = list(_ISSUE_URL_RE.finditer(str(result.stdout or "")))
+    if not url_matches:
+        raise RuntimeError("gh issue create returned no issue URL")
+    url_match = url_matches[-1]
     return {
-        "number": int(number_match.group(1)) if number_match else None,
+        "number": int(url_match.group(1)),
         "title": title,
-        "url": url,
+        "url": url_match.group(0),
     }
 
 
 def _ensure_fingerprint_in_body(body: str, slug: str) -> str:
-    if extract_fingerprint(body) == slug:
-        return body
-    return f"{body.rstrip()}\n\n{render_fingerprint_line(slug)}\n"
+    without_markers = _FINGERPRINT_RE.sub("", body).rstrip()
+    return f"{without_markers}\n\n{render_fingerprint_line(slug)}\n"
 
 
 def file_drift(

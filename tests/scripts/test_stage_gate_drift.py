@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -36,6 +37,23 @@ class TestExtractFingerprint:
 
     def test_returns_none_for_empty_body(self) -> None:
         assert mod.extract_fingerprint("") is None
+
+    def test_ignores_inline_reference_before_marker_line(self) -> None:
+        body = (
+            "Prior Drift-Fingerprint: stale-slug was superseded.\n\n"
+            + mod.render_fingerprint_line("current-slug")
+        )
+        assert mod.extract_fingerprint(body) == "current-slug"
+
+    def test_uses_last_marker_when_legacy_body_has_duplicates(self) -> None:
+        body = "\n".join(
+            [
+                mod.render_fingerprint_line("stale-slug"),
+                "observation",
+                mod.render_fingerprint_line("current-slug"),
+            ]
+        )
+        assert mod.extract_fingerprint(body) == "current-slug"
 
 
 class TestFindAnchor:
@@ -125,6 +143,20 @@ class TestFileDrift:
         created_body = recorder["creates"][0]["body"]
         assert created_body.lower().count("drift-fingerprint:") == 1
 
+    def test_replaces_mismatched_marker_in_body(self, recorder) -> None:
+        recorder["issues"] = []
+        body = "observation\n\n" + mod.render_fingerprint_line("stale-finding")
+        mod.file_drift(
+            repo="org/repo",
+            fingerprint="current-finding",
+            title="t",
+            body=body,
+            apply=True,
+        )
+        created_body = recorder["creates"][0]["body"]
+        assert created_body.lower().count("drift-fingerprint:") == 1
+        assert mod.extract_fingerprint(created_body) == "current-finding"
+
     def test_dry_run_reports_without_mutating(self, recorder) -> None:
         recorder["issues"] = [_issue(9438, body=mod.render_fingerprint_line("b0-corpus-exhausted"))]
         result = mod.file_drift(
@@ -210,6 +242,48 @@ class TestLogAnchor:
     def test_rejects_malformed_month(self, recorder) -> None:
         with pytest.raises(ValueError):
             mod.post_log_entry(repo="org/repo", month="July 2026", body="b", apply=True)
+
+
+class TestGitHubIssueCommands:
+    def test_create_issue_finds_url_before_trailing_notice(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            mod,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=(
+                    "https://github.com/org/repo/issues/123?notification_referrer_id=abc\n"
+                    "A new release of gh is available\n"
+                ),
+                stderr="",
+            ),
+        )
+        created = mod.create_issue(repo="org/repo", title="t", body="b", labels=["label"])
+        assert created["number"] == 123
+        assert created["url"] == (
+            "https://github.com/org/repo/issues/123?notification_referrer_id=abc"
+        )
+
+    def test_create_issue_rejects_missing_url(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            mod,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 0, stdout="", stderr=""),
+        )
+        with pytest.raises(RuntimeError, match="returned no issue URL"):
+            mod.create_issue(repo="org/repo", title="t", body="b", labels=[])
+
+    def test_issue_listing_requests_full_supported_limit(self, monkeypatch) -> None:
+        calls: list[list[str]] = []
+
+        def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            return subprocess.CompletedProcess(args, 0, stdout="[]", stderr="")
+
+        monkeypatch.setattr(mod, "_run_gh", _run)
+        assert mod.list_open_drift_issues(repo="org/repo") == []
+        assert calls[0][calls[0].index("--limit") + 1] == "1000"
 
 
 class TestCli:
