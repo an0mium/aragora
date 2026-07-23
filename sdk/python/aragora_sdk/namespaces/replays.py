@@ -7,12 +7,18 @@ and review agent interactions over time.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 ReplayFormat = Literal["json", "markdown", "html"]
+
+
+def _warn_deprecated(message: str) -> None:
+    """Emit a runtime DeprecationWarning for a dead or drifted SDK method."""
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
 
 
 class ReplaysAPI:
@@ -89,12 +95,19 @@ class ReplaysAPI:
         """
         Get the replay for a debate.
 
+        DEPRECATED: GET /api/v1/debates/{id}/replay is not dispatched by
+        any server handler; the request falls into the debate slug lookup
+        and returns 404. Use list() / search() to locate the replay for a
+        debate, then get(replay_id) -- the documented /api/v1/replays
+        contract.
+
         Args:
             debate_id: Debate identifier
-
-        Returns:
-            Replay data for the debate
         """
+        _warn_deprecated(
+            "replays.get_from_debate() targets an unserved route (404 via "
+            "slug fallback); use list()/search() then get(replay_id)."
+        )
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/replay")
 
     def get_events(
@@ -262,7 +275,17 @@ class AsyncReplaysAPI:
         return await self._client.request("GET", f"/api/v1/replays/{replay_id}")
 
     async def get_from_debate(self, debate_id: str) -> dict[str, Any]:
-        """Get the replay for a debate."""
+        """Get the replay for a debate.
+
+        DEPRECATED: GET /api/v1/debates/{id}/replay is not dispatched by
+        any server handler; the request falls into the debate slug lookup
+        and returns 404. Use list() / search() to locate the replay for a
+        debate, then get(replay_id).
+        """
+        _warn_deprecated(
+            "replays.get_from_debate() targets an unserved route (404 via "
+            "slug fallback); use list()/search() then get(replay_id)."
+        )
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/replay")
 
     async def get_events(

@@ -623,6 +623,7 @@ async def handle_get_flow(
         repo = get_onboarding_repository()
         flow_data = repo.get_flow(user_id, organization_id)
 
+        flow: OnboardingState | None
         if flow_data:
             # Convert dict from repo to OnboardingState for compatibility
             flow = OnboardingState(
@@ -1427,7 +1428,7 @@ def get_onboarding_analytics_snapshot(
         step_drop_off: dict[str, dict[str, Any]] = {}
         ordered_steps = _get_step_order()
         for idx, step in enumerate(ordered_steps):
-            reached = sum(1 for seen in reached_by_flow.values() if step.value in seen)
+            reached_count = sum(1 for seen in reached_by_flow.values() if step.value in seen)
             if idx + 1 < len(ordered_steps):
                 next_step = ordered_steps[idx + 1]
                 advanced = sum(
@@ -1435,15 +1436,15 @@ def get_onboarding_analytics_snapshot(
                     for seen in reached_by_flow.values()
                     if step.value in seen and next_step.value in seen
                 )
-                dropped = max(reached - advanced, 0)
-                drop_off_rate = (dropped / reached * 100.0) if reached > 0 else 0.0
+                dropped = max(reached_count - advanced, 0)
+                drop_off_rate = (dropped / reached_count * 100.0) if reached_count > 0 else 0.0
             else:
-                advanced = reached
+                advanced = reached_count
                 dropped = 0
                 drop_off_rate = 0.0
 
             step_drop_off[step.value] = {
-                "reached": reached,
+                "reached": reached_count,
                 "advanced": advanced,
                 "dropped": dropped,
                 "drop_off_rate_percent": round(drop_off_rate, 2),
@@ -1532,6 +1533,13 @@ class OnboardingHandler(BaseHandler):
         "/api/v1/onboarding/flow/step",
         "/api/v1/templates/recommended",
     ]
+
+    # Spec-only verb declaration for the step-update route, whose dispatch
+    # happens inside the shared handle() method on (normalized path, method)
+    # pairs; read by openapi_impl, not used for request routing.
+    _ROUTE_MAP: dict[str, Any] = {
+        "PUT /api/v1/onboarding/flow/step": None,
+    }
 
     def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with server context."""
