@@ -50,7 +50,8 @@ DEFAULT_INFERENCE_TIMEOUT_SECONDS = 60.0
 DEFAULT_INFERENCE_MAX_TOKENS = 16
 DEFAULT_GITHUB_TIMEOUT_SECONDS = 60.0
 DEFAULT_MAX_DIFF_CHARS = 120_000
-INFERENCE_PROMPT = "Reply with exactly: ARAGORA_VIBEPROXY_BURNIN_OK"
+INFERENCE_SENTINEL = "ARAGORA_VIBEPROXY_BURNIN_OK"
+INFERENCE_PROMPT = f"Reply with exactly: {INFERENCE_SENTINEL}"
 _VERDICT = re.compile(r"^\s*Verdict\s*:\s*(PASS|CHANGES-REQUESTED)\s*$", re.MULTILINE)
 
 
@@ -197,6 +198,21 @@ def _extract_verdict(text: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def _openai_chat_response(body: dict[str, Any]) -> tuple[str | None, bool]:
+    """Extract the first chat message and whether generation was truncated."""
+
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None, False
+    choice = choices[0]
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        return None, choice.get("finish_reason") == "length"
+    content = message.get("content")
+    text = content.strip() if isinstance(content, str) else None
+    return text or None, choice.get("finish_reason") == "length"
+
+
 def run_inference(
     *,
     family: str,
@@ -217,6 +233,14 @@ def run_inference(
         )
 
     started = time.monotonic()
+    route = ResolvedModelRoute(
+        "anthropic" if normalized_family == "claude" else "openai",
+        model,
+        model,
+        "vibeproxy",
+        None,
+        frozenset({"chat"}),
+    )
     response_model: str | None = None
     error_class: str | None = None
     ok = False
@@ -226,27 +250,33 @@ def run_inference(
             raise VibeProxyUnavailableError("required inference has no VibeProxy client")
 
         discovery_timeout = min(6.0, timeout)
-        catalog = policy.client.catalog(timeout=discovery_timeout)
-        if model not in catalog.models:
-            raise VibeProxyUnavailableError("requested model is absent from VibeProxy catalog")
+        route = policy.resolve(
+            route.provider,
+            model,
+            capabilities=("chat",),
+            timeout=discovery_timeout,
+        )
+        if route.transport != "vibeproxy":
+            raise VibeProxyUnavailableError("required inference did not resolve to VibeProxy")
         request_timeout = max(0.1, timeout - (time.monotonic() - started))
 
         if normalized_family == "claude":
-            policy.client.anthropic_message(
-                model=model,
+            response_text = policy.client.anthropic_message(
+                model=route.resolved_model,
                 prompt=INFERENCE_PROMPT,
                 timeout=request_timeout,
                 max_tokens=max_tokens,
             )
             # anthropic_message() returns only after exact response-model
             # verification inside VibeProxyClient.
-            response_model = model
+            response_model = route.resolved_model
+            truncated = False
         else:
             body = policy.client.openai_request(
                 protocol=OpenAIProtocol.CHAT,
-                model=model,
+                model=route.resolved_model,
                 payload={
-                    "model": model,
+                    "model": route.resolved_model,
                     "messages": [{"role": "user", "content": INFERENCE_PROMPT}],
                     "max_tokens": max_tokens,
                 },
@@ -254,9 +284,15 @@ def run_inference(
             )
             observed_model = body.get("model")
             response_model = observed_model if isinstance(observed_model, str) else None
-        ok = response_model is not None
-        if not ok:
+            response_text, truncated = _openai_chat_response(body)
+        if truncated:
+            error_class = "truncated_response"
+        elif response_text != INFERENCE_SENTINEL:
+            error_class = "sentinel_mismatch"
+        elif response_model is None:
             error_class = "missing_response_model"
+        else:
+            ok = True
     except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
         error_class = _exception_error_class(exc)
     except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
@@ -265,12 +301,17 @@ def run_inference(
     record = BurninRecorder(records_path).append(
         CallOutcome(
             family=normalized_family,
-            requested_model=model,
-            resolved_model=model,
+            requested_model=route.requested_model,
+            resolved_model=route.resolved_model,
             response_model=response_model,
             latency_ms=(time.monotonic() - started) * 1000,
             ok=ok,
             error_class=error_class,
+            alias_source=(
+                "ARAGORA_VIBEPROXY_MODEL_MAP"
+                if route.requested_model != route.resolved_model
+                else None
+            ),
         )
     )
     proof = write_proof_artifact(records_path, proof_path)

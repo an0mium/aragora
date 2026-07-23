@@ -63,7 +63,12 @@ class _InferenceClient:
             raise self.failure
         return {
             "model": self.response_model or model,
-            "choices": [{"message": {"content": self.response_text}}],
+            "choices": [
+                {
+                    "message": {"content": self.response_text},
+                    "finish_reason": "stop",
+                }
+            ],
         }
 
     def anthropic_message(
@@ -85,8 +90,35 @@ class _InferenceClient:
 class _InferencePolicy:
     mode = TransportMode.REQUIRED
 
-    def __init__(self, client: _InferenceClient) -> None:
+    def __init__(
+        self,
+        client: _InferenceClient,
+        aliases: dict[str, str] | None = None,
+    ) -> None:
         self.client = client
+        self.aliases = aliases or {}
+
+    def resolve(
+        self,
+        provider: str,
+        model: str,
+        capabilities: tuple[str, ...],
+        *,
+        timeout: float | None = None,
+    ) -> ResolvedModelRoute:
+        assert capabilities == ("chat",)
+        resolved = self.aliases.get(f"{provider}:{model}", self.aliases.get(model, model))
+        catalog = self.client.catalog(timeout=timeout or 1)
+        if resolved not in catalog.models:
+            raise VibeProxyUnavailableError(f"model not in VibeProxy catalog: {resolved}")
+        return ResolvedModelRoute(
+            provider=provider,
+            requested_model=model,
+            resolved_model=resolved,
+            transport="vibeproxy",
+            base_url="http://127.0.0.1:8318/v1",
+            capabilities=frozenset(capabilities),
+        )
 
 
 def _pr(head: str = "a" * 40) -> dict[str, Any]:
@@ -147,6 +179,102 @@ def test_claude_inference_records_proxy_verified_model(
     assert code == 0
     assert result["record"]["response_model"] == "claude-opus-4-8"
     assert result["record"]["family_identity_ok"] is True
+
+
+def test_inference_resolves_alias_and_preserves_disclosure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"google/gemini-3-flash"})
+    monkeypatch.setattr(
+        cli,
+        "_required_policy",
+        lambda: _InferencePolicy(
+            client,
+            aliases={"gemini-3-flash": "google/gemini-3-flash"},
+        ),
+    )
+
+    code, result = cli.run_inference(
+        family="gemini",
+        model="gemini-3-flash",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 0
+    assert result["record"]["requested_model"] == "gemini-3-flash"
+    assert result["record"]["resolved_model"] == "google/gemini-3-flash"
+    assert result["record"]["response_model"] == "google/gemini-3-flash"
+    assert result["record"]["alias_disclosure"] == {
+        "applied": True,
+        "source": "ARAGORA_VIBEPROXY_MODEL_MAP",
+        "preserved": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("family", "model"),
+    [
+        ("claude", "claude-opus-4-8"),
+        ("gemini", "gemini-3-flash"),
+    ],
+)
+def test_inference_rejects_wrong_sentinel_response(
+    family: str,
+    model: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({model})
+    client.response_text = "Burn-in complete"
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family=family,
+        model=model,
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "sentinel_mismatch"
+    assert client.response_text not in (tmp_path / "calls.jsonl").read_text(encoding="utf-8")
+
+
+def test_inference_rejects_truncated_openai_response(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gemini-3-flash"})
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+    original_request = client.openai_request
+
+    def truncated_request(**kwargs: Any) -> dict[str, Any]:
+        body = original_request(**kwargs)
+        body["choices"][0]["finish_reason"] = "length"
+        return body
+
+    monkeypatch.setattr(client, "openai_request", truncated_request)
+
+    code, result = cli.run_inference(
+        family="gemini",
+        model="gemini-3-flash",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["error_class"] == "truncated_response"
 
 
 def test_inference_failure_is_sanitized_and_recorded(
