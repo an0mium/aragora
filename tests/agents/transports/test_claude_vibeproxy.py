@@ -61,6 +61,7 @@ def test_prefer_mode_runs_exact_model_and_discloses_harness(
     assert result.ok is True
     assert result.required is False
     assert result.text == "Verdict: PASS"
+    assert result.response_model == "claude-opus-4-8"
     assert result.harness == f"{VIBEPROXY_HARNESS} (model: claude-opus-4-8)"
     assert result.timeout_seconds == 30.0
     # Message leg gets the budget minus the discovery cap (30 - 6), so the two

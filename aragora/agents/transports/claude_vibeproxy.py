@@ -36,6 +36,7 @@ class ClaudeVibeProxyAttempt:
     required: bool
     ok: bool
     text: str = ""
+    response_model: str | None = None
     error: str = ""
     harness: str = ""
     timeout_seconds: float = 0.0
@@ -192,6 +193,9 @@ def run_claude_vibeproxy(
         required=required,
         ok=True,
         text=text,
+        # VibeProxyClient.anthropic_message() returns only after verifying that
+        # the response body's model exactly matches the routed model.
+        response_model=route.resolved_model,
         harness=f"{VIBEPROXY_HARNESS} (model: {route.resolved_model})",
         timeout_seconds=timeout,
         elapsed_seconds=_elapsed(),

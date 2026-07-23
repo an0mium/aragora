@@ -31,6 +31,7 @@ def test_repository_manifest_matches_current_tree() -> None:
         "aragora/agents/api_agents/openai.py",
         "aragora/agents/transports/claude_vibeproxy.py",
         "scripts/consult_claude.py",
+        "scripts/vibeproxy_burnin_recorder.py",
     )
     assert [
         (site["path"], site["anchor"])
