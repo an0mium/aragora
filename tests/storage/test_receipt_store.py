@@ -28,6 +28,7 @@ from aragora.storage.receipt_store import (
     ReceiptStore,
     SignatureVerificationResult,
     StoredReceipt,
+    _compute_receipt_checksum,
     close_receipt_store,
     get_receipt_store,
     set_receipt_store,
@@ -648,7 +649,7 @@ class TestReceiptStoreSignatures:
         with patch.dict(
             "sys.modules",
             {
-                "aragora.gauntlet.signing": MagicMock(
+                "aragora.storage.receipt_signing": MagicMock(
                     ReceiptSigner=MagicMock(return_value=mock_signer),
                     SignatureMetadata=MagicMock(),
                     SignedReceipt=MagicMock(),
@@ -687,6 +688,24 @@ class TestReceiptStoreSignatures:
 class TestReceiptStoreIntegrity:
     """Tests for integrity verification."""
 
+    def test_checksum_matches_decision_receipt_contract(self):
+        """Storage checksum calculation stays aligned with the receipt model."""
+        from aragora.export.decision_receipt import DecisionReceipt
+
+        receipt_data = {
+            "receipt_id": "receipt-contract",
+            "gauntlet_id": "gauntlet-contract",
+            "timestamp": "2026-07-12T12:00:00+00:00",
+            "verdict": "APPROVED",
+            "confidence": 0.9,
+            "findings": [],
+            "critical_count": 0,
+            "audit_trail_id": "audit-contract",
+        }
+        receipt = DecisionReceipt.from_dict(receipt_data)
+
+        assert _compute_receipt_checksum(receipt_data) == receipt._compute_checksum()
+
     def test_verify_integrity_not_found(self, receipt_store):
         """Test verify_integrity for nonexistent receipt."""
         result = receipt_store.verify_integrity("nonexistent")
@@ -696,44 +715,26 @@ class TestReceiptStoreIntegrity:
 
     def test_verify_integrity_valid(self, receipt_store, sample_receipt_dict):
         """Test verify_integrity for valid checksum."""
-        sample_receipt_dict["checksum"] = "sha256:valid"
+        expected_checksum = _compute_receipt_checksum(sample_receipt_dict)
+        sample_receipt_dict["checksum"] = expected_checksum
         receipt_store.save(sample_receipt_dict)
 
-        # Mock DecisionReceipt to return same checksum
-        mock_receipt = MagicMock()
-        mock_receipt._compute_checksum.return_value = "sha256:valid"
-        mock_receipt_class = MagicMock()
-        mock_receipt_class.from_dict.return_value = mock_receipt
-
-        with patch.dict(
-            "sys.modules",
-            {"aragora.export.decision_receipt": MagicMock(DecisionReceipt=mock_receipt_class)},
-        ):
-            result = receipt_store.verify_integrity("receipt-001")
+        result = receipt_store.verify_integrity("receipt-001")
 
         assert result["integrity_valid"] is True
-        assert result["stored_checksum"] == "sha256:valid"
+        assert result["stored_checksum"] == expected_checksum
 
     def test_verify_integrity_invalid(self, receipt_store, sample_receipt_dict):
         """Test verify_integrity for mismatched checksum."""
-        sample_receipt_dict["checksum"] = "sha256:original"
+        computed_checksum = _compute_receipt_checksum(sample_receipt_dict)
+        sample_receipt_dict["checksum"] = "tampered"
         receipt_store.save(sample_receipt_dict)
 
-        # Mock DecisionReceipt to return different checksum
-        mock_receipt = MagicMock()
-        mock_receipt._compute_checksum.return_value = "sha256:tampered"
-        mock_receipt_class = MagicMock()
-        mock_receipt_class.from_dict.return_value = mock_receipt
-
-        with patch.dict(
-            "sys.modules",
-            {"aragora.export.decision_receipt": MagicMock(DecisionReceipt=mock_receipt_class)},
-        ):
-            result = receipt_store.verify_integrity("receipt-001")
+        result = receipt_store.verify_integrity("receipt-001")
 
         assert result["integrity_valid"] is False
-        assert result["stored_checksum"] == "sha256:original"
-        assert result["computed_checksum"] == "sha256:tampered"
+        assert result["stored_checksum"] == "tampered"
+        assert result["computed_checksum"] == computed_checksum
 
 
 # ===========================================================================
