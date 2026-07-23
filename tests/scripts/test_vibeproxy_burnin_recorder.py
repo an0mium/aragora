@@ -62,6 +62,7 @@ def test_shadow_review_is_non_countable_and_never_posts(
             required=True,
             ok=True,
             text="No blocking findings.\nVerdict: PASS",
+            response_model="anthropic/claude-opus-4.8",
             harness="local VibeProxy",
             timeout_seconds=10,
         )
@@ -116,6 +117,7 @@ def test_shadow_head_drift_is_recorded_but_not_clean(
             required=True,
             ok=True,
             text="Verdict: PASS",
+            response_model="anthropic/claude-opus-4.8",
         ),
     )
 
@@ -134,6 +136,42 @@ def test_shadow_head_drift_is_recorded_but_not_clean(
     assert result["record"]["clean"] is False
     assert result["record"]["error_class"] == "head_drift"
     assert result["record"]["shadow_review"]["head_stable"] is False
+    assert result["proof"]["gates"]["shadow_reviews"]["observed"] == 0
+
+
+def test_shadow_review_without_observed_response_model_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "_load_pr", lambda _repo, _pr_number: _pr())
+    monkeypatch.setattr(cli, "_load_diff", lambda _repo, _pr_number: "diff --git a/a b/a")
+    monkeypatch.setattr(cli, "_required_policy", lambda: _Policy())
+    monkeypatch.setattr(
+        cli,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: ClaudeVibeProxyAttempt(
+            attempted=True,
+            required=True,
+            ok=True,
+            text="Verdict: PASS",
+        ),
+    )
+
+    code, result = cli.run_shadow_review(
+        repo="synaptent/aragora",
+        pr_number=9483,
+        model="claude-opus-4-8",
+        reviewer_timeout=10,
+        max_diff_chars=10_000,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["response_model"] is None
+    assert result["record"]["error_class"] == "missing_response_model"
+    assert result["record"]["family_identity_ok"] is False
+    assert "missing_response_model" in result["record"]["identity_errors"]
     assert result["proof"]["gates"]["shadow_reviews"]["observed"] == 0
 
 

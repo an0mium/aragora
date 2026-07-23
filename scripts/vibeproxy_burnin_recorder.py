@@ -243,6 +243,9 @@ def run_shadow_review(
     latency_ms = (time.monotonic() - started) * 1000
     response_text = attempt.text if attempt is not None and attempt.ok else ""
     verdict = _extract_verdict(response_text) if response_text else None
+    response_model = attempt.response_model if attempt is not None and attempt.ok else None
+    if response_text and response_model is None:
+        error_class = error_class or "missing_response_model"
     if response_text and verdict is None:
         error_class = error_class or "unstructured_review"
     try:
@@ -259,7 +262,7 @@ def run_shadow_review(
             family="claude",
             requested_model=route.requested_model,
             resolved_model=route.resolved_model,
-            response_model=route.resolved_model if response_text else None,
+            response_model=response_model,
             latency_ms=latency_ms,
             ok=bool(response_text),
             error_class=error_class,
