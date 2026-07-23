@@ -391,7 +391,7 @@ jobs:
 
           pr_url=""
           for _ in 1 2 3; do
-            pr_url="$(find_draft_pr)"
+            pr_url="$(find_draft_pr || true)"
             if [[ -n "$pr_url" ]]; then
               break
             fi
@@ -424,7 +424,7 @@ jobs:
           fi
 
           for _ in 1 2 3 4 5; do
-            pr_url="$(find_draft_pr)"
+            pr_url="$(find_draft_pr || true)"
             if [[ -n "$pr_url" ]]; then
               break
             fi
@@ -448,6 +448,18 @@ jobs:
                 fi
                 echo "Open draft PR manually: $compare_url"
               } >> "$GITHUB_STEP_SUMMARY"
+
+              # Escalate persistent degradation: each degraded run strands one
+              # benchmark-truth-publication/<run_id> branch, so an accumulating
+              # backlog means auto-PR creation has been broken for days (e.g. a
+              # dead BENCHMARK_TRUTH_PR_TOKEN) while runs stayed green. git
+              # ls-remote uses the checkout's Actions credentials, so it works
+              # even when the PAT is the broken credential.
+              stranded_count="$(git ls-remote --heads origin 'benchmark-truth-publication/*' 2>/dev/null | wc -l | tr -d ' ')"
+              if [[ "${stranded_count:-0}" -ge 3 ]]; then
+                echo "::error::${stranded_count} stranded benchmark-truth-publication branches on origin — draft PR auto-creation has been degraded across multiple runs. Check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes and prune merged handoff branches (#9519)."
+                exit 1
+              fi
               exit 0
             fi
 
