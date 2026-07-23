@@ -120,6 +120,7 @@ def test_required_mode_fails_closed_when_model_is_unavailable() -> None:
 
 def test_unexpected_resolve_failure_is_sanitized_and_allows_prefer_fallback(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     secret = "vibeproxy-token-must-not-leak"
     policy = _policy(TransportMode.PREFER, FakeClient())
@@ -130,13 +131,19 @@ def test_unexpected_resolve_failure_is_sanitized_and_allows_prefer_fallback(
     monkeypatch.setattr(policy, "resolve", fail_resolve)
     monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "30")
 
-    result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
+    with caplog.at_level(
+        logging.WARNING,
+        logger="aragora.agents.transports.claude_vibeproxy",
+    ):
+        result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
 
     assert result.attempted is True
     assert result.required is False
     assert result.ok is False
     assert result.error == "Unexpected VibeProxy failure: RuntimeError"
+    assert "RuntimeError" in caplog.text
     assert secret not in result.error
+    assert secret not in caplog.text
     assert result.timeout_seconds == 30.0
     assert result.elapsed_seconds >= 0.0
 
@@ -163,38 +170,6 @@ def test_unexpected_client_failure_is_sanitized_and_required_fails_closed(
     assert secret not in result.error
     assert result.timeout_seconds == 30.0
     assert result.elapsed_seconds >= 0.0
-
-
-def test_third_party_failure_is_sanitized_and_logged_without_secret(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    class ThirdPartyProxyError(Exception):
-        pass
-
-    secret = "third-party-response-must-not-leak"
-    client = FakeClient()
-    policy = _policy(TransportMode.PREFER, client)
-
-    def fail_message(**_kwargs: object) -> str:
-        raise ThirdPartyProxyError(secret)
-
-    monkeypatch.setattr(client, "anthropic_message", fail_message)
-    monkeypatch.setenv(VIBEPROXY_TIMEOUT_ENV, "30")
-
-    with caplog.at_level(
-        logging.WARNING,
-        logger="aragora.agents.transports.claude_vibeproxy",
-    ):
-        result = run_claude_vibeproxy("prompt", reviewer_timeout=600, policy=policy)
-
-    assert result.attempted is True
-    assert result.required is False
-    assert result.ok is False
-    assert result.error == "Unexpected VibeProxy failure: ThirdPartyProxyError"
-    assert "ThirdPartyProxyError" in caplog.text
-    assert secret not in result.error
-    assert secret not in caplog.text
 
 
 def test_invalid_timeout_degrades_to_default_not_required(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -173,11 +173,11 @@ def run_claude_vibeproxy(
             timeout_seconds=timeout,
             elapsed_seconds=_elapsed(),
         )
-    except Exception as exc:
-        # This is an external transport boundary: contain unexpected provider
-        # failures while allowing BaseException signals to propagate. Log only
-        # the type because provider exception messages can contain credentials
-        # or response bodies.
+    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        # The production client translates transport and response failures into
+        # the typed exceptions above. Contain plausible injected policy/client
+        # faults without turning this boundary into a blanket exception sink.
+        # Log only the type because messages can contain credentials or bodies.
         logger.warning("Unexpected VibeProxy failure: %s", type(exc).__name__)
         return ClaudeVibeProxyAttempt(
             attempted=True,
