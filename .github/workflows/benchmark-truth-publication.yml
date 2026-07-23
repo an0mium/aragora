@@ -337,7 +337,9 @@ jobs:
           # metadata: read every fine-grained PAT carries — gh pr list needs it) so
           # draft PR creation works despite the org policy that blocks the Actions
           # token from creating PRs (#9519, option B). Falls back to the Actions
-          # token, which keeps the branch-backed handoff path as the fallback.
+          # token, which keeps the branch-backed handoff as a bounded stopgap —
+          # persistent degradation escalates to a red run (see the stranded-branch
+          # check below), so handoff-only is not a quiet indefinite steady state.
           GH_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
           GITHUB_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
         run: |
@@ -450,25 +452,30 @@ jobs:
               } >> "$GITHUB_STEP_SUMMARY"
 
               # Escalate persistent degradation. A degraded run strands a
-              # benchmark-truth-publication/<run_id> branch with NO pull request;
-              # branches from successful runs carry a draft PR (open until
-              # promoted, then merged), so only PR-less branches indicate
-              # degraded runs. git ls-remote uses the checkout's Actions
-              # credentials, which work even when the PAT is the broken
-              # credential; if the per-branch gh query fails (e.g. dead PAT),
-              # the branch counts as stranded — the correct escalation for a
-              # dead token.
+              # benchmark-truth-publication/<run_id> branch with NO pull
+              # request; successful runs carry a draft PR. Only PR-less
+              # branches whose tip commit is from the last 7 days count, so
+              # stale pre-PAT backlog or a lone transient failure cannot trip
+              # this — it takes >=3 recent degraded runs. One batched gh call
+              # lists PR-carrying heads (if it fails, e.g. dead PAT, nothing
+              # is excluded and recent stranded branches count — the correct
+              # escalation for a dead token); the branch tips are fetched once
+              # with the checkout's Actions credentials, which survive PAT
+              # death, and dated locally.
+              pr_heads="$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --limit 200 --json headRefName --jq '.[].headRefName' 2>/dev/null || true)"
+              git fetch --quiet --depth=1 origin '+refs/heads/benchmark-truth-publication/*:refs/remotes/strand-check/*' 2>/dev/null || true
+              now_epoch="$(date +%s)"
               stranded_count=0
-              while read -r _sha ref; do
-                br="${ref#refs/heads/}"
-                [[ -z "$br" ]] && continue
-                pr_count="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$br" --state all --json number --jq 'length' 2>/dev/null || echo "")"
-                if [[ -z "$pr_count" || "$pr_count" -eq 0 ]]; then
-                  stranded_count=$((stranded_count+1))
+              while read -r ref; do
+                br="benchmark-truth-publication/${ref##*/}"
+                grep -qxF "$br" <<<"$pr_heads" && continue
+                tip_epoch="$(git log -1 --format=%ct "$ref" 2>/dev/null || echo 0)"
+                if (( now_epoch - tip_epoch <= 7 * 24 * 3600 )); then
+                  stranded_count=$((stranded_count + 1))
                 fi
-              done < <(git ls-remote --heads origin 'benchmark-truth-publication/*' 2>/dev/null)
+              done < <(git for-each-ref --format='%(refname)' 'refs/remotes/strand-check/*')
               if [[ "$stranded_count" -ge 3 ]]; then
-                echo "::error::${stranded_count} PR-less benchmark-truth-publication branches on origin — draft PR auto-creation has been degraded across multiple runs. Check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes; once cadence is restored, prune only the PR-less (stranded) branches (#9519)."
+                echo "::error::${stranded_count} PR-less benchmark-truth-publication branches from the last 7 days — draft PR auto-creation has been degraded across multiple recent runs. Check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes; once cadence is restored, prune only the PR-less (stranded) branches (#9519)."
                 exit 1
               fi
               exit 0
