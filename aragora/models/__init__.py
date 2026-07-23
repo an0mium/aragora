@@ -7,6 +7,7 @@ from aragora.models.catalog import (
     by_any_id,
     load_snapshot,
     snapshot_path,
+    utc_today,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "by_any_id",
     "load_snapshot",
     "snapshot_path",
+    "utc_today",
 ]

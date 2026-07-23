@@ -37,10 +37,34 @@ project owns; this catalog makes the detection mechanical.
 ## Phase 1: enforcement without rewiring
 
 No runtime table changed behavior. `tests/models/test_catalog.py` asserts
-that every existing table row for an **enforced** model matches the catalog
+that existing table rows for an **enforced** model match the catalog
 (`ENFORCED_MODELS`, currently the eight models verified live this week).
-A drifting mirror now fails tests in seconds instead of consuming an
-adversarial review round.
+A covered drifting mirror now fails tests in seconds instead of consuming
+an adversarial review round.
+
+Phase-1 coverage is deliberately uneven across the eleven mirrors — stated
+plainly so the tests are not oversold:
+
+* **Presence + value enforced** (a missing row for an enforced model FAILS):
+  pdb `_PRICE_PER_MTOK`, billing `usage.PROVIDER_PRICING`, and services
+  `metering_models.MODEL_PRICING` (the metering fallback would otherwise
+  silently mis-bill live usage).
+* **Value enforced only when a row exists** (deleting a row passes
+  silently — the static skip-count gate does not catch runtime skips):
+  billing `debate_costs.DEFAULT_PROVIDER_RATES` and routing
+  `provider_config.PROVIDER_PRICING`.
+* **Value enforced with named anchors**: `model_selector.MODEL_PROFILES` —
+  any profile resolving to an enforced spec must match, and the gpt-5.5 and
+  claude-opus-4-8 profiles are asserted present so the check cannot pass
+  vacuously.
+* **Slug-resolution enforced**: `OPENROUTER_FALLBACK_MODELS` targets must
+  resolve to a catalog spec (dead slugs fail; explicit allowlist for the
+  not-yet-cataloged deepseek-v4-pro), and targets resolving to an enforced
+  spec must use its exact `openrouter_id`.
+* **Not yet covered**: model pins, server cost estimation, billing
+  optimizer tiers, and per-agent `OPENROUTER_MODEL_MAP` overrides. Drift
+  there is still review-discovered until phase 2 (or until these tables
+  gain phase-1 tests).
 
 Known-stale legacy rows (e.g. deepseek-v4-pro at $1.74/$3.48 vs live
 $0.435/$0.87; qwen3-max at $0.60/$1.80 vs live $0.78/$3.90) are deliberately

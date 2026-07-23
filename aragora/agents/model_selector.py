@@ -150,31 +150,6 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
-    "claude-fable": ModelProfile(
-        model_id="claude-fable-5",
-        display_name="Claude Fable 5",
-        provider="anthropic",
-        capabilities={
-            ModelCapability.REASONING: 0.99,
-            ModelCapability.CODING: 0.99,
-            ModelCapability.LEGAL: 0.97,
-            ModelCapability.MEDICAL: 0.96,
-            ModelCapability.FINANCIAL: 0.97,
-            ModelCapability.CREATIVE: 0.95,
-            ModelCapability.MATH: 0.98,
-            ModelCapability.LONG_CONTEXT: 0.96,
-            ModelCapability.INSTRUCTION_FOLLOWING: 0.99,
-            ModelCapability.FACTUAL_ACCURACY: 0.98,
-        },
-        max_context_tokens=1000000,
-        max_output_tokens=128000,
-        # Live catalog 2026-07-16: Fable 5 is $10/$50 per MTok (2x Opus 4.8).
-        cost_input_per_1k=0.010,
-        cost_output_per_1k=0.050,
-        avg_latency_ms=1200,
-        reliability_score=0.97,
-        supports_vision=True,
-    ),
     "claude-haiku": ModelProfile(
         model_id="claude-haiku-4-5-20251001",
         display_name="Claude Haiku 4.5",
@@ -201,8 +176,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # OpenAI
     "gpt4": ModelProfile(
-        model_id="gpt-5.6-sol",
-        display_name="GPT-5.6 Sol",
+        model_id="gpt-5.5",
+        display_name="GPT-5.5",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.94,
@@ -216,9 +191,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.95,
             ModelCapability.FACTUAL_ACCURACY: 0.91,
         },
-        max_context_tokens=1050000,  # catalog ctx for gpt-5.6-sol
+        max_context_tokens=1000000,
         max_output_tokens=32768,
-        # Live catalog 2026-07-16: Sol is $5/$30 per MTok.
+        # Provider repriced ~2026-07-14; must match aragora/models/catalog.py
+        # ($5/$30 per MTok) — enforced by tests/models/test_catalog.py.
         cost_input_per_1k=0.005,
         cost_output_per_1k=0.030,
         avg_latency_ms=900,

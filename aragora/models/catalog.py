@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 __all__ = [
@@ -38,7 +38,17 @@ __all__ = [
     "by_any_id",
     "load_snapshot",
     "snapshot_path",
+    "utc_today",
 ]
+
+
+def utc_today() -> date:
+    """Canonical 'today' for soak governance, anchored to UTC.
+
+    Soak windows are a governance boundary (must-not-adopt-before dates),
+    so they must not flip earlier or later depending on the host's local
+    timezone."""
+    return datetime.now(timezone.utc).date()
 
 
 @dataclass(frozen=True)
@@ -61,6 +71,21 @@ class ModelSpec:
 
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
+
+    def is_under_soak(self, today: date | None = None) -> bool:
+        """True while the model is inside its post-release soak window
+        (before ``soak_until``; the 14-day availability rule).
+
+        Adoption surfaces — merge-authority evidence, routing candidate
+        enumeration — must not offer the model while under soak. Id
+        resolution (``by_any_id``) and cost lookup for its ids remain
+        valid throughout the window. Defaults to the UTC calendar date
+        (``utc_today``): soak is a governance boundary and must not shift
+        with the host timezone.
+        """
+        if self.soak_until is None:
+            return False
+        return (today if today is not None else utc_today()) < self.soak_until
 
 
 # Prices are USD per 1M tokens, captured from the live OpenRouter catalog on
@@ -90,7 +115,7 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=128_000,
             release_date=date(2026, 2, 10),
-            aliases=("claude-opus-4.8",),
+            aliases=("claude-opus-4.8", "anthropic/claude-opus-4-8"),
         ),
         ModelSpec(
             canonical_id="gpt-5.6-sol",
@@ -164,7 +189,12 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=262_144,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 15),
-            aliases=("moonshotai/kimi-k2.6",),
+            # NOTE: "moonshotai/kimi-k2.6" is deliberately NOT an alias here.
+            # It is a distinct, live, separately-priced OpenRouter model
+            # ($0.95/$4.00 per MTok on the live catalog, 2026-07-17), so
+            # aliasing it onto k2.7-code would force k2.6 mirror rows to the
+            # wrong prices. Catalog k2.6 as its own ModelSpec if it needs
+            # enforcement.
         ),
     )
 }

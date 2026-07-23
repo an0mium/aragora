@@ -72,7 +72,9 @@ command_for() {
       probe_q="$(shell_quote "import pytest")"
       import_label_q="$(shell_quote "pytest")"
       runtime_label_q="$(shell_quote "pristine-main health runtime")"
-      printf 'source %s && PYTHON_BIN="$(resolve_aragora_python %s %s %s)" && exec "$PYTHON_BIN" %s --repo-root %s --pristine-dir %s --halt-file %s' \
+      # --suite required pinned explicitly: the full suite cannot finish in the
+      # nightly timeout budget on this host (issue #9045); "full" is manual-only.
+      printf 'source %s && PYTHON_BIN="$(resolve_aragora_python %s %s %s)" && exec "$PYTHON_BIN" %s --repo-root %s --pristine-dir %s --halt-file %s --suite required' \
         "${runtime_q}" "${probe_q}" "${import_label_q}" "${runtime_label_q}" \
         "${script_q}" "${repo_q}" "${pristine_q}" "${halt_q}"
       ;;
