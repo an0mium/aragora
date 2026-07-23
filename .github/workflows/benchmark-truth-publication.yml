@@ -332,10 +332,12 @@ jobs:
 
       - name: Commit, publish, and verify draft PR for refreshed trust-loop surfaces
         env:
-          # BENCHMARK_TRUTH_PR_TOKEN: fine-scoped PAT (pull_requests: write on this
-          # repo only) so draft PR creation works despite the org policy that blocks
-          # the Actions token from creating PRs (#9519, option B). Falls back to the
-          # Actions token, which keeps the branch-backed handoff path as the fallback.
+          # BENCHMARK_TRUTH_PR_TOKEN: fine-grained PAT scoped to this repo only
+          # (pull_requests: read/write + contents: read, plus the mandatory
+          # metadata: read every fine-grained PAT carries — gh pr list needs it) so
+          # draft PR creation works despite the org policy that blocks the Actions
+          # token from creating PRs (#9519, option B). Falls back to the Actions
+          # token, which keeps the branch-backed handoff path as the fallback.
           GH_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
           GITHUB_TOKEN: ${{ secrets.BENCHMARK_TRUTH_PR_TOKEN || github.token }}
         run: |
@@ -360,6 +362,7 @@ jobs:
           body_file="$RUNNER_TEMP/benchmark-truth-publication-pr.md"
           compare_url="https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
           permission_blocked=0
+          create_failed=0
 
           find_draft_pr() {
             gh pr list \
@@ -410,9 +413,12 @@ jobs:
             set -e
             if [[ $create_status -ne 0 ]]; then
               echo "$create_output"
+              create_failed=1
               if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" <<<"$create_output"; then
                 permission_blocked=1
                 echo "::notice::GitHub Actions token cannot create draft PRs in this repository; leaving a branch-backed handoff instead. Configure the BENCHMARK_TRUTH_PR_TOKEN repo secret (fine-scoped PAT, pull_requests: write) to restore auto-PR creation (#9519)."
+              else
+                echo "::warning::Draft PR creation failed (exit ${create_status}) for a reason other than the Actions PR-creation policy — check whether BENCHMARK_TRUTH_PR_TOKEN is expired, revoked, or mis-scoped (#9519). Leaving a branch-backed handoff instead."
               fi
             fi
           fi
@@ -426,11 +432,20 @@ jobs:
           done
 
           if [[ -z "$pr_url" ]]; then
-            if [[ $permission_blocked -eq 1 ]]; then
+            if [[ $create_failed -eq 1 ]]; then
+              # The branch push already succeeded (checkout persists the Actions
+              # token), so any PR-creation failure — the Actions policy block, an
+              # expired/revoked/mis-scoped BENCHMARK_TRUTH_PR_TOKEN, or a transient
+              # API error — degrades to the branch-backed handoff instead of
+              # leaving this daily workflow permanently red with no handoff.
               {
                 echo "Published automation branch: \`$branch\`"
                 echo ""
-                echo "Draft PR auto-creation is blocked for GitHub Actions in this repository."
+                if [[ $permission_blocked -eq 1 ]]; then
+                  echo "Draft PR auto-creation is blocked for GitHub Actions in this repository."
+                else
+                  echo "Draft PR auto-creation failed (see the ::warning above — check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes, #9519)."
+                fi
                 echo "Open draft PR manually: $compare_url"
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
