@@ -20,7 +20,7 @@ with an honest pending status and the exact step that closes it.
 | 1 | Bundle index (this file) | `README.md` | present |
 | 2 | Art. 14 human-oversight evidence pack (JSON, canonical) | `oversight-pack.json` | present |
 | 3 | Art. 14 human-oversight evidence pack (Markdown report) | `oversight-pack.md` | present |
-| 4 | Source decision receipt (real 3-agent debate, 2026-06-22) | `receipts/2026-06-22-packaging-decision-8263.receipt.json` | present |
+| 4 | Source decision receipt (real 2026-06-22 debate, two contributing agents) | `receipts/2026-06-22-packaging-decision-8263.receipt.json` | present |
 | 5 | Signed Open Decision Receipt — **Variant B, locally signed** | `packaging-8263.signed-local.odr.json` | present (local key — see contingency below) |
 | 6 | Ed25519 public key for artifact 5 | `local-signing.pubkey.pem` | present (local key — see contingency below) |
 | 7 | Receipt-verification walkthrough | `verification-walkthrough.md` | present |
@@ -67,11 +67,14 @@ produced. The bundle is built to ship either way:
 
 ### Variant B — locally-signed receipt + dated gap statement (shipping default)
 
-- **What:** artifacts 5–6 in this directory. A real decision receipt (a
-  3-agent grok / mistral-api / deepseek debate on the issue #8263 packaging
-  decision, 2026-06-22, consensus PASS at 0.80 confidence with consensus
-  proof) exported to the JCS-canonical ODR v0.1 profile and signed with a
-  **locally generated** Ed25519 key (`key_id=ed25519-7be72c773c6db3a5`).
+- **What:** artifacts 5–6 in this directory. A real decision receipt (the
+  issue #8263 packaging decision, 2026-06-22 — a **two-contributing-agent**
+  debate: grok proposed, deepseek critiqued; mistral-api was invited
+  (`agents_requested`) but recorded zero contributions, and the signed ODR
+  lists only grok and deepseek as participants/supporters; consensus PASS at
+  0.80 confidence with consensus proof) exported to the JCS-canonical ODR
+  v0.1 profile and signed with a **locally generated** Ed25519 key
+  (`key_id=ed25519-7be72c773c6db3a5`).
   The signature is real and verifies offline; what the local key does *not*
   provide is issuer authenticity — the key is not the pinned production
   identity.
@@ -126,6 +129,15 @@ aragora compliance oversight-pack --window 30d --fetch-settlements \
 - Honesty contract: 1 windowed receipt, 0 human-attested — the pack marks
   14(1)/14(3)/14(4)(d) as **partial**, not satisfied. Absence is recorded,
   never implied.
+- **14(4)(c) amendment (2026-07-22):** the generated pack originally marked
+  14(4)(c) satisfied on "verdict reasoning / explainability". The source
+  receipt's `verdict_reasoning` / `final_answer` are in fact truncated
+  mid-sentence at 2,000 characters by the receipt persistence path, and the
+  local receipt store copy carries the identical truncation, so the full
+  synthesis text is not recoverable. The pack was manually amended to mark
+  14(4)(c) **partial** with the truncation recorded, and its integrity
+  digest recomputed. The signed ODR's `reasoning.summary` reproduces the
+  same truncated text; the ODR bytes and signature are unchanged.
 
 ## Crux cards (pending)
 

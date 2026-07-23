@@ -11,11 +11,20 @@ runbook wins.
 ## What you are verifying
 
 `packaging-8263.signed-local.odr.json` is an Open Decision Receipt (ODR v0.1,
-spec: `docs/specs/OPEN_DECISION_RECEIPT.md`) exported from a real 3-agent
-adversarial debate (grok, mistral-api, deepseek; 2026-06-22; issue #8263
-packaging decision). It carries a detached Ed25519 signature over the
-JCS-canonical receipt bytes. `local-signing.pubkey.pem` is the matching
-public key.
+spec: `docs/specs/OPEN_DECISION_RECEIPT.md`) exported from a real adversarial
+debate with **two contributing agents** (grok proposer, deepseek critic;
+2026-06-22; issue #8263 packaging decision). A third agent, mistral-api, was
+invited but recorded zero contributions; the ODR accordingly lists only grok
+and deepseek as participants/supporters. It carries a detached Ed25519
+signature over the JCS-canonical receipt bytes. `local-signing.pubkey.pem`
+is the matching public key.
+
+Known evidence limitation: the ODR `reasoning.summary` reproduces the source
+receipt's `verdict_reasoning`, which is truncated mid-sentence at 2,000
+characters by the receipt persistence path (the full synthesis text is not
+recoverable — see the 14(4)(c) amendment note in `README.md`). This does not
+affect signature or digest verification below; it limits what the reasoning
+text itself evidences.
 
 ## Steps (fresh environment, ~2 minutes)
 

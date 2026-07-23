@@ -39,8 +39,8 @@
       "clause": "14(4)(c)",
       "evidence_basis": "Receipts carry verdict reasoning and explainability blocks; attestations record the exact evidence digest the overseer saw.",
       "requirement": "Overseers can correctly interpret the system's output.",
-      "status": "satisfied",
-      "status_basis": "all 1 windowed receipts carry verdict reasoning / explainability"
+      "status": "partial",
+      "status_basis": "amended 2026-07-22: the 1 windowed receipt carries a verdict_reasoning field, but the recorded verdict_reasoning/final_answer are truncated mid-sentence at 2,000 characters by the receipt persistence path; the local receipt store copy carries the identical truncation, so the full synthesis text is not recoverable. Truncated reasoning only partially supports 'overseers can correctly interpret the system's output'"
     },
     {
       "clause": "14(4)(d)",
@@ -65,7 +65,7 @@
   "generated_at": "2026-07-20T15:37:36.007105+00:00",
   "integrity": {
     "algorithm": "sha256/jcs",
-    "content_digest": "07d015dbb166bc5209da444ff8d18a0e372c9a1e179cdde868627e91edfaf985"
+    "content_digest": "088e0e97992023fd379d738e7d5010754038c42a5cff86259d29fc3a5f132595"
   },
   "nist_cross_references": [
     {

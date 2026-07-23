@@ -1,8 +1,11 @@
 # Human Oversight Evidence Pack (EU AI Act Article 14)
 
 Generated: 2026-07-20T15:37:36.007105+00:00
+Amended: 2026-07-22 — 14(4)(c) manually downgraded to **partial** (source
+receipt's verdict reasoning is truncated at 2,000 characters, mid-sentence,
+and unrecoverable); integrity digest recomputed over the amended pack.
 Window: 30 days (2026-06-20T15:37:36.007105+00:00 → 2026-07-20T15:37:36.007105+00:00)
-Integrity: `07d015dbb166bc5209da444ff8d18a0e372c9a1e179cdde868627e91edfaf985` (sha256/jcs)
+Integrity: `088e0e97992023fd379d738e7d5010754038c42a5cff86259d29fc3a5f132595` (sha256/jcs)
 
 ## Summary
 
@@ -22,7 +25,7 @@ Integrity: `07d015dbb166bc5209da444ff8d18a0e372c9a1e179cdde868627e91edfaf985` (s
 | 14(3) | partial | 1 human-settlement attestation(s) demonstrate the oversight mechanism operating in the window, but no windowed receipt is itself human-attested |
 | 14(4)(a) | satisfied | all 1 windowed receipts carry agent responses / provenance |
 | 14(4)(b) | satisfied | all 1 windowed receipts carry recorded dissent field |
-| 14(4)(c) | satisfied | all 1 windowed receipts carry verdict reasoning / explainability |
+| 14(4)(c) | partial | amended 2026-07-22: the 1 windowed receipt carries a verdict_reasoning field, but the recorded verdict_reasoning/final_answer are truncated mid-sentence at 2,000 characters by the receipt persistence path; the local receipt store copy carries the identical truncation, so the full synthesis text is not recoverable. Truncated reasoning only partially supports 'overseers can correctly interpret the system's output' |
 | 14(4)(d) | partial | 1 human-settlement attestation(s) demonstrate the oversight mechanism operating in the window, but no windowed receipt is itself human-attested |
 | 14(4)(e) | partial | interruption capability is procedural (kill-switches, halt files); not evidenced per-receipt by this pack |
 
