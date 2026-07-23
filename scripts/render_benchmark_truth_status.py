@@ -470,6 +470,29 @@ def render_status_markdown(
             f"| Merged-only rate | {_format_percent(truth_metrics.get('merged_only_rate'))} |",
         ]
     )
+    proxy_attempted = proxy_metrics.get("unique_issues_attempted")
+    corpus_exhausted = (
+        isinstance(proxy_attempted, int)
+        and proxy_attempted > 0
+        and proxy_metrics.get("unique_issues_succeeded") == 0
+        and proxy_metrics.get("unique_issues_failed") == 0
+        and proxy_metrics.get("unique_issues_neutral") == proxy_attempted
+    )
+    if corpus_exhausted:
+        lines.extend(
+            [
+                "",
+                (
+                    "Corpus exhaustion note: the verified rates above reflect the "
+                    "previously graduated cohort, not fresh autonomy proof. All "
+                    f"`{proxy_attempted}`/`{proxy_attempted}` proxy corpus rows in the "
+                    "current window were neutral (e.g. `issue_already_resolved`) with "
+                    "`0` fresh successes — corpus revision "
+                    f"`{_format_value(corpus.get('revision'))}` is exhausted and "
+                    "generates no new execution evidence until the corpus is restocked."
+                ),
+            ]
+        )
     if in_flight_metrics:
         lines.extend(
             [
