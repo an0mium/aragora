@@ -270,9 +270,10 @@ def compute_decay_impact_set(
 class EpistemicDecayBatchReport:
     """Aggregate result from :func:`evaluate_units`.
 
-    Counts partition ``total``: healthy (score == 1.0), degraded
-    (score < 1.0 and action != fail_closed), fail_closed.
-    No side effects; flag: ``ARAGORA_DECAY_MONITOR_ENABLED``.
+    Counts partition ``total``: healthy (score == 1.0 and action != fail_closed),
+    degraded (score < 1.0 and action != fail_closed), fail_closed.
+    No side effects. The dataclass is always importable; activating the CLI
+    monitor is caller-enforced via ``ARAGORA_DECAY_MONITOR_ENABLED``.
     """
 
     signals: list[DecaySignal] = field(default_factory=list)
@@ -284,7 +285,11 @@ class EpistemicDecayBatchReport:
 
     @property
     def healthy_count(self) -> int:
-        return sum(1 for s in self.signals if s.integrity_score == 1.0)
+        return sum(
+            1
+            for s in self.signals
+            if s.integrity_score == 1.0 and s.recommended_action != "fail_closed"
+        )
 
     @property
     def degraded_count(self) -> int:
