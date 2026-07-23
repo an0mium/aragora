@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHECKER_PATH = REPO_ROOT / "scripts" / "ci" / "check_boundary_edges.py"
@@ -41,6 +44,11 @@ def _write_map(root: Path) -> Path:
     _write_file(root, "aragora/receipts/__init__.py")
     _write_file(root, "aragora-verify/src/aragora_verify/__init__.py")
     _write_file(root, "aragora-verify/src/aragora_verify/odr_schema.json", "{}\n")
+    _write_file(
+        root,
+        "aragora-verify/pyproject.toml",
+        '[project]\nname = "aragora-verify"\ndependencies = ["cryptography>=48.0.1"]\n',
+    )
 
     data = {
         "schema_version": 1,
@@ -63,6 +71,7 @@ def _write_map(root: Path) -> Path:
             ],
             "standalone": {
                 "source": "aragora-verify/src/aragora_verify",
+                "project_file": "aragora-verify/pyproject.toml",
                 "package_root": "aragora_verify",
                 "allowed_external_roots": ["cryptography"],
             },
@@ -157,6 +166,38 @@ def test_standalone_dependency_is_offline_violation(tmp_path, capsys):
 
     assert rc == 1
     assert "offline aragora_verify.schema -> jsonschema" in capsys.readouterr().out
+
+
+def test_declared_standalone_dependency_is_offline_violation(tmp_path, capsys):
+    map_path = _write_map(tmp_path)
+    baseline = _write_baseline(tmp_path, map_path, set())
+    _write_file(
+        tmp_path,
+        "aragora-verify/pyproject.toml",
+        '[project]\nname = "aragora-verify"\ndependencies = ["httpx[socks]>=0.28"]\n',
+    )
+
+    rc = cbe.main(_args(tmp_path, map_path, baseline))
+
+    assert rc == 1
+    assert "offline dependency aragora-verify -> httpx" in capsys.readouterr().out
+
+
+def test_boundary_hook_covers_default_install_and_nested_sources():
+    config = yaml.safe_load((REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hook = next(
+        hook
+        for repository in config["repos"]
+        for hook in repository["hooks"]
+        if hook["id"] == "boundary2-edges"
+    )
+    pattern = re.compile(hook["files"])
+
+    assert set(hook["stages"]) == {"pre-commit", "pre-push"}
+    assert pattern.search("aragora/receipts/__init__.py")
+    assert pattern.search("aragora-verify/src/aragora_verify/verifier.py")
+    assert pattern.search("aragora-verify/pyproject.toml")
+    assert not pattern.search("aragora/receipt_unrelated.py")
 
 
 def test_schema_mirror_drift_exits_one(tmp_path, capsys):

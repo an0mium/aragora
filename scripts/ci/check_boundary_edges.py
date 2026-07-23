@@ -16,6 +16,7 @@ import argparse
 import ast
 import datetime as dt
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ class BoundaryConfig:
     sources: tuple[Path, ...]
     allowed_internal_prefixes: tuple[str, ...]
     standalone_source: Path
+    standalone_project_file: Path
     standalone_package_root: str
     allowed_external_roots: frozenset[str]
     mirror_pairs: tuple[tuple[Path, Path], ...]
@@ -123,6 +125,11 @@ def load_boundary_map(repo_root: Path, map_path: Path) -> BoundaryConfig:
     standalone_source = _relative_path(
         root, standalone.get("source"), "python_import_policy.standalone.source"
     )
+    standalone_project_file = _relative_path(
+        root,
+        standalone.get("project_file"),
+        "python_import_policy.standalone.project_file",
+    )
     package_root = standalone.get("package_root")
     if not isinstance(package_root, str) or not package_root.isidentifier():
         raise CheckerError("standalone.package_root must be a Python identifier")
@@ -134,6 +141,10 @@ def load_boundary_map(repo_root: Path, map_path: Path) -> BoundaryConfig:
     )
     if standalone_source not in sources:
         raise CheckerError("standalone.source must also appear in python_import_policy.sources")
+    if not standalone_project_file.is_file():
+        raise CheckerError(
+            f"Standalone project file does not exist: {standalone_project_file.relative_to(root)}"
+        )
 
     raw_pairs = data.get("mirror_pairs")
     if not isinstance(raw_pairs, list) or not raw_pairs:
@@ -165,6 +176,7 @@ def load_boundary_map(repo_root: Path, map_path: Path) -> BoundaryConfig:
         sources=sources,
         allowed_internal_prefixes=allowed_internal,
         standalone_source=standalone_source,
+        standalone_project_file=standalone_project_file,
         standalone_package_root=package_root,
         allowed_external_roots=allowed_external,
         mirror_pairs=tuple(mirror_pairs),
@@ -235,6 +247,54 @@ def _prefix_allowed(target: str, prefixes: tuple[str, ...]) -> bool:
     return any(target == prefix or target.startswith(f"{prefix}.") for prefix in prefixes)
 
 
+_REQUIREMENT_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
+
+
+def _normalize_distribution_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _load_toml_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        import tomllib as tomllib_module
+    except ModuleNotFoundError:
+        try:
+            import tomli as tomllib_module  # type: ignore[import-not-found,no-redef]
+        except ModuleNotFoundError as exc:
+            raise CheckerError(
+                f"Reading {label} requires Python 3.11+ or the tomli package"
+            ) from exc
+    try:
+        data = tomllib_module.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise CheckerError(f"Cannot read {label} {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise CheckerError(f"{label} must contain a TOML object: {path}")
+    return data
+
+
+def _declared_project_dependencies(path: Path) -> set[str]:
+    data = _load_toml_object(path, "Standalone project file")
+    project = data.get("project")
+    if not isinstance(project, dict):
+        raise CheckerError("Standalone project file must define a [project] table")
+    raw_dependencies = project.get("dependencies", [])
+    if not isinstance(raw_dependencies, list) or any(
+        not isinstance(item, str) or not item.strip() for item in raw_dependencies
+    ):
+        raise CheckerError("Standalone project dependencies must be a TOML string array")
+
+    dependencies: set[str] = set()
+    for requirement in raw_dependencies:
+        match = _REQUIREMENT_NAME.match(requirement)
+        if not match:
+            raise CheckerError(
+                f"Cannot parse standalone project dependency requirement: {requirement!r}"
+            )
+        dependencies.add(_normalize_distribution_name(match.group(1)))
+    return dependencies
+
+
 def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
     violations: set[str] = set()
     seen: set[Path] = set()
@@ -272,6 +332,13 @@ def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
 def compute_violations(repo_root: Path, config: BoundaryConfig) -> set[str]:
     root = repo_root.resolve()
     violations = _scan_python_imports(root, config)
+    allowed_dependencies = {
+        _normalize_distribution_name(name) for name in config.allowed_external_roots
+    }
+    project_name = config.standalone_project_file.parent.name
+    for dependency in _declared_project_dependencies(config.standalone_project_file):
+        if dependency not in allowed_dependencies:
+            violations.add(f"offline dependency {project_name} -> {dependency}")
     for left, right in config.mirror_pairs:
         try:
             matches = left.read_bytes() == right.read_bytes()

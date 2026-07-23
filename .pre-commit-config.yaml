@@ -189,8 +189,8 @@ repos:
         entry: python3 scripts/ci/check_boundary_edges.py
         language: system
         pass_filenames: false
-        files: ^(aragora/(gauntlet/(receipt_models|receipt|odr_export|odr_signing|odr_verify)\.py|gauntlet/odr_schema\.json|receipts/)|aragora-verify/src/aragora_verify/|scripts/ci/(boundary_maps/receipts_verifier\.json|check_boundary_edges\.py)|scripts/baselines/boundary2_edges_baseline\.json)$
-        stages: [pre-push]
+        files: ^(aragora/(gauntlet/(receipt_models|receipt|odr_export|odr_signing|odr_verify)\.py|gauntlet/odr_schema\.json|receipts/.*)|aragora-verify/(pyproject\.toml|src/aragora_verify/.*)|scripts/ci/(boundary_maps/receipts_verifier\.json|check_boundary_edges\.py)|scripts/baselines/boundary2_edges_baseline\.json)$
+        stages: [pre-commit, pre-push]
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit

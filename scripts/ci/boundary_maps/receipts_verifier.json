@@ -52,6 +52,7 @@
     ],
     "standalone": {
       "source": "aragora-verify/src/aragora_verify",
+      "project_file": "aragora-verify/pyproject.toml",
       "package_root": "aragora_verify",
       "allowed_external_roots": [
         "cryptography"
