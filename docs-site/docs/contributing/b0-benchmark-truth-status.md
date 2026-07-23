@@ -5,7 +5,7 @@ description: B0 Benchmark Truth Status
 
 # B0 Benchmark Truth Status
 
-Last updated: 2026-07-11T16:05:22Z
+Last updated: 2026-07-22T14:01:55Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -76,13 +76,13 @@ Proxy note: neutral issue outcomes are current-corpus rows that were neither fre
 
 ## Previous Published Artifact
 
-- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260614T035210Z.json`
-- Previous generated_at: `2026-06-14T03:52:10Z`
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260717T135853Z.json`
+- Previous generated_at: `2026-07-17T13:58:53Z`
 
 ## Deltas
 
 - Merged-only rate (`merged_only_rate`): 0.0000
 - No-rescue truth success rate (`no_rescue_truth_success_rate`): 0.0000
-- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): -0.9230
+- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): 0.0000
 - Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.0000
 - Unique issues attempted (`unique_issues_attempted`): 0.0000
