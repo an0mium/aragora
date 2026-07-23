@@ -1748,8 +1748,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/batch",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1840,16 +1841,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/{param}/decision-integrity",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/{param}/export",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5869,16 +5872,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/debates/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/debates/{param}/intervention/threshold",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
