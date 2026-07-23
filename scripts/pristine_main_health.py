@@ -11,8 +11,8 @@ marker after verifying main is green. Results append to the throughput ledger.
 Read-only vs GitHub. Intended to run nightly under launchd (installation of
 the LaunchAgent is an operator action); safe to run by hand:
 
-    python3 scripts/pristine_main_health.py --suite required   # fast lane
-    python3 scripts/pristine_main_health.py --suite full       # full shards
+    python3 scripts/pristine_main_health.py --suite required   # fast lane (default)
+    python3 scripts/pristine_main_health.py --suite full       # full shards (manual)
 """
 
 from __future__ import annotations
@@ -42,10 +42,82 @@ INFRA_ERROR_EXIT = 2
 SUITE_TERMINATION_GRACE_SECONDS = 30.0
 
 # Suite commands run INSIDE the pristine worktree. "required" mirrors the
-# required-check lane; "full" runs the whole suite including path-gated shards
-# (the ones that go silently red) minus the known-broken collection module.
+# steps of `make ci-required` — NOT the make target itself — with ONE swap for
+# CI parity (issue #9045): the make target's raw full-codebase mypy carries
+# ~1.9k errors of frozen debt and can never go green, while the actual required
+# CI `typecheck` check gates touched files only. The instrument instead runs
+# mypy through the shrink-only baseline checker (fails only when the count
+# EXCEEDS scripts/baselines/mypy_full_baseline.json). `make ci-required` stays
+# unchanged as the strict local developer contract. The checker and baseline
+# are taken from THIS checkout (the instrument's own, versioned tooling) while
+# every other step uses the pristine checkout's scripts, mirroring make.
+# "full" runs the whole suite including path-gated shards (the ones that go
+# silently red) minus the known-broken collection module.
+_OPENAPI_SPEC_PATH = "/tmp/openapi_pristine_health.json"
 SUITES: dict[str, list[list[str]]] = {
-    "required": [["make", "ci-required"]],
+    "required": [
+        ["ruff", "check", "aragora/", "tests/", "scripts/"],
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "check_mypy_baseline.py"),
+            "--baseline",
+            str(_REPO_ROOT / "scripts" / "baselines" / "mypy_full_baseline.json"),
+        ],
+        [sys.executable, "scripts/check_version_alignment.py"],
+        [
+            sys.executable,
+            "scripts/check_sdk_parity.py",
+            "--strict",
+            "--baseline",
+            "scripts/baselines/check_sdk_parity.json",
+            "--budget",
+            "scripts/baselines/check_sdk_parity_budget.json",
+        ],
+        [
+            sys.executable,
+            "scripts/check_sdk_namespace_parity.py",
+            "--strict",
+            "--baseline",
+            "scripts/baselines/check_sdk_namespace_parity.json",
+        ],
+        [
+            sys.executable,
+            "scripts/check_cross_sdk_parity.py",
+            "--strict",
+            "--baseline",
+            "scripts/baselines/cross_sdk_parity.json",
+        ],
+        [
+            sys.executable,
+            "scripts/generate_openapi.py",
+            "--output",
+            _OPENAPI_SPEC_PATH,
+            "--format",
+            "json",
+            "--quiet",
+        ],
+        [sys.executable, "scripts/add_openapi_operation_ids.py", "--spec", _OPENAPI_SPEC_PATH],
+        [sys.executable, "scripts/add_openapi_param_descriptions.py", "--spec", _OPENAPI_SPEC_PATH],
+        [sys.executable, "scripts/add_openapi_descriptions.py", "--spec", _OPENAPI_SPEC_PATH],
+        [
+            sys.executable,
+            "scripts/verify_sdk_contracts.py",
+            "--strict",
+            "--baseline",
+            "scripts/baselines/verify_sdk_contracts.json",
+            "--extra-spec",
+            _OPENAPI_SPEC_PATH,
+        ],
+        [
+            sys.executable,
+            "scripts/validate_openapi_routes.py",
+            "--spec",
+            _OPENAPI_SPEC_PATH,
+            "--fail-on-missing",
+            "--baseline",
+            "scripts/baselines/validate_openapi_routes.json",
+        ],
+    ],
     "full": [
         [
             sys.executable,
@@ -162,6 +234,9 @@ def _format_process_failure(cmd: list[str], proc: subprocess.CompletedProcess) -
 _INFRA_OUTPUT_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?m)^make(\[\d+\])?: .*(command not found|No such file or directory)"),
     re.compile(r"(?m)command not found"),
+    # check_mypy_baseline.py could not produce a verdict (mypy crashed, output
+    # unparsable, baseline file missing) — inconclusive, exactly like a timeout.
+    re.compile(r"(?m)^MYPY_BASELINE_INFRA: .*"),
 )
 _MISSING_MODULE_PATTERN = re.compile(
     r"(?m)^(?:ModuleNotFoundError|ImportError): No module named ['\"]?(?P<module>[A-Za-z0-9_.]+)"
@@ -401,7 +476,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo-root", type=Path, default=_REPO_ROOT)
     parser.add_argument("--pristine-dir", type=Path, default=DEFAULT_PRISTINE_DIR)
     parser.add_argument("--halt-file", type=Path, default=DEFAULT_HALT_FILE)
-    parser.add_argument("--suite", choices=sorted(SUITES), default="full")
+    # Default is the CI-parity required lane: the full suite cannot finish
+    # inside the nightly timeout budget on the launchd host (every run since
+    # Jul 11 ended TIMEOUT/infra_error — issue #9045), so "full" is reserved
+    # for manual or sharded use.
+    parser.add_argument("--suite", choices=sorted(SUITES), default="required")
     parser.add_argument("--timeout-minutes", type=float, default=180, help="per-command timeout")
     parser.add_argument(
         "--no-halt-file",
