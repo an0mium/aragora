@@ -690,6 +690,31 @@ def _add_genealogy_parser(subparsers) -> None:
     show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
 
+    report = gp_sub.add_parser(
+        "report", help="Show aggregate genealogy report across multiple code units"
+    )
+    report.add_argument(
+        "code_unit_ids",
+        nargs="*",
+        help="code_unit_ids to include; omit when using --all",
+    )
+    report.add_argument(
+        "--all",
+        action="store_true",
+        dest="all",
+        help="Report on every code_unit_id found in the store",
+    )
+    report.add_argument(
+        "--store-file",
+        dest="store_file",
+        default=".aragora_genealogy.jsonl",
+        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
+    )
+    report.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    report.set_defaults(
+        func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_report")
+    )
+
 
 def _add_coherence_scan_parser(subparsers) -> None:
     """Add the 'coherence-scan' subcommand (DIC-26 / #6220).
