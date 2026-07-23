@@ -4,7 +4,10 @@
 
 Create one isolated, current-main pull request that removes the `sharp <0.35.0`
 exposure reported by `npm audit` in `aragora/live`, while preserving the existing
-Next.js application behavior. Done means the exact production audit gate is clean,
+Next.js application behavior. A later operator-approved scope expansion updates
+Next.js from 16.2.9 to the security-fixed 16.2.11 patch after the live production
+audit began reporting new high-severity Next.js advisories. Done means the exact
+production audit gate is clean,
 the frontend builds and tests successfully with the selected sharp release, the
 dependency delta is fully classified, and the draft PR is independently reviewed
 and ready for operator review.
@@ -26,6 +29,10 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 - Replace all three `node:18.19-alpine` stages in `aragora/live/Dockerfile` with
   the repository-standard `node:20.11-alpine`; this exact scope expansion was
   operator-approved after independent review found the existing engine mismatch.
+- Update the direct Next.js dependency from 16.2.9 to the security-fixed 16.2.11
+  patch and regenerate its exact lockfile closure; this second scope expansion was
+  operator-approved after the live production audit reported new high-severity
+  advisories affecting releases through 16.2.10.
 - Run the exact npm audit gate plus focused frontend lint, tests, and production build.
 - Perform an independent, non-countable review and leave a draft PR ready for the
   operator. Security changes remain operator-review-required.
@@ -36,10 +43,11 @@ separate security lane; PR #9477 is context only and is outside this run's autho
   merge action on PR #9477.
 - Merge-quorum evidence, human settlement, branch-protection changes, or merging
   this dependency PR.
-- Changes to `.github/**`, CI/security workflows, protected governance files, the
-  Next.js version, SDK dependencies, or any direct dependency outside the sharp
-  family. The exact approved generated lock shifts for `@emnapi/runtime` and sharp's
-  nested `semver` are the only out-of-family transitive exceptions.
+- Changes to `.github/**`, CI/security workflows, protected governance files, SDK
+  dependencies, or direct dependencies outside the sharp family and the exact
+  operator-approved Next.js 16.2.11 security patch. The generated Next.js lock
+  closure, `@emnapi/runtime`, and sharp's nested `semver` are the only approved
+  out-of-family transitive exceptions.
 - Production deployment, runtime inference requests, or later #9409 work units.
 
 ## Batches
@@ -74,32 +82,34 @@ separate security lane; PR #9477 is context only and is outside this run's autho
 - [x] Baseline evidence names `sharp@0.34.5` as an indirect high-severity finding
   through `next@16.2.9` for GHSA-f88m-g3jw-g9cj.
 - [x] `npm audit --omit=dev --audit-level=high` exits 0 after the change.
-- [x] `npm ls next sharp --all` reports the unchanged Next.js version and the
-  intended patched sharp version with no invalid dependency state.
+- [x] `npm ls next sharp --all` reports `next@16.2.11` and the intended
+  `sharp@0.35.3` override with no invalid dependency state.
 - [x] Every changed lockfile package is listed; there are no unexplained or
   unapproved out-of-family changes, and the operating-contract dependency ceiling
   was enforced before the exact exception set received operator approval.
 - [x] `npm run lint`, `npm test -- --runInBand`, and `npm run build` pass in
   `aragora/live`; `git diff --check` passes from the repo root.
 - [x] The cumulative product diff is limited to `aragora/live/package.json`,
-  `aragora/live/package-lock.json`, and the three approved base-image substitutions
-  in `aragora/live/Dockerfile` after Elves operational artifacts are removed.
+  `aragora/live/package-lock.json`, the three approved base-image substitutions
+  in `aragora/live/Dockerfile`, and the durable plan/learnings corrections that
+  record both operator-approved scope expansions.
 - [x] Independent review finds no unresolved blocker, PR checks are understood, and
   the PR remains unmerged for operator review.
 
-**Docs likely touched:** none beyond temporary Elves run-state documents, which are
-removed from the final product diff after the final readiness review.
+**Docs likely touched:** this plan and the companion durable learnings document,
+which record the measured dependency delta and operator-approved scope expansions.
 
-**Risk:** sharp 0.35.x is outside Next 16.2.9's declared `^0.34.5` optional range,
+**Risk:** sharp 0.35.x is outside Next 16.2.11's declared `^0.34.5` optional range,
 upstream labels 0.35.0 as breaking, and the platform-binary family may exceed the
 operating contract's five-transitive-dependency auto-halt ceiling.
 
 ## Non-Negotiables
 
 - Do not touch PR #9477 or perform evidence, settlement, readiness, or merge actions.
-- Do not edit workflows, protected files, Next.js, SDK packages, or direct dependencies
-  outside sharp. The exact approved generated `@emnapi/runtime` and sharp-nested `semver`
-  lock shifts are the only out-of-family transitive exceptions.
+- Do not edit workflows, protected files, SDK packages, or direct dependencies outside
+  sharp and the exact operator-approved Next.js 16.2.11 security patch. The generated
+  Next.js lock closure, `@emnapi/runtime`, and sharp-nested `semver` shifts are the only
+  approved out-of-family transitive exceptions.
 - Stop before committing or pushing product changes if more than five distinct
   transitive packages change or any changed package is outside the sharp family,
   unless the operator explicitly approves that exact measured delta.
@@ -134,12 +144,13 @@ operating contract's five-transitive-dependency auto-halt ceiling.
 - GitHub's reviewed advisory lists 0.35.0 as the first patched version and recommends
   the current 0.35.3 release. The upstream 0.35.0 release notes include breaking
   changes and require Node >=20.9.0.
-- At staging, stable `next@16.2.11` still declares `sharp: ^0.34.5`, while
-  `next@16.3.0-canary.93` declares `sharp: ^0.35.3`. This is compatibility evidence,
-  not authority to adopt a canary or change Next.js.
+- Stable `next@16.2.11` still declares `sharp: ^0.34.5`, while
+  `next@16.3.0-canary.93` declares `sharp: ^0.35.3`. The operator approved the stable
+  16.2.11 security patch after new advisories affected 16.2.9; this does not authorize
+  adopting a canary or another Next.js release.
 - The current lockfile contains 26 sharp-family entries. The actual changed-entry
   count must be measured after regeneration; do not pre-approve it by assumption.
 - Independent review found that `aragora/live/Dockerfile` pinned Node 18.19 even
-  though existing Next 16.2.9 and selected sharp 0.35.3 both require Node >=20.9.
+  though Next 16.2.11 and selected sharp 0.35.3 both require Node >=20.9.
   The operator approved aligning its three stages with `deploy/Dockerfile.frontend`
   and the repository's Node 20 CI standard.
