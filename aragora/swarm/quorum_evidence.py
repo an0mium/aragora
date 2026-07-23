@@ -352,6 +352,11 @@ _FAMILY_ALIASES: dict[str, str] = {
     # ADVISORY_ONLY_FAMILIES exclusion cannot be sidestepped by a raw provider
     # id (#9363 round-4 [P3]).
     "google": "gemini",
+    # Live protocol payloads carry the AgentRegistry name, which for the gemini
+    # family is "gemini-cli" (agent ids like "gemini-cli:maintainability") — it
+    # must collapse to the same family or demoted gemini dissent can re-enter
+    # through protocol["dissenting_views"] (#9363 round-5 [P2]).
+    "gemini-cli": "gemini",
 }
 
 

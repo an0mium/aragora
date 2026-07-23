@@ -2346,6 +2346,10 @@ def test_collect_dedupes_families() -> None:
         (" Grok ", "grok"),
         ("Claude", "claude"),
         ("gemini", "gemini"),
+        ("google", "gemini"),
+        # AgentRegistry name used in live protocol agent ids (#9363 round-5 [P2]).
+        ("gemini-cli", "gemini"),
+        ("Gemini-CLI", "gemini"),
     ],
 )
 def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:

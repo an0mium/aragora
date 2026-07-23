@@ -1930,7 +1930,15 @@ class TestModelReviewQuorum:
                 "agent": "gemini:maintainability",
                 "position": "request_changes",
                 "reason": "[P1] fabricated blocking claim",
-            }
+            },
+            # Live protocol payloads use the AgentRegistry name ("gemini-cli"),
+            # which must canonicalize to the same advisory-only family
+            # (#9363 round-5 [P2]).
+            {
+                "agent": "gemini-cli:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            },
         ]
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [_dogfood_comment()]
