@@ -379,6 +379,33 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
+# Keep CLI failures useful without leaking the full provider transcript. The
+# head identifies the transport; the tail usually carries quota/auth failures.
+_MAX_CLI_ERROR_CHARS = 500
+_CLI_TRANSCRIPT_ROLES = frozenset({"system", "developer", "user", "assistant"})
+_CLI_DIAGNOSTIC_SIGNAL = re.compile(
+    r"(?:\b(?:errors?|exceptions?|traceback|failed|failures?|usage|quota|rate limit|"
+    r"authentication|authorization|unauthorized|forbidden)\b|\bHTTP\s+[45]\d\d\b|"
+    r"\bconnection\s+(?:reset|refused|closed|aborted)\b|\bSSL\s+handshake\b|"
+    r"\byou(?:'ve| have|'re| are)\s+(?:hit|out of)\b)",
+    re.IGNORECASE,
+)
+_CLI_OMITTED_DIAGNOSTIC = "[CLI transcript payload omitted; no diagnostic line recognized]"
+
+
+def _looks_like_prompt_fragment(line: str, prompt: str | None) -> bool:
+    """Whether a CLI line is a normalized fragment of the submitted prompt."""
+    if not prompt:
+        return False
+
+    def normalize(value: str) -> str:
+        return re.sub(r"\s+", " ", value.replace("\\ ", " ").replace("\\", "")).strip().lower()
+
+    normalized_line = normalize(line)
+    normalized_prompt = normalize(prompt)
+    return len(normalized_line) >= 16 and normalized_line in normalized_prompt
+
+
 _TRUNCATION_MARKER = "[reviewer output truncated]"
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
@@ -457,6 +484,66 @@ def _cap_text(text: str) -> str:
     if len(text) > _MAX_REVIEWER_CHARS:
         return text[:_MAX_REVIEWER_CHARS].rstrip() + f"\n\n{_TRUNCATION_MARKER}"
     return text
+
+
+def _bounded_cli_failure_detail(
+    stderr: str | None,
+    stdout: str | None = None,
+    *,
+    redact: str | None = None,
+) -> str:
+    """Return a bounded CLI diagnostic with actionable tail lines preserved."""
+    text = (stderr or stdout or "").strip()
+    if redact:
+        escaped = redact.replace("\\", "\\\\").replace(" ", "\\ ")
+        variants = {redact, escaped, json.dumps(redact)[1:-1]}
+        for value in sorted(variants, key=len, reverse=True):
+            text = text.replace(value, "[review prompt redacted]")
+
+    # Codex-style CLIs may echo the full prompt after a role marker. Strip that
+    # transcript payload even when the provider escapes or truncates the prompt,
+    # resuming only at an explicit diagnostic line.
+    filtered_lines: list[str] = []
+    suppress_payload = False
+    omitted_payload = False
+    for line in text.splitlines():
+        if line.strip().lower().rstrip(":") in _CLI_TRANSCRIPT_ROLES:
+            suppress_payload = True
+            omitted_payload = True
+            continue
+        credential_wall = _is_credential_wall(line)
+        prompt_fragment = _looks_like_prompt_fragment(line, redact)
+        if suppress_payload:
+            if credential_wall:
+                suppress_payload = False
+            elif prompt_fragment or not _CLI_DIAGNOSTIC_SIGNAL.search(line):
+                continue
+            else:
+                suppress_payload = False
+        elif prompt_fragment and not credential_wall:
+            omitted_payload = True
+            continue
+        filtered_lines.append(line)
+    if suppress_payload and omitted_payload:
+        filtered_lines.append(_CLI_OMITTED_DIAGNOSTIC)
+    text = "\n".join(filtered_lines).strip()
+
+    if len(text) <= _MAX_CLI_ERROR_CHARS:
+        return text
+
+    marker = "\n...[CLI diagnostic truncated]...\n"
+    content_chars = max(0, _MAX_CLI_ERROR_CHARS - len(marker))
+    if content_chars == 0:
+        return marker.strip()[:_MAX_CLI_ERROR_CHARS]
+    head_chars = content_chars // 3
+    tail_chars = content_chars - head_chars
+    head = text[:head_chars]
+    tail = text[-tail_chars:]
+    if "\n" in head:
+        head = head.rsplit("\n", 1)[0]
+    if "\n" in tail:
+        tail = tail.split("\n", 1)[1]
+    return f"{head.rstrip()}{marker}{tail.lstrip()}"
 
 
 def _timeout_seconds(env_name: str, default: int) -> float:
@@ -1501,7 +1588,11 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None  # let the real review surface the precise (and fast) error
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=_CLI_PROBE_PROMPT,
+        )
         suffix = f": {detail}" if detail else ""
         if _is_credential_wall(detail):
             # Classified wall: family is temporarily unavailable (infra), not
@@ -1543,11 +1634,12 @@ def _run_claude_cli(prompt: str, *, timeout: float | None = None) -> ReviewerRes
         return ReviewerResult("claude", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
+        detail = _bounded_cli_failure_detail(proc.stderr, proc.stdout, redact=prompt)
         return ReviewerResult(
             "claude",
             "",
             False,
-            f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
+            f"claude CLI exit {proc.returncode}: {detail}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
 
@@ -1633,7 +1725,12 @@ def _resolve_grok_build_bin() -> str:
 
 
 def _run_argv_cli_reviewer(
-    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+    family: str,
+    argv: list[str],
+    harness: str,
+    *,
+    prompt: str,
+    timeout: float = _REVIEWER_TIMEOUT,
 ) -> ReviewerResult:
     """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
 
@@ -1642,6 +1739,8 @@ def _run_argv_cli_reviewer(
     the review body. Same exact-head composition + evidence-lint as every other
     reviewer decides whether the result can count.
     """
+    if not argv:
+        return ReviewerResult(family, "", False, f"{family} CLI command is empty")
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
     except FileNotFoundError:
@@ -1654,7 +1753,11 @@ def _run_argv_cli_reviewer(
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=prompt,
+        )
         return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
 
@@ -1679,6 +1782,7 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
@@ -1702,6 +1806,7 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
             "gemini",
             [agy_path, "--sandbox", "-p", prompt],
             _ANTIGRAVITY_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
@@ -1820,8 +1925,13 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
             if not text:
                 text = (proc.stdout or "").strip()
             if proc.returncode != 0 or not text:
-                detail = (proc.stderr or proc.stdout or "").strip()[:200]
-                if index < len(model_candidates) - 1 and _codex_model_selection_failed(detail):
+                raw_detail = (proc.stderr or proc.stdout or "").strip()
+                detail = _bounded_cli_failure_detail(
+                    proc.stderr,
+                    proc.stdout,
+                    redact=prompt,
+                )
+                if index < len(model_candidates) - 1 and _codex_model_selection_failed(raw_detail):
                     model_errors.append(f"{model}: {detail}")
                     continue
                 if model_errors:
