@@ -449,15 +449,26 @@ jobs:
                 echo "Open draft PR manually: $compare_url"
               } >> "$GITHUB_STEP_SUMMARY"
 
-              # Escalate persistent degradation: each degraded run strands one
-              # benchmark-truth-publication/<run_id> branch, so an accumulating
-              # backlog means auto-PR creation has been broken for days (e.g. a
-              # dead BENCHMARK_TRUTH_PR_TOKEN) while runs stayed green. git
-              # ls-remote uses the checkout's Actions credentials, so it works
-              # even when the PAT is the broken credential.
-              stranded_count="$(git ls-remote --heads origin 'benchmark-truth-publication/*' 2>/dev/null | wc -l | tr -d ' ')"
-              if [[ "${stranded_count:-0}" -ge 3 ]]; then
-                echo "::error::${stranded_count} stranded benchmark-truth-publication branches on origin — draft PR auto-creation has been degraded across multiple runs. Check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes and prune merged handoff branches (#9519)."
+              # Escalate persistent degradation. A degraded run strands a
+              # benchmark-truth-publication/<run_id> branch with NO pull request;
+              # branches from successful runs carry a draft PR (open until
+              # promoted, then merged), so only PR-less branches indicate
+              # degraded runs. git ls-remote uses the checkout's Actions
+              # credentials, which work even when the PAT is the broken
+              # credential; if the per-branch gh query fails (e.g. dead PAT),
+              # the branch counts as stranded — the correct escalation for a
+              # dead token.
+              stranded_count=0
+              while read -r _sha ref; do
+                br="${ref#refs/heads/}"
+                [[ -z "$br" ]] && continue
+                pr_count="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$br" --state all --json number --jq 'length' 2>/dev/null || echo "")"
+                if [[ -z "$pr_count" || "$pr_count" -eq 0 ]]; then
+                  stranded_count=$((stranded_count+1))
+                fi
+              done < <(git ls-remote --heads origin 'benchmark-truth-publication/*' 2>/dev/null)
+              if [[ "$stranded_count" -ge 3 ]]; then
+                echo "::error::${stranded_count} PR-less benchmark-truth-publication branches on origin — draft PR auto-creation has been degraded across multiple runs. Check BENCHMARK_TRUTH_PR_TOKEN expiry/scopes; once cadence is restored, prune only the PR-less (stranded) branches (#9519)."
                 exit 1
               fi
               exit 0
