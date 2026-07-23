@@ -304,7 +304,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -336,7 +336,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
             client=client,  # type: ignore[arg-type]
@@ -369,7 +369,7 @@ class TestOpenAIVibeProxyRouting:
 
         monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/openai")
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -402,7 +402,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -449,7 +449,7 @@ class TestOpenAIVibeProxyRouting:
 
         monkeypatch.setattr(openai_module.time, "monotonic", lambda: clock[0])
         client = DeadlineClient()
-        agent = OpenAIAPIAgent(timeout=10, enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", timeout=10, enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -473,7 +473,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(fail=True)
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -509,7 +509,7 @@ class TestOpenAIVibeProxyRouting:
         )
 
         client = self.FakeClient(error=VibeProxyTimeoutError("proxy timed out"))
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -540,7 +540,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(fail=True)
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
@@ -574,7 +574,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(response={"model": "gpt-5.5", "usage": {}})
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -604,7 +604,7 @@ class TestOpenAIVibeProxyRouting:
                 "usage": {},
             }
         )
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -628,7 +628,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(fail=True)
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
@@ -656,7 +656,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(response={"model": "gpt-5.5", "usage": {}})
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
@@ -679,7 +679,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
             client=client,  # type: ignore[arg-type]
@@ -704,7 +704,7 @@ class TestOpenAIVibeProxyRouting:
 
         monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/openai")
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
@@ -727,7 +727,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.REQUIRED,
@@ -752,7 +752,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient(fail=True)
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -804,7 +804,7 @@ class TestOpenAIVibeProxyRouting:
                 raise AssertionError("must not reach the request leg")
 
         monkeypatch.setattr(openai_module, "_PROXY_DISCOVERY_TIMEOUT_SECONDS", 0.2)
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
@@ -831,7 +831,7 @@ class TestOpenAIVibeProxyRouting:
         from aragora.agents.transports.vibeproxy import ModelTransportPolicy, TransportMode
 
         client = self.FakeClient()
-        agent = OpenAIAPIAgent(enable_fallback=False)
+        agent = OpenAIAPIAgent(model="gpt-5.5", enable_fallback=False)
         agent.enable_web_search = False
         agent._model_transport_policy = ModelTransportPolicy(
             TransportMode.PREFER,
