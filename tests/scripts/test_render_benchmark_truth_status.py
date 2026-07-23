@@ -413,6 +413,55 @@ def test_render_status_markdown_flags_exhausted_corpus_window(tmp_path: Path) ->
     assert markdown.index("Corpus exhaustion note:") < markdown.index("## Proxy Metrics")
 
 
+def test_render_status_markdown_uses_generic_note_for_mixed_neutral_classes(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 6,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+    markdown = mod.render_status_markdown(
+        corpus_path=corpus_path,
+        truth_path=latest_paths["truth_corpus_latest"],
+        scorecard_path=latest_paths["scorecard_corpus_latest"],
+        latest_paths=latest_paths,
+        truth_payload=_truth_payload(revision=6),
+        scorecard_payload={
+            **_scorecard_payload(revision=6),
+            "proxy_metrics": {
+                "no_rescue_success_rate": 0.0,
+                "unique_issues_attempted": 4,
+                "unique_issues_succeeded": 0,
+                "unique_issues_failed": 0,
+                "unique_issues_neutral": 4,
+                "total_ticks": 4,
+                "neutral_classes": {
+                    "issue_already_resolved": 2,
+                    "blocked_config": 2,
+                },
+            },
+        },
+    )
+
+    # An all-neutral window that is not purely issue_already_resolved must not
+    # claim corpus exhaustion — only that no fresh evidence was produced.
+    assert "Corpus exhaustion note:" not in markdown
+    assert "Freshness note:" in markdown
+    assert "no fresh execution evidence" in markdown
+    assert "not fresh autonomy proof" in markdown
+
+
 def test_render_status_markdown_omits_exhaustion_note_on_fresh_successes(
     tmp_path: Path,
 ) -> None:
@@ -452,6 +501,7 @@ def test_render_status_markdown_omits_exhaustion_note_on_fresh_successes(
     )
 
     assert "Corpus exhaustion note:" not in markdown
+    assert "Freshness note:" not in markdown
 
 
 def test_render_status_markdown_backfills_legacy_proxy_neutral_fields(tmp_path: Path) -> None:

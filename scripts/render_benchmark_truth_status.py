@@ -471,28 +471,33 @@ def render_status_markdown(
         ]
     )
     proxy_attempted = proxy_metrics.get("unique_issues_attempted")
-    corpus_exhausted = (
+    all_neutral_window = (
         isinstance(proxy_attempted, int)
         and proxy_attempted > 0
         and proxy_metrics.get("unique_issues_succeeded") == 0
         and proxy_metrics.get("unique_issues_failed") == 0
         and proxy_metrics.get("unique_issues_neutral") == proxy_attempted
     )
-    if corpus_exhausted:
-        lines.extend(
-            [
-                "",
-                (
-                    "Corpus exhaustion note: the verified rates above reflect the "
-                    "previously graduated cohort, not fresh autonomy proof. All "
-                    f"`{proxy_attempted}`/`{proxy_attempted}` proxy corpus rows in the "
-                    "current window were neutral (e.g. `issue_already_resolved`) with "
-                    "`0` fresh successes — corpus revision "
-                    f"`{_format_value(corpus.get('revision'))}` is exhausted and "
-                    "generates no new execution evidence until the corpus is restocked."
-                ),
-            ]
+    if all_neutral_window:
+        preamble = (
+            "the verified rates above reflect the previously graduated cohort, "
+            "not fresh autonomy proof. All "
+            f"`{proxy_attempted}`/`{proxy_attempted}` proxy corpus rows in the "
+            "current window were neutral with `0` fresh successes"
         )
+        corpus_exhausted = bool(neutral_classes) and set(neutral_classes) == {
+            "issue_already_resolved"
+        }
+        if corpus_exhausted:
+            note = (
+                f"Corpus exhaustion note: {preamble} (`issue_already_resolved`) — "
+                "corpus revision "
+                f"`{_format_value(corpus.get('revision'))}` is exhausted and "
+                "generates no new execution evidence until the corpus is restocked."
+            )
+        else:
+            note = f"Freshness note: {preamble} — this window produced no fresh execution evidence."
+        lines.extend(["", note])
     if in_flight_metrics:
         lines.extend(
             [
