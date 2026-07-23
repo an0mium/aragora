@@ -32,6 +32,14 @@ from ..openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
 
+# Statuses under which a debate accepts interventions. Reuses the canonical
+# active-status set (aragora.server.handlers.admin.dashboard_metrics), plus
+# "paused" so a paused debate can still be resumed/nudged. Anything else
+# (completed / cancelled / error / failed) is finished: POST actions refuse.
+from ..admin.dashboard_metrics import ACTIVE_DEBATE_STATUSES
+
+_INTERVENTION_LIVE_STATUSES = frozenset(ACTIVE_DEBATE_STATUSES | {"paused"})
+
 # Route patterns managed by DebateInterventionsHandler
 INTERVENTION_ROUTES = [
     "/api/v1/debates/*/pause",
@@ -195,9 +203,9 @@ class DebateInterventionsHandler(BaseHandler):
         if err or debate_id is None:
             return error_response(err or "Invalid path", 400)
 
-        manager = self._get_or_create_manager(debate_id, handler)
-        if manager is None:
-            return error_response(f"Debate not found: {debate_id}", 404)
+        manager, refusal = self._acquire_live_manager(debate_id, handler)
+        if refusal is not None:
+            return refusal
 
         user_id = self._extract_user_id(handler)
 
@@ -234,9 +242,9 @@ class DebateInterventionsHandler(BaseHandler):
         if err or debate_id is None:
             return error_response(err or "Invalid path", 400)
 
-        manager = self._get_or_create_manager(debate_id, handler)
-        if manager is None:
-            return error_response(f"Debate not found: {debate_id}", 404)
+        manager, refusal = self._acquire_live_manager(debate_id, handler)
+        if refusal is not None:
+            return refusal
 
         user_id = self._extract_user_id(handler)
 
@@ -284,9 +292,9 @@ class DebateInterventionsHandler(BaseHandler):
         target_agent = body.get("target_agent")
         user_id = self._extract_user_id(handler)
 
-        manager = self._get_or_create_manager(debate_id, handler)
-        if manager is None:
-            return error_response(f"Debate not found: {debate_id}", 404)
+        manager, refusal = self._acquire_live_manager(debate_id, handler)
+        if refusal is not None:
+            return refusal
 
         try:
             entry = manager.nudge(
@@ -334,9 +342,9 @@ class DebateInterventionsHandler(BaseHandler):
 
         user_id = self._extract_user_id(handler)
 
-        manager = self._get_or_create_manager(debate_id, handler)
-        if manager is None:
-            return error_response(f"Debate not found: {debate_id}", 404)
+        manager, refusal = self._acquire_live_manager(debate_id, handler)
+        if refusal is not None:
+            return refusal
 
         try:
             entry = manager.challenge(
@@ -384,9 +392,9 @@ class DebateInterventionsHandler(BaseHandler):
         source = body.get("source")
         user_id = self._extract_user_id(handler)
 
-        manager = self._get_or_create_manager(debate_id, handler)
-        if manager is None:
-            return error_response(f"Debate not found: {debate_id}", 404)
+        manager, refusal = self._acquire_live_manager(debate_id, handler)
+        if refusal is not None:
+            return refusal
 
         try:
             entry = manager.inject_evidence(
@@ -482,20 +490,75 @@ class DebateInterventionsHandler(BaseHandler):
             return False
         return storage.get_debate(debate_id) is not None
 
-    def _get_or_create_manager(self, debate_id: str, handler: Any) -> Any:
-        """Get or create an InterventionManager for the given debate.
+    def _debate_liveness(self, debate_id: str) -> tuple[str, str | None]:
+        """Classify a debate for intervention eligibility.
 
-        Returns None if the debate does not exist in state or storage —
-        the manager is only created for debates that pass _debate_exists().
+        Returns (verdict, status) with verdict one of:
+        - "live":     interventions may act (active server state or a stored
+                      status in the live set — including "paused" so resume
+                      keeps working)
+        - "finished": the debate exists but has terminated (completed /
+                      cancelled / error); actions must be refused even though
+                      the log stays readable
+        - "missing":  no trace of the debate anywhere
+
+        Storage status is consulted even when an intervention manager already
+        exists, so a manager left over from a debate that has since completed
+        refuses new actions. The manager-only fast path applies only when
+        both state and storage are silent (keeps legacy resume working).
         """
         from aragora.debate.intervention import get_intervention_manager
 
-        if not self._debate_exists(debate_id):
-            return None
+        def _verdict(status: str | None) -> tuple[str, str | None]:
+            if status is None or status in _INTERVENTION_LIVE_STATUSES:
+                return ("live", status)
+            return ("finished", status)
+
+        try:
+            from aragora.server.state import get_state_manager
+
+            state = get_state_manager().get_debate(debate_id)
+        except ImportError:
+            state = None  # minimal deployments without the state manager
+        if state is not None:
+            raw = getattr(state, "status", None)
+            return _verdict(str(raw) if raw is not None else None)
+
+        storage = self.get_storage()
+        if storage is not None:
+            debate = storage.get_debate(debate_id)
+            if debate is not None:
+                raw = debate.get("status") if isinstance(debate, dict) else None
+                return _verdict(str(raw) if raw is not None else None)
+
+        if get_intervention_manager(debate_id, create=False) is not None:
+            return ("live", None)
+
+        return ("missing", None)
+
+    def _acquire_live_manager(self, debate_id: str, handler: Any) -> tuple[Any, Any]:
+        """Return (manager, None) for a live debate, else (None, error result).
+
+        POST actions gate on LIVENESS, not mere existence: a completed stored
+        debate must not mint a fresh InterventionManager (which starts in
+        RUNNING state) and get "paused". Finished debates get the sibling
+        cancel-on-completed convention (create.py): 400 with the status named.
+        """
+        from aragora.debate.intervention import get_intervention_manager
+
+        verdict, status = self._debate_liveness(debate_id)
+        if verdict == "missing":
+            return None, error_response(f"Debate not found: {debate_id}", 404)
+        if verdict == "finished":
+            return None, error_response(
+                f"Debate {debate_id} already finished (status: {status}); "
+                "interventions are not available",
+                400,
+            )
 
         # Try to get the stream emitter from the handler for WebSocket events
         emitter = getattr(handler, "stream_emitter", None)
-        return get_intervention_manager(debate_id, emitter=emitter, create=True)
+        return get_intervention_manager(debate_id, emitter=emitter, create=True), None
 
     def _extract_user_id(self, handler: Any) -> str | None:
         """Extract user ID from the request handler, if available."""

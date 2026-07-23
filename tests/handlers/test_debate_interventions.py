@@ -69,14 +69,15 @@ def reset_state():
 
 
 class _FakeStorage:
-    """Minimal storage stub: knows a fixed set of debate IDs."""
+    """Minimal storage stub: knows a fixed set of debate IDs (default live)."""
 
-    def __init__(self, known_ids: set[str]):
+    def __init__(self, known_ids: set[str], statuses: dict[str, str] | None = None):
         self.known_ids = set(known_ids)
+        self.statuses = statuses or {}
 
     def get_debate(self, debate_id: str) -> dict | None:
         if debate_id in self.known_ids:
-            return {"id": debate_id, "status": "running"}
+            return {"id": debate_id, "status": self.statuses.get(debate_id, "running")}
         return None
 
 
@@ -404,6 +405,123 @@ class TestMalformedPathShape:
             "/api/v1/debates/victim/anything/intervention-log", _make_handler()
         )
         assert result.status_code in (400, 404)
+
+
+# ============================================================================
+# Liveness gate (round-4 P2): POST actions refuse finished debates; the
+# intervention log stays readable (log = existence, actions = liveness).
+# ============================================================================
+
+
+class TestCompletedDebateRefusesActions:
+    """A completed stored debate must not accept interventions."""
+
+    DONE = "done-debate"
+
+    @pytest.fixture
+    def completed_handler(self):
+        storage = _FakeStorage({self.DONE}, statuses={self.DONE: "completed"})
+        return DebateInterventionsHandler(ctx={"storage": storage})
+
+    def _assert_no_manager_state(self):
+        from aragora.debate.intervention import get_intervention_manager
+
+        assert get_intervention_manager(self.DONE, create=False) is None
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_pause_completed_refused_no_state(self, mock_uid, completed_handler):
+        result = completed_handler._pause_debate(
+            f"/api/v1/debates/{self.DONE}/pause", _make_handler()
+        )
+        assert result.status_code == 400
+        assert b"finished" in result.body
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_resume_completed_refused_no_state(self, mock_uid, completed_handler):
+        result = completed_handler._resume_debate(
+            f"/api/v1/debates/{self.DONE}/resume", _make_handler()
+        )
+        assert result.status_code == 400
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_nudge_completed_refused_no_state(self, mock_uid, completed_handler):
+        result = completed_handler._nudge_debate(
+            f"/api/v1/debates/{self.DONE}/nudge", _make_handler({"message": "hint"})
+        )
+        assert result.status_code == 400
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_challenge_completed_refused_no_state(self, mock_uid, completed_handler):
+        result = completed_handler._challenge_debate(
+            f"/api/v1/debates/{self.DONE}/challenge",
+            _make_handler({"challenge": "counterpoint"}),
+        )
+        assert result.status_code == 400
+        self._assert_no_manager_state()
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_inject_evidence_completed_refused_no_state(self, mock_uid, completed_handler):
+        result = completed_handler._inject_evidence(
+            f"/api/v1/debates/{self.DONE}/inject-evidence",
+            _make_handler({"evidence": "late evidence"}),
+        )
+        assert result.status_code == 400
+        self._assert_no_manager_state()
+
+    def test_intervention_log_completed_still_readable(self, completed_handler):
+        """Reading history of a finished debate is legitimate: 200 empty log."""
+        result = completed_handler._get_intervention_log(
+            f"/api/v1/debates/{self.DONE}/intervention-log", _make_handler()
+        )
+        data = _parse(result)
+        assert result.status_code == 200
+        assert data["entry_count"] == 0
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_stale_manager_refuses_after_completion(self, mock_uid):
+        """A manager minted while live refuses actions once storage says completed."""
+        from aragora.debate.intervention import get_intervention_manager
+
+        get_intervention_manager(self.DONE, create=True)  # minted while live
+        storage = _FakeStorage({self.DONE}, statuses={self.DONE: "completed"})
+        handler_instance = DebateInterventionsHandler(ctx={"storage": storage})
+        result = handler_instance._pause_debate(
+            f"/api/v1/debates/{self.DONE}/pause", _make_handler()
+        )
+        assert result.status_code == 400
+        assert b"finished" in result.body
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_paused_stored_status_still_accepts_actions(self, mock_uid):
+        """'paused' is in the live set: resume must keep working."""
+        storage = _FakeStorage({"p-debate"}, statuses={"p-debate": "paused"})
+        handler_instance = DebateInterventionsHandler(ctx={"storage": storage})
+        result = handler_instance._pause_debate("/api/v1/debates/p-debate/pause", _make_handler())
+        assert result.status_code == 200
 
 
 # ============================================================================
