@@ -51,7 +51,7 @@
     "status": "complete"
   },
   "failure_class_distribution": {},
-  "generated_at": "2026-07-17T13:58:37Z",
+  "generated_at": "2026-07-22T14:01:38Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 8,
     "in_progress_expected_count": 8,

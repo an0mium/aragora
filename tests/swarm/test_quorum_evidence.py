@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import multiprocessing
 import os
@@ -383,12 +384,13 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
             error="",
             harness="local VibeProxy Anthropic Messages transport",
             timeout_seconds=30.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(
         qe,
         "_run_claude_cli",
-        lambda _prompt: pytest.fail("direct CLI must not run after proxy success"),
+        lambda _prompt, *, timeout=None: pytest.fail("direct CLI must not run after proxy success"),
     )
 
     result = qe._run_claude_reviewer("review prompt")
@@ -404,6 +406,9 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
 def test_claude_reviewer_prefer_failure_uses_direct_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
     monkeypatch.setattr(
         qe,
         "run_claude_vibeproxy",
@@ -415,6 +420,7 @@ def test_claude_reviewer_prefer_failure_uses_direct_path(
             error="proxy unavailable",
             harness="",
             timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
         ),
     )
     direct_timeouts: list[float] = []
@@ -426,7 +432,9 @@ def test_claude_reviewer_prefer_failure_uses_direct_path(
     )
 
     assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
-    assert direct_timeouts == [480.0]
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
 
 
 def test_claude_reviewer_required_failure_never_runs_direct_path(
@@ -443,12 +451,13 @@ def test_claude_reviewer_required_failure_never_runs_direct_path(
             error="proxy required but unavailable",
             harness="",
             timeout_seconds=600.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(
         qe,
         "_run_claude_cli",
-        lambda _prompt: pytest.fail("required mode must not use direct CLI"),
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
     )
 
     assert qe._run_claude_reviewer("prompt") == ReviewerResult(
@@ -474,6 +483,7 @@ def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
             error="proxy required but unavailable",
             harness="",
             timeout_seconds=600.0,
+            elapsed_seconds=0.0,
         ),
     )
     monkeypatch.setattr(
@@ -591,7 +601,7 @@ def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
                 cmd,
                 1,
                 stdout="",
-                stderr=f"model {model} is not supported",
+                stderr=("session header metadata\n" * 30) + f"model {model} is not supported",
             )
         output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -678,6 +688,166 @@ def test_run_openai_reviewer_codex_failure_never_fabricates(
     assert result.ok is False
     assert "codex CLI exit 1: codex failed" in result.error
     assert result.harness == ""
+
+
+def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt = "review prompt with private diff content"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "OpenAI Codex v0.144.1\n"
+        + ("session header metadata\n" * 30)
+        + f"user\n{escaped_prompt}\n"
+        + "ERROR: You've hit your usage limit. Try again at 4:50 PM."
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=stderr)
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5.5")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer(prompt)
+
+    assert result.ok is False
+    assert "usage limit" in result.error
+    assert "4:50 PM" in result.error
+    assert prompt not in result.error
+    assert escaped_prompt not in result.error
+    assert "[CLI diagnostic truncated]" in result.error
+
+
+def test_argv_cli_reviewer_preserves_error_tail_without_prompt(monkeypatch) -> None:
+    prompt = "sensitive argv review prompt"
+    stderr = ("provider header\n" * 30) + prompt + "\nERROR: authentication expired"
+
+    monkeypatch.setattr(
+        qe.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, stdout="", stderr=stderr),
+    )
+
+    result = qe._run_argv_cli_reviewer(
+        "grok",
+        ["grok", "--sandbox", "read-only", "-p", prompt],
+        "test harness",
+        prompt=prompt,
+    )
+
+    assert result.ok is False
+    assert "authentication expired" in result.error
+    assert prompt not in result.error
+    assert "[review prompt redacted]" in result.error
+
+
+def test_argv_cli_reviewer_rejects_empty_command() -> None:
+    result = qe._run_argv_cli_reviewer("grok", [], "test harness", prompt="sensitive")
+
+    assert result.ok is False
+    assert result.error == "grok CLI command is empty"
+
+
+def test_cli_failure_detail_preserves_traceback_after_escaped_prompt() -> None:
+    prompt = "review prompt with sensitive diff"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "provider header\n"
+        f"user\n{escaped_prompt}\n"
+        "Traceback (most recent call last):\n"
+        '  File "reviewer.py", line 1, in <module>\n'
+        "ConnectionError: provider unavailable"
+    )
+
+    detail = qe._bounded_cli_failure_detail(stderr, redact=prompt)
+
+    assert escaped_prompt not in detail
+    assert "Traceback (most recent call last)" in detail
+    assert "ConnectionError: provider unavailable" in detail
+
+
+def test_cli_failure_detail_marks_unrecognized_suppressed_payload() -> None:
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nescaped prompt fragment\nprovider stopped",
+        redact="original prompt",
+    )
+
+    assert "escaped prompt fragment" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "OAuth authentication failed",
+        "HTTP 401 Unauthorized",
+        "Connection reset by peer",
+        "SSL handshake failed",
+        "three errors occurred",
+    ],
+)
+def test_cli_failure_detail_recognizes_nonprefixed_diagnostics(diagnostic: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{diagnostic}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert diagnostic in detail
+
+
+def test_cli_failure_detail_does_not_resume_on_prompt_fragment_with_error_word() -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nprivate authentication error handling\nprovider stopped",
+        redact=prompt,
+    )
+
+    assert "private authentication error handling" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "wall",
+    [
+        "Not logged in - Please run /login",
+        "purchase more credits",
+        "credit balance is too low",
+    ],
+)
+def test_cli_failure_detail_preserves_credential_wall_after_role_marker(wall: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{wall}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert wall in detail
+    assert qe._is_credential_wall(detail) is True
+
+
+@pytest.mark.parametrize(
+    "prompt_output",
+    [
+        "review the private authentication error han",
+        "review the private authentication\nerror handling in this diff",
+    ],
+)
+def test_cli_failure_detail_redacts_prompt_fragments_outside_role_marker(
+    prompt_output: str,
+) -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\n{prompt_output}\nERROR: provider failed",
+        redact=prompt,
+    )
+
+    for fragment in prompt_output.splitlines():
+        assert fragment not in detail
+    assert "ERROR: provider failed" in detail
 
 
 @pytest.mark.parametrize(
@@ -1161,23 +1331,34 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def _claude_passes_others_stall_runner(family: str, prompt: str, delay: float) -> ReviewerResult:
+    """Module-level so it stays picklable under forkserver/spawn contexts.
+
+    ``_reviewer_process_context`` deliberately avoids fork whenever the parent
+    has extra threads (e.g. leaked by an earlier test file), and forkserver and
+    spawn must pickle the runner. A local closure would fail with
+    ``AttributeError: Can't pickle local object``. Parametrize the stall via
+    ``functools.partial`` — partials of module-level functions pickle fine.
+    """
+    if family == "claude":
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+    time.sleep(delay)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(1.5)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    # Deadline must leave room for forkserver/spawn worker boot (fork starts in
+    # ~ms, forkserver re-imports this module in the child) while staying well
+    # under grok's stall so only grok times out.
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=3.0)
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.2,
+        overall_timeout_seconds=0.75,
         **fakes,
     )
 
@@ -1191,17 +1372,12 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
 
 
 def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
-    if "fork" not in multiprocessing.get_all_start_methods():
-        pytest.skip("process-supervised timeout regression requires fork context")
+    # Verified under fork and forkserver (macOS); spawn-only platforms boot a
+    # fresh interpreter per worker, which the tight deadline cannot absorb.
+    if not {"fork", "forkserver"} & set(multiprocessing.get_all_start_methods()):
+        pytest.skip("process-supervised timeout regression needs fork or forkserver")
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(10)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=10)
     started_at = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
@@ -1209,12 +1385,13 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.05,
+        overall_timeout_seconds=1.0,
         **fakes,
     )
     elapsed = time.monotonic() - started_at
 
-    assert elapsed < 1.0
+    # Far below grok's 10s stall: proves the deadline reaps stuck workers.
+    assert elapsed < 5.0
     assert outcome.orchestration_timeout is True
     assert outcome.timed_out_families == ["grok"]
     assert outcome.action == "prepare"
@@ -3281,8 +3458,9 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
@@ -3293,6 +3471,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 17.0
 
 
@@ -3328,8 +3507,9 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
@@ -3339,6 +3519,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 19.0
 
 
