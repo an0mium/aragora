@@ -344,6 +344,67 @@ class TestPathExtraction:
         assert debate_id is None
         assert err is not None
 
+    def test_extract_extra_segments_returns_error(self):
+        """Exact shape /api/debates/{id}/{action}: extra segments rejected,
+        never treated as an action on the first segment."""
+        debate_id, err = _extract_debate_id_from_path("/api/v1/debates/victim/anything/pause")
+        assert debate_id is None
+        assert err is not None
+
+
+# ============================================================================
+# Path-shape enforcement (round-3 P2): malformed paths with extra segments
+# must not dispatch here nor act on the leading ID segment.
+# ============================================================================
+
+
+class TestMalformedPathShape:
+    """/api/v1/debates/{id}/extra/{action} is rejected at every layer."""
+
+    MALFORMED_V1 = "/api/v1/debates/victim/anything/pause"
+    MALFORMED_UNVERSIONED = "/api/debates/victim/anything/pause"
+
+    def test_can_handle_rejects_extra_segments(self, handler_instance):
+        assert handler_instance.can_handle(self.MALFORMED_V1) is False
+        assert handler_instance.can_handle(self.MALFORMED_UNVERSIONED) is False
+
+    def test_can_handle_accepts_exact_shape(self, handler_instance):
+        assert handler_instance.can_handle("/api/v1/debates/victim/pause") is True
+        assert handler_instance.can_handle("/api/debates/victim/pause") is True
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_malformed_pause_is_rejected_and_no_action_taken(self, mock_uid, handler_instance):
+        """Even if a malformed path reaches the endpoint (defense in depth),
+        it is rejected and no intervention state is created for 'victim'."""
+        from aragora.debate.intervention import get_intervention_manager
+
+        result = handler_instance._pause_debate(self.MALFORMED_V1, _make_handler())
+        assert result.status_code in (400, 404)
+        assert get_intervention_manager("victim", create=False) is None
+
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
+    def test_malformed_path_does_not_pause_existing_debate(self, mock_uid):
+        """A real debate must not be paused through a malformed path."""
+        storage = _FakeStorage({"victim"})
+        handler_instance = DebateInterventionsHandler(ctx={"storage": storage})
+        result = handler_instance._pause_debate(self.MALFORMED_V1, _make_handler())
+        assert result.status_code in (400, 404)
+        # The exact-shape path still works and shows the debate unpaused.
+        ok = handler_instance._pause_debate("/api/v1/debates/victim/pause", _make_handler())
+        assert ok.status_code == 200  # first pause succeeds => was never paused
+
+    def test_malformed_intervention_log_rejected(self, handler_instance):
+        result = handler_instance._get_intervention_log(
+            "/api/v1/debates/victim/anything/intervention-log", _make_handler()
+        )
+        assert result.status_code in (400, 404)
+
 
 # ============================================================================
 # Debate existence gate (CD-098 round-2 P2): interventions on nonexistent

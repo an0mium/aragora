@@ -57,9 +57,11 @@ def _extract_debate_id_from_path(path: str) -> tuple[str | None, str | None]:
         (debate_id, error_message) -- error_message is set if invalid.
     """
     normalized = _strip_version_prefix(path)
-    # ['', 'api', 'debates', '{id}', 'pause']
+    # ['', 'api', 'debates', '{id}', 'pause'] — EXACTLY five segments.
+    # A `<` check would let /api/debates/{id}/anything/pause through and
+    # act on {id}; extra segments are rejected outright.
     parts = normalized.split("/")
-    if len(parts) < 5:
+    if len(parts) != 5:
         return None, "Invalid path"
 
     debate_id = parts[3]
@@ -112,19 +114,27 @@ class DebateInterventionsHandler(BaseHandler):
     # ------------------------------------------------------------------
 
     def can_handle(self, path: str) -> bool:
-        """Check if this handler can process the given path."""
+        """Check if this handler can process the given path.
+
+        Enforces the exact shape /api/debates/{id}/{action} (post version
+        strip). Suffix matching alone would claim malformed paths like
+        /api/v1/debates/{id}/anything/pause and act on {id}; those must
+        instead fall through to DebatesHandler's slug lookup (404).
+        """
         normalized = _strip_version_prefix(path)
-        suffixes = (
-            "/pause",
-            "/resume",
-            "/nudge",
-            "/challenge",
-            "/inject-evidence",
-            "/intervention-log",
+        if not normalized.startswith("/api/debates/"):
+            return False
+        parts = normalized.split("/")
+        if len(parts) != 5:
+            return False
+        return parts[4] in (
+            "pause",
+            "resume",
+            "nudge",
+            "challenge",
+            "inject-evidence",
+            "intervention-log",
         )
-        if normalized.startswith("/api/debates/"):
-            return any(normalized.endswith(s) for s in suffixes)
-        return False
 
     # ------------------------------------------------------------------
     # GET handler

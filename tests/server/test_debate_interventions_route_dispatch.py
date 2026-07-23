@@ -124,6 +124,26 @@ def test_versioned_stats_agents_resolves_to_stats_handler(
     assert isinstance(handler, DebateStatsHandler)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/debates/victim/anything/pause",
+        "/api/v1/debates/victim/x/y/inject-evidence",
+        "/api/debates/victim/anything/pause",
+    ],
+)
+def test_malformed_extra_segment_paths_fall_through_to_debates_handler(
+    route_index: RouteIndex, path: str
+) -> None:
+    """Exact-shape enforcement (round-3 P2): paths with extra segments must
+    NOT dispatch to the interventions handler (which would act on the leading
+    ID segment) — they fall through to DebatesHandler's slug 404."""
+    match = route_index.get_handler(path)
+    assert match is not None
+    attr_name, _handler = match
+    assert attr_name == "_debates_handler"
+
+
 def test_unversioned_stats_agents_is_claimed_by_debates_handler(
     route_index: RouteIndex,
 ) -> None:
