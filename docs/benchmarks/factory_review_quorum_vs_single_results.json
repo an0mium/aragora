@@ -27,7 +27,7 @@
       "head_sha": "cb7212e11dbdbc1813237ad129c7bc108f944e3d",
       "models": [
         {
-          "family": "grok",
+          "family": "xai",
           "finding_set": [
             {
               "body": "In organization_auditlogs.py:70, enable_advanced references organization_context which is not defined or imported in the shown diff (or the original function scope). This will raise NameError on every request when the optimized path is taken.",
@@ -118,8 +118,8 @@
         ],
         "distinct_model_families": 2,
         "families": [
-          "grok",
-          "mistral"
+          "mistral",
+          "xai"
         ],
         "missed_golden_ids": [],
         "true_positive_golden_ids": [
@@ -155,7 +155,7 @@
       "head_sha": "3647ba7360b8d157e4a294a650a365b6aca070d8",
       "models": [
         {
-          "family": "grok",
+          "family": "xai",
           "finding_set": [
             {
               "body": "updateDevice returns ErrDeviceLimitReached whenever rowsAffected==0 (e.g., new device_id outside the narrow time window), but this error is also used to signal the actual limit. Callers cannot distinguish the cases.",
@@ -268,8 +268,8 @@
         "caught_beyond_baseline_golden_ids": [],
         "distinct_model_families": 2,
         "families": [
-          "grok",
-          "mistral"
+          "mistral",
+          "xai"
         ],
         "missed_golden_ids": [],
         "true_positive_golden_ids": [
@@ -323,7 +323,7 @@
       "head_sha": "5d77e7ea7d431aa0a6b65904457b7471bd050e81",
       "models": [
         {
-          "family": "grok",
+          "family": "xai",
           "finding_set": [
             {
               "body": "POLICY_SOME_HTML allows only br/p/strong/b (no 'a'). santizeAnchors + sanitize removes <a> even when English source has them. Results in loss of links (e.g. FreeOTP, Play Store) in fi/lt/sk/sv/zh_CN account messages and many email/login files.",
@@ -451,8 +451,8 @@
         ],
         "distinct_model_families": 2,
         "families": [
-          "grok",
-          "mistral"
+          "mistral",
+          "xai"
         ],
         "missed_golden_ids": [
           "2743702343",
@@ -468,14 +468,17 @@
       "validation_url": "https://raw.githubusercontent.com/droid-code-review-evals/review-droid-benchmark/2dfbbd6edcd5eea19495e725d611cb104c9e8f4d/results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-keycloak_pr_7_validation.json"
     }
   ],
+  "family_aliases": {
+    "grok": "xai"
+  },
   "kind": "factory_review_quorum_vs_single_measurement",
   "live_collection": "docs/benchmarks/factory_review_quorum_vs_single_live_collection.json",
   "live_collection_canonical_sha256": "8c675aa9f61d9962fcbe71f5e8265f68f9e334358d04dd5365f4fd4e59e603a9",
   "manifest": "docs/benchmarks/factory_review_benchmark_manifest.json",
   "manifest_blob_sha": "a810d4319a798c7980deccedef1f5df8cc86568f",
   "quorum_families": [
-    "grok",
-    "mistral"
+    "mistral",
+    "xai"
   ],
   "schema_version": 1,
   "summary": {

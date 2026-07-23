@@ -1120,8 +1120,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:DELETE /api/knowledge/mound/federation/regions/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "start_cohort",
@@ -1747,8 +1748,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/batch",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -1839,16 +1841,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/{param}/decision-integrity",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:GET /api/debates/{param}/export",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -4870,208 +4874,234 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/analytics/quality/snapshot",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/analytics/usage/record",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/confidence/decay",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/confidence/event",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/contradictions/detect",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/contradictions/{param}/resolve",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/culture/documents",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/culture/promote",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/curation/policy",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/curation/run",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/dashboard/metrics/reset",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/dedup/auto-merge",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/dedup/merge",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/extraction/debate",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/extraction/promote",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/federation/sync/all",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/federation/sync/pull",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/federation/sync/push",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/global/promote",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/index/repository",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/nodes",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/pruning/auto",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/pruning/execute",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/pruning/restore",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/query",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/relationships",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5086,8 +5116,9 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:POST /api/knowledge/mound/share",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
@@ -5841,16 +5872,18 @@
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/debates/{param}",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",
       "discovered_on": "2026-07-16",
       "id": "python_sdk_drift:PUT /api/debates/{param}/intervention/threshold",
       "provenance": "python extractor blindness fix (#9362)",
+      "resolved_on": "2026-07-17",
       "source": "python_sdk_drift",
-      "status": "open"
+      "status": "resolved"
     },
     {
       "class": "discovered",

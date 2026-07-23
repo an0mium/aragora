@@ -49,7 +49,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Depth 2 so the synthetic merge commit's parents are available:
+          # HEAD^1 is the exact main tip this merge was computed against,
+          # which is what base attribution compares to.
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -58,6 +61,30 @@ jobs:
 
       - name: Install ripgrep
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
+      - name: Snapshot base ref for drift attribution
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # PR runs execute on the synthetic merge commit (PR head merged
+          # into the current main tip), so the live counts include every
+          # main-side change since docs/METRICS.md was last refreshed —
+          # drift the PR did not cause. Snapshot the metrics at the merge
+          # commit's first parent (the exact main tip) so the check can
+          # attribute that drift to main instead of failing the PR.
+          if ! base_sha=$(git rev-parse -q --verify HEAD^1); then
+            echo "No merge parent found; base attribution skipped (strict check)."
+            exit 0
+          fi
+          git worktree add --detach /tmp/base-tree "$base_sha"
+          # Run the PR-side counters against the base tree so counter
+          # changes in the PR cannot masquerade as metric drift.
+          cp scripts/regenerate_metrics.py scripts/repository_metrics.py /tmp/base-tree/scripts/
+          (cd /tmp/base-tree && python3 scripts/regenerate_metrics.py --json > /tmp/base-live.json)
+          cp /tmp/base-tree/docs/METRICS.md /tmp/base-doc.md
+          echo "Base attribution snapshot taken at $base_sha"
 
       - name: Verify drift
         id: check
@@ -72,7 +99,15 @@ jobs:
           # the committed state and current truth.
           cp docs/METRICS.md /tmp/metrics-committed.md
 
-          if ! python3 scripts/regenerate_metrics.py --check; then
+          # PR runs: attribute drift to the base ref when the snapshot from
+          # the previous step exists — drift pre-existing on main is
+          # reported as INHERITED and does not fail this PR.
+          ATTRIB_ARGS=()
+          if [ -f /tmp/base-live.json ] && [ -f /tmp/base-doc.md ]; then
+            ATTRIB_ARGS=(--base-json /tmp/base-live.json --base-doc /tmp/base-doc.md)
+          fi
+
+          if ! python3 scripts/regenerate_metrics.py --check "${ATTRIB_ARGS[@]}"; then
             echo "::error::docs/METRICS.md is stale. Run 'python3 scripts/regenerate_metrics.py' locally and commit the updated doc."
             echo ""
             echo "=== DIFF: committed doc vs current ground truth ==="
