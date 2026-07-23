@@ -150,9 +150,9 @@ def test_active_head_pairs_excludes_drafts_and_keeps_name_collisions(mod) -> Non
 
 
 def test_advisory_cancellation_is_intentional_and_never_rerun(mod) -> None:
-    """Portability Lint is NOT in the protected manifest: its PR-open
-    cancellation is required-check-priority.yml working as designed
-    (intentional_advisory_priority), so the guardian must leave it alone."""
+    """Portability Lint is NOT in the protected manifest: without a jobs
+    probe (fetch_jobs=None) the advisory class is disabled entirely and its
+    PR-open cancellation stays intentional_advisory_priority — fail closed."""
     advisory = _run(name="Portability Lint", path=".github/workflows/portability.yml")
     reruns = mod.compute_reruns(
         [advisory], active_head_pairs=_heads(), now=NOW, ttl_hours=6.0, **_protected(mod)
@@ -316,3 +316,167 @@ def test_run_pr_association_must_intersect_open_prs_when_named(mod) -> None:
         **_protected(mod),
     )
     assert sorted(r["run_id"] for r in reruns) == [2, 3]
+
+
+# --- queued-phase advisory displacement (#9351 round 2) -----------------------
+
+_ADVISORY_PATH = ".github/workflows/module-tier-drift.yml"
+
+
+def _advisory_run(run_id: int = 1, **kwargs) -> dict:
+    kwargs.setdefault("name", "Module Tier Drift")
+    kwargs.setdefault("path", _ADVISORY_PATH)
+    return _run(run_id, **kwargs)
+
+
+def _queued_jobs() -> list[dict]:
+    """Jobs of a run cancelled while still queued: nothing ever started."""
+    return [
+        {"started_at": None, "steps": []},
+        {"started_at": None, "steps": [{"name": "Set up job", "started_at": None}]},
+    ]
+
+
+def _checkout_jobs() -> list[dict]:
+    """Jobs of a run cancelled at the Checkout step: execution began."""
+    return [
+        {
+            "started_at": "2026-07-10T11:00:00Z",
+            "steps": [
+                {"name": "Set up job", "started_at": "2026-07-10T11:00:01Z"},
+                {"name": "Checkout", "started_at": "2026-07-10T11:00:05Z"},
+            ],
+        }
+    ]
+
+
+class _CountingFetcher:
+    def __init__(self, jobs) -> None:
+        self.jobs = jobs
+        self.calls: list[int] = []
+
+    def __call__(self, run_id: int):
+        self.calls.append(run_id)
+        return self.jobs
+
+
+def test_queued_phase_advisory_displacement_is_selected_once(mod) -> None:
+    """An advisory run displaced while QUEUED (no job/step ever started) is
+    the residual settlement tax: the guardian now reruns it exactly once,
+    classified distinctly so reports separate it from the protected class."""
+    fetcher = _CountingFetcher(_queued_jobs())
+    reruns = mod.compute_reruns(
+        [_advisory_run()],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert [r["run_id"] for r in reruns] == [1]
+    assert reruns[0]["classification"] == "queued_phase_advisory_displacement"
+    assert fetcher.calls == [1]
+
+
+def test_checkout_phase_advisory_run_stays_cancelled(mod) -> None:
+    """An advisory run that STARTED (cancelled at Checkout) has a started
+    step: it is not a queued-phase displacement and stays cancelled — that
+    class is eliminated upstream by RCP's queued-only rule."""
+    fetcher = _CountingFetcher(_checkout_jobs())
+    reruns = mod.compute_reruns(
+        [_advisory_run()],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert reruns == []
+    assert fetcher.calls == [1]  # probe ran (all other guards passed), said no
+
+
+def test_protected_selection_unchanged_and_never_probed(mod) -> None:
+    """Protected-manifest behavior is byte-identical: selected under the same
+    guards, classified unexpected_required_cancellation, and the jobs probe
+    is never spent on it."""
+    fetcher = _CountingFetcher(_queued_jobs())
+    reruns = mod.compute_reruns(
+        [_run()],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert [r["run_id"] for r in reruns] == [1]
+    assert reruns[0]["classification"] == "unexpected_required_cancellation"
+    assert fetcher.calls == []
+
+
+def test_attempt_2_advisory_is_never_rerun_again(mod) -> None:
+    """run_attempt > 1 bounds the advisory class exactly like the protected
+    one: once per run, even if the probe would say never-executed."""
+    fetcher = _CountingFetcher(_queued_jobs())
+    reruns = mod.compute_reruns(
+        [_advisory_run(attempt=2)],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert reruns == []
+    assert fetcher.calls == []  # cheap guard rejected it before any API spend
+
+
+def test_jobs_probe_is_lazy_only_surviving_candidates_pay(mod) -> None:
+    """Advisory runs failing ANY earlier guard (stale head, attempt 2, TTL,
+    supersession) never trigger a jobs fetch; only the single surviving
+    candidate costs one probe call (API budget vs --max-runs 300)."""
+    fetcher = _CountingFetcher(_queued_jobs())
+    runs = [
+        _advisory_run(1, sha="b" * 40),  # stale head pair
+        _advisory_run(2, attempt=2),  # already rerun once
+        _advisory_run(3, age_hours=9.0),  # outside TTL
+        _advisory_run(4, age_hours=2.0),  # superseded by run 5 below
+        _advisory_run(5, conclusion="success", age_hours=0.5),  # not cancelled
+        _advisory_run(6, workflow_id=99, path=".github/workflows/other-advisory.yml"),
+    ]
+    reruns = mod.compute_reruns(
+        runs,
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert [r["run_id"] for r in reruns] == [6]
+    assert fetcher.calls == [6]
+
+
+def test_failed_jobs_probe_fails_closed(mod) -> None:
+    """A probe returning None (API error upstream) cannot PROVE the run never
+    executed, so the run stays cancelled."""
+    fetcher = _CountingFetcher(None)
+    reruns = mod.compute_reruns(
+        [_advisory_run()],
+        active_head_pairs=_heads(),
+        now=NOW,
+        ttl_hours=6.0,
+        fetch_jobs=fetcher,
+        **_protected(mod),
+    )
+    assert reruns == []
+    assert fetcher.calls == [1]
+
+
+def test_run_never_executed_signal_matrix(mod) -> None:
+    """Either never-executed signal suffices: all job started_at null, OR no
+    step started_at anywhere (GitHub stamps job started_at on some
+    queued-cancelled jobs without ever running a step). A started step is
+    always disqualifying; zero jobs means nothing ever executed."""
+    assert mod.run_never_executed([]) is True
+    assert mod.run_never_executed(_queued_jobs()) is True
+    # Job-level stamp but no step ever started: still queued-phase.
+    assert mod.run_never_executed([{"started_at": "2026-07-10T11:00:00Z", "steps": []}]) is True
+    assert mod.run_never_executed(_checkout_jobs()) is False

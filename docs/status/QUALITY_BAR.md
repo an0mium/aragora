@@ -36,6 +36,18 @@ closest available human proxy, strictly better evidence than an agent sim, and
 the natural authority on whether the experience is good enough to spend a
 stranger on. Rung 1's artifact lands in `docs/artifacts/` like any other run.
 
+**Recorded deferrals (operator decision, 2026-07-16):** production
+(api.aragora.ai) is offline pending an AWS billing resolution. Consequently:
+(1) the **Jul 22 founder cold-run executes the offline bounded path only**
+(`pip install` → `aragora demo --offline --receipt` → `aragora receipt verify`)
+— this still satisfies rung 1, whose gate for the Jul 30 decision is "zero
+blocking failures on the bounded path"; (2) the **dimension-4 instrument
+(fresh production receipt) and the W1 founder-MFA prod receipt are deferred**
+with the blocking failure named: AWS account suspension (billing). Per the
+ladder's own rule this deferral is re-reviewed at every weekly digest — never
+silently, never indefinitely. Restoration plan and cost diagnosis are tracked
+in the AWS billing support case (operator-side) and the Jul 16 run log.
+
 **Kill-switch integrity:** simulated runs (rung 0) and founder cold-runs
 (rung 1) are *internal* evidence. They never satisfy the 30-day plan's
 "external artifacts ≥1 per 14 days" metric. Only genuinely external artifacts

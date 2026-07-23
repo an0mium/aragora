@@ -1,8 +1,19 @@
 """Offline verification of an Open Decision Receipt (ODR v0.1).
 
-The single library behind both the ``aragora-verify`` CLI and the server's
-``POST /api/receipts/verify`` endpoint. It establishes, with nothing but the
-receipt JSON (and optionally a public key and a hash chain):
+This is the standalone library engine behind the ``aragora-verify`` CLI --
+zero-Aragora-dependency, stdlib + ``cryptography`` only. It is kept in
+lockstep with the in-tree mirror, ``aragora.gauntlet.odr_verify`` (issue
+#8226): both follow the same content profile
+(``docs/specs/OPEN_DECISION_RECEIPT.md``) and signature construction (§6 /
+issue #8225), so a receipt verifies identically whether checked here or
+in-tree. No shipped server endpoint wraps this engine today -- the existing
+``/api/v2/receipts/{id}/verify*`` and ``/receipts/{id}/verify`` routes verify
+the native or legacy receipt instead (see
+``docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`` "Two verifiers" for the full
+picture).
+
+It establishes, with nothing but the receipt JSON (and optionally a public
+key and a hash chain):
 
 1. **Structural conformance** to the ODR v0.1 profile (``schema``).
 2. **Canonical digest** — recomputes ``odr_digest = SHA-256(JCS(doc - signatures))``
@@ -374,6 +385,27 @@ def _weakening_warnings(doc: dict[str, Any]) -> list[str]:
     return warnings
 
 
+def _looks_like_native_receipt(doc: Any) -> bool:
+    """Heuristic: is ``doc`` a native Aragora ``DecisionReceipt`` rather than an
+    ODR document? ``aragora demo --receipt`` / ``aragora receipt`` write the
+    native format, and strangers feed it to this verifier directly (issue
+    #9185); an ODR document always carries ``odr_version``, while the native
+    format carries its own distinctive members."""
+    if not isinstance(doc, dict) or "odr_version" in doc:
+        return False
+    if not doc.get("receipt_id"):
+        return False
+    native_markers = ("artifact_hash", "gauntlet_id", "schema_version", "verdict")
+    return any(marker in doc for marker in native_markers)
+
+
+_NATIVE_RECEIPT_HINT = (
+    "input looks like a native Aragora receipt, not an ODR document -- convert "
+    "it first: aragora receipt export <file> --format odr -o receipt.odr.json, "
+    "then re-run aragora-verify on receipt.odr.json"
+)
+
+
 # ---------------------------------------------------------------------------
 # Top-level entry point
 # ---------------------------------------------------------------------------
@@ -393,7 +425,12 @@ def verify(
 
     structure_errors = validate_structure(doc)
     if structure_errors:
-        checks.append(Check("schema_conformance", FAIL, "; ".join(structure_errors[:12])))
+        detail = "; ".join(structure_errors[:12])
+        if _looks_like_native_receipt(doc):
+            # Name the actual mistake and the exact bridge command instead of
+            # dumping 12 opaque schema errors on the stranger (issue #9185).
+            detail = f"{detail} | {_NATIVE_RECEIPT_HINT}"
+        checks.append(Check("schema_conformance", FAIL, detail))
         # A structurally invalid receipt cannot be digested/verified meaningfully.
         return VerifyResult(
             ok=False, receipt_id=receipt_id, odr_digest="", checks=checks, warnings=[]
