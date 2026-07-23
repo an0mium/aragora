@@ -665,55 +665,28 @@ def _add_proof_units_parser(subparsers) -> None:
 
 
 def _add_genealogy_parser(subparsers) -> None:
-    """Add the 'genealogy' subcommand group (DIC-24 / #6218).
-
-    Flag-gated: ARAGORA_GENEALOGY_ENABLED must be set.
-    Live queue effect: none (read-only operator report).
-    """
+    """DIC-24 / #6218: genealogy ledger operator CLI. Flag-gated (ARAGORA_GENEALOGY_ENABLED)."""
     gp = subparsers.add_parser(
         "genealogy",
         help="DIC-24: inspect epistemic genealogy ledger for proof-carrying code units",
-        description=(
-            "Read-only operator surface for the epistemic genealogy ledger. "
-            "Requires ARAGORA_GENEALOGY_ENABLED=1."
-        ),
+        description="Read-only operator surface. Requires ARAGORA_GENEALOGY_ENABLED=1.",
     )
     gp_sub = gp.add_subparsers(dest="genealogy_cmd")
     show = gp_sub.add_parser("show", help="Show lineage for one proof-carrying code unit")
     show.add_argument("code_unit_id", help="The code_unit_id to look up")
     show.add_argument(
-        "--store-file",
-        dest="store_file",
-        default=".aragora_genealogy.jsonl",
-        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
+        "--store-file", dest="store_file", default=".aragora_genealogy.jsonl", help="store path",
     )
     show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
-
-    report = gp_sub.add_parser(
-        "report", help="Show aggregate genealogy report across multiple code units"
+    rp = gp_sub.add_parser("report", help="Multi-unit aggregate genealogy report")
+    rp.add_argument("code_unit_ids", nargs="*", help="IDs to report (omit with --all)")
+    rp.add_argument("--all", action="store_true", dest="all", help="Report on all units in store")
+    rp.add_argument(
+        "--store-file", dest="store_file", default=".aragora_genealogy.jsonl", help="store path",
     )
-    report.add_argument(
-        "code_unit_ids",
-        nargs="*",
-        help="code_unit_ids to include; omit when using --all",
-    )
-    report.add_argument(
-        "--all",
-        action="store_true",
-        dest="all",
-        help="Report on every code_unit_id found in the store",
-    )
-    report.add_argument(
-        "--store-file",
-        dest="store_file",
-        default=".aragora_genealogy.jsonl",
-        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
-    )
-    report.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    report.set_defaults(
-        func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_report")
-    )
+    rp.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    rp.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_report"))
 
 
 def _add_coherence_scan_parser(subparsers) -> None:
