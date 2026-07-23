@@ -31,6 +31,7 @@ def test_repository_manifest_matches_current_tree() -> None:
         "aragora/agents/api_agents/openai.py",
         "aragora/agents/transports/claude_vibeproxy.py",
         "scripts/consult_claude.py",
+        "scripts/vibeproxy_burnin_recorder.py",
     )
     assert [
         (site["path"], site["anchor"])
@@ -40,6 +41,8 @@ def test_repository_manifest_matches_current_tree() -> None:
         ("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"),
         ("aragora/agents/transports/claude_vibeproxy.py", "run_claude_vibeproxy"),
         ("scripts/consult_claude.py", "_run_vibeproxy"),
+        ("scripts/vibeproxy_burnin_recorder.py", "run_inference"),
+        ("scripts/vibeproxy_burnin_recorder.py", "run_inference"),
     ]
 
 

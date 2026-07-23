@@ -877,13 +877,13 @@ class KimiLegacyAgent(APIAgent):
         api_key: str | None = None,
     ):
         super().__init__(name=name, model=model, role=role)
-        self.system_prompt = system_prompt
-        self.api_key = api_key or get_api_key("KIMI_API_KEY")
+        self.system_prompt = system_prompt or ""
+        resolved_api_key = api_key or get_api_key("KIMI_API_KEY")
+        if not resolved_api_key:
+            raise ValueError("KIMI_API_KEY environment variable not set")
+        self.api_key = resolved_api_key
         self.base_url = "https://api.moonshot.cn/v1"
         self.agent_type = "kimi"
-
-        if not self.api_key:
-            raise ValueError("KIMI_API_KEY environment variable not set")
 
     async def generate(self, prompt: str, context: list | None = None) -> str:
         """Generate response using Moonshot API."""
