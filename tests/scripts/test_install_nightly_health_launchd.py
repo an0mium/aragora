@@ -19,7 +19,7 @@ CASES = [
         "com.aragora.pristine-main-health",
         {"Hour": 3, "Minute": 30},
         "pristine_main_health.py",
-        ["--pristine-dir", "--halt-file"],
+        ["--pristine-dir", "--halt-file", "--suite required"],
     ),
     (
         "throughput-snapshot",
