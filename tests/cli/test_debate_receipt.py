@@ -214,6 +214,32 @@ def test_receipt_carries_crux_cards_from_metadata(
     assert DecisionReceipt.from_dict(data).verify_integrity() is True
 
 
+def test_receipt_preserves_long_reasoning_verbatim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Receipts are audit artifacts: verdict_reasoning, final_answer, and
+    agent responses longer than 2,000 chars must survive persistence intact
+    (previously silently cut mid-word at 2,000, weakening signed evidence)."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    long_answer = "All twelve mitigations were weighed against Article 14. " * 100
+    long_response = "The proposer's threat model holds because " * 120
+    assert len(long_answer) > 2000 and len(long_response) > 2000
+    result = _mixed_family_result()
+    result.final_answer = long_answer
+    result.messages = [
+        SimpleNamespace(agent="grok", role="proposer", round=0, content=long_response)
+    ]
+
+    receipt_path = _persist_debate_receipt(result)
+
+    assert receipt_path is not None
+    data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    assert data["final_answer"] == long_answer
+    assert data["verdict_reasoning"] == long_answer
+    assert data["agent_responses"][0]["response"] == long_response.strip()
+    assert DecisionReceipt.from_dict(data).verify_integrity() is True
+
+
 def test_receipt_omits_cruxes_when_crux_cards_absent_or_empty(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
