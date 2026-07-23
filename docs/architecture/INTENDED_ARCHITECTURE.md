@@ -1,6 +1,6 @@
 # Aragora Intended Architecture Charter
 
-Status: DRAFT v0.4 — pending operator ratification; #8851 adopt-or-retire rulings encoded 2026-07-06 (entries marked `ruled: 2026-07-06`)
+Status: DRAFT v0.5 — pending operator ratification; #8851 adopt-or-retire rulings encoded 2026-07-06 (entries marked `ruled: 2026-07-06`)
 Date: 2026-07-06 | Owner: operator (armand)
 Enforcement targets: merge-gate reviewers, all AI fleets (Claude, Codex, Factory droids, launchd daemons), humans
 
@@ -413,6 +413,12 @@ gate cannot cite reproduces the failure this charter was written to close.
 | **UNMAPPED** | Default state for packages with no §2/Appendix-A mapping: frozen for architectural growth, maintenance allowed (§2d) | "unowned, do what you want" |
 | **spine** | The two chartered execution paths: **fleet spine** (missions → dev_coordination → swarm → pipeline → approvals/receipts) and **product spine** (surface → debate core → knowledge → receipt → channels) | any long import chain |
 | **tier** | Change-risk class 0-4 from the operating contract driving gate strictness and auto-merge eligibility | RBAC roles; handler tiers (`ARAGORA_HANDLER_TIERS`) |
+| **execution loop** | An agent's act-observe cycle inside one task (worker lanes in worktrees); exits on environment feedback | the task loop's review rounds |
+| **task loop** | Fresh-context iteration against the same spec until compliance (the merge gate's review-repair rounds); exits on counting PASS with no blocking dissent | retrying with accumulated (polluted) context |
+| **product loop** | The continuous backlog-to-merge lifecycle (fleet + merge queue + missions); exits per-item on merge receipts, monitored via open-PR trend and scorecards | any single PR's lifecycle |
+| **system loop** | The loop that improves the machinery itself (epic #8972: harness edits validated by gate-outcome deltas); exits on scoreboard non-regression | the product loop it measures |
+| **oversight loop** | Goal-setting, budget allocation, culling — the operator's ring (tokens, tier settlements, rulings, rubric curation); its signals are kill-switch metrics and data-window reviews. Autonomy is a dial set per-ring; the tier system is that dial's implementation | a bottleneck to automate away |
+| **pipeline (not a loop)** | Fan-out/gather/validate with no feedback into a next cycle (Workflow orchestrations); a topology deployable inside any ring | a loop — a pipeline has no feedback edge |
 
 ---
 
@@ -485,6 +491,7 @@ registry:                 # §3 entries
 | v0.2 | 2026-07-06 | this PR (draft) | operator-commissioned; adversarial critic pass applied | added ARCH-001..036 ids; CHR-P4A-004 → REMOVED (#8909); CHR-X-002 split (→ CHR-X-038); CHR-X-010 corrected (snapshot/redteam/sandbox de-chartered); added CHR-X-025..039; parked entries got owners+dates; exclusions got operational tests; UNMAPPED default + Appendix A; R3 covers EXPIRING; R7 date source; R7b; R8 → preconditions |
 | v0.3 | 2026-07-06 | this PR (draft) | gate round 1: adversarial review findings applied | DRAFT carve-outs for placement protocol/§0 entry states/precedence (banner + §0); ARCH-020 disposition fix (retire → adopt; retirement confined to CHR-X-009); evidence snapshot caveat (§0); ARCH-020/CHR-X-009 anchor disambiguated (`scripts/goal_conductor.py:310` hardcodes the `scripts/nomic_loop.py` path) |
 | v0.4 | 2026-07-06 | this PR (draft) | operator-ratified decision packet #8851 + four adversarial salvage audits (2026-07-06) | operator #8851 rulings encoded after salvage audits: 2 adoptions confirmed, 2 absorptions, 6 retirements, 2 parks, 1 relocation, cross_workspace/resolver guard. Entries amended: ARCH-012/013/014/015/016/017, CHR-X-012/014/015/029; minted: CHR-X-040 (control_plane scheduler+registry park), CHR-X-041 (blockchain_identity relocate), CHR-X-042 (workflow/scheduler retire), CHR-X-043 (workspace absorb). Entries stay PROPOSED-pending-ratification; `ruled: 2026-07-06` marks operator-ruled dispositions |
+| v0.5 | 2026-07-08 | this PR (draft) | operator-approved insight fold (loop-taxonomy article) | loop-ring vocabulary added (§5: execution/task/product/system/oversight loop, pipeline); no authority or registry changes |
 
 ---
 

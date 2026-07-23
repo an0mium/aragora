@@ -3,11 +3,24 @@
 Canonical documentation lives in `docs/` and is mirrored into `docs-site/`.
 
 This index intentionally links to actively maintained docs with validated paths.
+For the full goal-oriented landing page, start at **[docs/README.md](README.md)**
+— that page is the canonical documentation landing; this index is the flat
+reference list.
+
+## Public Utility Path
+
+The core loop, in order: run a debate, get a receipt, verify it independently,
+then wire it into CI.
+
+1. [Quickstart](quickstart.md) — a working debate in under a minute
+2. [Receipt Lineage Reconciliation](specs/RECEIPT_LINEAGE_RECONCILIATION.md) — what a receipt is: the native record vs. the portable ODR
+3. [Independent Verifier Guide](specs/INDEPENDENT_VERIFIER_GUIDE.md) — verify a receipt with `aragora-verify` (exit codes: `0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`), no Aragora install required
+4. [GitHub Action Setup](GITHUB_ACTION_SETUP.md) — add multi-model CI review + receipts to your pull requests
 
 ## Getting Started
 
-- [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
 - [Getting Started](guides/GETTING_STARTED.md)
+- [Cold Reviewer Guide](COLD_REVIEWER_GUIDE.md)
 - [SDK Guide (Python)](SDK_GUIDE.md)
 - [CLI Reference (generated)](reference/CLI_REFERENCE.md)
 
@@ -70,6 +83,7 @@ This index intentionally links to actively maintained docs with validated paths.
 ## Reference
 
 - [Environment Variables](reference/ENVIRONMENT.md)
+- [Install Matrix](reference/INSTALL_MATRIX.md)
 - [Library Usage](reference/LIBRARY_USAGE.md)
 
 ## Contributing
@@ -85,3 +99,6 @@ This index intentionally links to actively maintained docs with validated paths.
 - `docs/specs/` is mirrored into `docs-site/` (as the `specs/` category) by
   `docs-site/scripts/sync-docs.js`; relative links into it from mirrored docs
   are safe to use.
+- `docs/reference/` is mirrored into `docs-site/` (as the `reference/`
+  category) the same way; relative links into it from mirrored docs are
+  safe to use.

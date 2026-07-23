@@ -9,6 +9,7 @@ on:
       - 'sdk/**'
       - 'docs/api/openapi*.json'
       - 'scripts/check_contract_drift_ratchet.py'
+      - 'scripts/generate_contract_drift_inventory.py'
       - 'scripts/contract_drift_report.py'
       - 'scripts/generate_contract_drift_backlog.py'
       - 'scripts/generate_contract_drift_issue_plan.py'
@@ -81,9 +82,34 @@ jobs:
             --markdown-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.md \
             --json-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.json
 
-      - name: Enforce weekly ratchet
+      - name: Fetch drift cohort commit
         run: |
-          python scripts/check_contract_drift_ratchet.py --strict --json > /tmp/contract-drift-ratchet.json
+          # 2026-04-17 program cohort commit: the ratchet derives cohort
+          # membership from it (git show) and fails closed if unavailable.
+          git fetch --no-tags --depth=1 origin 5cc7a81b77aeb6680613d441f74d72c435c8443c
+
+      - name: Fetch PR base ref
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+      - name: Enforce weekly ratchet
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Per-PR gate: strict non-worsening delta vs the base ref.
+            python scripts/check_contract_drift_ratchet.py \
+              --mode pr --base-ref "origin/${BASE_REF}" \
+              --strict --json > /tmp/contract-drift-ratchet.json
+          else
+            # Cron/dispatch/main: program-level burn-down schedule.
+            python scripts/check_contract_drift_ratchet.py \
+              --mode program --strict --json > /tmp/contract-drift-ratchet.json
+          fi
 
       - name: Write ratchet summary
         if: ${{ always() && !cancelled() }}
@@ -105,13 +131,27 @@ jobs:
           lines = [
               '## Contract Drift Ratchet',
               '',
+              f"- Mode: `{data.get('mode', 'program')}`",
               f"- As of: `{program['as_of']}`",
               f"- Start total: `{program['start_total_items']}`",
               f"- Current total: `{current['total_items']}`",
               f"- Target max: `{target['max_open_items']}`",
               f"- Delta to target: `{data['delta_to_target']:+d}`",
+              f"- Program passing: `{data.get('program_passing', data['passing'])}`",
               f"- Passing: `{data['passing']}`",
           ]
+          for cls in data.get('classes', []):
+              lines.append(
+                  f"- Class `{cls['name']}`: open `{cls['open_items']}` / "
+                  f"target `{cls['target_max']}` (passing: `{cls['passing']}`)"
+              )
+          pr_delta = data.get('pr_delta')
+          if pr_delta:
+              lines.append(f"- PR delta vs `{pr_delta['base_ref']}`:")
+              for key, d in pr_delta['counts'].items():
+                  lines.append(
+                      f"  - `{key}`: {d['base']} -> {d['head']} ({d['delta']:+d})"
+                  )
 
           summary = Path(Path.cwd() / 'ratchet-summary.md')
           summary.write_text('\n'.join(lines) + '\n')

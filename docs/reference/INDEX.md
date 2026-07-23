@@ -8,7 +8,8 @@ This index is scoped to high-signal, actively maintained docs with validated pat
 
 - Project overview: [../README.md](../README.md)
 - First-time setup: [../guides/GETTING_STARTED.md](../guides/GETTING_STARTED.md)
-- Developer quickstart: [../QUICKSTART_DEVELOPER.md](../QUICKSTART_DEVELOPER.md)
+- Install matrix (per-audience, per-distribution): [INSTALL_MATRIX.md](INSTALL_MATRIX.md)
+- Developer quickstart: [../quickstart.md](../quickstart.md)
 - SDK guide: [../SDK_GUIDE.md](../SDK_GUIDE.md)
 - Capability matrix: [../CAPABILITY_MATRIX.md](../CAPABILITY_MATRIX.md)
 

@@ -50,12 +50,8 @@
     "missing_issue_numbers": [],
     "status": "complete"
   },
-  "failure_class_distribution": {
-    "blocked_auth_failure": 5,
-    "blocked_not_dispatch_bounded": 12,
-    "blocked_sanitation_failed": 1
-  },
-  "generated_at": "2026-06-14T03:51:53Z",
+  "failure_class_distribution": {},
+  "generated_at": "2026-07-22T14:01:38Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 8,
     "in_progress_expected_count": 8,
@@ -100,7 +96,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -132,7 +128,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -164,7 +160,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -196,7 +192,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -228,7 +224,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -260,7 +256,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -292,7 +288,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -324,7 +320,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -356,7 +352,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -388,7 +384,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -420,7 +416,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -452,7 +448,7 @@
         }
       ],
       "no_rescue_truth_success": true,
-      "proxy_pr_signal": true,
+      "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
       "truth_state": "merged_pr",
@@ -501,8 +497,8 @@
   "proxy_metrics": {
     "attempted_issue_count": 13,
     "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
-    "proxy_pr_signal_issue_count": 12,
-    "proxy_pr_signal_issue_rate": 0.9231
+    "proxy_pr_signal_issue_count": 0,
+    "proxy_pr_signal_issue_rate": 0.0
   },
   "repo": "synaptent/aragora",
   "rescue_counts_by_type": {},

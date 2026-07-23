@@ -224,7 +224,7 @@ class TestCrossPollinationBridgeHandler:
         }
 
         with patch(
-            "aragora.events.arena_bridge.EVENT_TYPE_MAP",
+            "aragora.debate.arena_bridge.EVENT_TYPE_MAP",
             mock_event_map,
         ):
             result = await bridge_handler.get.__wrapped__(bridge_handler)
@@ -240,7 +240,7 @@ class TestCrossPollinationBridgeHandler:
         self, bridge_handler: CrossPollinationBridgeHandler
     ):
         """Bridge endpoint handles missing module gracefully."""
-        with patch.dict("sys.modules", {"aragora.events.arena_bridge": None}):
+        with patch.dict("sys.modules", {"aragora.debate.arena_bridge": None}):
             # Force ImportError
             with patch(
                 "aragora.server.handlers.cross_pollination.CrossPollinationBridgeHandler.get",

@@ -3,6 +3,9 @@
 # Add this file to your repository at: .github/workflows/aragora-review.yml
 #
 # For setup instructions, see: docs/GITHUB_ACTION_SETUP.md
+#
+# NOTE: this example predates emit-receipt (#8669); see receipt.yml for the
+# receipt-emitting variant.
 
 name: Aragora AI Code Review (Basic)
 
