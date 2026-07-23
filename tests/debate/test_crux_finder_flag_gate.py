@@ -1,8 +1,8 @@
 """Flag-gate tests for the crux_finder consensus mode (DIC-15 / #6025).
 
 These tests verify that ``ARAGORA_CRUX_FINDER_ENABLED`` (default off) guards
-the crux_finder consensus path and that the consensus_phase falls back to
-majority with a machine-readable metadata reason when the flag is absent.
+the crux_finder consensus path and that a missing flag raises
+``CruxFinderDisabledError`` before execution without falling back to majority.
 
 All tests are deterministic and require no live agents, no Arena, and no
 network access.
