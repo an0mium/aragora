@@ -845,7 +845,13 @@ class ClaudeAgent(CLIAgent):
         command unchanged when no pool/profile is available.
         """
         full_prompt = self._build_full_prompt(prompt, context)
-        command, used_profile = build_claude_command(["claude", "--print", "-p", "-"])
+        # Pin the CLI to the registered model: without --model the CLI runs
+        # whatever the active profile defaults to, and receipts would claim
+        # self.model while a different model answered.
+        base_command = ["claude", "--print"]
+        if self.model:
+            base_command += ["--model", self.model]
+        command, used_profile = build_claude_command([*base_command, "-p", "-"])
         # Pass prompt via stdin to avoid shell argument length limits.
         return await self._generate_with_fallback(
             command,
