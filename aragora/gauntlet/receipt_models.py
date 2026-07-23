@@ -13,6 +13,7 @@ The main receipt.py re-exports all models for backward compatibility.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import uuid
@@ -458,6 +459,91 @@ def build_crux_receipt_from_proof(
     )
 
 
+# Receipt schema version changelog:
+#   1.0 — original receipt schema
+#   1.1 — current baseline (agent responses, provenance enrichment)
+#   1.2 — carries a ``cruxes`` block (crux cards, #8227). Cruxes are bound
+#         into ``artifact_hash`` together with ``schema_version`` itself, so
+#         a 1.2→1.1 downgrade breaks verification instead of silently
+#         defeating the version signal.
+#
+# Hash-binding rule: ``cruxes`` is bound whenever present; ``schema_version``
+# is bound ONLY when it is exactly 1.2 (version-gated, not presence-gated).
+# Crux binding shipped on main (#9414) BEFORE the 1.2 stamp existed, so
+# already-persisted audit receipts carry cruxes with schema_version 1.1 and a
+# hash computed WITHOUT schema_version — those must keep verifying. Receipts
+# stamped 1.2 bind schema_version, so a downgrade to 1.1 breaks verification.
+# Pre-crux receipts (no cruxes) keep the original recipe untouched.
+RECEIPT_SCHEMA_VERSION = "1.1"
+RECEIPT_SCHEMA_VERSION_CRUXES = "1.2"
+
+
+def compute_receipt_artifact_hash(data: Any) -> str:
+    """Canonical ``artifact_hash`` recipe for a receipt-shaped mapping.
+
+    Single source of truth for the integrity hash: ``DecisionReceipt.
+    _calculate_hash`` and the standalone ``aragora verify`` command both
+    delegate here, so the hashed field set cannot drift between producer and
+    verifier. Covers the decision-integrity fields (receipt_id, gauntlet_id,
+    input_hash, risk_summary, verdict, confidence); binds ``cruxes`` whenever
+    present; and binds ``schema_version`` only for receipts stamped 1.2
+    (downgrade-tamper protection). The version binding is gated on the 1.2
+    stamp — NOT on crux presence — because #9414 shipped crux binding before
+    the stamp existed: receipts with cruxes + schema_version 1.1 hashed
+    without schema_version and must keep verifying (see changelog above).
+    """
+    if not isinstance(data, dict):
+        data = {}
+    payload: dict[str, Any] = {
+        "receipt_id": data.get("receipt_id", ""),
+        "gauntlet_id": data.get("gauntlet_id", ""),
+        "input_hash": data.get("input_hash", ""),
+        "risk_summary": data.get("risk_summary", {}),
+        "verdict": data.get("verdict", ""),
+        "confidence": data.get("confidence", 0.0),
+    }
+    if data.get("cruxes") is not None:
+        payload["cruxes"] = data.get("cruxes")
+        # Missing schema_version defaults to "1.0" (the from_dict convention)
+        # so the same JSON cannot hash two ways.
+        schema_version = data.get("schema_version", "1.0")
+        if schema_version == RECEIPT_SCHEMA_VERSION_CRUXES:
+            payload["schema_version"] = schema_version
+    content = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(content.encode()).hexdigest()
+
+
+def receipt_schema_version(cruxes: dict[str, Any] | None) -> str:
+    """Schema version for a receipt given its cruxes block.
+
+    Bumps to 1.2 exactly when a cruxes block is carried, giving older
+    verifiers a version signal instead of a spurious tampering report.
+    Shared by ``DecisionReceipt.from_debate_result`` and the CLI receipt
+    persistence so version and content cannot drift apart.
+    """
+    return RECEIPT_SCHEMA_VERSION_CRUXES if cruxes is not None else RECEIPT_SCHEMA_VERSION
+
+
+def crux_cards_from_metadata(metadata: Any) -> dict[str, Any] | None:
+    """Return the crux-cards block from debate-result metadata, or None.
+
+    Crux cards (#8227) are attached by the consensus phase when the debate ran
+    with ``enable_crux_cards``. The block is only carried into receipts when it
+    has items — a missing or empty block keeps flag-off receipts byte-identical
+    to pre-crux output. Returns a deep copy so receipts never alias the live
+    result metadata at any nesting depth (cruxes bind into ``artifact_hash``,
+    so a later nested mutation must not flip ``verify_integrity``). Shared by
+    ``DecisionReceipt.from_debate_result`` and the CLI receipt persistence so
+    this invariant cannot drift.
+    """
+    if not isinstance(metadata, dict):
+        return None
+    crux_cards = metadata.get("crux_cards")
+    if isinstance(crux_cards, dict) and crux_cards.get("items"):
+        return copy.deepcopy(crux_cards)
+    return None
+
+
 def _compute_risk_summary_from_critiques(
     critiques: list,
     dissenting_views: list,
@@ -584,24 +670,27 @@ class DecisionReceipt:
     def _calculate_hash(self) -> str:
         """Calculate content-addressable hash.
 
-        Versioned hash path: crux cards are audit-bearing content, so they
-        are bound into the integrity material when present — tampering with
-        a stored ``cruxes`` block breaks ``verify_integrity()``. Pre-crux
-        receipts (``cruxes is None``) hash exactly as before, so existing
-        stored hashes keep verifying.
+        Delegates to :func:`compute_receipt_artifact_hash` — the single
+        canonical recipe shared with ``aragora verify`` — so producer and
+        verifier cannot drift. Crux cards are audit-bearing content: when
+        present they are bound into the integrity material, and receipts
+        stamped 1.2 additionally bind ``schema_version`` (a 1.2→1.1 downgrade
+        breaks ``verify_integrity()``). Pre-crux receipts and pre-stamp
+        #9414-era crux receipts (schema 1.1) hash exactly as before, so
+        existing stored hashes keep verifying.
         """
-        payload: dict[str, Any] = {
-            "receipt_id": self.receipt_id,
-            "gauntlet_id": self.gauntlet_id,
-            "input_hash": self.input_hash,
-            "risk_summary": self.risk_summary,
-            "verdict": self.verdict,
-            "confidence": self.confidence,
-        }
-        if self.cruxes is not None:
-            payload["cruxes"] = self.cruxes
-        content = json.dumps(payload, sort_keys=True)
-        return hashlib.sha256(content.encode()).hexdigest()
+        return compute_receipt_artifact_hash(
+            {
+                "receipt_id": self.receipt_id,
+                "gauntlet_id": self.gauntlet_id,
+                "input_hash": self.input_hash,
+                "risk_summary": self.risk_summary,
+                "verdict": self.verdict,
+                "confidence": self.confidence,
+                "cruxes": self.cruxes,
+                "schema_version": self.schema_version,
+            }
+        )
 
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
@@ -1509,10 +1598,7 @@ class DecisionReceipt:
         # Crux cards (#8227): attached by the consensus phase when the debate
         # ran with enable_crux_cards. Only carried when items exist — a missing
         # or empty block keeps the receipt byte-identical to pre-crux output.
-        crux_cards = metadata.get("crux_cards")
-        cruxes: dict[str, Any] | None = None
-        if isinstance(crux_cards, dict) and crux_cards.get("items"):
-            cruxes = crux_cards
+        cruxes = crux_cards_from_metadata(metadata)
 
         # Determine verdict from consensus
         if zero_evidence:
@@ -1580,6 +1666,7 @@ class DecisionReceipt:
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
             cruxes=cruxes,
+            schema_version=receipt_schema_version(cruxes),
             config_used=config_used,
         )
 
