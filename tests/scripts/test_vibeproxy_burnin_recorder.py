@@ -248,7 +248,6 @@ def test_inference_resolves_alias_and_preserves_disclosure(
     [
         ("openai", "gpt-5.4-mini", "openai", "gpt-5.4-mini-2026-03-17"),
         ("grok", "grok-3-mini-fast", "xai", "grok-4.3"),
-        ("kimi", "kimi-k2", "moonshot", "k2"),
     ],
 )
 def test_inference_preserves_catalog_owner_alias_disclosure(
@@ -286,6 +285,36 @@ def test_inference_preserves_catalog_owner_alias_disclosure(
         "family": family,
         "preserved": True,
     }
+
+
+def test_inference_rejects_opaque_response_model_without_family_proof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient(
+        {"kimi-k2"},
+        owners={"kimi-k2": "moonshot"},
+    )
+    client.response_model = "k2"
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="kimi",
+        model="kimi-k2",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is True
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "family_identity_error"
+    assert result["record"]["identity_errors"] == [
+        "resolved_model_family_mismatch",
+        "response_model_family_mismatch",
+    ]
 
 
 def test_inference_rejects_cross_family_alias_response(

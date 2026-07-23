@@ -91,7 +91,7 @@ def test_alias_requires_disclosure() -> None:
     assert errors == ("missing_alias_disclosure",)
 
 
-def test_owner_bound_unknown_response_model_preserves_family_identity() -> None:
+def test_owner_bound_unknown_response_model_fails_closed() -> None:
     identity_ok, alias_ok, errors = verify_family_identity(
         family="kimi",
         requested_model="kimi-k2",
@@ -102,9 +102,12 @@ def test_owner_bound_unknown_response_model_preserves_family_identity() -> None:
         ok=True,
     )
 
-    assert identity_ok is True
+    assert identity_ok is False
     assert alias_ok is True
-    assert errors == ()
+    assert errors == (
+        "resolved_model_family_mismatch",
+        "response_model_family_mismatch",
+    )
 
 
 def test_owner_binding_cannot_override_known_cross_family_response() -> None:

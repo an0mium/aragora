@@ -130,22 +130,19 @@ def verify_family_identity(
     response_family = infer_model_family(response_model or "")
     disclosed_alias_family = (alias_family or "").strip().lower() or None
     alias_applied = requested_model != resolved_model
-    owner_bound_alias = alias_applied and disclosed_alias_family == normalized_family
 
     if not normalized_family:
         errors.append("missing_family")
     if requested_family != normalized_family:
         errors.append("requested_model_family_mismatch")
-    if resolved_family != normalized_family and not (resolved_family is None and owner_bound_alias):
+    if resolved_family != normalized_family:
         errors.append("resolved_model_family_mismatch")
     if ok:
         if response_model is None:
             errors.append("missing_response_model")
         elif response_model != resolved_model:
             errors.append("response_model_mismatch")
-        if response_family != normalized_family and not (
-            response_family is None and response_model == resolved_model and owner_bound_alias
-        ):
+        if response_family != normalized_family:
             errors.append("response_model_family_mismatch")
 
     if alias_applied:

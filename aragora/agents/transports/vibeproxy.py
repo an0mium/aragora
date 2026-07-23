@@ -505,8 +505,14 @@ class VibeProxyClient:
             OpenAIProtocol.RESPONSES: "/responses",
         }[protocol]
         body = self._request(path, timeout=timeout, payload=payload)
-        if not isinstance(body.get("model"), str) or not body["model"].strip():
+        response_model = body.get("model")
+        if not isinstance(response_model, str) or not response_model.strip():
             raise VibeProxyResponseError("VibeProxy alias response omitted its model identity")
+        response_owner = catalog.owner_for(response_model)
+        if response_owner is not None and response_owner != owner:
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model owner did not match the requested alias owner"
+            )
         return body
 
     def sanitized_status(self, *, force: bool = False) -> dict[str, Any]:
