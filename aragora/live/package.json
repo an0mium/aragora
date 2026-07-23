@@ -89,7 +89,7 @@
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "openapi-typescript": "^7.13.0",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.22",
     "tailwindcss": "4.3.2",
     "ts-jest": "^29.4.11",
     "typescript": "^5",
@@ -97,7 +97,7 @@
   },
   "overrides": {
     "sharp": "^0.35.3",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.22",
     "uuid": "^14.0.0",
     "brace-expansion": "^2.0.3"
   }
