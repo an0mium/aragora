@@ -11,6 +11,7 @@ from aragora.agents.transports.vibeproxy import (
     ResolvedModelRoute,
     TransportMode,
     VibeProxyCatalog,
+    VibeProxyResponseError,
     VibeProxyUnavailableError,
 )
 from scripts import vibeproxy_burnin_recorder as cli
@@ -425,6 +426,30 @@ def test_inference_rejects_response_without_unique_catalog_owner(
     assert result["record"]["ok"] is False
     assert result["record"]["clean"] is False
     assert result["record"]["error_class"] == "alias_disclosure_error"
+
+
+def test_inference_counts_missing_response_model_as_identity_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gpt-5.4-mini"})
+    client.failure = VibeProxyResponseError("VibeProxy alias response omitted its model identity")
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="openai",
+        model="gpt-5.4-mini",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["response_model"] is None
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "family_identity_error"
+    assert result["proof"]["gates"]["family_identity_errors"]["observed"] == 1
 
 
 @pytest.mark.parametrize(

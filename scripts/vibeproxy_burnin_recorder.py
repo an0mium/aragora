@@ -190,6 +190,8 @@ def _exception_error_class(exc: BaseException) -> str:
     value = str(exc).lower()
     if "owner disclosure" in value:
         return "alias_disclosure_error"
+    if "omitted its model identity" in value:
+        return "family_identity_error"
     if "response model owner did not match" in value:
         return "family_identity_error"
     if "response model did not match" in value:
