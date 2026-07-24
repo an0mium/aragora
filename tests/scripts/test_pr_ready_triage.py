@@ -310,6 +310,37 @@ def test_repeatable_branch_prefixes() -> None:
     assert _planned(summary) == [1, 2]
 
 
+def test_default_prefixes_cover_daily_benchmark_publication() -> None:
+    """The daily proof-surface publisher opens drafts nothing else promotes.
+
+    Every merge path filters drafts, so a publication PR left as a draft is
+    unmergeable by any automation and the recurring surface goes stale (#9519).
+    """
+    assert "benchmark-truth-publication/" in triage.DEFAULT_BRANCH_PREFIXES
+
+    summary, _, _ = _run(
+        [
+            _pr(1, head="benchmark-truth-publication/30099191641"),
+            _pr(2, head="feature/manual-work"),
+        ],
+        {1: _entry(1), 2: _entry(2)},
+        branch_prefixes=triage.DEFAULT_BRANCH_PREFIXES,
+    )
+    assert _planned(summary) == [1]
+
+
+def test_benchmark_publication_still_subject_to_tier_gate() -> None:
+    """Widening the prefix must not widen the tier band."""
+    summary, ready, _ = _run(
+        [_pr(1, head="benchmark-truth-publication/30099191641")],
+        {1: _entry(1, tier=4)},
+        apply=True,
+        branch_prefixes=triage.DEFAULT_BRANCH_PREFIXES,
+    )
+    assert summary["plan"] == []
+    assert ready.calls == []
+
+
 def test_young_pr_pruned_until_min_age() -> None:
     young = _pr(1, created="2026-06-12T11:45:00Z")  # 15m before NOW
     summary, _, packet_calls = _run([young], {1: _entry(1)}, min_age_minutes=30)

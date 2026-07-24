@@ -60,7 +60,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 DEFAULT_REPO = "synaptent/aragora"
-DEFAULT_BRANCH_PREFIXES = ("codex/",)
+# ``benchmark-truth-publication/`` is the daily proof-surface publisher
+# (.github/workflows/benchmark-truth-publication.yml), which always opens its PR
+# as a draft. Without promotion those PRs are invisible to every merge path
+# (all of which filter drafts), so the recurring surface silently goes stale —
+# the failure mode issue #9519 was filed for. Stage-2's tier and dissent gates
+# still decide; this only makes them reachable.
+DEFAULT_BRANCH_PREFIXES = ("codex/", "benchmark-truth-publication/")
 DEFAULT_MIN_AGE_MINUTES = 30
 DEFAULT_MAX_SCAN = 15
 DEFAULT_MAX_PROMOTIONS = 5
