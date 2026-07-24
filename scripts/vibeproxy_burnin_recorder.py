@@ -188,6 +188,10 @@ def _attempt_error_class(attempt: ClaudeVibeProxyAttempt) -> str:
 
 def _exception_error_class(exc: BaseException) -> str:
     value = str(exc).lower()
+    if "owner disclosure" in value:
+        return "alias_disclosure_error"
+    if "response model owner did not match" in value:
+        return "family_identity_error"
     if "response model did not match" in value:
         return "family_identity_error"
     if "401" in value:
@@ -309,7 +313,16 @@ def run_inference(
                 observed_model = body.get("model")
                 response_model = observed_model if isinstance(observed_model, str) else None
                 response_text, truncated = _openai_chat_response(body)
-                if response_model is not None and response_model != route.resolved_model:
+                response_owner = (
+                    catalog.owner_for(response_model)
+                    if response_model is not None and response_model in catalog.models
+                    else None
+                )
+                if response_model is not None and response_owner is None:
+                    error_class = "alias_disclosure_error"
+                elif response_model is not None and response_owner != catalog_owner:
+                    error_class = "family_identity_error"
+                elif response_model != route.resolved_model:
                     alias_family = catalog_family
                     alias_sources.append(f"VibeProxy /v1/models owned_by={catalog_owner}")
         if error_class is None:

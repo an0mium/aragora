@@ -508,8 +508,14 @@ class VibeProxyClient:
         response_model = body.get("model")
         if not isinstance(response_model, str) or not response_model.strip():
             raise VibeProxyResponseError("VibeProxy alias response omitted its model identity")
-        response_owner = catalog.owner_for(response_model)
-        if response_owner is not None and response_owner != owner:
+        response_owner = (
+            catalog.owner_for(response_model) if response_model in catalog.models else None
+        )
+        if response_owner is None or not _MODEL_OWNER_VALUE.fullmatch(response_owner):
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model catalog owner disclosure is invalid"
+            )
+        if response_owner != owner:
             raise VibeProxyUnavailableError(
                 "VibeProxy response model owner did not match the requested alias owner"
             )

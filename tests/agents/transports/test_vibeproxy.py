@@ -379,15 +379,6 @@ def test_openai_catalog_alias_request_returns_observed_model(
     client = vibeproxy.VibeProxyClient()
     monkeypatch.setattr(
         client,
-        "catalog",
-        lambda: vibeproxy.VibeProxyCatalog(
-            models=frozenset({"kimi-k2"}),
-            fetched_at=0,
-            model_owners=frozenset({("kimi-k2", "moonshot")}),
-        ),
-    )
-    monkeypatch.setattr(
-        client,
         "_request",
         lambda *_args, **_kwargs: {
             "model": "k2",
@@ -399,15 +390,65 @@ def test_openai_catalog_alias_request_returns_observed_model(
         protocol=vibeproxy.OpenAIProtocol.CHAT,
         model="kimi-k2",
         catalog=vibeproxy.VibeProxyCatalog(
-            models=frozenset({"kimi-k2"}),
+            models=frozenset({"kimi-k2", "k2"}),
             fetched_at=0,
-            model_owners=frozenset({("kimi-k2", "moonshot")}),
+            model_owners=frozenset(
+                {
+                    ("kimi-k2", "moonshot"),
+                    ("k2", "moonshot"),
+                }
+            ),
         ),
         payload={"model": "kimi-k2", "messages": []},
         timeout=1.0,
     )
 
     assert body["model"] == "k2"
+
+
+@pytest.mark.parametrize(
+    ("response_models", "response_owners"),
+    [
+        (frozenset(), frozenset()),
+        (
+            frozenset({"k2"}),
+            frozenset(
+                {
+                    ("k2", "moonshot"),
+                    ("k2", "openai"),
+                }
+            ),
+        ),
+    ],
+)
+def test_openai_catalog_alias_request_rejects_response_without_unique_owner(
+    response_models: frozenset[str],
+    response_owners: frozenset[tuple[str, str]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = vibeproxy.VibeProxyClient()
+    catalog = vibeproxy.VibeProxyCatalog(
+        models=frozenset({"kimi-k2"}) | response_models,
+        fetched_at=0,
+        model_owners=frozenset({("kimi-k2", "moonshot")}) | response_owners,
+    )
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda *_args, **_kwargs: {
+            "model": "k2",
+            "choices": [{"message": {"content": "ok"}}],
+        },
+    )
+
+    with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="owner disclosure"):
+        client.openai_catalog_alias_request(
+            protocol=vibeproxy.OpenAIProtocol.CHAT,
+            model="kimi-k2",
+            catalog=catalog,
+            payload={"model": "kimi-k2", "messages": []},
+            timeout=1.0,
+        )
 
 
 def test_openai_catalog_alias_request_rejects_owner_drift(

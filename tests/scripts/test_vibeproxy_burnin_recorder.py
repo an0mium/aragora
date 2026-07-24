@@ -43,6 +43,7 @@ class _InferenceClient:
         models: set[str],
         *,
         owners: dict[str, str] | None = None,
+        owner_entries: frozenset[tuple[str, str]] | None = None,
     ) -> None:
         self.models = frozenset(models)
         default_owners = {
@@ -62,6 +63,11 @@ class _InferenceClient:
             for model in models
         }
         self.owners = default_owners if owners is None else owners
+        self.owner_entries = (
+            frozenset((model, owner) for model, owner in self.owners.items() if owner)
+            if owner_entries is None
+            else owner_entries
+        )
         self.response_model: str | None = None
         self.response_text = "ARAGORA_VIBEPROXY_BURNIN_OK"
         self.failure: BaseException | None = None
@@ -71,7 +77,7 @@ class _InferenceClient:
         return VibeProxyCatalog(
             models=self.models,
             fetched_at=0,
-            model_owners=frozenset((model, owner) for model, owner in self.owners.items() if owner),
+            model_owners=self.owner_entries,
         )
 
     def openai_catalog_alias_request(
@@ -259,8 +265,11 @@ def test_inference_preserves_catalog_owner_alias_disclosure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _InferenceClient(
-        {requested_model},
-        owners={requested_model: catalog_owner},
+        {requested_model, response_model},
+        owners={
+            requested_model: catalog_owner,
+            response_model: catalog_owner,
+        },
     )
     client.response_model = response_model
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
@@ -292,8 +301,11 @@ def test_inference_rejects_opaque_response_model_without_family_proof(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _InferenceClient(
-        {"kimi-k2"},
-        owners={"kimi-k2": "moonshot"},
+        {"kimi-k2", "k2"},
+        owners={
+            "kimi-k2": "moonshot",
+            "k2": "moonshot",
+        },
     )
     client.response_model = "k2"
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
@@ -322,8 +334,11 @@ def test_inference_rejects_cross_family_alias_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _InferenceClient(
-        {"grok-3-mini-fast"},
-        owners={"grok-3-mini-fast": "xai"},
+        {"grok-3-mini-fast", "gpt-5.5"},
+        owners={
+            "grok-3-mini-fast": "xai",
+            "gpt-5.5": "openai",
+        },
     )
     client.response_model = "gpt-5.5"
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
@@ -338,7 +353,7 @@ def test_inference_rejects_cross_family_alias_response(
     )
 
     assert code == 1
-    assert result["record"]["ok"] is True
+    assert result["record"]["ok"] is False
     assert result["record"]["clean"] is False
     assert result["record"]["error_class"] == "family_identity_error"
     assert "resolved_model_family_mismatch" in result["record"]["identity_errors"]
@@ -354,6 +369,52 @@ def test_inference_rejects_missing_catalog_owner_disclosure(
     code, result = cli.run_inference(
         family="openai",
         model="gpt-5.4-mini",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "alias_disclosure_error"
+
+
+@pytest.mark.parametrize(
+    ("response_in_catalog", "response_owner_entries"),
+    [
+        (False, frozenset()),
+        (
+            True,
+            frozenset(
+                {
+                    ("gpt-5.4-mini-2026-03-17", "openai"),
+                    ("gpt-5.4-mini-2026-03-17", "xai"),
+                }
+            ),
+        ),
+    ],
+)
+def test_inference_rejects_response_without_unique_catalog_owner(
+    response_in_catalog: bool,
+    response_owner_entries: frozenset[tuple[str, str]],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested_model = "gpt-5.4-mini"
+    response_model = "gpt-5.4-mini-2026-03-17"
+    client = _InferenceClient(
+        {requested_model, *([response_model] if response_in_catalog else [])},
+        owners={requested_model: "openai"},
+        owner_entries=frozenset({(requested_model, "openai")}) | response_owner_entries,
+    )
+    client.response_model = response_model
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="openai",
+        model=requested_model,
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
