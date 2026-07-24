@@ -16,7 +16,7 @@ that order.
 - Plan SHA-256:
   `4a3adbc45ca347b457b30bd0adb923d77cc1b208b5f7aa33792aadf1c712f071`
 - Issue: `#9577`
-- Pull request: not created yet
+- Pull request: draft `#9591`
 - Staging base: `c7c4681eb08d5e7c7966d10dfba3a1520d671319`
 - Lease: `00ea44f4-78d`
 - Run mode: finite, two batches, eight-hour lease budget
@@ -24,18 +24,12 @@ that order.
 
 ## Current state
 
-Batch 0 staging is in progress. The isolated worktree, branch, lease, and lane
-claim exist. Only planning/recovery files have been added. No product,
-workflow, test, package, or lockfile edit has been made.
+Batch 0 staging is complete. The isolated worktree, branch, lease, shared lane
+claim, and draft PR #9591 exist. Only planning/recovery files have been added.
+No product, workflow, test, package, or lockfile edit has been made.
 
-The immediate remaining staging work is:
-
-1. validate these recovery artifacts;
-2. commit and push the docs-only setup;
-3. open a draft PR for issue #9577;
-4. record the PR number in recovery artifacts and refresh the lane/lease;
-5. rerun preflight and push the final staging tip;
-6. stop with the launch prompt.
+The next action is a separate launch call. Re-read all state, set the Stop Gate
+to **no**, run every live-state tripwire, and execute Batch 1.
 
 ## Stop Gate
 

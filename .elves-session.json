@@ -7,15 +7,15 @@
   "merge_mode": "user-merges",
   "time_budget_hours": 8,
   "hard_stop": null,
-  "status": "staging",
+  "status": "staged",
   "branch": "codex/node24-runtime-contract-9577",
   "worktree": "$HOME/.codex/worktrees/node24-runtime-contract-9577/aragora",
   "base_ref": "origin/main",
   "base_sha": "c7c4681eb08d5e7c7966d10dfba3a1520d671319",
-  "head_sha": "c7c4681eb08d5e7c7966d10dfba3a1520d671319",
+  "head_sha_at_last_checkpoint": "ce5a3524c5f5e75e1ca1148b87b18ce8766a147c",
   "issue_number": 9577,
-  "pr_number": null,
-  "pr_url": null,
+  "pr_number": 9591,
+  "pr_url": "https://github.com/synaptent/aragora/pull/9591",
   "lease_id": "00ea44f4-78d",
   "lease_owner": "elves-node-runtime-contract-9577-20260724",
   "plan_path": "docs/plans/2026-07-24-node-runtime-contract-9577.md",
@@ -41,16 +41,16 @@
     "remaining_batches": 2,
     "stop_allowed": true,
     "reason": "Elves staging and implementation require separate assistant calls",
-    "next_required_action": "Finish docs-only staging, open the draft PR, then await the launch call"
+    "next_required_action": "Await the separate launch call; then set stop_allowed false and execute Batch 1"
   },
   "validation": {
     "baseline": "not captured; capture immediately after the launch gate",
-    "latest": "staging artifact validation pending"
+    "latest": "plan hash, JSON, diff check, repository hooks, lease verification, and automation preflight passed"
   },
   "independent_review": {
     "status": "pending",
     "mode": "non-countable local review; no Fable or inference consult"
   },
   "active_compute": [],
-  "last_updated": "2026-07-24T23:50:33Z"
+  "last_updated": "2026-07-24T23:54:30Z"
 }
