@@ -34,26 +34,26 @@ modules:
   # --- core (21) ---
   - name: agents
     tier: core
-    py_files: 85
+    py_files: 89
     importer_count: 185
-    test_file_count: 176
+    test_file_count: 182
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
     py_files: 40
-    importer_count: 158
+    importer_count: 159
     test_file_count: 126
   - name: cli
     tier: core
-    py_files: 122
+    py_files: 123
     importer_count: 9
-    test_file_count: 153
+    test_file_count: 155
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 18
     importer_count: 368
-    test_file_count: 91
+    test_file_count: 92
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
@@ -63,7 +63,7 @@ modules:
   - name: core
     tier: core
     py_files: 19
-    importer_count: 205
+    importer_count: 206
     test_file_count: 196
     override_reason: "root type hierarchy + Agent base class"
   - name: db
@@ -74,9 +74,9 @@ modules:
     override_reason: "database abstraction"
   - name: debate
     tier: core
-    py_files: 267
+    py_files: 268
     importer_count: 163
-    test_file_count: 614
+    test_file_count: 617
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
@@ -85,9 +85,9 @@ modules:
     test_file_count: 64
   - name: gauntlet
     tier: core
-    py_files: 39
-    importer_count: 65
-    test_file_count: 116
+    py_files: 40
+    importer_count: 68
+    test_file_count: 120
   - name: knowledge
     tier: core
     py_files: 179
@@ -107,7 +107,7 @@ modules:
   - name: observability
     tier: core
     py_files: 92
-    importer_count: 191
+    importer_count: 193
     test_file_count: 61
   - name: pipeline
     tier: core
@@ -128,8 +128,8 @@ modules:
   - name: reasoning
     tier: core
     py_files: 21
-    importer_count: 120
-    test_file_count: 112
+    importer_count: 121
+    test_file_count: 113
   - name: resilience
     tier: core
     py_files: 13
@@ -138,8 +138,8 @@ modules:
   - name: server
     tier: core
     py_files: 1123
-    importer_count: 151
-    test_file_count: 1895
+    importer_count: 150
+    test_file_count: 1897
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
@@ -218,7 +218,7 @@ modules:
     tier: integrated
     py_files: 41
     importer_count: 8
-    test_file_count: 49
+    test_file_count: 50
   - name: compat
     tier: integrated
     py_files: 13
@@ -226,9 +226,9 @@ modules:
     test_file_count: 16
   - name: compliance
     tier: integrated
-    py_files: 10
+    py_files: 12
     importer_count: 20
-    test_file_count: 20
+    test_file_count: 22
   - name: computer_use
     tier: integrated
     py_files: 9
@@ -258,7 +258,7 @@ modules:
     tier: integrated
     py_files: 22
     importer_count: 12
-    test_file_count: 26
+    test_file_count: 28
   - name: essay
     tier: integrated
     py_files: 6
@@ -459,7 +459,7 @@ modules:
     tier: integrated
     py_files: 20
     importer_count: 42
-    test_file_count: 11
+    test_file_count: 12
   - name: pulse
     tier: integrated
     py_files: 10
@@ -497,9 +497,9 @@ modules:
     test_file_count: 41
   - name: routing
     tier: integrated
-    py_files: 14
+    py_files: 15
     importer_count: 13
-    test_file_count: 26
+    test_file_count: 29
   - name: runtime
     tier: integrated
     py_files: 3
@@ -549,7 +549,7 @@ modules:
     tier: integrated
     py_files: 126
     importer_count: 32
-    test_file_count: 201
+    test_file_count: 202
   - name: templates
     tier: integrated
     py_files: 1
@@ -649,9 +649,9 @@ modules:
     test_file_count: 3
   - name: models
     tier: experimental
-    py_files: 2
-    importer_count: 0
-    test_file_count: 1
+    py_files: 3
+    importer_count: 8
+    test_file_count: 4
   - name: moderation
     tier: experimental
     py_files: 2
