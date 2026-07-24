@@ -23,6 +23,7 @@ from __future__ import annotations
 import pytest
 
 from aragora.swarm.quorum_evidence import (
+    TIER_3_4_COUNTED_FAMILIES,
     WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES,
     tier_quorum_rule,
@@ -61,8 +62,26 @@ def test_tier3_4_are_western_only_counted(tier):
     assert rule.is_satisfied_by({"claude", "openai"}) is True
     assert rule.is_satisfied_by({"claude", "deepseek"}) is False
     assert rule.is_satisfied_by({"deepseek", "qwen"}) is False
+    # mistral and hermes are Western but advisory-only at Tier 3-4 (operator
+    # decision 2026-07-11): they do not count toward the two-signal bar.
+    assert rule.is_satisfied_by({"mistral", "hermes"}) is False
+    assert rule.is_satisfied_by({"claude", "mistral"}) is False  # only claude counts
+    assert rule.is_satisfied_by({"claude", "hermes"}) is False
+    # gemini and grok DO count at Tier 3-4.
+    assert rule.is_satisfied_by({"gemini", "grok"}) is True
+    assert rule.is_satisfied_by({"claude", "gemini"}) is True
     # The flag never relaxes Tier 3-4.
     assert tier_quorum_rule(tier, tiered_gate=True).western_only_counted is True
+
+
+def test_tier3_4_counted_families_excludes_mistral_hermes():
+    """TIER_3_4_COUNTED_FAMILIES is the frontier-grade Western subset."""
+    assert TIER_3_4_COUNTED_FAMILIES == {"claude", "openai", "gemini", "grok"}
+    # Strict subset of the broader Western set (which mistral/hermes remain in
+    # for the Tier 2 "at least one Western" bar).
+    assert TIER_3_4_COUNTED_FAMILIES < WESTERN_FAMILIES
+    assert {"mistral", "hermes"} & TIER_3_4_COUNTED_FAMILIES == set()
+    assert {"mistral", "hermes"} <= WESTERN_FAMILIES
 
 
 def test_unknown_tier_fails_safe_to_western_only():
