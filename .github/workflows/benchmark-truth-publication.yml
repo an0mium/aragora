@@ -332,17 +332,23 @@ jobs:
 
       - name: Sync docs-site mirrors
         shell: bash
-        # Deliberately uncredentialed and separate from the publish step: the
-        # rendered status pages are mirrored into docs-site, and docs-build.yml
-        # fails closed when a docs/** change lands without its mirror ("Ensure
-        # docs are synced"). Publishing without this leaves every daily PR red
-        # on `build` and, once merged, hands that red to the next unrelated
-        # docs PR. Running the same generators docs-build runs — in the same
-        # order — is what makes the published tree satisfy that gate; keeping
-        # it out of the publish step keeps repository JavaScript away from the
-        # PAT and makes a sync failure attributable in the run log.
+        # Scope: repair the mirror drift this workflow itself creates, nothing
+        # more. The status pages it renders are mirrored into docs-site, and
+        # docs-build.yml fails closed when a docs/** change lands without its
+        # mirror — so without this every daily PR is red on `build` and, once
+        # merged, hands that red to the next unrelated docs PR.
+        #
+        # This deliberately does NOT re-implement docs-build's full closure
+        # (doc_stats, capability-matrix, legacy-entrypoint and CLI-reference
+        # checks). Chasing parity here means re-deriving another job's gate
+        # inside a publisher that cannot see it change, and pre-existing drift
+        # from elsewhere is not this workflow's to absorb. docs-build stays the
+        # authority; this only stops the publisher from being a drift source.
+        #
+        # Uncredentialed and separate from the publish step so repository
+        # JavaScript never runs alongside the PAT, and a sync failure is
+        # attributable in the run log.
         run: |
-          python3 scripts/doc_stats.py --write
           cd docs-site && node scripts/sync-docs.js
 
       - name: Publish workflow summary
@@ -370,9 +376,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage the whole mirror tree, not just this workflow's two pages:
-          # the gate in docs-build.yml is a whole-tree `git diff --quiet` after
-          # running the same generators, so a partial stage still reds `build`.
           git add \
             docs/benchmarks/benchmark_corpus_freshness.json \
             docs/benchmarks/rescue_productization.json \
@@ -381,19 +384,14 @@ jobs:
             docs/status/generated/benchmark_scorecards \
             docs/status/generated/benchmark_truth_artifacts \
             docs/status/generated/rescue_productization
-          git add -A docs-site/docs
 
-          # The generators may touch tracked docs/** outside the allowlist
-          # above (doc_stats rewrites embedded counts). Anything they moved but
-          # we did not stage would ship a PR that fails the very gate this
-          # sync exists to satisfy, so fail loudly instead of publishing a
-          # known-red surface — the workflow must be able to detect its own
-          # incompleteness.
-          if ! git diff --quiet -- docs docs-site; then
-            echo "::error::generator output left unstaged; publication would fail docs-build"
-            git --no-pager diff --stat -- docs docs-site
-            exit 1
-          fi
+          # Stage every mirror the sync rewrote, not a hand-listed subset —
+          # sync-docs also regenerates category index pages, and naming only
+          # the two status mirrors would leave the rest dirty. `-u` restricts
+          # this to tracked files: the checkout runs with `clean: false`, so
+          # `-A` here could sweep untracked leftovers from earlier runs into
+          # the publication commit.
+          git add -u docs-site/docs
 
           if git diff --cached --quiet; then
             echo "No recurring trust-loop surface changes to commit."

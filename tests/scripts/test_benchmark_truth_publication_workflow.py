@@ -193,38 +193,35 @@ def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
 
 
 def test_publisher_syncs_docs_site_mirrors_before_staging() -> None:
-    """The publisher must satisfy the docs gate it will be judged by.
+    """The publisher must not be a source of docs-site mirror drift.
 
-    ``docs-build.yml`` runs ``doc_stats.py --write`` then ``sync-docs.js`` and
-    diffs the whole tree, so a publication that skips the sync — or stages only
-    part of its output — reds the ``build`` check on every daily PR and hands
-    that red to the next unrelated docs PR once merged. Mirroring was a manual
-    add-on until #9519 follow-through.
+    ``docs-build.yml`` fails closed when a ``docs/**`` change lands without its
+    mirror, so a publication that skips the sync reds ``build`` on every daily
+    PR and hands that red to the next unrelated docs PR once merged. Mirroring
+    was a manual add-on until #9519 follow-through.
+
+    Scope is deliberately narrow: repair the drift this workflow creates, not
+    re-implement docs-build's full closure. docs-build stays the authority.
     """
     names = [str(step.get("name", "")) for step in _benchmark_truth_publication_steps()]
-    sync_step = _workflow_step("Sync docs-site mirrors")
-    sync_run = str(sync_step.get("run", ""))
+    sync_run = str(_workflow_step("Sync docs-site mirrors").get("run", ""))
 
-    # Same generators as the gate, in the same order.
-    assert "python3 scripts/doc_stats.py --write" in sync_run
     assert "node scripts/sync-docs.js" in sync_run
-    assert sync_run.index("doc_stats.py") < sync_run.index("sync-docs.js")
 
-    # Step ordering, not string position: the sync must precede publication,
-    # and node must be provisioned rather than assumed on the self-hosted
-    # runner (its toolchain is known-unreliable).
+    # Step ordering, not string offsets: an offset check cannot tell that the
+    # sync moved after a later staging line. node is provisioned rather than
+    # assumed — the self-hosted runner's toolchain already needs two recovery
+    # hacks in this job.
     publish = "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
     assert names.index("Setup Node") < names.index("Sync docs-site mirrors")
     assert names.index("Sync docs-site mirrors") < names.index(publish)
-    assert _workflow_step("Setup Node").get("uses", "").startswith("actions/setup-node@")
-
-    # The sync must not run inside the step holding the publication PAT.
-    assert "sync-docs.js" not in str(_workflow_step(publish).get("run", ""))
+    assert str(_workflow_step("Setup Node").get("uses", "")).startswith("actions/setup-node@")
 
     publish_run = str(_workflow_step(publish).get("run", ""))
-    # Stage the whole mirror tree: the gate is a whole-tree diff, so staging
-    # only this workflow's two pages still leaves the PR red.
-    assert "git add -A docs-site/docs" in publish_run
-    # And fail loudly if the generators moved anything left unstaged.
-    assert "git diff --quiet -- docs docs-site" in publish_run
-    assert "publication would fail docs-build" in publish_run
+    # Repository JavaScript must not run in the step holding the PAT.
+    assert "sync-docs.js" not in publish_run
+    # Stage every mirror the sync rewrote (it regenerates category indexes too),
+    # but tracked-only: the checkout uses `clean: false`, so `-A` could sweep
+    # untracked leftovers from earlier runs into the publication commit.
+    assert "git add -u docs-site/docs" in publish_run
+    assert "git add -A docs-site" not in publish_run
