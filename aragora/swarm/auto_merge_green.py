@@ -189,16 +189,29 @@ def _rollup_recency(item: dict[str, Any]) -> tuple[str, str]:
     Timestamps are ISO-8601 UTC as returned by ``gh``, so lexical order is
     chronological order. Rows missing both stamps rank lowest and are treated
     as unrankable by the caller.
+
+    ``startedAt`` is deliberately the primary key. A run that is still in
+    flight has **no** ``completedAt``, so ordering on completion first would
+    rank the current run below a stale row that has already finished — letting
+    an old ``SUCCESS`` outrank a re-run that is still deciding, which is the
+    very hazard this reduction exists to prevent. Every row has a start time,
+    and the most recently *started* run is the current one.
     """
-    return (str(item.get("completedAt") or ""), str(item.get("startedAt") or ""))
+    return (str(item.get("startedAt") or ""), str(item.get("completedAt") or ""))
 
 
 def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
     """Collapse a status-check rollup to one state per check name.
 
     Newest row per name wins. When two rows for a name are not comparable by
-    recency (equal or absent timestamps), a failing state wins over a
-    non-failing one so an unprovable success can never authorise a merge.
+    recency (equal or absent timestamps), **any non-success state wins over
+    ``SUCCESS``** — not merely an explicitly failing one. ``PENDING``,
+    ``QUEUED``, ``IN_PROGRESS`` and unknown/empty states are all "not yet
+    proven green", and a success that cannot be shown to be the current row
+    must never be what authorises an unattended merge.
+
+    States are upper-cased so this reduction cannot be bypassed by casing,
+    matching the normalisation the cheap prefilter applies.
     """
     best: dict[str, tuple[tuple[str, str], str]] = {}
     for item in rollup or []:
@@ -208,7 +221,7 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
         if not name:
             continue
         name = str(name)
-        state = str(item.get("conclusion") or item.get("state") or item.get("status") or "")
+        state = str(item.get("conclusion") or item.get("state") or item.get("status") or "").upper()
         recency = _rollup_recency(item)
 
         previous = best.get(name)
@@ -219,9 +232,9 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
         previous_recency, previous_state = previous
         if recency > previous_recency:
             best[name] = (recency, state)
-        elif recency == previous_recency and state in _FAILING_CHECK_STATES:
-            # Same (or unknown) recency: prefer the failing row. Ties must not
-            # be resolved by input order, which is exactly the old defect.
+        elif recency == previous_recency and previous_state == "SUCCESS" and state != "SUCCESS":
+            # Unrankable tie: keep the non-success row. Resolving ties by input
+            # order is exactly the defect this reduction exists to remove.
             best[name] = (previous_recency, state)
 
     return {name: state for name, (_, state) in best.items()}

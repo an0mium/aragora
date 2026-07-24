@@ -372,3 +372,79 @@ def test_stale_success_blocks_the_actual_merge_decision():
     merged_states["aragora-merge-quorum"] = stale.check_states["aragora-merge-quorum"]
     decision = decide_auto_merge(dataclasses.replace(ctx, check_states=merged_states))
     assert decision.should_merge is False
+
+
+def test_in_flight_current_run_outranks_stale_completed_success():
+    """A re-run still in flight must not lose to a stale completed SUCCESS.
+
+    Regression on the first attempt at this fix: ranking on ``completedAt``
+    first put an in-progress row (which has none) *below* an older finished
+    row, so a stale SUCCESS won and the merge read as green while the current
+    quorum run was still deciding.
+    """
+    view = {
+        "statusCheckRollup": [
+            {
+                "name": "aragora-merge-quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": None,
+                "startedAt": "2026-07-24T22:00:00Z",
+                "completedAt": None,
+            },
+            _quorum_row("SUCCESS", "2026-07-24T18:43:02Z"),
+        ]
+    }
+    assert context_from_gh(view, {"tier": 2}).check_states["aragora-merge-quorum"] != "SUCCESS"
+
+
+def test_completed_rerun_still_beats_older_in_flight_row():
+    """Ordering by start time must not flip the legitimate rerun case."""
+    view = {
+        "statusCheckRollup": [
+            {
+                "name": "aragora-merge-quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": None,
+                "startedAt": "2026-07-24T18:00:00Z",
+                "completedAt": None,
+            },
+            _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+        ]
+    }
+    assert context_from_gh(view, {"tier": 2}).check_states["aragora-merge-quorum"] == "SUCCESS"
+
+
+@pytest.mark.parametrize("blocking", ["PENDING", "QUEUED", "IN_PROGRESS", ""])
+def test_untimestamped_success_loses_to_any_non_success(blocking):
+    """An unrankable SUCCESS must not beat *any* non-success row.
+
+    Review finding: the first tie-break only preferred explicitly failing
+    states, so PENDING/QUEUED/IN_PROGRESS/unknown could still lose to an
+    untimestamped SUCCESS purely on input order.
+    """
+    rows = [
+        {"name": "aragora-merge-quorum", "conclusion": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "status": blocking, "conclusion": None},
+    ]
+    assert (
+        context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states[
+            "aragora-merge-quorum"
+        ]
+        != "SUCCESS"
+    )
+    assert (
+        context_from_gh({"statusCheckRollup": list(reversed(rows))}, {"tier": 2}).check_states[
+            "aragora-merge-quorum"
+        ]
+        != "SUCCESS"
+    )
+
+
+def test_rollup_states_are_case_normalised():
+    """Lower-cased states must not slip past the reduction or the decision."""
+    rows = [
+        {"name": "aragora-merge-quorum", "conclusion": "success"},
+        {"name": "aragora-merge-quorum", "conclusion": "failure"},
+    ]
+    states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
+    assert states["aragora-merge-quorum"] == "FAILURE"
