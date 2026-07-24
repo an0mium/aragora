@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import ast
 import subprocess
+import sys
+from types import ModuleType
 from pathlib import Path
 
 import pytest
 
 from aragora.cli.commands import review_queue
+from scripts import generate_contract_drift_inventory
 from scripts import tier4_merge_train
 
 
@@ -52,6 +55,7 @@ MATCHER_BASE = "6137552e4419862b895b096eef1ae36ff8ad210a"
 MATCHER_MERGE = "e8a0d165242737d3226b6d3360aa9e8ec014fd75"
 MATCHER_TREE = "65c567a51ed4d19d411b9f874163e8a39675d396"
 STAGE1_MERGE = "9482fc2dffdb6425d2405389c13f46d5954ac467"
+QUORUM_EVIDENCE_PATH = "aragora/swarm/quorum_evidence.py"
 
 
 def _assignment_node(source: str, assignment_name: str) -> ast.Assign | ast.AnnAssign:
@@ -303,6 +307,116 @@ def test_executable_authority_dependencies_are_tier4(path: str) -> None:
     assert tier == 4, path
     assert tier4_merge_train.matches_serialized_path(path) == path
     assert path not in review_queue.CONTRACT_DRIFT_AUTHORITY_PREFIXES
+
+
+def test_quorum_evidence_module_imports_do_not_resolve_below_tier4(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    ref = _git_text(repo_root, "rev-parse", "HEAD").strip()
+    extraction_root = tmp_path / "exact-ref"
+    generate_contract_drift_inventory._extract_exact_ref(
+        repo_root,
+        ref,
+        extraction_root,
+    )
+    imported_paths = sorted(
+        {
+            path
+            for path, _kind in generate_contract_drift_inventory._python_import_edges(
+                extraction_root,
+                QUORUM_EVIDENCE_PATH,
+                include_function_bodies=False,
+            )
+        }
+    )
+    policy = generate_contract_drift_inventory._invoke_exact_ref_policy(
+        extraction_root,
+        imported_paths,
+        scratch_root=tmp_path / "classifier-scratch",
+    )
+    classifications = {item["path"]: item for item in policy.get("classifications", [])}
+
+    assert set(classifications) == set(imported_paths)
+    below_tier4 = sorted(
+        path for path, classification in classifications.items() if classification.get("tier") != 4
+    )
+    assert below_tier4 == []
+
+
+def _install_fake_claude_vibeproxy_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[tuple[str, dict[str, object]]], object]:
+    calls: list[tuple[str, dict[str, object]]] = []
+    result = object()
+    transport = ModuleType("aragora.agents.transports.claude_vibeproxy")
+
+    def fake_run(prompt: str, **kwargs: object) -> object:
+        calls.append((prompt, kwargs))
+        return result
+
+    setattr(transport, "run_claude_vibeproxy", fake_run)
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.agents.transports.claude_vibeproxy",
+        transport,
+    )
+    return calls, result
+
+
+def test_quorum_evidence_lazy_delegate_omits_unset_model_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm import quorum_evidence
+
+    calls, expected_result = _install_fake_claude_vibeproxy_transport(monkeypatch)
+    policy = object()
+
+    result = quorum_evidence.run_claude_vibeproxy(
+        "review prompt",
+        reviewer_timeout=17.5,
+        policy=policy,
+    )
+
+    assert result is expected_result
+    assert calls == [
+        (
+            "review prompt",
+            {
+                "reviewer_timeout": 17.5,
+                "policy": policy,
+            },
+        )
+    ]
+
+
+def test_quorum_evidence_lazy_delegate_forwards_explicit_model_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.swarm import quorum_evidence
+
+    calls, expected_result = _install_fake_claude_vibeproxy_transport(monkeypatch)
+    policy = object()
+    explicit_model = "claude-opus-4-8/custom:exact"
+
+    result = quorum_evidence.run_claude_vibeproxy(
+        "review prompt",
+        reviewer_timeout=23.25,
+        model=explicit_model,
+        policy=policy,
+    )
+
+    assert result is expected_result
+    assert calls == [
+        (
+            "review prompt",
+            {
+                "reviewer_timeout": 23.25,
+                "model": explicit_model,
+                "policy": policy,
+            },
+        )
+    ]
 
 
 @pytest.mark.parametrize("path", UNRELATED_SIBLING_PATHS)

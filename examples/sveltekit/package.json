@@ -26,6 +26,6 @@
   },
   "overrides": {
     "cookie": "^0.7.0",
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.22"
   }
 }

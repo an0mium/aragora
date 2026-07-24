@@ -2448,7 +2448,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
@@ -4337,12 +4337,17 @@ class TestFounderRosterDirective20260716:
 
         assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
 
-    def test_kimi_lane_stays_on_k26_until_k3_is_catalogued(self):
-        # The record defers the K3 upgrade until K3 has live verification and a
-        # catalog entry (aragora/models/catalog.py, tracked by #9348).
+    def test_kimi_lane_uses_the_catalogued_slug(self):
+        # The record deferred the upgrade only until the model had a catalog
+        # entry; aragora/models/catalog.py now carries kimi-k2.7-code, so the
+        # lane follows the catalog. The invariant that survives the deferral is
+        # that the reviewer slug must always BE catalogued.
+        from aragora.models import by_any_id
         from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
 
-        assert _OPENROUTER_REVIEWER_MODELS["kimi"] == "moonshotai/kimi-k2.6"
+        slug = _OPENROUTER_REVIEWER_MODELS["kimi"]
+        assert slug == "moonshotai/kimi-k2.7-code"
+        assert by_any_id(slug) is not None, f"reviewer slug {slug} is not in the model catalog"
 
     def test_family_classification_is_total_and_disjoint(self):
         # Explicit, total taxonomy: every recognized family belongs to exactly

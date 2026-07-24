@@ -49,7 +49,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
@@ -59,10 +59,34 @@ from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
 )
-from aragora.agents.transports.claude_vibeproxy import run_claude_vibeproxy
 from aragora.swarm import merge_quorum_io
 
+if TYPE_CHECKING:
+    from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
+
 logger = logging.getLogger(__name__)
+
+
+def run_claude_vibeproxy(
+    prompt: str,
+    *,
+    reviewer_timeout: float,
+    model: str | None = None,
+    policy: Any = None,
+) -> ClaudeVibeProxyAttempt:
+    """Call the VibeProxy transport without loading it during module import."""
+    from aragora.agents.transports.claude_vibeproxy import (
+        run_claude_vibeproxy as run_transport,
+    )
+
+    transport_kwargs = {
+        "reviewer_timeout": reviewer_timeout,
+        "policy": policy,
+    }
+    if model is not None:
+        transport_kwargs["model"] = model
+    return run_transport(prompt, **transport_kwargs)
+
 
 # Direct model families whose name appears in the evidence heading and is
 # recognized by the quorum identity resolver as a countable model reviewer.
@@ -123,6 +147,22 @@ ADVISORY_ONLY_FAMILIES: frozenset[str] = frozenset(("gemini",))
 # 3-4) are distinct; the subset relation is pinned by a governance test. Mirrors the
 # re-export in the review-queue gate so the two halves cannot drift.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
+
+#: Families that count toward a Tier 3-4 quorum — a strict subset of
+#: WESTERN_FAMILIES. mistral and hermes are Western but not frontier-grade
+#: enough to co-authorize a highest-tier (merge-authority / protected-surface)
+#: change, so at Tier 3-4 they are advisory-only: they still post and still
+#: block on [P0]/[P1], but do not count toward the two-signal bar (operator
+#: decision 2026-07-11). They remain valid Western signals for the Tier 2
+#: "at least one Western" requirement, which is unchanged.
+#:
+#: gemini was in this set under the 2026-07-11 decision, but the later
+#: 2026-07-16 founder roster directive demoted it to advisory-only everywhere
+#: ("gemini dissent is NOT to be counted anywhere" — see ADVISORY_ONLY_FAMILIES
+#: and the reliability record). The newer directive governs, so gemini is out
+#: here too; this set must stay disjoint from ADVISORY_ONLY_FAMILIES.
+TIER_3_4_COUNTED_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok"))
 
 
 def is_western_family(family: str) -> bool:
@@ -259,7 +299,9 @@ class TierQuorumRule:
         # EvidenceItem.
         families -= ADVISORY_ONLY_FAMILIES
         if self.western_only_counted:
-            families = {f for f in families if f in WESTERN_FAMILIES}
+            # Tier 3-4: only the frontier-grade Western subset counts; mistral
+            # and hermes are advisory-only here (see TIER_3_4_COUNTED_FAMILIES).
+            families = {f for f in families if f in TIER_3_4_COUNTED_FAMILIES}
         return families
 
     def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
@@ -373,10 +415,12 @@ def canonical_family(name: str) -> str:
 
 # Default reviewer pair: the two western-frontier families (claude→opus-4.8,
 # openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
-# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
-# requires two western-frontier families. grok (xai) remains available via
-# --reviewers but is not western-frontier and empirically tends to reopen an
-# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+# a substantial diff can actually clear a 2-signal quorum. Tier 3-4 requires two
+# distinct families from TIER_3_4_COUNTED_FAMILIES (claude, openai, grok); grok
+# remains available via --reviewers and counts at Tier 3-4, though it empirically
+# tends to reopen an advisory nitpick loop on large diffs. mistral and hermes are
+# Western but advisory-only at Tier 3-4; gemini is advisory-only everywhere
+# (2026-07-16 roster directive). Override per-run with --reviewers.
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
@@ -1858,20 +1902,21 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 # review is as trustworthy as the subscription path it replaces.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "claude": "anthropic/claude-fable-5",
-    "openai": "openai/gpt-5-pro",
-    "grok": "x-ai/grok-4.3",
+    # openai holds at gpt-5.5 by #9075's deliberate decision (Sol stays out of
+    # the reviewer harness until it clears the 14-day availability rule).
+    "openai": "openai/gpt-5.5",
+    "grok": "x-ai/grok-4.5",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    # K3 upgrade DEFERRED: per the reliability record
-    # (docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md),
-    # Kimi K3 needs live verification + a catalog entry (aragora/models/catalog.py,
-    # tracked by the unmerged #9348) before it can produce evidence. Until then the
-    # lane stays on k2.6; override per-run via ARAGORA_OPENROUTER_REVIEWER_MODELS.
-    "kimi": "moonshotai/kimi-k2.6",
+    # The reliability record deferred these upgrades pending catalog entries;
+    # aragora/models/catalog.py now carries both (qwen3.7-max, kimi-k2.7-code),
+    # so the deferral no longer applies. Override per-run via
+    # ARAGORA_OPENROUTER_REVIEWER_MODELS.
+    "qwen": "qwen/qwen3.7-max",
+    "kimi": "moonshotai/kimi-k2.7-code",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
