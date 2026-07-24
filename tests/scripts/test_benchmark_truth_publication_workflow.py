@@ -225,3 +225,25 @@ def test_publisher_syncs_docs_site_mirrors_before_staging() -> None:
     # untracked leftovers from earlier runs into the publication commit.
     assert "git add -u docs-site/docs" in publish_run
     assert "git add -A docs-site" not in publish_run
+
+
+def test_mirror_sync_degrades_rather_than_losing_the_publication() -> None:
+    """A sync problem must not cost the day's publication.
+
+    By the time the sync runs, --ensure-issues has already mutated GitHub
+    issues, so aborting would discard rendered surfaces mid-flight and leave
+    the very staleness this workflow exists to prevent. The worst case of
+    continuing is the pre-existing one: a red `build` on the PR.
+    """
+    names = [str(step.get("name", "")) for step in _benchmark_truth_publication_steps()]
+    sync_run = str(_workflow_step("Sync docs-site mirrors").get("run", ""))
+
+    assert "::warning::" in sync_run
+    assert "||" in sync_run, "sync must not abort the publication"
+
+    # node is provisioned for the sync alone, so its absence must not be fatal.
+    assert _workflow_step("Setup Node").get("continue-on-error") is True
+
+    # One runtime installs and runs codex: setup-node prepends node 20 to PATH
+    # for all later steps, so it has to precede the npm-based codex install.
+    assert names.index("Setup Node") < names.index("Install Codex CLI")

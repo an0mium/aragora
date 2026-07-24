@@ -170,6 +170,21 @@ jobs:
           tar -xzf "$archive_path" -C "$gh_root"
           echo "$gh_root/gh_${gh_version}_${os}_${gh_arch}/bin" >> "$GITHUB_PATH"
 
+      - name: Setup Node
+        # Before the codex install below, so one runtime both installs and runs
+        # it: setup-node prepends node 20 to PATH for every later step, and
+        # installing codex under ambient Homebrew node then executing it under
+        # node 20 is a split this job does not need.
+        #
+        # Non-fatal: node is only needed for the docs-site mirror sync, which is
+        # itself best-effort. Losing the day's publication because a tool-cache
+        # download failed on the self-hosted runner would be a worse outcome
+        # than the mirror drift it exists to prevent.
+        continue-on-error: true
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install Codex CLI
         shell: bash
         run: |
@@ -183,17 +198,11 @@ jobs:
           npm install --global --prefix "$codex_root" @openai/codex
           echo "$codex_root/bin" >> "$GITHUB_PATH"
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
       - name: Verify runtime prerequisites
         shell: bash
         run: |
           command -v codex >/dev/null
           command -v gh >/dev/null
-          command -v node >/dev/null
           METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
           mkdir -p "$(dirname "$METRICS_PATH")"
           if [[ ! -f "$METRICS_PATH" ]]; then
@@ -340,16 +349,27 @@ jobs:
         #
         # This deliberately does NOT re-implement docs-build's full closure
         # (doc_stats, capability-matrix, legacy-entrypoint and CLI-reference
-        # checks). Chasing parity here means re-deriving another job's gate
-        # inside a publisher that cannot see it change, and pre-existing drift
-        # from elsewhere is not this workflow's to absorb. docs-build stays the
-        # authority; this only stops the publisher from being a drift source.
+        # checks). Chasing parity means re-deriving another job's gate inside a
+        # publisher that cannot see it change. docs-build stays the authority;
+        # this only stops the publisher from being a drift source. Note that
+        # staging the sync's whole output does absorb unrelated mirror drift
+        # that reached main (`build` is not a required check) into the bot
+        # commit — unavoidable if the PR is to be green, and worth naming.
         #
-        # Uncredentialed and separate from the publish step so repository
-        # JavaScript never runs alongside the PAT, and a sync failure is
-        # attributable in the run log.
+        # Separate from the publish step so repository JavaScript does not run
+        # in the step holding BENCHMARK_TRUTH_PR_TOKEN, and so a sync failure
+        # is attributable in the run log. (The checkout token still persists in
+        # .git/config for the whole job; this narrows the PAT's exposure, not
+        # all credentials.)
+        #
+        # Non-fatal by design: the neighbouring publish step's contract is to
+        # degrade and warn rather than leave the daily cron red. Aborting here
+        # would discard the day's rendered surfaces after --ensure-issues has
+        # already mutated GitHub issues, and the worst case of continuing is
+        # today's status quo — a red `build` on the PR.
         run: |
-          cd docs-site && node scripts/sync-docs.js
+          cd docs-site && node scripts/sync-docs.js \
+            || echo "::warning::docs-site mirror sync failed; PR will red the build check"
 
       - name: Publish workflow summary
         run: |
