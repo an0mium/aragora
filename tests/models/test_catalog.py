@@ -168,8 +168,7 @@ def test_provider_config_matches_catalog(canonical_id: str) -> None:
         if row is not None:
             _approx_pair(row.input_cost_per_1k * 1000, row.output_cost_per_1k * 1000, spec)
             checked = True
-    if not checked:
-        pytest.skip(f"provider_config has no row for {canonical_id} (presence not yet required)")
+    assert checked, f"provider_config has no row for {canonical_id}"
 
 
 def test_model_selector_profiles_match_catalog() -> None:
