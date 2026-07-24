@@ -28,7 +28,6 @@ from aragora.events.security_events import (
     get_security_debate_runner,
     get_security_emitter,
     is_secret_finding,
-    _ensure_default_security_debate_runner_registered,
     list_security_debates,
     register_security_debate_runner,
     set_security_emitter,
@@ -1246,10 +1245,11 @@ class TestSecurityEventEmitter:
     async def test_emit_with_no_runner_is_graceful(self, caplog):
         """emit() must never await a missing runner (`await None(...)`).
 
-        With no registered runner and the default-ensure path unavailable
-        (e.g. a process that never imports aragora.debate), the auto-debate
-        path logs a warning and skips -- no exception escapes emit(), matching
-        the dispatcher's log-and-skip semantics.
+        With no registered runner (e.g. a process where no composition root
+        has imported aragora.debate.security_response yet -- this module
+        never imports aragora.debate itself), the auto-debate path logs a
+        warning and skips -- no exception escapes emit(), matching the
+        dispatcher's log-and-skip semantics.
         """
         emitter = SecurityEventEmitter(enable_auto_debate=True)
         event = self._make_event(severity=SecuritySeverity.CRITICAL)
@@ -1259,10 +1259,6 @@ class TestSecurityEventEmitter:
                 "aragora.events.security_events.get_security_debate_runner",
                 return_value=None,
             ),
-            patch(
-                "aragora.events.security_events._ensure_default_security_debate_runner_registered",
-                return_value=None,
-            ),
             caplog.at_level(logging.WARNING, logger="aragora.events.security_events"),
         ):
             await emitter.emit(event)
@@ -1270,29 +1266,6 @@ class TestSecurityEventEmitter:
         assert event.debate_requested is False
         assert event.debate_id is None
         assert "No security debate runner registered" in caplog.text
-
-    @pytest.mark.asyncio
-    async def test_emit_isolates_default_runner_import_failure(self, caplog):
-        """Lazy default runner import failures should not break event delivery."""
-        emitter = SecurityEventEmitter(enable_auto_debate=True)
-        event = self._make_event(severity=SecuritySeverity.CRITICAL)
-
-        with (
-            patch(
-                "aragora.events.security_events.get_security_debate_runner",
-                return_value=None,
-            ),
-            patch(
-                "aragora.events.security_events._ensure_default_security_debate_runner_registered",
-                side_effect=RuntimeError("debate stack unavailable"),
-            ),
-            caplog.at_level(logging.ERROR, logger="aragora.events.security_events"),
-        ):
-            await emitter.emit(event)
-
-        assert event.debate_requested is False
-        assert event.debate_id is None
-        assert "Failed to trigger security debate" in caplog.text
 
     @pytest.mark.asyncio
     async def test_debate_started_event_redacts_secret_findings(self):
@@ -2280,31 +2253,23 @@ class TestSecurityDebateRunnerRegistry:
         register_security_debate_runner(None)
         assert get_security_debate_runner() is None
 
-    def test_default_runner_lazily_registered_when_unset(self):
-        """Cold consumers (never-set registry) get the default runner on demand."""
+    def test_registry_stays_unset_without_composition_root(self):
+        """Cold consumers (never-set registry) get NO default runner.
+
+        This module never imports aragora.debate itself (P4a
+        security-debate-unification removed the lazy-import self-heal
+        fallback). Only a composition root that imports
+        aragora.debate.security_response (aragora.debate.orchestrator,
+        aragora.debate.event_subscribers.bootstrap_debate_event_subscribers,
+        or aragora.analysis.codebase.sast.scanner) makes the default runner
+        available -- see test_explicit_clear_sticks_against_default_register
+        for that registration path.
+        """
         import aragora.events.security_events as mod
 
         mod._security_debate_runner = mod._UNSET_RUNNER
 
-        runner = _ensure_default_security_debate_runner_registered()
-
-        assert runner is not None
-        assert runner.__name__ == "trigger_security_debate"
-        assert get_security_debate_runner() is runner
-
-    def test_explicit_clear_sticks_against_ensure_default(self):
-        """An explicit None-clear must not be silently overwritten by the
-        lazy default import: ensure-default only fires from the UNSET state."""
-        import aragora.events.security_events as mod
-
-        register_security_debate_runner(None)
-
-        runner = _ensure_default_security_debate_runner_registered()
-
-        assert runner is None
         assert get_security_debate_runner() is None
-        # Registry state stays "explicitly cleared", not re-registered.
-        assert mod._security_debate_runner is None
 
     def test_explicit_clear_sticks_against_default_register(self):
         """Import-time default registration must not clobber an explicit clear."""
@@ -2329,7 +2294,6 @@ class TestSecurityDebateRunnerRegistry:
         register_security_debate_runner(fake_runner)
 
         assert get_security_debate_runner() is fake_runner
-        assert _ensure_default_security_debate_runner_registered() is fake_runner
 
     @pytest.mark.asyncio
     async def test_emit_after_explicit_clear_does_not_fire_auto_debate(self):
