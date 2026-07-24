@@ -108,6 +108,35 @@ _HAND_ROWS: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.00042,
         context_window=64_000,
     ),
+    # OpenRouter catalog snapshot 2026-07-09; per-token rates converted to per 1K.
+    "glm-5.2": ProviderPricing(
+        provider_name="zhipu",
+        model_name="glm-5.2",
+        input_cost_per_1k=0.00054,
+        output_cost_per_1k=0.00176,
+        context_window=1_048_576,
+    ),
+    "minimax-m3": ProviderPricing(
+        provider_name="minimax",
+        model_name="minimax-m3",
+        input_cost_per_1k=0.0003,
+        output_cost_per_1k=0.0012,
+        context_window=1_048_576,
+    ),
+    "hy3": ProviderPricing(
+        provider_name="tencent",
+        model_name="hy3",
+        input_cost_per_1k=0.00014,
+        output_cost_per_1k=0.00058,
+        context_window=262_144,
+    ),
+    "seed-2.0-lite": ProviderPricing(
+        provider_name="bytedance",
+        model_name="seed-2.0-lite",
+        input_cost_per_1k=0.00025,
+        output_cost_per_1k=0.002,
+        context_window=262_144,
+    ),
     "mistral-large": ProviderPricing(
         provider_name="mistral",
         model_name="mistral-large",
