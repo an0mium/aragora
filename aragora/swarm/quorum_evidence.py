@@ -49,7 +49,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
@@ -59,10 +59,34 @@ from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
 )
-from aragora.agents.transports.claude_vibeproxy import run_claude_vibeproxy
 from aragora.swarm import merge_quorum_io
 
+if TYPE_CHECKING:
+    from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
+
 logger = logging.getLogger(__name__)
+
+
+def run_claude_vibeproxy(
+    prompt: str,
+    *,
+    reviewer_timeout: float,
+    model: str | None = None,
+    policy: Any = None,
+) -> ClaudeVibeProxyAttempt:
+    """Call the VibeProxy transport without loading it during module import."""
+    from aragora.agents.transports.claude_vibeproxy import (
+        run_claude_vibeproxy as run_transport,
+    )
+
+    transport_kwargs = {
+        "reviewer_timeout": reviewer_timeout,
+        "policy": policy,
+    }
+    if model is not None:
+        transport_kwargs["model"] = model
+    return run_transport(prompt, **transport_kwargs)
+
 
 # Direct model families whose name appears in the evidence heading and is
 # recognized by the quorum identity resolver as a countable model reviewer.
