@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -23,6 +24,18 @@ from typing import Iterator
 
 class PublishVerificationError(RuntimeError):
     """Raised when a post-publish verification step fails."""
+
+
+# PyPI index/CDN propagation lags the upload by seconds to minutes, so the
+# freshly published version is routinely not installable the instant the
+# publish step returns. This step runs *after* an irreversible upload and
+# *before* the GitHub Release is created, and PyPI versions are immutable — so
+# a bare single-attempt install turns ordinary propagation delay into a red
+# release with no clean rerun path (re-publishing the same version fails).
+# Retry with exponential backoff instead of failing on the first miss.
+DEFAULT_INSTALL_ATTEMPTS = 8
+DEFAULT_INSTALL_BACKOFF = 5.0
+MAX_INSTALL_BACKOFF = 60.0
 
 
 PROBE_SCRIPT = r"""
@@ -190,19 +203,57 @@ def _run(
     return completed
 
 
+def _run_with_retry(
+    cmd: list[str],
+    *,
+    timeout: int,
+    attempts: int,
+    backoff: float,
+    cwd: Path | None = None,
+) -> tuple[subprocess.CompletedProcess[str], int]:
+    """Run ``cmd``, retrying transient failures with exponential backoff.
+
+    Returns the completed process and the (1-based) attempt number that
+    succeeded, so callers can report how much propagation delay was absorbed.
+    """
+    if attempts < 1:
+        raise ValueError("attempts must be >= 1")
+
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return _run(cmd, timeout=timeout, cwd=cwd), attempt
+        except (PublishVerificationError, subprocess.TimeoutExpired) as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            time.sleep(min(backoff * (2 ** (attempt - 1)), MAX_INSTALL_BACKOFF))
+
+    raise PublishVerificationError(
+        f"command still failing after {attempts} attempt(s): {' '.join(cmd)}\n{last_error}"
+    ) from last_error
+
+
 def verify_publish(
     *,
     version: str,
     python: str,
     work_dir: Path | None = None,
     timeout: int = 240,
+    install_attempts: int = DEFAULT_INSTALL_ATTEMPTS,
+    install_backoff: float = DEFAULT_INSTALL_BACKOFF,
 ) -> dict[str, object]:
     with _verification_workspace(work_dir) as workspace:
         venv = workspace / ".venv"
         _run([python, "-m", "venv", str(venv)], timeout=timeout)
         venv_python = _venv_python(venv)
-        _run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], timeout=timeout)
-        _run(
+        _run_with_retry(
+            [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"],
+            timeout=timeout,
+            attempts=install_attempts,
+            backoff=install_backoff,
+        )
+        _, install_attempts_used = _run_with_retry(
             [
                 str(venv_python),
                 "-m",
@@ -212,6 +263,8 @@ def verify_publish(
                 f"aragora-verify=={version}",
             ],
             timeout=timeout,
+            attempts=install_attempts,
+            backoff=install_backoff,
         )
 
         version_result = _run(
@@ -238,6 +291,7 @@ def verify_publish(
             "package": "aragora-verify",
             "version": version,
             "workspace": str(workspace),
+            "install_attempts": install_attempts_used,
             "probe": probe_payload,
         }
 
@@ -258,6 +312,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional directory for the verification virtualenv and probe artifacts.",
     )
     parser.add_argument("--timeout", type=int, default=240, help="Per-command timeout in seconds.")
+    parser.add_argument(
+        "--install-attempts",
+        type=int,
+        default=DEFAULT_INSTALL_ATTEMPTS,
+        help=(
+            "Attempts for the pip install steps before giving up. Absorbs PyPI "
+            "index propagation delay after publish (default: %(default)s)."
+        ),
+    )
+    parser.add_argument(
+        "--install-backoff",
+        type=float,
+        default=DEFAULT_INSTALL_BACKOFF,
+        help=(
+            "Base seconds for exponential backoff between install attempts, "
+            f"capped at {MAX_INSTALL_BACKOFF:g}s (default: %(default)s)."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Emit structured JSON.")
     return parser
 
@@ -270,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
             python=args.python,
             work_dir=Path(args.work_dir) if args.work_dir else None,
             timeout=args.timeout,
+            install_attempts=args.install_attempts,
+            install_backoff=args.install_backoff,
         )
     except PublishVerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

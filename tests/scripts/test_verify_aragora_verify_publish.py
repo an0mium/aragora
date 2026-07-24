@@ -122,3 +122,150 @@ def test_main_returns_one_on_failed_command(monkeypatch: Any, capsys: Any, tmp_p
 
     assert rc == 1
     assert "network down" in capsys.readouterr().err
+
+
+def test_install_retries_until_pypi_propagates(monkeypatch: Any, tmp_path: Path) -> None:
+    """PyPI index propagation lag must not red the release workflow.
+
+    The exact-version install runs after an irreversible upload, so a 404 from
+    a not-yet-propagated index has to be retried rather than raised.
+    """
+    target = "aragora-verify==0.1.2"
+    install_calls = 0
+    slept: list[float] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        nonlocal install_calls
+        if cmd[-1] == target:
+            install_calls += 1
+            if install_calls < 3:  # first two attempts: version not visible yet
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=1,
+                    stdout="",
+                    stderr="ERROR: No matching distribution found for aragora-verify==0.1.2",
+                )
+            return _completed()
+        if cmd[-1] == "--version":
+            return _completed("aragora-verify 0.1.2\n")
+        if cmd[-1].endswith("post_publish_probe.py"):
+            return _completed(
+                json.dumps(
+                    {
+                        "valid_receipt_exit": 0,
+                        "spoofed_key_id_exit": 1,
+                        "spoofed_signature_status": "fail",
+                    }
+                )
+            )
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+    monkeypatch.setattr(verify_publish_script.time, "sleep", slept.append)
+
+    result = verify_publish_script.verify_publish(
+        version="0.1.2",
+        python="/usr/bin/python3",
+        work_dir=tmp_path,
+        install_backoff=5.0,
+    )
+
+    assert result["ok"] is True
+    assert install_calls == 3
+    assert result["install_attempts"] == 3
+    # exponential backoff between the two failed attempts
+    assert slept == [5.0, 10.0]
+
+
+def test_install_gives_up_after_bounded_attempts(monkeypatch: Any, tmp_path: Path) -> None:
+    slept: list[float] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if cmd[-1] == "aragora-verify==0.1.2":
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=1, stdout="", stderr="404 not found"
+            )
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+    monkeypatch.setattr(verify_publish_script.time, "sleep", slept.append)
+
+    try:
+        verify_publish_script.verify_publish(
+            version="0.1.2",
+            python="/usr/bin/python3",
+            work_dir=tmp_path,
+            install_attempts=4,
+            install_backoff=5.0,
+        )
+    except verify_publish_script.PublishVerificationError as exc:
+        assert "after 4 attempt(s)" in str(exc)
+        assert "404 not found" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected PublishVerificationError")
+
+    assert len(slept) == 3  # no sleep after the final attempt
+
+
+def test_install_backoff_is_capped(monkeypatch: Any, tmp_path: Path) -> None:
+    slept: list[float] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if cmd[-1] == "aragora-verify==0.1.2":
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="nope")
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+    monkeypatch.setattr(verify_publish_script.time, "sleep", slept.append)
+
+    try:
+        verify_publish_script.verify_publish(
+            version="0.1.2",
+            python="/usr/bin/python3",
+            work_dir=tmp_path,
+            install_attempts=8,
+            install_backoff=5.0,
+        )
+    except verify_publish_script.PublishVerificationError:
+        pass
+
+    assert max(slept) == verify_publish_script.MAX_INSTALL_BACKOFF
+    assert all(delay <= verify_publish_script.MAX_INSTALL_BACKOFF for delay in slept)
+
+
+def test_install_retries_on_timeout(monkeypatch: Any, tmp_path: Path) -> None:
+    """A hung index request is as transient as a 404 and must also retry."""
+    install_calls = 0
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        nonlocal install_calls
+        if cmd[-1] == "aragora-verify==0.1.2":
+            install_calls += 1
+            if install_calls == 1:
+                raise subprocess.TimeoutExpired(cmd=cmd, timeout=1)
+            return _completed()
+        if cmd[-1] == "--version":
+            return _completed("aragora-verify 0.1.2\n")
+        if cmd[-1].endswith("post_publish_probe.py"):
+            return _completed(
+                json.dumps(
+                    {
+                        "valid_receipt_exit": 0,
+                        "spoofed_key_id_exit": 1,
+                        "spoofed_signature_status": "fail",
+                    }
+                )
+            )
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+    monkeypatch.setattr(verify_publish_script.time, "sleep", lambda _: None)
+
+    result = verify_publish_script.verify_publish(
+        version="0.1.2",
+        python="/usr/bin/python3",
+        work_dir=tmp_path,
+    )
+
+    assert result["ok"] is True
+    assert install_calls == 2
