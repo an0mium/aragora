@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import os
 import re
 import stat
@@ -46,7 +45,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, cast
 
@@ -4161,6 +4160,252 @@ def build_boundary_result(
     return _finalize_boundary_result(result)
 
 
+ACCEPTED_AUTHORITY_SCHEMA = "contract-drift-accepted-authority-v1"
+ACCEPTED_CATEGORIES = tuple(EXPECTED_CATEGORY_COUNTS)
+
+
+def _strict_json_bytes(raw: bytes, label: str) -> dict[str, Any]:
+    def reject_duplicate(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"{label} has duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} is not canonical UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return value
+
+
+def _git_json(repo_root: Path, sha: str, path: str) -> dict[str, Any]:
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f"{sha}:{path}"],
+        check=True,
+        capture_output=True,
+    )
+    return _strict_json_bytes(proc.stdout, f"{sha}:{path}")
+
+
+def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
+    if authority.get("schema") != ACCEPTED_AUTHORITY_SCHEMA:
+        raise ValueError("accepted authority schema mismatch")
+    artifacts = authority.get("canonical_artifacts")
+    if not isinstance(artifacts, dict):
+        raise ValueError("accepted authority lacks canonical artifacts")
+    cohort = artifacts.get("original_cohort")
+    provenance = artifacts.get("sdk_provenance")
+    if not isinstance(cohort, dict) or not isinstance(provenance, dict):
+        raise ValueError("accepted authority canonical artifacts are malformed")
+    cohort_raw = _canonical_json_bytes(cohort, terminal_lf=True)
+    provenance_raw = _canonical_json_bytes(provenance, terminal_lf=True)
+    if (
+        len(cohort_raw) != COHORT_ARTIFACT["byte_length"]
+        or _sha256_bytes(cohort_raw) != COHORT_ARTIFACT["sha256"]
+        or len(provenance_raw) != PROVENANCE_ARTIFACT["byte_length"]
+        or _sha256_bytes(provenance_raw) != PROVENANCE_ARTIFACT["sha256"]
+    ):
+        raise ValueError("accepted authority canonical artifact byte binding mismatch")
+    cohort_summary = _validate_original_cohort(cohort)
+    provenance_summary = _validate_sdk_provenance(provenance, cohort_summary)
+    if authority.get("categories") != list(ACCEPTED_CATEGORIES):
+        raise ValueError("accepted authority category schema is not closed")
+    records = {item["original_record_id"]: item for item in cohort["original_records"]}
+    dispositions = authority.get("active_inventory")
+    if not isinstance(dispositions, list) or len(dispositions) != 655:
+        raise ValueError("accepted authority active inventory must contain 655 dispositions")
+    seen: set[str] = set()
+    active: list[str] = []
+    for item in dispositions:
+        if not isinstance(item, dict) or set(item) != {
+            "category",
+            "disposition_history",
+            "original_record_id",
+            "status",
+        }:
+            raise ValueError("accepted authority disposition is malformed")
+        original_id = item["original_record_id"]
+        if original_id in seen or original_id not in records:
+            raise ValueError("accepted authority disposition identity is duplicate or unknown")
+        seen.add(original_id)
+        if item["category"] != records[original_id]["category"]:
+            raise ValueError("accepted authority disposition category mismatch")
+        history = item["disposition_history"]
+        if (
+            item["status"] not in {"active", "resolved"}
+            or not isinstance(history, list)
+            or not history
+            or history[-1].get("status") != item["status"]
+        ):
+            raise ValueError("accepted authority disposition history is invalid")
+        if item["status"] == "active":
+            active.append(original_id)
+    if seen != set(cohort_summary["original_record_ids"]):
+        raise ValueError("accepted authority dispositions do not cover the immutable cohort")
+    bundle = authority.get("analyzer_bundle")
+    if not isinstance(bundle, dict) or bundle.get("dependencies") != []:
+        raise ValueError("accepted authority must be a pinned standard-library-only bundle")
+    authority_root = Path(os.environ.get("CDG_AUTHORITY_ROOT", repo_root))
+    for binding in bundle.get("files", []):
+        path = binding.get("path")
+        if not isinstance(path, str):
+            raise ValueError("accepted analyzer bundle path is malformed")
+        raw = (authority_root / path).read_bytes()
+        if binding.get("sha256") != _sha256_bytes(raw):
+            raise ValueError(f"accepted analyzer bundle digest mismatch: {path}")
+    category_sets = {
+        category: sorted(
+            original_id for original_id in active if records[original_id]["category"] == category
+        )
+        for category in ACCEPTED_CATEGORIES
+    }
+    projection = cohort_summary["operation_projection"]
+    return {
+        "active_original_record_ids": sorted(active),
+        "category_original_record_ids": category_sets,
+        "core_unit_total": provenance_summary["core_count"],
+        "extended_unit_total": provenance_summary["extended_count"],
+        "operation_projection": projection,
+        "original_record_id_set_sha256": cohort_summary["original_record_id_set_sha256"],
+        "original_record_total": cohort_summary["record_count"],
+        "sdk_provenance_record_total": provenance_summary["record_count"],
+        "source_occurrence_total": provenance_summary["source_occurrence_count"],
+    }
+
+
+def compare_accepted_authorities(
+    base: dict[str, Any], head: dict[str, Any], *, repo_root: Path
+) -> dict[str, Any]:
+    base_summary = validate_accepted_authority(base, repo_root=repo_root)
+    head_summary = validate_accepted_authority(head, repo_root=repo_root)
+    if base["canonical_artifacts"] != head["canonical_artifacts"]:
+        raise ValueError("immutable canonical artifacts changed across authority versions")
+    base_ids = set(base_summary["active_original_record_ids"])
+    head_ids = set(head_summary["active_original_record_ids"])
+    added = sorted(head_ids - base_ids)
+    removed = sorted(base_ids - head_ids)
+    category_delta: dict[str, dict[str, Any]] = {}
+    growing = []
+    for category in ACCEPTED_CATEGORIES:
+        base_category = set(base_summary["category_original_record_ids"][category])
+        head_category = set(head_summary["category_original_record_ids"][category])
+        category_delta[category] = {
+            "added_original_record_ids": sorted(head_category - base_category),
+            "base": len(base_category),
+            "delta": len(head_category) - len(base_category),
+            "head": len(head_category),
+            "removed_original_record_ids": sorted(base_category - head_category),
+        }
+        if category_delta[category]["delta"] > 0:
+            growing.append(category)
+    passing = not added and not growing
+    return {
+        "added_original_record_ids": added,
+        "authority": {"source": "accepted_authority"},
+        "base_original_record_ids": sorted(base_ids),
+        "category_delta": category_delta,
+        "growing_categories": growing,
+        "head_original_record_ids": sorted(head_ids),
+        "operation_projection": {
+            "base": base_summary["operation_projection"],
+            "head": head_summary["operation_projection"],
+        },
+        "passing": passing,
+        "removed_original_record_ids": removed,
+        "status": "pass" if passing else "fail",
+    }
+
+
+def build_accepted_result(
+    *,
+    mode: str,
+    repo_root: Path,
+    inventory_path: Path,
+    as_of: str | None = None,
+    source_sha: str | None = None,
+) -> dict[str, Any]:
+    try:
+        inventory = _strict_json_bytes(inventory_path.read_bytes(), "accepted inventory")
+    except (OSError, ValueError) as exc:
+        return {
+            "error": str(exc),
+            "error_code": "authority_transition_required",
+            "passing": False,
+            "status": "fail",
+        }
+    authority = inventory.get("accepted_authority")
+    if not isinstance(authority, dict):
+        return {
+            "error": "resolved base has no accepted authority manifest",
+            "error_code": "authority_transition_required",
+            "passing": False,
+            "status": "fail",
+        }
+    try:
+        summary = validate_accepted_authority(authority, repo_root=repo_root)
+    except (OSError, ValueError) as exc:
+        return {
+            "error": str(exc),
+            "error_code": "accepted_authority_invalid",
+            "passing": False,
+            "status": "fail",
+        }
+    if mode == "receipt":
+        source = source_sha or ""
+        argv = ("git", "-C", str(repo_root), "rev-list", "--first-parent", source)
+        valid = FULL_SHA_RE.fullmatch(source)
+        proc = subprocess.run(argv, capture_output=True, text=True) if valid else None
+        chain = proc.stdout.splitlines() if proc and proc.returncode == 0 else []
+        return {
+            "authority": {"first_parent_chain": chain, "source": "accepted_authority"},
+            "passing": bool(chain and chain[0] == source_sha),
+            "source_sha": source_sha,
+            "status": "pass" if chain and chain[0] == source_sha else "fail",
+        }
+    as_of_value = as_of or datetime.now(UTC).date().isoformat()
+    try:
+        as_of_date = date.fromisoformat(as_of_value)
+    except ValueError:
+        return {
+            "error": "as-of must be an ISO UTC date",
+            "error_code": "invalid_as_of",
+            "passing": False,
+            "status": "fail",
+        }
+    if as_of_date > datetime.now(UTC).date():
+        return {
+            "error": "live as-of may not be future-dated",
+            "error_code": "future_as_of",
+            "passing": False,
+            "status": "fail",
+        }
+    program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
+    weeks = max(0, (as_of_date - program["start_date"]).days // 7)
+    target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)
+    current = len(summary["active_original_record_ids"])
+    passing = current <= target
+    return {
+        "authority": {"source": "accepted_authority"},
+        "current": {"total_items": current},
+        "passing": passing,
+        "program": {
+            "as_of": as_of_value,
+            "as_of_timezone": "UTC",
+            "effective_weeks": weeks,
+            "source_sha": source_sha,
+            "start_date": program["start_date"].isoformat(),
+            "start_total_items": program["start_total_items"],
+            "weekly_reduction": program["weekly_reduction"],
+        },
+        "status": "pass" if passing else "fail",
+        "target": {"max_open_items": target},
+    }
+
+
 def _load_json_strict(path: Path, label: str) -> dict[str, Any]:
     if not path.exists():
         raise ValueError(f"{label} missing: {path}")
@@ -4194,12 +4439,16 @@ def _git_doc(repo_root: Path, ref: str, path: Path) -> dict[str, Any]:
 
 
 def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -> int:
-    # One-shot floored decay. The previous iterative int(round(n * 0.9)) had
-    # fixed points at 1-4 (e.g. round(4 * 0.9) == 4), so small per-batch
-    # clocks would never be required to reach zero and larger ones stalled
-    # at 4. floor(start * factor**weeks) is monotonic to 0.
-    factor = (1.0 - weekly_reduction) ** max(0, weeks)
-    return max(0, math.floor(start_total * factor))
+    if weekly_reduction == 0.1:
+        numerator, denominator = 9, 10
+    elif weekly_reduction == 0.5:  # retained for legacy unit fixtures
+        numerator, denominator = 1, 2
+    else:
+        raise ValueError("weekly reduction must have an exact integer recurrence")
+    target = start_total
+    for _ in range(max(0, weeks)):
+        target = numerator * target // denominator
+    return target
 
 
 def _load_program(program_baseline: Path) -> dict[str, Any]:
@@ -4606,11 +4855,99 @@ def _print_text(result: dict[str, Any]) -> None:
     print("PASS" if result["passing"] else "FAIL")
 
 
+def _run_hermetic_pr(
+    *, repo_root: Path, base_ref: str, head_ref: str, inventory_path: Path
+) -> dict[str, Any]:
+    operation_log: list[dict[str, Any]] = []
+    base_sha = _resolve_full_sha(repo_root, base_ref, label="base_ref", operation_log=operation_log)
+    head_sha = _resolve_full_sha(repo_root, head_ref, label="head_ref", operation_log=operation_log)
+    rel_inventory = inventory_path.as_posix()
+    base_doc = _git_json(repo_root, base_sha, rel_inventory)
+    transition = not isinstance(base_doc.get("accepted_authority"), dict)
+    authority_sha = head_sha if transition else base_sha
+    files = (
+        "scripts/check_contract_drift_ratchet.py",
+        "scripts/generate_contract_drift_inventory.py",
+        "scripts/baselines/contract_drift_program.json",
+    )
+    with (
+        tempfile.TemporaryDirectory(prefix="cdg-bundle-") as bundle_raw,
+        tempfile.TemporaryDirectory(prefix="cdg-cwd-") as cwd_raw,
+    ):
+        bundle = Path(bundle_raw)
+        bindings = []
+        for relative in files:
+            raw = subprocess.run(
+                ["git", "-C", str(repo_root), "show", f"{authority_sha}:{relative}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            destination = bundle / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(raw)
+            destination.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+            bindings.append({"path": relative, "sha256": _sha256_bytes(raw)})
+        bundle_sha = _sha256_bytes(_canonical_json_bytes(bindings))
+        checker = bundle / files[0]
+        bootstrap = (
+            "import runpy,sys;"
+            "sys.path.insert(0,sys.argv.pop(1));"
+            "runpy.run_path(sys.argv.pop(1),run_name='__main__')"
+        )
+        command = [
+            sys.executable,
+            "-I",
+            "-S",
+            "-B",
+            "-c",
+            bootstrap,
+            str(checker.parent),
+            str(checker),
+            "--mode",
+            "pr",
+            "--trusted-bundle",
+            bundle_sha,
+            "--base-ref",
+            base_sha,
+            "--head-ref",
+            head_sha,
+            "--repo-root",
+            str(repo_root),
+            "--inventory",
+            rel_inventory,
+            "--json",
+        ]
+        env = {
+            "CDG_AUTHORITY_ROOT": str(bundle),
+            "CDG_TRUSTED_BUNDLE": bundle_sha,
+            "HOME": cwd_raw,
+            "PATH": "/usr/bin:/bin",
+        }
+        proc = subprocess.run(command, cwd=cwd_raw, env=env, capture_output=True, text=True)
+        if proc.returncode not in {0, 1}:
+            raise ValueError(f"hermetic analyzer failed: {proc.stderr.strip()}")
+        result = json.loads(proc.stdout)
+        result["execution"] = {
+            "analyzer_sha": authority_sha,
+            "base_bundle_sha256": bundle_sha,
+            "base_sha": base_sha,
+            "dependency_manifest_sha256": _sha256_bytes(b"[]"),
+            "dependencies": [],
+            "environment": sorted(env),
+            "head_sha": head_sha,
+            "interpreter": sys.executable,
+            "interpreter_flags": ["-I", "-S", "-B"],
+            "sys_path": [str(checker.parent), "<stdlib>"],
+            "working_directory": "<empty-temporary-directory>",
+        }
+        return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check contract drift ratchet")
     parser.add_argument(
         "--mode",
-        choices=("program", "pr", "boundary"),
+        choices=("program", "pr", "receipt", "boundary"),
         default="program",
     )
     parser.add_argument(
@@ -4632,6 +4969,9 @@ def main() -> int:
     parser.add_argument(
         "--base-ref", default=None, help="Merge base ref for pr mode (e.g. origin/main)"
     )
+    parser.add_argument("--head-ref", default=None, help="Immutable PR head SHA")
+    parser.add_argument("--ref", default=None, help="Immutable source SHA for main modes")
+    parser.add_argument("--trusted-bundle", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument(
         "--program-baseline",
@@ -4733,6 +5073,67 @@ def main() -> int:
         if result["status"] == "blocked":
             return 3
         return 1
+
+    if args.mode == "pr" and args.head_ref is not None:
+        try:
+            if args.trusted_bundle:
+                if os.environ.get("CDG_TRUSTED_BUNDLE") != args.trusted_bundle:
+                    raise ValueError("trusted bundle identity mismatch")
+                base_doc = _git_json(args.repo_root, args.base_ref, args.inventory.as_posix())
+                head_doc = _git_json(args.repo_root, args.head_ref, args.inventory.as_posix())
+                base_authority = base_doc.get("accepted_authority")
+                head_authority = head_doc.get("accepted_authority")
+                if not isinstance(head_authority, dict):
+                    raise ValueError("head has no accepted authority candidate")
+                if not isinstance(base_authority, dict):
+                    summary = validate_accepted_authority(head_authority, repo_root=args.repo_root)
+                    result = {
+                        "authority": {"source": "accepted_authority"},
+                        "error_code": "authority_transition_required",
+                        "passing": True,
+                        "proposed_transition": summary,
+                        "status": "pass",
+                        "transition": True,
+                    }
+                else:
+                    result = compare_accepted_authorities(
+                        base_authority, head_authority, repo_root=args.repo_root
+                    )
+            else:
+                if not args.base_ref:
+                    raise ValueError("--base-ref is required in pr mode")
+                result = _run_hermetic_pr(
+                    repo_root=args.repo_root,
+                    base_ref=args.base_ref,
+                    head_ref=args.head_ref,
+                    inventory_path=args.inventory,
+                )
+        except (OSError, ValueError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            result = {
+                "error": str(exc),
+                "error_code": "pr_authority_failure",
+                "passing": False,
+                "status": "fail",
+            }
+        print(json.dumps(result, sort_keys=True) if args.json else result)
+        return 0 if result["passing"] else 1
+
+    accepted_default = args.inventory.exists() and isinstance(
+        _strict_json_bytes(args.inventory.read_bytes(), "accepted inventory").get(
+            "accepted_authority"
+        ),
+        dict,
+    )
+    if args.mode == "receipt" or accepted_default:
+        result = build_accepted_result(
+            mode=args.mode,
+            repo_root=args.repo_root,
+            inventory_path=args.inventory,
+            as_of=args.as_of,
+            source_sha=args.ref or args.head_ref or args.base_ref,
+        )
+        print(json.dumps(result, sort_keys=True) if args.json else result)
+        return 0 if result["passing"] else 1
 
     try:
         result = build_ratchet_result(
