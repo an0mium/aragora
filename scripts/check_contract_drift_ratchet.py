@@ -4889,7 +4889,7 @@ def _run_hermetic_pr(
             bindings.append({"path": relative, "sha256": _sha256_bytes(raw)})
         bundle_sha = _sha256_bytes(_canonical_json_bytes(bindings))
         checker = bundle / files[0]
-        launcher = bundle / "launcher.py"
+        launcher = Path(cwd_raw) / "launcher.py"
         launcher.write_text(
             "import runpy,sys;"
             "sys.path.insert(0,sys.argv.pop(1));"
@@ -4900,7 +4900,7 @@ def _run_hermetic_pr(
             "-I",
             "-S",
             "-B",
-            str(launcher),
+            "launcher.py",
             str(checker.parent),
             str(checker),
             "--mode",
