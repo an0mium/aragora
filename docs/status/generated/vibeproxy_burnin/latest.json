@@ -2,7 +2,7 @@
   "gates": {
     "clean_calls": {
       "met": false,
-      "observed": 3,
+      "observed": 4,
       "required": 100
     },
     "credential_errors": {
@@ -27,21 +27,21 @@
     },
     "seven_day_span": {
       "met": false,
-      "observed": 0.000123,
+      "observed": 0.062201,
       "required": 7
     },
     "shadow_reviews": {
       "met": false,
-      "observed": 0,
+      "observed": 1,
       "required": 20
     }
   },
-  "generated_at": "2026-07-24T21:29:32.492791Z",
+  "generated_at": "2026-07-24T22:58:35.030973Z",
   "issue": 9409,
   "ready": false,
   "schema_version": "aragora.vibeproxy-burnin-proof.v1",
   "source_jsonl": "docs/status/generated/vibeproxy_burnin/calls.jsonl",
-  "source_last_record_hash": "e21d22b3dba5571d058e07d5b7cb2be4bd697ab62c15771028779d7988d962e6",
-  "total_records": 3,
+  "source_last_record_hash": "3d00149c3b34b0aa5d222e944369271828b94280a5e81583c96ebeba2f5026e8",
+  "total_records": 4,
   "transport_prerequisite_pr": 9483
 }
