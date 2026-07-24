@@ -11,6 +11,7 @@ from aragora.agents.transports.vibeproxy import (
     ResolvedModelRoute,
     TransportMode,
     VibeProxyCatalog,
+    VibeProxyResponseError,
     VibeProxyUnavailableError,
 )
 from scripts import vibeproxy_burnin_recorder as cli
@@ -38,27 +39,61 @@ class _Policy:
 
 
 class _InferenceClient:
-    def __init__(self, models: set[str]) -> None:
+    def __init__(
+        self,
+        models: set[str],
+        *,
+        owners: dict[str, str] | None = None,
+        owner_entries: frozenset[tuple[str, str]] | None = None,
+    ) -> None:
         self.models = frozenset(models)
+        default_owners = {
+            model: (
+                "antigravity"
+                if model.startswith(("gemini", "google/"))
+                else "xai"
+                if model.startswith(("grok", "xai/", "x-ai/"))
+                else "moonshot"
+                if model.startswith(("kimi", "moonshot"))
+                else "openai"
+                if model.startswith(("gpt-", "openai/"))
+                else "anthropic"
+                if model.startswith(("claude", "anthropic/"))
+                else ""
+            )
+            for model in models
+        }
+        self.owners = default_owners if owners is None else owners
+        self.owner_entries = (
+            frozenset((model, owner) for model, owner in self.owners.items() if owner)
+            if owner_entries is None
+            else owner_entries
+        )
         self.response_model: str | None = None
         self.response_text = "ARAGORA_VIBEPROXY_BURNIN_OK"
         self.failure: BaseException | None = None
 
     def catalog(self, *, timeout: float) -> VibeProxyCatalog:
         assert timeout > 0
-        return VibeProxyCatalog(models=self.models, fetched_at=0)
+        return VibeProxyCatalog(
+            models=self.models,
+            fetched_at=0,
+            model_owners=self.owner_entries,
+        )
 
-    def openai_request(
+    def openai_catalog_alias_request(
         self,
         *,
         protocol: object,
         model: str,
+        catalog: VibeProxyCatalog,
         payload: dict[str, Any],
         timeout: float,
     ) -> dict[str, Any]:
         assert timeout > 0
         assert payload["model"] == model
         assert payload["messages"][0]["content"] == cli.INFERENCE_PROMPT
+        assert self.owners[model] == catalog.owner_for(model)
         if self.failure is not None:
             raise self.failure
         return {
@@ -216,6 +251,208 @@ def test_inference_resolves_alias_and_preserves_disclosure(
 
 
 @pytest.mark.parametrize(
+    ("family", "requested_model", "catalog_owner", "response_model"),
+    [
+        ("openai", "gpt-5.4-mini", "openai", "gpt-5.4-mini-2026-03-17"),
+        ("grok", "grok-3-mini-fast", "xai", "grok-4.3"),
+    ],
+)
+def test_inference_preserves_catalog_owner_alias_disclosure(
+    family: str,
+    requested_model: str,
+    catalog_owner: str,
+    response_model: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient(
+        {requested_model, response_model},
+        owners={
+            requested_model: catalog_owner,
+            response_model: catalog_owner,
+        },
+    )
+    client.response_model = response_model
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family=family,
+        model=requested_model,
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 0
+    assert result["record"]["requested_model"] == requested_model
+    assert result["record"]["resolved_model"] == response_model
+    assert result["record"]["response_model"] == response_model
+    assert result["record"]["family_identity_ok"] is True
+    assert result["record"]["alias_disclosure"] == {
+        "applied": True,
+        "source": f"VibeProxy /v1/models owned_by={catalog_owner}",
+        "family": family,
+        "preserved": True,
+    }
+
+
+def test_inference_rejects_opaque_response_model_without_family_proof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient(
+        {"kimi-k2", "k2"},
+        owners={
+            "kimi-k2": "moonshot",
+            "k2": "moonshot",
+        },
+    )
+    client.response_model = "k2"
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="kimi",
+        model="kimi-k2",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is True
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "family_identity_error"
+    assert result["record"]["identity_errors"] == [
+        "resolved_model_family_mismatch",
+        "response_model_family_mismatch",
+    ]
+
+
+def test_inference_rejects_cross_family_alias_response(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient(
+        {"grok-3-mini-fast", "gpt-5.5"},
+        owners={
+            "grok-3-mini-fast": "xai",
+            "gpt-5.5": "openai",
+        },
+    )
+    client.response_model = "gpt-5.5"
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="grok",
+        model="grok-3-mini-fast",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "family_identity_error"
+    assert "resolved_model_family_mismatch" in result["record"]["identity_errors"]
+
+
+def test_inference_rejects_missing_catalog_owner_disclosure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gpt-5.4-mini"}, owners={})
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="openai",
+        model="gpt-5.4-mini",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "alias_disclosure_error"
+
+
+@pytest.mark.parametrize(
+    ("response_in_catalog", "response_owner_entries"),
+    [
+        (False, frozenset()),
+        (
+            True,
+            frozenset(
+                {
+                    ("gpt-5.4-mini-2026-03-17", "openai"),
+                    ("gpt-5.4-mini-2026-03-17", "xai"),
+                }
+            ),
+        ),
+    ],
+)
+def test_inference_rejects_response_without_unique_catalog_owner(
+    response_in_catalog: bool,
+    response_owner_entries: frozenset[tuple[str, str]],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested_model = "gpt-5.4-mini"
+    response_model = "gpt-5.4-mini-2026-03-17"
+    client = _InferenceClient(
+        {requested_model, *([response_model] if response_in_catalog else [])},
+        owners={requested_model: "openai"},
+        owner_entries=frozenset({(requested_model, "openai")}) | response_owner_entries,
+    )
+    client.response_model = response_model
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="openai",
+        model=requested_model,
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["ok"] is False
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "alias_disclosure_error"
+
+
+def test_inference_counts_missing_response_model_as_identity_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _InferenceClient({"gpt-5.4-mini"})
+    client.failure = VibeProxyResponseError("VibeProxy alias response omitted its model identity")
+    monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
+
+    code, result = cli.run_inference(
+        family="openai",
+        model="gpt-5.4-mini",
+        timeout=10,
+        max_tokens=16,
+        records_path=tmp_path / "calls.jsonl",
+        proof_path=tmp_path / "latest.json",
+    )
+
+    assert code == 1
+    assert result["record"]["response_model"] is None
+    assert result["record"]["clean"] is False
+    assert result["record"]["error_class"] == "family_identity_error"
+    assert result["proof"]["gates"]["family_identity_errors"]["observed"] == 1
+
+
+@pytest.mark.parametrize(
     ("family", "model"),
     [
         ("claude", "claude-opus-4-8"),
@@ -254,14 +491,14 @@ def test_inference_rejects_truncated_openai_response(
 ) -> None:
     client = _InferenceClient({"gemini-3-flash"})
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
-    original_request = client.openai_request
+    original_request = client.openai_catalog_alias_request
 
     def truncated_request(**kwargs: Any) -> dict[str, Any]:
         body = original_request(**kwargs)
         body["choices"][0]["finish_reason"] = "length"
         return body
 
-    monkeypatch.setattr(client, "openai_request", truncated_request)
+    monkeypatch.setattr(client, "openai_catalog_alias_request", truncated_request)
 
     code, result = cli.run_inference(
         family="gemini",
