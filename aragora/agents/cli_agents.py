@@ -232,6 +232,7 @@ class CLIAgent(CritiqueMixin, Agent):
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
         "claude": "anthropic/claude-opus-4.8",  # Default claude CLI
+        "claude-fable-5": "anthropic/claude-fable-5",
         "claude-opus-4-8": "anthropic/claude-opus-4.8",
         "claude-opus-4-7": "anthropic/claude-opus-4.8",
         "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
@@ -824,7 +825,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-8",
+    default_model="claude-fable-5",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )
@@ -844,7 +845,13 @@ class ClaudeAgent(CLIAgent):
         command unchanged when no pool/profile is available.
         """
         full_prompt = self._build_full_prompt(prompt, context)
-        command, used_profile = build_claude_command(["claude", "--print", "-p", "-"])
+        # Pin the CLI to the registered model: without --model the CLI runs
+        # whatever the active profile defaults to, and receipts would claim
+        # self.model while a different model answered.
+        base_command = ["claude", "--print"]
+        if self.model:
+            base_command += ["--model", self.model]
+        command, used_profile = build_claude_command([*base_command, "-p", "-"])
         # Pass prompt via stdin to avoid shell argument length limits.
         return await self._generate_with_fallback(
             command,

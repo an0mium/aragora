@@ -8,9 +8,12 @@ Pricing is per 1M tokens (consistent with aragora.billing.usage).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,65 @@ _HAND_ROWS: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.003,
         context_window=1_000_000,
         supports_streaming=True,
+    ),
+    # Canonical model_pins ids not yet in aragora.models.CATALOG (#9069 pin
+    # parity): every *_DIRECT / *_VIA_OPENROUTER pin must price non-zero.
+    # Move these into the catalog when the models gain enforcement there.
+    # https://ai.google.dev/gemini-api/docs/pricing (2026-07-09)
+    "gemini-3.1-pro": ProviderPricing(
+        provider_name="google",
+        model_name="gemini-3.1-pro",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    # Gemini CLI agent default id (see cli_agents.py); same rate card.
+    "gemini-3.1-pro-preview": ProviderPricing(
+        provider_name="google",
+        model_name="gemini-3.1-pro-preview",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    # https://openrouter.ai/google/gemini-3.1-pro-preview (2026-07-09)
+    "google/gemini-3.1-pro-preview": ProviderPricing(
+        provider_name="openrouter",
+        model_name="google/gemini-3.1-pro-preview",
+        input_cost_per_1k=0.002,
+        output_cost_per_1k=0.012,
+        context_window=1_048_576,
+    ),
+    # https://docs.mistral.ai/models/model-cards/mistral-large-3-25-12 (2026-07-09)
+    "mistral-large-2512": ProviderPricing(
+        provider_name="mistral",
+        model_name="mistral-large-2512",
+        input_cost_per_1k=0.0005,
+        output_cost_per_1k=0.0015,
+        context_window=262_144,
+    ),
+    # https://openrouter.ai/mistralai/mistral-large-2512 (2026-07-09)
+    "mistralai/mistral-large-2512": ProviderPricing(
+        provider_name="openrouter",
+        model_name="mistralai/mistral-large-2512",
+        input_cost_per_1k=0.0005,
+        output_cost_per_1k=0.0015,
+        context_window=262_144,
+    ),
+    # https://docs.x.ai/developers/models/grok-4.3 (2026-07-09; current alias rate)
+    "grok-4-latest": ProviderPricing(
+        provider_name="xai",
+        model_name="grok-4-latest",
+        input_cost_per_1k=0.00125,
+        output_cost_per_1k=0.0025,
+        context_window=1_000_000,
+    ),
+    # https://openrouter.ai/x-ai/grok-4 (2026-07-09)
+    "x-ai/grok-4": ProviderPricing(
+        provider_name="openrouter",
+        model_name="x-ai/grok-4",
+        input_cost_per_1k=0.00125,
+        output_cost_per_1k=0.0025,
+        context_window=1_000_000,
     ),
 }
 
@@ -299,6 +361,9 @@ def get_estimated_cost(
     if pricing is None:
         spec = by_any_id(provider)
         if spec is None:
+            # Silent 0.0 was the original #9069 bug: cost dashboards read
+            # "free" where they should read "unpriced model".
+            logger.warning("No pricing entry for model %s; returning 0.0", provider)
             return 0.0
         return (input_tokens / 1_000_000.0) * spec.input_per_mtok + (
             output_tokens / 1_000_000.0
