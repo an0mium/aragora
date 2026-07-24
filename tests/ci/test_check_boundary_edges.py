@@ -129,6 +129,31 @@ def test_new_forbidden_edge_exits_one_and_names_offender(tmp_path, capsys):
     assert "import aragora.gauntlet.receipt -> aragora.server" in capsys.readouterr().out
 
 
+def test_allowed_package_importfrom_resolves_submodule(tmp_path):
+    map_path = _write_map(tmp_path)
+    baseline = _write_baseline(tmp_path, map_path, set())
+    _write_file(
+        tmp_path,
+        "aragora/gauntlet/receipt.py",
+        "from aragora import core\n",
+    )
+
+    assert cbe.main(_args(tmp_path, map_path, baseline)) == 0
+
+
+def test_forbidden_package_importfrom_names_submodule(tmp_path, capsys):
+    map_path = _write_map(tmp_path)
+    baseline = _write_baseline(tmp_path, map_path, set())
+    _write_file(
+        tmp_path,
+        "aragora/gauntlet/receipt.py",
+        "from aragora import server\n",
+    )
+
+    assert cbe.main(_args(tmp_path, map_path, baseline)) == 1
+    assert "import aragora.gauntlet.receipt -> aragora.server" in capsys.readouterr().out
+
+
 def test_baselined_edge_and_resolved_subset_exit_zero(tmp_path, capsys):
     map_path = _write_map(tmp_path)
     baseline = _write_baseline(
@@ -181,6 +206,43 @@ def test_declared_standalone_dependency_is_offline_violation(tmp_path, capsys):
 
     assert rc == 1
     assert "offline dependency aragora-verify -> httpx" in capsys.readouterr().out
+
+
+def test_optional_standalone_dependency_is_offline_violation(tmp_path, capsys):
+    map_path = _write_map(tmp_path)
+    baseline = _write_baseline(tmp_path, map_path, set())
+    _write_file(
+        tmp_path,
+        "aragora-verify/pyproject.toml",
+        (
+            '[project]\nname = "aragora-verify"\ndependencies = []\n'
+            '[project.optional-dependencies]\nschema = ["httpx[socks]>=0.28"]\n'
+        ),
+    )
+
+    assert cbe.main(_args(tmp_path, map_path, baseline)) == 1
+    assert "offline dependency aragora-verify -> httpx" in capsys.readouterr().out
+
+
+def test_grandfathered_optional_dependency_is_not_new_violation(tmp_path):
+    map_path = _write_map(tmp_path)
+    _write_file(
+        tmp_path,
+        "aragora-verify/pyproject.toml",
+        (
+            '[project]\nname = "aragora-verify"\ndependencies = []\n'
+            '[project.optional-dependencies]\nschema = ["jsonschema>=4.0"]\n'
+        ),
+    )
+    config = cbe.load_boundary_map(tmp_path, map_path)
+
+    violations = cbe.compute_violations(
+        tmp_path,
+        config,
+        grandfathered_dependencies={"jsonschema"},
+    )
+
+    assert "offline dependency aragora-verify -> jsonschema" not in violations
 
 
 def test_boundary_hook_covers_default_install_and_nested_sources():

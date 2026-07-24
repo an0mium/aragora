@@ -239,7 +239,11 @@ def _import_targets(tree: ast.AST, module_name: str, is_package: bool) -> set[st
                     )
                 )
             elif node.module:
-                targets.add(node.module)
+                imported_names = [alias.name for alias in node.names if alias.name != "*"]
+                if "." not in node.module and imported_names:
+                    targets.update(f"{node.module}.{name}" for name in imported_names)
+                else:
+                    targets.add(node.module)
     return targets
 
 
@@ -254,7 +258,7 @@ def _normalize_distribution_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def _load_toml_object(path: Path, label: str) -> dict[str, Any]:
+def _parse_toml_object(content: str, label: str) -> dict[str, Any]:
     try:
         import tomllib as tomllib_module
     except ModuleNotFoundError:
@@ -265,34 +269,108 @@ def _load_toml_object(path: Path, label: str) -> dict[str, Any]:
                 f"Reading {label} requires Python 3.11+ or the tomli package"
             ) from exc
     try:
-        data = tomllib_module.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError) as exc:
-        raise CheckerError(f"Cannot read {label} {path}: {exc}") from exc
+        data = tomllib_module.loads(content)
+    except ValueError as exc:
+        raise CheckerError(f"Cannot parse {label}: {exc}") from exc
     if not isinstance(data, dict):
-        raise CheckerError(f"{label} must contain a TOML object: {path}")
+        raise CheckerError(f"{label} must contain a TOML object")
     return data
 
 
-def _declared_project_dependencies(path: Path) -> set[str]:
-    data = _load_toml_object(path, "Standalone project file")
-    project = data.get("project")
-    if not isinstance(project, dict):
-        raise CheckerError("Standalone project file must define a [project] table")
-    raw_dependencies = project.get("dependencies", [])
+def _load_toml_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise CheckerError(f"Cannot read {label} {path}: {exc}") from exc
+    return _parse_toml_object(content, f"{label} {path}")
+
+
+def _requirement_names(raw_dependencies: object, label: str) -> set[str]:
     if not isinstance(raw_dependencies, list) or any(
         not isinstance(item, str) or not item.strip() for item in raw_dependencies
     ):
-        raise CheckerError("Standalone project dependencies must be a TOML string array")
+        raise CheckerError(f"{label} must be a TOML string array")
 
     dependencies: set[str] = set()
     for requirement in raw_dependencies:
         match = _REQUIREMENT_NAME.match(requirement)
         if not match:
-            raise CheckerError(
-                f"Cannot parse standalone project dependency requirement: {requirement!r}"
-            )
+            raise CheckerError(f"Cannot parse {label} requirement: {requirement!r}")
         dependencies.add(_normalize_distribution_name(match.group(1)))
     return dependencies
+
+
+def _declared_project_dependencies_from_data(
+    data: dict[str, Any],
+    label: str,
+) -> set[str]:
+    project = data.get("project")
+    if not isinstance(project, dict):
+        raise CheckerError(f"{label} must define a [project] table")
+
+    dependencies = _requirement_names(
+        project.get("dependencies", []),
+        f"{label} [project].dependencies",
+    )
+    optional_dependencies = project.get("optional-dependencies", {})
+    if not isinstance(optional_dependencies, dict):
+        raise CheckerError(f"{label} [project.optional-dependencies] must be a TOML table")
+    for extra, requirements in optional_dependencies.items():
+        if not isinstance(extra, str) or not extra:
+            raise CheckerError(
+                f"{label} [project.optional-dependencies] keys must be non-empty strings"
+            )
+        dependencies.update(
+            _requirement_names(
+                requirements,
+                f"{label} [project.optional-dependencies].{extra}",
+            )
+        )
+    return dependencies
+
+
+def _declared_project_dependencies(path: Path) -> set[str]:
+    return _declared_project_dependencies_from_data(
+        _load_toml_object(path, "Standalone project file"),
+        "Standalone project file",
+    )
+
+
+def _frozen_project_dependencies(
+    repo_root: Path,
+    config: BoundaryConfig,
+    baseline_path: Path,
+) -> set[str]:
+    if not baseline_path.is_file():
+        return set()
+    baseline = _load_json_object(baseline_path, "Boundary baseline")
+    frozen_ref = baseline.get("frozen_from_ref")
+    if not isinstance(frozen_ref, str) or not frozen_ref:
+        return set()
+    try:
+        project_path = config.standalone_project_file.relative_to(repo_root)
+    except ValueError as exc:
+        raise CheckerError("Standalone project file must stay within the repository") from exc
+    result = subprocess.run(
+        ["git", "show", f"{frozen_ref}:{project_path.as_posix()}"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise CheckerError(
+            "Cannot read frozen standalone project file "
+            f"{project_path} at {frozen_ref}: {result.stderr.strip()}"
+        )
+    data = _parse_toml_object(
+        result.stdout,
+        f"Frozen standalone project file {project_path} at {frozen_ref}",
+    )
+    return _declared_project_dependencies_from_data(
+        data,
+        f"Frozen standalone project file {project_path} at {frozen_ref}",
+    )
 
 
 def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
@@ -329,16 +407,27 @@ def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
     return violations
 
 
-def compute_violations(repo_root: Path, config: BoundaryConfig) -> set[str]:
+def compute_violations(
+    repo_root: Path,
+    config: BoundaryConfig,
+    *,
+    grandfathered_dependencies: set[str] | None = None,
+    baseline_violations: set[str] | None = None,
+) -> set[str]:
     root = repo_root.resolve()
     violations = _scan_python_imports(root, config)
     allowed_dependencies = {
         _normalize_distribution_name(name) for name in config.allowed_external_roots
     }
+    grandfathered = grandfathered_dependencies or set()
+    existing_violations = baseline_violations or set()
     project_name = config.standalone_project_file.parent.name
     for dependency in _declared_project_dependencies(config.standalone_project_file):
-        if dependency not in allowed_dependencies:
-            violations.add(f"offline dependency {project_name} -> {dependency}")
+        violation = f"offline dependency {project_name} -> {dependency}"
+        if dependency not in allowed_dependencies and (
+            dependency not in grandfathered or violation in existing_violations
+        ):
+            violations.add(violation)
     for left, right in config.mirror_pairs:
         try:
             matches = left.read_bytes() == right.read_bytes()
@@ -515,10 +604,23 @@ def main(argv: list[str] | None = None) -> int:
         args.baseline = baseline_path
         args.repo_root = repo_root
         config = load_boundary_map(repo_root, map_path)
-        current = compute_violations(repo_root, config)
+        baseline = (
+            load_baseline(baseline_path, config, repo_root) if baseline_path.exists() else set()
+        )
+        current = compute_violations(
+            repo_root,
+            config,
+            grandfathered_dependencies=_frozen_project_dependencies(
+                repo_root,
+                config,
+                baseline_path,
+            ),
+            baseline_violations=baseline,
+        )
         if args.freeze:
             return _run_freeze(args, config, current)
-        baseline = load_baseline(baseline_path, config, repo_root)
+        if not baseline_path.exists():
+            raise CheckerError(f"Boundary baseline does not exist: {baseline_path}")
     except CheckerError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
