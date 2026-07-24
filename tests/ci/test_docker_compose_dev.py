@@ -48,10 +48,27 @@ def test_frontend_sdk_dependency_resolves_to_compose_mount() -> None:
     )
 
 
+def _node_base_images(dockerfile: str) -> list[str]:
+    """Image refs from each ``FROM`` line whose base image is the ``node`` repository.
+
+    Non-node stages (nginx, distroless, scratch) are ignored on purpose so a
+    legitimate multi-base build is not coupled to the node pin.
+    """
+    images: list[str] = []
+    for line in dockerfile.splitlines():
+        parts = line.strip().split()
+        if len(parts) < 2 or parts[0].upper() != "FROM":
+            continue
+        image = parts[1]
+        if image.split("@", 1)[0].rsplit(":", 1)[0] == "node":
+            images.append(image)
+    return images
+
+
 def test_frontend_container_images_use_supported_node_lts() -> None:
     for relative_path in ("deploy/Dockerfile.frontend", "aragora/live/Dockerfile"):
         dockerfile = (ROOT / relative_path).read_text(encoding="utf-8")
-        from_lines = [line for line in dockerfile.splitlines() if line.startswith("FROM ")]
+        node_images = _node_base_images(dockerfile)
 
-        assert from_lines
-        assert all(line.split()[1] == NODE_IMAGE for line in from_lines)
+        assert node_images, f"{relative_path} declares no node base image"
+        assert all(image == NODE_IMAGE for image in node_images)
