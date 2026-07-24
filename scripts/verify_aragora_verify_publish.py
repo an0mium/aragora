@@ -140,6 +140,24 @@ pubkey_path.write_bytes(
     )
 )
 
+# Positive control: the SAME signing path, unmutated, must verify clean.
+# Without this, a spoofed-key_id failure proves nothing — if sign_odr's scheme
+# did not match the CLI's, every signed receipt would fail as a bad signature
+# and the spoof assertion below would still see exit 1 plus a failing signature
+# check, going green for the wrong reason. Establishing that sign_odr produces
+# a signature the CLI accepts is what makes the spoof case isolate key_id.
+signed = sign_odr(valid_odr(), private_key)
+signed_path = root / "signed.odr.json"
+signed_path.write_text(json.dumps(signed, sort_keys=True), encoding="utf-8")
+
+signed_run = run_cli([str(signed_path), "--pubkey", str(pubkey_path), "--json"])
+if signed_run.returncode != 0:
+    raise SystemExit(
+        "correctly signed receipt must verify clean, so that the spoofed-key_id "
+        f"case isolates key_id binding; got exit {signed_run.returncode}: "
+        f"{signed_run.stderr or signed_run.stdout}"
+    )
+
 spoofed = sign_odr(valid_odr(), private_key)
 spoofed["signatures"][0]["key_id"] = "spoofed-signer-label"
 spoofed_path = root / "spoofed-key-id.odr.json"
@@ -162,6 +180,7 @@ if not signature_checks or signature_checks[0].get("status") != "fail":
 
 print(json.dumps({
     "valid_receipt_exit": valid_run.returncode,
+    "signed_receipt_exit": signed_run.returncode,
     "spoofed_key_id_exit": spoofed_run.returncode,
     "spoofed_signature_status": signature_checks[0]["status"],
 }, sort_keys=True))
