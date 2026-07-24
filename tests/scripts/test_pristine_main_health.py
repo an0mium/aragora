@@ -646,3 +646,98 @@ def test_failure_evidence_caps_single_long_line(mod):
 def test_full_suite_ignores_known_broken_collection(mod):
     (full_cmd,) = mod.SUITES["full"]
     assert "--ignore=tests/connectors" in full_cmd
+
+
+def test_required_suite_mirrors_ci_with_baseline_mypy_not_make(mod):
+    """CI parity (issue #9045): the required lane mirrors `make ci-required`'s
+    steps but swaps raw full-codebase mypy (frozen ~1.9k-error debt, never
+    green) for the shrink-only baseline checker. `make ci-required` itself
+    stays the strict developer contract and is NOT invoked."""
+    commands = mod.SUITES["required"]
+    flattened = [" ".join(cmd) for cmd in commands]
+
+    assert not any(cmd[0] == "make" for cmd in commands)
+    # No raw mypy invocation anywhere in the lane.
+    assert not any(Path(cmd[0]).name == "mypy" for cmd in commands)
+
+    (mypy_step,) = [line for line in flattened if "check_mypy_baseline.py" in line]
+    assert "--baseline" in mypy_step
+    assert "mypy_full_baseline.json" in mypy_step
+
+    # The other ci-required steps are preserved as-is.
+    assert any(cmd[:2] == ["ruff", "check"] for cmd in commands)
+    for step in (
+        "check_version_alignment.py",
+        "check_sdk_parity.py",
+        "check_sdk_namespace_parity.py",
+        "check_cross_sdk_parity.py",
+        "generate_openapi.py",
+        "verify_sdk_contracts.py",
+        "validate_openapi_routes.py",
+    ):
+        assert any(step in line for line in flattened), f"missing ci-required step: {step}"
+
+
+def test_default_suite_is_required(mod, monkeypatch, tmp_path):
+    """The nightly full suite TIMEOUTs every run (issue #9045); the default
+    lane must be the one that can actually produce a verdict."""
+    _install_fake_worktree(mod, monkeypatch)
+    monkeypatch.setattr(mod, "_run", lambda cmd, *, cwd, timeout: _Proc(0, "ok"))
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(tmp_path / "halt.json"),
+        ]
+    )
+    assert rc == 0
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(tmp_path).records()
+    assert record.data["suite"] == "required"
+
+
+def test_mypy_baseline_infra_output_is_infra_not_red(mod):
+    """A checker that cannot produce a verdict is inconclusive, never main_red."""
+    proc = _Proc(2, "", "MYPY_BASELINE_INFRA: mypy missing from PATH")
+    assert mod._infra_failure_signature(proc) is not None
+    # But a genuine baseline regression IS main_red.
+    proc = _Proc(1, "FAIL: full-codebase mypy errors grew: 1872 > baseline 1869 (+3)", "")
+    assert mod._infra_failure_signature(proc) is None
+
+
+def test_mypy_baseline_infra_in_suite_never_writes_halt(mod, monkeypatch, tmp_path, capsys):
+    _install_fake_worktree(mod, monkeypatch)
+    monkeypatch.setattr(mod, "_check_test_runtime", lambda repo: None)
+
+    def fake_suite(cmd, *, cwd, timeout):
+        if "check_mypy_baseline.py" in " ".join(cmd):
+            return _Proc(2, "", "MYPY_BASELINE_INFRA: baseline file missing: x.json")
+        return _Proc(0, "ok")
+
+    monkeypatch.setattr(mod, "_run_suite", fake_suite)
+    halt = tmp_path / "halt.json"
+    rc = mod.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--pristine-dir",
+            str(tmp_path / "pristine"),
+            "--halt-file",
+            str(halt),
+            "--suite",
+            "required",
+        ]
+    )
+
+    assert rc == mod.INFRA_ERROR_EXIT
+    assert not halt.exists()
+    assert "MYPY_BASELINE_INFRA" in capsys.readouterr().err
+
+    from aragora.nomic.throughput import ThroughputLedger
+
+    (record,) = ThroughputLedger(tmp_path).records()
+    assert record.data["status"] == "infra_error"
