@@ -26,7 +26,24 @@ checker = _load_module()
 def test_repository_manifest_matches_current_tree() -> None:
     result = checker.check_allowlist()
     payload = json.loads(checker.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-    assert result.ok is True and result.policy_consumers == ("aragora/agents/api_agents/openai.py", "scripts/consult_claude.py") and [(site["path"], site["anchor"]) for site in payload["sites"] if site["classification"] == "proxy-eligible"] == [("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"), ("scripts/consult_claude.py", "_run_vibeproxy")], result  # fmt: skip
+    assert result.ok is True, result
+    assert result.policy_consumers == (
+        "aragora/agents/api_agents/openai.py",
+        "aragora/agents/transports/claude_vibeproxy.py",
+        "scripts/consult_claude.py",
+        "scripts/vibeproxy_burnin_recorder.py",
+    )
+    assert [
+        (site["path"], site["anchor"])
+        for site in payload["sites"]
+        if site["classification"] == "proxy-eligible"
+    ] == [
+        ("aragora/agents/api_agents/openai.py", "OpenAIAPIAgent.generate"),
+        ("aragora/agents/transports/claude_vibeproxy.py", "run_claude_vibeproxy"),
+        ("scripts/consult_claude.py", "_run_vibeproxy"),
+        ("scripts/vibeproxy_burnin_recorder.py", "run_inference"),
+        ("scripts/vibeproxy_burnin_recorder.py", "run_inference"),
+    ]
 
 
 def _write_source(root: Path, relative: str, source: str) -> Path:
@@ -410,7 +427,7 @@ def test_discovery_finds_urls_methods_and_transport_policy_calls(tmp_path: Path)
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
 OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
 def consult(policy: MTP):
-    other.anthropic_message(model="fake"); assigned = MTP.from_env(); assigned.client.anthropic_message(model="claude"); return policy.generate_anthropic(model="claude", messages=[])
+    other.anthropic_message(model="fake"); assigned = MTP.from_env(); assigned.client.anthropic_message(model="claude"); assigned.client.openai_catalog_alias_request(model="gpt"); return policy.generate_anthropic(model="claude", messages=[])
 """,
     )
     # fmt: off
@@ -421,7 +438,7 @@ def consult(policy: MTP):
     assert {(site.provider, site.protocol) for site in discovery.sites if site.path.endswith("run.tsx")} >= {("anthropic", "messages"), ("gemini", "generate-content"), ("openai-compatible", "chat"), ("openai-compatible", "embeddings"), ("openai-compatible", "responses")}
     assert next(site for site in discovery.sites if site.provider == "openai-compatible" and site.protocol == "responses").detectors == {"inference-method": 1}
     # fmt: on
-    assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 2
+    assert sum(site.detectors.get("transport-policy-call", 0) for site in discovery.sites) == 3
     payload = _template(tmp_path)
     assert {site["classification"] for site in payload["sites"]} == {"direct-only"}
     payload["sites"][0]["classification"] = "proxy-eligible"

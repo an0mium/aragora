@@ -34,6 +34,7 @@ from collections.abc import Callable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.debate.crux_mode import CruxFinderDisabledError
 from aragora.observability.metrics.debate_slo import record_consensus_detection_latency
 from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
@@ -354,6 +355,8 @@ class ConsensusPhase:
                 timeout,
             )
             await self._handle_fallback_consensus(ctx, reason="timeout")
+        except CruxFinderDisabledError:
+            raise
         except Exception as e:  # noqa: BLE001 - phase isolation
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
@@ -1315,11 +1318,22 @@ class ConsensusPhase:
         belief network — an explicit design choice to fail closed — we fall
         back to majority consensus to preserve the debate's protocol
         compatibility.
-        """
-        from aragora.debate.consensus import build_proof_from_crux_finder
-        from aragora.debate.crux_mode import build_crux_finder_result
 
+        The mode is guarded by ``ARAGORA_CRUX_FINDER_ENABLED`` (default off).
+        A caller that explicitly requests this mode while it is disabled gets
+        a typed error instead of an unrelated consensus verdict. Satisfies the
+        DIC-15 (#6025) flag-gate requirement.
+        """
+        from aragora.debate.crux_mode import (
+            build_crux_finder_result,
+            require_crux_finder_enabled,
+        )
+
+        require_crux_finder_enabled()
         result = require_phase_result(ctx)
+
+        from aragora.debate.consensus import build_proof_from_crux_finder
+
         belief_network = getattr(ctx, "belief_network", None)
 
         if belief_network is None:
