@@ -348,6 +348,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # The rendered status pages are mirrored into docs-site, and
+          # docs-build.yml fails closed when a docs/** change lands without its
+          # mirror ("Ensure docs are synced"). Publishing without this leaves
+          # every daily PR red on `build` and, once merged, hands that red to
+          # the next unrelated docs PR — so the sync belongs to the publisher,
+          # not to whoever happens to notice. Hard-fail on a missing toolchain
+          # rather than publishing known-drifted surfaces.
+          if ! command -v node >/dev/null 2>&1; then
+            echo "::error::node is required to sync docs-site mirrors"
+            exit 1
+          fi
+          ( cd docs-site && node scripts/sync-docs.js )
+
           git add \
             docs/benchmarks/benchmark_corpus_freshness.json \
             docs/benchmarks/rescue_productization.json \
@@ -355,7 +369,9 @@ jobs:
             docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
             docs/status/generated/benchmark_scorecards \
             docs/status/generated/benchmark_truth_artifacts \
-            docs/status/generated/rescue_productization
+            docs/status/generated/rescue_productization \
+            docs-site/docs/contributing/b0-benchmark-truth-status.md \
+            docs-site/docs/contributing/tw03-rescue-productization-status.md
 
           if git diff --cached --quiet; then
             echo "No recurring trust-loop surface changes to commit."

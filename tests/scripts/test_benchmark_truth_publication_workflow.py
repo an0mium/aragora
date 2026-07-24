@@ -190,3 +190,31 @@ def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
     assert 'echo "Draft PR: $pr_url"' in run
     assert "[skip ci]" not in run
     assert "git push origin HEAD:main" not in run
+
+
+def test_publisher_syncs_docs_site_mirrors_before_staging() -> None:
+    """The publisher must stage its own docs-site mirrors.
+
+    ``docs-build.yml`` fails closed when a ``docs/**`` change lands without its
+    mirror, so a publication that skips the sync reds the ``build`` check on
+    every daily PR and hands that red to the next unrelated docs PR once
+    merged. Mirroring was a manual add-on until #9519 follow-through.
+    """
+    run = str(
+        _workflow_step(
+            "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
+        ).get("run", "")
+    )
+
+    assert "( cd docs-site && node scripts/sync-docs.js )" in run
+    # Missing toolchain must fail the publication, not silently publish drift.
+    assert "::error::node is required to sync docs-site mirrors" in run
+
+    for mirror in (
+        "docs-site/docs/contributing/b0-benchmark-truth-status.md",
+        "docs-site/docs/contributing/tw03-rescue-productization-status.md",
+    ):
+        assert mirror in run
+
+    # The sync has to happen before staging, or it stages stale mirrors.
+    assert run.index("node scripts/sync-docs.js") < run.index("git add")
