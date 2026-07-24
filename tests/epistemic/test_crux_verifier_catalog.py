@@ -198,7 +198,9 @@ def test_enriches_by_statement_substring(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_existing_candidate_verifier_not_overwritten(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_ENV_VAR, "1")
     catalog = CruxVerifierCatalog.from_dict({"bc12.": "docs/catalog.md"})
-    cs = _cruxset(_crux("bc12.green_shift", "Soaks required.", candidate_verifier="docs/original.md"))
+    cs = _cruxset(
+        _crux("bc12.green_shift", "Soaks required.", candidate_verifier="docs/original.md")
+    )
     enriched = enrich_cruxset(cs, catalog)
     # The crux already had a verifier; it must not be overwritten
     assert enriched.cruxes[0].candidate_verifier == "docs/original.md"

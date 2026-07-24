@@ -72,9 +72,7 @@ class CruxVerifierCatalog:
         Entries are inserted in iteration order (Python 3.7+ dict order is
         insertion order), so the caller controls priority.
         """
-        return cls(
-            entries=[VerifierEntry(pattern=p, verifier=v) for p, v in mapping.items()]
-        )
+        return cls(entries=[VerifierEntry(pattern=p, verifier=v) for p, v in mapping.items()])
 
     @classmethod
     def from_entries(cls, entries: Sequence[VerifierEntry]) -> "CruxVerifierCatalog":
