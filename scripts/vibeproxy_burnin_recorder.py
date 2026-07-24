@@ -52,6 +52,14 @@ DEFAULT_GITHUB_TIMEOUT_SECONDS = 60.0
 DEFAULT_MAX_DIFF_CHARS = 120_000
 INFERENCE_SENTINEL = "ARAGORA_VIBEPROXY_BURNIN_OK"
 INFERENCE_PROMPT = f"Reply with exactly: {INFERENCE_SENTINEL}"
+_CATALOG_OWNER_FAMILIES = {
+    "anthropic": "claude",
+    "openai": "openai",
+    "google": "gemini",
+    "antigravity": "gemini",
+    "xai": "grok",
+    "moonshot": "kimi",
+}
 _VERDICT = re.compile(r"^\s*Verdict\s*:\s*(PASS|CHANGES-REQUESTED)\s*$", re.MULTILINE)
 
 
@@ -180,6 +188,12 @@ def _attempt_error_class(attempt: ClaudeVibeProxyAttempt) -> str:
 
 def _exception_error_class(exc: BaseException) -> str:
     value = str(exc).lower()
+    if "owner disclosure" in value:
+        return "alias_disclosure_error"
+    if "omitted its model identity" in value:
+        return "family_identity_error"
+    if "response model owner did not match" in value:
+        return "family_identity_error"
     if "response model did not match" in value:
         return "family_identity_error"
     if "401" in value:
@@ -242,7 +256,13 @@ def run_inference(
         frozenset({"chat"}),
     )
     response_model: str | None = None
+    catalog_owner: str | None = None
+    catalog_family: str | None = None
+    alias_family: str | None = None
+    alias_sources: list[str] = []
     error_class: str | None = None
+    response_text: str | None = None
+    truncated = False
     ok = False
     try:
         policy = _required_policy()
@@ -258,6 +278,8 @@ def run_inference(
         )
         if route.transport != "vibeproxy":
             raise VibeProxyUnavailableError("required inference did not resolve to VibeProxy")
+        if route.requested_model != route.resolved_model:
+            alias_sources.append("ARAGORA_VIBEPROXY_MODEL_MAP")
         request_timeout = max(0.1, timeout - (time.monotonic() - started))
 
         if normalized_family == "claude":
@@ -270,29 +292,50 @@ def run_inference(
             # anthropic_message() returns only after exact response-model
             # verification inside VibeProxyClient.
             response_model = route.resolved_model
-            truncated = False
         else:
-            body = policy.client.openai_request(
-                protocol=OpenAIProtocol.CHAT,
-                model=route.resolved_model,
-                payload={
-                    "model": route.resolved_model,
-                    "messages": [{"role": "user", "content": INFERENCE_PROMPT}],
-                    "max_tokens": max_tokens,
-                },
-                timeout=request_timeout,
-            )
-            observed_model = body.get("model")
-            response_model = observed_model if isinstance(observed_model, str) else None
-            response_text, truncated = _openai_chat_response(body)
-        if truncated:
-            error_class = "truncated_response"
-        elif response_text != INFERENCE_SENTINEL:
-            error_class = "sentinel_mismatch"
-        elif response_model is None:
-            error_class = "missing_response_model"
-        else:
-            ok = True
+            catalog = policy.client.catalog(timeout=discovery_timeout)
+            catalog_owner = catalog.owner_for(route.resolved_model)
+            catalog_family = _CATALOG_OWNER_FAMILIES.get(catalog_owner or "")
+            if catalog_owner is None:
+                error_class = "alias_disclosure_error"
+            elif catalog_family != normalized_family:
+                error_class = "family_identity_error"
+            else:
+                body = policy.client.openai_catalog_alias_request(
+                    protocol=OpenAIProtocol.CHAT,
+                    model=route.resolved_model,
+                    catalog=catalog,
+                    payload={
+                        "model": route.resolved_model,
+                        "messages": [{"role": "user", "content": INFERENCE_PROMPT}],
+                        "max_tokens": max_tokens,
+                    },
+                    timeout=request_timeout,
+                )
+                observed_model = body.get("model")
+                response_model = observed_model if isinstance(observed_model, str) else None
+                response_text, truncated = _openai_chat_response(body)
+                response_owner = (
+                    catalog.owner_for(response_model)
+                    if response_model is not None and response_model in catalog.models
+                    else None
+                )
+                if response_model is not None and response_owner is None:
+                    error_class = "alias_disclosure_error"
+                elif response_model is not None and response_owner != catalog_owner:
+                    error_class = "family_identity_error"
+                elif response_model != route.resolved_model:
+                    alias_family = catalog_family
+                    alias_sources.append(f"VibeProxy /v1/models owned_by={catalog_owner}")
+        if error_class is None:
+            if truncated:
+                error_class = "truncated_response"
+            elif response_text != INFERENCE_SENTINEL:
+                error_class = "sentinel_mismatch"
+            elif response_model is None:
+                error_class = "missing_response_model"
+            else:
+                ok = True
     except (VibeProxyConfigurationError, VibeProxyUnavailableError) as exc:
         error_class = _exception_error_class(exc)
     except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError) as exc:
@@ -302,16 +345,13 @@ def run_inference(
         CallOutcome(
             family=normalized_family,
             requested_model=route.requested_model,
-            resolved_model=route.resolved_model,
+            resolved_model=response_model or route.resolved_model,
             response_model=response_model,
             latency_ms=(time.monotonic() - started) * 1000,
             ok=ok,
             error_class=error_class,
-            alias_source=(
-                "ARAGORA_VIBEPROXY_MODEL_MAP"
-                if route.requested_model != route.resolved_model
-                else None
-            ),
+            alias_source="; ".join(alias_sources) or None,
+            alias_family=alias_family,
         )
     )
     proof = write_proof_artifact(records_path, proof_path)
