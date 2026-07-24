@@ -17,6 +17,7 @@ import time
 from typing import TYPE_CHECKING
 
 from aragora.config.secrets import get_secret_presence
+from aragora.models.compat import first_text_block
 
 if TYPE_CHECKING:
     import anthropic
@@ -482,9 +483,10 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 logger.warning("Response does not contain content")
                 return None
 
-            first_block = response.content[0]
-            content_text = getattr(first_block, "text", None)
-            if not isinstance(content_text, str):
+            # Opus 5 thinks by default, so content[0] is a thinking block.
+            # Scan for the first text block instead of indexing position 0.
+            content_text = first_text_block(response.content)
+            if not content_text:
                 logger.warning("Response does not contain text content")
                 return None
             content: str = content_text.strip()

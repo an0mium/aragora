@@ -31,6 +31,7 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.models.compat import first_text_block, strip_sampling_params
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -329,6 +330,13 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if self.top_p is not None:
             payload["top_p"] = self.top_p
 
+        # Claude Opus 4.7+ (incl. Opus 5 / Sonnet 5 / Fable 5) removed sampling
+        # parameters: a non-default temperature/top_p/top_k returns a 400. Strip
+        # them centrally so persona configs (e.g. the vertical specialists,
+        # which set temperature 0.1-0.3 + top_p) do not hard-fail on those
+        # models. Guide behaviour with prompting instead.
+        strip_sampling_params(payload, self.model)
+
         if self.system_prompt:
             payload["system"] = self.system_prompt
 
@@ -409,14 +417,22 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                     )
 
                     try:
+                        # A response with no "content" key at all is malformed,
+                        # not merely empty — surface it as a format error the way
+                        # the old content[0] KeyError did.
+                        if "content" not in data:
+                            raise KeyError("content")
+
                         # Extract text and thinking from response content blocks
                         content_blocks = data.get("content", [])
                         output, thinking = self._parse_content_blocks(content_blocks)
                         self._last_thinking_trace = thinking
 
                         if not output:
-                            # Fallback to old format
-                            output = data["content"][0]["text"]
+                            # Fallback to old format. Must not index content[0]:
+                            # on a thinking-by-default model that is a thinking
+                            # block, not text.
+                            output = first_text_block(data.get("content"))
 
                         if not output or not output.strip():
                             if self._circuit_breaker is not None:

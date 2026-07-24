@@ -53,7 +53,7 @@ class ActionPlan:
         return asdict(self)
 
 
-# Default model for rescue planning — cheap and fast
+# Default model for rescue planning — frontier tier ($5/$25 per MTok)
 _DEFAULT_MODEL = "anthropic/claude-opus-5"
 _FALLBACK_MODEL = "deepseek/deepseek-v4-pro"
 
