@@ -5,7 +5,7 @@ description: B0 Benchmark Truth Status
 
 # B0 Benchmark Truth Status
 
-Last updated: 2026-07-17T13:58:53Z
+Last updated: 2026-07-24T14:00:59Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -36,6 +36,8 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 | Full-corpus truth success rate (legacy/context) | 100.0% |
 | No-rescue truth success rate | 100.0% |
 | Merged-only rate | 100.0% |
+
+Corpus exhaustion note: the verified rates above reflect the previously graduated cohort, not fresh autonomy proof. All `13`/`13` proxy corpus rows in the current window were neutral with `0` fresh successes (`issue_already_resolved`) — corpus revision `6` is exhausted and generates no new execution evidence until the corpus is restocked.
 
 ## In-Flight Graduation Metrics
 
@@ -76,8 +78,8 @@ Proxy note: neutral issue outcomes are current-corpus rows that were neither fre
 
 ## Previous Published Artifact
 
-- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260716T140152Z.json`
-- Previous generated_at: `2026-07-16T14:01:52Z`
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260723T185024Z.json`
+- Previous generated_at: `2026-07-23T18:50:24Z`
 
 ## Deltas
 

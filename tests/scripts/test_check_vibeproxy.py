@@ -135,7 +135,11 @@ def test_json_success_is_sanitized_and_never_requests_inference(
         "advertised": ["GET /v1/models", "POST /v1/chat/completions"],
         "advertised_redacted_count": 0,
         "verified_no_inference": ["GET /v1/models"],
-        "aragora_implemented_not_probed": ["POST /v1/messages"],
+        "aragora_implemented_not_probed": [
+            "POST /v1/chat/completions",
+            "POST /v1/messages",
+            "POST /v1/responses",
+        ],
         "metadata_status": "verified",
     }
     assert result["model_inventory"] == {
