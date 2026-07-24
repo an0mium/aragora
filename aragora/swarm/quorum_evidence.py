@@ -394,11 +394,15 @@ _FAMILY_ALIASES: dict[str, str] = {
     # ADVISORY_ONLY_FAMILIES exclusion cannot be sidestepped by a raw provider
     # id (#9363 round-4 [P3]).
     "google": "gemini",
-    # Live protocol payloads carry the AgentRegistry name, which for the gemini
-    # family is "gemini-cli" (agent ids like "gemini-cli:maintainability") — it
-    # must collapse to the same family or demoted gemini dissent can re-enter
-    # through protocol["dissenting_views"] (#9363 round-5 [P2]).
+    # Live protocol payloads carry the AgentRegistry name, so EVERY registered
+    # agent surface on the gemini family must collapse here or demoted gemini
+    # dissent re-enters through protocol["dissenting_views"] (#9363 rounds 5-6).
+    # "antigravity" is the current primary Gemini surface (agy CLI,
+    # default_model=gemini-3.5-flash) and "gemini-cli" the legacy one. Pinned by
+    # test_every_gemini_registry_surface_is_demoted, which walks AgentRegistry
+    # so a future Gemini agent cannot be added without a mapping.
     "gemini-cli": "gemini",
+    "antigravity": "gemini",
 }
 
 

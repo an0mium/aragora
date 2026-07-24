@@ -4327,6 +4327,30 @@ class TestFounderRosterDirective20260716:
     counting set (repeat fabricated-claim pattern, see the committed
     reviewer-reliability record in docs/governance/records/)."""
 
+    def test_every_gemini_registry_surface_is_demoted(self):
+        # The demotion keys off canonical_family(<agent id>), and live protocol
+        # payloads carry AgentRegistry names — so a Gemini-family agent whose
+        # registry id does not collapse to "gemini" silently escapes the
+        # directive and can block a merge (#9363 rounds 5-6: gemini-cli, then
+        # antigravity). Walk the registry so the next such surface fails CI
+        # instead of leaking.
+        import aragora.agents.cli_agents  # noqa: F401  (populates the registry)
+        from aragora.agents.registry import AgentRegistry
+        from aragora.swarm.quorum_evidence import ADVISORY_ONLY_FAMILIES, canonical_family
+
+        gemini_surfaces = {
+            name
+            for name, spec in AgentRegistry.list_all().items()
+            if str((spec or {}).get("default_model") or "").lower().startswith("gemini")
+        }
+        # Guard the guard: if this is empty the walk silently proves nothing.
+        assert gemini_surfaces, "expected at least one Gemini-family agent in the registry"
+        escaped = {n for n in gemini_surfaces if canonical_family(n) not in ADVISORY_ONLY_FAMILIES}
+        assert not escaped, (
+            f"Gemini-family agent ids escape the advisory-only demotion: {sorted(escaped)}. "
+            "Add each to _FAMILY_ALIASES so its dissent cannot re-enter the gate."
+        )
+
     def test_gemini_family_does_not_count(self):
         from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
 

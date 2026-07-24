@@ -162,7 +162,10 @@ from aragora.swarm.quorum_evidence import (  # noqa: E402
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
     "openai": ("openai",),
-    "gemini": ("gemini", "google"),
+    # "antigravity" is the agy-CLI Gemini surface: a review that self-labels
+    # with only that name must still resolve to the gemini family, or it is
+    # dropped instead of preserved as an advisory view (#9363 round-6 [P3]).
+    "gemini": ("gemini", "google", "antigravity"),
     "grok": ("grok", "xai"),
     "mistral": ("mistral", "codestral"),
     "deepseek": ("deepseek",),
@@ -4380,7 +4383,7 @@ def _normalize_model_reviewer_id(value: str) -> str:
         ("claude", ("claude", "anthropic")),
         ("openai", ("openai", "gpt")),
         ("grok", ("grok", "xai")),
-        ("gemini", ("gemini", "google")),
+        ("gemini", ("gemini", "google", "antigravity")),
         ("mistral", ("mistral", "codestral")),
         ("deepseek", ("deepseek",)),
         ("qwen", ("qwen",)),
