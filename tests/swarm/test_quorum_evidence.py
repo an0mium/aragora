@@ -2444,7 +2444,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:

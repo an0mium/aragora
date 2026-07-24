@@ -1821,15 +1821,15 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 # review is as trustworthy as the subscription path it replaces.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "claude": "anthropic/claude-fable-5",
-    "openai": "openai/gpt-5-pro",
+    "openai": "openai/gpt-5.5",
     "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    "kimi": "moonshotai/kimi-k2.6",
+    "qwen": "qwen/qwen3.7-max",
+    "kimi": "moonshotai/kimi-k2.7-code",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
