@@ -183,11 +183,17 @@ jobs:
           npm install --global --prefix "$codex_root" @openai/codex
           echo "$codex_root/bin" >> "$GITHUB_PATH"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Verify runtime prerequisites
         shell: bash
         run: |
           command -v codex >/dev/null
           command -v gh >/dev/null
+          command -v node >/dev/null
           METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
           mkdir -p "$(dirname "$METRICS_PATH")"
           if [[ ! -f "$METRICS_PATH" ]]; then
@@ -324,6 +330,21 @@ jobs:
             --report-root docs/status/generated/rescue_productization \
             --output docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md
 
+      - name: Sync docs-site mirrors
+        shell: bash
+        # Deliberately uncredentialed and separate from the publish step: the
+        # rendered status pages are mirrored into docs-site, and docs-build.yml
+        # fails closed when a docs/** change lands without its mirror ("Ensure
+        # docs are synced"). Publishing without this leaves every daily PR red
+        # on `build` and, once merged, hands that red to the next unrelated
+        # docs PR. Running the same generators docs-build runs — in the same
+        # order — is what makes the published tree satisfy that gate; keeping
+        # it out of the publish step keeps repository JavaScript away from the
+        # PAT and makes a sync failure attributable in the run log.
+        run: |
+          python3 scripts/doc_stats.py --write
+          cd docs-site && node scripts/sync-docs.js
+
       - name: Publish workflow summary
         run: |
           cat docs/status/B0_BENCHMARK_TRUTH_STATUS.md >> "$GITHUB_STEP_SUMMARY"
@@ -349,19 +370,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # The rendered status pages are mirrored into docs-site, and
-          # docs-build.yml fails closed when a docs/** change lands without its
-          # mirror ("Ensure docs are synced"). Publishing without this leaves
-          # every daily PR red on `build` and, once merged, hands that red to
-          # the next unrelated docs PR — so the sync belongs to the publisher,
-          # not to whoever happens to notice. Hard-fail on a missing toolchain
-          # rather than publishing known-drifted surfaces.
-          if ! command -v node >/dev/null 2>&1; then
-            echo "::error::node is required to sync docs-site mirrors"
-            exit 1
-          fi
-          ( cd docs-site && node scripts/sync-docs.js )
-
+          # Stage the whole mirror tree, not just this workflow's two pages:
+          # the gate in docs-build.yml is a whole-tree `git diff --quiet` after
+          # running the same generators, so a partial stage still reds `build`.
           git add \
             docs/benchmarks/benchmark_corpus_freshness.json \
             docs/benchmarks/rescue_productization.json \
@@ -369,9 +380,20 @@ jobs:
             docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
             docs/status/generated/benchmark_scorecards \
             docs/status/generated/benchmark_truth_artifacts \
-            docs/status/generated/rescue_productization \
-            docs-site/docs/contributing/b0-benchmark-truth-status.md \
-            docs-site/docs/contributing/tw03-rescue-productization-status.md
+            docs/status/generated/rescue_productization
+          git add -A docs-site/docs
+
+          # The generators may touch tracked docs/** outside the allowlist
+          # above (doc_stats rewrites embedded counts). Anything they moved but
+          # we did not stage would ship a PR that fails the very gate this
+          # sync exists to satisfy, so fail loudly instead of publishing a
+          # known-red surface — the workflow must be able to detect its own
+          # incompleteness.
+          if ! git diff --quiet -- docs docs-site; then
+            echo "::error::generator output left unstaged; publication would fail docs-build"
+            git --no-pager diff --stat -- docs docs-site
+            exit 1
+          fi
 
           if git diff --cached --quiet; then
             echo "No recurring trust-loop surface changes to commit."

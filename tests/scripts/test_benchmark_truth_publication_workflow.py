@@ -193,28 +193,38 @@ def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
 
 
 def test_publisher_syncs_docs_site_mirrors_before_staging() -> None:
-    """The publisher must stage its own docs-site mirrors.
+    """The publisher must satisfy the docs gate it will be judged by.
 
-    ``docs-build.yml`` fails closed when a ``docs/**`` change lands without its
-    mirror, so a publication that skips the sync reds the ``build`` check on
-    every daily PR and hands that red to the next unrelated docs PR once
-    merged. Mirroring was a manual add-on until #9519 follow-through.
+    ``docs-build.yml`` runs ``doc_stats.py --write`` then ``sync-docs.js`` and
+    diffs the whole tree, so a publication that skips the sync — or stages only
+    part of its output — reds the ``build`` check on every daily PR and hands
+    that red to the next unrelated docs PR once merged. Mirroring was a manual
+    add-on until #9519 follow-through.
     """
-    run = str(
-        _workflow_step(
-            "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
-        ).get("run", "")
-    )
+    names = [str(step.get("name", "")) for step in _benchmark_truth_publication_steps()]
+    sync_step = _workflow_step("Sync docs-site mirrors")
+    sync_run = str(sync_step.get("run", ""))
 
-    assert "( cd docs-site && node scripts/sync-docs.js )" in run
-    # Missing toolchain must fail the publication, not silently publish drift.
-    assert "::error::node is required to sync docs-site mirrors" in run
+    # Same generators as the gate, in the same order.
+    assert "python3 scripts/doc_stats.py --write" in sync_run
+    assert "node scripts/sync-docs.js" in sync_run
+    assert sync_run.index("doc_stats.py") < sync_run.index("sync-docs.js")
 
-    for mirror in (
-        "docs-site/docs/contributing/b0-benchmark-truth-status.md",
-        "docs-site/docs/contributing/tw03-rescue-productization-status.md",
-    ):
-        assert mirror in run
+    # Step ordering, not string position: the sync must precede publication,
+    # and node must be provisioned rather than assumed on the self-hosted
+    # runner (its toolchain is known-unreliable).
+    publish = "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
+    assert names.index("Setup Node") < names.index("Sync docs-site mirrors")
+    assert names.index("Sync docs-site mirrors") < names.index(publish)
+    assert _workflow_step("Setup Node").get("uses", "").startswith("actions/setup-node@")
 
-    # The sync has to happen before staging, or it stages stale mirrors.
-    assert run.index("node scripts/sync-docs.js") < run.index("git add")
+    # The sync must not run inside the step holding the publication PAT.
+    assert "sync-docs.js" not in str(_workflow_step(publish).get("run", ""))
+
+    publish_run = str(_workflow_step(publish).get("run", ""))
+    # Stage the whole mirror tree: the gate is a whole-tree diff, so staging
+    # only this workflow's two pages still leaves the PR red.
+    assert "git add -A docs-site/docs" in publish_run
+    # And fail loudly if the generators moved anything left unstaged.
+    assert "git diff --quiet -- docs docs-site" in publish_run
+    assert "publication would fail docs-build" in publish_run
