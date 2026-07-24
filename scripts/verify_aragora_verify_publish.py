@@ -37,6 +37,14 @@ DEFAULT_INSTALL_ATTEMPTS = 8
 DEFAULT_INSTALL_BACKOFF = 5.0
 MAX_INSTALL_BACKOFF = 60.0
 
+# The whole point of this helper is to prove the artifact is installable from
+# *public* PyPI. A self-hosted runner carrying PIP_INDEX_URL / PIP_EXTRA_INDEX_URL
+# / pip.conf / find-links pointing at a mirror or local cache could satisfy the
+# install from somewhere else entirely and report success while the published
+# version is not actually reachable by users. `--isolated` drops env vars and
+# config files; the explicit index pins where the package must come from.
+DEFAULT_INDEX_URL = "https://pypi.org/simple"
+
 
 PROBE_SCRIPT = r"""
 from __future__ import annotations
@@ -261,6 +269,7 @@ def verify_publish(
     timeout: int = 240,
     install_attempts: int = DEFAULT_INSTALL_ATTEMPTS,
     install_backoff: float = DEFAULT_INSTALL_BACKOFF,
+    index_url: str = DEFAULT_INDEX_URL,
 ) -> dict[str, object]:
     with _verification_workspace(work_dir) as workspace:
         venv = workspace / ".venv"
@@ -278,7 +287,10 @@ def verify_publish(
                 "-m",
                 "pip",
                 "install",
+                "--isolated",
                 "--no-cache-dir",
+                "--index-url",
+                index_url,
                 f"aragora-verify=={version}",
             ],
             timeout=timeout,
@@ -349,6 +361,15 @@ def build_parser() -> argparse.ArgumentParser:
             f"capped at {MAX_INSTALL_BACKOFF:g}s (default: %(default)s)."
         ),
     )
+    parser.add_argument(
+        "--index-url",
+        default=DEFAULT_INDEX_URL,
+        help=(
+            "Index the published package must be installable from. Combined "
+            "with pip --isolated so runner pip config/env cannot satisfy the "
+            "install from a mirror or cache (default: %(default)s)."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Emit structured JSON.")
     return parser
 
@@ -363,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             timeout=args.timeout,
             install_attempts=args.install_attempts,
             install_backoff=args.install_backoff,
+            index_url=args.index_url,
         )
     except PublishVerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

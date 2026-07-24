@@ -74,7 +74,10 @@ def test_verify_publish_installs_exact_version_and_runs_probe(
             "-m",
             "pip",
             "install",
+            "--isolated",
             "--no-cache-dir",
+            "--index-url",
+            "https://pypi.org/simple",
             "aragora-verify==0.1.2",
         ],
     ]
@@ -122,6 +125,72 @@ def test_main_returns_one_on_failed_command(monkeypatch: Any, capsys: Any, tmp_p
 
     assert rc == 1
     assert "network down" in capsys.readouterr().err
+
+
+def test_published_install_is_isolated_from_runner_pip_config(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    """The gate must prove installability from *public* PyPI.
+
+    A self-hosted runner carrying PIP_INDEX_URL / pip.conf / find-links could
+    otherwise satisfy the install from a mirror or cache and report success
+    while the published version is unreachable for real users.
+    """
+    install_cmd: list[str] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if cmd[-1] == "aragora-verify==0.1.2":
+            install_cmd.extend(cmd)
+        if cmd[-1] == "--version":
+            return _completed("aragora-verify 0.1.2\n")
+        if cmd[-1].endswith("post_publish_probe.py"):
+            return _completed(
+                json.dumps(
+                    {
+                        "valid_receipt_exit": 0,
+                        "signed_receipt_exit": 0,
+                        "spoofed_key_id_exit": 1,
+                        "spoofed_signature_status": "fail",
+                    }
+                )
+            )
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+
+    verify_publish_script.verify_publish(
+        version="0.1.2",
+        python="/usr/bin/python3",
+        work_dir=tmp_path,
+    )
+
+    assert "--isolated" in install_cmd
+    assert install_cmd[install_cmd.index("--index-url") + 1] == "https://pypi.org/simple"
+
+
+def test_index_url_is_overridable(monkeypatch: Any, tmp_path: Path) -> None:
+    install_cmd: list[str] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if cmd[-1] == "aragora-verify==0.1.2":
+            install_cmd.extend(cmd)
+        if cmd[-1] == "--version":
+            return _completed("aragora-verify 0.1.2\n")
+        if cmd[-1].endswith("post_publish_probe.py"):
+            return _completed(json.dumps({"valid_receipt_exit": 0}))
+        return _completed()
+
+    monkeypatch.setattr(verify_publish_script.subprocess, "run", fake_run)
+
+    verify_publish_script.verify_publish(
+        version="0.1.2",
+        python="/usr/bin/python3",
+        work_dir=tmp_path,
+        index_url="https://test.pypi.org/simple",
+    )
+
+    assert install_cmd[install_cmd.index("--index-url") + 1] == "https://test.pypi.org/simple"
 
 
 def test_install_retries_until_pypi_propagates(monkeypatch: Any, tmp_path: Path) -> None:
