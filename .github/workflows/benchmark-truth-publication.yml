@@ -170,21 +170,6 @@ jobs:
           tar -xzf "$archive_path" -C "$gh_root"
           echo "$gh_root/gh_${gh_version}_${os}_${gh_arch}/bin" >> "$GITHUB_PATH"
 
-      - name: Setup Node
-        # Before the codex install below, so one runtime both installs and runs
-        # it: setup-node prepends node 20 to PATH for every later step, and
-        # installing codex under ambient Homebrew node then executing it under
-        # node 20 is a split this job does not need.
-        #
-        # Non-fatal: node is only needed for the docs-site mirror sync, which is
-        # itself best-effort. Losing the day's publication because a tool-cache
-        # download failed on the self-hosted runner would be a worse outcome
-        # than the mirror drift it exists to prevent.
-        continue-on-error: true
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
       - name: Install Codex CLI
         shell: bash
         run: |
@@ -361,6 +346,14 @@ jobs:
         # is attributable in the run log. (The checkout token still persists in
         # .git/config for the whole job; this narrows the PAT's exposure, not
         # all credentials.)
+        #
+        # Uses the runner's ambient node (v23.5.0 on mac-studio, already probed
+        # by "Ensure local toolchain on PATH"); sync-docs.js needs only fs/path.
+        # Do NOT add actions/setup-node here: dispatching this workflow with it
+        # killed the runner mid-step (run 30134420462 — the job ended with
+        # Setup Node still in_progress and every later step pending, which
+        # continue-on-error cannot rescue because the failure is the runner,
+        # not the step).
         #
         # Non-fatal by design: the neighbouring publish step's contract is to
         # degrade and warn rather than leave the daily cron red. Aborting here

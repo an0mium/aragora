@@ -209,13 +209,9 @@ def test_publisher_syncs_docs_site_mirrors_before_staging() -> None:
     assert "node scripts/sync-docs.js" in sync_run
 
     # Step ordering, not string offsets: an offset check cannot tell that the
-    # sync moved after a later staging line. node is provisioned rather than
-    # assumed — the self-hosted runner's toolchain already needs two recovery
-    # hacks in this job.
+    # sync moved after a later staging line.
     publish = "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
-    assert names.index("Setup Node") < names.index("Sync docs-site mirrors")
     assert names.index("Sync docs-site mirrors") < names.index(publish)
-    assert str(_workflow_step("Setup Node").get("uses", "")).startswith("actions/setup-node@")
 
     publish_run = str(_workflow_step(publish).get("run", ""))
     # Repository JavaScript must not run in the step holding the PAT.
@@ -235,15 +231,15 @@ def test_mirror_sync_degrades_rather_than_losing_the_publication() -> None:
     the very staleness this workflow exists to prevent. The worst case of
     continuing is the pre-existing one: a red `build` on the PR.
     """
-    names = [str(step.get("name", "")) for step in _benchmark_truth_publication_steps()]
     sync_run = str(_workflow_step("Sync docs-site mirrors").get("run", ""))
 
     assert "::warning::" in sync_run
     assert "||" in sync_run, "sync must not abort the publication"
 
-    # node is provisioned for the sync alone, so its absence must not be fatal.
-    assert _workflow_step("Setup Node").get("continue-on-error") is True
-
-    # One runtime installs and runs codex: setup-node prepends node 20 to PATH
-    # for all later steps, so it has to precede the npm-based codex install.
-    assert names.index("Setup Node") < names.index("Install Codex CLI")
+    # Regression guard: actions/setup-node killed this self-hosted runner
+    # mid-step (run 30134420462), taking the whole publication with it.
+    # sync-docs.js needs only fs/path, so the ambient node is enough.
+    assert all(
+        not str(step.get("uses", "")).startswith("actions/setup-node")
+        for step in _benchmark_truth_publication_steps()
+    ), "actions/setup-node kills the mac-studio runner; use ambient node"
