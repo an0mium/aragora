@@ -125,7 +125,7 @@ class TestApiRequest:
         mock_response.json.return_value = {"tenants": []}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("aragora.cli.tenant.httpx.request", return_value=mock_response):
+        with patch("aragora.security.safe_http.safe_request", return_value=mock_response):
             result = api_request("GET", "/api/v1/tenants")
 
         assert result == {"tenants": []}
@@ -136,7 +136,7 @@ class TestApiRequest:
         mock_response.json.return_value = {"tenant": {"id": "new-tenant"}}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("aragora.cli.tenant.httpx.request", return_value=mock_response):
+        with patch("aragora.security.safe_http.safe_request", return_value=mock_response):
             result = api_request("POST", "/api/v1/tenants", data={"name": "Test"})
 
         assert result["tenant"]["id"] == "new-tenant"
@@ -149,7 +149,9 @@ class TestApiRequest:
         mock_response.json.return_value = {}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("aragora.cli.tenant.httpx.request", return_value=mock_response) as mock_req:
+        with patch(
+            "aragora.security.safe_http.safe_request", return_value=mock_response
+        ) as mock_req:
             api_request("GET", "/test")
 
         call_kwargs = mock_req.call_args.kwargs
@@ -166,7 +168,7 @@ class TestApiRequest:
         mock_response.raise_for_status.side_effect = mock_error
         mock_response.text = "Not Found"
 
-        with patch("aragora.cli.tenant.httpx.request", return_value=mock_response):
+        with patch("aragora.security.safe_http.safe_request", return_value=mock_response):
             with pytest.raises(RuntimeError) as exc_info:
                 api_request("GET", "/test")
 
@@ -178,7 +180,7 @@ class TestApiRequest:
         request = httpx.Request("GET", "http://test/api")
         mock_error = httpx.RequestError("Connection refused", request=request)
 
-        with patch("aragora.cli.tenant.httpx.request", side_effect=mock_error):
+        with patch("aragora.security.safe_http.safe_request", side_effect=mock_error):
             with pytest.raises(RuntimeError) as exc_info:
                 api_request("GET", "/test")
 

@@ -21,7 +21,7 @@ pip install aragora-debate[openai]       # GPT
 pip install aragora-debate[all]          # All providers
 ```
 
-For the full Aragora platform (server, CLI, knowledge management, 43 agent types):
+For the full Aragora platform (server, CLI, knowledge management, 46 agent types):
 
 ```bash
 pip install aragora[all]
@@ -242,7 +242,7 @@ debate = Debate(
 The standalone `aragora-debate` package gives you the debate engine. Install
 the full platform for:
 
-- **43 agent types** with ELO rankings and calibration tracking
+- **46 agent types** with ELO rankings and calibration tracking
 - **Knowledge Mound** -- semantic search, contradiction detection, cross-debate learning
 - **Gauntlet** -- adversarial stress-testing with attack/defend cycles
 - **Workflow engine** -- DAG-based automation with 50+ templates
@@ -284,5 +284,5 @@ All examples work offline with mock agents (no API keys needed).
 | REST API docs | [API Reference](../api/reference) |
 | Gauntlet (adversarial validation) | [Gauntlet Guide](./gauntlet) |
 | Streaming events (WebSocket) | [WebSocket Events](./websocket-events) |
-| Self-host with Docker | [`deploy/README.md`](../analysis/adr) |
+| Self-host with Docker | [`deploy/README.md`](https://github.com/synaptent/aragora/blob/main/deploy/README.md) |
 | EU AI Act compliance | [EU AI Act Guide](../security/eu-ai-act-guide) |

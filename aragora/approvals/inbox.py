@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -65,7 +66,7 @@ def collect_pending_approvals(
 ) -> list[dict[str, Any]]:
     """Collect pending approvals across subsystems."""
     items: list[UnifiedApprovalItem] = []
-    sources = [s.lower() for s in (sources or DEFAULT_APPROVAL_SOURCES)]
+    sources = effective_approval_sources(sources)
 
     if "workflow" in sources:
         try:
@@ -195,12 +196,20 @@ def collect_pending_approvals(
         try:
             from aragora.server.handlers.openclaw.store import _get_store
 
-            store = _get_store()
-            if hasattr(store, "list_approvals"):
-                approvals, _total = store.list_approvals(limit=limit, offset=0)
-                for req in approvals:
-                    req_dict = req.to_dict() if hasattr(req, "to_dict") else req
-                    created_at = req_dict.get("created_at") if isinstance(req_dict, dict) else None
+            gateway_store = _get_store()
+            if hasattr(gateway_store, "list_approvals"):
+                gateway_approvals, _total = gateway_store.list_approvals(limit=limit, offset=0)
+                for gateway_req in gateway_approvals:
+                    req_dict = (
+                        gateway_req.to_dict() if hasattr(gateway_req, "to_dict") else gateway_req
+                    )
+                    if not isinstance(req_dict, dict):
+                        logger.debug(
+                            "Skipping malformed gateway approval of type %s",
+                            type(req_dict).__name__,
+                        )
+                        continue
+                    created_at = req_dict.get("created_at")
                     items.append(
                         UnifiedApprovalItem(
                             id=req_dict.get("id", ""),
@@ -210,7 +219,7 @@ def collect_pending_approvals(
                             description=req_dict.get("description", ""),
                             requested_at=_iso_timestamp(created_at),
                             requested_by=req_dict.get("requested_by"),
-                            metadata=req_dict if isinstance(req_dict, dict) else {},
+                            metadata=req_dict,
                             actions={
                                 "approve": {
                                     "method": "POST",
@@ -233,8 +242,8 @@ def collect_pending_approvals(
         try:
             from aragora.inbox import ReceiptState, get_inbox_trust_wedge_store
 
-            store = get_inbox_trust_wedge_store()
-            for envelope in store.list_receipts(state=ReceiptState.CREATED, limit=limit):
+            wedge_store = get_inbox_trust_wedge_store()
+            for envelope in wedge_store.list_receipts(state=ReceiptState.CREATED, limit=limit):
                 created_at = envelope.receipt.created_at
                 label_id = envelope.intent.label_id or envelope.decision.label_id
                 action_label = envelope.intent.action.value.upper()
@@ -278,15 +287,76 @@ def collect_pending_approvals(
         except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch inbox trust wedge approvals for inbox", exc_info=True)
 
+    if "settlement" in sources and _settlement_inbox_enabled():
+        try:
+            from aragora.approvals.settlement_inbox import (
+                SettlementInboxError,
+                collect_pending_settlement_approvals,
+            )
+        except ImportError:
+            logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
+        else:
+            try:
+                for item in collect_pending_settlement_approvals(limit=limit):
+                    items.append(
+                        UnifiedApprovalItem(
+                            id=str(item.get("id", "")),
+                            kind=str(item.get("kind", "settlement")),
+                            status=str(item.get("status", "pending")),
+                            title=str(item.get("title", "Settlement Approval")),
+                            description=str(item.get("description", "")),
+                            requested_at=item.get("requested_at"),
+                            requested_by=item.get("requested_by"),
+                            metadata=_dict_or_empty(item.get("metadata")),
+                            actions=_dict_or_empty(item.get("actions")),
+                            _sort_ts=_to_sort_ts(item.get("requested_at")),
+                        )
+                    )
+            except (
+                SettlementInboxError,
+                AttributeError,
+                ImportError,
+                OSError,
+                TypeError,
+                ValueError,
+            ):
+                logger.warning("Failed to fetch settlement approvals for inbox", exc_info=True)
+
     items.sort(key=lambda item: item._sort_ts, reverse=True)
     return [item.to_dict() for item in items[:limit]]
 
 
-def _to_sort_ts(value: datetime | float | int | None) -> float:
+def _settlement_inbox_enabled() -> bool:
+    raw = os.environ.get("ARAGORA_ENABLE_SETTLEMENT_APPROVAL_INBOX", "")
+    return raw.lower().strip() in {"1", "true", "yes", "on"}
+
+
+def effective_approval_sources(sources: list[str] | None = None) -> list[str]:
+    effective = [s.lower() for s in (sources or DEFAULT_APPROVAL_SOURCES)]
+    if sources is None and _settlement_inbox_enabled():
+        effective.append("settlement")
+    return effective
+
+
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return dict(value)
+
+
+def _to_sort_ts(value: datetime | float | int | str | None) -> float:
     if value is None:
         return 0.0
     if isinstance(value, datetime):
         return value.timestamp()
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return 0.0
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            pass
     try:
         return float(value)
     except (TypeError, ValueError):

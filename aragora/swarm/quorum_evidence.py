@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import base64
 import concurrent.futures
 import inspect
 import json
@@ -40,6 +41,7 @@ import secrets
 import signal
 import subprocess
 import tempfile
+import urllib.parse
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -47,16 +49,44 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_finding_or_label,
+    has_blocking_or_negative_verdict,
+)
 from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
 )
 from aragora.swarm import merge_quorum_io
 
+if TYPE_CHECKING:
+    from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
+
 logger = logging.getLogger(__name__)
+
+
+def run_claude_vibeproxy(
+    prompt: str,
+    *,
+    reviewer_timeout: float,
+    model: str | None = None,
+    policy: Any = None,
+) -> ClaudeVibeProxyAttempt:
+    """Call the VibeProxy transport without loading it during module import."""
+    from aragora.agents.transports.claude_vibeproxy import (
+        run_claude_vibeproxy as run_transport,
+    )
+
+    transport_kwargs = {
+        "reviewer_timeout": reviewer_timeout,
+        "policy": policy,
+    }
+    if model is not None:
+        transport_kwargs["model"] = model
+    return run_transport(prompt, **transport_kwargs)
+
 
 # Direct model families whose name appears in the evidence heading and is
 # recognized by the quorum identity resolver as a countable model reviewer.
@@ -74,18 +104,43 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "yi": "yi",
     "glm": "zhipu",
     "minimax": "minimax",
+    "tencent": "tencent",
+    "bytedance": "bytedance",
     "hermes": "nous",
 }
 
 # Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
-# WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
-# Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes). Chinese-routed families are
-# every other recognized family; they always post and remain readable but are
-# advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
-# condition at Tier 2.
-WESTERN_FAMILIES: frozenset[str] = frozenset(
-    ("claude", "openai", "gemini", "grok", "mistral", "hermes")
+# The classification is explicit and TOTAL: every recognized family (a
+# FAMILY_PROVIDERS key) belongs to EXACTLY ONE of WESTERN_FAMILIES,
+# CHINESE_ROUTED_FAMILIES, or ADVISORY_ONLY_FAMILIES. The partition is pinned
+# by governance tests so a newly recognized family cannot be left unclassified
+# (an unclassified family would silently default to full Tier 0-1 counting).
+#
+# WESTERN_FAMILIES count toward Tier 3-4 quorums (the spec's Anthropic, OpenAI,
+# xAI, Mistral, Nous Hermes) and satisfy the Tier-2 at-least-one-Western condition.
+WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistral", "hermes"))
+
+# Chinese-routed families count toward Tier 0-2 quorums (Tier 2 additionally
+# requires at least one Western family alongside) and are advisory-only (posted,
+# readable, not counted) at Tier 3-4.
+CHINESE_ROUTED_FAMILIES: frozenset[str] = frozenset(
+    ("deepseek", "qwen", "kimi", "yi", "glm", "minimax", "tencent", "bytedance")
 )
+
+# ADVISORY-ONLY families never count for OR against ANY tier's quorum: their
+# reviews still post, parse, and lint as evidence comments (advisory visibility
+# is preserved), but a PASS never counts toward a quorum and a CHANGES-REQUESTED
+# never creates blocking dissent.
+# 2026-07-16 founder directive (reviewer-reliability record
+# docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md):
+# gemini is demoted to advisory-only after a repeat fabricated-claim pattern in
+# merge-quorum reviews (invented model release dates, false METRICS-drift
+# claims, nonexistent route ids); the record's mandate is "gemini dissent is
+# NOT to be counted anywhere". For payload-jurisdiction routing gemini keeps
+# its Western-jurisdiction (Google/US) treatment — the demotion removes
+# counting authority, not payload eligibility. Reinstatement requires a founder
+# Tier-4 settlement reversing that record.
+ADVISORY_ONLY_FAMILIES: frozenset[str] = frozenset(("gemini",))
 
 # Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
 # Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
@@ -94,6 +149,22 @@ WESTERN_FAMILIES: frozenset[str] = frozenset(
 # 3-4) are distinct; the subset relation is pinned by a governance test. Mirrors the
 # re-export in the review-queue gate so the two halves cannot drift.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
+
+#: Families that count toward a Tier 3-4 quorum — a strict subset of
+#: WESTERN_FAMILIES. mistral and hermes are Western but not frontier-grade
+#: enough to co-authorize a highest-tier (merge-authority / protected-surface)
+#: change, so at Tier 3-4 they are advisory-only: they still post and still
+#: block on [P0]/[P1], but do not count toward the two-signal bar (operator
+#: decision 2026-07-11). They remain valid Western signals for the Tier 2
+#: "at least one Western" requirement, which is unchanged.
+#:
+#: gemini was in this set under the 2026-07-11 decision, but the later
+#: 2026-07-16 founder roster directive demoted it to advisory-only everywhere
+#: ("gemini dissent is NOT to be counted anywhere" — see ADVISORY_ONLY_FAMILIES
+#: and the reliability record). The newer directive governs, so gemini is out
+#: here too; this set must stay disjoint from ADVISORY_ONLY_FAMILIES.
+TIER_3_4_COUNTED_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok"))
 
 
 def is_western_family(family: str) -> bool:
@@ -217,10 +288,22 @@ class TierQuorumRule:
 
     def counted_families(self, supportive: Iterable[str]) -> set[str]:
         """The supportive families that count under this rule (drops Chinese-routed
-        families when ``western_only_counted``)."""
-        families = {str(f).strip().lower() for f in supportive}
+        families when ``western_only_counted``; drops advisory-only families at
+        EVERY tier per the reviewer-reliability record)."""
+        # Canonicalize (lowercase + alias collapse, e.g. "google" -> "gemini",
+        # "codex" -> "openai") so a raw alias/provider id can neither dodge the
+        # advisory-only exclusion nor count as a distinct family.
+        families = {canonical_family(str(f)) for f in supportive}
+        # Advisory-only families never count, at any tier — enforced here so every
+        # surface that derives counting from the shared rule (auto-settle, the
+        # review-queue gate's signal_count, the reconcile diagnostic) excludes them
+        # even when handed raw reviewer-id lists that never passed through
+        # EvidenceItem.
+        families -= ADVISORY_ONLY_FAMILIES
         if self.western_only_counted:
-            families = {f for f in families if f in WESTERN_FAMILIES}
+            # Tier 3-4: only the frontier-grade Western subset counts; mistral
+            # and hermes are advisory-only here (see TIER_3_4_COUNTED_FAMILIES).
+            families = {f for f in families if f in TIER_3_4_COUNTED_FAMILIES}
         return families
 
     def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
@@ -293,6 +376,8 @@ FAMILY_DISPLAY: dict[str, str] = {
     "yi": "Yi",
     "glm": "GLM",
     "minimax": "MiniMax",
+    "tencent": "Tencent Hy3",
+    "bytedance": "ByteDance Seed",
     "hermes": "Hermes",
 }
 
@@ -308,6 +393,28 @@ _FAMILY_ALIASES: dict[str, str] = {
     "gpt-5": "openai",
     "gpt5": "openai",
     "chatgpt": "openai",
+    "zhipu": "glm",
+    "z-ai": "glm",
+    "hy3": "tencent",
+    "hunyuan": "tencent",
+    "seed": "bytedance",
+    "seed-2.0": "bytedance",
+    "doubao": "bytedance",
+    "bytedance-seed": "bytedance",
+    # Provider name for the gemini family (mirrors FAMILY_PROVIDERS and the
+    # review-queue recognizer's ("gemini", "google") markers). Required so the
+    # ADVISORY_ONLY_FAMILIES exclusion cannot be sidestepped by a raw provider
+    # id (#9363 round-4 [P3]).
+    "google": "gemini",
+    # Live protocol payloads carry the AgentRegistry name, so EVERY registered
+    # agent surface on the gemini family must collapse here or demoted gemini
+    # dissent re-enters through protocol["dissenting_views"] (#9363 rounds 5-6).
+    # "antigravity" is the current primary Gemini surface (agy CLI,
+    # default_model=gemini-3.5-flash) and "gemini-cli" the legacy one. Pinned by
+    # test_every_gemini_registry_surface_is_demoted, which walks AgentRegistry
+    # so a future Gemini agent cannot be added without a mapping.
+    "gemini-cli": "gemini",
+    "antigravity": "gemini",
 }
 
 
@@ -324,10 +431,12 @@ def canonical_family(name: str) -> str:
 
 # Default reviewer pair: the two western-frontier families (claude→opus-4.8,
 # openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
-# a substantial diff can actually clear a 2-signal quorum, and because Tier 3-4
-# requires two western-frontier families. grok (xai) remains available via
-# --reviewers but is not western-frontier and empirically tends to reopen an
-# advisory nitpick loop on large diffs. Override per-run with --reviewers.
+# a substantial diff can actually clear a 2-signal quorum. Tier 3-4 requires two
+# distinct families from TIER_3_4_COUNTED_FAMILIES (claude, openai, grok); grok
+# remains available via --reviewers and counts at Tier 3-4, though it empirically
+# tends to reopen an advisory nitpick loop on large diffs. mistral and hermes are
+# Western but advisory-only at Tier 3-4; gemini is advisory-only everywhere
+# (2026-07-16 roster directive). Override per-run with --reviewers.
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
@@ -349,6 +458,34 @@ _MAX_DIFF_CHARS = 60_000
 _PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
+# Keep CLI failures useful without leaking the full provider transcript. The
+# head identifies the transport; the tail usually carries quota/auth failures.
+_MAX_CLI_ERROR_CHARS = 500
+_CLI_TRANSCRIPT_ROLES = frozenset({"system", "developer", "user", "assistant"})
+_CLI_DIAGNOSTIC_SIGNAL = re.compile(
+    r"(?:\b(?:errors?|exceptions?|traceback|failed|failures?|usage|quota|rate limit|"
+    r"authentication|authorization|unauthorized|forbidden)\b|\bHTTP\s+[45]\d\d\b|"
+    r"\bconnection\s+(?:reset|refused|closed|aborted)\b|\bSSL\s+handshake\b|"
+    r"\byou(?:'ve| have|'re| are)\s+(?:hit|out of)\b)",
+    re.IGNORECASE,
+)
+_CLI_OMITTED_DIAGNOSTIC = "[CLI transcript payload omitted; no diagnostic line recognized]"
+
+
+def _looks_like_prompt_fragment(line: str, prompt: str | None) -> bool:
+    """Whether a CLI line is a normalized fragment of the submitted prompt."""
+    if not prompt:
+        return False
+
+    def normalize(value: str) -> str:
+        return re.sub(r"\s+", " ", value.replace("\\ ", " ").replace("\\", "")).strip().lower()
+
+    normalized_line = normalize(line)
+    normalized_prompt = normalize(prompt)
+    return len(normalized_line) >= 16 and normalized_line in normalized_prompt
+
+
+_TRUNCATION_MARKER = "[reviewer output truncated]"
 # Claude CLI startup can legitimately take longer on large reviews, especially
 # when subscription auth and local MCP state are cold. Keep only that path at a
 # generous ceiling; reviewer transports without the Claude-specific probe stay
@@ -424,8 +561,68 @@ def _run_reviewer_with_infra_retry(
 def _cap_text(text: str) -> str:
     text = text.strip()
     if len(text) > _MAX_REVIEWER_CHARS:
-        return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
+        return text[:_MAX_REVIEWER_CHARS].rstrip() + f"\n\n{_TRUNCATION_MARKER}"
     return text
+
+
+def _bounded_cli_failure_detail(
+    stderr: str | None,
+    stdout: str | None = None,
+    *,
+    redact: str | None = None,
+) -> str:
+    """Return a bounded CLI diagnostic with actionable tail lines preserved."""
+    text = (stderr or stdout or "").strip()
+    if redact:
+        escaped = redact.replace("\\", "\\\\").replace(" ", "\\ ")
+        variants = {redact, escaped, json.dumps(redact)[1:-1]}
+        for value in sorted(variants, key=len, reverse=True):
+            text = text.replace(value, "[review prompt redacted]")
+
+    # Codex-style CLIs may echo the full prompt after a role marker. Strip that
+    # transcript payload even when the provider escapes or truncates the prompt,
+    # resuming only at an explicit diagnostic line.
+    filtered_lines: list[str] = []
+    suppress_payload = False
+    omitted_payload = False
+    for line in text.splitlines():
+        if line.strip().lower().rstrip(":") in _CLI_TRANSCRIPT_ROLES:
+            suppress_payload = True
+            omitted_payload = True
+            continue
+        credential_wall = _is_credential_wall(line)
+        prompt_fragment = _looks_like_prompt_fragment(line, redact)
+        if suppress_payload:
+            if credential_wall:
+                suppress_payload = False
+            elif prompt_fragment or not _CLI_DIAGNOSTIC_SIGNAL.search(line):
+                continue
+            else:
+                suppress_payload = False
+        elif prompt_fragment and not credential_wall:
+            omitted_payload = True
+            continue
+        filtered_lines.append(line)
+    if suppress_payload and omitted_payload:
+        filtered_lines.append(_CLI_OMITTED_DIAGNOSTIC)
+    text = "\n".join(filtered_lines).strip()
+
+    if len(text) <= _MAX_CLI_ERROR_CHARS:
+        return text
+
+    marker = "\n...[CLI diagnostic truncated]...\n"
+    content_chars = max(0, _MAX_CLI_ERROR_CHARS - len(marker))
+    if content_chars == 0:
+        return marker.strip()[:_MAX_CLI_ERROR_CHARS]
+    head_chars = content_chars // 3
+    tail_chars = content_chars - head_chars
+    head = text[:head_chars]
+    tail = text[-tail_chars:]
+    if "\n" in head:
+        head = head.rsplit("\n", 1)[0]
+    if "\n" in tail:
+        tail = tail.split("\n", 1)[1]
+    return f"{head.rstrip()}{marker}{tail.lstrip()}"
 
 
 def _timeout_seconds(env_name: str, default: int) -> float:
@@ -466,6 +663,7 @@ class ReviewerResult:
     ok: bool
     error: str = ""
     harness: str = ""
+    allow_transport_fallback: bool = True
 
 
 @dataclass
@@ -485,6 +683,66 @@ class EvidenceItem:
     # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
+    def __post_init__(self) -> None:
+        # Advisory-only contract (2026-07-16 roster directive; #9363 round-3):
+        # an advisory-only family's review posts, parses, and lints as an
+        # evidence comment, but it never counts for or against any tier's
+        # quorum. Demoted here, at the single choke point every construction
+        # path shares (fresh collect, from_raw, prepared-apply relint), so a
+        # prepared artifact cannot smuggle an advisory-only family back into
+        # counting_families / supportive_families.
+        if self.would_count and canonical_family(self.family) in ADVISORY_ONLY_FAMILIES:
+            self.would_count = False
+            self.problems.append(
+                f"family {self.family!r} is advisory-only per the reviewer-reliability "
+                "record — its reviews post but never count for or against quorum"
+            )
+        # Verdict contract (issue #9241 B1): a review without a valid parsed verdict
+        # is malformed reviewer output and must NEVER count toward quorum — counting
+        # feeds counting_families, "families heard", and relief-valve conditions,
+        # so a verdict-less item with would_count=True is an integrity hole
+        # (observed live 2026-07-11: grok CLI returned preamble-only bodies with
+        # verdict=unknown yet would_count=True). Membership in the CLOSED canonical
+        # set, not `== "unknown"`: `_evidence_item_from_dict` passes prepared-artifact
+        # verdict strings verbatim, so a forged/corrupt artifact could otherwise
+        # smuggle `"approved"`/`"UNKNOWN "` past an equality check (claude+openai
+        # #9249 review). No normalization — only the parser emits canonical values,
+        # so anything non-canonical is untrusted and fails closed. Enforced here, at
+        # the single choke point every construction path shares (fresh collect,
+        # from_raw, prepared-apply relint).
+        if self.would_count and self.verdict not in ("pass", "changes_requested"):
+            self.would_count = False
+            self.problems.append(
+                "no valid parsed verdict in reviewer output "
+                f"(got {self.verdict!r}) — malformed review never counts"
+            )
+        # Truncation contract (#9241 B2): findings conventionally follow the
+        # verdict line, so tail truncation (_cap_text) can hide blocking findings
+        # below an intact PASS — incomplete evidence must never count.
+        # Direction-aware (claude #9249 B4-round [P2]): demotion applies to PASS
+        # only — incomplete evidence must never SUPPORT a merge. A truncated
+        # CHANGES-REQUESTED keeps counting: the cut tail can only contain MORE
+        # severity, and demoting it would erase a stated veto from the heard
+        # set (fail-open under the tiered gate).
+        if self.would_count and self.verdict == "pass" and _TRUNCATION_MARKER in self.body:
+            self.would_count = False
+            self.problems.append("reviewer output was truncated — an incomplete PASS never counts")
+        # Contradiction contract (#9241 B2): a PASS that itself carries a real
+        # [P0]/[P1]/[P2] finding (or another negative decision) is
+        # self-contradictory reviewer output. P2-only CHANGES-REQUESTED remains
+        # advisory under the severity gate, but a P2 can never support quorum by
+        # hiding under PASS; this matches the reviewer prompt's verdict contract.
+        if (
+            self.would_count
+            and self.verdict == "pass"
+            and has_blocking_or_negative_verdict(self.body)
+        ):
+            self.would_count = False
+            self.problems.append(
+                "PASS verdict contradicted by a blocking [P0]/[P1]/[P2] finding or "
+                "negative decision in the same review — contradictory review never counts"
+            )
+
     @property
     def supportive(self) -> bool:
         # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
@@ -496,6 +754,18 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
             return False
+        # Advisory-only families never block (roster record: "gemini dissent is
+        # NOT to be counted anywhere"): their CHANGES-REQUESTED posts and stays
+        # readable on the PR but is not counted dissent at any tier.
+        if canonical_family(self.family) in ADVISORY_ONLY_FAMILIES:
+            return False
+        # Truncated dissent fails CLOSED (claude #9249 round-3 [P2]): severity
+        # gating classifies by VISIBLE findings, so a CHANGES-REQUESTED whose
+        # first 32k chars are advisory with a [P1] in the cut tail would be
+        # downgraded to non-blocking — and a lone western-frontier PASS could
+        # then settle. Hidden severity cannot be assessed; treat it as blocking.
+        if _TRUNCATION_MARKER in self.body:
+            return True
         if not self.severity_gated:
             # Default (flag OFF): any changes_requested is a blocking dissent —
             # byte-identical to historical behavior.
@@ -983,6 +1253,21 @@ def normalize_reviewer_output(text: str, *, family: str = "") -> str:
     return normalized if normalized is not None else cleaned
 
 
+def _normalize_preserving_truncation(text: str, *, family: str) -> str:
+    """Normalize reviewer output without ever losing the truncation marker.
+
+    The opt-in LLM normalizer can rewrite a truncated body into clean canonical
+    form that drops ``_TRUNCATION_MARKER``, which would let incomplete evidence
+    evade the truncated-PASS demotion in ``EvidenceItem.__post_init__``
+    (openai #9249 r9 [P2]). Truncation is a fact about the transport, not the
+    prose: if the input was truncated, the composed body always says so.
+    """
+    normalized = normalize_reviewer_output(text, family=family)
+    if _TRUNCATION_MARKER in text and _TRUNCATION_MARKER not in normalized:
+        normalized = normalized.rstrip() + f"\n\n{_TRUNCATION_MARKER}"
+    return normalized
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -1005,7 +1290,11 @@ def compose_evidence_comment(
     display = FAMILY_DISPLAY.get(fam, fam.title())
     provider = FAMILY_PROVIDERS.get(fam, fam)
     short = head_sha[:7]
-    harness_label = harness or f"the Aragora {display} reviewer"
+    # Sanitize harness to a safe charset: it now carries route.resolved_model,
+    # which an operator can influence via ARAGORA_VIBEPROXY_MODEL_MAP, so it must
+    # not be able to inject markup or hijack the disclosure block.
+    raw_harness = harness or f"the Aragora {display} reviewer"
+    harness_label = re.sub(r"[^A-Za-z0-9:.+\-() ]", "", raw_harness)[:120]
     # Sanitize the timestamp to a safe charset so the disclosure block can never
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
@@ -1017,7 +1306,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
+        f"{_neutralize_reviewer_text(_normalize_preserving_truncation(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
 
@@ -1098,6 +1387,115 @@ def _file_list_from_diff(diff: str) -> str:
     return "\n".join(paths)
 
 
+#: Bounded full-file grounding (issue #9241 B3): reviewers judging hunks without
+#: module context fabricate import-existence findings (observed live 2026-07-11:
+#: three consecutive false "X is never imported" [P1]s on #8809 — the import
+#: blocks sat outside the hunks). Bounds keep the prompt affordable.
+_FULL_FILE_MAX_FILES = 6
+_FULL_FILE_MAX_LINES = 400
+_FULL_FILE_MAX_CHARS = 20_000
+_FULL_FILE_SECTION_MAX_CHARS = 80_000
+
+
+def _full_file_section(
+    repo: str,
+    head_sha: str,
+    diff_text: str,
+    *,
+    file_fetcher: Callable[[str, str, str], str] | None = None,
+) -> str:
+    """Bounded post-change contents of the changed files, largest diff first.
+
+    Best-effort by design: grounding is an enhancement — any per-file fetch
+    failure skips that file with a note and NEVER blocks the review. Returns ""
+    when nothing could be fetched.
+    """
+    fetcher = file_fetcher or _fetch_file_at_ref
+    sizes: dict[str, int] = {}
+    current: str | None = None
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            rest = line[len("diff --git ") :].strip()
+            marker = rest.rfind(" b/")
+            current = rest[marker + len(" b/") :].strip() if marker != -1 else None
+            if current is not None:
+                sizes.setdefault(current, 0)
+        elif current is not None:
+            sizes[current] = sizes[current] + 1
+    ordered = sorted(sizes, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
+    if not ordered:
+        return ""
+    parts: list[str] = []
+    for path in ordered:
+        try:
+            content = fetcher(repo, head_sha, path)
+        except (RuntimeError, ValueError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
+            # Grounding is best-effort by contract: the default fetcher raises
+            # RuntimeError/ValueError; transport/decoding surface OSError,
+            # SubprocessError, or UnicodeError. Anything else is a real bug.
+            parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
+            continue
+        if not content.strip():
+            # Deleted or empty at head: nothing to ground on.
+            continue
+        lines = content.splitlines()
+        clipped = lines[:_FULL_FILE_MAX_LINES]
+        note = (
+            f" (first {_FULL_FILE_MAX_LINES} of {len(lines)} lines)"
+            if len(lines) > _FULL_FILE_MAX_LINES
+            else ""
+        )
+        body_text = "\n".join(clipped)
+        # Char caps (openai #9249 [P2]): line/file counts alone don't bound the
+        # prompt — a file of very long lines could append megabytes and stall
+        # every reviewer CLI. Cap per file and for the whole section.
+        if len(body_text) > _FULL_FILE_MAX_CHARS:
+            body_text = body_text[:_FULL_FILE_MAX_CHARS].rstrip() + "\n[file clipped for length]"
+            note = note or " (clipped for length)"
+        parts.append(f"--- {path}{note} ---\n" + body_text)
+        if sum(len(part) for part in parts) > _FULL_FILE_SECTION_MAX_CHARS:
+            break
+    if not any(part for part in parts if not part.endswith("---")):
+        return ""
+    return (
+        f"=== FULL CHANGED FILES (post-change contents at head {head_sha[:7]}; "
+        f"bounded to {_FULL_FILE_MAX_FILES} files x {_FULL_FILE_MAX_LINES} lines — use these "
+        "to VERIFY claims about imports/definitions before reporting them missing) ===\n"
+        + "\n\n".join(parts)
+        + "\n"
+    )
+
+
+def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
+    """Fetch one file's contents at a ref via the GitHub contents API (REST).
+
+    ``path`` originates from the PR diff (author-controlled): reject traversal
+    and URL-encode it so a crafted filename cannot smuggle query parameters or
+    escape the contents endpoint (claude #9249 [P2]).
+    """
+    if (
+        path.startswith(("/", "~"))
+        or ".." in path.split("/")
+        or any(ch in path for ch in ("?", "#", "\\", "\n", "\r"))
+    ):
+        raise ValueError(f"suspicious changed-file path rejected: {path!r}")
+    encoded = urllib.parse.quote(path, safe="/")
+    proc = merge_quorum_io.run(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/contents/{encoded}?ref={urllib.parse.quote(ref, safe='')}",
+            "--jq",
+            ".content",
+        ],
+        env=merge_quorum_io.aragora_env(),
+        timeout=30,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or "contents fetch failed").strip()[:120])
+    return base64.b64decode((proc.stdout or "").strip()).decode("utf-8", errors="replace")
+
+
 def build_review_prompt(
     *,
     repo: str,
@@ -1105,6 +1503,7 @@ def build_review_prompt(
     head_sha: str,
     diff_text: str,
     name_status: str = "",
+    full_files: str = "",
 ) -> str:
     """Adversarial review prompt grounded on the exact head.
 
@@ -1134,9 +1533,13 @@ def build_review_prompt(
         "bullet list of concrete findings, each tagged [P1]/[P2]/[P3] with a location. Include "
         "ONLY priority levels that have a real finding: if a level has none, OMIT it entirely "
         "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
-        "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
+        "a blocking finding). Severity contract: [P1] and [P2] findings are BLOCKING -- if you "
+        "report any [P1] or [P2], your verdict MUST be 'Verdict: CHANGES-REQUESTED' (a PASS "
+        "carrying a [P1]/[P2] line is self-contradictory and will not be counted). Use [P3] for "
+        "non-blocking observations; [P3]-only findings may accompany a PASS. "
+        "If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
-        f"{body_header}\n{bounded}\n"
+        f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
     )
 
 
@@ -1146,7 +1549,8 @@ def build_review_prompt(
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
 
-    ``claude`` -> claude CLI (or Anthropic API if ANTHROPIC_API_KEY);
+    ``claude`` -> explicitly selected VibeProxy, then Claude CLI (or Anthropic
+    API if ANTHROPIC_API_KEY);
     ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
     ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
     CLI when installed (else API); everything else -> API agent. The CLI-first
@@ -1173,12 +1577,25 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     # explicitly enabled, review via OpenRouter using a same-tier model for the SAME
     # family. Keeps the heterogeneous-family invariant (same family, different
     # transport) so one provider's outage/quota can't stall the quorum.
-    if not result.ok:
+    if not result.ok and result.allow_transport_fallback:
         fallback = _run_openrouter_reviewer(fam, prompt)
         if fallback.ok:
             return fallback
         # Both paths failed: keep the primary failure but record that the fallback
         # was attempted, so a stalled merge is attributable rather than opaque.
+        # A credential-walled primary with NO usable fallback is the worst case
+        # (family fully invisible) — say so explicitly instead of a silent no-op
+        # (#9241 B4: 2026-07-11 both claude and codex walled mid-settlement with
+        # nothing telling the operator the fallback was unconfigured).
+        if _is_credential_wall(result.error) and "disabled" in fallback.error:
+            return replace(
+                result,
+                error=(
+                    f"{_CREDENTIAL_UNHEALTHY_PREFIX}({fam}): primary is credential-walled "
+                    f"AND the OpenRouter fallback is not configured — family unavailable. "
+                    f"primary: {result.error}; fallback: {fallback.error}"
+                ),
+            )
         if "disabled" not in fallback.error:
             return replace(
                 result, error=f"{result.error}; openrouter fallback also failed: {fallback.error}"
@@ -1209,6 +1626,30 @@ def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     until the full timeout when a local MCP server is wedged.
     """
     return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
+
+
+#: Credential-wall signatures across the subscription CLIs (issue #9241 B4). All
+#: observed live 2026-07-11: claude "out of usage credits", codex "hit your usage
+#: limit", claude "Not logged in · Please run /login". A wall is an INFRA state
+#: (family temporarily invisible), never review evidence — classifying it lets
+#: callers fast-fail the family, route fallback deliberately, and lets operators
+#: distinguish "reviewer rejected" from "reviewer unavailable" at a glance.
+_CREDENTIAL_WALL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"out of usage credits", re.IGNORECASE),
+    re.compile(r"usage limit", re.IGNORECASE),
+    re.compile(r"usage credits", re.IGNORECASE),
+    re.compile(r"not logged in", re.IGNORECASE),
+    re.compile(r"please run /login", re.IGNORECASE),
+    re.compile(r"purchase more credits", re.IGNORECASE),
+    re.compile(r"credit balance is too low", re.IGNORECASE),
+    re.compile(r"quota exceeded", re.IGNORECASE),
+)
+
+_CREDENTIAL_UNHEALTHY_PREFIX = "credential_unhealthy"
+
+
+def _is_credential_wall(detail: str) -> bool:
+    return any(pattern.search(detail) for pattern in _CREDENTIAL_WALL_PATTERNS)
 
 
 def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
@@ -1244,14 +1685,26 @@ def _cli_liveness_probe(family: str, argv: list[str]) -> str | None:
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None  # let the real review surface the precise (and fast) error
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=_CLI_PROBE_PROMPT,
+        )
         suffix = f": {detail}" if detail else ""
+        if _is_credential_wall(detail):
+            # Classified wall: family is temporarily unavailable (infra), not
+            # reviewing-and-rejecting. Callers/operators can route or wait.
+            return (
+                f"{_CREDENTIAL_UNHEALTHY_PREFIX}({family}): CLI is credential-walled "
+                f"(probe exit {proc.returncode}){suffix}"
+            )
         return f"{family} CLI liveness probe exit {proc.returncode}{suffix}"
     return None
 
 
-def _run_claude_cli(prompt: str) -> ReviewerResult:
-    timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
+def _run_claude_cli(prompt: str, *, timeout: float | None = None) -> ReviewerResult:
+    if timeout is None:
+        timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         with _claude_empty_mcp_config_file() as mcp_config_path:
             argv = _claude_reviewer_command(mcp_config_path)
@@ -1278,27 +1731,49 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
         return ReviewerResult("claude", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
+        detail = _bounded_cli_failure_detail(proc.stderr, proc.stdout, redact=prompt)
         return ReviewerResult(
             "claude",
             "",
             False,
-            f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
+            f"claude CLI exit {proc.returncode}: {detail}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
 
 
 def _run_claude_reviewer(prompt: str) -> ReviewerResult:
-    """Run Claude evidence via the subscription CLI, then the direct Anthropic API.
+    """Run Claude evidence through explicit VibeProxy policy, CLI, then API.
 
-    The claude subscription CLI is preferred (no metered cost). When it is
-    unavailable or fails — e.g. CI runners and other keyless-CLI environments —
-    fall back to the direct Anthropic API if ``ANTHROPIC_API_KEY`` is set, so the
-    merge gate can still form a western-family quorum from API keys alone rather
-    than depending solely on OpenRouter. If neither path works the original CLI
-    failure is returned, so the generic OpenRouter fallback in
-    :func:`default_reviewer_runner` still applies.
+    VibeProxy is attempted only when ``ARAGORA_MODEL_TRANSPORT`` explicitly
+    selects ``vibeproxy-prefer`` or ``vibeproxy-required``. It remains the Claude
+    family and exact model; the proxy client rejects response-model substitution.
+    Direct mode preserves the existing subscription CLI/API order. Required mode
+    fails closed instead of using a direct or OpenRouter fallback.
     """
-    result = _run_claude_cli(prompt)
+    timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
+    vibeproxy = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
+    if vibeproxy.ok:
+        return ReviewerResult(
+            "claude",
+            _cap_text(vibeproxy.text),
+            True,
+            harness=vibeproxy.harness,
+        )
+    if vibeproxy.required:
+        return ReviewerResult(
+            "claude",
+            "",
+            False,
+            vibeproxy.error,
+            allow_transport_fallback=False,
+        )
+
+    # Charge the direct fallback only the wall-clock the proxy leg actually
+    # consumed, not its allotted budget: a proxy that fails in ~1ms must not
+    # cost the direct CLI half its deadline (which still has to cover the
+    # liveness probe). Floor keeps a usable deadline even if elapsed is large.
+    direct_timeout = max(timeout / 2, timeout - vibeproxy.elapsed_seconds)
+    result = _run_claude_cli(prompt, timeout=direct_timeout)
     if result.ok:
         return result
     if os.environ.get("ANTHROPIC_API_KEY", "").strip():
@@ -1307,6 +1782,14 @@ def _run_claude_reviewer(prompt: str) -> ReviewerResult:
         api = _run_api_agent("anthropic-api", prompt)
         if api.ok:
             return replace(api, family="claude")
+    if vibeproxy.attempted and vibeproxy.error:
+        return replace(
+            result,
+            error=(
+                f"VibeProxy prefer attempt failed: {vibeproxy.error}; "
+                f"direct Claude path failed: {result.error}"
+            ),
+        )
     return result
 
 
@@ -1339,7 +1822,12 @@ def _resolve_grok_build_bin() -> str:
 
 
 def _run_argv_cli_reviewer(
-    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+    family: str,
+    argv: list[str],
+    harness: str,
+    *,
+    prompt: str,
+    timeout: float = _REVIEWER_TIMEOUT,
 ) -> ReviewerResult:
     """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
 
@@ -1348,6 +1836,8 @@ def _run_argv_cli_reviewer(
     the review body. Same exact-head composition + evidence-lint as every other
     reviewer decides whether the result can count.
     """
+    if not argv:
+        return ReviewerResult(family, "", False, f"{family} CLI command is empty")
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
     except FileNotFoundError:
@@ -1360,7 +1850,11 @@ def _run_argv_cli_reviewer(
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
-        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        detail = _bounded_cli_failure_detail(
+            proc.stderr,
+            proc.stdout,
+            redact=prompt,
+        )
         return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
 
@@ -1385,6 +1879,7 @@ def _run_grok_reviewer(prompt: str) -> ReviewerResult:
             "grok",
             [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
             _GROK_BUILD_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
@@ -1408,6 +1903,7 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
             "gemini",
             [agy_path, "--sandbox", "-p", prompt],
             _ANTIGRAVITY_HARNESS,
+            prompt=prompt,
             timeout=timeout,
         )
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
@@ -1422,22 +1918,34 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 # review is as trustworthy as the subscription path it replaces.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "claude": "anthropic/claude-fable-5",
-    "openai": "openai/gpt-5-pro",
-    "grok": "x-ai/grok-4.3",
+    # openai holds at gpt-5.5 by #9075's deliberate decision (Sol stays out of
+    # the reviewer harness until it clears the 14-day availability rule).
+    "openai": "openai/gpt-5.5",
+    "grok": "x-ai/grok-4.5",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
-    "kimi": "moonshotai/kimi-k2.6",
+    # The reliability record deferred these upgrades pending catalog entries;
+    # aragora/models/catalog.py now carries both (qwen3.7-max, kimi-k2.7-code),
+    # so the deferral no longer applies. Override per-run via
+    # ARAGORA_OPENROUTER_REVIEWER_MODELS.
+    "qwen": "qwen/qwen3.7-max",
+    "kimi": "moonshotai/kimi-k2.7-code",
+    "glm": "z-ai/glm-5.2",
+    "minimax": "minimax/minimax-m3",
+    "tencent": "tencent/hy3",
+    "bytedance": "bytedance-seed/seed-2.0-lite",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
 # lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
 # quorum when the premium subscription CLIs are quota-/auth-blocked.
-_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek", "qwen", "kimi"})
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset(
+    {"deepseek", "qwen", "kimi", "glm", "minimax", "tencent", "bytedance"}
+)
 
 
 def _openrouter_reviewer_model(family: str) -> str | None:
@@ -1526,8 +2034,13 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
             if not text:
                 text = (proc.stdout or "").strip()
             if proc.returncode != 0 or not text:
-                detail = (proc.stderr or proc.stdout or "").strip()[:200]
-                if index < len(model_candidates) - 1 and _codex_model_selection_failed(detail):
+                raw_detail = (proc.stderr or proc.stdout or "").strip()
+                detail = _bounded_cli_failure_detail(
+                    proc.stderr,
+                    proc.stdout,
+                    redact=prompt,
+                )
+                if index < len(model_candidates) - 1 and _codex_model_selection_failed(raw_detail):
                     model_errors.append(f"{model}: {detail}")
                     continue
                 if model_errors:
@@ -1803,8 +2316,22 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
+    # Bounded full-file grounding (#9241 B3). OPT-IN, default OFF (openai #9249
+    # [P1]): appending post-change file contents expands reviewer egress beyond
+    # the PR diff — unchanged regions of changed files reach every reviewer
+    # transport, including families the payload-jurisdiction rule may exclude.
+    # The operator enables it deliberately, per deployment, after reviewing that
+    # boundary. Best-effort when enabled; never blocks the review.
+    full_files = ""
+    if os.environ.get("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "").strip() == "1":
+        full_files = _full_file_section(repo, live_head, diff_text)
     return build_review_prompt(
-        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+        repo=repo,
+        pr=pr,
+        head_sha=head_sha,
+        diff_text=diff_text,
+        name_status=name_status,
+        full_files=full_files,
     )
 
 
@@ -2114,7 +2641,12 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                # Parse the COMPOSED body, not the raw reviewer text: composition
+                # normalizes messy output (thinking traces, preamble) into a
+                # canonical verdict line, and the prepared-apply relint path
+                # already parses item.body — raw-text parsing here could demote
+                # a successfully normalized review (openai #9249 [P2]).
+                verdict=_reviewer_verdict(body),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )

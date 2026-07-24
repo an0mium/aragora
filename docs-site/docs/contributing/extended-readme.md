@@ -5,7 +5,7 @@ description: Aragora -- Extended Reference
 
 # Aragora -- Extended Reference
 
-*Comprehensive technical reference for the Decision Integrity Platform. For the concise overview, see the [README](../analysis/adr).*
+*Comprehensive technical reference for the Decision Integrity Platform. For the concise overview, see the [README](https://github.com/synaptent/aragora/blob/main/README.md).*
 
 ---
 
@@ -36,11 +36,11 @@ Aragora works for a 5-person startup on day one and scales to regulated enterpri
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with its registered adapters (canonical count in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)) give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system gives models programmatic access to context as REPL variables -- it is **not** prompt compression (compression exists only as a fallback path) -- enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript. A REST/WebSocket API surface with thousands of operations (exact counts in [METRICS.md](METRICS.md)) and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript. A REST/WebSocket API surface with thousands of operations (exact counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)) and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
 
 ### 4. Multi-Agent Robustness
 
@@ -95,7 +95,7 @@ Deep-dive documentation for core debate algorithms:
 - **[Convergence Detection](../core-concepts/convergence-algorithm)** -- Semantic similarity for debate convergence
 - **[ELO and Calibration](../core-concepts/elo-calibration)** -- Agent skill rating and team selection
 
-See [algorithms/README.md](../analysis/adr) for the full algorithm reference.
+See [algorithms/README.md](https://github.com/synaptent/aragora/blob/main/docs/algorithms/README.md) for the full algorithm reference.
 
 ---
 
@@ -342,7 +342,7 @@ aragora/
 ```
 
 <!-- metrics:begin extended-readme-scale -->
-**Scale:** 4,259 tracked Python files | 144 top-level modules | 223,050 test functions across 5,429 test files | canonical counts in [METRICS.md](METRICS.md)
+**Scale:** 4,303 tracked Python files | 145 top-level modules | 224,924 test functions across 5,514 test files | canonical counts in [METRICS.md](https://github.com/synaptent/aragora/blob/main/docs/METRICS.md)
 <!-- metrics:end -->
 
 ---
@@ -689,7 +689,7 @@ aragora serve --api-port 8080 --ws-port 8765
 ## API Endpoints
 
 <!-- metrics:begin extended-readme-api-surface -->
-The server exposes 3,297 API operations across 2,870 paths. Key categories:
+The server exposes 3,084 API operations across 2,876 paths. Key categories:
 <!-- metrics:end -->
 
 | Category | Description |
@@ -902,7 +902,7 @@ See implementations in:
 - `aragora/debate/session.py` -- Session lifecycle (claude-squad patterns)
 - `aragora/debate/cancellation.py` -- Cancellation tokens (claude-code-by-agents)
 
-See the full attribution table in [CREDITS.md](./reference/CREDITS.md).
+See the full attribution table in [CREDITS.md](../reference/credits).
 
 ---
 
@@ -926,7 +926,7 @@ See the full attribution table in [CREDITS.md](./reference/CREDITS.md).
 
 | Document | Purpose |
 |----------|---------|
-| [README](../analysis/adr) | Concise project overview with five pillars |
+| [README](https://github.com/synaptent/aragora/blob/main/README.md) | Concise project overview with five pillars |
 | [CLAUDE.md](./claude) | Development guide for AI assistants |
 | [STATUS.md](./status) | Detailed feature implementation status |
 | [FEATURE_DISCOVERY.md](./feature-discovery) | Complete feature catalog (180+) |

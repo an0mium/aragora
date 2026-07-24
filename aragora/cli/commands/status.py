@@ -120,8 +120,16 @@ async def _run_provider_smoke_checks(
     }
 
 
-def cmd_status(args: argparse.Namespace) -> None:
+def cmd_status(args: argparse.Namespace) -> int:
     """Handle 'status' command - show environment health and agent availability."""
+    if bool(getattr(args, "founder", False)):
+        from aragora.cli.commands.founder_status import cmd_founder_status
+
+        return cmd_founder_status(args)
+    if bool(getattr(args, "json", False)):
+        print("error: status --json requires --founder", file=sys.stderr)
+        return 2
+
     import shutil
 
     from aragora.config.provider_readiness import discover_provider_credentials
@@ -220,6 +228,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     print("\n" + "=" * 60)
     print("Run 'aragora ask' to start a debate or 'aragora serve' to start the server")
+    return 0
 
 
 def cmd_doctor(args: argparse.Namespace) -> None:

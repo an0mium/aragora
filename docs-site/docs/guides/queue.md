@@ -85,8 +85,8 @@ print(f"Status: {status}")
 from aragora.queue import (
     create_redis_queue,
     DebateWorker,
-    create_default_executor,
 )
+from aragora.debate.queue_executor import create_default_executor
 
 # Create queue and executor
 queue = await create_redis_queue(consumer_name="worker-1")

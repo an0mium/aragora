@@ -6,6 +6,7 @@ Tests health check CLI commands.
 
 from __future__ import annotations
 
+import builtins
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -119,6 +120,32 @@ class TestCheckPackages:
         # At least one integration package should be checked
         int_pkgs = [n for n in names if "(integration)" in n]
         assert len(int_pkgs) >= 1
+
+    def test_optional_packages_are_not_imported(self, monkeypatch):
+        """Optional probes detect presence without importing heavy native stacks."""
+        blocked = {
+            "asyncpg",
+            "boto3",
+            "opentelemetry",
+            "redis",
+            "sentence_transformers",
+            "torch",
+            "transformers",
+        }
+        real_import = builtins.__import__
+
+        def guarded_import(name, *args, **kwargs):
+            if name.split(".", 1)[0] in blocked:
+                raise AssertionError(f"optional package was imported: {name}")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        result = check_packages()
+        names = [name for name, _, _ in result]
+
+        assert "torch (ML)" in names
+        assert "redis (integration)" in names
 
 
 # ===========================================================================

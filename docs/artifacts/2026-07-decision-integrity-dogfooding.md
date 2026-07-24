@@ -4,6 +4,10 @@
 **Repo:** [synaptent/aragora](https://github.com/synaptent/aragora)
 **Audience:** engineering leaders evaluating whether "AI decision gates" are real or theater.
 
+> **Receipt-backed follow-up:** [Review, Receipt, Verify](../case-studies/dogfood/2026-07-PUBLIC-PROOF.md)
+> connects eight real review artifacts to independently verified Open Decision Receipts and a
+> pinned quorum-vs-single benchmark.
+
 ---
 
 ## The claim
@@ -303,6 +307,8 @@ the credibility of this document.
 6. **The counts are search-derived.** The 579/493/490 figures come from
    GitHub's search API with `in:comments` qualifiers, not a hand audit of 579
    threads. Treat them as accurate to search fidelity.
+
+7. **The reviewers themselves are sometimes confidently wrong.** A companion artifact, [When Reviewers Are Wrong](2026-07-reviewer-failure-taxonomy.md), catalogs six receipted reviewer failure classes from this same gate — every documented error a false negative (a true claim wrongly doubted), none a false claim merged.
 
 ## Why this is hard to fake
 

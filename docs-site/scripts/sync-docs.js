@@ -105,11 +105,14 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
-  'GETTING_STARTED.md': 'getting-started/overview.md',
-  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'guides/GETTING_STARTED.md': 'getting-started/overview.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -178,6 +181,8 @@ const DOC_MAP = {
   'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
+  'GITHUB_ACTION_SETUP.md': 'guides/github-action-setup.md',
+  'guides/github-actions-review.md': 'guides/github-actions-review.md',
 
   // =========================================================================
   // API Reference
@@ -189,6 +194,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',
@@ -255,10 +261,10 @@ const DOC_MAP = {
   'CONTROL_PLANE_GUIDE.md': 'enterprise/control-plane.md',
   'ENTERPRISE_FEATURES.md': 'enterprise/features.md',
   'ENTERPRISE_SUPPORT.md': 'enterprise/support.md',
+  'enterprise/DISASTER_RECOVERY.md': 'enterprise/disaster-recovery.md',
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
-  'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
@@ -347,6 +353,7 @@ const DOC_MAP = {
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
+  'COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
@@ -389,6 +396,64 @@ const DOC_MAP = {
   'plans/2026-03-07-conductor-control-plane.md':
     'contributing/conductor-control-plane-implementation-spec.md',
   'workflow/MARKETPLACE.md': 'guides/marketplace.md',
+
+  // =========================================================================
+  // Specifications
+  //
+  // docs/specs/** design/governance specs. Intra-directory links between these
+  // files (e.g. 'TAMPER_EVIDENT_TRAIL.md' from OPEN_DECISION_RECEIPT.md) resolve
+  // via the source-relative lookup below, not through this table directly.
+  // =========================================================================
+  'specs/ADVISORY_REVIEW_RECOGNIZABLE_HEADER.md':
+    'specs/advisory-review-recognizable-header.md',
+  'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
+    'specs/aragora-roadmap-revision-advocates.md',
+  'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
+  'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
+  'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
+  'specs/LOCAL_ADVOCATE_TRAINING_PIPELINE.md': 'specs/local-advocate-training-pipeline.md',
+  'specs/MODEL_DISSENT_SEVERITY_GATE.md': 'specs/model-dissent-severity-gate.md',
+  'specs/MODEL_LINEAGE_DISCLOSURE.md': 'specs/model-lineage-disclosure.md',
+  'specs/MODEL_QUORUM_FAMILY_EXPANSION.md': 'specs/model-quorum-family-expansion.md',
+  'specs/OPEN_DECISION_RECEIPT.md': 'specs/open-decision-receipt.md',
+  'specs/QUORUM_EVIDENCE_RETRIGGER.md': 'specs/quorum-evidence-retrigger.md',
+  'specs/RECEIPT_LINEAGE_RECONCILIATION.md': 'specs/receipt-lineage-reconciliation.md',
+  'specs/TAMPER_EVIDENT_TRAIL.md': 'specs/tamper-evident-trail.md',
+  'specs/TIER4_SETTLEMENT_PROBE_TIMEOUT_REPORTING.md':
+    'specs/tier4-settlement-probe-timeout-reporting.md',
+  'specs/TIERED_MERGE_GATE_QUORUM_POLICY.md': 'specs/tiered-merge-gate-quorum-policy.md',
+  'specs/odr-native-mapping.md': 'specs/odr-native-mapping.md',
+
+  // =========================================================================
+  // Reference
+  //
+  // docs/reference/** technical reference material, mirrored as its own
+  // `reference/` category (parallel to Specifications above). Several files
+  // in this directory intentionally have no entry here because they already
+  // resolve through a pre-existing DOC_MAP entry elsewhere -- see
+  // ACCOUNTING.md, ADMIN.md, BILLING.md, BILLING_UNITS.md, CONTROL_PLANE.md,
+  // DATABASE.md, DATABASE_SCHEMA.md, DEPENDENCIES.md, DEPRECATION_POLICY.md,
+  // DOCUMENTS.md, ENVIRONMENT.md, HANDLERS.md, and LIBRARY_USAGE.md above
+  // (resolveSourcePath()'s basename fallback), plus reference/CLI_REFERENCE.md
+  // under API Reference. Adding a second reference/ entry for those would
+  // publish the same content at two docs-site URLs.
+  // =========================================================================
+  'reference/BINDINGS.md': 'reference/bindings.md',
+  'reference/BREAKING_CHANGES.md': 'reference/breaking-changes.md',
+  'reference/CANONICAL_STORES.md': 'reference/canonical-stores.md',
+  'reference/CREDITS.md': 'reference/credits.md',
+  'reference/ENVIRONMENT_COMPLETE.md': 'reference/environment-complete.md',
+  'reference/ERROR_CODES.md': 'reference/error-codes.md',
+  'reference/ERROR_HANDLING.md': 'reference/error-handling.md',
+  'reference/ERROR_TRACKING.md': 'reference/error-tracking.md',
+  'reference/IMPLEMENT.md': 'reference/implement.md',
+  // Not reference/index.md: that filename is reserved for the auto-generated
+  // category index createIndexFile() writes below, which would otherwise
+  // silently overwrite this file's synced content.
+  'reference/INDEX.md': 'reference/reference-index.md',
+  'reference/INSTALL_MATRIX.md': 'reference/install-matrix.md',
+  'reference/ROOT_ALLOWLIST.md': 'reference/root-allowlist.md',
+  'reference/TYPE_CHECKING.md': 'reference/type-checking.md',
 
   // =========================================================================
   // Additional Missing Files (commonly referenced)
@@ -466,24 +531,227 @@ function extractTitle(content) {
 }
 
 function escapeUrlParamBracesOutsideCodeFences(content) {
-  let inFence = false;
+  let fenceDepth = 0;
+  let inBraceList = false;
   return content
     .split('\n')
     .map(line => {
       if (/^\s*```/.test(line)) {
-        inFence = !inFence;
+        if (fenceDepth === 0) {
+          fenceDepth = 1;
+        } else if (/^\s*```\S+/.test(line)) {
+          fenceDepth += 1;
+        } else {
+          fenceDepth = Math.max(0, fenceDepth - 1);
+        }
         return line;
       }
-      if (inFence) {
+      if (fenceDepth > 0) {
         return line;
       }
-      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
+
+      let escaped = '';
+      let inInlineCode = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '`') {
+          inInlineCode = !inInlineCode;
+          escaped += char;
+          continue;
+        }
+        const rest = line.slice(index + 1);
+        const urlParam = rest.match(/^([\w-]+)\}/);
+        if (char === '{' && urlParam) {
+          escaped += `\\{${urlParam[1]}\\}`;
+          index += urlParam[1].length + 1;
+          continue;
+        }
+        if (inInlineCode) {
+          escaped += char;
+          continue;
+        }
+        if (inBraceList) {
+          if (char === '}') {
+            escaped += '\\}';
+            inBraceList = false;
+          } else {
+            escaped += char;
+          }
+          continue;
+        }
+        if (char !== '{') {
+          escaped += char;
+          continue;
+        }
+
+        if (rest.includes(',')) {
+          escaped += '\\{';
+          inBraceList = true;
+          continue;
+        }
+        escaped += char;
+      }
+      return escaped;
     })
     .join('\n');
 }
 
-// Build reverse lookup from source file to destination path
+// Build reverse lookup from source file to destination path.
+//
+// REVERSE_LOOKUP is keyed by the full (qualified) source path -- e.g.
+// "deployment/DISASTER_RECOVERY.md", "runbooks/DISASTER_RECOVERY.md" -- which is
+// always unambiguous because DOC_MAP keys are themselves unique.
+//
+// BASENAME_LOOKUP is a secondary, basename-only index (e.g. "DISASTER_RECOVERY.md")
+// used as a last-resort fallback when a link can't be resolved relative to its own
+// source directory either (see sourceRelativeLinkTarget below). Several DOC_MAP
+// entries legitimately share a basename (deployment/, runbooks/, and enterprise/
+// each have their own DISASTER_RECOVERY.md; similarly README.md), so a basename-
+// only key is only safe to use when it maps to exactly one DOC_MAP entry --
+// populating it unconditionally would let whichever entry is defined last silently
+// win over the others for every ambiguous basename. Ambiguous basenames are
+// intentionally left out of BASENAME_LOOKUP so callers fall through to "no match"
+// instead of guessing.
 const REVERSE_LOOKUP = {};
+const BASENAME_LOOKUP = {};
+const REPO_BLOB_BASE = 'https://github.com/synaptent/aragora/blob/main';
+const REPO_MARKDOWN_LINKS = {
+  '../README.md': `${REPO_BLOB_BASE}/README.md`,
+  'README.md': `${REPO_BLOB_BASE}/docs/README.md`,
+  // METRICS.md is auto-regenerated and not published to docs-site; repo-relative
+  // links from any docs/ page must resolve to the canonical repo copy.
+  'METRICS.md': `${REPO_BLOB_BASE}/docs/METRICS.md`,
+  '../aragora/mcp/README.md': `${REPO_BLOB_BASE}/aragora/mcp/README.md`,
+  'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
+  '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
+  '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  '../aragora-verify/README.md': `${REPO_BLOB_BASE}/aragora-verify/README.md`,
+  // RECEIPT_CONTRACT.md is operator-gated (canonical receipt-lineage statement) --
+  // point off-site rather than adding a DOC_MAP mirror entry for it.
+  'RECEIPT_CONTRACT.md': `${REPO_BLOB_BASE}/docs/RECEIPT_CONTRACT.md`,
+  // Neither is in DOC_MAP (charters.yaml isn't even markdown), so ARCHITECTURE.md's
+  // bare links to its siblings would otherwise survive unrewritten and 404.
+  'architecture/INTENDED_ARCHITECTURE.md':
+    `${REPO_BLOB_BASE}/docs/architecture/INTENDED_ARCHITECTURE.md`,
+  'architecture/charters.yaml': `${REPO_BLOB_BASE}/docs/architecture/charters.yaml`,
+  // reference/INSTALL_MATRIX.md links to these files; none are in DOC_MAP
+  // (two are outside docs/ entirely), so its links to them would otherwise
+  // survive unrewritten and 404.
+  'architecture/PACKAGING_AND_DISTRIBUTION.md':
+    `${REPO_BLOB_BASE}/docs/architecture/PACKAGING_AND_DISTRIBUTION.md`,
+  'PACKAGING.md': `${REPO_BLOB_BASE}/docs/PACKAGING.md`,
+  'SDK_QUICKSTART_PYTHON.md': `${REPO_BLOB_BASE}/docs/SDK_QUICKSTART_PYTHON.md`,
+  '../DEVELOPMENT.md': `${REPO_BLOB_BASE}/DEVELOPMENT.md`,
+  '../INSTALL.md': `${REPO_BLOB_BASE}/INSTALL.md`,
+  // reference/INDEX.md links to these two; neither is in DOC_MAP, so its
+  // links to them would otherwise survive unrewritten and 404.
+  'CAPABILITY_MATRIX.md': `${REPO_BLOB_BASE}/docs/CAPABILITY_MATRIX.md`,
+  'debate/EXECUTION_SAFETY_GATE.md': `${REPO_BLOB_BASE}/docs/debate/EXECUTION_SAFETY_GATE.md`,
+  // reference/BREAKING_CHANGES.md links to these four; none are in DOC_MAP
+  // (the migrations/ target is under docs/deprecated/, deliberately outside
+  // the mirror), so its links to them would otherwise survive unrewritten
+  // and 404.
+  'status/MIGRATION_V1_TO_V2.md': `${REPO_BLOB_BASE}/docs/status/MIGRATION_V1_TO_V2.md`,
+  'deprecated/migrations/MIGRATION_0.8_to_1.0.md':
+    `${REPO_BLOB_BASE}/docs/deprecated/migrations/MIGRATION_0.8_to_1.0.md`,
+  'templates/breaking_change_template.md':
+    `${REPO_BLOB_BASE}/docs/templates/breaking_change_template.md`,
+  'deployment/RELEASE_NOTES.md': `${REPO_BLOB_BASE}/docs/deployment/RELEASE_NOTES.md`,
+  '../CHANGELOG.md': `${REPO_BLOB_BASE}/CHANGELOG.md`,
+  // reference/ERROR_HANDLING.md links to this; not in DOC_MAP, so its link
+  // would otherwise survive unrewritten and 404.
+  'resilience/RESILIENCE_PATTERNS.md': `${REPO_BLOB_BASE}/docs/resilience/RESILIENCE_PATTERNS.md`,
+};
+const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
+  'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
+};
+const PUBLIC_DOC_CONTENT_OVERRIDES = {
+  'deployment/DISASTER_RECOVERY.md': [
+    '# Deployment Disaster Recovery Overview',
+    '',
+    'Aragora deployment documentation includes disaster recovery planning for',
+    'backup verification, service restoration, failover readiness, and customer',
+    'communication during major incidents.',
+    '',
+    'Detailed infrastructure topology, cloud-provider commands, bucket names,',
+    'hostnames, and operational response sequences are restricted to authorized',
+    'operators and enterprise support channels.',
+    '',
+    '## Public Control Summary',
+    '',
+    '- Deployment recovery procedures are defined for production environments.',
+    '- Backup and restore paths are validated on a recurring schedule.',
+    '- Failover readiness is reviewed as part of operational preparedness.',
+    '- Provider-specific execution details are not published in the public docs.',
+    '',
+    '## Related Documentation',
+    '',
+    '- [Operations disaster recovery overview](../operations/disaster-recovery-runbook)',
+    '- [Enterprise disaster recovery overview](../enterprise/disaster-recovery)',
+    '- [Production readiness](../operations/production-readiness)',
+    '',
+  ].join('\n'),
+  'runbooks/DISASTER_RECOVERY.md': [
+    '# Operations Disaster Recovery Runbook Overview',
+    '',
+    'Aragora maintains operational disaster recovery runbooks for incident',
+    'classification, backup validation, restoration sequencing, failover',
+    'coordination, and post-incident review.',
+    '',
+    'Detailed commands, environment names, provider-specific identifiers,',
+    'internal dashboards, and escalation paths are restricted to authorized',
+    'operators and enterprise support channels.',
+    '',
+    '## Public Control Summary',
+    '',
+    '- Incident roles and escalation paths are defined internally.',
+    '- Recovery actions are practiced through tabletop and restore exercises.',
+    '- Customer communication procedures are maintained for major incidents.',
+    '- Operational execution details are withheld from public documentation.',
+    '',
+    '## Related Documentation',
+    '',
+    '- [Deployment disaster recovery overview](../deployment/disaster-recovery)',
+    '- [Enterprise disaster recovery overview](../enterprise/disaster-recovery)',
+    '- [Incident response](./incident-response)',
+    '',
+  ].join('\n'),
+  'enterprise/DISASTER_RECOVERY.md': [
+    '# Enterprise Disaster Recovery Overview',
+    '',
+    'Aragora maintains disaster recovery procedures for enterprise deployments,',
+    'including defined recovery objectives, backup verification, regional',
+    'failover planning, customer communication, and periodic tabletop review.',
+    '',
+    'Detailed operational runbooks, infrastructure diagrams, command sequences,',
+    'hostnames, escalation rosters, and other internal response procedures are',
+    'available only through authorized enterprise support channels.',
+    '',
+    '## Recovery Objectives',
+    '',
+    'Recovery objectives are defined contractually per enterprise deployment',
+    'and reviewed during disaster recovery planning and validation.',
+    '',
+    '## Public Control Summary',
+    '',
+    '- Recovery objectives are defined and reviewed for enterprise deployments.',
+    '- Backup and restore procedures are exercised on a recurring schedule.',
+    '- Regional failover and customer communication procedures are maintained.',
+    '- Operational response details are restricted to authorized recipients.',
+    '',
+    '## Related Documentation',
+    '',
+    '- [Operations disaster recovery runbook](../operations/disaster-recovery-runbook)',
+    '- [Security overview](../security/overview)',
+    '- [Data residency](../security/data-residency)',
+    '',
+  ].join('\n'),
+};
+const basenameCounts = new Map();
+for (const src of Object.keys(DOC_MAP)) {
+  const srcName = path.basename(src.replace(/^\.\//, '').replace(/^\//, ''));
+  basenameCounts.set(srcName, (basenameCounts.get(srcName) || 0) + 1);
+}
 for (const [src, dest] of Object.entries(DOC_MAP)) {
   // Normalize source path variations
   const srcBase = src.replace(/^\.\//, '').replace(/^\//, '');
@@ -491,13 +759,75 @@ for (const [src, dest] of Object.entries(DOC_MAP)) {
 
   // Store both with and without .md extension
   REVERSE_LOOKUP[srcBase] = dest;
-  REVERSE_LOOKUP[srcName] = dest;
   REVERSE_LOOKUP[srcBase.replace('.md', '')] = dest.replace('.md', '');
-  REVERSE_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+
+  if (basenameCounts.get(srcName) === 1) {
+    BASENAME_LOOKUP[srcName] = dest;
+    BASENAME_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+  }
+}
+
+// Resolve a link target relative to the directory of the file that contains it,
+// e.g. "./DISASTER_RECOVERY.md" written inside deployment/CONTAINER_VOLUMES.md
+// means deployment/DISASTER_RECOVERY.md -- not whichever DOC_MAP entry sharing
+// that basename happens to be defined last. Checking this first lets a bare
+// filename resolve unambiguously whenever the target is a real sibling (or
+// reachable via "../") of the linking source, before falling back to the basename
+// guess below.
+function sourceRelativeLinkTarget(rawTarget, relSrcPath) {
+  const sourceDir = path.posix.dirname(relSrcPath.replace(/\\/g, '/'));
+  return path.posix.normalize(path.posix.join(sourceDir, rawTarget));
+}
+
+function resolveLinkDestination(normalized, relSrcPath, rawTarget) {
+  if (relSrcPath && rawTarget) {
+    const sourceTarget = sourceRelativeLinkTarget(rawTarget, relSrcPath);
+    const sourceResolved = REVERSE_LOOKUP[sourceTarget];
+    if (sourceResolved) {
+      return sourceResolved;
+    }
+    const sourceSpecificKey = `${relSrcPath.replace(/\\/g, '/')}|${sourceTarget}`;
+    if (SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS[sourceSpecificKey]) {
+      return SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS[sourceSpecificKey];
+    }
+    if (REPO_MARKDOWN_LINKS[sourceTarget]) {
+      return REPO_MARKDOWN_LINKS[sourceTarget];
+    }
+  }
+  // BASENAME_LOOKUP only contains basenames proven unique across DOC_MAP.
+  // Ambiguous names are intentionally absent so this fallback fails closed
+  // instead of guessing which same-named DOC_MAP entry the link meant.
+  return (
+    REVERSE_LOOKUP[normalized] ||
+    REPO_MARKDOWN_LINKS[normalized] ||
+    BASENAME_LOOKUP[path.basename(normalized)]
+  );
+}
+
+function rewriteLinkTarget(newPath, currentDir, anchor) {
+  if (/^https?:\/\//.test(newPath)) {
+    return `](${newPath}${anchor || ''})`;
+  }
+
+  const targetDir = path.dirname(newPath);
+  const targetFile = path.basename(newPath, '.md');
+  const isIndex = targetFile === 'index';
+
+  // If same directory, use ./ or filename
+  if (targetDir === currentDir) {
+    return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
+  }
+
+  // Calculate relative path
+  const relativePath = path.relative(currentDir, targetDir);
+  const relativeLink = isIndex
+    ? relativePath
+    : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
+  return `](${relativeLink}${anchor || ''})`;
 }
 
 // Fix content for Docusaurus compatibility
-function fixContent(content, destPath) {
+function fixContent(content, destPath, relSrcPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
@@ -516,30 +846,14 @@ function fixContent(content, destPath) {
   // Transform internal doc links to Docusaurus paths
   // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
+    (match, prefix, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      const newPath = REVERSE_LOOKUP[normalized] || REVERSE_LOOKUP[path.basename(normalized)];
+      const newPath = resolveLinkDestination(normalized, relSrcPath, `${prefix}${filePath}`);
 
       if (newPath) {
-        // Calculate relative path from current doc to target doc
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        // If same directory, use ./ or filename
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        // Calculate relative path
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
 
       // If not found, keep original but log it
@@ -549,30 +863,16 @@ function fixContent(content, destPath) {
 
   // Also fix links without .md extension when they match known docs
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
-    (match, filePath, anchor) => {
+    /\]\(((?:\.\.\/|\.\/)?)([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
+    (match, prefix, filePath, anchor) => {
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
+      const rawTarget = `${prefix}${filePath}`;
       const newPath =
-        REVERSE_LOOKUP[normalized] ||
-        REVERSE_LOOKUP[path.basename(normalized)] ||
-        REVERSE_LOOKUP[normalized + '.md'] ||
-        REVERSE_LOOKUP[path.basename(normalized) + '.md'];
+        resolveLinkDestination(normalized, relSrcPath, rawTarget) ||
+        resolveLinkDestination(normalized + '.md', relSrcPath, `${rawTarget}.md`);
 
       if (newPath) {
-        const targetDir = path.dirname(newPath);
-        const targetFile = path.basename(newPath, '.md');
-
-        const isIndex = targetFile === 'index';
-
-        if (targetDir === currentDir) {
-          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
-        }
-
-        const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = isIndex
-          ? relativePath
-          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
-        return `](${relativeLink}${anchor || ''})`;
+        return rewriteLinkTarget(newPath, currentDir, anchor);
       }
       return match;
     }
@@ -615,14 +915,16 @@ function processFile(srcRelPath, destPath) {
 
   const srcPath = resolved.srcPath;
   let content = fs.readFileSync(srcPath, 'utf8');
-  const title = extractTitle(content);
   const relSrcPath = path.relative(SOURCE_DIR, srcPath);
+  const normalizedRelSrcPath = relSrcPath.replace(/\\/g, '/');
+  content = PUBLIC_DOC_CONTENT_OVERRIDES[normalizedRelSrcPath] || content;
+  const title = extractTitle(content);
   const baseName = path.basename(relSrcPath, '.md');
   const isAdr = relSrcPath.startsWith('ADR' + path.sep);
   const slug = isAdr && baseName !== 'README' ? baseName : null;
 
   const description =
-    relSrcPath.replace(/\\/g, '/') === 'reference/CLI_REFERENCE.md'
+    normalizedRelSrcPath === 'reference/CLI_REFERENCE.md'
       ? 'Generated Aragora CLI command catalog from live parser'
       : undefined;
 
@@ -631,7 +933,7 @@ function processFile(srcRelPath, destPath) {
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');
-  content = fixContent(content, relDestPath);
+  content = fixContent(content, relDestPath, normalizedRelSrcPath);
   content = injectConnectorCatalogBanner(content, relSrcPath);
 
   // Ensure destination directory exists
@@ -681,6 +983,36 @@ Explore the documentation in this section to learn more.${itemsList}
   console.log(`  ✓ Created index: ${category}/index.md`);
 }
 
+function docsSpecsItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('specs/') && dest.startsWith('specs/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function docsReferenceItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('reference/') && dest.startsWith('reference/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
 // Main sync function
 function syncDocs() {
   console.log('\\n📚 Syncing documentation...\\n');
@@ -719,10 +1051,26 @@ function syncDocs() {
     { path: 'advanced', title: 'Advanced Topics', desc: 'Advanced features and internals' },
     { path: 'analysis', title: 'Analysis & Metrics', desc: 'Performance analysis and benchmarks' },
     { path: 'contributing', title: 'Contributing', desc: 'How to contribute to Aragora' },
+    {
+      path: 'specs',
+      title: 'Specifications',
+      desc: 'Design and governance specifications for receipts, quorum policy, and related protocols',
+    },
+    {
+      path: 'reference',
+      title: 'Reference',
+      desc: 'Technical reference material covering configuration, environment variables, error codes, and other detailed references',
+    },
   ];
 
   for (const cat of categories) {
-    createIndexFile(cat.path, cat.title, cat.desc);
+    const items =
+      cat.path === 'specs'
+        ? docsSpecsItems()
+        : cat.path === 'reference'
+          ? docsReferenceItems()
+          : [];
+    createIndexFile(cat.path, cat.title, cat.desc, items);
   }
 
   console.log(`\\n✅ Done! Synced ${synced} files, skipped ${skipped} (not found)\\n`);

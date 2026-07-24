@@ -63,6 +63,7 @@ except ModuleNotFoundError:
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
+LANE_LEASES_FILENAME = "lane-leases.json"
 USER_HEARTBEATS_FILE = AGENT_BRIDGE_DIR / "heartbeats.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
@@ -174,6 +175,28 @@ def _bridge_files_for_lane_read() -> list[Path]:
     return paths or [LANE_REGISTRY_FILE]
 
 
+def _bridge_files_for_lane_lease_read() -> list[Path]:
+    """Return sidecar lease mappings written by check_work_lease.py v0."""
+    candidates = [
+        AGENT_BRIDGE_DIR / LANE_LEASES_FILENAME,
+        CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / LANE_LEASES_FILENAME,
+        _state_root_bridge_dir() / LANE_LEASES_FILENAME,
+    ]
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if path.exists():
+            paths.append(path)
+    return paths
+
+
 def _bridge_file_for_write(default_path: Path) -> Path:
     try:
         _assert_writable_dir(default_path.parent)
@@ -249,6 +272,10 @@ class LaneRecord:
     last_ack_at: str = ""
     last_heartbeat_at: str = ""
     last_steering_outcome: str = ""
+    work_id: str = ""
+    lease_id: str = ""
+    lease_status: str = ""
+    lease_health: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -281,6 +308,10 @@ class LaneRecord:
             last_ack_at=str(payload.get("last_ack_at", "")),
             last_heartbeat_at=str(payload.get("last_heartbeat_at", "")),
             last_steering_outcome=str(payload.get("last_steering_outcome", "")),
+            work_id=str(payload.get("work_id", "")),
+            lease_id=str(payload.get("lease_id", "")),
+            lease_status=str(payload.get("lease_status", "")),
+            lease_health=str(payload.get("lease_health", "")),
         )
 
 
@@ -516,7 +547,9 @@ def _load_lane_registry() -> list[LaneRecord]:
                     current[1],
                 )
 
-    return anonymous + [record for record, _source_index in merged.values()]
+    return _enrich_lane_records_with_leases(
+        anonymous + [record for record, _source_index in merged.values()]
+    )
 
 
 def _prefer_lane_record(
@@ -543,6 +576,122 @@ def _fill_sparse_lane_identity(preferred: LaneRecord, fallback: LaneRecord) -> L
     if preferred.pr_number is None:
         preferred.pr_number = fallback.pr_number
     return preferred
+
+
+def _load_lane_lease_sidecars() -> dict[str, dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for sidecar in _bridge_files_for_lane_lease_read():
+        try:
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for lane_id, record in payload.items():
+            if isinstance(lane_id, str) and isinstance(record, dict):
+                merged[lane_id] = record
+    return merged
+
+
+def _sidecar_compatible_with_lane(record: LaneRecord, sidecar: dict[str, Any]) -> bool:
+    sidecar_branch = str(sidecar.get("branch") or "").strip()
+    return not (record.branch and sidecar_branch and record.branch != sidecar_branch)
+
+
+def _sidecar_work_id_matches_lease(lease: Any, work_id: str) -> bool:
+    if not work_id:
+        return True
+    if work_id.startswith("branch:"):
+        _prefix, _sep, branch_name = work_id.partition(":")
+        return getattr(lease, "branch", "") == branch_name
+    lease_work_id = getattr(lease, "work_id", None)
+    if lease_work_id is None or str(lease_work_id).startswith("branch:"):
+        return True
+    return lease_work_id == work_id or getattr(lease, "task_id", "") == work_id
+
+
+def _sidecar_points_to_active_dev_lease(record: LaneRecord, sidecar: dict[str, Any]) -> bool:
+    lease_id = str(sidecar.get("lease_id") or "").strip()
+    branch = str(sidecar.get("branch") or record.branch or "").strip()
+    owner_session_id = str(sidecar.get("owner_session_id") or "").strip()
+    work_id = str(sidecar.get("work_id") or record.work_id or "").strip()
+    if not lease_id or not branch:
+        return False
+    try:
+        import check_work_lease
+
+        db_path = check_work_lease.resolve_db_path(CANONICAL_REPO_ROOT)
+        leases = check_work_lease.active_leases_for_branch(db_path, branch)
+    except Exception:
+        return False
+    for lease in leases:
+        if lease.lease_id != lease_id:
+            continue
+        if owner_session_id and lease.owner_session_id != owner_session_id:
+            return False
+        return _sidecar_work_id_matches_lease(lease, work_id)
+    return False
+
+
+def _fill_from_sidecar(record: LaneRecord, sidecar: dict[str, Any]) -> None:
+    filled_lease_from_sidecar = False
+    sidecar_is_active = _sidecar_points_to_active_dev_lease(record, sidecar)
+    if not record.work_id:
+        record.work_id = str(sidecar.get("work_id") or "")
+    if not record.lease_id:
+        record.lease_id = str(sidecar.get("lease_id") or "")
+        filled_lease_from_sidecar = bool(record.lease_id)
+    if not record.lease_status:
+        record.lease_status = (
+            "active" if sidecar_is_active else str(sidecar.get("lease_status") or "")
+        )
+    if not record.lease_health:
+        record.lease_health = str(sidecar.get("lease_health") or "")
+    if filled_lease_from_sidecar:
+        record.lease_health = "ok" if sidecar_is_active else "sidecar"
+    elif sidecar_is_active and record.lease_id == str(sidecar.get("lease_id") or "").strip():
+        record.lease_status = "active"
+        record.lease_health = "ok"
+    elif record.lease_id and not record.lease_health:
+        record.lease_health = "sidecar"
+
+
+def _enrich_lane_records_with_leases(records: list[LaneRecord]) -> list[LaneRecord]:
+    sidecars = _load_lane_lease_sidecars()
+    if not sidecars:
+        return records
+    for record in records:
+        sidecar = sidecars.get(record.lane_id)
+        if sidecar and _sidecar_compatible_with_lane(record, sidecar):
+            _fill_from_sidecar(record, sidecar)
+    return records
+
+
+def _lane_has_countable_dev_lease(record: LaneRecord) -> bool:
+    if not record.lease_id:
+        return False
+    invalid_statuses = {"expired", "invalid", "missing", "released", "stale"}
+    invalid_health = {
+        "bridge_only_no_dev_lease",
+        "expired",
+        "invalid",
+        "missing",
+        "sidecar",
+        "stale",
+    }
+    if record.lease_status in invalid_statuses or record.lease_health in invalid_health:
+        return False
+    if record.lease_health != "ok":
+        return False
+    return _sidecar_points_to_active_dev_lease(
+        record,
+        {
+            "branch": record.branch,
+            "lease_id": record.lease_id,
+            "owner_session_id": record.owner_session,
+            "work_id": record.work_id,
+        },
+    )
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:
@@ -2961,6 +3110,16 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
         ),
         "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+        "active_lanes_missing_dev_lease": sum(
+            1
+            for r in records
+            if r.status in ACTIVE_LANE_STATUSES and not _lane_has_countable_dev_lease(r)
+        ),
+        "active_lanes_with_dev_lease": sum(
+            1
+            for r in records
+            if r.status in ACTIVE_LANE_STATUSES and _lane_has_countable_dev_lease(r)
+        ),
         "conflict_lanes": sum(1 for r in records if r.status == "conflict")
         + len(computed_conflict_lane_ids),
         "health_issues": len(issues),

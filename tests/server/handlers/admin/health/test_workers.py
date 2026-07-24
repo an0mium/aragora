@@ -92,7 +92,7 @@ class TestWorkerHealthStatus:
                 return_value=mock_dispatcher,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=mock_healing,
             ),
         ):
@@ -131,7 +131,7 @@ class TestWorkerHealthStatus:
                 return_value=mock_dispatcher,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=None,
             ),
         ):
@@ -159,7 +159,7 @@ class TestWorkerHealthStatus:
                 return_value=None,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=None,
             ),
         ):
@@ -186,7 +186,7 @@ class TestWorkerHealthStatus:
                 side_effect=ImportError("Module not found"),
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 side_effect=ImportError("Module not found"),
             ),
         ):
@@ -377,7 +377,7 @@ class TestCombinedWorkerQueueHealth:
                 return_value=None,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=None,
             ),
             patch(
@@ -428,7 +428,7 @@ class TestCombinedWorkerQueueHealth:
                 return_value=None,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=None,
             ),
             patch(
@@ -468,7 +468,7 @@ class TestCombinedWorkerQueueHealth:
                 return_value=None,
             ),
             patch(
-                "aragora.queue.workers.get_consensus_healing_worker",
+                "aragora.memory.consensus_healing_worker.get_consensus_healing_worker",
                 return_value=None,
             ),
             patch(

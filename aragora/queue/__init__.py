@@ -20,7 +20,10 @@ Usage:
     job = await queue.get_status(job_id)
     print(f"Job status: {job.status}")
 
-    # Process jobs with a worker
+    # Process jobs with a worker (executor factory lives in aragora.debate -
+    # it imports agents/debate, so it is not part of this domain-free package)
+    from aragora.debate.queue_executor import create_default_executor
+
     executor = await create_default_executor()
     worker = DebateWorker(queue, "worker-1", executor)
     await worker.start()
@@ -61,7 +64,14 @@ from aragora.queue.streams import (
 from aragora.queue.worker import (
     DebateExecutor,
     DebateWorker,
-    create_default_executor,
+    get_job_handler,
+    get_registered_job_handlers,
+    get_registered_workers,
+    register_job_handler,
+    register_worker,
+    registered_job_handler_names,
+    registered_worker_names,
+    reset_registry,
 )
 
 __all__ = [
@@ -90,5 +100,13 @@ __all__ = [
     # Worker
     "DebateWorker",
     "DebateExecutor",
-    "create_default_executor",
+    # Job-handler registry (domain-free; P4a queue inversion Q1)
+    "register_worker",
+    "register_job_handler",
+    "get_registered_workers",
+    "get_registered_job_handlers",
+    "get_job_handler",
+    "registered_worker_names",
+    "registered_job_handler_names",
+    "reset_registry",
 ]

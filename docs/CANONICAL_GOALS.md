@@ -13,13 +13,13 @@ Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.m
 | Metric | Value | Source |
 |--------|-------|--------|
 | Version | 2.9.0 | `pyproject.toml` |
-| Python files under `aragora/` | 4,259 | `docs/METRICS.md` |
-| Python modules | 144 top-level package directories | `docs/METRICS.md` |
-| Lines of code under `aragora/` | 1,975,083 | `docs/METRICS.md` |
-| Automated tests | 223,050 test functions | `docs/METRICS.md` |
-| Test files | 5,429 | `docs/METRICS.md` |
-| API operations | 3,297 across 2,870 paths | `docs/METRICS.md` |
-| API paths | 2,870 | `docs/METRICS.md` |
+| Python files under `aragora/` | 4,303 | `docs/METRICS.md` |
+| Python modules | 145 top-level package directories | `docs/METRICS.md` |
+| Lines of code under `aragora/` | 1,989,241 | `docs/METRICS.md` |
+| Automated tests | 224,924 test functions | `docs/METRICS.md` |
+| Test files | 5,514 | `docs/METRICS.md` |
+| API operations | 3,084 across 2,876 paths | `docs/METRICS.md` |
+| API paths | 2,876 | `docs/METRICS.md` |
 | Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |
 <!-- metrics:end -->
 
@@ -27,7 +27,8 @@ Other canonical claims (manually maintained):
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Agent types | 43 across 6+ LLM providers | agent registry |
+| Agent types (registered) | 46 across 6+ LLM providers | `list_available_agents()` in `aragora/agents/base.py` |
+| Agent types (allowlisted) | 35 (see `docs/METRICS.md`) | `ALLOWED_AGENT_TYPES` in `aragora/config/settings.py` |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |
 | GA readiness | Pre-GA; remaining launch work is tracked in `GA_CHECKLIST.md` | `GA_CHECKLIST.md` |

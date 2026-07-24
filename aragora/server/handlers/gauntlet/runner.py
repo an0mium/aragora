@@ -126,7 +126,7 @@ class GauntletRunnerMixin:
         # Validate request body against schema
         validation_result = validate_against_schema(data, GAUNTLET_RUN_SCHEMA)
         if not validation_result.is_valid:
-            return error_response(validation_result.error, 400)
+            return error_response(cast(str, validation_result.error), 400)
 
         # Extract parameters (already validated)
         input_content = data.get("input_content", "")
@@ -192,7 +192,7 @@ class GauntletRunnerMixin:
         if is_durable_queue_enabled():
             # Durable queue - survives server restarts, supports retry
             try:
-                from aragora.queue.workers.gauntlet_worker import enqueue_gauntlet_job
+                from aragora.server.workers.gauntlet_worker import enqueue_gauntlet_job
 
                 create_tracked_task(
                     enqueue_gauntlet_job(

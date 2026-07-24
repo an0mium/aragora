@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-07-02
-**Total Skip Markers**: 75
+**Generated**: 2026-07-23
+**Total Skip Markers**: 83
 
 ---
 
@@ -9,21 +9,21 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| integration_dependency | 29 | 38.7% |
-| missing_feature | 17 | 22.7% |
-| uncategorized | 11 | 14.7% |
-| optional_dependency | 7 | 9.3% |
-| platform_specific | 6 | 8.0% |
-| performance | 4 | 5.3% |
-| known_bug | 1 | 1.3% |
+| integration_dependency | 29 | 34.9% |
+| missing_feature | 17 | 20.5% |
+| uncategorized | 17 | 20.5% |
+| optional_dependency | 9 | 10.8% |
+| platform_specific | 6 | 7.2% |
+| performance | 4 | 4.8% |
+| known_bug | 1 | 1.2% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
-| `skipif` | 36 |
-| `pytest.skip` | 34 |
-| `pytest.importorskip` | 3 |
+| `pytest.skip` | 39 |
+| `skipif` | 37 |
+| `pytest.importorskip` | 5 |
 | `skip` | 2 |
 
 ## High-Skip Files (Top 10)
@@ -36,10 +36,10 @@
 | `tests/debate/test_voting_engine.py` | 3 |
 | `tests/ranking/test_calibration_engine.py` | 2 |
 | `tests/inbox/test_inbox_receipt_convergence.py` | 2 |
-| `tests/server/middleware/rate_limit/test_distributed_integration.py` | 2 |
-| `tests/server/startup/test_validation.py` | 2 |
 | `tests/triage/test_auto_handle_calibration.py` | 2 |
 | `tests/storage/test_integration_store.py` | 2 |
+| `tests/verification/test_proofs_root.py` | 2 |
+| `tests/performance/test_load.py` | 2 |
 
 ---
 
@@ -71,14 +71,10 @@
 
 ## Skip Count Baseline
 
-Current baseline: **75** skips
+Current baseline: **83** skips
 
-Baseline history: the enforced value lives in `tests/.skip_baseline` (68 →
-75 in PR #8800, with the per-skip audit of all 7 net-new markers in that
-PR's description). This document was previously regenerated on 2026-04-06
-when the count was 57 and had gone stale; the 57→75 jump in this file's
-diff reflects that staleness, not 18 unaudited skips — the enforced
-baseline only ever moved 68→75.
+This regeneration lowers the baseline from 84 to 83 after replacing the
+vacuous provider-config catalog skip with a fail-closed coverage assertion.
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

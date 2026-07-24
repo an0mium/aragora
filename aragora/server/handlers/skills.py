@@ -42,7 +42,7 @@ SkillRegistry: Any
 SkillContext: Any
 SkillStatus: Any
 try:
-    from aragora.skills import (
+    from aragora.skills import (  # type: ignore[no-redef]
         SkillContext,
         SkillRegistry,
         SkillStatus,
@@ -68,6 +68,14 @@ class SkillsHandler(BaseHandler):
         "/api/skills/*/metrics",
         "/api/skills/*",  # Must be last due to wildcard
     ]
+
+    # Spec-only verb declarations for routes whose dispatch is dynamic
+    # (path.endswith checks in handle_post); read by openapi_impl, not
+    # used for request routing.
+    _ROUTE_MAP: dict[str, Any] = {
+        "POST /api/skills/invoke": None,
+        "POST /api/skills/*/invoke": None,
+    }
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""

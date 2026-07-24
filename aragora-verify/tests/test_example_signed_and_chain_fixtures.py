@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives import serialization
 
 from aragora_verify import odr_content_digest, verify
 from aragora_verify.cli import main
@@ -159,6 +160,41 @@ def test_cli_signed_golden_content_tamper_caught_by_signature_not_schema() -> No
     assert _check(result, "signature").status == FAIL
 
 
+def test_cli_signed_golden_with_wrong_ed25519_pubkey_exits_one(tmp_path: Path) -> None:
+    # A structurally valid Ed25519 key that did NOT sign this receipt is a
+    # signature failure, not a usage error: exit 1, distinct from the
+    # "key rejected before any verification" exit 2 below (VAL-VERIFY-012a).
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    wrong_public_key = Ed25519PrivateKey.generate().public_key()
+    wrong_pem_path = tmp_path / "wrong-ed25519.pem"
+    wrong_pem_path.write_bytes(
+        wrong_public_key.public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    )
+    rc = main([str(SIGNED), "--pubkey", str(wrong_pem_path)])
+    assert rc == 1
+
+
+def test_cli_signed_golden_with_non_ed25519_pubkey_exits_two(tmp_path: Path) -> None:
+    # An RSA key is well-formed PEM but the wrong algorithm; load_public_key()
+    # rejects it BEFORE any signature check runs -- a usage/input error
+    # (exit 2), distinct from the signature mismatch (exit 1) above
+    # (VAL-VERIFY-012b).
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    rsa_public_key = rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key()
+    rsa_pem_path = tmp_path / "wrong-rsa.pem"
+    rsa_pem_path.write_bytes(
+        rsa_public_key.public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    )
+    rc = main([str(SIGNED), "--pubkey", str(rsa_pem_path)])
+    assert rc == 2
+
+
 def _load_public_key(path: Path):  # noqa: ANN202 - thin test helper
     from aragora_verify.verifier import load_public_key
 
@@ -194,9 +230,7 @@ def test_chain_anchored_variant_exits_zero_with_warn(
 def test_chain_not_anchored_variant_exits_one_with_not_anchored_detail(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    rc = main(
-        [str(SIGNED), "--pubkey", str(PUBKEY), "--chain", str(CHAIN_NOT_ANCHORED), "--json"]
-    )
+    rc = main([str(SIGNED), "--pubkey", str(PUBKEY), "--chain", str(CHAIN_NOT_ANCHORED), "--json"])
     assert rc == 1
     payload = json.loads(capsys.readouterr().out)
     checks_by_name = {c["name"]: c for c in payload["checks"]}

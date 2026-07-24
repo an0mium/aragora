@@ -1,16 +1,21 @@
 """In-package verification engine for Open Decision Receipts (ODR v0.1).
 
-This is the *server-side single implementation* that the ``POST
-/api/receipts/verify`` endpoint and any internal caller wrap. It reuses the
+This is an in-tree **library** engine, not a wired API: it reuses the
 emitter's canonicalization and digest (``odr_export.jcs_canonicalize`` /
 ``odr_content_digest`` / ``load_odr_schema``) so a receipt verifies against the
-exact bytes it was emitted and signed over.
+exact bytes it was emitted and signed over. No shipped CLI subcommand or HTTP
+route calls it today — the existing ``/api/v2/receipts/{id}/verify*`` and
+``/receipts/{id}/verify`` routes verify the native or legacy receipt instead
+(see ``docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`` "Two verifiers" for the
+full picture). It is available for internal callers to import directly and is
+exercised by its own test suite.
 
 The standalone, zero-Aragora-dependency mirror of this engine is the
-``aragora-verify`` PyPI package (issue #8226); both follow the same content
-profile (``docs/specs/OPEN_DECISION_RECEIPT.md``) and signature construction
-(§6 / issue #8225), so a receipt verifies identically whether checked here or
-by an external auditor with only the public key.
+``aragora-verify`` PyPI package (issue #8226); the two are kept in lockstep —
+both follow the same content profile (``docs/specs/OPEN_DECISION_RECEIPT.md``)
+and signature construction (§6 / issue #8225), so a receipt verifies
+identically whether checked here or by an external auditor with only the
+public key.
 
 Checks:
 
@@ -415,7 +420,17 @@ def _validate_attestation(errors: list[str], value: Any) -> None:
         errors,
         "attestation",
         value,
-        frozenset({"disposition", "attestor", "attested_at", "method"}),
+        frozenset(
+            {
+                "disposition",
+                "attestor",
+                "attested_at",
+                "method",
+                "execution_identity",
+                "observed",
+                "mechanism",
+            }
+        ),
     )
     disposition = value.get("disposition")
     if disposition not in ("human_attested", "autonomous"):
@@ -431,6 +446,43 @@ def _validate_attestation(errors: list[str], value: Any) -> None:
         errors.append("attestation.attestor: required object when disposition is human_attested")
     _optional_string(errors, "attestation", value, "attested_at")
     _optional_string(errors, "attestation", value, "method")
+    # Oversight extension members (ODR-6 / #8230); shapes mirror the schema.
+    execution_identity = value.get("execution_identity")
+    if "execution_identity" in value and not isinstance(execution_identity, dict):
+        errors.append("attestation.execution_identity: must be an object")
+    elif isinstance(execution_identity, dict):
+        for key in ("id", "name", "role"):
+            _optional_string(errors, "attestation.execution_identity", execution_identity, key)
+        # Identity separation (TET H2): a human_attested receipt whose
+        # attestor IS the executing identity is self-attestation, refused at
+        # verify time too (beyond JSON Schema expressiveness).
+        attestor_id = attestor.get("id") if isinstance(attestor, dict) else None
+        execution_id = execution_identity.get("id")
+        if (
+            disposition == "human_attested"
+            and isinstance(attestor_id, str)
+            and isinstance(execution_id, str)
+            and attestor_id.strip()
+            and attestor_id.strip().lower() == execution_id.strip().lower()
+        ):
+            errors.append(
+                "attestation: attestor.id must differ from execution_identity.id "
+                "(self-attestation is not oversight)"
+            )
+    observed = value.get("observed")
+    if "observed" in value and not isinstance(observed, dict):
+        errors.append("attestation.observed: must be an object")
+    elif isinstance(observed, dict):
+        for key in ("head_sha", "evidence_digest"):
+            _optional_string(errors, "attestation.observed", observed, key)
+    mechanism = value.get("mechanism")
+    if "mechanism" in value and not isinstance(mechanism, dict):
+        errors.append("attestation.mechanism: must be an object")
+    elif isinstance(mechanism, dict):
+        if not isinstance(mechanism.get("type"), str) or not mechanism.get("type"):
+            errors.append("attestation.mechanism.type: required non-empty string")
+        for key in ("context", "ref"):
+            _optional_string(errors, "attestation.mechanism", mechanism, key)
 
 
 def _validate_routing(errors: list[str], value: Any) -> None:

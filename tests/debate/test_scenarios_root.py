@@ -1513,7 +1513,7 @@ class TestRunScenarioDebate:
         """Should handle exceptions gracefully."""
         runner = MatrixDebateRunner(mock_debate_func_failing)
         result = await runner._run_scenario_debate("Test task", scenario, "Context")
-        assert "Error:" in result.conclusion
+        assert result.conclusion == "Scenario debate encountered a data error"
         assert result.confidence == 0.0
         assert result.consensus_reached is False
 
@@ -1523,7 +1523,8 @@ class TestRunScenarioDebate:
         runner = MatrixDebateRunner(mock_debate_func_failing)
         result = await runner._run_scenario_debate("Test task", scenario, "Context")
         assert "error" in result.metadata
-        assert "Debate failed!" in result.metadata["error"]
+        assert result.metadata["error"] == "data_error"
+        assert result.metadata["error_type"] == "data"
 
 
 # =============================================================================

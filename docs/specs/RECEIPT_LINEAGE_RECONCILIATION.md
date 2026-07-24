@@ -7,12 +7,18 @@ touched by this document: `aragora/gauntlet/odr_schema.json` is unmodified.
 
 ## Purpose
 
-"Decision receipt" currently names at least three independent code lineages in this
-repo, each with its own module path, its own hashing/signing mechanism, and its own
-level of maturity. This document maps the three lineages, states which one is
-canonical for which audience, and documents how each lineage's decision-state
-(`verdict`) field relates to the others. It introduces no new receipt implementation,
-changes no schema, and does not edit `RECEIPT_CONTRACT.md`.
+Per the front-door positioning in [`README.md`](../../README.md) (quoted verbatim; not
+edited by this document):
+
+> **Aragora is an auditable execution control plane for AI-assisted decisions: multi-model review in, a verifiable Decision Receipt out.**
+
+The "receipt out" half of that sentence is not one artifact. "Decision receipt"
+currently names at least three independent code lineages in this repo, each with its
+own module path, its own hashing/signing mechanism, and its own level of maturity.
+This document maps the three lineages, states which one is canonical for which
+audience, and documents how each lineage's decision-state (`verdict`) field relates to
+the others. It introduces no new receipt implementation, changes no schema, and does
+not edit `RECEIPT_CONTRACT.md`.
 
 ## Canonical decision
 
@@ -53,26 +59,35 @@ from scratch.
 The public (ODR) lineage has **two independent verification implementations** that
 must be kept in lockstep:
 
-1. **`aragora/gauntlet/odr_verify.py`** — the in-tree engine landed via #8389. Its own
-   module docstring describes it as "the server-side single implementation that the
-   `POST /api/receipts/verify` endpoint and any internal caller wrap." As of this
-   reconciliation, no shipped CLI subcommand or HTTP route actually imports
-   `verify_odr_document` / `odr_verify` — the existing `/api/v2/receipts/{id}/verify*`
-   routes and `/receipts/{id}/verify` verify the **native or legacy** receipt
-   (`store.verify_signature`/`verify_integrity`, or
+1. **`aragora/gauntlet/odr_verify.py`** — the in-tree engine landed via #8389. Its module
+   docstring previously overclaimed itself as "the server-side single implementation
+   that the `POST /api/receipts/verify` endpoint and any internal caller wrap"; that
+   wording has been corrected because no shipped CLI subcommand or HTTP route actually
+   imports `verify_odr_document` / `odr_verify` — the existing
+   `/api/v2/receipts/{id}/verify*` routes and `/receipts/{id}/verify` verify the
+   **native or legacy** receipt instead (`store.verify_signature`/`verify_integrity`, or
    `aragora.export.decision_receipt.DecisionReceipt.verify_integrity`), not an ODR
-   document. `odr_verify.py` is exercised today by its own test suite
-   (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
+   document. The docstring now states this accurately: an in-tree **library** engine,
+   kept in lockstep with the standalone `aragora-verify` package, not yet wired to any
+   shipped CLI/HTTP entry point. `odr_verify.py` is exercised today by its own test
+   suite (`tests/gauntlet/test_odr_verify.py`, `tests/gauntlet/test_odr_verify_schema.py`)
    and is available for internal callers to import directly.
-2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package) — the
-   "no-trust" path: pure stdlib + `cryptography`, zero Aragora dependency, with its
-   own real CLI entry point
+2. **`aragora-verify`** (this repo's standalone `aragora-verify/` package, **published
+   on PyPI**) — the "no-trust" path: pure stdlib + `cryptography`, zero Aragora
+   dependency, with its own real CLI entry point
    (`aragora-verify RECEIPT.odr.json [--pubkey KEY.pem] [--chain CHAIN.jsonl]`) for an
-   external auditor who has never installed Aragora. **Not yet on PyPI:** the publish
-   workflow merged via #8693, but no release has been run, so today the verifier is
-   invoked locally — `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from
-   `aragora-verify/`, or `pip install ./aragora-verify` for the `aragora-verify`
-   console script. PyPI publish is pending until a release actually runs.
+   external auditor who has never installed Aragora. `aragora-verify` is live on
+   PyPI; 0.1.1 is the latest published version, and 0.1.0 was first published
+   2026-06-29T23:32Z (GitHub release
+   [`aragora-verify-v0.1.0`](https://github.com/synaptent/aragora/releases/tag/aragora-verify-v0.1.0)).
+   Use `pip install "aragora-verify>=0.1.1"` for the public-index verifier today.
+   Self-verify rather than trust this sentence: `python3 -m pip index versions
+   aragora-verify` or `curl -s https://pypi.org/pypi/aragora-verify/json`. To
+   exercise this exact checkout instead of the published package, run
+   `PYTHONPATH=src python -m aragora_verify <r>.odr.json` from `aragora-verify/`, or
+   `pip install ./aragora-verify` for a local `aragora-verify` console script. Its
+   exit-code contract is `0 verified / 1 failed / 2 usage / 3
+   signatures-present-unchecked`.
 
 Both engines are hand-rolled, dependency-light mirrors of the same normative artifact
 — `aragora/gauntlet/odr_schema.json`, also bundled inside the `aragora-verify` package
