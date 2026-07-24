@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "boundary": {
+    "id": 2,
+    "name": "receipts+verifier",
+    "provenance": "docs/architecture/MODULE_QUARANTINE_PROPOSAL.md#boundary-2--receiptsverifier"
+  },
+  "members": [
+    "aragora/gauntlet/receipt_models.py",
+    "aragora/gauntlet/receipt.py",
+    "aragora/receipts",
+    "aragora/gauntlet/odr_export.py",
+    "aragora/gauntlet/odr_signing.py",
+    "aragora/gauntlet/odr_verify.py",
+    "aragora/gauntlet/odr_schema.json",
+    "aragora-verify",
+    "docs/specs/OPEN_DECISION_RECEIPT.md",
+    "docs/specs/odr-native-mapping.md",
+    "docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md",
+    "docs/specs/examples"
+  ],
+  "python_import_policy": {
+    "sources": [
+      "aragora/gauntlet/receipt_models.py",
+      "aragora/gauntlet/receipt.py",
+      "aragora/receipts",
+      "aragora/gauntlet/odr_export.py",
+      "aragora/gauntlet/odr_signing.py",
+      "aragora/gauntlet/odr_verify.py",
+      "aragora-verify/src/aragora_verify"
+    ],
+    "allowed_internal_prefixes": [
+      "aragora.core",
+      "aragora.core_types",
+      "aragora.errors",
+      "aragora.exceptions",
+      "aragora.agents",
+      "aragora.memory",
+      "aragora.knowledge",
+      "aragora.config",
+      "aragora.storage",
+      "aragora.db",
+      "aragora.persistence",
+      "aragora.observability",
+      "aragora.telemetry",
+      "aragora.gauntlet.receipt_models",
+      "aragora.gauntlet.receipt",
+      "aragora.receipts",
+      "aragora.gauntlet.odr_export",
+      "aragora.gauntlet.odr_signing",
+      "aragora.gauntlet.odr_verify"
+    ],
+    "standalone": {
+      "source": "aragora-verify/src/aragora_verify",
+      "project_file": "aragora-verify/pyproject.toml",
+      "package_root": "aragora_verify",
+      "allowed_external_roots": [
+        "cryptography"
+      ]
+    }
+  },
+  "mirror_pairs": [
+    {
+      "left": "aragora/gauntlet/odr_schema.json",
+      "right": "aragora-verify/src/aragora_verify/odr_schema.json"
+    }
+  ]
+}

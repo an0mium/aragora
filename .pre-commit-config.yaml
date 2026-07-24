@@ -180,6 +180,18 @@ repos:
         language: system
         types: [text]
 
+  # Boundary 2 quarantine: reject new receipts+verifier imports that escape the
+  # machine-readable map, new standalone-verifier dependencies, or schema drift.
+  - repo: local
+    hooks:
+      - id: boundary2-edges
+        name: Boundary 2 receipts+verifier fail-on-new edges
+        entry: python3 scripts/ci/check_boundary_edges.py
+        language: system
+        pass_filenames: false
+        files: ^(?:\.pre\-commit\-config\.yaml|aragora/.*|aragora/gauntlet/odr_export\.py|aragora/gauntlet/odr_schema\.json|aragora/gauntlet/odr_signing\.py|aragora/gauntlet/odr_verify\.py|aragora/gauntlet/receipt\.py|aragora/gauntlet/receipt_models\.py|aragora/receipts/.*|aragora\-verify/.*|aragora\-verify/pyproject\.toml|aragora\-verify/src/aragora_verify/.*|aragora\-verify/src/aragora_verify/odr_schema\.json|docs/specs/OPEN_DECISION_RECEIPT\.md|docs/specs/RECEIPT_LINEAGE_RECONCILIATION\.md|docs/specs/examples/.*|docs/specs/odr\-native\-mapping\.md|scripts/baselines/boundary2_edges_baseline\.json|scripts/ci/boundary_maps/receipts_verifier\.json|scripts/ci/check_boundary_edges\.py)$
+        stages: [pre-commit, pre-push]
+
   # Security checks
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.8
