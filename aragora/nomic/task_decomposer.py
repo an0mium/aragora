@@ -1561,10 +1561,23 @@ class TaskDecomposer:
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
                 model="claude-opus-5",
-                max_tokens=1024,
+                # Opus 5 runs adaptive thinking by default and max_tokens caps
+                # thinking + response combined, so this budget sits well above the
+                # expected answer length to avoid silent truncation (it is a
+                # ceiling, not a spend commitment).
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             )
-            text = response.content[0].text if response.content else ""
+            # Opus 5 thinks by default, so content[0] is a thinking block, not
+            # text. Scan for the text block instead of indexing blindly.
+            text = next(
+                (
+                    getattr(b, "text", "")
+                    for b in response.content
+                    if getattr(b, "type", None) == "text"
+                ),
+                "",
+            )
             if text:
                 logger.info("LLM subtask extraction succeeded via Anthropic")
                 return text
@@ -1595,7 +1608,9 @@ class TaskDecomposer:
                 },
                 json={
                     "model": "anthropic/claude-opus-5",
-                    "max_tokens": 1024,
+                    # Opus 5 thinks by default; max_tokens covers
+                    # thinking + response, so keep generous headroom.
+                    "max_tokens": 8192,
                     "messages": [{"role": "user", "content": prompt}],
                 },
                 timeout=60.0,

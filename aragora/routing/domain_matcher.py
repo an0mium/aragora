@@ -467,7 +467,11 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
         try:
             response = self.client.messages.create(
                 model="claude-opus-5",
-                max_tokens=200,
+                # Opus 5 runs adaptive thinking by default and max_tokens caps
+                # thinking + response combined, so this budget sits well above the
+                # expected answer length to avoid silent truncation (it is a
+                # ceiling, not a spend commitment).
+                max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
             )
 

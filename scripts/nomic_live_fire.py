@@ -25,7 +25,11 @@ async def call_claude(prompt: str, system: str = "") -> str:
     if system:
         kwargs["system"] = system
     resp = await client.messages.create(**kwargs)
-    return resp.content[0].text
+    # Opus 5 thinks by default, so content[0] is a thinking block, not text.
+    return next(
+        (getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text"),
+        "",
+    )
 
 
 def _resolve_openrouter_key() -> str:

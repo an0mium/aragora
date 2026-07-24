@@ -164,8 +164,10 @@ def _call_openrouter(
                 {"role": "system", "content": system},
                 {"role": "user", "content": user[:4000]},
             ],
-            "max_tokens": 500,
-            "temperature": 0.1,
+            # Opus 5 thinks by default and max_tokens covers thinking +
+            # response, so keep headroom. `temperature` is omitted: it is
+            # rejected with a 400 on Opus 4.7+ when set to a non-default value.
+            "max_tokens": 4096,
         },
         timeout=30.0,
     )
