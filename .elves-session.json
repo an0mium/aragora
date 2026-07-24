@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "session_id": "elves-node-runtime-contract-9577-20260724",
+  "lane_id": "node-runtime-contract-9577-20260724",
+  "goal": "Declare and validate the Node 24 runtime contract for aragora/live in issue #9577",
+  "run_mode": "finite",
+  "merge_mode": "user-merges",
+  "time_budget_hours": 8,
+  "hard_stop": null,
+  "status": "staging",
+  "branch": "codex/node24-runtime-contract-9577",
+  "worktree": "$HOME/.codex/worktrees/node24-runtime-contract-9577/aragora",
+  "base_ref": "origin/main",
+  "base_sha": "c7c4681eb08d5e7c7966d10dfba3a1520d671319",
+  "head_sha": "c7c4681eb08d5e7c7966d10dfba3a1520d671319",
+  "issue_number": 9577,
+  "pr_number": null,
+  "pr_url": null,
+  "lease_id": "00ea44f4-78d",
+  "lease_owner": "elves-node-runtime-contract-9577-20260724",
+  "plan_path": "docs/plans/2026-07-24-node-runtime-contract-9577.md",
+  "plan_sha256": "4a3adbc45ca347b457b30bd0adb923d77cc1b208b5f7aa33792aadf1c712f071",
+  "survival_guide_path": "docs/elves/node-runtime-contract-9577/survival-guide.md",
+  "learnings_path": "docs/elves/node-runtime-contract-9577/learnings.md",
+  "execution_log_path": "docs/elves/node-runtime-contract-9577/execution-log.md",
+  "current_batch": 0,
+  "total_batches": 2,
+  "batches": [
+    {
+      "number": 1,
+      "name": "implement and prove the Node 24 runtime contract",
+      "status": "pending"
+    },
+    {
+      "number": 2,
+      "name": "validation, independent review, cleanup, and final readiness",
+      "status": "pending"
+    }
+  ],
+  "continuation_guard": {
+    "remaining_batches": 2,
+    "stop_allowed": true,
+    "reason": "Elves staging and implementation require separate assistant calls",
+    "next_required_action": "Finish docs-only staging, open the draft PR, then await the launch call"
+  },
+  "validation": {
+    "baseline": "not captured; capture immediately after the launch gate",
+    "latest": "staging artifact validation pending"
+  },
+  "independent_review": {
+    "status": "pending",
+    "mode": "non-countable local review; no Fable or inference consult"
+  },
+  "active_compute": [],
+  "last_updated": "2026-07-24T23:50:33Z"
+}

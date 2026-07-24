@@ -1,0 +1,54 @@
+# Execution Log — Node 24 Runtime Contract (#9577)
+
+## Batch 0/2 — staging
+
+### 2026-07-24T23:47Z — live coordination check
+
+- Re-read the global operator mailbox.
+- Confirmed workflow changes remain Tier 4 parked-draft territory.
+- Confirmed branch `codex/node24-runtime-contract-9577` did not exist locally
+  or remotely.
+- Confirmed no matching PR, owner, lane, lease, issue assignee, or issue
+  comment.
+- Confirmed issue #9577 is open.
+
+### 2026-07-24T23:48Z — main and runner preflight
+
+- Base and remote main:
+  `c7c4681eb08d5e7c7966d10dfba3a1520d671319`.
+- Protected required contexts queried from branch protection.
+- Five non-quorum protected required contexts were green.
+- `aragora-merge-quorum` is PR/evidence-specific and skipped on main.
+- Uptime Monitor was red but is not a protected required context.
+- Four `aragora` runners were online, three Linux and one macOS.
+
+### 2026-07-24T23:49Z — isolation and ownership
+
+- Created:
+  `$HOME/.codex/worktrees/node24-runtime-contract-9577/aragora`.
+- Created branch `codex/node24-runtime-contract-9577` at the exact staging
+  base.
+- Initial lease request failed because broad path `tests` overlapped lease
+  `4db40cc4-8dd` on an unrelated Boundary 2 test path.
+- Retried with exact test path
+  `tests/ci/test_live_node_runtime_workflows.py`.
+- Claimed lease `00ea44f4-78d` for
+  `elves-node-runtime-contract-9577-20260724`.
+- Claimed lane `node-runtime-contract-9577-20260724`.
+
+### 2026-07-24T23:50Z — plan
+
+- Added `docs/plans/2026-07-24-node-runtime-contract-9577.md`.
+- Plan SHA-256:
+  `4a3adbc45ca347b457b30bd0adb923d77cc1b208b5f7aa33792aadf1c712f071`.
+- Added the survival guide, learnings, execution log, and staged session
+  state.
+- No product edit has occurred.
+
+## Batch 1/2 — implementation
+
+Pending launch call.
+
+## Batch 2/2 — validation and final readiness
+
+Pending Batch 1.
