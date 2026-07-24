@@ -183,6 +183,50 @@ def first_error_line(stderr: str, stdout: str) -> str:
     return text.splitlines()[0]
 
 
+def _rollup_recency(item: dict[str, Any]) -> tuple[str, str]:
+    """Sortable recency for one rollup row; ``("", "")`` when unknown.
+
+    Timestamps are ISO-8601 UTC as returned by ``gh``, so lexical order is
+    chronological order. Rows missing both stamps rank lowest and are treated
+    as unrankable by the caller.
+    """
+    return (str(item.get("completedAt") or ""), str(item.get("startedAt") or ""))
+
+
+def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
+    """Collapse a status-check rollup to one state per check name.
+
+    Newest row per name wins. When two rows for a name are not comparable by
+    recency (equal or absent timestamps), a failing state wins over a
+    non-failing one so an unprovable success can never authorise a merge.
+    """
+    best: dict[str, tuple[tuple[str, str], str]] = {}
+    for item in rollup or []:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("context")
+        if not name:
+            continue
+        name = str(name)
+        state = str(item.get("conclusion") or item.get("state") or item.get("status") or "")
+        recency = _rollup_recency(item)
+
+        previous = best.get(name)
+        if previous is None:
+            best[name] = (recency, state)
+            continue
+
+        previous_recency, previous_state = previous
+        if recency > previous_recency:
+            best[name] = (recency, state)
+        elif recency == previous_recency and state in _FAILING_CHECK_STATES:
+            # Same (or unknown) recency: prefer the failing row. Ties must not
+            # be resolved by input order, which is exactly the old defect.
+            best[name] = (previous_recency, state)
+
+    return {name: state for name, (_, state) in best.items()}
+
+
 def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -> PRMergeContext:
     """Build a :class:`PRMergeContext` from a ``gh pr view`` payload + packet entry.
 
@@ -190,16 +234,18 @@ def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -
     ``conclusion``; commit *statuses* expose ``context`` + ``state``. Both are
     normalised into ``check_states`` so the decision core sees one flat map.
     A missing ``packet_entry`` leaves ``tier=None`` (which always blocks).
+
+    Rollups routinely carry **several rows per check name** (a rerun, or a
+    superseded draft-phase run, leaves its old row in place). Collapsing them
+    by last-write-wins made the resulting state depend on GitHub's arbitrary
+    row order, so a stale ``SUCCESS`` ordered after the current ``FAILURE``
+    would read as green — including for ``aragora-merge-quorum`` itself, which
+    directly authorises the merge. Rows are therefore reduced by **recency**
+    (``completedAt`` then ``startedAt``), and when recency cannot be
+    established the reduction is **fail-closed**: an unranked failing row wins
+    over a success it cannot be proven newer than.
     """
-    check_states: dict[str, str] = {}
-    for item in view.get("statusCheckRollup") or []:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name") or item.get("context")
-        if not name:
-            continue
-        state = item.get("conclusion") or item.get("state") or item.get("status")
-        check_states[str(name)] = str(state or "")
+    check_states = _reduce_rollup_states(view.get("statusCheckRollup") or [])
 
     packet = packet_entry or {}
     tier_raw = packet.get("tier")

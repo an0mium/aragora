@@ -21,6 +21,7 @@ from aragora.swarm.auto_merge_green import (
     MAX_AUTO_MERGE_TIER,
     REQUIRED_CHECKS,
     PRMergeContext,
+    context_from_gh,
     decide_auto_merge,
     first_error_line,
 )
@@ -279,3 +280,95 @@ def test_first_error_line_returns_first_line():
     assert first_error_line("boom\nmore detail", "") == "boom"
     assert first_error_line("", "stdout only") == "stdout only"
     assert first_error_line("stderr wins", "stdout loses") == "stderr wins"
+
+
+def _quorum_row(conclusion: str, completed_at: str) -> dict[str, object]:
+    return {
+        "__typename": "CheckRun",
+        "name": "aragora-merge-quorum",
+        "conclusion": conclusion,
+        "startedAt": completed_at,
+        "completedAt": completed_at,
+    }
+
+
+def test_stale_success_after_current_failure_does_not_read_green():
+    """A superseded SUCCESS ordered after the current FAILURE must not win.
+
+    Observed live on PR #9571: the rollup carried
+    [FAILURE @21:39 (current), SUCCESS @18:43 (stale draft-phase run)] in that
+    order, so last-write-wins reported the quorum check green while the
+    current run had in fact failed.
+    """
+    view = {
+        "number": 9571,
+        "headRefOid": "a" * 40,
+        "statusCheckRollup": [
+            _quorum_row("FAILURE", "2026-07-24T21:39:21Z"),
+            _quorum_row("SUCCESS", "2026-07-24T18:43:02Z"),
+        ],
+    }
+    ctx = context_from_gh(view, {"tier": 2})
+    assert ctx.check_states["aragora-merge-quorum"] == "FAILURE"
+
+
+def test_rerun_success_after_earlier_failure_reads_green():
+    """The legitimate rerun case must still resolve to SUCCESS.
+
+    Guards against over-correcting into "any failure wins", which would block
+    every PR whose check was rerun to green (common after cancelled runs).
+    """
+    view = {
+        "number": 1,
+        "headRefOid": "a" * 40,
+        "statusCheckRollup": [
+            _quorum_row("FAILURE", "2026-07-24T18:00:00Z"),
+            _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+        ],
+    }
+    ctx = context_from_gh(view, {"tier": 2})
+    assert ctx.check_states["aragora-merge-quorum"] == "SUCCESS"
+
+
+def test_rollup_reduction_is_order_independent():
+    """Same rows, either order, same verdict — order must not decide merges."""
+    rows = [
+        _quorum_row("FAILURE", "2026-07-24T21:39:21Z"),
+        _quorum_row("SUCCESS", "2026-07-24T18:43:02Z"),
+    ]
+    forward = context_from_gh({"statusCheckRollup": rows}, {"tier": 2})
+    reverse = context_from_gh({"statusCheckRollup": list(reversed(rows))}, {"tier": 2})
+    assert forward.check_states == reverse.check_states
+
+
+def test_untimestamped_rows_fail_closed():
+    """Without timestamps a success cannot be proven current, so failure wins."""
+    view = {
+        "statusCheckRollup": [
+            {"name": "aragora-merge-quorum", "conclusion": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "conclusion": "FAILURE"},
+        ]
+    }
+    assert context_from_gh(view, {"tier": 2}).check_states["aragora-merge-quorum"] == "FAILURE"
+    # ...and the reverse order agrees.
+    view["statusCheckRollup"].reverse()
+    assert context_from_gh(view, {"tier": 2}).check_states["aragora-merge-quorum"] == "FAILURE"
+
+
+def test_stale_success_blocks_the_actual_merge_decision():
+    """End-to-end: the stale-success rollup must not authorise a merge."""
+    states = _green_checks()
+    ctx = _authorized_context(check_states=states)
+    stale = context_from_gh(
+        {
+            "statusCheckRollup": [
+                _quorum_row("FAILURE", "2026-07-24T21:39:21Z"),
+                _quorum_row("SUCCESS", "2026-07-24T18:43:02Z"),
+            ]
+        },
+        {"tier": 2},
+    )
+    merged_states = dict(states)
+    merged_states["aragora-merge-quorum"] = stale.check_states["aragora-merge-quorum"]
+    decision = decide_auto_merge(dataclasses.replace(ctx, check_states=merged_states))
+    assert decision.should_merge is False
