@@ -40,11 +40,27 @@ logger = logging.getLogger(__name__)
 # Anthropic Claude Opus 4.8 - top-tier reasoning, debate, synthesis.
 OPUS_48_DIRECT: Final = "claude-opus-4-8"
 OPUS_48_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.8"
+
+# Anthropic Claude Fable 5 - Mythos-class flagship at 2x Opus 4.8 price
+# ($10/$50 vs $5/$25). Pinned where quality-per-call dominates volume: judge
+# and audit roles here, plus the claude CLI agent default (subscription-priced
+# on that surface, so the 2x API rate does not multiply across bulk rounds).
+# API-billed bulk debate roles stay on Opus 4.8 by design.
+FABLE_5_DIRECT: Final = "claude-fable-5"
+FABLE_5_VIA_OPENROUTER: Final = "anthropic/claude-fable-5"
 # Backwards-compatible constant names for callers that have not migrated yet.
 OPUS_47_DIRECT: Final = OPUS_48_DIRECT
 OPUS_47_VIA_OPENROUTER: Final = OPUS_48_VIA_OPENROUTER
 
-# OpenAI GPT-5.5 - top-tier general reasoning
+# OpenAI GPT-5.6 Sol - same price as GPT-5.5 ($5/$30), strictly better
+# benchmarks (Terminal-Bench 2.1 88.8 vs 82.7). The Codex-CLI reviewer
+# harness deliberately stays on gpt-5.5 until Sol passes the 14-day
+# availability rule (#9069) — do not route quorum evidence through a
+# day-0 model.
+GPT56_SOL_DIRECT: Final = "gpt-5.6-sol"
+GPT56_SOL_VIA_OPENROUTER: Final = "openai/gpt-5.6-sol"
+
+# OpenAI GPT-5.5 - previous flagship; still the reviewer-harness pin.
 GPT55_DIRECT: Final = "gpt-5.5"
 GPT55_VIA_OPENROUTER: Final = "openai/gpt-5.5"
 # Backwards-compatible constant names for callers that have not migrated yet.
@@ -53,7 +69,7 @@ GPT54_VIA_OPENROUTER: Final = GPT55_VIA_OPENROUTER
 
 # Google Gemini 3.1 Pro - top-tier long-context + multimodal
 GEMINI_31_PRO_DIRECT: Final = "gemini-3.1-pro"
-GEMINI_31_PRO_VIA_OPENROUTER: Final = "google/gemini-3.1-pro"
+GEMINI_31_PRO_VIA_OPENROUTER: Final = "google/gemini-3.1-pro-preview"
 
 # xAI Grok 4 (latest) - contrarian / contrarian-by-design agent
 GROK_4_DIRECT: Final = "grok-4-latest"
@@ -61,7 +77,7 @@ GROK_4_VIA_OPENROUTER: Final = "x-ai/grok-4"
 
 # Mistral Large (latest) - European provider diversity
 MISTRAL_LARGE_DIRECT: Final = "mistral-large-2512"
-MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
+MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large-2512"
 
 
 # -----------------------------------------------------------------------------
@@ -115,11 +131,14 @@ _ROLE_TO_PIN: Final[dict[Role, _RolePin]] = {
     "synthesizer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "devils_advocate": _RolePin(GROK_4_DIRECT, GROK_4_VIA_OPENROUTER),
     "researcher": _RolePin(GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
+    # Reviewer routing holds gpt-5.5 until Sol clears the 14-day availability
+    # rule (public Jul 9 -> eligible Jul 23); flipping this pin early was a
+    # convergent review finding on #9075.
     "reviewer": _RolePin(GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     "quality_reviewer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "security_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "compliance_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "judge": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
+    "security_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
+    "compliance_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
+    "judge": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
     "default": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
 }
 
@@ -170,88 +189,11 @@ def direct_model_for_role(role: Role = "default") -> str:
     return pin.direct
 
 
-# -----------------------------------------------------------------------------
-# Legacy aliases mapped to the new frontier
-# -----------------------------------------------------------------------------
-#
-# Any code that still references an older Claude/GPT/Gemini ID can pass it
-# through :func:`upgrade_legacy_pin` to transparently get the frontier.
-# This is the migration handle for the ~400 hardcoded IDs across the codebase
-# without doing a risky global sed.
-
-_LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
-    # Claude family -> Opus 4.8
-    "claude-opus-4-7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
-    "anthropic/claude-opus-4.7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
-    "claude-opus-4-5-20251101": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-opus-4-5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-opus-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4-6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4.6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4-20250514": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-sonnet-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4-5-20251001": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4-20250514": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-haiku-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-5-sonnet-20241022": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-5-sonnet": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-opus-20240229": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-opus": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-haiku-20240307": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "claude-3-haiku": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    # GPT family -> GPT-5.5
-    "gpt-4.1": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4.1-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4.1-nano": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4o-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.3": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.3-codex": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "gpt-5.4-pro": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    # OpenRouter-style legacy -> OpenRouter-style frontier
-    "anthropic/claude-opus-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-sonnet-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-sonnet-4.6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-haiku-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "anthropic/claude-3.5-sonnet": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "openai/gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "openai/gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    "openai/gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
-    # Gemini family -> Gemini 3.1 Pro
-    "gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-1.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-1.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "gemini-3.1-pro-preview": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "openrouter/google/gemini-3.1-pro-preview": (
-        GEMINI_31_PRO_DIRECT,
-        GEMINI_31_PRO_VIA_OPENROUTER,
-    ),
-    "google/gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "google/gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-}
-
-
-def upgrade_legacy_pin(model_id: str) -> str:
-    """Upgrade a legacy model ID to the current frontier.
-
-    Returns the OpenRouter alias when OpenRouter routing is active, otherwise
-    the direct-provider ID. Unknown IDs are returned unchanged so this can be
-    called on any string without risk.
-    """
-    hit = _LEGACY_UPGRADES.get(model_id)
-    if hit is None:
-        return model_id
-    direct, via_or = hit
-    return via_or if route_through_openrouter() else direct
-
-
 __all__ = [
+    "FABLE_5_DIRECT",
+    "FABLE_5_VIA_OPENROUTER",
+    "GPT56_SOL_DIRECT",
+    "GPT56_SOL_VIA_OPENROUTER",
     "OPUS_48_DIRECT",
     "OPUS_48_VIA_OPENROUTER",
     "OPUS_47_DIRECT",
@@ -275,5 +217,4 @@ __all__ = [
     "frontier_model_for_role",
     "openrouter_alias_for_role",
     "direct_model_for_role",
-    "upgrade_legacy_pin",
 ]

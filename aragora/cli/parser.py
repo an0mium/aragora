@@ -1076,9 +1076,7 @@ def _add_ask_parser(subparsers) -> None:
         "--no-learn", dest="learn", action="store_false", help="Don't store patterns"
     )
     ask_parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Run with built-in demo agents (no API keys required)",
+        "--demo", action="store_true", help="Run with built-in demo agents (no API keys required)"
     )
     ask_parser.add_argument(
         "--mode",
@@ -1119,14 +1117,10 @@ def _add_ask_parser(subparsers) -> None:
     )
     debate_type = ask_parser.add_mutually_exclusive_group()
     debate_type.add_argument(
-        "--graph",
-        action="store_true",
-        help="Run a graph debate with branching (API mode only)",
+        "--graph", action="store_true", help="Run a graph debate with branching (API mode only)"
     )
     debate_type.add_argument(
-        "--matrix",
-        action="store_true",
-        help="Run a matrix debate with scenarios (API mode only)",
+        "--matrix", action="store_true", help="Run a matrix debate with scenarios (API mode only)"
     )
     ask_parser.add_argument(
         "--graph-rounds",
@@ -1220,6 +1214,11 @@ def _add_ask_parser(subparsers) -> None:
         "--explain",
         action="store_true",
         help="Generate and display decision explanation (evidence chains, vote pivots)",
+    )
+    ask_parser.add_argument(
+        "--crux-cards",
+        action="store_true",
+        help="Attach crux cards (load-bearing disagreements) to the receipt; local-only",
     )
     ask_parser.add_argument(
         "--preset",
@@ -1952,6 +1951,15 @@ def _add_review_parser(subparsers) -> None:
     )
     parser.add_argument("--output-dir", help="Directory to save output artifacts")
     parser.add_argument(
+        "--emit-odr",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Emit a verifiable Open Decision Receipt (default: review.odr.json, or inside "
+        "--output-dir when set); place after the PR URL or pass a PATH; failed write exits 3",
+    )
+    parser.add_argument(
         "--sarif",
         nargs="?",
         const="review-results.sarif",
@@ -1969,7 +1977,7 @@ def _add_review_parser(subparsers) -> None:
         "--ci",
         action="store_true",
         default=False,
-        help="CI mode: exit with non-zero code based on findings severity.",
+        help="CI mode: exit code by findings severity (1=critical, 2=high; 3=ODR write failure).",
     )
     parser.add_argument(
         "--demo",

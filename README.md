@@ -19,14 +19,15 @@ standalone verifier ([`pip install -U 'aragora-verify>=0.1.1'`](https://pypi.org
 |------------|---------|
 | Run the standalone debate engine | `pip install aragora-debate` |
 | Verify an Open Decision Receipt with the standalone verifier | `pip install -U 'aragora-verify>=0.1.1' && aragora-verify receipt.odr.json` |
-| Run the current PyPI zero-key receipt demo | `pip install aragora && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
+| Run the current PyPI zero-key receipt demo | `pip install -U 'aragora>=2.9.0' && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Audit this source checkout's exact CLI | `python3 -m pip install -e . && aragora demo --offline --receipt aragora-demo-receipt.json && aragora receipt verify aragora-demo-receipt.json` |
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip.
-Use the source checkout path when you need to audit this exact branch or
-unreleased local changes.
+Use `aragora>=2.9.0` for the explicit offline demo receipt round trip. Earlier
+PyPI releases do not support the `--offline` receipt flags. Use the source
+checkout path when you need to audit this exact branch or unreleased local
+changes.
 
 ## The problem
 
@@ -106,7 +107,7 @@ evidence, with reproducible queries and caught-bug case studies:
 Current PyPI package:
 
 ```bash
-pip install aragora
+pip install -U 'aragora>=2.9.0'
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 ```
@@ -117,6 +118,7 @@ Current source checkout:
 python3 -m pip install -e .
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
+aragora receipt export aragora-demo-receipt.json --format odr -o receipt.odr.json
 ```
 
 Live review with a provider key:
@@ -124,7 +126,6 @@ Live review with a provider key:
 ```bash
 export ANTHROPIC_API_KEY=...        # provider credential for live model review
 aragora review-pr 123               # multi-agent review of a GitHub PR
-aragora receipt export <id> --format odr -o receipt.odr.json   # portable receipt
 ```
 
 ## Core workflows
@@ -266,6 +267,11 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed
 
 ### The thesis — Decision Integrity
 
+**The core claim, in one sentence: heterogeneous frontier models adversarially
+review a decision; disagreement is preserved, not averaged away; the output is a
+signed, dissent-preserving Decision Receipt an auditor can verify offline without
+trusting Aragora.**
+
 Aragora orchestrates **heterogeneous, adversarial multi-model debate** to vet,
 challenge, and audit consequential decisions *before* they ship — and emits
 cryptographic proof that the decision was rigorously examined. This is a distinct
@@ -316,38 +322,23 @@ adversarial multi-agent debate with portable, verifiable decision receipts.
    implement, and verify improvements to *itself*, with human approval gates and
    automatic rollback.
 
-### The long arc — Tool → Organization Substrate
+### The long arc
 
-Aragora is designed to climb five stages: **Tool → Teammate → Foreman → Chief of
-Staff → Organization Substrate** — from bounded useful results today to a cross-org
-agentic operating system. The near-term focus (next 60 days) narrows hard to two of
-these pillars: **reliable autonomous execution** on bounded backlogs, and
-**cryptographic receipts & auditability**. *(docs/CANONICAL_GOALS.md)*
-
-```
-Tool ──▶ Teammate ──▶ Foreman ──▶ Chief of Staff ──▶ Organization Substrate
- one      assists      runs bounded   plans & routes      agents + humans as
- review   a human      backlogs       across backlogs     co-equal consumers
- +receipt              unattended     with receipts       on one runtime truth
-(today's wedge) ───────────────────────────────────────▶ (long-horizon thesis)
-```
-
-The eight foundational pillars the substrate is organized around: ① adversarial
-heterogeneous consensus + crux-finding · ② reliable autonomous execution (contracts,
-preflight, repair, fail-closed escalation) · ③ a unified DAG (ideas → goals → actions
-→ orchestration) with optional interactivity · ④ permissioned, portable, attributable
-memory across repos/docs/APIs/chat/inbox/telemetry · ⑤ cryptographic receipts &
-auditability with eventual proof-carrying code · ⑥ SMB operator leverage (intent →
-action in <10 min) · ⑦ self-improvement on the *same* substrate as user-facing work ·
-⑧ agents and humans as co-equal consumers with parity surfaces backed by one runtime
-truth. *(docs/CANONICAL_GOALS.md)*
+The full long-horizon vision — the five-stage **Tool → Organization Substrate**
+ladder and the eight foundational substrate pillars — lives in
+[`docs/vision/MAXIMALIST_VISION.md`](docs/vision/MAXIMALIST_VISION.md), together with
+the staged-integration criteria that govern when each piece activates. The near-term
+focus narrows hard to what is already earned and externally provable: **cryptographic
+receipts & auditability** and **reliable autonomous execution** on bounded backlogs.
+The vision is retained in full; the README carries only the claim the code currently
+proves. *(docs/CANONICAL_GOALS.md, docs/vision/MAXIMALIST_VISION.md)*
 
 ### The complete capability surface
 
 <!-- metrics:begin readme-scale -->
 > Scale (canonical counts in [`docs/METRICS.md`](docs/METRICS.md), rounded):
-> **~4,200 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
-> functions across ~5,400 files · 3,297 API operations across 2,870 paths ·
+> **~4,300 Python files · ~1.9M LOC · 140+ top-level modules · 200,000+ test
+> functions across ~5,500 files · 3,084 API operations across 2,876 paths ·
 > 35+ allowlisted agent types across 12+ providers · 41 Knowledge Mound adapter specs
 > (46 files) · 360+ RBAC permissions · Python + TypeScript SDKs · v2.9.0.**
 > (Practical real-time debate uses 2–6 agents; the value is *heterogeneity*, not raw
@@ -466,6 +457,16 @@ debate. As the system fixes its own bugs and ships its own features, the verifia
 corpus and the agent-calibration data grow — and that calibration data is the moat. The
 strategy-mission cadence that produced *this very README* gated its own merge through
 Aragora's quorum→receipt machinery — the flywheel, demonstrated.
+
+**The honest version is stronger than the success story.** In June 2026 the gate was
+so genuinely adversarial that it deadlocked our own factory for weeks: adversarial
+review never returned empty, repair commits reset review budgets, dissent acted as a
+post-hoc veto, and a 240+-PR backlog piled up against a gate that refused to wave
+anything through. The receipts for that deadlock — and for the settlement machinery
+that fixed it (tiered gates, severity-gated dissent, head-bound evidence, the
+adjudicator) — are in this repo's history. Nobody else has published measured failure
+modes of adversarial review at this scale, because nobody else has run one this long.
+That scar tissue *is* the dogfood evidence.
 
 ### The frontier — Agent Civilization Substrate *(🔮 designed; gated, see below)*
 

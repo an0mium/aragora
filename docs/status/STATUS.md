@@ -2968,13 +2968,13 @@ The codebase is **feature-rich with improving exposure**:
 ### Docker Deployment
 ```bash
 # Quick start (requires .env file with API keys)
-docker-compose up -d
+docker compose up -d
 
 # With frontend
-docker-compose --profile with-frontend up -d
+docker compose --profile with-frontend up -d
 
 # View logs
-docker-compose logs -f aragora
+docker compose logs -f aragora
 ```
 
 ### Environment Variables

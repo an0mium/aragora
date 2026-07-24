@@ -573,7 +573,7 @@ class TestKimiK2Agent:
         agent = KimiK2Agent()
 
         assert agent.name == "kimi"
-        assert agent.model == "moonshotai/kimi-k2.6"
+        assert agent.model == "moonshotai/kimi-k2.7-code"
         assert agent.agent_type == "kimi"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
