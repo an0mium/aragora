@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
 **Generated**: 2026-07-23
-**Total Skip Markers**: 84
+**Total Skip Markers**: 83
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| integration_dependency | 29 | 34.5% |
-| missing_feature | 18 | 21.4% |
-| uncategorized | 17 | 20.2% |
-| optional_dependency | 9 | 10.7% |
-| platform_specific | 6 | 7.1% |
+| integration_dependency | 29 | 34.9% |
+| missing_feature | 17 | 20.5% |
+| uncategorized | 17 | 20.5% |
+| optional_dependency | 9 | 10.8% |
+| platform_specific | 6 | 7.2% |
 | performance | 4 | 4.8% |
 | known_bug | 1 | 1.2% |
 
@@ -21,7 +21,7 @@
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 40 |
+| `pytest.skip` | 39 |
 | `skipif` | 37 |
 | `pytest.importorskip` | 5 |
 | `skip` | 2 |
@@ -37,9 +37,9 @@
 | `tests/ranking/test_calibration_engine.py` | 2 |
 | `tests/inbox/test_inbox_receipt_convergence.py` | 2 |
 | `tests/triage/test_auto_handle_calibration.py` | 2 |
-| `tests/models/test_catalog.py` | 2 |
 | `tests/storage/test_integration_store.py` | 2 |
 | `tests/verification/test_proofs_root.py` | 2 |
+| `tests/performance/test_load.py` | 2 |
 
 ---
 
@@ -71,11 +71,10 @@
 
 ## Skip Count Baseline
 
-Current baseline: **84** skips
+Current baseline: **83** skips
 
-The enforced value lives in `tests/.skip_baseline`. This regeneration lowers
-the baseline from 85 to 84 after replacing obsolete missing-manifest skips
-with fail-closed assertions for the committed proof-first claims fixture.
+This regeneration lowers the baseline from 84 to 83 after replacing the
+vacuous provider-config catalog skip with a fail-closed coverage assertion.
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
