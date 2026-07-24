@@ -104,6 +104,8 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "yi": "yi",
     "glm": "zhipu",
     "minimax": "minimax",
+    "tencent": "tencent",
+    "bytedance": "bytedance",
     "hermes": "nous",
 }
 
@@ -122,7 +124,7 @@ WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistr
 # requires at least one Western family alongside) and are advisory-only (posted,
 # readable, not counted) at Tier 3-4.
 CHINESE_ROUTED_FAMILIES: frozenset[str] = frozenset(
-    ("deepseek", "qwen", "kimi", "yi", "glm", "minimax")
+    ("deepseek", "qwen", "kimi", "yi", "glm", "minimax", "tencent", "bytedance")
 )
 
 # ADVISORY-ONLY families never count for OR against ANY tier's quorum: their
@@ -374,6 +376,8 @@ FAMILY_DISPLAY: dict[str, str] = {
     "yi": "Yi",
     "glm": "GLM",
     "minimax": "MiniMax",
+    "tencent": "Tencent Hy3",
+    "bytedance": "ByteDance Seed",
     "hermes": "Hermes",
 }
 
@@ -389,6 +393,14 @@ _FAMILY_ALIASES: dict[str, str] = {
     "gpt-5": "openai",
     "gpt5": "openai",
     "chatgpt": "openai",
+    "zhipu": "glm",
+    "z-ai": "glm",
+    "hy3": "tencent",
+    "hunyuan": "tencent",
+    "seed": "bytedance",
+    "seed-2.0": "bytedance",
+    "doubao": "bytedance",
+    "bytedance-seed": "bytedance",
     # Provider name for the gemini family (mirrors FAMILY_PROVIDERS and the
     # review-queue recognizer's ("gemini", "google") markers). Required so the
     # ADVISORY_ONLY_FAMILIES exclusion cannot be sidestepped by a raw provider
@@ -1921,13 +1933,19 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # ARAGORA_OPENROUTER_REVIEWER_MODELS.
     "qwen": "qwen/qwen3.7-max",
     "kimi": "moonshotai/kimi-k2.7-code",
+    "glm": "z-ai/glm-5.2",
+    "minimax": "minimax/minimax-m3",
+    "tencent": "tencent/hy3",
+    "bytedance": "bytedance-seed/seed-2.0-lite",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
 # lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
 # quorum when the premium subscription CLIs are quota-/auth-blocked.
-_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek", "qwen", "kimi"})
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset(
+    {"deepseek", "qwen", "kimi", "glm", "minimax", "tencent", "bytedance"}
+)
 
 
 def _openrouter_reviewer_model(family: str) -> str | None:

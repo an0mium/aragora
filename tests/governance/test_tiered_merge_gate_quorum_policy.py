@@ -97,6 +97,22 @@ def test_western_frontier_is_strict_subset_of_western():
     assert WESTERN_FRONTIER_FAMILIES == frozenset({"claude", "openai"})
 
 
+@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+def test_chinese_reviewer_families_never_count_at_tier3_4(family):
+    assert family not in WESTERN_FAMILIES
+    assert family not in WESTERN_FRONTIER_FAMILIES
+    for tier in (3, 4):
+        rule = tier_quorum_rule(tier, tiered_gate=False)
+        assert rule.is_satisfied_by({"claude", family}) is False
+
+
+@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+def test_chinese_reviewer_families_require_western_peer_at_tier2(family):
+    rule = tier_quorum_rule(2, tiered_gate=False)
+    assert rule.is_satisfied_by({"claude", family}) is True
+    assert rule.is_satisfied_by({"deepseek", family}) is False
+
+
 # --- G1: Tier 3-4 Western-only counted quorum --------------------------------
 
 

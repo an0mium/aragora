@@ -113,3 +113,16 @@ jobs:
             ```
           draft: false
           prerelease: ${{ contains(github.event.inputs.version, 'beta') || contains(github.event.inputs.version, 'alpha') || contains(github.event.inputs.version, 'rc') }}
+
+      # Runs AFTER the release on purpose. Both the upload and this check are
+      # downstream of an irreversible action: once the wheel is on PyPI the
+      # version is immutable and cannot be re-published. Gating the release on
+      # this check protected nobody — the package was already public — while a
+      # verification-infra flake (or ordinary index propagation lag) could
+      # strand a published version with no matching GitHub release and no clean
+      # rerun path. Ordering it last keeps a failure loud and actionable
+      # (the job still goes red) without leaving that inconsistent state.
+      - name: Verify public PyPI install
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: python3 scripts/verify_aragora_verify_publish.py --version "$VERSION" --json
