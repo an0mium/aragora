@@ -14,6 +14,7 @@ import ipaddress
 import json
 import math
 import os
+import re
 import threading
 import time
 from typing import Any, Iterable
@@ -42,16 +43,47 @@ class VibeProxyTimeoutError(VibeProxyUnavailableError):
     """Raised when a VibeProxy request times out."""
 
 
+class VibeProxyRedirectError(VibeProxyUnavailableError):
+    """Raised when a VibeProxy endpoint attempts to redirect a request."""
+
+
+class VibeProxyResponseError(VibeProxyUnavailableError):
+    """Raised when VibeProxy returns an unsafe or malformed response."""
+
+
 class TransportMode(str, Enum):
     DIRECT = "direct"
     PREFER = "vibeproxy-prefer"
     REQUIRED = "vibeproxy-required"
 
 
+class OpenAIProtocol(str, Enum):
+    """OpenAI protocols contract-tested for non-streaming proxy transport."""
+
+    CHAT = "chat"
+    RESPONSES = "responses"
+
+
 @dataclass(frozen=True)
 class VibeProxyCatalog:
     models: frozenset[str]
     fetched_at: float
+    model_owners: frozenset[tuple[str, str]] = frozenset()
+
+    def owner_for(self, model: str) -> str | None:
+        """Return the sanitized provider owner disclosed for a catalog alias."""
+
+        owners = {owner for candidate, owner in self.model_owners if candidate == model}
+        return next(iter(owners)) if len(owners) == 1 else None
+
+
+@dataclass(frozen=True)
+class VibeProxyMetadata:
+    """Sanitized, no-inference metadata reported by the VibeProxy root."""
+
+    advertised_routes: tuple[str, ...]
+    version: str | None
+    version_source: str
 
 
 @dataclass(frozen=True)
@@ -78,6 +110,14 @@ class ResolvedModelRoute:
 
 _CATALOG_CACHE: dict[tuple[str, bytes], VibeProxyCatalog] = {}
 _CATALOG_LOCK = threading.Lock()
+_ADVERTISED_ROUTE = re.compile(r"^(?:GET|POST|PUT|PATCH|DELETE) /[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$")
+_VERSION_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
+_MODEL_OWNER_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_VERSION_HEADERS = (
+    "x-cpa-version",
+    "x-cpa-home-version",
+    "x-server-version",
+)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -140,7 +180,10 @@ def _bounded_float(value: str | int | float, *, name: str, minimum: float) -> fl
 
 def _normalize_base_url(raw: str, api_key: str | None) -> tuple[str, bool]:
     value = raw.strip().rstrip("/")
-    parsed = urllib.parse.urlparse(value)
+    try:
+        parsed = urllib.parse.urlparse(value)
+    except ValueError as exc:
+        raise VibeProxyConfigurationError("VibeProxy URL is malformed") from exc
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise VibeProxyConfigurationError("VibeProxy URL must be an absolute HTTP(S) URL")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
@@ -217,25 +260,50 @@ class VibeProxyClient:
         self.connect_timeout_seconds = _bounded_float(
             connect_timeout_seconds, name="connect timeout", minimum=0.1
         )
-        self._opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}), _NoRedirectHandler()
-        )
 
-    def _request(
-        self, path: str, *, timeout: float | None = None, payload: dict | None = None
-    ) -> dict:
+    def _request_document(
+        self,
+        path: str,
+        *,
+        timeout: float | None = None,
+        payload: dict | None = None,
+        api_root: bool = False,
+        extra_headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
         headers = {"authorization": f"Bearer {self.api_key}"}
         data = None
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
-            headers.update({"content-type": "application/json", "anthropic-version": "2023-06-01"})
-        request = urllib.request.Request(self.base_url + path, data=data, headers=headers)
-        request_timeout = timeout or self.connect_timeout_seconds
+            headers["content-type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
+        request_base = self.base_url[:-3] if api_root else self.base_url
+        request = urllib.request.Request(request_base + path, data=data, headers=headers)
+        request_timeout = self.connect_timeout_seconds if timeout is None else timeout
         deadline = time.monotonic() + request_timeout
         try:
-            with self._opener.open(request, timeout=request_timeout) as response:
+            # A fresh opener per request: OpenerDirector is not documented
+            # thread-safe, and a shared opener would need a lock — which
+            # serializes whole inferences, because open() blocks until response
+            # headers arrive and a non-streaming completion sends them only
+            # after generation finishes. Per-request construction removes the
+            # shared state instead.
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({}), _NoRedirectHandler()
+            )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("VibeProxy request timed out")
+            with opener.open(request, timeout=remaining) as response:
+                response_headers = {
+                    name: value.strip()
+                    for name in _VERSION_HEADERS
+                    if (value := getattr(response, "headers", {}).get(name))
+                }
                 raw = _read_response_with_deadline(response, deadline=deadline)
         except urllib.error.HTTPError as exc:
+            if 300 <= exc.code < 400:
+                raise VibeProxyRedirectError("VibeProxy redirect was denied") from exc
             raise VibeProxyUnavailableError(f"VibeProxy HTTP {exc.code}") from exc
         except TimeoutError as exc:
             raise VibeProxyTimeoutError("VibeProxy request timed out") from exc
@@ -252,36 +320,97 @@ class VibeProxyClient:
                 f"VibeProxy request failed: {type(exc).__name__}"
             ) from exc
         if len(raw) > MAX_RESPONSE_BYTES:
-            raise VibeProxyUnavailableError("VibeProxy response exceeded size limit")
+            raise VibeProxyResponseError("VibeProxy response exceeded size limit")
         try:
             body = json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeError) as exc:
-            raise VibeProxyUnavailableError("VibeProxy returned invalid JSON") from exc
+            raise VibeProxyResponseError("VibeProxy returned invalid JSON") from exc
         if not isinstance(body, dict):
-            raise VibeProxyUnavailableError("VibeProxy returned a non-object response")
+            raise VibeProxyResponseError("VibeProxy returned a non-object response")
+        return body, response_headers
+
+    def _request(
+        self,
+        path: str,
+        *,
+        timeout: float | None = None,
+        payload: dict | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict:
+        body, _headers = self._request_document(
+            path,
+            timeout=timeout,
+            payload=payload,
+            extra_headers=extra_headers,
+        )
         return body
 
-    def catalog(self, *, force: bool = False) -> VibeProxyCatalog:
+    def catalog(self, *, force: bool = False, timeout: float | None = None) -> VibeProxyCatalog:
         now = time.monotonic()
         with _CATALOG_LOCK:
             cached = _CATALOG_CACHE.get(self._catalog_cache_key)
             if cached and not force and now - cached.fetched_at < self.catalog_ttl_seconds:
                 return cached
-        body = self._request("/models")
+        body = self._request("/models", timeout=timeout)
         entries = body.get("data")
         if not isinstance(entries, list):
-            raise VibeProxyUnavailableError("VibeProxy model catalog is malformed")
+            raise VibeProxyResponseError("VibeProxy model catalog is malformed")
         models = frozenset(
             item["id"].strip()
             for item in entries
             if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"].strip()
         )
         if not models:
-            raise VibeProxyUnavailableError("VibeProxy model catalog is empty")
-        catalog = VibeProxyCatalog(models=models, fetched_at=now)
+            raise VibeProxyResponseError("VibeProxy model catalog is empty")
+        model_owners = frozenset(
+            (item["id"].strip(), item["owned_by"].strip().lower())
+            for item in entries
+            if isinstance(item, dict)
+            and isinstance(item.get("id"), str)
+            and item["id"].strip() in models
+            and isinstance(item.get("owned_by"), str)
+            and _MODEL_OWNER_VALUE.fullmatch(item["owned_by"].strip())
+        )
+        catalog = VibeProxyCatalog(
+            models=models,
+            fetched_at=now,
+            model_owners=model_owners,
+        )
         with _CATALOG_LOCK:
             _CATALOG_CACHE[self._catalog_cache_key] = catalog
         return catalog
+
+    def metadata(self, *, timeout: float | None = None) -> VibeProxyMetadata:
+        """Fetch sanitized root metadata without exercising an inference route."""
+
+        body, headers = self._request_document("/", timeout=timeout, api_root=True)
+        advertised = body.get("endpoints")
+        routes = (
+            tuple(
+                sorted(
+                    {
+                        route.strip()
+                        for route in advertised
+                        if isinstance(route, str) and _ADVERTISED_ROUTE.fullmatch(route.strip())
+                    }
+                )
+            )
+            if isinstance(advertised, list)
+            else ()
+        )
+        version = None
+        version_source = "unknown"
+        for header in _VERSION_HEADERS:
+            candidate = headers.get(header, "")
+            if _VERSION_VALUE.fullmatch(candidate):
+                version = candidate
+                version_source = f"http_header:{header}"
+                break
+        return VibeProxyMetadata(
+            advertised_routes=routes,
+            version=version,
+            version_source=version_source,
+        )
 
     def anthropic_message(
         self,
@@ -299,7 +428,12 @@ class VibeProxyClient:
         }
         if system:
             payload["system"] = system
-        body = self._request("/messages", timeout=timeout, payload=payload)
+        body = self._request(
+            "/messages",
+            timeout=timeout,
+            payload=payload,
+            extra_headers={"anthropic-version": "2023-06-01"},
+        )
         if body.get("model") != model:
             raise VibeProxyUnavailableError(
                 "VibeProxy response model did not match the requested model"
@@ -317,6 +451,75 @@ class VibeProxyClient:
         if not text:
             raise VibeProxyUnavailableError("VibeProxy returned no Claude text")
         return text
+
+    def openai_request(
+        self,
+        *,
+        protocol: OpenAIProtocol,
+        model: str,
+        payload: dict[str, Any],
+        timeout: float,
+    ) -> dict[str, Any]:
+        """Send one exact-model, non-streaming OpenAI protocol request."""
+
+        if payload.get("model") != model:
+            raise VibeProxyConfigurationError(
+                "OpenAI payload model must match the resolved route model"
+            )
+        path = {
+            OpenAIProtocol.CHAT: "/chat/completions",
+            OpenAIProtocol.RESPONSES: "/responses",
+        }[protocol]
+        body = self._request(path, timeout=timeout, payload=payload)
+        if body.get("model") != model:
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model did not match the requested model"
+            )
+        return body
+
+    def openai_catalog_alias_request(
+        self,
+        *,
+        protocol: OpenAIProtocol,
+        model: str,
+        catalog: VibeProxyCatalog,
+        payload: dict[str, Any],
+        timeout: float,
+    ) -> dict[str, Any]:
+        """Send one non-countable alias probe bound to catalog owner disclosure.
+
+        Unlike :meth:`openai_request`, this diagnostic path permits the response
+        model identifier to differ from the requested catalog alias. It returns
+        only after the alias is still present with the exact sanitized
+        ``owned_by`` value in the caller's catalog snapshot. The burn-in recorder then
+        verifies the observed response identity and records both identifiers.
+        """
+
+        if payload.get("model") != model:
+            raise VibeProxyConfigurationError("OpenAI payload model must match the catalog alias")
+        owner = catalog.owner_for(model) if model in catalog.models else None
+        if owner is None or not _MODEL_OWNER_VALUE.fullmatch(owner):
+            raise VibeProxyConfigurationError("catalog owner disclosure is invalid")
+        path = {
+            OpenAIProtocol.CHAT: "/chat/completions",
+            OpenAIProtocol.RESPONSES: "/responses",
+        }[protocol]
+        body = self._request(path, timeout=timeout, payload=payload)
+        response_model = body.get("model")
+        if not isinstance(response_model, str) or not response_model.strip():
+            raise VibeProxyResponseError("VibeProxy alias response omitted its model identity")
+        response_owner = (
+            catalog.owner_for(response_model) if response_model in catalog.models else None
+        )
+        if response_owner is None or not _MODEL_OWNER_VALUE.fullmatch(response_owner):
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model catalog owner disclosure is invalid"
+            )
+        if response_owner != owner:
+            raise VibeProxyUnavailableError(
+                "VibeProxy response model owner did not match the requested alias owner"
+            )
+        return body
 
     def sanitized_status(self, *, force: bool = False) -> dict[str, Any]:
         try:
@@ -342,6 +545,7 @@ class ModelTransportPolicy:
 
     CAPABILITIES: dict[str, frozenset[str]] = {
         "anthropic": frozenset({"chat"}),
+        "openai": frozenset({"chat", "responses"}),
     }
 
     def __init__(
@@ -390,6 +594,8 @@ class ModelTransportPolicy:
         provider: str,
         model: str,
         capabilities: Iterable[str] = ("chat",),
+        *,
+        timeout: float | None = None,
     ) -> ResolvedModelRoute:
         requested = frozenset(capabilities)
         direct = ResolvedModelRoute(provider, model, model, "direct", None, requested)
@@ -405,7 +611,9 @@ class ModelTransportPolicy:
             return self._unavailable(direct, "VibeProxy client is not configured")
         mapped = self.model_map.get(f"{provider}:{model}", self.model_map.get(model, model))
         try:
-            catalog = self.client.catalog()
+            catalog = (
+                self.client.catalog() if timeout is None else self.client.catalog(timeout=timeout)
+            )
         except VibeProxyTimeoutError as exc:
             if self.mode is TransportMode.REQUIRED:
                 raise
@@ -435,10 +643,15 @@ class ModelTransportPolicy:
 __all__ = [
     "DEFAULT_BASE_URL",
     "ModelTransportPolicy",
+    "OpenAIProtocol",
     "ResolvedModelRoute",
     "TransportMode",
+    "VibeProxyCatalog",
     "VibeProxyClient",
     "VibeProxyConfigurationError",
+    "VibeProxyMetadata",
+    "VibeProxyRedirectError",
+    "VibeProxyResponseError",
     "VibeProxyTimeoutError",
     "VibeProxyUnavailableError",
 ]

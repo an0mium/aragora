@@ -40,11 +40,27 @@ logger = logging.getLogger(__name__)
 # Anthropic Claude Opus 4.8 - top-tier reasoning, debate, synthesis.
 OPUS_48_DIRECT: Final = "claude-opus-4-8"
 OPUS_48_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.8"
+
+# Anthropic Claude Fable 5 - Mythos-class flagship at 2x Opus 4.8 price
+# ($10/$50 vs $5/$25). Pinned where quality-per-call dominates volume: judge
+# and audit roles here, plus the claude CLI agent default (subscription-priced
+# on that surface, so the 2x API rate does not multiply across bulk rounds).
+# API-billed bulk debate roles stay on Opus 4.8 by design.
+FABLE_5_DIRECT: Final = "claude-fable-5"
+FABLE_5_VIA_OPENROUTER: Final = "anthropic/claude-fable-5"
 # Backwards-compatible constant names for callers that have not migrated yet.
 OPUS_47_DIRECT: Final = OPUS_48_DIRECT
 OPUS_47_VIA_OPENROUTER: Final = OPUS_48_VIA_OPENROUTER
 
-# OpenAI GPT-5.5 - top-tier general reasoning
+# OpenAI GPT-5.6 Sol - same price as GPT-5.5 ($5/$30), strictly better
+# benchmarks (Terminal-Bench 2.1 88.8 vs 82.7). The Codex-CLI reviewer
+# harness deliberately stays on gpt-5.5 until Sol passes the 14-day
+# availability rule (#9069) — do not route quorum evidence through a
+# day-0 model.
+GPT56_SOL_DIRECT: Final = "gpt-5.6-sol"
+GPT56_SOL_VIA_OPENROUTER: Final = "openai/gpt-5.6-sol"
+
+# OpenAI GPT-5.5 - previous flagship; still the reviewer-harness pin.
 GPT55_DIRECT: Final = "gpt-5.5"
 GPT55_VIA_OPENROUTER: Final = "openai/gpt-5.5"
 # Backwards-compatible constant names for callers that have not migrated yet.
@@ -115,11 +131,14 @@ _ROLE_TO_PIN: Final[dict[Role, _RolePin]] = {
     "synthesizer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "devils_advocate": _RolePin(GROK_4_DIRECT, GROK_4_VIA_OPENROUTER),
     "researcher": _RolePin(GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
+    # Reviewer routing holds gpt-5.5 until Sol clears the 14-day availability
+    # rule (public Jul 9 -> eligible Jul 23); flipping this pin early was a
+    # convergent review finding on #9075.
     "reviewer": _RolePin(GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     "quality_reviewer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "security_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "compliance_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "judge": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
+    "security_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
+    "compliance_auditor": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
+    "judge": _RolePin(FABLE_5_DIRECT, FABLE_5_VIA_OPENROUTER),
     "default": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
 }
 
@@ -171,6 +190,10 @@ def direct_model_for_role(role: Role = "default") -> str:
 
 
 __all__ = [
+    "FABLE_5_DIRECT",
+    "FABLE_5_VIA_OPENROUTER",
+    "GPT56_SOL_DIRECT",
+    "GPT56_SOL_VIA_OPENROUTER",
     "OPUS_48_DIRECT",
     "OPUS_48_VIA_OPENROUTER",
     "OPUS_47_DIRECT",
