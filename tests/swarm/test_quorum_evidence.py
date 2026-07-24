@@ -2354,6 +2354,10 @@ def test_collect_dedupes_families() -> None:
         ("seed-2.0", "bytedance"),
         ("doubao", "bytedance"),
         ("bytedance-seed", "bytedance"),
+        ("google", "gemini"),
+        # AgentRegistry name used in live protocol agent ids (#9363 round-5 [P2]).
+        ("gemini-cli", "gemini"),
+        ("Gemini-CLI", "gemini"),
     ],
 )
 def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
@@ -2463,7 +2467,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
@@ -4378,3 +4382,154 @@ def test_untruncated_normalization_unchanged() -> None:
         reviewer_text="Verdict: PASS\n\nNo findings.",
     )
     assert qe._TRUNCATION_MARKER not in body
+
+
+class TestFounderRosterDirective20260716:
+    """Pins the 2026-07-16 founder roster directive: gemini out of the
+    counting set (repeat fabricated-claim pattern, see the committed
+    reviewer-reliability record in docs/governance/records/)."""
+
+    def test_every_gemini_registry_surface_is_demoted(self):
+        # The demotion keys off canonical_family(<agent id>), and live protocol
+        # payloads carry AgentRegistry names — so a Gemini-family agent whose
+        # registry id does not collapse to "gemini" silently escapes the
+        # directive and can block a merge (#9363 rounds 5-6: gemini-cli, then
+        # antigravity). Walk the registry so the next such surface fails CI
+        # instead of leaking.
+        import aragora.agents.cli_agents  # noqa: F401  (populates the registry)
+        from aragora.agents.registry import AgentRegistry
+        from aragora.swarm.quorum_evidence import ADVISORY_ONLY_FAMILIES, canonical_family
+
+        gemini_surfaces = {
+            name
+            for name, spec in AgentRegistry.list_all().items()
+            if str((spec or {}).get("default_model") or "").lower().startswith("gemini")
+        }
+        # Guard the guard: if this is empty the walk silently proves nothing.
+        assert gemini_surfaces, "expected at least one Gemini-family agent in the registry"
+        escaped = {n for n in gemini_surfaces if canonical_family(n) not in ADVISORY_ONLY_FAMILIES}
+        assert not escaped, (
+            f"Gemini-family agent ids escape the advisory-only demotion: {sorted(escaped)}. "
+            "Add each to _FAMILY_ALIASES so its dissent cannot re-enter the gate."
+        )
+
+    def test_gemini_family_does_not_count(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert "gemini" not in WESTERN_FAMILIES
+
+    def test_counting_set_retains_two_plus_families(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
+
+    def test_kimi_lane_uses_the_catalogued_slug(self):
+        # The record deferred the upgrade only until the model had a catalog
+        # entry; aragora/models/catalog.py now carries kimi-k2.7-code, so the
+        # lane follows the catalog. The invariant that survives the deferral is
+        # that the reviewer slug must always BE catalogued.
+        from aragora.models import by_any_id
+        from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
+
+        slug = _OPENROUTER_REVIEWER_MODELS["kimi"]
+        assert slug == "moonshotai/kimi-k2.7-code"
+        assert by_any_id(slug) is not None, f"reviewer slug {slug} is not in the model catalog"
+
+    def test_family_classification_is_total_and_disjoint(self):
+        # Explicit, total taxonomy: every recognized family belongs to exactly
+        # one of western / chinese-routed / advisory-only. An unclassified
+        # family would silently default to full Tier 0-1 counting.
+        from aragora.swarm.quorum_evidence import (
+            ADVISORY_ONLY_FAMILIES,
+            CHINESE_ROUTED_FAMILIES,
+            FAMILY_PROVIDERS,
+            WESTERN_FAMILIES,
+        )
+
+        assert not WESTERN_FAMILIES & CHINESE_ROUTED_FAMILIES
+        assert not WESTERN_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert not CHINESE_ROUTED_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert WESTERN_FAMILIES | CHINESE_ROUTED_FAMILIES | ADVISORY_ONLY_FAMILIES == set(
+            FAMILY_PROVIDERS
+        )
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    @pytest.mark.parametrize("gate", [False, True])
+    def test_gemini_pass_never_counts_toward_any_tier(self, tier, gate):
+        # Record mandate: an advisory-only PASS never counts FOR a quorum, at
+        # any tier, under either gate regime.
+        from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+        rule = tier_quorum_rule(tier, tiered_gate=gate)
+        assert "gemini" not in rule.counted_families({"gemini", "claude", "deepseek"})
+        # gemini alone never satisfies even the 1-signal Tier-0 bar.
+        assert rule.is_satisfied_by({"gemini"}) is False
+        # gemini's presence never changes the outcome for the rest of the set.
+        for others in ({"claude"}, {"claude", "openai"}, {"deepseek"}):
+            assert rule.is_satisfied_by(others | {"gemini"}) == rule.is_satisfied_by(others)
+
+    def test_gemini_evidence_item_never_counts_for(self):
+        item = EvidenceItem("gemini", "Verdict: PASS\n\nNo findings.", True, ["gemini"], [], "pass")
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("advisory-only" in problem for problem in item.problems)
+
+    def test_gemini_aliases_are_excluded_everywhere(self):
+        # #9363 round-4 [P3]: a raw alias/provider id must not dodge the
+        # advisory-only exclusion at any of the filter sites.
+        from aragora.swarm.quorum_evidence import canonical_family, tier_quorum_rule
+
+        gemini_aliases = ["google", "Google", " GEMINI "]
+        for alias in gemini_aliases:
+            assert canonical_family(alias) == "gemini"
+        for tier in (0, 1, 2, 3, 4):
+            rule = tier_quorum_rule(tier, tiered_gate=False)
+            for alias in gemini_aliases:
+                assert not rule.counted_families({alias})
+                assert rule.is_satisfied_by({alias}) is False
+        item = EvidenceItem("google", "Verdict: PASS\n\nNo findings.", True, ["google"], [], "pass")
+        assert item.would_count is False
+        cr = EvidenceItem(
+            "Google",
+            "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim",
+            True,
+            ["google"],
+            [],
+            "changes_requested",
+        )
+        assert cr.dissenting is False
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    def test_gemini_changes_requested_is_not_blocking_dissent(self, tier):
+        # Record mandate: "gemini dissent is NOT to be counted anywhere" — a
+        # gemini CHANGES-REQUESTED (even [P1]-backed) never blocks at any tier.
+        body = "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim"
+        gemini = EvidenceItem("gemini", body, True, ["gemini"], [], "changes_requested")
+        assert gemini.dissenting is False
+        # Contrast pin: the same review from a counting family still blocks.
+        claude = EvidenceItem("claude", body, True, ["claude"], [], "changes_requested")
+        assert claude.dissenting is True
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=9363,
+            head_sha="a" * 40,
+            head_committed_at="2026-07-17T00:00:00Z",
+            tier=tier,
+            action="collect",
+            action_reason="test",
+            items=[gemini],
+        )
+        assert outcome.dissenting_families == []
+        assert outcome.counting_families == []
+
+    def test_committed_reliability_record_is_auditable(self):
+        # The Tier-4 evidence artifact must live in the repo, not only in the
+        # gitignored operator-context directory.
+        from pathlib import Path
+
+        record = (
+            Path(__file__).resolve().parents[2]
+            / "docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md"
+        )
+        assert record.is_file()
+        assert "fabricated-claim pattern" in record.read_text(encoding="utf-8")

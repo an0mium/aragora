@@ -23,6 +23,10 @@ from __future__ import annotations
 import pytest
 
 from aragora.swarm.quorum_evidence import (
+    ADVISORY_ONLY_FAMILIES,
+    CHINESE_ROUTED_FAMILIES,
+    FAMILY_PROVIDERS,
+    TIER_3_4_COUNTED_FAMILIES,
     WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES,
     tier_quorum_rule,
@@ -33,10 +37,56 @@ from aragora.swarm.quorum_evidence import (
 
 
 def test_western_families_match_spec():
-    # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, Google, xAI, Mistral,
-    # Nous Hermes (by canonical family id).
-    assert WESTERN_FAMILIES == frozenset(
-        {"claude", "openai", "gemini", "grok", "mistral", "hermes"}
+    # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, xAI, Mistral,
+    # Nous Hermes (by canonical family id). Google (gemini) was demoted to
+    # advisory-only by the 2026-07-16 founder roster directive (see
+    # docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md);
+    # its reviews still post and remain readable but do not count.
+    assert WESTERN_FAMILIES == frozenset({"claude", "openai", "grok", "mistral", "hermes"})
+    assert "gemini" not in WESTERN_FAMILIES
+
+
+def test_family_classification_is_total_and_disjoint():
+    # Every recognized family is classified exactly once across the three
+    # jurisdiction/authority classes; no family is left unclassified (which
+    # would silently default it to full Tier 0-1 counting).
+    assert not WESTERN_FAMILIES & CHINESE_ROUTED_FAMILIES
+    assert not WESTERN_FAMILIES & ADVISORY_ONLY_FAMILIES
+    assert not CHINESE_ROUTED_FAMILIES & ADVISORY_ONLY_FAMILIES
+    assert WESTERN_FAMILIES | CHINESE_ROUTED_FAMILIES | ADVISORY_ONLY_FAMILIES == set(
+        FAMILY_PROVIDERS
+    )
+
+
+@pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+@pytest.mark.parametrize("gate", [False, True])
+def test_advisory_only_families_never_count_at_any_tier(tier, gate):
+    # Roster record mandate (docs/governance/records/
+    # 20260716T2200Z-gemini-reviewer-reliability-record.md): an advisory-only
+    # family never counts FOR a quorum at ANY tier, under either gate regime —
+    # not just at the Western-keyed Tier 2-4 conditions.
+    rule = tier_quorum_rule(tier, tiered_gate=gate)
+    for family in ADVISORY_ONLY_FAMILIES:
+        assert family not in rule.counted_families({family, "claude", "deepseek"})
+        assert rule.is_satisfied_by({family}) is False
+        # Presence of an advisory-only signal never changes the outcome.
+        for others in ({"claude"}, {"claude", "openai"}, {"deepseek", "qwen"}):
+            assert rule.is_satisfied_by(others | {family}) == rule.is_satisfied_by(others)
+
+
+def test_advisory_only_dissent_is_not_blocking():
+    # The against-side of the mandate ("gemini dissent is NOT to be counted
+    # anywhere"): a [P1]-backed CHANGES-REQUESTED from an advisory-only family
+    # never promotes blocking dissent, while the same review from a counting
+    # family still does.
+    from aragora.swarm.quorum_evidence import EvidenceItem
+
+    body = "Verdict: CHANGES-REQUESTED\n- [P1] blocking finding"
+    assert EvidenceItem("gemini", body, True, ["gemini"], [], "changes_requested").dissenting is (
+        False
+    )
+    assert EvidenceItem("claude", body, True, ["claude"], [], "changes_requested").dissenting is (
+        True
     )
 
 
@@ -77,8 +127,37 @@ def test_tier3_4_are_western_only_counted(tier):
     assert rule.is_satisfied_by({"claude", "openai"}) is True
     assert rule.is_satisfied_by({"claude", "deepseek"}) is False
     assert rule.is_satisfied_by({"deepseek", "qwen"}) is False
+    # mistral and hermes are Western but advisory-only at Tier 3-4 (operator
+    # decision 2026-07-11): they do not count toward the two-signal bar.
+    assert rule.is_satisfied_by({"mistral", "hermes"}) is False
+    assert rule.is_satisfied_by({"claude", "mistral"}) is False  # only claude counts
+    assert rule.is_satisfied_by({"claude", "hermes"}) is False
+    # grok counts at Tier 3-4. gemini does NOT: the 2026-07-11 decision that put
+    # it in the counted set was superseded by the 2026-07-16 founder roster
+    # directive demoting it to advisory-only everywhere.
+    assert rule.is_satisfied_by({"claude", "grok"}) is True
+    assert rule.is_satisfied_by({"gemini", "grok"}) is False
+    assert rule.is_satisfied_by({"claude", "gemini"}) is False
     # The flag never relaxes Tier 3-4.
     assert tier_quorum_rule(tier, tiered_gate=True).western_only_counted is True
+
+
+def test_tier3_4_counted_families_excludes_mistral_hermes_and_gemini():
+    """TIER_3_4_COUNTED_FAMILIES is the frontier-grade Western subset."""
+    assert TIER_3_4_COUNTED_FAMILIES == {"claude", "openai", "grok"}
+    # Strict subset of the broader Western set (which mistral/hermes remain in
+    # for the Tier 2 "at least one Western" bar).
+    assert TIER_3_4_COUNTED_FAMILIES < WESTERN_FAMILIES
+    assert {"mistral", "hermes"} & TIER_3_4_COUNTED_FAMILIES == set()
+    assert {"mistral", "hermes"} <= WESTERN_FAMILIES
+
+
+def test_tier3_4_counted_families_disjoint_from_advisory_only():
+    """The two directives must not contradict: an advisory-only family can
+    never appear in the Tier 3-4 counted set (gemini regression guard)."""
+    assert TIER_3_4_COUNTED_FAMILIES & ADVISORY_ONLY_FAMILIES == frozenset()
+    assert "gemini" in ADVISORY_ONLY_FAMILIES
+    assert "gemini" not in TIER_3_4_COUNTED_FAMILIES
 
 
 def test_unknown_tier_fails_safe_to_western_only():
