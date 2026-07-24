@@ -331,7 +331,7 @@ def test_default_prefixes_cover_daily_benchmark_publication() -> None:
 
 def test_benchmark_publication_still_subject_to_tier_gate() -> None:
     """Widening the prefix must not widen the tier band."""
-    summary, ready, _ = _run(
+    summary, ready, packet_calls = _run(
         [_pr(1, head="benchmark-truth-publication/30099191641")],
         {1: _entry(1, tier=4)},
         apply=True,
@@ -339,6 +339,11 @@ def test_benchmark_publication_still_subject_to_tier_gate() -> None:
     )
     assert summary["plan"] == []
     assert ready.calls == []
+    # Reject at stage 2 on tier, not by a stage-1 prune — otherwise this test
+    # would still pass if the prefix silently regressed out of the defaults.
+    assert packet_calls == [1]
+    assert [item["pr"] for item in summary["rejected"]] == [1]
+    assert "tier" in summary["rejected"][0]["reason"]
 
 
 def test_young_pr_pruned_until_min_age() -> None:

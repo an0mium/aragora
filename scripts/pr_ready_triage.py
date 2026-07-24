@@ -62,10 +62,12 @@ from typing import Any, Callable
 DEFAULT_REPO = "synaptent/aragora"
 # ``benchmark-truth-publication/`` is the daily proof-surface publisher
 # (.github/workflows/benchmark-truth-publication.yml), which always opens its PR
-# as a draft. Without promotion those PRs are invisible to every merge path
-# (all of which filter drafts), so the recurring surface silently goes stale —
-# the failure mode issue #9519 was filed for. Stage-2's tier and dissent gates
-# still decide; this only makes them reachable.
+# as a draft. Promoting it has been a manual step nobody owns, and while it
+# stays a draft every merge path skips it (they all filter drafts), so the
+# recurring surface goes stale whenever no one is watching — the drift issue
+# #9519 was filed for. Branch-namespace provenance is enforced separately by
+# scripts/check_branch_mutation_policy.py; stage-2's tier and dissent gates
+# still decide, this only makes them reachable.
 DEFAULT_BRANCH_PREFIXES = ("codex/", "benchmark-truth-publication/")
 DEFAULT_MIN_AGE_MINUTES = 30
 DEFAULT_MAX_SCAN = 15
