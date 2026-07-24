@@ -1,6 +1,6 @@
 # B0 Benchmark Truth Status
 
-Last updated: 2026-07-24T14:00:59Z
+Last updated: 2026-07-24T23:43:56Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -73,8 +73,8 @@ Proxy note: neutral issue outcomes are current-corpus rows that were neither fre
 
 ## Previous Published Artifact
 
-- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260723T185024Z.json`
-- Previous generated_at: `2026-07-23T18:50:24Z`
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-6/scorecard-20260724T140059Z.json`
+- Previous generated_at: `2026-07-24T14:00:59Z`
 
 ## Deltas
 
