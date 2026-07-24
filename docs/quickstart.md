@@ -15,8 +15,10 @@ pip install -U 'aragora-verify>=0.1.1' && aragora-verify r.odr.json
 ```
 
 This runs a demo debate, exports the receipt to the portable ODR format, and
-verifies it offline with the standalone verifier -- exit `0` end to end. Run
-`aragora quickstart --help` for the live-provider and spec-first variants.
+verifies it offline with the standalone verifier -- exit `0` end to end.
+`aragora-verify`'s full exit-code contract is `0 verified / 1 failed / 2 usage /
+3 signatures-present-unchecked`. Run `aragora quickstart --help` for the
+live-provider and spec-first variants.
 
 ---
 
@@ -42,8 +44,10 @@ python3 -m aragora_debate
 You'll see three agents propose, critique each other, vote, reach consensus, and
 produce an audit-ready decision receipt with a SHA-256 verdict hash.
 
-(If you installed the full platform instead — `pip install aragora` — the
-equivalent zero-key demo is `aragora demo`.)
+(If you installed the full platform instead — `pip install -U 'aragora>=2.9.0'`
+— the equivalent zero-key receipt demo is
+`aragora demo --offline --receipt aragora-demo-receipt.json`, followed by
+`aragora receipt verify aragora-demo-receipt.json`.)
 
 ## 3. Three-Line Debate (Python)
 
@@ -77,7 +81,7 @@ export OPENAI_API_KEY="sk-..."          # GPT
 Install the full `aragora` package before using the platform API imports below:
 
 ```bash
-pip install aragora
+pip install -U 'aragora>=2.9.0'
 ```
 
 Then run a real debate:
@@ -134,7 +138,7 @@ Then visit:
 Current PyPI package:
 
 ```bash
-pip install aragora
+pip install -U 'aragora>=2.9.0'
 aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 aragora ask "Should we build or buy our auth system?"   # real debate (needs an API key)
@@ -149,9 +153,17 @@ aragora demo --offline --receipt aragora-demo-receipt.json
 aragora receipt verify aragora-demo-receipt.json
 ```
 
-PyPI `aragora` 2.9.0 supports the explicit offline demo receipt round trip
-shown above. Use the source checkout path when you need to audit this exact
-branch or unreleased local changes.
+Use `aragora>=2.9.0` for the explicit offline demo receipt round trip shown
+above. Earlier PyPI releases do not support the `--offline` receipt flags. Use
+the source checkout path when you need to audit this exact branch or unreleased
+local changes.
+
+`aragora receipt verify` above checks the **native** demo receipt (exit 0/1);
+it is a different verb from the standalone `aragora-verify` used on the
+portable `.odr.json` artifact in the fastest path at the top of this page. For
+the contributor dev/test install, use the declared form
+`pip install -e ".[test]"` -- see `docs/reference/INSTALL_MATRIX.md` for the
+full per-audience breakdown.
 
 ## Next Steps
 

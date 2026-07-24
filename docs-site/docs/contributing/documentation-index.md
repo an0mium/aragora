@@ -19,7 +19,7 @@ then wire it into CI.
 
 1. [Quickstart](../getting-started/quickstart) — a working debate in under a minute
 2. [Receipt Lineage Reconciliation](../specs/receipt-lineage-reconciliation) — what a receipt is: the native record vs. the portable ODR
-3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify`, no Aragora install required
+3. [Independent Verifier Guide](../specs/independent-verifier-guide) — verify a receipt with `aragora-verify` (exit codes: `0 verified / 1 failed / 2 usage / 3 signatures-present-unchecked`), no Aragora install required
 4. [GitHub Action Setup](../guides/github-action-setup) — add multi-model CI review + receipts to your pull requests
 
 ## Getting Started
@@ -88,12 +88,13 @@ then wire it into CI.
 ## Reference
 
 - [Environment Variables](../getting-started/environment)
+- [Install Matrix](../reference/install-matrix)
 - [Library Usage](../guides/library-usage)
 
 ## Contributing
 
 - [Contributing Guide](./guide)
-- [Reference Index](./documentation-index)
+- [Reference Index](../reference/reference-index)
 - [Deprecation Policy](./deprecation)
 
 ## Notes
@@ -103,3 +104,6 @@ then wire it into CI.
 - `docs/specs/` is mirrored into `docs-site/` (as the `specs/` category) by
   `docs-site/scripts/sync-docs.js`; relative links into it from mirrored docs
   are safe to use.
+- `docs/reference/` is mirrored into `docs-site/` (as the `reference/`
+  category) the same way; relative links into it from mirrored docs are
+  safe to use.
