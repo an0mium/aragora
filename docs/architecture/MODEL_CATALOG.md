@@ -38,9 +38,16 @@ project owns; this catalog makes the detection mechanical.
 
 No runtime table changed behavior. `tests/models/test_catalog.py` asserts
 that existing table rows for an **enforced** model match the catalog
-(`ENFORCED_MODELS`, currently the eight models verified live this week).
+(`ENFORCED_MODELS`, currently the nine models verified live this week).
 A covered drifting mirror now fails tests in seconds instead of consuming
 an adversarial review round.
+
+The current Anthropic frontier pin is **`claude-opus-5`** (`anthropic/claude-opus-5`
+via OpenRouter), adopted 2026-07-24 at the same $5/$25 per MTok as its
+predecessor. **`claude-opus-4-8` stays in the catalog and stays enforced**: it is
+still Active upstream and remains Opus 5's documented fallback target, so its
+spec, pricing rows, and `aragora/config/model_pins.py` constants must keep
+naming the real 4.8 rather than aliasing forward to Opus 5.
 
 Phase-1 coverage is deliberately uneven across the eleven mirrors — stated
 plainly so the tests are not oversold:

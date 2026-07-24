@@ -4395,7 +4395,7 @@ def _normalize_model_family(value: str) -> str:
 
     # Agents commonly disclose the family with a trailing parenthetical detail,
     # e.g. ``openai (gpt-5.5, codex exec --sandbox read-only)`` or
-    # ``claude (opus-4.8)``. The parenthetical is descriptive metadata, not part
+    # ``claude (opus-5)``. The parenthetical is descriptive metadata, not part
     # of the canonical family token, so a literal lookup of the whole string used
     # to fail and de-count an otherwise-valid reviewer.
     #

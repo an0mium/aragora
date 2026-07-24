@@ -73,7 +73,7 @@ _ESTIMATED_COST_PER_DEBATE = 0.04  # ~$0.04 for 4 parallel LLM calls
 # OpenRouter model diversity for playground debates.
 # Each agent gets a different model architecture for genuine adversarial diversity.
 OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
-    ("analyst", "anthropic/claude-opus-4.8"),
+    ("analyst", "anthropic/claude-opus-5"),
     ("critic", "openai/gpt-5.4"),
     ("synthesizer", "google/gemini-3.1-pro"),
     ("contrarian", "mistralai/mistral-large-latest"),
@@ -835,7 +835,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
-_ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.8"  # OpenRouter fallback
+_ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-5"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
 
 
@@ -3280,7 +3280,7 @@ class PlaygroundHandler(BaseHandler):
 
                 agent = _OpenRouter(
                     name="tldr-synth",
-                    model="anthropic/claude-opus-4.8",
+                    model="anthropic/claude-opus-5",
                 )
             except (ImportError, RuntimeError, ValueError, OSError) as exc:
                 logger.debug("OpenRouter agent unavailable for TL;DR: %s", exc)

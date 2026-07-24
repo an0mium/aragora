@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
         "claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
+        "claude-opus-5": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
@@ -76,7 +77,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "anthropic/claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
         "openai/gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
         "qwen/qwen3.7-max": (Decimal("1.475"), Decimal("4.425")),
-        "moonshotai/kimi-k2.7-code": (Decimal("0.75"), Decimal("3.50")),
+        "moonshotai/kimi-k2.7-code": (Decimal("0.82"), Decimal("3.75")),
         "openai/gpt-5.5": (Decimal("5.00"), Decimal("30.00")),
         "google/gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
         "anthropic/claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),

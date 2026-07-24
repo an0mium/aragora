@@ -74,7 +74,7 @@ def _resolve_base_url(env_name: str, default: str) -> str:
 
 @AgentRegistry.register(
     "anthropic-api",
-    default_model="claude-opus-4-8",
+    default_model="claude-opus-5",
     default_name="claude-api",
     agent_type="API",
     env_vars="ANTHROPIC_API_KEY",
@@ -90,27 +90,28 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     """
 
     # Model mapping from Anthropic to OpenRouter format (used by QuotaFallbackMixin)
-    # Every legacy Anthropic ID maps to the current frontier (Opus 4.8) via
+    # Every legacy Anthropic ID maps to the current frontier (Opus 5) via
     # OpenRouter so a missing or revoked direct key never blocks a debate and
     # weaker historical models are transparently upgraded.
     OPENROUTER_MODEL_MAP = {
         "claude-fable-5": "anthropic/claude-fable-5",
-        "claude-opus-4-8": "anthropic/claude-opus-4.8",
-        "claude-opus-4-7": "anthropic/claude-opus-4.8",
-        "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.8",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.8",
-        "claude-haiku-4-5-20251001": "anthropic/claude-opus-4.8",
-        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-4.8",
-        "claude-3-opus-20240229": "anthropic/claude-opus-4.8",
-        "claude-3-haiku-20240307": "anthropic/claude-opus-4.8",
+        "claude-opus-5": "anthropic/claude-opus-5",
+        "claude-opus-4-8": "anthropic/claude-opus-5",
+        "claude-opus-4-7": "anthropic/claude-opus-5",
+        "claude-sonnet-4-6": "anthropic/claude-opus-5",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-5",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-5",
+        "claude-haiku-4-5-20251001": "anthropic/claude-opus-5",
+        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-5",
+        "claude-3-opus-20240229": "anthropic/claude-opus-5",
+        "claude-3-haiku-20240307": "anthropic/claude-opus-5",
     }
-    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-4.8"
+    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-5"
 
     def __init__(
         self,
         name: str = "claude-api",
-        model: str = "claude-opus-4-8",
+        model: str = "claude-opus-5",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

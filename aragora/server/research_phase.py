@@ -39,12 +39,12 @@ DEFAULT_TIMEOUT = float(os.getenv("ARAGORA_RESEARCH_HTTP_TIMEOUT", "45.0"))
 CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "240.0"))
 SUMMARIZATION_TIMEOUT = float(os.getenv("ARAGORA_RESEARCH_SUMMARIZATION_TIMEOUT", "120.0"))
 
-# Frontier pins (Opus 4.8). OpenRouter alias is used by default so research
+# Frontier pins (Opus 5). OpenRouter alias is used by default so research
 # still runs when no direct Anthropic key is configured.
-RESEARCH_MODEL = "claude-opus-4-8"
+RESEARCH_MODEL = "claude-opus-5"
 OPENROUTER_RESEARCH_MODEL = os.getenv(
     "ARAGORA_RESEARCH_OPENROUTER_MODEL",
-    "anthropic/claude-opus-4.8",
+    "anthropic/claude-opus-5",
 )
 
 
