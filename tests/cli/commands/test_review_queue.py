@@ -4059,6 +4059,39 @@ class TestParentheticalModelFamily:
         # Multi-word alias with a trailing parenthetical still resolves.
         assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
 
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("zhipu", "glm"),
+            ("z-ai", "glm"),
+            ("hy3", "tencent"),
+            ("hunyuan", "tencent"),
+            ("seed", "bytedance"),
+            ("seed-2.0", "bytedance"),
+            ("seed-2.0 (doubao)", "bytedance"),
+            ("doubao", "bytedance"),
+            ("bytedance-seed", "bytedance"),
+        ],
+    )
+    def test_chinese_family_aliases_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family(value) == expected
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("z-ai/glm-5.2", "glm"),
+            ("minimax/minimax-m3", "minimax"),
+            ("tencent/hy3", "tencent"),
+            ("bytedance-seed/seed-2.0-lite", "bytedance"),
+        ],
+    )
+    def test_chinese_reviewer_ids_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_reviewer_id
+
+        assert _normalize_model_reviewer_id(value) == expected
+
     def test_unknown_leading_token_still_unknown(self) -> None:
         from aragora.cli.commands.review_queue import _normalize_model_family
 
