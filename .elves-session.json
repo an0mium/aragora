@@ -7,7 +7,7 @@
   "merge_mode": "user-merges",
   "time_budget_hours": 8,
   "hard_stop": null,
-  "status": "blocked",
+  "status": "in_progress",
   "branch": "codex/node24-runtime-contract-9577",
   "worktree": "$HOME/.codex/worktrees/node24-runtime-contract-9577/aragora",
   "base_ref": "origin/main",
@@ -20,7 +20,7 @@
   "lease_id": "00ea44f4-78d",
   "lease_owner": "elves-node-runtime-contract-9577-20260724",
   "plan_path": "docs/plans/2026-07-24-node-runtime-contract-9577.md",
-  "plan_sha256": "4a3adbc45ca347b457b30bd0adb923d77cc1b208b5f7aa33792aadf1c712f071",
+  "plan_sha256": "5f144491f957af73445dca1ed3d08bf8616db8564f091479dd46e8908df01a5d",
   "survival_guide_path": "docs/elves/node-runtime-contract-9577/survival-guide.md",
   "learnings_path": "docs/elves/node-runtime-contract-9577/learnings.md",
   "execution_log_path": "docs/elves/node-runtime-contract-9577/execution-log.md",
@@ -30,11 +30,12 @@
     {
       "number": 1,
       "name": "implement and prove the Node 24 runtime contract",
-      "status": "blocked",
+      "status": "in_progress",
       "started_at": "2026-07-24T23:59:32Z",
       "rollback_tag": "elves/pre-batch-1-node-runtime-contract-9577",
       "blocked_at": "2026-07-25T00:06:02Z",
-      "blocker": "PR #9589 merged to current main and changed aragora/live/package.json plus package-lock.json before Batch 1 product edits"
+      "resumed_at": "2026-07-25T00:21:21Z",
+      "blocker": "Resolved by exact operator authorization to merge main 1cd722cc and preserve PR #9589"
     },
     {
       "number": 2,
@@ -44,10 +45,10 @@
   ],
   "continuation_guard": {
     "remaining_batches": 2,
-    "stop_allowed": true,
-    "checkpoint_is_stop": true,
-    "reason": "The plan requires an operator stop when current main overlaps an in-scope product file",
-    "next_required_action": "Await exact authorization to merge current main 1cd722cc2df2330466af2511f6f3b6b83d496b83, preserve PR #9589, and resume Batch 1"
+    "stop_allowed": false,
+    "checkpoint_is_stop": false,
+    "reason": "Exact overlap reconciliation is authorized and both batches remain incomplete",
+    "next_required_action": "Merge authorized main 1cd722cc, preserve PR #9589, recapture the baseline, write the Batch 1 contract, and implement"
   },
   "test_baseline": {
     "passed": 197,
@@ -58,7 +59,7 @@
   },
   "validation": {
     "baseline": "tests/ci: 197 passed, 1 skipped; workflow policy checks passed; exact Node 24.18.0 npm ci, lint, typecheck, and Next build passed before PR #9589 merged",
-    "latest": "blocked before product edits by current-main overlap from PR #9589"
+    "latest": "overlap authorization received; live ownership, head, main, runner, and protected-check tripwires passed before reconciliation"
   },
   "independent_review": {
     "status": "pending",
@@ -66,5 +67,5 @@
   },
   "active_compute": [],
   "review_comments": [],
-  "last_updated": "2026-07-25T00:06:02Z"
+  "last_updated": "2026-07-25T00:21:21Z"
 }

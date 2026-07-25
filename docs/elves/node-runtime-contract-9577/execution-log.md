@@ -124,6 +124,27 @@
 - Exact approval required: authorize merging current main `1cd722cc...`,
   preserving PR #9589, reconciling the baseline/contract, and resuming Batch 1.
 
+### 2026-07-25T00:21Z — exact overlap authorization received
+
+- The operator explicitly authorized merging current main
+  `1cd722cc2df2330466af2511f6f3b6b83d496b83`, preserving PR #9589's package
+  dependency and lockfile changes, reconciling the Batch 1 baseline and
+  contract, and resuming the approved Node 24 implementation.
+- Re-read the Elves skill and recovery artifacts in the required order.
+- Re-verified local, remote-branch, and PR heads at
+  `254a1935670d0178d2894bb2d900e43c36e0de24`.
+- Re-verified current main at the exact authorized commit.
+- Steering remained empty. Lease `00ea44f4-78d` was renewed through
+  `2026-07-25T08:20:37Z`.
+- All five non-quorum protected checks on current main were green;
+  `aragora-merge-quorum` was skipped as expected on main.
+- Four `aragora` runners were online, including three Linux runners.
+- Set the Stop Gate back to no. Next: merge the authorized main commit,
+  verify #9589 preservation, and recapture the pre-edit baseline.
+- Reconciled the durable plan with the explicit merge authorization and the
+  no-rebase rule for published branches. New plan SHA-256:
+  `5f144491f957af73445dca1ed3d08bf8616db8564f091479dd46e8908df01a5d`.
+
 ## Batch 2/2 — validation and final readiness
 
 Pending Batch 1.

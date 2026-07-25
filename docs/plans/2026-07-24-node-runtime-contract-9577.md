@@ -19,6 +19,12 @@ workflow edits on 2026-07-24. That approval does not authorize branch
 protection changes, evidence collection, settlement, ready-for-review, or
 merge.
 
+On 2026-07-25, the operator explicitly authorized merging current main
+`1cd722cc2df2330466af2511f6f3b6b83d496b83` into PR #9591, preserving PR
+#9589's dependency and lockfile changes, reconciling the Batch 1 baseline and
+contract against that state, and resuming the Node 24 implementation. This is
+a branch reconciliation only; it does not authorize merging PR #9591.
+
 In scope:
 
 - `aragora/live/package.json`
@@ -61,7 +67,9 @@ Before Batch 1 product edits:
    `elves-node-runtime-contract-9577-20260724`.
 3. Fetch `origin/main` and compare it with the staging base.
 4. If main advanced, inspect overlap against every in-scope product path.
-   Rebase only when there is no overlap and record the new base.
+   Because the branch is published, reconcile only with a merge and record the
+   new base; never rebase it. The exact overlap at `1cd722cc...` is separately
+   authorized above. Any later unapproved in-scope overlap remains a hard stop.
 5. Verify the draft PR exact head before editing.
 6. Verify at least three healthy runners with the `aragora` label.
 7. Verify no protected required context on current main has been terminal red

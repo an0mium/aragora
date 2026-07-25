@@ -14,7 +14,7 @@ that order.
 - Plan:
   `docs/plans/2026-07-24-node-runtime-contract-9577.md`
 - Plan SHA-256:
-  `4a3adbc45ca347b457b30bd0adb923d77cc1b208b5f7aa33792aadf1c712f071`
+  `5f144491f957af73445dca1ed3d08bf8616db8564f091479dd46e8908df01a5d`
 - Issue: `#9577`
 - Pull request: draft `#9591`
 - Staging base: `c7c4681eb08d5e7c7966d10dfba3a1520d671319`
@@ -24,32 +24,29 @@ that order.
 
 ## Current state
 
-Batch 1 is blocked before product edits. During the exact-Node baseline, PR
-#9589 merged to main at
-`1cd722cc2df2330466af2511f6f3b6b83d496b83` and changed both
-`aragora/live/package.json` and `aragora/live/package-lock.json`. Those are
-core in-scope paths, so the current-main overlap hard stop fired.
+Batch 1 resumed after the operator explicitly authorized merging current main
+`1cd722cc2df2330466af2511f6f3b6b83d496b83` into PR #9591, preserving PR
+#9589's dependency and lockfile changes, reconciling the baseline and
+contract, and continuing the approved Node 24 engine/workflow implementation.
 
-The local branch contains only launch-state documentation and a clean merge of
-the earlier non-overlapping main commit
-`8b97a31d1f81ec74d63e30409b867971999bb2aa`. No Node engine, workflow, test,
-package, or lockfile product edit has been made.
+The authorization was re-grounded against live state: local, remote-branch,
+and PR heads all remained
+`254a1935670d0178d2894bb2d900e43c36e0de24`; main remained the exact
+authorized commit; steering was empty; lease `00ea44f4-78d` was renewed; all
+five non-quorum protected main checks were green; and four `aragora` runners
+were online.
 
-The single next action is to obtain this exact operator authorization:
-
-> Authorize merging current main
-> `1cd722cc2df2330466af2511f6f3b6b83d496b83` into PR #9591, preserving PR
-> #9589's dependency and lockfile changes, reconciling the Batch 1 baseline
-> and contract against that state, and then resuming the approved Node 24
-> engine/workflow implementation.
+The single next action is to merge the exact authorized main commit without
+rewriting published history, verify PR #9589's package and lockfile state is
+preserved, then recapture the Batch 1 baseline before product edits.
 
 ## Stop Gate
 
-Stopping is currently allowed: **yes**.
+Stopping is currently allowed: **no**.
 
-Reason: current main changed two core in-scope files after launch. The plan
-explicitly requires an operator stop on current-main overlap before product
-edits. Resume only with the exact reconciliation authorization above.
+Reason: the operator supplied the exact reconciliation authorization required
+by the overlap hard stop. Batch 1 and Batch 2 remain incomplete, and no new
+hard stop is active.
 
 Never interpret generic `proceed` as authority to mark ready, collect evidence,
 settle, or merge.
