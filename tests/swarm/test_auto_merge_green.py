@@ -485,3 +485,42 @@ def test_rankable_rerun_still_wins_after_unrankable_guard():
     ]
     states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
     assert states["aragora-merge-quorum"] == "SUCCESS"
+
+
+def _status_row(state: str) -> dict[str, object]:
+    """A commit *status* row: `context`/`state` shape, carrying no timestamps."""
+    return {"context": "aragora-merge-quorum", "state": state}
+
+
+def test_three_row_interleave_is_order_independent():
+    """An unrankable row must not inherit the displaced SUCCESS's timestamps.
+
+    Review finding on the first unrankable fix: the non-comparable branch stored
+    ``previous_recency`` with the surviving non-success state, so an untimestamped
+    row became rankable and a later timestamped SUCCESS could outrank it. Two-row
+    tests could not see it; this needs a third row.
+    """
+    rows = [
+        _quorum_row("SUCCESS", "2026-07-24T18:00:00Z"),
+        _status_row("PENDING"),
+        _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+    ]
+    forward = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
+    reverse = context_from_gh({"statusCheckRollup": list(reversed(rows))}, {"tier": 2}).check_states
+    assert forward["aragora-merge-quorum"] == "PENDING"
+    assert forward == reverse
+
+
+def test_newer_success_still_wins_after_an_equal_stamp_tie():
+    """Storing the winner's own recency must not freeze the state permanently.
+
+    The alternative fix (a sticky unrankable recency) would block a legitimate
+    later rerun-to-green, so this pins that a genuinely newer SUCCESS still wins.
+    """
+    rows = [
+        _quorum_row("SUCCESS", "2026-07-24T18:00:00Z"),
+        _quorum_row("FAILURE", "2026-07-24T18:00:00Z"),
+        _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+    ]
+    states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
+    assert states["aragora-merge-quorum"] == "SUCCESS"

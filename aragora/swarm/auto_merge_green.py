@@ -258,7 +258,13 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
             # non-success row. Ordering by input position — or treating an
             # untimestamped row as merely "oldest" — is exactly the defect this
             # reduction exists to remove.
-            best[name] = (previous_recency, state)
+            #
+            # Store the surviving row's OWN recency, never the displaced SUCCESS's.
+            # Inheriting those stamps would make an untimestamped non-success row
+            # rankable, so a later timestamped SUCCESS could outrank it and
+            # re-authorise the merge — reintroducing order dependence via a third
+            # row (`[SUCCESS@18:00, PENDING(no stamps), SUCCESS@21:00]`).
+            best[name] = (recency, state)
 
     return {name: state for name, (_, state) in best.items()}
 
