@@ -194,18 +194,33 @@ def _rollup_recency(item: dict[str, Any]) -> tuple[str, str]:
     flight has **no** ``completedAt``, so ordering on completion first would
     rank the current run below a stale row that has already finished — letting
     an old ``SUCCESS`` outrank a re-run that is still deciding, which is the
-    very hazard this reduction exists to prevent. Every row has a start time,
-    and the most recently *started* run is the current one.
+    very hazard this reduction exists to prevent. Check *runs* always carry a
+    start time, and the most recently started one is the current run.
+
+    Commit *statuses* (the ``context``/``state`` shape) carry neither stamp, so
+    ``("", "")`` means **unrankable**, not "oldest" — see
+    :func:`_rollup_is_rankable`.
     """
     return (str(item.get("startedAt") or ""), str(item.get("completedAt") or ""))
+
+
+def _rollup_is_rankable(recency: tuple[str, str]) -> bool:
+    """Whether a row carries enough information to be ordered against another.
+
+    A row with no timestamps at all cannot be proven newer *or* older than
+    anything. Treating it as merely "oldest" is what let a timestamped stale
+    ``SUCCESS`` outrank an untimestamped ``FAILURE``.
+    """
+    return any(recency)
 
 
 def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
     """Collapse a status-check rollup to one state per check name.
 
-    Newest row per name wins. When two rows for a name are not comparable by
-    recency (equal or absent timestamps), **any non-success state wins over
-    ``SUCCESS``** — not merely an explicitly failing one. ``PENDING``,
+    Newest row per name wins, but **only between rows that can actually be
+    ordered**. When two rows are not comparable — equal stamps, or *either* row
+    carrying no stamps at all — **any non-success state wins over ``SUCCESS``**
+    — not merely an explicitly failing one. ``PENDING``,
     ``QUEUED``, ``IN_PROGRESS`` and unknown/empty states are all "not yet
     proven green", and a success that cannot be shown to be the current row
     must never be what authorises an unattended merge.
@@ -230,11 +245,19 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
             continue
 
         previous_recency, previous_state = previous
-        if recency > previous_recency:
-            best[name] = (recency, state)
-        elif recency == previous_recency and previous_state == "SUCCESS" and state != "SUCCESS":
-            # Unrankable tie: keep the non-success row. Resolving ties by input
-            # order is exactly the defect this reduction exists to remove.
+        comparable = (
+            _rollup_is_rankable(recency)
+            and _rollup_is_rankable(previous_recency)
+            and recency != previous_recency
+        )
+        if comparable:
+            if recency > previous_recency:
+                best[name] = (recency, state)
+        elif previous_state == "SUCCESS" and state != "SUCCESS":
+            # Not comparable (equal stamps, or either row untimestamped): keep the
+            # non-success row. Ordering by input position — or treating an
+            # untimestamped row as merely "oldest" — is exactly the defect this
+            # reduction exists to remove.
             best[name] = (previous_recency, state)
 
     return {name: state for name, (_, state) in best.items()}

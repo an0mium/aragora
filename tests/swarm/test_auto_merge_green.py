@@ -448,3 +448,40 @@ def test_rollup_states_are_case_normalised():
     ]
     states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
     assert states["aragora-merge-quorum"] == "FAILURE"
+
+
+def test_untimestamped_failure_beats_timestamped_success():
+    """An untimestamped row is unrankable, not merely "oldest".
+
+    Residual gap after the first recency fix, flagged in review of #9571:
+    commit *statuses* (the context/state shape) carry neither startedAt nor
+    completedAt, so ("", "") compared as lowest and a timestamped stale SUCCESS
+    outranked an untimestamped FAILURE.
+    """
+    rows = [
+        _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+        {"name": "aragora-merge-quorum", "conclusion": "FAILURE"},
+    ]
+    for ordering in (rows, list(reversed(rows))):
+        states = context_from_gh({"statusCheckRollup": ordering}, {"tier": 2}).check_states
+        assert states["aragora-merge-quorum"] == "FAILURE"
+
+
+def test_commit_status_shape_without_timestamps_is_unrankable():
+    """The real shape that triggers it: a `context`/`state` commit status."""
+    rows = [
+        _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+        {"context": "aragora-merge-quorum", "state": "PENDING"},
+    ]
+    states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
+    assert states["aragora-merge-quorum"] != "SUCCESS"
+
+
+def test_rankable_rerun_still_wins_after_unrankable_guard():
+    """The guard must not regress the legitimate rerun-to-green case."""
+    rows = [
+        _quorum_row("FAILURE", "2026-07-24T18:00:00Z"),
+        _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
+    ]
+    states = context_from_gh({"statusCheckRollup": rows}, {"tier": 2}).check_states
+    assert states["aragora-merge-quorum"] == "SUCCESS"
