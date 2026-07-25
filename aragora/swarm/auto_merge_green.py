@@ -228,7 +228,15 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
     States are upper-cased so this reduction cannot be bypassed by casing,
     matching the normalisation the cheap prefilter applies.
     """
-    best: dict[str, tuple[tuple[str, str], str]] = {}
+    # Three disjoint pools, so no row can be displaced out of the reduction by a
+    # row it is not comparable to. Folding everything into one slot is what let a
+    # veto vanish: an unrankable PENDING landing on a FAILURE incumbent matched
+    # no branch and was dropped, after which a later SUCCESS outranked the
+    # FAILURE and the name read green while the PENDING was still deciding.
+    rankable: dict[str, tuple[tuple[str, str], str]] = {}
+    veto: dict[str, str] = {}
+    unrankable_success: set[str] = set()
+
     for item in rollup or []:
         if not isinstance(item, dict):
             continue
@@ -239,34 +247,36 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
         state = str(item.get("conclusion") or item.get("state") or item.get("status") or "").upper()
         recency = _rollup_recency(item)
 
-        previous = best.get(name)
-        if previous is None:
-            best[name] = (recency, state)
+        if not _rollup_is_rankable(recency):
+            if state == "SUCCESS":
+                # Cannot be proven current, so it may not outrank anything; it only
+                # decides a name that has no rankable row at all.
+                unrankable_success.add(name)
+            else:
+                # Cannot be proven stale either — an unconditional veto, kept out
+                # of the rankable pool so nothing can displace it.
+                veto.setdefault(name, state)
             continue
 
+        previous = rankable.get(name)
+        if previous is None:
+            rankable[name] = (recency, state)
+            continue
         previous_recency, previous_state = previous
-        comparable = (
-            _rollup_is_rankable(recency)
-            and _rollup_is_rankable(previous_recency)
-            and recency != previous_recency
-        )
-        if comparable:
-            if recency > previous_recency:
-                best[name] = (recency, state)
-        elif previous_state == "SUCCESS" and state != "SUCCESS":
-            # Not comparable (equal stamps, or either row untimestamped): keep the
-            # non-success row. Ordering by input position — or treating an
-            # untimestamped row as merely "oldest" — is exactly the defect this
-            # reduction exists to remove.
-            #
-            # Store the surviving row's OWN recency, never the displaced SUCCESS's.
-            # Inheriting those stamps would make an untimestamped non-success row
-            # rankable, so a later timestamped SUCCESS could outrank it and
-            # re-authorise the merge — reintroducing order dependence via a third
-            # row (`[SUCCESS@18:00, PENDING(no stamps), SUCCESS@21:00]`).
-            best[name] = (recency, state)
+        if recency > previous_recency:
+            rankable[name] = (recency, state)
+        elif recency == previous_recency and previous_state == "SUCCESS" and state != "SUCCESS":
+            # Same instant: a success shares its timestamp with a non-success, so
+            # it is not provably the live one. Resolving by input order is exactly
+            # the defect this reduction exists to remove.
+            rankable[name] = (recency, state)
 
-    return {name: state for name, (_, state) in best.items()}
+    resolved = {name: state for name, (_, state) in rankable.items()}
+    for name in unrankable_success:
+        resolved.setdefault(name, "SUCCESS")
+    # A veto outranks everything, whenever it was seen.
+    resolved.update(veto)
+    return resolved
 
 
 def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -> PRMergeContext:
