@@ -445,6 +445,7 @@ CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES: tuple[str, ...] = (
     "aragora/cli/commands/__init__.py",
     "aragora/cli/commands/review_queue_comment_verdicts.py",
     "aragora/cli/commands/review_queue_parsers.py",
+    "aragora/cli/commands/review_queue_render.py",
     "aragora/cli/commands/review_queue_rest_fallback.py",
     "aragora/cli/commands/review_queue_transport.py",
     "aragora/cli/commands/review_queue_unstable.py",
