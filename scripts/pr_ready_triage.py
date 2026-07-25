@@ -57,6 +57,7 @@ import subprocess
 import sys
 import unicodedata
 from datetime import datetime, timedelta, timezone
+from itertools import zip_longest
 from typing import Any, Callable
 
 DEFAULT_REPO = "synaptent/aragora"
@@ -65,9 +66,11 @@ DEFAULT_REPO = "synaptent/aragora"
 # as a draft. Promoting it has been a manual step nobody owns, and while it
 # stays a draft every merge path skips it (they all filter drafts), so the
 # recurring surface goes stale whenever no one is watching — the drift issue
-# #9519 was filed for. Branch-namespace provenance is enforced separately by
-# scripts/check_branch_mutation_policy.py; stage-2's tier and dissent gates
-# still decide, this only makes them reachable.
+# #9519 was filed for. Stage-2's tier and dissent gates still decide; this only
+# makes them reachable. The namespace carries no push-side provenance
+# (check_branch_mutation_policy.py lints workflow YAML; it does not restrict who
+# may push a matching branch), so the governance markers, blocking labels and
+# the merge-packet tier check remain the actual defenses.
 DEFAULT_BRANCH_PREFIXES = ("codex/", "benchmark-truth-publication/")
 DEFAULT_MIN_AGE_MINUTES = 30
 DEFAULT_MAX_SCAN = 15
@@ -231,8 +234,15 @@ def stage1_candidates(
     min_age_minutes: int,
     now: datetime,
 ) -> list[dict[str, Any]]:
-    """Drafts surviving the cheap prune, oldest PR number first."""
-    survivors: list[dict[str, Any]] = []
+    """Drafts surviving the cheap prune: oldest first, round-robin by prefix.
+
+    Oldest-first *within* a prefix, but interleaved *between* prefixes. A
+    single global PR-number sort lets one busy namespace consume the whole
+    ``--max-scan`` budget and starve another indefinitely: with 16 open
+    ``codex/`` drafts and a scan budget of 15, the daily publication PR — always
+    the highest number — would never be probed at all.
+    """
+    buckets: dict[str, list[dict[str, Any]]] = {prefix: [] for prefix in branch_prefixes}
     for pr in prs:
         if not isinstance(pr, dict):
             continue
@@ -243,9 +253,21 @@ def stage1_candidates(
         blocker = stage1_blocker(
             pr, branch_prefixes=branch_prefixes, min_age_minutes=min_age_minutes, now=now
         )
-        if blocker is None:
-            survivors.append(pr)
-    return sorted(survivors, key=lambda pr: int(pr["number"]))
+        if blocker is not None:
+            continue
+        head = str(pr.get("headRefName") or "")
+        for prefix in branch_prefixes:
+            if head.startswith(prefix):
+                buckets[prefix].append(pr)
+                break
+
+    for bucket in buckets.values():
+        bucket.sort(key=lambda pr: int(pr["number"]))
+
+    interleaved: list[dict[str, Any]] = []
+    for row in zip_longest(*buckets.values()):
+        interleaved.extend(pr for pr in row if pr is not None)
+    return interleaved
 
 
 # --- Stage 2: merge-packet ground truth -------------------------------------------

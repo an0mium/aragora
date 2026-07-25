@@ -346,6 +346,31 @@ def test_benchmark_publication_still_subject_to_tier_gate() -> None:
     assert "tier" in summary["rejected"][0]["reason"]
 
 
+def test_busy_prefix_cannot_starve_another() -> None:
+    """Scan budget must be shared across prefixes, not consumed by one.
+
+    Real numbers from #9519 follow-through: 16 open ``codex/`` drafts against a
+    default ``--max-scan`` of 15. Under a single global PR-number sort the
+    daily publication PR — always the newest, hence last — would never be
+    probed at all, so widening the prefix would achieve nothing.
+    """
+    prs = [_pr(n, head=f"codex/auto-{n}") for n in range(1, 17)]
+    prs.append(_pr(9590, head="benchmark-truth-publication/30134524906"))
+    packets = {pr["number"]: _entry(pr["number"]) for pr in prs}
+
+    summary, _, packet_calls = _run(
+        prs,
+        packets,
+        max_scan=15,
+        branch_prefixes=triage.DEFAULT_BRANCH_PREFIXES,
+    )
+
+    assert 9590 in packet_calls, "publication PR starved by the busier prefix"
+    # Fairness must not cost oldest-first ordering inside a prefix.
+    codex_probed = [n for n in packet_calls if n != 9590]
+    assert codex_probed == sorted(codex_probed)
+
+
 def test_young_pr_pruned_until_min_age() -> None:
     young = _pr(1, created="2026-06-12T11:45:00Z")  # 15m before NOW
     summary, _, packet_calls = _run([young], {1: _entry(1)}, min_age_minutes=30)
