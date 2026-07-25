@@ -29,3 +29,26 @@
   files.
 - Staging and implementation are separate Elves calls. This turn must end
   after a docs-only setup commit, pushed draft PR, and launch prompt.
+
+## 2026-07-25 launch
+
+- The complete `tests/ci` baseline is `197 passed, 1 skipped`; checkout
+  integrity and required-check priority policy scripts also pass.
+- The unmodified frontend installs, lints, type-checks, and completes its
+  228-route production build under the exact `node:24.18-alpine` image.
+- A production Next build rewrites tracked `aragora/live/next-env.d.ts` from
+  the dev route declaration to the production route declaration. Restore that
+  generated side effect after validation; it is not part of this lane.
+- The 13-workflow inventory contains 24 `setup-node` selectors: 21 serve
+  `aragora/live` and should resolve to exact `24.18.0`; three unrelated
+  selectors remain Node 20.
+- `live-deploy-mode-gate.yml` skips draft PRs. Because #9591 must remain
+  draft, exact-Node local/container proof is required and the PR must not claim
+  that the draft CI gate performed the build.
+- The generic tag `elves/pre-batch-1` was already owned by another historical
+  run, so this lane uses
+  `elves/pre-batch-1-node-runtime-contract-9577` without rewriting the shared
+  tag.
+- Current-main overlap is a live tripwire, not a one-time staging check. PR
+  #9589 merged during baseline and changed both package metadata files, so the
+  lane stopped before product edits as designed.

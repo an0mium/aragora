@@ -24,25 +24,32 @@ that order.
 
 ## Current state
 
-Batch 1 launch is in progress. The launch exact-head tripwire matched
-`389556c2217f0ea26965703c17f86c65db5bd177`; no product edit has occurred yet.
+Batch 1 is blocked before product edits. During the exact-Node baseline, PR
+#9589 merged to main at
+`1cd722cc2df2330466af2511f6f3b6b83d496b83` and changed both
+`aragora/live/package.json` and `aragora/live/package-lock.json`. Those are
+core in-scope paths, so the current-main overlap hard stop fired.
 
-The single next action is to re-read steering, renew the lease, verify current
-main overlap plus runner/main health, reconcile a clean main advance without
-rewriting branch history, capture the baseline, and write the Batch 1
-contract.
+The local branch contains only launch-state documentation and a clean merge of
+the earlier non-overlapping main commit
+`8b97a31d1f81ec74d63e30409b867971999bb2aa`. No Node engine, workflow, test,
+package, or lockfile product edit has been made.
+
+The single next action is to obtain this exact operator authorization:
+
+> Authorize merging current main
+> `1cd722cc2df2330466af2511f6f3b6b83d496b83` into PR #9591, preserving PR
+> #9589's dependency and lockfile changes, reconciling the Batch 1 baseline
+> and contract against that state, and then resuming the approved Node 24
+> engine/workflow implementation.
 
 ## Stop Gate
 
-Stopping is currently allowed: **no**.
+Stopping is currently allowed: **yes**.
 
-Reason: the separate launch call has begun and both planned batches remain.
-Continue through implementation, exact-runtime validation, independent review,
-operational-artifact cleanup, and final parked-draft readiness.
-
-This gate may return to **yes** only when Batch 1 and Batch 2 are complete, the
-final draft exact head is validated and independently reviewed, operational
-artifacts are removed, and the run has stopped for OWNER handling.
+Reason: current main changed two core in-scope files after launch. The plan
+explicitly requires an operator stop on current-main overlap before product
+edits. Resume only with the exact reconciliation authorization above.
 
 Never interpret generic `proceed` as authority to mark ready, collect evidence,
 settle, or merge.
@@ -163,12 +170,18 @@ python3 scripts/check_work_lease.py codex/node24-runtime-contract-9577 \
   packages; those selectors are not automatically in scope.
 - `live-deploy-mode-gate.yml` already runs `npm ci`, TypeScript checks, and a
   frontend build for live paths, making it the preferred build-proof surface.
+- The gate skips draft PRs, so PR #9591 cannot obtain its Node 24 build proof
+  from that CI job while remaining draft. Use the exact-Node container proof.
 - `aragora/live/package.json` and the lockfile root currently have no
   `engines` field.
 - Current main's five non-quorum protected required contexts are green. The
   visible uptime-monitor failure is not protected.
 - Four `aragora` runners were online at staging preflight, including three
   Linux runners.
+- The pre-edit exact-Node container baseline passed on Node `24.18.0`: `npm
+  ci`, lint, TypeScript, and the complete 228-route Next build.
+- PR #9589 subsequently changed `package.json` overrides and regenerated the
+  dependency lockfile without adding an engine declaration.
 
 ## Hard stops
 
