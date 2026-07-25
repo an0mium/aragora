@@ -64,6 +64,11 @@ ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+# Next.js standalone server.js binds to $HOSTNAME, and Docker sets HOSTNAME to the
+# container ID. Without this override the server binds only to the container's eth0
+# address, so the HEALTHCHECK below (and the identical one in deploy/docker-compose.yml)
+# can never reach it and the container reports unhealthy forever.
+ENV HOSTNAME=0.0.0.0
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
@@ -81,9 +86,11 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check.
+# Uses 127.0.0.1 rather than localhost: busybox wget resolves localhost to ::1 first,
+# and the standalone server binds IPv4 only, so a localhost probe is always refused.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
 
 # Start application
 CMD ["node", "server.js"]
