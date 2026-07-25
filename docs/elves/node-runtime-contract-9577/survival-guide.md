@@ -24,23 +24,23 @@ that order.
 
 ## Current state
 
-Batch 0 staging is complete. The isolated worktree, branch, lease, shared lane
-claim, and draft PR #9591 exist. Only planning/recovery files have been added.
-No product, workflow, test, package, or lockfile edit has been made.
+Batch 1 launch is in progress. The launch exact-head tripwire matched
+`389556c2217f0ea26965703c17f86c65db5bd177`; no product edit has occurred yet.
 
-The next action is a separate launch call. Re-read all state, set the Stop Gate
-to **no**, run every live-state tripwire, and execute Batch 1.
+The single next action is to re-read steering, renew the lease, verify current
+main overlap plus runner/main health, reconcile a clean main advance without
+rewriting branch history, capture the baseline, and write the Batch 1
+contract.
 
 ## Stop Gate
 
-Stopping is currently allowed: **yes**.
+Stopping is currently allowed: **no**.
 
-Reason: Elves requires staging and implementation to occur in separate
-assistant calls. Reaching a pushed draft PR with a complete launch prompt is
-the staging stop condition, not abandonment of the run.
+Reason: the separate launch call has begun and both planned batches remain.
+Continue through implementation, exact-runtime validation, independent review,
+operational-artifact cleanup, and final parked-draft readiness.
 
-At the start of the launch call, change this gate to **no** before any product
-edit. It may return to **yes** only when Batch 1 and Batch 2 are complete, the
+This gate may return to **yes** only when Batch 1 and Batch 2 are complete, the
 final draft exact head is validated and independently reviewed, operational
 artifacts are removed, and the run has stopped for OWNER handling.
 

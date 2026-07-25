@@ -61,7 +61,15 @@
 
 ## Batch 1/2 — implementation
 
-Pending launch call.
+### 2026-07-24T23:59Z — launch
+
+- Re-read the Elves skill and all recovery artifacts in the required order.
+- No `.ai-docs/manifest.md`, constitution, or project TODO exists.
+- Verified local and remote branch tips both match the authorized launch head
+  `389556c2217f0ea26965703c17f86c65db5bd177`.
+- Set the Stop Gate to no and marked Batch 1 in progress.
+- Next: live steering, lease, main overlap, runner/main health, baseline,
+  rollback tag, and Batch 1 contract.
 
 ## Batch 2/2 — validation and final readiness
 
