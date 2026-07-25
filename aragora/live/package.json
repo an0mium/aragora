@@ -99,6 +99,10 @@
     "sharp": "^0.35.3",
     "postcss": "^8.5.22",
     "uuid": "^14.0.0",
-    "brace-expansion": "^2.0.3"
+    "@babel/core": "^7.29.7",
+    "js-yaml": "^4.3.0",
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^3.15.0"
+    }
   }
 }
