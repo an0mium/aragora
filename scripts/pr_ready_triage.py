@@ -123,7 +123,8 @@ _FAILING_STATES = frozenset(
 )
 
 _GH_LIST_FIELDS = (
-    "number,headRefName,title,body,labels,statusCheckRollup,mergeable,createdAt,updatedAt"
+    "number,headRefName,title,body,labels,statusCheckRollup,mergeable,"
+    "createdAt,updatedAt,isCrossRepository"
 )
 
 
@@ -209,6 +210,13 @@ def stage1_blocker(
     now: datetime,
 ) -> str | None:
     """Return the stage-1 prune reason, or None if the draft survives."""
+    # Fork PRs report the BARE head branch name, so any fork branch named to
+    # match a configured prefix would otherwise inherit that namespace's
+    # promotion rights. The prefix is a routing hint, never provenance —
+    # automation must not promote a head it does not control. Fail closed:
+    # a missing field is treated as cross-repository.
+    if pr.get("isCrossRepository", True):
+        return "cross-repository head (fork PRs are never auto-promoted)"
     head = str(pr.get("headRefName") or "")
     if not any(head.startswith(prefix) for prefix in branch_prefixes):
         return f"branch prefix not in {list(branch_prefixes)}"

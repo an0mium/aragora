@@ -45,6 +45,7 @@ def _pr(
     checks: list[dict[str, Any]] | None = None,
     mergeable: str = "MERGEABLE",
     created: str = "2026-06-12T10:00:00Z",  # 2h before NOW: old enough
+    cross_repo: bool = False,
 ) -> dict[str, Any]:
     return {
         "number": number,
@@ -56,6 +57,7 @@ def _pr(
         "mergeable": mergeable,
         "createdAt": created,
         "updatedAt": created,
+        "isCrossRepository": cross_repo,
     }
 
 
@@ -344,6 +346,32 @@ def test_benchmark_publication_still_subject_to_tier_gate() -> None:
     assert packet_calls == [1]
     assert [item["pr"] for item in summary["rejected"]] == [1]
     assert "tier" in summary["rejected"][0]["reason"]
+
+
+def test_fork_pr_never_promoted_even_with_matching_prefix() -> None:
+    """The prefix routes; it does not prove provenance.
+
+    Fork PRs report the bare head branch name, so a fork branch named
+    ``benchmark-truth-publication/x`` would otherwise inherit that namespace's
+    promotion rights and get non-draft CI on the self-hosted fleet.
+    """
+    summary, ready, packet_calls = _run(
+        [_pr(1, head="benchmark-truth-publication/999", cross_repo=True)],
+        {1: _entry(1)},
+        apply=True,
+        branch_prefixes=triage.DEFAULT_BRANCH_PREFIXES,
+    )
+    assert summary["plan"] == []
+    assert packet_calls == [], "fork must be pruned before any packet probe"
+    assert ready.calls == []
+
+
+def test_missing_cross_repository_field_fails_closed() -> None:
+    pr = _pr(1, head="codex/auto")
+    del pr["isCrossRepository"]
+    summary, _, packet_calls = _run([pr], {1: _entry(1)})
+    assert summary["plan"] == []
+    assert packet_calls == []
 
 
 def test_busy_prefix_cannot_starve_another() -> None:
