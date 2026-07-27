@@ -37,34 +37,16 @@ jobs:
   build:
     name: Build frontend image
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: aragora
+    # GitHub-hosted on purpose. This job needs no secrets, no registry login, and no
+    # self-hosted resources, so pinning it to the `aragora` label would add contention
+    # on the shared fleet and make a correctness gate depend on fleet availability.
+    # The `type=gha` cache below is runner-agnostic, so nothing is lost.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Verify checkout integrity
-        shell: bash
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
-            git reset --hard FETCH_HEAD
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::Standard recovery failed; attempting archive restore"
-            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            ls -la
-            exit 1
-          fi
 
       # aragora/live/package.json declares "@aragora/sdk": "file:../../sdk/typescript".
       # Any Dockerfile scoped to aragora/live cannot resolve that path, which is the
