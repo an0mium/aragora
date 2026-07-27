@@ -236,3 +236,41 @@ def test_fallback_targets_resolve_to_catalog_specs() -> None:
             checked_enforced.add(spec.canonical_id)
     # Falsifiability anchor: the map is known to target gpt-5.5 and opus-4.8.
     assert checked_enforced, "no enforced fallback targets were checked"
+
+
+class TestLongContextTiers:
+    """Documented long-context tier pricing (xAI: prompts >= 200k tokens bill
+    the higher rate for ALL tokens in the request; docs.x.ai/developers/pricing
+    verified 2026-07-27, surfaced by openai review on #9064)."""
+
+    def test_grok_tiers_recorded(self) -> None:
+        g45 = CATALOG["grok-4.5"]
+        assert g45.long_context_threshold == 200_000
+        assert (g45.input_per_mtok_long, g45.output_per_mtok_long) == (4.00, 12.00)
+        g43 = CATALOG["grok-4.3"]
+        assert (g43.input_per_mtok_long, g43.output_per_mtok_long) == (2.50, 5.00)
+
+    def test_rates_for_switches_at_threshold(self) -> None:
+        spec = CATALOG["grok-4.5"]
+        assert spec.rates_for(199_999) == (2.00, 6.00)
+        assert spec.rates_for(200_000) == (4.00, 12.00)
+
+    def test_flat_models_ignore_threshold(self) -> None:
+        spec = CATALOG["claude-fable-5"]
+        assert spec.rates_for(10_000_000) == (spec.input_per_mtok, spec.output_per_mtok)
+
+    def test_router_estimator_is_tier_aware(self) -> None:
+        from aragora.routing.provider_config import get_estimated_cost
+
+        below = get_estimated_cost("grok-4.5", 100_000, 10_000)
+        above = get_estimated_cost("grok-4.5", 300_000, 10_000)
+        assert below == pytest.approx(0.1 * 2.00 + 0.01 * 6.00)
+        assert above == pytest.approx(0.3 * 4.00 + 0.01 * 12.00)
+
+    def test_pdb_estimator_is_tier_aware(self) -> None:
+        from aragora.pdb.real_invoker import estimate_cost_usd
+
+        below = estimate_cost_usd(model="x-ai/grok-4.5", tokens_in=100_000, tokens_out=10_000)
+        above = estimate_cost_usd(model="x-ai/grok-4.5", tokens_in=300_000, tokens_out=10_000)
+        assert below == pytest.approx(0.1 * 2.00 + 0.01 * 6.00)
+        assert above == pytest.approx(0.3 * 4.00 + 0.01 * 12.00)

@@ -386,17 +386,21 @@ def get_estimated_cost(
         NOT projected into the enumerated table. Returns 0.0 only when the
         model is unknown to both the table and the catalog.
     """
+    # Catalog specs win for cataloged ids: rates_for() is tier-aware
+    # (documented long-context pricing, e.g. xAI bills 2x when the prompt
+    # reaches 200k tokens), which flat table rows cannot express. Below the
+    # threshold this is behavior-identical to the projected table row.
+    spec = by_any_id(provider)
+    if spec is not None:
+        rate_in, rate_out = spec.rates_for(input_tokens)
+        return (input_tokens / 1_000_000.0) * rate_in + (output_tokens / 1_000_000.0) * rate_out
+
     pricing = current_pricing_table().get(provider)
     if pricing is None:
-        spec = by_any_id(provider)
-        if spec is None:
-            # Silent 0.0 was the original #9069 bug: cost dashboards read
-            # "free" where they should read "unpriced model".
-            logger.warning("No pricing entry for model %s; returning 0.0", provider)
-            return 0.0
-        return (input_tokens / 1_000_000.0) * spec.input_per_mtok + (
-            output_tokens / 1_000_000.0
-        ) * spec.output_per_mtok
+        # Silent 0.0 was the original #9069 bug: cost dashboards read
+        # "free" where they should read "unpriced model".
+        logger.warning("No pricing entry for model %s; returning 0.0", provider)
+        return 0.0
 
     input_cost = (input_tokens / 1000.0) * pricing.input_cost_per_1k
     output_cost = (output_tokens / 1000.0) * pricing.output_cost_per_1k

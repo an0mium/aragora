@@ -48,6 +48,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol as _TypingProtocol, Sequence
 
+from aragora.models import by_any_id
 from aragora.pdb.panel_config import PDBPanelSlot
 from aragora.pdb.protocol import (
     SlotCritiqueResponse,
@@ -283,6 +284,13 @@ def estimate_cost_usd(
     """
     tokens_in = max(0, int(tokens_in or 0))
     tokens_out = max(0, int(tokens_out or 0))
+    spec = by_any_id(model)
+    if spec is not None:
+        # Tier-aware catalog rates (documented long-context pricing);
+        # identical to the flat row below the threshold.
+        in_price, out_price = spec.rates_for(tokens_in)
+        cost = (tokens_in / 1_000_000.0) * in_price + (tokens_out / 1_000_000.0) * out_price
+        return round(cost, 6)
     rates = _PRICE_PER_MTOK.get(model)
     if rates is None:
         # Strip provider prefixes (``anthropic/...`` etc.) and try again.
