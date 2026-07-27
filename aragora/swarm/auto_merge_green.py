@@ -207,11 +207,31 @@ def _rollup_recency(item: dict[str, Any]) -> tuple[str, str]:
 def _rollup_is_rankable(recency: tuple[str, str]) -> bool:
     """Whether a row carries enough information to be ordered against another.
 
-    A row with no timestamps at all cannot be proven newer *or* older than
-    anything. Treating it as merely "oldest" is what let a timestamped stale
-    ``SUCCESS`` outrank an untimestamped ``FAILURE``.
+    A row without a start time cannot be proven newer *or* older than anything.
+    Treating it as merely "oldest" is what let a timestamped stale ``SUCCESS``
+    outrank an untimestamped ``FAILURE``.
+
+    Requires ``startedAt`` specifically, not "either stamp": ordering is
+    start-primary, so a ``completedAt``-only row compares as ``("", cAt)`` and
+    would rank below *every* start-bearing row regardless of the actual times —
+    re-admitting the same stale-outranks-current hazard for that shape.
     """
-    return any(recency)
+    return bool(recency[0])
+
+
+def _state_precedence(state: str) -> int:
+    """How decision-relevant a collapsed state is; higher must never be masked.
+
+    ``decide_auto_merge`` blocks on ``_FAILING_CHECK_STATES`` specifically, so
+    collapsing a terminal ``FAILURE`` into a transient ``PENDING`` would silently
+    disarm that guard even though both are non-success. Terminal failure
+    therefore outranks transient non-success, which outranks success.
+    """
+    if state in _FAILING_CHECK_STATES:
+        return 2
+    if state != "SUCCESS":
+        return 1
+    return 0
 
 
 def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
@@ -254,8 +274,11 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
                 unrankable_success.add(name)
             else:
                 # Cannot be proven stale either — an unconditional veto, kept out
-                # of the rankable pool so nothing can displace it.
-                veto.setdefault(name, state)
+                # of the rankable pool so nothing can displace it. Among several,
+                # keep the most decision-relevant rather than the first seen, so
+                # the surviving representative does not depend on row order.
+                if _state_precedence(state) > _state_precedence(veto.get(name, "SUCCESS")):
+                    veto[name] = state
             continue
 
         previous = rankable.get(name)
@@ -265,17 +288,25 @@ def _reduce_rollup_states(rollup: Any) -> dict[str, str]:
         previous_recency, previous_state = previous
         if recency > previous_recency:
             rankable[name] = (recency, state)
-        elif recency == previous_recency and previous_state == "SUCCESS" and state != "SUCCESS":
-            # Same instant: a success shares its timestamp with a non-success, so
-            # it is not provably the live one. Resolving by input order is exactly
-            # the defect this reduction exists to remove.
+        elif recency == previous_recency and _state_precedence(state) > _state_precedence(
+            previous_state
+        ):
+            # Same instant: neither row is provably the live one, so keep the more
+            # decision-relevant state. Resolving by input order — or letting a
+            # transient mask a terminal failure — is exactly the defect this
+            # reduction exists to remove.
             rankable[name] = (recency, state)
 
     resolved = {name: state for name, (_, state) in rankable.items()}
     for name in unrankable_success:
         resolved.setdefault(name, "SUCCESS")
-    # A veto outranks everything, whenever it was seen.
-    resolved.update(veto)
+    # A veto blocks a success it cannot be proven staler than, but must not
+    # *substitute* for a more decision-relevant state: replacing a rankable
+    # terminal FAILURE with a transient PENDING would disarm the failing-checks
+    # guard in `decide_auto_merge`, which keys on `_FAILING_CHECK_STATES`.
+    for name, veto_state in veto.items():
+        if _state_precedence(veto_state) > _state_precedence(resolved.get(name, "SUCCESS")):
+            resolved[name] = veto_state
     return resolved
 
 

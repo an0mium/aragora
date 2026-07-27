@@ -549,8 +549,15 @@ def test_unrankable_success_never_blocks_a_rankable_verdict():
 
 
 def test_unrankable_and_rankable_non_success_agree_on_one_answer():
+    """Two non-success rows must collapse to ONE answer, whatever the order.
+
+    That answer is the terminal failure, not the transient veto: this test
+    originally expected PENDING, which review showed masks the FAILURE from
+    `decide_auto_merge`'s failing-check guard. Order-independence is the
+    property under test; the precedence rule decides which state survives.
+    """
     rows = [_status_row("PENDING"), _quorum_row("FAILURE", "2026-07-24T18:00:00Z")]
-    assert _reduced_over_all_orders(rows) == {"PENDING"}
+    assert _reduced_over_all_orders(rows) == {"FAILURE"}
 
 
 def test_rerun_to_green_survives_the_veto_redesign():
@@ -569,3 +576,49 @@ def test_equal_stamp_tie_then_a_genuinely_newer_success_is_green():
         _quorum_row("SUCCESS", "2026-07-24T21:00:00Z"),
     ]
     assert _reduced_over_all_orders(rows) == {"SUCCESS"}
+
+
+def test_transient_veto_never_masks_a_terminal_failure():
+    """A PENDING must not replace a FAILURE — that disarms the failing-check guard.
+
+    Review finding: `decide_auto_merge` blocks non-required checks on
+    `_FAILING_CHECK_STATES`, which excludes PENDING/QUEUED. Collapsing a
+    timestamped FAILURE CheckRun and an untimestamped PENDING commit status
+    (the dual-transport shape) into PENDING therefore silently un-blocked a
+    genuinely failing check.
+    """
+    rows = [_quorum_row("FAILURE", "2026-07-27T18:00:00Z"), _status_row("PENDING")]
+    assert _reduced_over_all_orders(rows) == {"FAILURE"}
+
+
+def test_veto_still_blocks_a_success_it_cannot_be_proven_staler_than():
+    """Precedence must not weaken the veto itself."""
+    rows = [_quorum_row("SUCCESS", "2026-07-27T21:00:00Z"), _status_row("PENDING")]
+    assert _reduced_over_all_orders(rows) == {"PENDING"}
+
+
+def test_completed_at_only_row_is_unrankable():
+    """Ordering is startedAt-primary, so a completedAt-only row cannot be ranked.
+
+    Otherwise it compares as ("", completedAt) and sorts below every
+    startedAt-bearing row whatever the real times — re-admitting the original
+    stale-outranks-current hazard for that shape.
+    """
+    rows = [
+        {
+            "name": "aragora-merge-quorum",
+            "conclusion": "FAILURE",
+            "completedAt": "2026-07-27T19:00:00Z",
+        },
+        _quorum_row("SUCCESS", "2026-07-27T21:00:00Z"),
+    ]
+    assert _reduced_over_all_orders(rows) == {"FAILURE"}
+
+
+def test_equal_stamp_transient_and_terminal_resolve_to_the_terminal():
+    """Neither is provably live, so keep the more decision-relevant one."""
+    rows = [
+        _quorum_row("PENDING", "2026-07-27T18:00:00Z"),
+        _quorum_row("FAILURE", "2026-07-27T18:00:00Z"),
+    ]
+    assert _reduced_over_all_orders(rows) == {"FAILURE"}
