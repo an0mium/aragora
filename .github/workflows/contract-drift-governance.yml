@@ -1,18 +1,12 @@
 name: Contract Drift Governance
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]
-  push:
-    branches: [main]
-  schedule:
-    - cron: '0 5 * * 1'
-  workflow_dispatch:
+  pull_request: {types: [opened, synchronize, reopened, ready_for_review], branches: [main]}
+  push: {branches: [main]}
+  schedule: [{cron: '0 5 * * 1'}]
+  workflow_dispatch: {}
 
-concurrency:
-  group: contract-drift-governance-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+concurrency: {group: "contract-drift-governance-${{ github.event.pull_request.number || github.ref }}", cancel-in-progress: "${{ github.event_name == 'pull_request' }}"}
 
 jobs:
   pr-delta:
@@ -20,14 +14,11 @@ jobs:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    env: {BASE_SHA: "${{ github.event.pull_request.base.sha }}", HEAD_SHA: "${{ github.event.pull_request.head.sha }}"}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        with: {fetch-depth: 0}
       - name: Run immutable admission
         id: admission
         run: |
@@ -35,13 +26,11 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           python3 -B scripts/check_contract_drift_ratchet.py --mode pr \
             --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA" --strict --json \
-            | tee contract-drift-pr-delta.json
+            --repo-root "$GITHUB_WORKSPACE" | tee contract-drift-pr-delta.json
       - name: Upload admission evidence
         if: always() && !cancelled()
         uses: actions/upload-artifact@v4
-        with:
-          name: contract-drift-pr-delta-${{ github.event.pull_request.head.sha }}
-          path: contract-drift-pr-delta.json
+        with: {name: "contract-drift-pr-delta-${{ github.event.pull_request.head.sha }}", path: contract-drift-pr-delta.json}
       - name: Require admission success
         if: always()
         run: |
@@ -53,27 +42,23 @@ jobs:
     name: contract-drift-main-receipt
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    env:
-      SOURCE_SHA: ${{ github.event_name == 'push' && github.event.after || github.sha }}
+    env: {SOURCE_SHA: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0, ref: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
       - run: |
           set -euo pipefail
           python3 -B scripts/check_contract_drift_ratchet.py --mode receipt \
-            --ref "$SOURCE_SHA" --json | tee contract-drift-main-receipt.json
+            --ref "$SOURCE_SHA" --repo-root "$GITHUB_WORKSPACE" --json | tee contract-drift-main-receipt.json
       - if: success()
         uses: actions/upload-artifact@v4
-        with:
-          name: contract-drift-main-receipt-${{ github.sha }}
-          path: contract-drift-main-receipt.json
+        with: {name: "contract-drift-main-receipt-${{ github.sha }}", path: contract-drift-main-receipt.json}
 
   program-trajectory:
     name: contract-drift-program-trajectory
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    env:
-      SOURCE_SHA: ${{ github.event_name == 'push' && github.event.after || github.sha }}
+    env: {SOURCE_SHA: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 1, ref: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
@@ -82,4 +67,4 @@ jobs:
           AS_OF="$(date -u +%F)"
           python3 -B scripts/check_contract_drift_ratchet.py --mode program \
             --ref "$SOURCE_SHA" --as-of "$AS_OF" --strict --json \
-            | tee contract-drift-program-trajectory.json
+            --repo-root "$GITHUB_WORKSPACE" | tee contract-drift-program-trajectory.json

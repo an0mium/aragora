@@ -4160,160 +4160,193 @@ def build_boundary_result(
     return _finalize_boundary_result(result)
 
 
+# fmt: off
 ACCEPTED_AUTHORITY_SCHEMA = "contract-drift-accepted-authority-v1"
 ACCEPTED_CATEGORIES = tuple(EXPECTED_CATEGORY_COUNTS)
+ANALYZER_BUNDLE_FILES = ("scripts/check_contract_drift_ratchet.py", "scripts/generate_contract_drift_inventory.py", "scripts/baselines/contract_drift_program.json")
+ANALYZER_FLAGS = ("-I", "-S", "-B")
+PAYDOWN_SCHEMA = "contract-drift-paydown-disposition-v1"
+AUTHORITY_FIELDS = frozenset("active_inventory active_inventory_sha256 analyzer_bundle canonical_artifact_bindings canonical_artifacts categories manifest_sha256 publication schema transition".split())
+GENESIS_DISPOSITION = {"as_of": "2026-04-17", "evidence": "canonical-original-cohort-v1", "status": "active"}
+HERMETIC_LAUNCHER = b"import hashlib,os,runpy,sys;p=__file__;assert hashlib.sha256(open(p,'rb').read()).hexdigest()==os.environ['CDG_EXECUTED_LAUNCHER_SHA256'];sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name='__main__')"
 
 
 def _strict_json_bytes(raw: bytes, label: str) -> dict[str, Any]:
-    def reject_duplicate(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError(f"{label} has duplicate JSON key: {key}")
-            result[key] = value
-        return result
-
     try:
-        value = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        value = json.loads(raw, object_pairs_hook=_duplicate_key_object)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"{label} is not canonical UTF-8 JSON") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{label} must be a JSON object")
     return value
 
 
+def _accepted_failure(error: str, code: str) -> dict[str, Any]:
+    return {"error": error, "error_code": code, "passing": False, "status": "fail"}
+
+
 def _git_json(repo_root: Path, sha: str, path: str) -> dict[str, Any]:
-    proc = subprocess.run(
-        ["git", "-C", str(repo_root), "show", f"{sha}:{path}"],
-        check=True,
-        capture_output=True,
-    )
-    return _strict_json_bytes(proc.stdout, f"{sha}:{path}")
+    return _git_json_at_ref(repo_root, sha, path, operation_log=[])
 
 
-def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
-    if authority.get("schema") != ACCEPTED_AUTHORITY_SCHEMA:
-        raise ValueError("accepted authority schema mismatch")
+def _bundle_metadata(authority: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    bundle = authority.get("analyzer_bundle")
+    if not isinstance(bundle, dict) or set(bundle) != {"dependencies", "files", "interpreter_flags", "launcher_sha256", "schema"} or bundle["schema"] != "contract-drift-analyzer-bundle-v1" or bundle["dependencies"] != [] or bundle["interpreter_flags"] != list(ANALYZER_FLAGS) or bundle["launcher_sha256"] != _sha256_bytes(HERMETIC_LAUNCHER):
+        raise ValueError("accepted analyzer bundle execution contract mismatch")
+    files = bundle["files"]
+    if not isinstance(files, list) or len(files) != len(ANALYZER_BUNDLE_FILES) or any(not isinstance(item, dict) or set(item) != {"path", "sha256"} or not isinstance(item["sha256"], str) or not SHA256_RE.fullmatch(item["sha256"]) for item in files) or [item["path"] for item in files] != list(ANALYZER_BUNDLE_FILES):
+        raise ValueError("accepted analyzer bundle file set is not exact")
+    return bundle, cast(list[dict[str, str]], files)
+
+
+def _validate_bundle(authority: dict[str, Any], repo_root: Path, bundle_ref: str | None = None) -> str:
+    bundle, files = _bundle_metadata(authority)
+    authority_root = Path(os.environ.get("CDG_AUTHORITY_ROOT", repo_root)).resolve()
+    for binding in files:
+        if bundle_ref:
+            if not FULL_SHA_RE.fullmatch(bundle_ref):
+                raise ValueError("accepted analyzer bundle ref is not a full SHA")
+            entry = _run_read_only(["git", "-C", str(repo_root), "ls-tree", bundle_ref, "--", binding["path"]], operation_log=[], resource="accepted-bundle-mode").stdout.split()
+            blob = _run_read_only(["git", "-C", str(repo_root), "show", f"{bundle_ref}:{binding['path']}"], operation_log=[], resource="accepted-bundle-blob").stdout
+            invalid = len(entry) != 4 or entry[0] not in {b"100644", b"100755"} or entry[3].decode() != binding["path"] or binding["sha256"] != _sha256_bytes(blob)
+        else:
+            target = authority_root / binding["path"]
+            invalid = target.is_symlink() or not target.is_file() or binding["sha256"] != _sha256_bytes(target.read_bytes())
+        if invalid:
+            raise ValueError(f"accepted analyzer bundle digest mismatch: {binding['path']}")
+    return _sha256_bytes(_canonical_json_bytes(bundle))
+
+
+def _live_witnesses(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None) -> list[str]:
+    docs = inventory_mod.load_git_docs(repo_root, live_ref) if live_ref else inventory_mod.load_working_docs(repo_root)
+    duplicate_issues = inventory_mod.find_duplicate_entry_issues(docs)
+    if duplicate_issues:
+        raise ValueError(duplicate_issues[0])
+    live = set(inventory_mod.collect_ids(docs))
+    records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
+    return sorted(record["original_record_id"] for record in records if f"{record['source_json_key']}:{inventory_mod.normalize_key(record['exact_historical_literal_record'])}" in live)
+
+def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None = None) -> dict[str, Any]:
+    if authority.get("schema") != ACCEPTED_AUTHORITY_SCHEMA or set(authority) != AUTHORITY_FIELDS:
+        raise ValueError("accepted authority schema or fields mismatch")
     artifacts = authority.get("canonical_artifacts")
-    if not isinstance(artifacts, dict):
-        raise ValueError("accepted authority lacks canonical artifacts")
-    cohort = artifacts.get("original_cohort")
-    provenance = artifacts.get("sdk_provenance")
+    cohort = artifacts.get("original_cohort") if isinstance(artifacts, dict) else None
+    provenance = artifacts.get("sdk_provenance") if isinstance(artifacts, dict) else None
     if not isinstance(cohort, dict) or not isinstance(provenance, dict):
         raise ValueError("accepted authority canonical artifacts are malformed")
-    cohort_raw = _canonical_json_bytes(cohort, terminal_lf=True)
-    provenance_raw = _canonical_json_bytes(provenance, terminal_lf=True)
+    raw = ((_canonical_json_bytes(cohort, terminal_lf=True), COHORT_ARTIFACT), (_canonical_json_bytes(provenance, terminal_lf=True), PROVENANCE_ARTIFACT))
+    bindings = [{"byte_length": len(value), "path": meta["logical_path"], "sha256": _sha256_bytes(value)} for value, meta in raw]
     if (
-        len(cohort_raw) != COHORT_ARTIFACT["byte_length"]
-        or _sha256_bytes(cohort_raw) != COHORT_ARTIFACT["sha256"]
-        or len(provenance_raw) != PROVENANCE_ARTIFACT["byte_length"]
-        or _sha256_bytes(provenance_raw) != PROVENANCE_ARTIFACT["sha256"]
+        any(
+            len(value) != meta["byte_length"] or _sha256_bytes(value) != meta["sha256"]
+            for value, meta in raw
+        )
+        or authority["canonical_artifact_bindings"] != bindings
+        or authority.get("categories") != list(ACCEPTED_CATEGORIES)
     ):
-        raise ValueError("accepted authority canonical artifact byte binding mismatch")
+        raise ValueError("accepted authority canonical artifact or category binding mismatch")
     cohort_summary = _validate_original_cohort(cohort)
     provenance_summary = _validate_sdk_provenance(provenance, cohort_summary)
-    if authority.get("categories") != list(ACCEPTED_CATEGORIES):
-        raise ValueError("accepted authority category schema is not closed")
     records = {item["original_record_id"]: item for item in cohort["original_records"]}
+    original_ids = set(records)
+    live = _live_witnesses(authority, repo_root=repo_root, live_ref=live_ref)
+    live_digest = _sha256_bytes(_canonical_json_bytes(live))
     dispositions = authority.get("active_inventory")
     if not isinstance(dispositions, list) or len(dispositions) != 655:
         raise ValueError("accepted authority active inventory must contain 655 dispositions")
     seen: set[str] = set()
     active: list[str] = []
     for item in dispositions:
-        if not isinstance(item, dict) or set(item) != {
-            "category",
-            "disposition_history",
-            "original_record_id",
-            "status",
-        }:
+        fields = {"category", "disposition_history", "original_record_id", "status"}
+        if not isinstance(item, dict) or set(item) != fields:
             raise ValueError("accepted authority disposition is malformed")
-        original_id = item["original_record_id"]
-        if original_id in seen or original_id not in records:
-            raise ValueError("accepted authority disposition identity is duplicate or unknown")
-        seen.add(original_id)
-        if item["category"] != records[original_id]["category"]:
-            raise ValueError("accepted authority disposition category mismatch")
-        history = item["disposition_history"]
+        original_id, history = item["original_record_id"], item["disposition_history"]
         if (
-            item["status"] not in {"active", "resolved"}
+            original_id in seen
+            or original_id not in records
+            or item["category"] != records[original_id]["category"]
             or not isinstance(history, list)
             or not history
-            or history[-1].get("status") != item["status"]
+            or history[0] != GENESIS_DISPOSITION
         ):
-            raise ValueError("accepted authority disposition history is invalid")
-        if item["status"] == "active":
+            raise ValueError("accepted authority disposition identity or genesis is invalid")
+        seen.add(original_id)
+        if item["status"] == "active" and len(history) == 1:
             active.append(original_id)
-    if seen != set(cohort_summary["original_record_ids"]):
-        raise ValueError("accepted authority dispositions do not cover the immutable cohort")
-    bundle = authority.get("analyzer_bundle")
-    if not isinstance(bundle, dict) or bundle.get("dependencies") != []:
-        raise ValueError("accepted authority must be a pinned standard-library-only bundle")
-    authority_root = Path(os.environ.get("CDG_AUTHORITY_ROOT", repo_root))
-    for binding in bundle.get("files", []):
-        path = binding.get("path")
-        if not isinstance(path, str):
-            raise ValueError("accepted analyzer bundle path is malformed")
-        raw = (authority_root / path).read_bytes()
-        if binding.get("sha256") != _sha256_bytes(raw):
-            raise ValueError(f"accepted analyzer bundle digest mismatch: {path}")
-    category_sets = {
-        category: sorted(
-            original_id for original_id in active if records[original_id]["category"] == category
-        )
-        for category in ACCEPTED_CATEGORIES
-    }
-    projection = cohort_summary["operation_projection"]
-    return {
-        "active_original_record_ids": sorted(active),
-        "category_original_record_ids": category_sets,
-        "core_unit_total": provenance_summary["core_count"],
-        "extended_unit_total": provenance_summary["extended_count"],
-        "operation_projection": projection,
-        "original_record_id_set_sha256": cohort_summary["original_record_id_set_sha256"],
-        "original_record_total": cohort_summary["record_count"],
-        "sdk_provenance_record_total": provenance_summary["record_count"],
-        "source_occurrence_total": provenance_summary["source_occurrence_count"],
-    }
+            continue
+        event = history[1] if len(history) == 2 else {}
+        proof = event.get("evidence") if isinstance(event, dict) else None
+        if isinstance(proof, dict):
+            _validate_fact_digest(proof, schema=PAYDOWN_SCHEMA, label="paydown disposition")
+        fact = proof.get("fact", {}) if isinstance(proof, dict) else {}
+        if (
+            item["status"] != "resolved"
+            or set(event) != {"as_of", "evidence", "status"}
+            or event["status"] != "resolved"
+            or set(fact) != {"active_original_record_ids_sha256", "as_of", "original_record_id"}
+            or fact.get("original_record_id") != original_id
+            or not SHA256_RE.fullmatch(str(fact.get("active_original_record_ids_sha256", "")))
+            or event["as_of"] != fact.get("as_of")
+        ):
+            raise ValueError("accepted resolved disposition lacks authenticated paydown")
+        try:
+            if date.fromisoformat(event["as_of"]) > datetime.now(UTC).date():
+                raise ValueError
+        except (TypeError, ValueError) as exc:
+            raise ValueError("accepted paydown date is invalid") from exc
+    if (
+        seen != original_ids
+        or (set(active) != set(live) and len(active) != len(original_ids))
+        or authority["active_inventory_sha256"]
+        != _sha256_bytes(_canonical_json_bytes(dispositions))
+    ):
+        raise ValueError("accepted inventory differs from live witnesses or its digest")
+    manifest = {key: value for key, value in authority.items() if key != "manifest_sha256"}
+    if authority["manifest_sha256"] != _sha256_bytes(_canonical_json_bytes(manifest)):
+        raise ValueError("accepted authority manifest digest mismatch")
+    return {"active_original_record_ids": sorted(active), "analyzer_bundle_sha256": _validate_bundle(authority, repo_root, live_ref), "live_original_record_ids": live, "operation_projection": cohort_summary["operation_projection"], "original_record_total": cohort_summary["record_count"], "sdk_provenance_record_total": provenance_summary["record_count"]}
+# fmt: on
 
 
 def compare_accepted_authorities(
-    base: dict[str, Any], head: dict[str, Any], *, repo_root: Path
+    base: dict[str, Any],
+    head: dict[str, Any],
+    *,
+    repo_root: Path,
+    base_ref: str | None = None,
+    head_ref: str | None = None,
 ) -> dict[str, Any]:
-    base_summary = validate_accepted_authority(base, repo_root=repo_root)
-    head_summary = validate_accepted_authority(head, repo_root=repo_root)
+    base_summary = validate_accepted_authority(base, repo_root=repo_root, live_ref=base_ref)
+    head_summary = validate_accepted_authority(head, repo_root=repo_root, live_ref=head_ref)
     if base["canonical_artifacts"] != head["canonical_artifacts"]:
-        raise ValueError("immutable canonical artifacts changed across authority versions")
+        raise ValueError("immutable canonical artifacts changed")
+    base_rows = {item["original_record_id"]: item for item in base["active_inventory"]}
+    head_rows = {item["original_record_id"]: item for item in head["active_inventory"]}
+    if any(
+        head_rows[item_id]["disposition_history"][: len(item["disposition_history"])]
+        != item["disposition_history"]
+        for item_id, item in base_rows.items()
+    ):
+        raise ValueError("accepted disposition history is not append-only")
     base_ids = set(base_summary["active_original_record_ids"])
     head_ids = set(head_summary["active_original_record_ids"])
-    added = sorted(head_ids - base_ids)
+    base_live = set(base_summary["live_original_record_ids"])
+    head_live = set(head_summary["live_original_record_ids"])
+    added = sorted(head_live - base_live)
     removed = sorted(base_ids - head_ids)
-    category_delta: dict[str, dict[str, Any]] = {}
-    growing = []
-    for category in ACCEPTED_CATEGORIES:
-        base_category = set(base_summary["category_original_record_ids"][category])
-        head_category = set(head_summary["category_original_record_ids"][category])
-        category_delta[category] = {
-            "added_original_record_ids": sorted(head_category - base_category),
-            "base": len(base_category),
-            "delta": len(head_category) - len(base_category),
-            "head": len(head_category),
-            "removed_original_record_ids": sorted(base_category - head_category),
-        }
-        if category_delta[category]["delta"] > 0:
-            growing.append(category)
-    passing = not added and not growing
+    newly_disposed = sorted(
+        item_id
+        for item_id, item in base_rows.items()
+        if len(head_rows[item_id]["disposition_history"]) > len(item["disposition_history"])
+    )
+    head_live_digest = _sha256_bytes(_canonical_json_bytes(sorted(head_live)))
+    if newly_disposed != removed or (base_live - head_live and not removed) or any(head_rows[item_id]["disposition_history"][-1]["evidence"]["fact"]["active_original_record_ids_sha256"] != head_live_digest for item_id in newly_disposed):  # fmt: skip
+        raise ValueError("active-set removal lacks exact appended paydown evidence")
+    passing = not added
     return {
         "added_original_record_ids": added,
+        "analyzer_bundle_sha256": base_summary["analyzer_bundle_sha256"],
         "authority": {"source": "accepted_authority"},
-        "base_original_record_ids": sorted(base_ids),
-        "category_delta": category_delta,
-        "growing_categories": growing,
-        "head_original_record_ids": sorted(head_ids),
-        "operation_projection": {
-            "base": base_summary["operation_projection"],
-            "head": head_summary["operation_projection"],
-        },
         "passing": passing,
         "removed_original_record_ids": removed,
         "status": "pass" if passing else "fail",
@@ -4331,76 +4364,54 @@ def build_accepted_result(
     try:
         inventory = _strict_json_bytes(inventory_path.read_bytes(), "accepted inventory")
     except (OSError, ValueError) as exc:
-        return {
-            "error": str(exc),
-            "error_code": "authority_transition_required",
-            "passing": False,
-            "status": "fail",
-        }
+        return _accepted_failure(str(exc), "authority_transition_required")
     authority = inventory.get("accepted_authority")
     if not isinstance(authority, dict):
-        return {
-            "error": "resolved base has no accepted authority manifest",
-            "error_code": "authority_transition_required",
-            "passing": False,
-            "status": "fail",
-        }
+        return _accepted_failure(
+            "resolved base has no accepted authority manifest", "authority_transition_required"
+        )
     try:
-        summary = validate_accepted_authority(authority, repo_root=repo_root)
+        summary = validate_accepted_authority(authority, repo_root=repo_root, live_ref=source_sha)
     except (OSError, ValueError) as exc:
-        return {
-            "error": str(exc),
-            "error_code": "accepted_authority_invalid",
-            "passing": False,
-            "status": "fail",
-        }
+        return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
         source = source_sha or ""
         argv = ("git", "-C", str(repo_root), "rev-list", "--first-parent", source)
         valid = FULL_SHA_RE.fullmatch(source)
         proc = subprocess.run(argv, capture_output=True, text=True) if valid else None
         chain = proc.stdout.splitlines() if proc and proc.returncode == 0 else []
+        passing = bool(chain and chain[0] == source_sha)
         return {
             "authority": {"first_parent_chain": chain, "source": "accepted_authority"},
-            "passing": bool(chain and chain[0] == source_sha),
+            "passing": passing,
             "source_sha": source_sha,
-            "status": "pass" if chain and chain[0] == source_sha else "fail",
+            "status": "pass" if passing else "fail",
         }
     as_of_value = as_of or datetime.now(UTC).date().isoformat()
     try:
         as_of_date = date.fromisoformat(as_of_value)
     except ValueError:
-        return {
-            "error": "as-of must be an ISO UTC date",
-            "error_code": "invalid_as_of",
-            "passing": False,
-            "status": "fail",
-        }
+        return _accepted_failure("as-of must be an ISO UTC date", "invalid_as_of")
     if as_of_date > datetime.now(UTC).date():
-        return {
-            "error": "live as-of may not be future-dated",
-            "error_code": "future_as_of",
-            "passing": False,
-            "status": "fail",
-        }
+        return _accepted_failure("live as-of may not be future-dated", "future_as_of")
     program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
     weeks = max(0, (as_of_date - program["start_date"]).days // 7)
     target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)
-    current = len(summary["active_original_record_ids"])
+    current = len(summary["live_original_record_ids"])
     passing = current <= target
+    program_result = {
+        "as_of": as_of_value,
+        "effective_weeks": weeks,
+        "source_sha": source_sha,
+        "start_date": program["start_date"].isoformat(),
+        "start_total_items": program["start_total_items"],
+        "weekly_reduction": program["weekly_reduction"],
+    }
     return {
         "authority": {"source": "accepted_authority"},
         "current": {"total_items": current},
         "passing": passing,
-        "program": {
-            "as_of": as_of_value,
-            "as_of_timezone": "UTC",
-            "effective_weeks": weeks,
-            "source_sha": source_sha,
-            "start_date": program["start_date"].isoformat(),
-            "start_total_items": program["start_total_items"],
-            "weekly_reduction": program["weekly_reduction"],
-        },
+        "program": program_result,
         "status": "pass" if passing else "fail",
         "target": {"max_open_items": target},
     }
@@ -4858,67 +4869,66 @@ def _print_text(result: dict[str, Any]) -> None:
 def _run_hermetic_pr(
     *, repo_root: Path, base_ref: str, head_ref: str, inventory_path: Path
 ) -> dict[str, Any]:
+    repo_root = repo_root.resolve()
     operation_log: list[dict[str, Any]] = []
     base_sha = _resolve_full_sha(repo_root, base_ref, label="base_ref", operation_log=operation_log)
     head_sha = _resolve_full_sha(repo_root, head_ref, label="head_ref", operation_log=operation_log)
     rel_inventory = inventory_path.as_posix()
+    if inventory_path.is_absolute() or ".." in inventory_path.parts:
+        raise ValueError("inventory path must be safe and repository-relative")
     base_doc = _git_json(repo_root, base_sha, rel_inventory)
     transition = not isinstance(base_doc.get("accepted_authority"), dict)
     authority_sha = head_sha if transition else base_sha
-    files = (
-        "scripts/check_contract_drift_ratchet.py",
-        "scripts/generate_contract_drift_inventory.py",
-        "scripts/baselines/contract_drift_program.json",
-    )
+    authority_doc = _git_json(repo_root, authority_sha, rel_inventory)
+    authority = authority_doc.get("accepted_authority")
+    if not isinstance(authority, dict):
+        raise ValueError("authority ref has no accepted authority")
+    bundle_metadata, files = _bundle_metadata(authority)
     with (
         tempfile.TemporaryDirectory(prefix="cdg-bundle-") as bundle_raw,
         tempfile.TemporaryDirectory(prefix="cdg-cwd-") as cwd_raw,
     ):
         bundle = Path(bundle_raw)
-        bindings = []
-        for relative in files:
+        for binding in files:
+            relative = binding["path"]
             raw = subprocess.run(
                 ["git", "-C", str(repo_root), "show", f"{authority_sha}:{relative}"],
                 check=True,
                 capture_output=True,
             ).stdout
+            if _sha256_bytes(raw) != binding["sha256"]:
+                raise ValueError(f"authority analyzer binding differs from exact ref: {relative}")
             destination = bundle / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(raw)
             destination.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-            bindings.append({"path": relative, "sha256": _sha256_bytes(raw)})
-        bundle_sha = _sha256_bytes(_canonical_json_bytes(bindings))
-        checker = bundle / files[0]
+        bundle_sha = _sha256_bytes(_canonical_json_bytes(bundle_metadata))
+        checker = bundle / files[0]["path"]
         launcher = Path(cwd_raw) / "launcher.py"
-        launcher.write_text(
-            "import runpy,sys;"
-            "sys.path.insert(0,sys.argv.pop(1));"
-            "runpy.run_path(sys.argv.pop(1),run_name='__main__')"
-        )
+        launcher.write_bytes(HERMETIC_LAUNCHER)
+        launcher_sha = _sha256_bytes(launcher.read_bytes())
+        if launcher_sha != bundle_metadata["launcher_sha256"]:
+            raise ValueError("executed launcher differs from accepted launcher binding")
+        options = {
+            "--mode": "pr",
+            "--trusted-bundle": bundle_sha,
+            "--base-ref": base_sha,
+            "--head-ref": head_sha,
+            "--repo-root": str(repo_root),
+            "--inventory": rel_inventory,
+        }
         command = [
             sys.executable,
-            "-I",
-            "-S",
-            "-B",
-            "launcher.py",
+            *ANALYZER_FLAGS,
+            str(launcher),
             str(checker.parent),
             str(checker),
-            "--mode",
-            "pr",
-            "--trusted-bundle",
-            bundle_sha,
-            "--base-ref",
-            base_sha,
-            "--head-ref",
-            head_sha,
-            "--repo-root",
-            str(repo_root),
-            "--inventory",
-            rel_inventory,
-            "--json",
         ]
+        command.extend(token for pair in options.items() for token in pair)
+        command.append("--json")
         env = {
             "CDG_AUTHORITY_ROOT": str(bundle),
+            "CDG_EXECUTED_LAUNCHER_SHA256": launcher_sha,
             "CDG_TRUSTED_BUNDLE": bundle_sha,
             "HOME": cwd_raw,
             "PATH": "/usr/bin:/bin",
@@ -4931,13 +4941,10 @@ def _run_hermetic_pr(
             "analyzer_sha": authority_sha,
             "base_bundle_sha256": bundle_sha,
             "base_sha": base_sha,
-            "dependency_manifest_sha256": _sha256_bytes(b"[]"),
             "dependencies": [],
-            "environment": sorted(env),
             "head_sha": head_sha,
-            "interpreter": sys.executable,
-            "interpreter_flags": ["-I", "-S", "-B"],
-            "sys_path": [str(checker.parent), "<stdlib>"],
+            "interpreter_flags": list(ANALYZER_FLAGS),
+            "launcher_sha256": launcher_sha,
             "working_directory": "<empty-temporary-directory>",
         }
         return result
@@ -5086,8 +5093,13 @@ def main() -> int:
                 if not isinstance(head_authority, dict):
                     raise ValueError("head has no accepted authority candidate")
                 if not isinstance(base_authority, dict):
-                    summary = validate_accepted_authority(head_authority, repo_root=args.repo_root)
+                    summary = validate_accepted_authority(
+                        head_authority, repo_root=args.repo_root, live_ref=args.head_ref
+                    )
+                    if len(summary["active_original_record_ids"]) != 655:
+                        raise ValueError("authority transition must install all-active genesis")
                     result = {
+                        "analyzer_bundle_sha256": summary["analyzer_bundle_sha256"],
                         "authority": {"source": "accepted_authority"},
                         "error_code": "authority_transition_required",
                         "passing": True,
@@ -5095,10 +5107,22 @@ def main() -> int:
                         "status": "pass",
                         "transition": True,
                     }
+                    executed_authority = head_authority
                 else:
                     result = compare_accepted_authorities(
-                        base_authority, head_authority, repo_root=args.repo_root
+                        base_authority,
+                        head_authority,
+                        repo_root=args.repo_root,
+                        base_ref=args.base_ref,
+                        head_ref=args.head_ref,
                     )
+                    executed_authority = base_authority
+                if (
+                    result["analyzer_bundle_sha256"] != args.trusted_bundle
+                    or os.environ.get("CDG_EXECUTED_LAUNCHER_SHA256")
+                    != executed_authority["analyzer_bundle"]["launcher_sha256"]
+                ):
+                    raise ValueError("executed launcher or bundle identity mismatch")
             else:
                 if not args.base_ref:
                     raise ValueError("--base-ref is required in pr mode")
@@ -5109,12 +5133,7 @@ def main() -> int:
                     inventory_path=args.inventory,
                 )
         except (OSError, ValueError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
-            result = {
-                "error": str(exc),
-                "error_code": "pr_authority_failure",
-                "passing": False,
-                "status": "fail",
-            }
+            result = _accepted_failure(str(exc), "pr_authority_failure")
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1
 

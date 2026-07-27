@@ -4026,3 +4026,37 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
             ratchet._guard_subprocess_argv(argv)
     ratchet._guard_subprocess_argv(["git", "status", "--porcelain=v1"])
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
+
+
+def _accepted_authority() -> dict[str, Any]:
+    path = Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json"
+    return json.loads(path.read_text())["accepted_authority"]
+
+
+def test_accepted_authority_keeps_genesis_and_reconciles_live_witnesses():
+    authority, root = _accepted_authority(), Path(ratchet.__file__).parents[1]
+    summary = ratchet.validate_accepted_authority(authority, repo_root=root)
+    assert (summary["original_record_total"], summary["sdk_provenance_record_total"]) == (655, 598)
+    assert (len(summary["active_original_record_ids"]), len(summary["live_original_record_ids"])) == (655, 400)  # fmt: skip
+    paydown, live = copy.deepcopy(authority), set(summary["live_original_record_ids"])
+    live_digest = ratchet._sha256_bytes(ratchet._canonical_json_bytes(sorted(live)))
+    for item in paydown["active_inventory"]:
+        if item["original_record_id"] in live:
+            continue
+        fact = {"active_original_record_ids_sha256": live_digest, "as_of": "2026-07-27", "original_record_id": item["original_record_id"]}  # fmt: skip
+        item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": fact["as_of"], "evidence": {"fact": fact, "sha256": ratchet._fact_digest(ratchet.PAYDOWN_SCHEMA, fact)}, "status": "resolved"}])  # fmt: skip
+    paydown["active_inventory_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(paydown["active_inventory"]))  # fmt: skip
+    paydown["manifest_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes({key: value for key, value in paydown.items() if key != "manifest_sha256"}))  # fmt: skip
+    assert len(ratchet.compare_accepted_authorities(authority, paydown, repo_root=root)["removed_original_record_ids"]) == 255  # fmt: skip
+
+
+def test_accepted_authority_rejects_unbound_paydown_and_bundle():
+    authority = _accepted_authority()
+    item = authority["active_inventory"][0]
+    item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": "2026-07-27", "evidence": {}, "status": "resolved"}])  # fmt: skip
+    with pytest.raises(ValueError, match="paydown"):
+        ratchet.validate_accepted_authority(authority, repo_root=Path(ratchet.__file__).parents[1])
+    authority = _accepted_authority()
+    authority["analyzer_bundle"]["files"].pop()
+    with pytest.raises(ValueError, match="file set"):
+        ratchet._bundle_metadata(authority)
