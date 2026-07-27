@@ -64,3 +64,9 @@
 - A structured comparison that deletes only the intended root metadata is a
   stronger lockfile invariant than line-count inspection, especially when
   `.gitattributes` suppresses normal text diffs for generated lockfiles.
+- Draft path gating behaved as designed: selector and policy checks reported
+  on the pushed head, while the live build job skipped. The exact Node
+  container proof must remain the cited build evidence for this parked draft.
+- Exhaustive inventory assertions must classify ownership before skipping
+  absent selectors. Otherwise a new live job can omit `setup-node` and evade
+  the very contract intended to catch that regression.

@@ -117,7 +117,8 @@ Batch 1 acceptance:
 
 - only the approved product files and the focused contract test changed;
 - no dependency record or transitive package changed;
-- all 13 live consumers resolve to exact Node `24.18.0`;
+- all 21 live consumers across the 13 approved workflows resolve to exact
+  Node `24.18.0`;
 - package and lockfile root declare `>=24.18.0 <25`;
 - focused tests pass;
 - `git diff --check` and automation preflight pass.
@@ -154,6 +155,29 @@ Batch 2 acceptance:
   recorded;
 - the final PR contains no session-only operational artifacts;
 - no ready flip, evidence collection, settlement, or merge occurred.
+
+## Implementation record
+
+Batch 1 added `>=24.18.0 <25` to the live package and lockfile root, changed
+the 21 live-serving selectors across the approved workflows to exact
+`24.18.0`, and preserved the three named Node 20 SDK/version exceptions.
+The focused test owns all 24 selectors across the exact 13-file inventory and
+the existing affected-path build-gate shape.
+
+Validation on the reconciled Batch 2 tip passed:
+
+- `python3 -m pytest -q tests/ci`: `200 passed, 1 skipped`;
+- focused Ruff check and format check: PASS;
+- checkout-integrity and required-check-priority policies: PASS;
+- `git diff --check` and automation PR preflight: PASS;
+- exact `node:24.18-alpine` `npm ci`, lint, `tsc --noEmit`, and production
+  build: PASS, with all 228 routes generated;
+- pushed-head non-quorum required checks: green;
+- independent non-countable review: no blocking finding.
+
+PR #9589's overrides, dependencies, and all 1,034 non-root lock records remain
+unchanged. The live deploy-mode build job is skipped while #9591 remains a
+draft, so the exact container run is the actual Node 24 build proof.
 
 ## Stop conditions
 

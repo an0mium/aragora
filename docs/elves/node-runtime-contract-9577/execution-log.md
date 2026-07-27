@@ -363,4 +363,82 @@
 
 ## Batch 2/2 — validation and final readiness
 
-Pending Batch 1.
+### 2026-07-27T14:38Z — Batch 2 launch
+
+- Pushed Batch 1 at exact head
+  `2433d4975fa7d3afc28e3eeedc3c5ee24ad7fa49`; local, remote branch, and PR
+  head all matched after the push.
+- Re-read the survival guide and verified the plan hash before beginning the
+  batch.
+- Re-read global, branch, and PR steering; no lane message narrowed or
+  redirected the work.
+- Renewed lease `8e6a0fa7-5ef` through `2026-07-27T22:38:44Z`.
+- Current main remained
+  `b0633c5f76738dfcc5412107a97753be91db6f8d`; no new overlap exists.
+- Three Linux `aragora` runners remained online.
+- Created rollback tag `elves/pre-batch-2-node-runtime-contract-9577` at the
+  exact pushed Batch 1 tip.
+
+### 2026-07-27T14:42Z — exact-tip validation and pushed-head checks
+
+- `python3 -m pytest -q tests/ci`: `200 passed, 1 skipped`, with 12 inherited
+  deprecation warnings.
+- Focused Ruff check and format check: PASS.
+- Workflow checkout-integrity policy: PASS.
+- Required-check-priority policy: PASS.
+- `git diff --check`: PASS.
+- `bash scripts/automation_pr_preflight.sh origin/main HEAD`: PASS.
+- Exact `node:24.18-alpine` validation:
+  - Node `v24.18.0`, npm `11.16.0`;
+  - `npm ci`: PASS, 951 packages installed;
+  - `npm run lint`: PASS;
+  - `npx tsc --noEmit`: PASS;
+  - `npm run build`: PASS, all 228 routes generated.
+- Restored the generated `next-env.d.ts` side effect after the build.
+- All pushed-head non-quorum required checks completed green. The live
+  deploy-mode build job skipped because the PR remains draft, as expected;
+  no workflow was manually triggered or rerun.
+- No new issue comment, inline comment, or review was posted.
+- Next: update the stale staging PR body, obtain final independent
+  non-countable review, remove operational artifacts, and push final draft
+  readiness.
+
+### 2026-07-27T14:49Z — independent-review repair
+
+- Updated the draft PR body with the implemented contract, reconciliation,
+  exact commands/results, and parked-draft boundaries.
+- Posted a provenance note resolving the earlier main-overlap stop with the
+  operator's exact authorization.
+- Fresh independent non-countable reviewer
+  `final_readiness_review_9591` confirmed the current package/workflow
+  implementation, selector attribution, #9589 preservation, PR posture, and
+  pushed-head checks, but found one in-scope fail-open test-ordering gap:
+  a future live job without `setup-node` would be skipped before live
+  ownership classification.
+- Repaired the test by classifying live ownership first and requiring every
+  live job to have a setup-node selector before any selector-less job can be
+  skipped.
+- Corrected the durable plan wording from 13 consumers to 21 consumers
+  across 13 workflows.
+- Repeated validation after the repair:
+  - complete `tests/ci`: `200 passed, 1 skipped`;
+  - focused Ruff check and format check: PASS;
+  - both workflow policy checks: PASS;
+  - diff check and automation preflight: PASS;
+  - exact Node `24.18.0` install, lint, typecheck, and 228-route build: PASS.
+- Restored the generated `next-env.d.ts` side effect. Independent re-review
+  is the next gate.
+
+### 2026-07-27T14:51Z — final independent re-review clean
+
+- Independent reviewer confirmed the repair is fail-closed: live ownership is
+  classified before selector-less jobs can be skipped, so every live job must
+  have exactly one setup-node selector.
+- The plan correctly records 21 live consumers across 13 approved workflows,
+  and its hash matches the session and survival guide.
+- Reviewer rechecked package metadata, all workflow selectors, #9589
+  preservation, PR posture, comments, main/head/lease state, validation
+  receipts, and pushed-head checks.
+- Blocking findings: none. Confidence: HIGH.
+- Cleanup and final exact-head push are authorized by the staged run; no
+  ready flip, evidence collection, settlement, or merge is authorized.

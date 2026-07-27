@@ -14,7 +14,7 @@ that order.
 - Plan:
   `docs/plans/2026-07-24-node-runtime-contract-9577.md`
 - Plan SHA-256:
-  `5f144491f957af73445dca1ed3d08bf8616db8564f091479dd46e8908df01a5d`
+  `765fc2bb7402405de39a6359b29ff29db21e28f72848403191b5235e13e7d9be`
 - Issue: `#9577`
 - Pull request: draft `#9591`
 - Staging base: `c7c4681eb08d5e7c7966d10dfba3a1520d671319`
@@ -24,29 +24,33 @@ that order.
 
 ## Current state
 
-Batch 1 is complete locally. The exact authorized main `1cd722cc...` and later
-non-overlapping main `b0633c5f...` were merged without rewriting published
-history. PR #9589's dependency, override, and 1,034 non-root lock records are
-preserved; this lane adds only the root Node engine metadata.
+Batch 1 is pushed at exact PR head `2433d4975f...`. The exact authorized main
+`1cd722cc...` and later non-overlapping main `b0633c5f...` were merged without
+rewriting published history. PR #9589's dependency, override, and 1,034
+non-root lock records are preserved; this lane adds only the root Node engine
+metadata.
 
 The package contract, 21 live workflow selectors, three preserved Node 20
 exceptions, and exhaustive focused test are committed at `6a2426923a...`.
-Post-merge validation is green: focused test `3 passed`, complete `tests/ci`
-`200 passed, 1 skipped`, workflow policies PASS, preflight PASS, and the exact
-Node `24.18.0` install/lint/typecheck/228-route build PASS. Fresh independent
-non-countable review found no blocker.
+Batch 2 exact-tip validation is green: complete `tests/ci` `200 passed, 1
+skipped`, focused Ruff checks, workflow policies, diff check, and preflight
+PASS, and the exact Node `24.18.0` install/lint/typecheck/228-route build PASS.
+All pushed-head non-quorum required checks are green. Final independent review
+found one fail-open test-ordering gap; it is repaired and the complete
+validation set is green again. Independent re-review found no blocker with
+high confidence.
 
-The single next action is to push completed Batch 1 after the required live
-steering, lease, remote-head, current-main, diff, and preflight checks. Then
-start Batch 2 exact-tip validation and final readiness.
+The single next action is to remove session-only operational artifacts,
+perform final gates, push, poll the exact head, release the lease, and stop
+for OWNER handling.
 
 ## Stop Gate
 
-Stopping is currently allowed: **no**.
+Stopping is currently allowed: **yes**.
 
-Reason: the operator supplied the exact reconciliation authorization required
-by the overlap hard stop. Batch 1 and Batch 2 remain incomplete, and no new
-hard stop is active.
+Reason: both planned batches, repeated validation, and final independent
+re-review are complete with no blocking finding. Only deterministic
+operational cleanup, final push/poll, and lease release remain.
 
 Never interpret generic `proceed` as authority to mark ready, collect evidence,
 settle, or merge.

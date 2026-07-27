@@ -132,15 +132,21 @@ def test_approved_workflows_own_the_complete_node_selector_inventory() -> None:
         workflow = _load_workflow(workflow_name)
         for job_name, job in workflow["jobs"].items():
             setup_node_steps = _setup_node_steps(job)
+            operates_on_live = _job_operates_on_live(job)
             assert len(setup_node_steps) <= 1, (
                 f"{workflow_name}:{job_name} has multiple setup-node selectors"
             )
+            if operates_on_live:
+                assert setup_node_steps, (
+                    f"{workflow_name}:{job_name} operates on aragora/live "
+                    "without a setup-node selector"
+                )
             if not setup_node_steps:
                 continue
 
             selector = (workflow_name, job_name)
             actual_versions[selector] = _resolve_node_version(workflow, job, setup_node_steps[0])
-            if _job_operates_on_live(job):
+            if operates_on_live:
                 live_selectors.add(selector)
 
     assert actual_versions == EXPECTED_SELECTOR_VERSIONS
