@@ -8,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -92,17 +93,24 @@ def _write_map(root: Path) -> Path:
     return path
 
 
-def _write_baseline(root: Path, map_path: Path, violations: set[str]) -> Path:
+def _write_baseline(
+    root: Path,
+    map_path: Path,
+    violations: set[str],
+    *,
+    frozen_from_ref: str | None = None,
+) -> Path:
     path = root / "baseline.json"
+    data = {
+        "schema_version": 1,
+        "boundary": {"id": 2, "name": "receipts+verifier"},
+        "map": str(map_path.relative_to(root)),
+        "violations": sorted(violations),
+    }
+    if frozen_from_ref is not None:
+        data["frozen_from_ref"] = frozen_from_ref
     path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "boundary": {"id": 2, "name": "receipts+verifier"},
-                "map": str(map_path.relative_to(root)),
-                "violations": sorted(violations),
-            }
-        ),
+        json.dumps(data),
         encoding="utf-8",
     )
     return path
@@ -262,7 +270,7 @@ def test_optional_standalone_dependency_is_offline_violation(tmp_path, capsys):
     assert "offline dependency aragora-verify -> httpx" in capsys.readouterr().out
 
 
-def test_grandfathered_optional_dependency_is_not_new_violation(tmp_path):
+def test_unreachable_frozen_ref_is_informational_only(tmp_path):
     map_path = _write_map(tmp_path)
     _write_file(
         tmp_path,
@@ -272,15 +280,42 @@ def test_grandfathered_optional_dependency_is_not_new_violation(tmp_path):
             '[project.optional-dependencies]\nschema = ["jsonschema>=4.0"]\n'
         ),
     )
-    config = cbe.load_boundary_map(tmp_path, map_path)
-
-    violations = cbe.compute_violations(
+    baseline = _write_baseline(
         tmp_path,
-        config,
-        grandfathered_dependencies={"jsonschema"},
+        map_path,
+        {"offline dependency aragora-verify -> jsonschema"},
+        frozen_from_ref="0000000000000000000000000000000000000000",
     )
 
-    assert "offline dependency aragora-verify -> jsonschema" not in violations
+    assert cbe.main(_args(tmp_path, map_path, baseline)) == 0
+
+
+@pytest.mark.parametrize("dependency", ["jsonschema", "pytest"])
+def test_removing_dependency_from_baseline_makes_it_new(tmp_path, capsys, dependency):
+    map_path = _write_map(tmp_path)
+    _write_file(
+        tmp_path,
+        "aragora-verify/pyproject.toml",
+        (
+            '[project]\nname = "aragora-verify"\ndependencies = []\n'
+            "[project.optional-dependencies]\n"
+            'schema = ["jsonschema>=4.0"]\n'
+            'dev = ["pytest>=8.0"]\n'
+        ),
+    )
+    all_dependency_edges = {
+        "offline dependency aragora-verify -> jsonschema",
+        "offline dependency aragora-verify -> pytest",
+    }
+    missing_edge = f"offline dependency aragora-verify -> {dependency}"
+    baseline = _write_baseline(
+        tmp_path,
+        map_path,
+        all_dependency_edges - {missing_edge},
+    )
+
+    assert cbe.main(_args(tmp_path, map_path, baseline)) == 1
+    assert missing_edge in capsys.readouterr().out
 
 
 def test_boundary_hook_covers_default_install_and_nested_sources():

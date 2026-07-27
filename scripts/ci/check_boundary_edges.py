@@ -409,43 +409,6 @@ def _declared_project_dependencies(path: Path) -> set[str]:
     )
 
 
-def _frozen_project_dependencies(
-    repo_root: Path,
-    config: BoundaryConfig,
-    baseline_path: Path,
-) -> set[str]:
-    if not baseline_path.is_file():
-        return set()
-    baseline = _load_json_object(baseline_path, "Boundary baseline")
-    frozen_ref = baseline.get("frozen_from_ref")
-    if not isinstance(frozen_ref, str) or not frozen_ref:
-        return set()
-    try:
-        project_path = config.standalone_project_file.relative_to(repo_root)
-    except ValueError as exc:
-        raise CheckerError("Standalone project file must stay within the repository") from exc
-    result = subprocess.run(
-        ["git", "show", f"{frozen_ref}:{project_path.as_posix()}"],
-        cwd=repo_root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise CheckerError(
-            "Cannot read frozen standalone project file "
-            f"{project_path} at {frozen_ref}: {result.stderr.strip()}"
-        )
-    data = _parse_toml_object(
-        result.stdout,
-        f"Frozen standalone project file {project_path} at {frozen_ref}",
-    )
-    return _declared_project_dependencies_from_data(
-        data,
-        f"Frozen standalone project file {project_path} at {frozen_ref}",
-    )
-
-
 def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
     violations: set[str] = set()
     seen: set[Path] = set()
@@ -484,23 +447,16 @@ def _scan_python_imports(repo_root: Path, config: BoundaryConfig) -> set[str]:
 def compute_violations(
     repo_root: Path,
     config: BoundaryConfig,
-    *,
-    grandfathered_dependencies: set[str] | None = None,
-    baseline_violations: set[str] | None = None,
 ) -> set[str]:
     root = repo_root.resolve()
     violations = _scan_python_imports(root, config)
     allowed_dependencies = {
         _normalize_distribution_name(name) for name in config.allowed_external_roots
     }
-    grandfathered = grandfathered_dependencies or set()
-    existing_violations = baseline_violations or set()
     project_name = config.standalone_project_file.parent.name
     for dependency in _declared_project_dependencies(config.standalone_project_file):
         violation = f"offline dependency {project_name} -> {dependency}"
-        if dependency not in allowed_dependencies and (
-            dependency not in grandfathered or violation in existing_violations
-        ):
+        if dependency not in allowed_dependencies:
             violations.add(violation)
     for left, right in config.mirror_pairs:
         try:
@@ -684,12 +640,6 @@ def main(argv: list[str] | None = None) -> int:
         current = compute_violations(
             repo_root,
             config,
-            grandfathered_dependencies=_frozen_project_dependencies(
-                repo_root,
-                config,
-                baseline_path,
-            ),
-            baseline_violations=baseline,
         )
         if args.freeze:
             return _run_freeze(args, config, current)

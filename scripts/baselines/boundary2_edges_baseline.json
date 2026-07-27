@@ -6,8 +6,8 @@
     "name": "receipts+verifier"
   },
   "map": "scripts/ci/boundary_maps/receipts_verifier.json",
-  "frozen_from_ref": "8b97a31d1f81ec74d63e30409b867971999bb2aa",
-  "frozen_at": "2026-07-24T23:54:05Z",
+  "frozen_from_ref": "ab5914da28fc789eae16f006674afc002fb531a2",
+  "frozen_at": "2026-07-27T17:38:10Z",
   "violations": [
     "import aragora.gauntlet.odr_export -> aragora.ranking.calibration_report",
     "import aragora.gauntlet.receipt -> aragora.gauntlet.receipt_exporters",
@@ -20,6 +20,8 @@
     "import aragora.receipts -> aragora.export.decision_receipt",
     "import aragora.receipts.provenance -> aragora.gauntlet.signing",
     "import aragora.receipts.provenance -> aragora.pipeline.receipt_store_facade",
-    "offline aragora_verify.schema -> jsonschema"
+    "offline aragora_verify.schema -> jsonschema",
+    "offline dependency aragora-verify -> jsonschema",
+    "offline dependency aragora-verify -> pytest"
   ]
 }
