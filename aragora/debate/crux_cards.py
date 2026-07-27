@@ -123,6 +123,38 @@ def _claim_ids_for_agent(messages: list[Any], agent: str, role: str) -> list[str
     ]
 
 
+def _target_claim_for_critique(messages: list[Any], target: str, critique: Any) -> str | None:
+    """The claim id of the proposal this critique actually addressed.
+
+    Revisions are recorded with ``role="proposer"`` too, so a target agent has
+    one proposer message per round. Always taking the first would attribute a
+    round-N critique of a *revised* proposal to the round-1 text — showing stale
+    text on the crux card — and would leave revision claims unable to accrue any
+    disagreement edge at all.
+
+    ``Critique.target_content`` records the exact proposal text that was
+    critiqued, so it is matched directly rather than guessed. When it is absent
+    or does not match (older records, reformatting), the most recent proposal is
+    the better default: it is the target's current position.
+    """
+    candidates = [
+        (i, msg)
+        for i, msg in enumerate(messages)
+        if getattr(msg, "role", "") == "proposer" and str(getattr(msg, "agent", "")) == target
+    ]
+    if not candidates:
+        return None
+
+    wanted = str(getattr(critique, "target_content", "") or "").strip()
+    if wanted:
+        for i, msg in candidates:
+            if str(getattr(msg, "content", "") or "").strip() == wanted:
+                return f"msg_{i}_{target}"
+
+    index = candidates[-1][0]
+    return f"msg_{index}_{target}"
+
+
 def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> int:
     """Add a ``CONTRADICTS`` edge per critique; return how many were added.
 
@@ -164,10 +196,9 @@ def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> 
         if severity <= 0:
             continue
 
-        target_claims = _claim_ids_for_agent(messages, target, "proposer")
-        if not target_claims:
+        target_claim = _target_claim_for_critique(messages, target, critique)
+        if target_claim is None:
             continue
-        target_claim = target_claims[0]
 
         # Consume this critic's critic-role messages in order, so successive
         # critiques anchor to successive messages instead of all to the first.

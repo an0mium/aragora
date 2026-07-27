@@ -288,3 +288,66 @@ def test_self_critique_does_not_create_an_edge():
         )
     ]
     assert build_crux_cards(messages=messages, critiques=selfish) is None
+
+
+def test_critique_anchors_to_the_revision_it_addressed():
+    """A round-2 critique of a revision must not attribute to the round-1 text.
+
+    Revisions are recorded with role="proposer" too, so the target agent has one
+    proposer message per round. `Critique.target_content` records exactly which
+    one was critiqued.
+    """
+    messages = [
+        Message(role="proposer", agent="claude", content="round 1 proposal"),
+        Message(role="critic", agent="codex", content="objection to r1"),
+        Message(role="proposer", agent="claude", content="round 2 revision"),
+        Message(role="critic", agent="codex", content="objection to r2"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="round 1 proposal",
+            issues=["a"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r1",
+        ),
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="round 2 revision",
+            issues=["b"],
+            suggestions=[],
+            severity=6.0,
+            reasoning="r2",
+        ),
+    ]
+    network = _network_from_messages(messages, critiques)
+    targets = {network.nodes[f.target_node_id].claim_statement for f in network.factors.values()}
+    # Both rounds attributed to their own proposal, so the revision accrues an
+    # edge instead of every critique piling onto round 1.
+    assert targets == {"round 1 proposal", "round 2 revision"}
+
+
+def test_critique_without_target_content_uses_the_latest_proposal():
+    """Absent an exact match, the target's current position is the better default."""
+    messages = [
+        Message(role="proposer", agent="claude", content="round 1 proposal"),
+        Message(role="proposer", agent="claude", content="round 2 revision"),
+        Message(role="critic", agent="codex", content="objection"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="",
+            issues=["a"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r",
+        )
+    ]
+    network = _network_from_messages(messages, critiques)
+    targets = [network.nodes[f.target_node_id].claim_statement for f in network.factors.values()]
+    assert targets == ["round 2 revision"]
