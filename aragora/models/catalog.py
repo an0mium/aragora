@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 __all__ = [
@@ -38,7 +38,17 @@ __all__ = [
     "by_any_id",
     "load_snapshot",
     "snapshot_path",
+    "utc_today",
 ]
+
+
+def utc_today() -> date:
+    """Canonical 'today' for soak governance, anchored to UTC.
+
+    Soak windows are a governance boundary (must-not-adopt-before dates),
+    so they must not flip earlier or later depending on the host's local
+    timezone."""
+    return datetime.now(timezone.utc).date()
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,21 @@ class ModelSpec:
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
 
+    def is_under_soak(self, today: date | None = None) -> bool:
+        """True while the model is inside its post-release soak window
+        (before ``soak_until``; the 14-day availability rule).
+
+        Adoption surfaces — merge-authority evidence, routing candidate
+        enumeration — must not offer the model while under soak. Id
+        resolution (``by_any_id``) and cost lookup for its ids remain
+        valid throughout the window. Defaults to the UTC calendar date
+        (``utc_today``): soak is a governance boundary and must not shift
+        with the host timezone.
+        """
+        if self.soak_until is None:
+            return False
+        return (today if today is not None else utc_today()) < self.soak_until
+
 
 # Prices are USD per 1M tokens, captured from the live OpenRouter catalog on
 # 2026-07-16 (see catalog_snapshot.json for the raw capture). Direct-provider
@@ -81,6 +106,29 @@ CATALOG: dict[str, ModelSpec] = {
             release_date=date(2026, 6, 20),
         ),
         ModelSpec(
+            canonical_id="claude-opus-5",
+            provider="anthropic",
+            direct_id="claude-opus-5",
+            openrouter_id="anthropic/claude-opus-5",
+            # Same economics as Opus 4.8 ($5/$25) per the provider model page.
+            input_per_mtok=5.00,
+            output_per_mtok=25.00,
+            context_window=1_000_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 7, 24),
+            # SOAK WAIVED BY OPERATOR (2026-07-24). Opus 5 is a day-0 model and
+            # would normally carry soak_until=2026-08-07 under the 14-day
+            # availability rule, which would bar it from merge-authority
+            # evidence and routing candidate enumeration. The operator
+            # explicitly directed an immediate repo-wide bump, so it is
+            # adoptable from release. Reinstating the window is a one-line
+            # change: soak_until=date(2026, 8, 7).
+            soak_until=None,
+        ),
+        ModelSpec(
+            # Retained deliberately: still Active upstream (retires no sooner
+            # than 2027-05-28) AND it is Opus 5's documented fallback target for
+            # cyber-classifier refusals, so it must stay resolvable and priced.
             canonical_id="claude-opus-4-8",
             provider="anthropic",
             direct_id="claude-opus-4-8",
@@ -158,9 +206,11 @@ CATALOG: dict[str, ModelSpec] = {
             provider="moonshot",
             direct_id="kimi-k2.7-code",
             openrouter_id="moonshotai/kimi-k2.7-code",
-            # Prompt rate corrected 0.72 -> 0.75 per live catalog (#9073).
-            input_per_mtok=0.75,
-            output_per_mtok=3.50,
+            # Prompt rate corrected 0.72 -> 0.75 per live catalog (#9073), then
+            # 0.75/3.50 -> 0.82/3.75 by a provider reprice caught by the
+            # 2026-07-24 snapshot refresh (incidental to the Opus 5 bump).
+            input_per_mtok=0.82,
+            output_per_mtok=3.75,
             context_window=262_144,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 15),

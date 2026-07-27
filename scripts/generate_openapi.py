@@ -1115,8 +1115,14 @@ def _collect_handler_routes_supplement(
                 comparison_key, spec_path_by_key.get(comparison_key, spec_path)
             )
             for op_method in methods:
+                # The operation publishes under target_path (which may be an
+                # existing spec path whose template uses different parameter
+                # names, e.g. {param}), so its summary and declared path
+                # parameters MUST be derived from target_path — deriving them
+                # from spec_path produced operations whose parameter names
+                # didn't match their path template (invalid OpenAPI).
                 operation: dict[str, Any] = {
-                    "summary": f"{op_method.upper()} {spec_path}",
+                    "summary": f"{op_method.upper()} {target_path}",
                     "description": (
                         (doc_summary + " " if doc_summary else "")
                         + "Auto-generated from handler ROUTES; detailed contract pending."
@@ -1135,7 +1141,7 @@ def _collect_handler_routes_supplement(
                     "x-method-inferred": method_inferred,
                     "x-aragora-stability": "experimental",
                 }
-                params = _extract_path_params(spec_path)
+                params = _extract_path_params(target_path)
                 if params:
                     operation["parameters"] = params
                 if op_method in ("post", "put", "patch"):

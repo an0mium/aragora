@@ -71,6 +71,10 @@ def test_measure_records_named_single_miss_and_emits_collect_outcome(
     assert "golden_comment_id=2743651586" in fixture["items"][0]["body"]
     assert "live reviewer output collection canonical sha256:" in fixture["action_reason"]
     assert result["adjudication_scope"].startswith("manual golden_comment_id mappings only")
+    assert result["family_aliases"] == {"grok": "xai"}
+    assert result["quorum_families"] == ["mistral", "xai"]
+    assert case["models"][0]["provider"] == "grok"
+    assert case["models"][0]["family"] == "xai"
 
 
 def test_manifest_rejects_moving_validation_url() -> None:
@@ -174,3 +178,80 @@ def test_measure_uses_live_text_instead_of_rewritten_adjudication(
     assert result["cases"][0]["models"][0]["finding_set"][0]["body"].startswith(
         "In organization_auditlogs.py"
     )
+
+
+def _main_measure_args(*, output: Path, outcome_dir: Path) -> list[str]:
+    return [
+        "measure",
+        "--manifest",
+        str(ARTIFACT_DIR / "factory_review_benchmark_manifest.json"),
+        "--evidence",
+        str(ARTIFACT_DIR / "factory_review_quorum_vs_single_evidence.json"),
+        "--live-collection",
+        str(ARTIFACT_DIR / "factory_review_quorum_vs_single_live_collection.json"),
+        "--outcome-dir",
+        str(outcome_dir),
+        "--output",
+        str(output),
+    ]
+
+
+def _configure_fake_repo(tmp_path: Path, monkeypatch: object) -> Path:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(measure_script, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(measure_script, "DEFAULT_MANIFEST", repo_root / "manifest.json")
+    monkeypatch.setattr(measure_script, "DEFAULT_LIVE_COLLECTION", repo_root / "live.json")
+    return repo_root
+
+
+def test_external_output_requires_explicit_opt_in(tmp_path: Path, monkeypatch: object) -> None:
+    _configure_fake_repo(tmp_path, monkeypatch)
+    external_dir = tmp_path / "external"
+    output = external_dir / "results.json"
+
+    assert measure_script.main(_main_measure_args(output=output, outcome_dir=external_dir)) == 2
+    assert not output.exists()
+
+
+def test_external_output_succeeds_with_explicit_opt_in(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    _configure_fake_repo(tmp_path, monkeypatch)
+    external_dir = tmp_path / "external"
+    output = external_dir / "results.json"
+    args = _main_measure_args(output=output, outcome_dir=external_dir)
+
+    assert measure_script.main([*args, "--allow-external-output"]) == 0
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert result["cases"][0]["collect_outcome_fixture"] == str(
+        (external_dir / "droid-sentry-pr-6.collect-outcome.json").resolve()
+    )
+    assert result["quorum_families"] == ["mistral", "xai"]
+
+
+def test_default_in_tree_output_behavior_is_unchanged(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    repo_root = _configure_fake_repo(tmp_path, monkeypatch)
+    outcome_dir = repo_root / "fixtures"
+    output = repo_root / "results.json"
+
+    assert measure_script.main(_main_measure_args(output=output, outcome_dir=outcome_dir)) == 0
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert result["cases"][0]["collect_outcome_fixture"] == (
+        "fixtures/droid-sentry-pr-6.collect-outcome.json"
+    )
+
+
+def test_missing_input_still_fails_closed(tmp_path: Path, monkeypatch: object) -> None:
+    repo_root = _configure_fake_repo(tmp_path, monkeypatch)
+    output = repo_root / "results.json"
+    args = _main_measure_args(output=output, outcome_dir=repo_root / "fixtures")
+    missing_manifest_index = args.index("--manifest") + 1
+    args[missing_manifest_index] = str(tmp_path / "missing-manifest.json")
+
+    assert measure_script.main(args) == 2
+    assert not output.exists()

@@ -51,7 +51,15 @@ These principles fit the repo's existing pillars rather than adding new ones. Re
 
 ## Model family eligibility by Tier and jurisdiction
 
-The model-quorum gate counts signals from a known set of model families. As the routing layer (`aragora/agents/api_agents/`) grows to include heterogeneous Chinese open-weight families (DeepSeek, Qwen, Kimi, GLM, MiniMax, Yi) alongside the Western families (Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes), the gate must distinguish *which families count for which Tier* and *which payloads may be routed to which jurisdictions*. Without this distinction, expanding the recognizer would silently weaken Tier 3+ review (calibration concerns) and could leak PII across jurisdictional boundaries.
+The model-quorum gate counts signals from a known set of model families. The classification is explicit and **total** — every recognized family belongs to exactly one of three classes (pinned by governance tests against `aragora/swarm/quorum_evidence.py`):
+
+- **Western families** (Anthropic, OpenAI, xAI, Mistral, Nous Hermes) — count at Tier 0-2, and satisfy the Tier 2 "at least one Western family" requirement. At Tier 3-4 only the *frontier-grade* Western subset counts toward the two-signal bar — `TIER_3_4_COUNTED_FAMILIES` = Anthropic (claude), OpenAI, xAI (grok). Mistral and Nous Hermes stay Western and still post and still block on `[P0]`/`[P1]`, but do not count toward a Tier 3-4 quorum (operator decision 2026-07-11).
+- **Chinese-routed families** (DeepSeek, Qwen, Kimi, GLM, MiniMax, Yi) — count at Tier 0-2 (Tier 2 additionally requires at least one Western family alongside); advisory-only at Tier 3-4.
+- **Advisory-only families** (currently Google/gemini) — never count for **or against** any tier's quorum: a PASS never counts toward a quorum and a CHANGES-REQUESTED never creates blocking dissent, at any tier. Their reviews still post, parse, and lint as evidence comments and remain readable on the PR.
+
+The gate must distinguish *which families count for which Tier* and *which payloads may be routed to which jurisdictions*. Without this distinction, expanding the recognizer would silently weaken Tier 3+ review (calibration concerns) and could leak PII across jurisdictional boundaries.
+
+Google (gemini) was demoted to advisory-only by the 2026-07-16 founder roster directive after a repeat fabricated-claim pattern in merge-quorum reviews (evidence: [`docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md`](governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md), whose mandate is "gemini dissent is NOT to be counted anywhere"). Reinstatement requires a founder Tier-4 settlement reversing that record.
 
 ### Tier-eligibility for quorum counting
 
@@ -60,10 +68,25 @@ The model-quorum gate counts signals from a known set of model families. As the 
 | 0 — docs, status, tests-only | ✓ | ✓ |
 | 1 — additive internal, no live caller | ✓ | ✓ |
 | 2 — live automation, CLI, observability, retry, cache | ✓ | ✓; **at least one of the two required signals must be a Western family** |
-| 3 — semantic correctness, persistence, security, public API, migrations | ✓ | **Advisory-only — not counted toward quorum**; may still post evidence comments |
-| 4 — secrets, deployment, workflow policy, destructive ops, merge-authority self-mod | ✓ — **Western-only counted quorum required** | **Advisory-only — not counted** |
+| 3 — semantic correctness, persistence, security, public API, migrations | **Frontier-grade subset only** (claude, openai, grok); Mistral/Hermes advisory-only | **Advisory-only — not counted toward quorum**; may still post evidence comments |
+| 4 — secrets, deployment, workflow policy, destructive ops, merge-authority self-mod | **Frontier-grade subset only** (claude, openai, grok) — **Western-only counted quorum required** | **Advisory-only — not counted** |
+
+Advisory-only families (currently gemini) count at **no** tier in this table, for or against: their signals are excluded from supportive quorum counting and from blocking-dissent computation at every row.
 
 Rationale: mixed quorums realize the cost advantage of open-weight Chinese families on routine Tier 0-2 work; Western-only counted quorums for Tier 3+ preserve the calibration-trained-on-Western-OSS prior that high-stakes governance and security review depend on. At Tier 4, the requirement is strictly Western-only (not just "at least one Western signal") because merge-authority self-modifications are the highest-stakes class of change in this repo and the entire counted quorum must originate from training-data lineages with documented Western alignment work. Chinese reviewers are never silenced at any Tier — their comments still post and remain readable — but they do not satisfy the quorum-count condition for Tier 3-4 merges.
+
+### Transport grounding (orthogonal to family eligibility)
+
+Family eligibility answers *who* reviewed. Grounding answers *how they were reached*, and a family eligible at a tier still carries no authority when it was reached over a transport that cannot check anything.
+
+- **Grounded transports** run as an agent inside the checkout: the Claude CLI, Codex CLI, Grok Build, Antigravity. They can read files and reach the network, so they can verify a claim before asserting it.
+- **Ungrounded transports** are single-shot API calls with no tools: VibeProxy, the family APIs, OpenRouter. They receive the prompt text and nothing else.
+
+An ungrounded review from a family listed in `GROUNDED_TRANSPORT_FAMILIES` (claude, openai, grok, gemini) **never counts toward a quorum and never creates blocking dissent** — the same both-directions treatment advisory-only families get. It still parses and lints as an evidence comment and is retained in the prepared artifact as advisory evidence. Note it is not *auto-posted*: the posting loops skip every non-supportive item, which predates this rule and applies equally to advisory-only families and to dissents; an operator posting a prepared packet by hand still surfaces it on the PR. Families with no CLI harness at all (Mistral, Hermes, and the Chinese-routed set) are exempt: demoting their only transport would remove them from the reviewer pool entirely and strand Tier 0-2 quorums that legitimately count them today. Reviewers are also now attempted CLI-first, so a countable signal is a grounded one whenever the subscription CLI is healthy.
+
+Rationale — the evidence is [PR #9505](https://github.com/synaptent/aragora/pull/9505) (2026-07-24). Three ungrounded reviews blocked a four-file container change with findings that were all false: that `node:24.18-alpine` did not exist (it did — pulled, digest `sha256:a0b9bf06`, the built container reported `v24.18.0`), that Node 24 was not an LTS line (it has been Active LTS since October 2025), and that `npm`'s `--only` flag was removed in npm 9 (it still omits devDependencies under npm 11). Both grounded CLI reviewers passed the same head. The failure is structural rather than model-specific: the reviewer prompt shows only the diff and a bounded set of changed files, while the severity contract requires that any `[P1]`/`[P2]` block the merge — so a reviewer that cannot look anything up is pushed toward asserting a confident guess about the surrounding repository. A companion prompt clause now instructs reviewers not to assert facts about files they were not shown and to tag unverifiable concerns `[P3]`.
+
+This demotion follows the same governance rule as any other: adding a family to, or removing one from, `GROUNDED_TRANSPORT_FAMILIES` — or otherwise loosening the grounding requirement in CI — is a Tier 4 change under *Family-additive change governance* below.
 
 ### Payload-jurisdiction routing rule
 
@@ -80,13 +103,17 @@ Independent of Tier, the *content being sent to the reviewer* determines which j
 | Private legal material (contracts, settlements, NDAs) | ✓ subject to data-residency policy | **✗ never** |
 | Healthcare or regulated data | Vertical-specific allowlist only | **✗ never** |
 
+Advisory-only families are mapped explicitly for payload purposes by their provider's jurisdiction, not by their counting class: gemini (Google, US) takes the **Western families** column above. The advisory-only demotion removes counting authority only — it does not change what gemini may receive.
+
 The payload boundary is hard, not a soft preference. It is enforced at the routing layer (`aragora/agents/api_agents/openrouter.py` and any future provider router), not at the quorum-counting layer. A reviewer that should not see a payload must never receive the payload, regardless of whether it would be counted.
 
 ### Family-additive change governance
 
 A change that adds a new family marker to the recognizer in `aragora/cli/commands/review_queue.py::_infer_model_reviewer_from_text`, or changes which family counts at which Tier, is a Tier 4 merge-authority self-modification per the Tier table above. It requires human preapproval before implementation and before merge. The pre-approval artifact for such a change is a design document in `docs/specs/` that enumerates the families being added, their proposed Tier eligibility, their proposed jurisdictional payload constraints, and governance tests in `tests/governance/` that characterize the current gate behavior and pin the gap to be inverted by the implementation.
 
-Removing a family marker, demoting a family to advisory-only, or restricting a family's payload eligibility is Tier 4 by the same rule. Loosening any of these constraints in CI (e.g., counting an advisory family at Tier 3) requires the same preapproval discipline as the original addition.
+Removing a family marker, demoting a family to advisory-only, or restricting a family's payload eligibility is Tier 4 by the same rule. Loosening any of these constraints in CI (e.g., counting an advisory family at Tier 3) requires the same preapproval discipline as the original addition. The gemini demotion above is such a Tier-4 change; its pre-approval trail is documented in the committed reliability record ([`docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md`](governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md)).
+
+Reviewer model pins for the OpenRouter-routed lanes (e.g., the kimi lane's `moonshotai/kimi-k2.7-code`) live in `aragora/swarm/quorum_evidence.py::_OPENROUTER_REVIEWER_MODELS` and can be overridden per-run via the `ARAGORA_OPENROUTER_REVIEWER_MODELS` environment variable (a JSON family→slug map); a bad slug degrades to a non-ok `ReviewerResult` rather than blocking the gate. Per the Tier table above, these Chinese-routed families fully count toward Tier 0-2 quorums (subject to the Tier-2 at-least-one-Western condition) and are advisory-only at Tier 3-4 — a model-pin change alone does not alter any family's counting authority. A reviewer pin must name a model that exists in the catalog (`aragora/models/catalog.py`); that requirement is asserted by the governance tests.
 
 ## Why fresh context per round is load-bearing (the gate as a task loop)
 

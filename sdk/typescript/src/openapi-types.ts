@@ -6074,7 +6074,12 @@ export interface paths {
         delete: operations["deleteDebatesByid"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update debate metadata
+         * @deprecated
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
+         */
+        patch: operations["patchDebatesByid"];
         trace?: never;
     };
     "/api/debates/{id}/broadcast": {
@@ -30029,7 +30034,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List batch requests
+         * @description List submitted debate batches, optionally filtered by status.
+         */
+        get: operations["listDebateBatchesV1"];
         put?: never;
         /**
          * Submit batch debates
@@ -31129,9 +31138,9 @@ export interface paths {
         head?: never;
         /**
          * Update debate metadata
-         * @description Update debate title, tags, status, or custom metadata. Requires write permission.
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
          */
-        patch: operations["_patch_debate"];
+        patch: operations["patchDebateV1"];
         trace?: never;
     };
     "/api/v1/debates/{id}/archive": {
@@ -41143,7 +41152,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundAnalyticsQualitySnapshot"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/analytics/quality/snapshot
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundAnalyticsQualitySnapshot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41223,7 +41236,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundAnalyticsUsageRecord"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/analytics/usage/record
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundAnalyticsUsageRecord"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41243,7 +41260,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundConfidenceDecay"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/confidence/decay
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundConfidenceDecay"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41263,7 +41284,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundConfidenceEvent"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/confidence/event
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundConfidenceEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41343,7 +41368,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundContradictionsDetect"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/contradictions/detect
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundContradictionsDetect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41383,7 +41412,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundContradictionsByparamResolve"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/contradictions/{param}/resolve
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundContradictionsByparamResolve"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41423,7 +41456,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundCultureDocuments"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/culture/documents
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundCultureDocuments"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41443,7 +41480,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundCulturePromote"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/culture/promote
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundCulturePromote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41502,8 +41543,16 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         get: operations["listKnowledgeMoundCurationPolicy"];
-        put?: never;
-        post?: never;
+        /**
+         * PUT /api/v1/knowledge/mound/curation/policy
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        put: operations["updateKnowledgeMoundCurationPolicy"];
+        /**
+         * POST /api/v1/knowledge/mound/curation/policy
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundCurationPolicy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41523,7 +41572,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundCurationRun"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/curation/run
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundCurationRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41683,7 +41736,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundDashboardMetricsReset"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/dashboard/metrics/reset
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundDashboardMetricsReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41723,7 +41780,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundDedupAutoMerge"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/dedup/auto-merge
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundDedupAutoMerge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41763,7 +41824,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundDedupMerge"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/dedup/merge
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundDedupMerge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41843,7 +41908,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundExtractionDebate"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/extraction/debate
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundExtractionDebate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41863,7 +41932,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundExtractionPromote"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/extraction/promote
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundExtractionPromote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41903,7 +41976,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundFederationRegions"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/federation/regions
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundFederationRegions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41917,14 +41994,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * GET /api/v1/knowledge/mound/federation/regions/{region_id}
-         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
-         */
-        get: operations["getKnowledgeMoundFederationRegionsByregionid"];
+        get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * DELETE /api/v1/knowledge/mound/federation/regions/{region_id}
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteKnowledgeMoundFederationRegionsByregionid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -41963,7 +42040,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundFederationSyncAll"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/federation/sync/all
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundFederationSyncAll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41983,7 +42064,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundFederationSyncPull"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/federation/sync/pull
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundFederationSyncPull"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42003,7 +42088,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundFederationSyncPush"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/federation/sync/push
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundFederationSyncPush"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42023,7 +42112,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundGlobal"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/global
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundGlobal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42063,7 +42156,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundGlobalPromote"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/global/promote
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundGlobalPromote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42197,7 +42294,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GET /api/v1/knowledge/mound/governance/roles
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        get: operations["listKnowledgeMoundGovernanceRoles"];
         put?: never;
         /**
          * Create role
@@ -42363,7 +42464,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundIndexRepository"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/index/repository
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundIndexRepository"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42403,7 +42508,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundNodes"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/nodes
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundNodes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42443,8 +42552,16 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundNodesByparamAccess"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/knowledge/mound/nodes/{param}/access
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundNodesByparamAccess"];
+        /**
+         * DELETE /api/v1/knowledge/mound/nodes/{param}/access
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteKnowledgeMoundNodesByparamAccess"];
         options?: never;
         head?: never;
         patch?: never;
@@ -42482,7 +42599,11 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         get: operations["listKnowledgeMoundNodesByparamVisibility"];
-        put?: never;
+        /**
+         * PUT /api/v1/knowledge/mound/nodes/{param}/visibility
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        put: operations["updateKnowledgeMoundNodesByparamVisibility"];
         post?: never;
         delete?: never;
         options?: never;
@@ -42503,7 +42624,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundPruningAuto"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/pruning/auto
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundPruningAuto"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42523,7 +42648,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundPruningDecay"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/pruning/decay
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundPruningDecay"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42543,7 +42672,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundPruningExecute"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/pruning/execute
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundPruningExecute"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42603,7 +42736,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundPruningRestore"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/pruning/restore
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundPruningRestore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42623,7 +42760,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundQuery"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/query
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundQuery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42643,7 +42784,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundRelationships"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/relationships
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundRelationships"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42703,7 +42848,11 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundScheduleRevalidation"];
         put?: never;
-        post?: never;
+        /**
+         * POST /api/v1/knowledge/mound/schedule-revalidation
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundScheduleRevalidation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42723,11 +42872,23 @@ export interface paths {
          */
         get: operations["listKnowledgeMoundShare"];
         put?: never;
-        post?: never;
-        delete?: never;
+        /**
+         * POST /api/v1/knowledge/mound/share
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        post: operations["createKnowledgeMoundShare"];
+        /**
+         * DELETE /api/v1/knowledge/mound/share
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        delete: operations["deleteKnowledgeMoundShare"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * PATCH /api/v1/knowledge/mound/share
+         * @description Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.
+         */
+        patch: operations["patchKnowledgeMoundShare"];
         trace?: never;
     };
     "/api/v1/knowledge/mound/shared-with-me": {
@@ -64002,7 +64163,7 @@ export interface components {
          *       "num_agents": 3,
          *       "num_rounds": 9,
          *       "model_types": [
-         *         "claude-opus-4-8",
+         *         "claude-opus-5",
          *         "gpt-4o",
          *         "gemini-pro"
          *       ]
@@ -64022,7 +64183,7 @@ export interface components {
             /**
              * @description Model types to use
              * @example [
-             *       "claude-opus-4-8",
+             *       "claude-opus-5",
              *       "gpt-4o",
              *       "gemini-pro"
              *     ]
@@ -75804,6 +75965,107 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchDebatesByid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier of the resource */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    tags?: string[];
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "concluded" | "archived";
+                    metadata?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Update result with the updated debate summary */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        updated_fields?: string[];
+                        debate?: {
+                            id?: string;
+                            title?: string;
+                            status?: string;
+                            tags?: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -122059,6 +122321,51 @@ export interface operations {
             };
         };
     };
+    listDebateBatchesV1: {
+        parameters: {
+            query?: {
+                /** @description Maximum batches to return. */
+                limit?: number;
+                /** @description Filter by batch status (pending, processing, completed, ...). */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batch list */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batches?: Record<string, never>[];
+                        count?: number;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     submitDebateBatchV1: {
         parameters: {
             query?: never;
@@ -124421,7 +124728,7 @@ export interface operations {
             };
         };
     };
-    _patch_debate: {
+    patchDebateV1: {
         parameters: {
             query?: never;
             header?: never;
@@ -124431,15 +124738,27 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    title?: string;
+                    tags?: string[];
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "concluded" | "archived";
+                    metadata?: {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
         responses: {
-            /** @description Debate updated successfully */
+            /** @description Update result with the updated debate summary */
             200: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -124456,33 +124775,57 @@ export interface operations {
                     };
                 };
             };
-            /** @description Invalid update data */
+            /** @description Bad request - Invalid input or malformed JSON */
             400: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            /** @description Permission denied */
+            /** @description Forbidden - Insufficient permissions for this operation */
             403: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            /** @description Debate not found */
+            /** @description Not found - The requested resource does not exist */
             404: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            /** @description Database error */
+            /** @description Internal server error - Unexpected error occurred */
             500: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
         };
     };
@@ -145392,6 +145735,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundAnalyticsQualitySnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundAnalyticsQualityTrend: {
         parameters: {
             query?: never;
@@ -145488,6 +145855,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundAnalyticsUsageRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundConfidenceDecay: {
         parameters: {
             query?: never;
@@ -145512,6 +145903,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundConfidenceDecay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundConfidenceEvent: {
         parameters: {
             query?: never;
@@ -145532,6 +145947,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundConfidenceEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -145632,6 +146071,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundContradictionsDetect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundContradictionsStats: {
         parameters: {
             query?: never;
@@ -145679,6 +146142,33 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundContradictionsByparamResolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -145731,6 +146221,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundCultureDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundCulturePromote: {
         parameters: {
             query?: never;
@@ -145751,6 +146265,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundCulturePromote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -145856,6 +146394,54 @@ export interface operations {
             };
         };
     };
+    updateKnowledgeMoundCurationPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    createKnowledgeMoundCurationPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundCurationRun: {
         parameters: {
             query?: never;
@@ -145876,6 +146462,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundCurationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146072,6 +146682,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundDashboardMetricsReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundDashboardQueries: {
         parameters: {
             query?: never;
@@ -146120,6 +146754,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundDedupAutoMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundDedupClusters: {
         parameters: {
             query?: never;
@@ -146164,6 +146822,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundDedupMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146264,6 +146946,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundExtractionDebate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundExtractionPromote: {
         parameters: {
             query?: never;
@@ -146284,6 +146990,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundExtractionPromote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146336,7 +147066,31 @@ export interface operations {
             };
         };
     };
-    getKnowledgeMoundFederationRegionsByregionid: {
+    createKnowledgeMoundFederationRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteKnowledgeMoundFederationRegionsByregionid: {
         parameters: {
             query?: never;
             header?: never;
@@ -146407,6 +147161,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundFederationSyncAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundFederationSyncPull: {
         parameters: {
             query?: never;
@@ -146427,6 +147205,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundFederationSyncPull: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146455,6 +147257,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundFederationSyncPush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundGlobal: {
         parameters: {
             query?: never;
@@ -146475,6 +147301,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGlobal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146523,6 +147373,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundGlobalPromote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -146780,6 +147654,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listKnowledgeMoundGovernanceRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147134,6 +148028,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundIndexRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundMyShares: {
         parameters: {
             query?: never;
@@ -147178,6 +148096,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundNodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147228,6 +148170,56 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundNodesByparamAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteKnowledgeMoundNodesByparamAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147286,6 +148278,33 @@ export interface operations {
             };
         };
     };
+    updateKnowledgeMoundNodesByparamVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundPruningAuto: {
         parameters: {
             query?: never;
@@ -147306,6 +148325,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundPruningAuto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147334,6 +148377,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundPruningDecay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundPruningExecute: {
         parameters: {
             query?: never;
@@ -147354,6 +148421,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundPruningExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147430,6 +148521,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundPruningRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundQuery: {
         parameters: {
             query?: never;
@@ -147454,6 +148569,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundRelationships: {
         parameters: {
             query?: never;
@@ -147474,6 +148613,30 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundRelationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
@@ -147592,6 +148755,30 @@ export interface operations {
             };
         };
     };
+    createKnowledgeMoundScheduleRevalidation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     listKnowledgeMoundShare: {
         parameters: {
             query?: never;
@@ -147612,6 +148799,74 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    createKnowledgeMoundShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    deleteKnowledgeMoundShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    patchKnowledgeMoundShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };

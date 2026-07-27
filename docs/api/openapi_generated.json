@@ -25932,6 +25932,298 @@
         ],
         "x-aragora-stability": "deprecated",
         "operationId": "getDebatesByid"
+      },
+      "patch": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Update debate metadata",
+        "description": "Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the resource"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "concluded",
+                      "archived"
+                    ]
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update result with the updated debate summary",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "updated_fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "debate": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-aragora-stability": "deprecated",
+        "operationId": "patchDebatesByid"
       }
     },
     "/api/debates/{id}/broadcast": {
@@ -122854,6 +123146,128 @@
       }
     },
     "/api/v1/debates/batch": {
+      "get": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "List batch requests",
+        "operationId": "listDebateBatchesV1",
+        "description": "List submitted debate batches, optionally filtered by status.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 100
+            },
+            "description": "Maximum batches to return."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by batch status (pending, processing, completed, ...)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch list",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      },
       "post": {
         "tags": [
           "Debates"
@@ -127766,12 +128180,12 @@
         "x-aragora-stability": "stable"
       },
       "patch": {
-        "summary": "Update debate metadata",
         "tags": [
           "Debates"
         ],
-        "description": "Update debate title, tags, status, or custom metadata. Requires write permission.",
-        "operationId": "_patch_debate",
+        "summary": "Update debate metadata",
+        "operationId": "patchDebateV1",
+        "description": "Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.",
         "parameters": [
           {
             "name": "id",
@@ -127784,17 +128198,57 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "concluded",
+                      "archived"
+                    ]
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Debate updated successfully",
+            "description": "Update result with the updated debate summary",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -127838,23 +128292,183 @@
             }
           },
           "400": {
-            "description": "Invalid update data"
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "403": {
-            "description": "Permission denied"
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
-            "description": "Debate not found"
+            "description": "Not found - The requested resource does not exist",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Database error"
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{id}/archive": {
@@ -170618,6 +171232,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundAnalyticsQualitySnapshot",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/analytics/quality/snapshot",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundAnalyticsQualitySnapshot"
       }
     },
     "/api/v1/knowledge/mound/analytics/quality/trend": {
@@ -170754,6 +171405,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundAnalyticsUsageRecord",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/analytics/usage/record",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundAnalyticsUsageRecord"
       }
     },
     "/api/v1/knowledge/mound/confidence/decay": {
@@ -170788,6 +171476,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundConfidenceDecay",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/confidence/decay",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundConfidenceDecay"
       }
     },
     "/api/v1/knowledge/mound/confidence/event": {
@@ -170822,6 +171547,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundConfidenceEvent",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/confidence/event",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundConfidenceEvent"
       }
     },
     "/api/v1/knowledge/mound/confidence/history": {
@@ -170958,6 +171720,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundContradictionsDetect",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/contradictions/detect",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundContradictionsDetect"
       }
     },
     "/api/v1/knowledge/mound/contradictions/stats": {
@@ -171037,6 +171836,54 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundContradictionsByparamResolve",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/contradictions/{param}/resolve",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: param"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundContradictionsByparamResolve"
       }
     },
     "/api/v1/knowledge/mound/culture": {
@@ -171105,6 +171952,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundCultureDocuments",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/culture/documents",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundCultureDocuments"
       }
     },
     "/api/v1/knowledge/mound/culture/promote": {
@@ -171139,6 +172023,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundCulturePromote",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/culture/promote",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundCulturePromote"
       }
     },
     "/api/v1/knowledge/mound/culture/{workspace_id}": {
@@ -171332,6 +172253,80 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundCurationPolicy",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/curation/policy",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundCurationPolicy"
+      },
+      "put": {
+        "summary": "PUT /api/v1/knowledge/mound/curation/policy",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "updateKnowledgeMoundCurationPolicy"
       }
     },
     "/api/v1/knowledge/mound/curation/run": {
@@ -171366,6 +172361,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundCurationRun",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/curation/run",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundCurationRun"
       }
     },
     "/api/v1/knowledge/mound/curation/scores": {
@@ -171638,6 +172670,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundDashboardMetricsReset",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/dashboard/metrics/reset",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundDashboardMetricsReset"
       }
     },
     "/api/v1/knowledge/mound/dashboard/queries": {
@@ -171706,6 +172775,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundDedupAutoMerge",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/dedup/auto-merge",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundDedupAutoMerge"
       }
     },
     "/api/v1/knowledge/mound/dedup/clusters": {
@@ -171774,6 +172880,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundDedupMerge",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/dedup/merge",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundDedupMerge"
       }
     },
     "/api/v1/knowledge/mound/dedup/report": {
@@ -171910,6 +173053,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundExtractionDebate",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/extraction/debate",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundExtractionDebate"
       }
     },
     "/api/v1/knowledge/mound/extraction/promote": {
@@ -171944,6 +173124,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundExtractionPromote",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/extraction/promote",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundExtractionPromote"
       }
     },
     "/api/v1/knowledge/mound/extraction/stats": {
@@ -172012,11 +173229,9 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundFederationRegions",
         "description": "Autogenerated placeholder (spec pending)"
-      }
-    },
-    "/api/v1/knowledge/mound/federation/regions/{region_id}": {
-      "get": {
-        "summary": "GET /api/v1/knowledge/mound/federation/regions/{region_id}",
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/federation/regions",
         "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
         "tags": [
           "KnowledgeMound"
@@ -172039,7 +173254,46 @@
           }
         ],
         "x-autogenerated": true,
-        "x-method-inferred": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundFederationRegions"
+      }
+    },
+    "/api/v1/knowledge/mound/federation/regions/{region_id}": {
+      "delete": {
+        "summary": "DELETE /api/v1/knowledge/mound/federation/regions/{region_id}",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
         "x-aragora-stability": "experimental",
         "parameters": [
           {
@@ -172052,7 +173306,7 @@
             "description": "Path parameter: region_id"
           }
         ],
-        "operationId": "getKnowledgeMoundFederationRegionsByregionid"
+        "operationId": "deleteKnowledgeMoundFederationRegionsByregionid"
       }
     },
     "/api/v1/knowledge/mound/federation/status": {
@@ -172121,6 +173375,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundFederationSyncAll",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/federation/sync/all",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundFederationSyncAll"
       }
     },
     "/api/v1/knowledge/mound/federation/sync/pull": {
@@ -172155,6 +173446,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundFederationSyncPull",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/federation/sync/pull",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundFederationSyncPull"
       }
     },
     "/api/v1/knowledge/mound/federation/sync/push": {
@@ -172189,6 +173517,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundFederationSyncPush",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/federation/sync/push",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundFederationSyncPush"
       }
     },
     "/api/v1/knowledge/mound/global": {
@@ -172223,6 +173588,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundGlobal",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/global",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundGlobal"
       }
     },
     "/api/v1/knowledge/mound/global/facts": {
@@ -172291,6 +173693,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundGlobalPromote",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/global/promote",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundGlobalPromote"
       }
     },
     "/api/v1/knowledge/mound/governance/audit": {
@@ -173023,6 +174462,34 @@
           }
         },
         "x-aragora-stability": "stable"
+      },
+      "get": {
+        "summary": "GET /api/v1/knowledge/mound/governance/roles",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "operationId": "listKnowledgeMoundGovernanceRoles"
       }
     },
     "/api/v1/knowledge/mound/governance/roles/assign": {
@@ -173486,7 +174953,7 @@
           }
         ],
         "x-autogenerated": true,
-        "x-method-inferred": true,
+        "x-method-inferred": false,
         "x-aragora-stability": "experimental",
         "parameters": [
           {
@@ -173624,6 +175091,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundIndexRepository",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/index/repository",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundIndexRepository"
       }
     },
     "/api/v1/knowledge/mound/my-shares": {
@@ -173692,6 +175196,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundNodes",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/nodes",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundNodes"
       }
     },
     "/api/v1/knowledge/mound/nodes/{node_id}": {
@@ -173719,7 +175260,7 @@
           }
         ],
         "x-autogenerated": true,
-        "x-method-inferred": true,
+        "x-method-inferred": false,
         "x-aragora-stability": "experimental",
         "parameters": [
           {
@@ -173778,6 +175319,93 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundNodesByparamAccess",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/knowledge/mound/nodes/{param}/access",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: param"
+          }
+        ],
+        "operationId": "deleteKnowledgeMoundNodesByparamAccess"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/nodes/{param}/access",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: param"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundNodesByparamAccess"
       }
     },
     "/api/v1/knowledge/mound/nodes/{param}/relationships": {
@@ -173868,6 +175496,54 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundNodesByparamVisibility",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "put": {
+        "summary": "PUT /api/v1/knowledge/mound/nodes/{param}/visibility",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: param"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "updateKnowledgeMoundNodesByparamVisibility"
       }
     },
     "/api/v1/knowledge/mound/pruning/auto": {
@@ -173902,6 +175578,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundPruningAuto",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/pruning/auto",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundPruningAuto"
       }
     },
     "/api/v1/knowledge/mound/pruning/decay": {
@@ -173936,6 +175649,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundPruningDecay",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/pruning/decay",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundPruningDecay"
       }
     },
     "/api/v1/knowledge/mound/pruning/execute": {
@@ -173970,6 +175720,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundPruningExecute",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/pruning/execute",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundPruningExecute"
       }
     },
     "/api/v1/knowledge/mound/pruning/history": {
@@ -174072,6 +175859,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundPruningRestore",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/pruning/restore",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundPruningRestore"
       }
     },
     "/api/v1/knowledge/mound/query": {
@@ -174106,6 +175930,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundQuery",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/query",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundQuery"
       }
     },
     "/api/v1/knowledge/mound/relationships": {
@@ -174140,6 +176001,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundRelationships",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/relationships",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundRelationships"
       }
     },
     "/api/v1/knowledge/mound/revalidate": {
@@ -174386,6 +176284,43 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundScheduleRevalidation",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/schedule-revalidation",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundScheduleRevalidation"
       }
     },
     "/api/v1/knowledge/mound/share": {
@@ -174420,6 +176355,108 @@
         "x-aragora-stability": "experimental",
         "operationId": "listKnowledgeMoundShare",
         "description": "Autogenerated placeholder (spec pending)"
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/knowledge/mound/share",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "operationId": "deleteKnowledgeMoundShare"
+      },
+      "patch": {
+        "summary": "PATCH /api/v1/knowledge/mound/share",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "patchKnowledgeMoundShare"
+      },
+      "post": {
+        "summary": "POST /api/v1/knowledge/mound/share",
+        "description": "Handler for Knowledge Mound API endpoints (unified knowledge storage). Auto-generated from handler ROUTES; detailed contract pending.",
+        "tags": [
+          "KnowledgeMound"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "createKnowledgeMoundShare"
       }
     },
     "/api/v1/knowledge/mound/shared-with-me": {
@@ -209712,7 +211749,7 @@
                     "providers": {
                       "anthropic": {
                         "available": true,
-                        "model": "claude-opus-4-8"
+                        "model": "claude-opus-5"
                       },
                       "openai": {
                         "available": true,
@@ -263537,7 +265574,7 @@
               "type": "string"
             },
             "example": [
-              "claude-opus-4-8",
+              "claude-opus-5",
               "gpt-4o",
               "gemini-pro"
             ]
@@ -263547,7 +265584,7 @@
           "num_agents": 3,
           "num_rounds": 9,
           "model_types": [
-            "claude-opus-4-8",
+            "claude-opus-5",
             "gpt-4o",
             "gemini-pro"
           ]

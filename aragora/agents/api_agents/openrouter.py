@@ -34,6 +34,7 @@ from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import ExternalServiceError
+from aragora.models.compat import strip_sampling_params
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_fallback_chain_depth,
@@ -75,13 +76,13 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-chat-v3.1": "openai/gpt-5.5",
     "deepseek/deepseek-r1": "openai/gpt-5.5",
     "deepseek/deepseek-reasoner": "openai/gpt-5.5",
-    # Kimi -> Claude Opus 4.8
-    "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-4.8",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
-    "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.8",
-    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.8",
-    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.8",
-    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.8",
+    # Kimi -> Claude Opus 5
+    "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-5",
+    "moonshotai/kimi-k2.6": "anthropic/claude-opus-5",
+    "moonshotai/kimi-k2.5": "anthropic/claude-opus-5",
+    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-5",
+    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-5",
+    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-5",
     # Mistral -> GPT-5.5
     "mistralai/mistral-large-2411": "openai/gpt-5.5",
     "mistralai/mistral-large-2512": "openai/gpt-5.5",
@@ -117,7 +118,7 @@ class OpenRouterAgent(APIAgent):
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k2.7-code (Kimi K2.7 Code)
     - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
-    - anthropic/claude-opus-4.8
+    - anthropic/claude-opus-5
     - openai/gpt-5.5
     """
 
@@ -260,6 +261,12 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
+        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
+        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
+        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
+        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
+        # self.model would still name the primary. No-ops for non-Claude models.
+        strip_sampling_params(payload, payload["model"])
 
         # Acquire rate limit token
         limiter = get_openrouter_limiter()
@@ -440,6 +447,12 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
+        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
+        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
+        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
+        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
+        # self.model would still name the primary. No-ops for non-Claude models.
+        strip_sampling_params(payload, payload["model"])
 
         estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
             full_prompt,
@@ -877,13 +890,13 @@ class KimiLegacyAgent(APIAgent):
         api_key: str | None = None,
     ):
         super().__init__(name=name, model=model, role=role)
-        self.system_prompt = system_prompt
-        self.api_key = api_key or get_api_key("KIMI_API_KEY")
+        self.system_prompt = system_prompt or ""
+        resolved_api_key = api_key or get_api_key("KIMI_API_KEY")
+        if not resolved_api_key:
+            raise ValueError("KIMI_API_KEY environment variable not set")
+        self.api_key = resolved_api_key
         self.base_url = "https://api.moonshot.cn/v1"
         self.agent_type = "kimi"
-
-        if not self.api_key:
-            raise ValueError("KIMI_API_KEY environment variable not set")
 
     async def generate(self, prompt: str, context: list | None = None) -> str:
         """Generate response using Moonshot API."""

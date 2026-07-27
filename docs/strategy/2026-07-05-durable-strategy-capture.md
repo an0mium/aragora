@@ -126,6 +126,9 @@ decision afterlife.
 
 ## Operator Question Guide
 
+For a reusable live-session version with artifact and stop contracts, see
+[Operator Guide: Questions That Produce Action](OPERATOR_ACTION_PROMPTS.md).
+
 Use these prompts when the goal is investigation plus action:
 
 - **Outsider falsification:** "Take our strongest public claim, test it from a

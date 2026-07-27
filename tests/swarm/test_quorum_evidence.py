@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import multiprocessing
 import os
@@ -369,25 +370,231 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
+def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In prefer mode the grounded CLI wins even when the proxy also succeeds.
+
+    The proxy has no tools, so its review can never count toward quorum. Letting a
+    successful proxy attempt short-circuit the CLI would leave the Claude family with
+    an advisory-only review and no countable signal at all.
+    """
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "Verdict: PASS", True),
+    )
+    # In prefer mode the proxy performs a FULL generation, so a successful CLI must not
+    # cost one (claude #9641 round-3 [P2]): the proxy is not to be touched at all here.
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: pytest.fail(
+            "proxy must not be attempted when the grounded CLI succeeds"
+        ),
+    )
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+    assert result.grounded is True
+
+
+def test_claude_reviewer_falls_back_to_vibeproxy_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed CLI still yields a proxy review, but marked ungrounded (advisory)."""
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "", False, "cli unavailable"),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "claude",
+        "Verdict: PASS",
+        True,
+        harness="local VibeProxy Anthropic Messages transport",
+        grounded=False,
+    )
+
+
+def test_claude_reviewer_prefer_failure_uses_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=False,
+            text="",
+            error="proxy unavailable",
+            harness="",
+            timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
+        ),
+    )
+    direct_timeouts: list[float] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout: direct_timeouts.append(timeout)
+        or ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
+
+
+def test_claude_reviewer_required_failure_never_runs_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "proxy required but unavailable",
+        allow_transport_fallback=False,
+    )
+
+
+def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_openrouter_reviewer",
+        lambda *_args, **_kwargs: pytest.fail(
+            "required VibeProxy mode must suppress OpenRouter fallback"
+        ),
+    )
+
+    result = qe.default_reviewer_runner("claude", "prompt")
+
+    assert result.allow_transport_fallback is False
+    assert result.error == "proxy required but unavailable"
+
+
 # --- OpenAI reviewer fallback ----------------------------------------------
 
 
-def test_run_openai_reviewer_uses_api_when_openai_key_present(
+def test_run_openai_reviewer_prefers_codex_cli_even_with_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An ``OPENAI_API_KEY`` must not silently route OpenAI through the ungrounded API.
+
+    Codex CLI runs as an agent in the checkout and can verify claims; the direct API
+    cannot. Before this ordering, any machine with the key set produced ungrounded
+    OpenAI evidence without that being visible anywhere.
+    """
     calls: list[tuple[str, str]] = []
 
     def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
         calls.append((family, prompt))
-        return ReviewerResult(family, "Verdict: PASS from API", True)
+        return ReviewerResult(family, "Verdict: PASS from API", True, grounded=False)
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "Verdict: PASS from CLI", True),
+    )
 
     result = qe._run_openai_reviewer("review prompt")
 
-    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
-    assert calls == [("openai", "review prompt")]
+    assert result == ReviewerResult("openai", "Verdict: PASS from CLI", True)
+    assert result.grounded is True
+    assert calls == []
+
+
+def test_run_openai_reviewer_falls_back_to_api_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wedged Codex CLI still yields API evidence, marked ungrounded (advisory)."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "", False, "codex cli unavailable"),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda family, prompt: ReviewerResult(
+            family, "Verdict: PASS from API", True, grounded=False
+        ),
+    )
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True, grounded=False)
 
 
 def test_run_openai_reviewer_without_api_key_uses_codex_cli(
@@ -470,7 +677,7 @@ def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
                 cmd,
                 1,
                 stdout="",
-                stderr=f"model {model} is not supported",
+                stderr=("session header metadata\n" * 30) + f"model {model} is not supported",
             )
         output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -559,6 +766,166 @@ def test_run_openai_reviewer_codex_failure_never_fabricates(
     assert result.harness == ""
 
 
+def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt = "review prompt with private diff content"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "OpenAI Codex v0.144.1\n"
+        + ("session header metadata\n" * 30)
+        + f"user\n{escaped_prompt}\n"
+        + "ERROR: You've hit your usage limit. Try again at 4:50 PM."
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=stderr)
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5.5")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer(prompt)
+
+    assert result.ok is False
+    assert "usage limit" in result.error
+    assert "4:50 PM" in result.error
+    assert prompt not in result.error
+    assert escaped_prompt not in result.error
+    assert "[CLI diagnostic truncated]" in result.error
+
+
+def test_argv_cli_reviewer_preserves_error_tail_without_prompt(monkeypatch) -> None:
+    prompt = "sensitive argv review prompt"
+    stderr = ("provider header\n" * 30) + prompt + "\nERROR: authentication expired"
+
+    monkeypatch.setattr(
+        qe.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, stdout="", stderr=stderr),
+    )
+
+    result = qe._run_argv_cli_reviewer(
+        "grok",
+        ["grok", "--sandbox", "read-only", "-p", prompt],
+        "test harness",
+        prompt=prompt,
+    )
+
+    assert result.ok is False
+    assert "authentication expired" in result.error
+    assert prompt not in result.error
+    assert "[review prompt redacted]" in result.error
+
+
+def test_argv_cli_reviewer_rejects_empty_command() -> None:
+    result = qe._run_argv_cli_reviewer("grok", [], "test harness", prompt="sensitive")
+
+    assert result.ok is False
+    assert result.error == "grok CLI command is empty"
+
+
+def test_cli_failure_detail_preserves_traceback_after_escaped_prompt() -> None:
+    prompt = "review prompt with sensitive diff"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "provider header\n"
+        f"user\n{escaped_prompt}\n"
+        "Traceback (most recent call last):\n"
+        '  File "reviewer.py", line 1, in <module>\n'
+        "ConnectionError: provider unavailable"
+    )
+
+    detail = qe._bounded_cli_failure_detail(stderr, redact=prompt)
+
+    assert escaped_prompt not in detail
+    assert "Traceback (most recent call last)" in detail
+    assert "ConnectionError: provider unavailable" in detail
+
+
+def test_cli_failure_detail_marks_unrecognized_suppressed_payload() -> None:
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nescaped prompt fragment\nprovider stopped",
+        redact="original prompt",
+    )
+
+    assert "escaped prompt fragment" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "OAuth authentication failed",
+        "HTTP 401 Unauthorized",
+        "Connection reset by peer",
+        "SSL handshake failed",
+        "three errors occurred",
+    ],
+)
+def test_cli_failure_detail_recognizes_nonprefixed_diagnostics(diagnostic: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{diagnostic}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert diagnostic in detail
+
+
+def test_cli_failure_detail_does_not_resume_on_prompt_fragment_with_error_word() -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nprivate authentication error handling\nprovider stopped",
+        redact=prompt,
+    )
+
+    assert "private authentication error handling" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "wall",
+    [
+        "Not logged in - Please run /login",
+        "purchase more credits",
+        "credit balance is too low",
+    ],
+)
+def test_cli_failure_detail_preserves_credential_wall_after_role_marker(wall: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{wall}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert wall in detail
+    assert qe._is_credential_wall(detail) is True
+
+
+@pytest.mark.parametrize(
+    "prompt_output",
+    [
+        "review the private authentication error han",
+        "review the private authentication\nerror handling in this diff",
+    ],
+)
+def test_cli_failure_detail_redacts_prompt_fragments_outside_role_marker(
+    prompt_output: str,
+) -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\n{prompt_output}\nERROR: provider failed",
+        redact=prompt,
+    )
+
+    for fragment in prompt_output.splitlines():
+        assert fragment not in detail
+    assert "ERROR: provider failed" in detail
+
+
 @pytest.mark.parametrize(
     ("exc", "expected_error"),
     [
@@ -626,7 +993,9 @@ def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.Mon
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == [
         "create:grok:grok_reviewer:critic",
         "generate:review prompt",
@@ -836,7 +1205,9 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -864,7 +1235,9 @@ def test_run_api_agent_closes_shared_connector_without_agent_close(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "connector_close"]
 
 
@@ -893,7 +1266,9 @@ def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -925,7 +1300,9 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -958,8 +1335,8 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
     first = qe._run_api_agent_in_current_process("grok", "one")
     second = qe._run_api_agent_in_current_process("grok", "two")
 
-    assert first == ReviewerResult("grok", "Verdict: PASS one", True)
-    assert second == ReviewerResult("grok", "Verdict: PASS two", True)
+    assert first == ReviewerResult("grok", "Verdict: PASS one", True, grounded=False)
+    assert second == ReviewerResult("grok", "Verdict: PASS two", True, grounded=False)
     assert events == [
         "create:grok",
         "generate:one",
@@ -970,6 +1347,123 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
         "agent_close",
         "connector_close",
     ]
+
+
+# --- transport-grounding contract -------------------------------------------
+
+
+def _grounding_item(family: str, verdict: str, *, grounded: bool) -> qe.EvidenceItem:
+    body = (
+        "Verdict: PASS\nNo findings.\n"
+        if verdict == "pass"
+        else "Verdict: CHANGES-REQUESTED\n- [P2] something\n"
+    )
+    return qe.EvidenceItem(
+        family=family, body=body, would_count=True, verdict=verdict, grounded=grounded
+    )
+
+
+def test_ungrounded_review_never_counts_when_family_has_a_cli() -> None:
+    item = _grounding_item("claude", "pass", grounded=False)
+    assert item.would_count is False
+    assert item.supportive is False
+    assert any("ungrounded transport" in p for p in item.problems)
+
+
+def test_grounded_review_still_counts() -> None:
+    assert _grounding_item("claude", "pass", grounded=True).would_count is True
+
+
+def test_ungrounded_dissent_never_blocks() -> None:
+    # The live case this fixes: three ungrounded CHANGES-REQUESTED reviews on #9505
+    # asserted facts about a registry tag and unlisted files they were never shown.
+    assert _grounding_item("claude", "changes_requested", grounded=False).dissenting is False
+    assert _grounding_item("grok", "changes_requested", grounded=False).dissenting is False
+
+
+def test_grounded_dissent_still_blocks() -> None:
+    assert _grounding_item("claude", "changes_requested", grounded=True).dissenting is True
+
+
+def test_api_only_family_keeps_authority_without_a_cli_transport() -> None:
+    # mistral has no CLI harness, so demoting its only transport would delete it from
+    # the reviewer pool and strand Tier 0-2 quorums that legitimately count it today.
+    assert "mistral" not in qe.GROUNDED_TRANSPORT_FAMILIES
+    assert _grounding_item("mistral", "pass", grounded=False).would_count is True
+
+
+def test_openrouter_fallback_review_is_ungrounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The OpenRouter re-wrap must not restore grounded authority.
+
+    Regression for claude/openai #9641: this is the credential-walled fallback path,
+    i.e. precisely where ungrounded reviews get produced, so a grounded default here
+    reopened the hole the grounding contract closes.
+    """
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    monkeypatch.setattr(qe, "_openrouter_reviewer_model", lambda _fam: "some/model")
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda fam, prompt, model=None: ReviewerResult(fam, "Verdict: PASS", True, grounded=False),
+    )
+
+    result = qe._run_openrouter_reviewer("claude", "review prompt")
+
+    assert result.ok is True
+    assert result.grounded is False
+
+
+def test_stringly_grounded_false_cannot_truthify() -> None:
+    """`bool("false")` is True — a forged artifact must not smuggle authority back in."""
+    assert qe._coerce_grounded_flag("false") is False
+    assert qe._coerce_grounded_flag("0") is False
+    assert qe._coerce_grounded_flag(0) is False
+    assert qe._coerce_grounded_flag("true") is True
+    assert qe._coerce_grounded_flag(True) is True
+    # Absent means "artifact predates the field", which keeps historical authority.
+    assert qe._coerce_grounded_flag(qe._GROUNDED_MISSING) is True
+    # An EXPLICIT null is present-but-not-true, so it must not masquerade as legacy
+    # (openai #9641 round-2 [P2]): dict.get collapses both to None without the sentinel.
+    assert qe._coerce_grounded_flag(None) is False
+    assert (
+        qe._evidence_item_from_dict(
+            {
+                "family": "claude",
+                "body": "Verdict: PASS\nNo findings.\n",
+                "would_count": True,
+                "verdict": "pass",
+                "grounded": None,
+            }
+        ).would_count
+        is False
+    )
+
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": "Verdict: PASS\nNo findings.\n",
+            "would_count": True,
+            "verdict": "pass",
+            "grounded": "false",
+        }
+    )
+    assert item.grounded is False
+    assert item.would_count is False
+
+
+def test_grounding_survives_prepared_artifact_roundtrip() -> None:
+    """A prepared artifact must not be able to smuggle an ungrounded review into counting."""
+    raw = {
+        "family": "claude",
+        "body": "Verdict: PASS\nNo findings.\n",
+        "would_count": True,
+        "verdict": "pass",
+        "grounded": False,
+    }
+    restored = qe._evidence_item_from_dict(raw)
+    assert restored.grounded is False
+    assert restored.would_count is False
 
 
 # --- collect_evidence orchestration (fully offline via injected callables) ---
@@ -1040,23 +1534,34 @@ def test_collect_runs_reviewers_concurrently() -> None:
     assert outcome.failures == []
 
 
+def _claude_passes_others_stall_runner(family: str, prompt: str, delay: float) -> ReviewerResult:
+    """Module-level so it stays picklable under forkserver/spawn contexts.
+
+    ``_reviewer_process_context`` deliberately avoids fork whenever the parent
+    has extra threads (e.g. leaked by an earlier test file), and forkserver and
+    spawn must pickle the runner. A local closure would fail with
+    ``AttributeError: Can't pickle local object``. Parametrize the stall via
+    ``functools.partial`` — partials of module-level functions pickle fine.
+    """
+    if family == "claude":
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+    time.sleep(delay)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(1.5)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    # Deadline must leave room for forkserver/spawn worker boot (fork starts in
+    # ~ms, forkserver re-imports this module in the child) while staying well
+    # under grok's stall so only grok times out.
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=3.0)
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.2,
+        overall_timeout_seconds=0.75,
         **fakes,
     )
 
@@ -1070,17 +1575,12 @@ def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None
 
 
 def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
-    if "fork" not in multiprocessing.get_all_start_methods():
-        pytest.skip("process-supervised timeout regression requires fork context")
+    # Verified under fork and forkserver (macOS); spawn-only platforms boot a
+    # fresh interpreter per worker, which the tight deadline cannot absorb.
+    if not {"fork", "forkserver"} & set(multiprocessing.get_all_start_methods()):
+        pytest.skip("process-supervised timeout regression needs fork or forkserver")
     fakes, posted = _fakes(tier=0)
-
-    def runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "claude":
-            return ReviewerResult(family, "Verdict: PASS from claude", True)
-        time.sleep(10)
-        return ReviewerResult(family, "Verdict: PASS from grok", True)
-
-    fakes["reviewer_runner"] = runner
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=10)
     started_at = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
@@ -1088,12 +1588,13 @@ def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
         families=["claude", "grok"],
         author="me",
         apply=True,
-        overall_timeout_seconds=0.05,
+        overall_timeout_seconds=1.0,
         **fakes,
     )
     elapsed = time.monotonic() - started_at
 
-    assert elapsed < 1.0
+    # Far below grok's 10s stall: proves the deadline reaps stuck workers.
+    assert elapsed < 5.0
     assert outcome.orchestration_timeout is True
     assert outcome.timed_out_families == ["grok"]
     assert outcome.action == "prepare"
@@ -2048,6 +2549,18 @@ def test_collect_dedupes_families() -> None:
         (" Grok ", "grok"),
         ("Claude", "claude"),
         ("gemini", "gemini"),
+        ("zhipu", "glm"),
+        ("z-ai", "glm"),
+        ("hy3", "tencent"),
+        ("hunyuan", "tencent"),
+        ("seed", "bytedance"),
+        ("seed-2.0", "bytedance"),
+        ("doubao", "bytedance"),
+        ("bytedance-seed", "bytedance"),
+        ("google", "gemini"),
+        # AgentRegistry name used in live protocol agent ids (#9363 round-5 [P2]).
+        ("gemini-cli", "gemini"),
+        ("Gemini-CLI", "gemini"),
     ],
 )
 def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
@@ -2056,9 +2569,9 @@ def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
     assert canonical_family(name) == expected
 
 
-def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
-    # codex/gpt are the OpenAI family's CLI/product names. They must collapse to
-    # ONE canonical family so a single provider can't satisfy the 2-family quorum.
+def test_collect_aliases_collapse_to_single_canonical_family() -> None:
+    # Aliases must collapse to ONE canonical family so a single provider cannot
+    # satisfy the 2-family quorum by using multiple product/model names.
     fakes, _ = _fakes(tier=4)
     outcome = collect_evidence(
         repo="o/r",
@@ -2069,6 +2582,17 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         **fakes,
     )
     assert [item.family for item in outcome.items] == ["openai"]
+
+    fakes, _ = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["bytedance", "seed-2.0"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+    assert [item.family for item in outcome.items] == ["bytedance"]
 
 
 @pytest.mark.parametrize(
@@ -2146,7 +2670,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
@@ -2225,6 +2749,49 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
     assert "deepseek" in q._OPENROUTER_DIRECT_FAMILIES
     assert q._openrouter_reviewer_model("deepseek")  # a slug is mapped
     assert "deepseek" in q.FAMILY_PROVIDERS  # already a recognized counting family
+
+
+@pytest.mark.parametrize(
+    "family,provider,display,model",
+    [
+        ("glm", "zhipu", "GLM", "z-ai/glm-5.2"),
+        ("minimax", "minimax", "MiniMax", "minimax/minimax-m3"),
+        ("tencent", "tencent", "Tencent Hy3", "tencent/hy3"),
+        ("bytedance", "bytedance", "ByteDance Seed", "bytedance-seed/seed-2.0-lite"),
+    ],
+)
+def test_chinese_reviewer_family_has_openrouter_dispatch(
+    family: str, provider: str, display: str, model: str
+) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    assert q.FAMILY_PROVIDERS[family] == provider
+    assert q.FAMILY_DISPLAY[family] == display
+    assert q._openrouter_reviewer_model(family) == model
+    assert family in q._OPENROUTER_DIRECT_FAMILIES
+
+
+@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: str) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    called: list[str] = []
+    monkeypatch.setattr(
+        q,
+        "_run_openrouter_reviewer",
+        lambda fam, _prompt: called.append(fam) or q.ReviewerResult(fam, "PASS", True),
+    )
+    monkeypatch.setattr(
+        q,
+        "_run_api_agent",
+        lambda *_args, **_kwargs: pytest.fail("direct family must not use native API routing"),
+    )
+
+    result = q.default_reviewer_runner(family, "prompt")
+
+    assert result.ok is True
+    assert result.family == family
+    assert called == [family]
 
 
 def test_collect_missing_head_raises() -> None:
@@ -3160,8 +3727,9 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
@@ -3172,6 +3740,7 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 17.0
 
 
@@ -3191,9 +3760,9 @@ def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
     monkeypatch.setattr(qe, "_run_api_agent", fake_api)
     res = qe._run_grok_reviewer("x")
     assert res.family == "grok" and res.text == "api"
-    # Soak holdout: the API path must pin the evaluated slug, not the
-    # day-2 grok-4.5 agent default.
-    assert seen["model"] == "x-ai/grok-4.3"
+    # Soak holdout EXPIRED 2026-07-22: the API path now uses the agent
+    # default (grok-4.5, catalog-enforced) with no override pin.
+    assert seen["model"] is None
 
 
 def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeypatch) -> None:
@@ -3218,8 +3787,9 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
         seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
@@ -3229,6 +3799,7 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["prompt"] == "review prompt"
     assert seen["timeout"] == 19.0
 
 
@@ -4025,3 +4596,154 @@ def test_untruncated_normalization_unchanged() -> None:
         reviewer_text="Verdict: PASS\n\nNo findings.",
     )
     assert qe._TRUNCATION_MARKER not in body
+
+
+class TestFounderRosterDirective20260716:
+    """Pins the 2026-07-16 founder roster directive: gemini out of the
+    counting set (repeat fabricated-claim pattern, see the committed
+    reviewer-reliability record in docs/governance/records/)."""
+
+    def test_every_gemini_registry_surface_is_demoted(self):
+        # The demotion keys off canonical_family(<agent id>), and live protocol
+        # payloads carry AgentRegistry names — so a Gemini-family agent whose
+        # registry id does not collapse to "gemini" silently escapes the
+        # directive and can block a merge (#9363 rounds 5-6: gemini-cli, then
+        # antigravity). Walk the registry so the next such surface fails CI
+        # instead of leaking.
+        import aragora.agents.cli_agents  # noqa: F401  (populates the registry)
+        from aragora.agents.registry import AgentRegistry
+        from aragora.swarm.quorum_evidence import ADVISORY_ONLY_FAMILIES, canonical_family
+
+        gemini_surfaces = {
+            name
+            for name, spec in AgentRegistry.list_all().items()
+            if str((spec or {}).get("default_model") or "").lower().startswith("gemini")
+        }
+        # Guard the guard: if this is empty the walk silently proves nothing.
+        assert gemini_surfaces, "expected at least one Gemini-family agent in the registry"
+        escaped = {n for n in gemini_surfaces if canonical_family(n) not in ADVISORY_ONLY_FAMILIES}
+        assert not escaped, (
+            f"Gemini-family agent ids escape the advisory-only demotion: {sorted(escaped)}. "
+            "Add each to _FAMILY_ALIASES so its dissent cannot re-enter the gate."
+        )
+
+    def test_gemini_family_does_not_count(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert "gemini" not in WESTERN_FAMILIES
+
+    def test_counting_set_retains_two_plus_families(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
+
+    def test_kimi_lane_uses_the_catalogued_slug(self):
+        # The record deferred the upgrade only until the model had a catalog
+        # entry; aragora/models/catalog.py now carries kimi-k2.7-code, so the
+        # lane follows the catalog. The invariant that survives the deferral is
+        # that the reviewer slug must always BE catalogued.
+        from aragora.models import by_any_id
+        from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
+
+        slug = _OPENROUTER_REVIEWER_MODELS["kimi"]
+        assert slug == "moonshotai/kimi-k2.7-code"
+        assert by_any_id(slug) is not None, f"reviewer slug {slug} is not in the model catalog"
+
+    def test_family_classification_is_total_and_disjoint(self):
+        # Explicit, total taxonomy: every recognized family belongs to exactly
+        # one of western / chinese-routed / advisory-only. An unclassified
+        # family would silently default to full Tier 0-1 counting.
+        from aragora.swarm.quorum_evidence import (
+            ADVISORY_ONLY_FAMILIES,
+            CHINESE_ROUTED_FAMILIES,
+            FAMILY_PROVIDERS,
+            WESTERN_FAMILIES,
+        )
+
+        assert not WESTERN_FAMILIES & CHINESE_ROUTED_FAMILIES
+        assert not WESTERN_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert not CHINESE_ROUTED_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert WESTERN_FAMILIES | CHINESE_ROUTED_FAMILIES | ADVISORY_ONLY_FAMILIES == set(
+            FAMILY_PROVIDERS
+        )
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    @pytest.mark.parametrize("gate", [False, True])
+    def test_gemini_pass_never_counts_toward_any_tier(self, tier, gate):
+        # Record mandate: an advisory-only PASS never counts FOR a quorum, at
+        # any tier, under either gate regime.
+        from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+        rule = tier_quorum_rule(tier, tiered_gate=gate)
+        assert "gemini" not in rule.counted_families({"gemini", "claude", "deepseek"})
+        # gemini alone never satisfies even the 1-signal Tier-0 bar.
+        assert rule.is_satisfied_by({"gemini"}) is False
+        # gemini's presence never changes the outcome for the rest of the set.
+        for others in ({"claude"}, {"claude", "openai"}, {"deepseek"}):
+            assert rule.is_satisfied_by(others | {"gemini"}) == rule.is_satisfied_by(others)
+
+    def test_gemini_evidence_item_never_counts_for(self):
+        item = EvidenceItem("gemini", "Verdict: PASS\n\nNo findings.", True, ["gemini"], [], "pass")
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("advisory-only" in problem for problem in item.problems)
+
+    def test_gemini_aliases_are_excluded_everywhere(self):
+        # #9363 round-4 [P3]: a raw alias/provider id must not dodge the
+        # advisory-only exclusion at any of the filter sites.
+        from aragora.swarm.quorum_evidence import canonical_family, tier_quorum_rule
+
+        gemini_aliases = ["google", "Google", " GEMINI "]
+        for alias in gemini_aliases:
+            assert canonical_family(alias) == "gemini"
+        for tier in (0, 1, 2, 3, 4):
+            rule = tier_quorum_rule(tier, tiered_gate=False)
+            for alias in gemini_aliases:
+                assert not rule.counted_families({alias})
+                assert rule.is_satisfied_by({alias}) is False
+        item = EvidenceItem("google", "Verdict: PASS\n\nNo findings.", True, ["google"], [], "pass")
+        assert item.would_count is False
+        cr = EvidenceItem(
+            "Google",
+            "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim",
+            True,
+            ["google"],
+            [],
+            "changes_requested",
+        )
+        assert cr.dissenting is False
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    def test_gemini_changes_requested_is_not_blocking_dissent(self, tier):
+        # Record mandate: "gemini dissent is NOT to be counted anywhere" — a
+        # gemini CHANGES-REQUESTED (even [P1]-backed) never blocks at any tier.
+        body = "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim"
+        gemini = EvidenceItem("gemini", body, True, ["gemini"], [], "changes_requested")
+        assert gemini.dissenting is False
+        # Contrast pin: the same review from a counting family still blocks.
+        claude = EvidenceItem("claude", body, True, ["claude"], [], "changes_requested")
+        assert claude.dissenting is True
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=9363,
+            head_sha="a" * 40,
+            head_committed_at="2026-07-17T00:00:00Z",
+            tier=tier,
+            action="collect",
+            action_reason="test",
+            items=[gemini],
+        )
+        assert outcome.dissenting_families == []
+        assert outcome.counting_families == []
+
+    def test_committed_reliability_record_is_auditable(self):
+        # The Tier-4 evidence artifact must live in the repo, not only in the
+        # gitignored operator-context directory.
+        from pathlib import Path
+
+        record = (
+            Path(__file__).resolve().parents[2]
+            / "docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md"
+        )
+        assert record.is_file()
+        assert "fabricated-claim pattern" in record.read_text(encoding="utf-8")
