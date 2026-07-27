@@ -262,13 +262,16 @@ class CLIAgent(CritiqueMixin, Agent):
         "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
-        # Grok models
+        # Grok models. Legacy/retired slugs follow xAI's documented
+        # retirement redirect to grok-4.3 (#9064 openai P2): an explicit
+        # lower-cost/legacy selection must not silently upgrade to flagship
+        # grok-4.5 pricing ($2/$6 vs $1.25/$2.50) on the fallback path.
         "grok-4.5": "x-ai/grok-4.5",
         "grok-4-1-fast": "x-ai/grok-4.3",
         "grok-4-latest": "x-ai/grok-4.5",
         "grok-4": "x-ai/grok-4",
-        "grok-3": "x-ai/grok-4.5",
-        "grok-2": "x-ai/grok-4.5",
+        "grok-3": "x-ai/grok-4.3",
+        "grok-2": "x-ai/grok-4.3",
         # Deepseek models
         "deepseek-coder": "deepseek/deepseek-v4-pro",
         "deepseek-v3": "deepseek/deepseek-v4-pro",
