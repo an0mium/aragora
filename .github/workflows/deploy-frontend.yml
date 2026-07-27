@@ -304,7 +304,9 @@ jobs:
       # Root context is required: aragora/live/package.json declares
       # "@aragora/sdk": "file:../../sdk/typescript", which resolves outside an
       # aragora/live-scoped context. Dockerfile.frontend copies the SDK in and
-      # rewrites that path, and is the single frontend image definition.
+      # mirrors the repo layout so that path resolves, and is the single frontend
+      # image definition. The production NEXT_PUBLIC_* values are passed as
+      # build-args below, because they are baked into the bundle at build time.
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
