@@ -701,3 +701,20 @@ class TestEdgeCases:
 
         summary = tracker.get_summary("org-with-dashes_and_underscores")
         assert summary.total_debates == 1
+
+
+class TestLongContextTierBilling:
+    """#9064 openai P2: customer/debate billing must not undercount xAI's
+    documented >=200k-prompt long-context tier for the new grok-4.5 default."""
+
+    def test_grok45_below_threshold_bills_flat(self):
+        cost = calculate_token_cost("xai", "grok-4.5", 100_000, 100_000)
+        assert cost == Decimal("0.2") + Decimal("0.6")
+
+    def test_grok45_above_threshold_bills_tier(self):
+        cost = calculate_token_cost("xai", "grok-4.5", 1_000_000, 1_000_000)
+        assert cost == Decimal("4") + Decimal("12")
+
+    def test_openrouter_alias_is_tier_aware_too(self):
+        cost = calculate_token_cost("openrouter", "x-ai/grok-4.5", 1_000_000, 1_000_000)
+        assert cost == Decimal("16")

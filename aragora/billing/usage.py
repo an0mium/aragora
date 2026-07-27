@@ -180,6 +180,26 @@ def calculate_token_cost(
     """
     provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
 
+    # Catalog specs win for cataloged ids (#9064 openai P2): rates_for() is
+    # tier-aware — xAI bills the WHOLE request 2x once the prompt reaches
+    # 200k tokens — which flat table rows cannot express. Below the
+    # threshold this is rate-identical to the table row.
+    from aragora.models import by_any_id
+
+    spec = by_any_id(model)
+    if spec is not None:
+        rate_in, rate_out = spec.rates_for(int(tokens_in))
+        input_price = Decimal(str(rate_in))
+        output_price = Decimal(str(rate_out))
+        input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
+        output_cost = (Decimal(tokens_out) / Decimal("1000000")) * output_price
+        cache_cost = Decimal("0")
+        if tokens_cached > 0:
+            cache_cost = (
+                (Decimal(tokens_cached) / Decimal("1000000")) * input_price * Decimal("0.1")
+            )
+        return input_cost + output_cost + cache_cost
+
     # Get input price
     input_key = model if model in provider_prices else "default"
     input_price = provider_prices.get(input_key, Decimal("2.00"))
