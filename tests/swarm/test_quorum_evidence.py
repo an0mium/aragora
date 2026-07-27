@@ -12,8 +12,12 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
+import multiprocessing
 import os
+import queue
+import signal
 import subprocess
 import threading
 import time
@@ -366,25 +370,231 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
+def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In prefer mode the grounded CLI wins even when the proxy also succeeds.
+
+    The proxy has no tools, so its review can never count toward quorum. Letting a
+    successful proxy attempt short-circuit the CLI would leave the Claude family with
+    an advisory-only review and no countable signal at all.
+    """
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "Verdict: PASS", True),
+    )
+    # In prefer mode the proxy performs a FULL generation, so a successful CLI must not
+    # cost one (claude #9641 round-3 [P2]): the proxy is not to be touched at all here.
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: pytest.fail(
+            "proxy must not be attempted when the grounded CLI succeeds"
+        ),
+    )
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+    assert result.grounded is True
+
+
+def test_claude_reviewer_falls_back_to_vibeproxy_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed CLI still yields a proxy review, but marked ungrounded (advisory)."""
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "", False, "cli unavailable"),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "claude",
+        "Verdict: PASS",
+        True,
+        harness="local VibeProxy Anthropic Messages transport",
+        grounded=False,
+    )
+
+
+def test_claude_reviewer_prefer_failure_uses_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Pin the reviewer budget so the asserted direct timeout is deterministic
+    # regardless of any ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS in env.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=False,
+            text="",
+            error="proxy unavailable",
+            harness="",
+            timeout_seconds=120.0,
+            elapsed_seconds=0.0,  # proxy failed fast (e.g. connection refused)
+        ),
+    )
+    direct_timeouts: list[float] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout: direct_timeouts.append(timeout)
+        or ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult("claude", "Verdict: PASS", True)
+    # A fast proxy failure charges ~0s, so the direct fallback keeps its near-full
+    # deadline (was 480.0 when the allotted budget was wrongly subtracted).
+    assert direct_timeouts == [600.0]
+
+
+def test_claude_reviewer_required_failure_never_runs_direct_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: pytest.fail("required mode must not use direct CLI"),
+    )
+
+    assert qe._run_claude_reviewer("prompt") == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "proxy required but unavailable",
+        allow_transport_fallback=False,
+    )
+
+
+def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=True,
+            ok=False,
+            text="",
+            error="proxy required but unavailable",
+            harness="",
+            timeout_seconds=600.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_openrouter_reviewer",
+        lambda *_args, **_kwargs: pytest.fail(
+            "required VibeProxy mode must suppress OpenRouter fallback"
+        ),
+    )
+
+    result = qe.default_reviewer_runner("claude", "prompt")
+
+    assert result.allow_transport_fallback is False
+    assert result.error == "proxy required but unavailable"
+
+
 # --- OpenAI reviewer fallback ----------------------------------------------
 
 
-def test_run_openai_reviewer_uses_api_when_openai_key_present(
+def test_run_openai_reviewer_prefers_codex_cli_even_with_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An ``OPENAI_API_KEY`` must not silently route OpenAI through the ungrounded API.
+
+    Codex CLI runs as an agent in the checkout and can verify claims; the direct API
+    cannot. Before this ordering, any machine with the key set produced ungrounded
+    OpenAI evidence without that being visible anywhere.
+    """
     calls: list[tuple[str, str]] = []
 
     def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
         calls.append((family, prompt))
-        return ReviewerResult(family, "Verdict: PASS from API", True)
+        return ReviewerResult(family, "Verdict: PASS from API", True, grounded=False)
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "Verdict: PASS from CLI", True),
+    )
 
     result = qe._run_openai_reviewer("review prompt")
 
-    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
-    assert calls == [("openai", "review prompt")]
+    assert result == ReviewerResult("openai", "Verdict: PASS from CLI", True)
+    assert result.grounded is True
+    assert calls == []
+
+
+def test_run_openai_reviewer_falls_back_to_api_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wedged Codex CLI still yields API evidence, marked ungrounded (advisory)."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "", False, "codex cli unavailable"),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda family, prompt: ReviewerResult(
+            family, "Verdict: PASS from API", True, grounded=False
+        ),
+    )
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True, grounded=False)
 
 
 def test_run_openai_reviewer_without_api_key_uses_codex_cli(
@@ -467,7 +677,7 @@ def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
                 cmd,
                 1,
                 stdout="",
-                stderr=f"model {model} is not supported",
+                stderr=("session header metadata\n" * 30) + f"model {model} is not supported",
             )
         output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -556,6 +766,166 @@ def test_run_openai_reviewer_codex_failure_never_fabricates(
     assert result.harness == ""
 
 
+def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt = "review prompt with private diff content"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "OpenAI Codex v0.144.1\n"
+        + ("session header metadata\n" * 30)
+        + f"user\n{escaped_prompt}\n"
+        + "ERROR: You've hit your usage limit. Try again at 4:50 PM."
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=stderr)
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5.5")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer(prompt)
+
+    assert result.ok is False
+    assert "usage limit" in result.error
+    assert "4:50 PM" in result.error
+    assert prompt not in result.error
+    assert escaped_prompt not in result.error
+    assert "[CLI diagnostic truncated]" in result.error
+
+
+def test_argv_cli_reviewer_preserves_error_tail_without_prompt(monkeypatch) -> None:
+    prompt = "sensitive argv review prompt"
+    stderr = ("provider header\n" * 30) + prompt + "\nERROR: authentication expired"
+
+    monkeypatch.setattr(
+        qe.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, stdout="", stderr=stderr),
+    )
+
+    result = qe._run_argv_cli_reviewer(
+        "grok",
+        ["grok", "--sandbox", "read-only", "-p", prompt],
+        "test harness",
+        prompt=prompt,
+    )
+
+    assert result.ok is False
+    assert "authentication expired" in result.error
+    assert prompt not in result.error
+    assert "[review prompt redacted]" in result.error
+
+
+def test_argv_cli_reviewer_rejects_empty_command() -> None:
+    result = qe._run_argv_cli_reviewer("grok", [], "test harness", prompt="sensitive")
+
+    assert result.ok is False
+    assert result.error == "grok CLI command is empty"
+
+
+def test_cli_failure_detail_preserves_traceback_after_escaped_prompt() -> None:
+    prompt = "review prompt with sensitive diff"
+    escaped_prompt = prompt.replace(" ", "\\ ")
+    stderr = (
+        "provider header\n"
+        f"user\n{escaped_prompt}\n"
+        "Traceback (most recent call last):\n"
+        '  File "reviewer.py", line 1, in <module>\n'
+        "ConnectionError: provider unavailable"
+    )
+
+    detail = qe._bounded_cli_failure_detail(stderr, redact=prompt)
+
+    assert escaped_prompt not in detail
+    assert "Traceback (most recent call last)" in detail
+    assert "ConnectionError: provider unavailable" in detail
+
+
+def test_cli_failure_detail_marks_unrecognized_suppressed_payload() -> None:
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nescaped prompt fragment\nprovider stopped",
+        redact="original prompt",
+    )
+
+    assert "escaped prompt fragment" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        "OAuth authentication failed",
+        "HTTP 401 Unauthorized",
+        "Connection reset by peer",
+        "SSL handshake failed",
+        "three errors occurred",
+    ],
+)
+def test_cli_failure_detail_recognizes_nonprefixed_diagnostics(diagnostic: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{diagnostic}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert diagnostic in detail
+
+
+def test_cli_failure_detail_does_not_resume_on_prompt_fragment_with_error_word() -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        "provider header\nuser\nprivate authentication error handling\nprovider stopped",
+        redact=prompt,
+    )
+
+    assert "private authentication error handling" not in detail
+    assert qe._CLI_OMITTED_DIAGNOSTIC in detail
+
+
+@pytest.mark.parametrize(
+    "wall",
+    [
+        "Not logged in - Please run /login",
+        "purchase more credits",
+        "credit balance is too low",
+    ],
+)
+def test_cli_failure_detail_preserves_credential_wall_after_role_marker(wall: str) -> None:
+    prompt = "review a private diff without exposing it"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\nuser\n{prompt}\n{wall}",
+        redact=prompt,
+    )
+
+    assert prompt not in detail
+    assert wall in detail
+    assert qe._is_credential_wall(detail) is True
+
+
+@pytest.mark.parametrize(
+    "prompt_output",
+    [
+        "review the private authentication error han",
+        "review the private authentication\nerror handling in this diff",
+    ],
+)
+def test_cli_failure_detail_redacts_prompt_fragments_outside_role_marker(
+    prompt_output: str,
+) -> None:
+    prompt = "review the private authentication error handling in this diff"
+    detail = qe._bounded_cli_failure_detail(
+        f"provider header\n{prompt_output}\nERROR: provider failed",
+        redact=prompt,
+    )
+
+    for fragment in prompt_output.splitlines():
+        assert fragment not in detail
+    assert "ERROR: provider failed" in detail
+
+
 @pytest.mark.parametrize(
     ("exc", "expected_error"),
     [
@@ -623,7 +993,9 @@ def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.Mon
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == [
         "create:grok:grok_reviewer:critic",
         "generate:review prompt",
@@ -833,7 +1205,9 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -861,7 +1235,9 @@ def test_run_api_agent_closes_shared_connector_without_agent_close(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "connector_close"]
 
 
@@ -890,7 +1266,9 @@ def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -922,7 +1300,9 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -955,8 +1335,8 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
     first = qe._run_api_agent_in_current_process("grok", "one")
     second = qe._run_api_agent_in_current_process("grok", "two")
 
-    assert first == ReviewerResult("grok", "Verdict: PASS one", True)
-    assert second == ReviewerResult("grok", "Verdict: PASS two", True)
+    assert first == ReviewerResult("grok", "Verdict: PASS one", True, grounded=False)
+    assert second == ReviewerResult("grok", "Verdict: PASS two", True, grounded=False)
     assert events == [
         "create:grok",
         "generate:one",
@@ -967,6 +1347,123 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
         "agent_close",
         "connector_close",
     ]
+
+
+# --- transport-grounding contract -------------------------------------------
+
+
+def _grounding_item(family: str, verdict: str, *, grounded: bool) -> qe.EvidenceItem:
+    body = (
+        "Verdict: PASS\nNo findings.\n"
+        if verdict == "pass"
+        else "Verdict: CHANGES-REQUESTED\n- [P2] something\n"
+    )
+    return qe.EvidenceItem(
+        family=family, body=body, would_count=True, verdict=verdict, grounded=grounded
+    )
+
+
+def test_ungrounded_review_never_counts_when_family_has_a_cli() -> None:
+    item = _grounding_item("claude", "pass", grounded=False)
+    assert item.would_count is False
+    assert item.supportive is False
+    assert any("ungrounded transport" in p for p in item.problems)
+
+
+def test_grounded_review_still_counts() -> None:
+    assert _grounding_item("claude", "pass", grounded=True).would_count is True
+
+
+def test_ungrounded_dissent_never_blocks() -> None:
+    # The live case this fixes: three ungrounded CHANGES-REQUESTED reviews on #9505
+    # asserted facts about a registry tag and unlisted files they were never shown.
+    assert _grounding_item("claude", "changes_requested", grounded=False).dissenting is False
+    assert _grounding_item("grok", "changes_requested", grounded=False).dissenting is False
+
+
+def test_grounded_dissent_still_blocks() -> None:
+    assert _grounding_item("claude", "changes_requested", grounded=True).dissenting is True
+
+
+def test_api_only_family_keeps_authority_without_a_cli_transport() -> None:
+    # mistral has no CLI harness, so demoting its only transport would delete it from
+    # the reviewer pool and strand Tier 0-2 quorums that legitimately count it today.
+    assert "mistral" not in qe.GROUNDED_TRANSPORT_FAMILIES
+    assert _grounding_item("mistral", "pass", grounded=False).would_count is True
+
+
+def test_openrouter_fallback_review_is_ungrounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The OpenRouter re-wrap must not restore grounded authority.
+
+    Regression for claude/openai #9641: this is the credential-walled fallback path,
+    i.e. precisely where ungrounded reviews get produced, so a grounded default here
+    reopened the hole the grounding contract closes.
+    """
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    monkeypatch.setattr(qe, "_openrouter_reviewer_model", lambda _fam: "some/model")
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda fam, prompt, model=None: ReviewerResult(fam, "Verdict: PASS", True, grounded=False),
+    )
+
+    result = qe._run_openrouter_reviewer("claude", "review prompt")
+
+    assert result.ok is True
+    assert result.grounded is False
+
+
+def test_stringly_grounded_false_cannot_truthify() -> None:
+    """`bool("false")` is True — a forged artifact must not smuggle authority back in."""
+    assert qe._coerce_grounded_flag("false") is False
+    assert qe._coerce_grounded_flag("0") is False
+    assert qe._coerce_grounded_flag(0) is False
+    assert qe._coerce_grounded_flag("true") is True
+    assert qe._coerce_grounded_flag(True) is True
+    # Absent means "artifact predates the field", which keeps historical authority.
+    assert qe._coerce_grounded_flag(qe._GROUNDED_MISSING) is True
+    # An EXPLICIT null is present-but-not-true, so it must not masquerade as legacy
+    # (openai #9641 round-2 [P2]): dict.get collapses both to None without the sentinel.
+    assert qe._coerce_grounded_flag(None) is False
+    assert (
+        qe._evidence_item_from_dict(
+            {
+                "family": "claude",
+                "body": "Verdict: PASS\nNo findings.\n",
+                "would_count": True,
+                "verdict": "pass",
+                "grounded": None,
+            }
+        ).would_count
+        is False
+    )
+
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": "Verdict: PASS\nNo findings.\n",
+            "would_count": True,
+            "verdict": "pass",
+            "grounded": "false",
+        }
+    )
+    assert item.grounded is False
+    assert item.would_count is False
+
+
+def test_grounding_survives_prepared_artifact_roundtrip() -> None:
+    """A prepared artifact must not be able to smuggle an ungrounded review into counting."""
+    raw = {
+        "family": "claude",
+        "body": "Verdict: PASS\nNo findings.\n",
+        "would_count": True,
+        "verdict": "pass",
+        "grounded": False,
+    }
+    restored = qe._evidence_item_from_dict(raw)
+    assert restored.grounded is False
+    assert restored.would_count is False
 
 
 # --- collect_evidence orchestration (fully offline via injected callables) ---
@@ -1035,6 +1532,297 @@ def test_collect_runs_reviewers_concurrently() -> None:
     )
     assert {item.family for item in outcome.items} == {"claude", "grok"}
     assert outcome.failures == []
+
+
+def _claude_passes_others_stall_runner(family: str, prompt: str, delay: float) -> ReviewerResult:
+    """Module-level so it stays picklable under forkserver/spawn contexts.
+
+    ``_reviewer_process_context`` deliberately avoids fork whenever the parent
+    has extra threads (e.g. leaked by an earlier test file), and forkserver and
+    spawn must pickle the runner. A local closure would fail with
+    ``AttributeError: Can't pickle local object``. Parametrize the stall via
+    ``functools.partial`` — partials of module-level functions pickle fine.
+    """
+    if family == "claude":
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+    time.sleep(delay)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
+def test_collect_overall_timeout_fails_closed_and_ignores_late_results() -> None:
+    fakes, posted = _fakes(tier=0)
+    # Deadline must leave room for forkserver/spawn worker boot (fork starts in
+    # ~ms, forkserver re-imports this module in the child) while staying well
+    # under grok's stall so only grok times out.
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=3.0)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.75,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert "reviewer orchestration timeout" in outcome.action_reason
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert posted == []
+
+
+def test_collect_overall_timeout_does_not_wait_for_stuck_reviewer() -> None:
+    # Verified under fork and forkserver (macOS); spawn-only platforms boot a
+    # fresh interpreter per worker, which the tight deadline cannot absorb.
+    if not {"fork", "forkserver"} & set(multiprocessing.get_all_start_methods()):
+        pytest.skip("process-supervised timeout regression needs fork or forkserver")
+    fakes, posted = _fakes(tier=0)
+    fakes["reviewer_runner"] = functools.partial(_claude_passes_others_stall_runner, delay=10)
+    started_at = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=1.0,
+        **fakes,
+    )
+    elapsed = time.monotonic() - started_at
+
+    # Far below grok's 10s stall: proves the deadline reaps stuck workers.
+    assert elapsed < 5.0
+    assert outcome.orchestration_timeout is True
+    assert outcome.timed_out_families == ["grok"]
+    assert outcome.action == "prepare"
+    assert posted == []
+
+
+def test_overall_timeout_reaps_finished_reviewer_before_deadline_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closed: list[str] = []
+
+    class FinishedProcess:
+        pid = 12345
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            return None
+
+    def start_worker(ctx, reviewer_runner, family: str, prompt: str) -> qe._ReviewerWorker:
+        result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
+        result_queue.put(ReviewerResult(family, f"Verdict: PASS from {family}", True))
+        return qe._ReviewerWorker(
+            family=family,
+            process=FinishedProcess(),
+            result_queue=result_queue,
+        )
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: object())
+    monkeypatch.setattr(qe, "_start_reviewer_worker", start_worker)
+    monkeypatch.setattr(qe, "_close_reviewer_worker", lambda worker: closed.append(worker.family))
+
+    results, timed_out = qe._run_reviewers_with_overall_timeout(
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "", True),
+        prompt="review prompt",
+        families=["claude"],
+        overall_timeout_seconds=0.0,
+    )
+
+    assert timed_out == []
+    assert results["claude"].ok is True
+    assert closed == ["claude"]
+
+
+def test_reviewer_process_context_avoids_fork_from_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str | None] = []
+
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork", "spawn"])
+
+    def fake_get_context(method: str | None = None) -> object:
+        requested.append(method)
+        return object()
+
+    monkeypatch.setattr(qe.multiprocessing, "get_context", fake_get_context)
+
+    qe._reviewer_process_context()
+
+    assert requested == ["spawn"]
+
+
+def test_reviewer_process_context_fails_closed_when_only_fork_is_available_in_threaded_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qe.threading, "active_count", lambda: 2)
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["fork"])
+
+    with pytest.raises(RuntimeError, match="cannot safely fork reviewer workers"):
+        qe._reviewer_process_context()
+
+
+def test_start_reviewer_worker_is_not_daemon_so_api_fallback_can_spawn_children() -> None:
+    created: dict[str, object] = {}
+
+    class FakeQueue:
+        pass
+
+    class FakeProcess:
+        def __init__(self, *, target, args, daemon) -> None:
+            created["target"] = target
+            created["args"] = args
+            created["daemon"] = daemon
+
+        def start(self) -> None:
+            created["started"] = True
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+        def Process(self, *, target, args, daemon) -> FakeProcess:
+            return FakeProcess(target=target, args=args, daemon=daemon)
+
+    worker = qe._start_reviewer_worker(
+        FakeContext(),
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+    )
+
+    assert worker.family == "grok"
+    assert created["started"] is True
+    assert created["daemon"] is False
+
+
+def test_reviewer_process_worker_creates_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "setsid"):
+        pytest.skip("process-group isolation is POSIX-only")
+    events: list[str] = []
+
+    class FakeQueue:
+        def put(self, result: ReviewerResult) -> None:
+            events.append(f"put:{result.family}:{result.ok}")
+
+    monkeypatch.setattr(qe.os, "setsid", lambda: events.append("setsid"), raising=False)
+    monkeypatch.setattr(
+        qe.multiprocessing,
+        "current_process",
+        lambda: SimpleNamespace(name="ForkProcess-1"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_reviewer_with_infra_retry",
+        lambda runner, family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+    )
+
+    qe._reviewer_process_worker(
+        lambda family, prompt: ReviewerResult(family, prompt, True),
+        "grok",
+        "review prompt",
+        FakeQueue(),
+    )
+
+    assert events == ["setsid", "put:grok:True"]
+
+
+def test_terminate_reviewer_worker_signals_posix_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+    events: list[tuple[str, int, int] | tuple[str, float]] = []
+
+    class FakeQueue:
+        def close(self) -> None:
+            pass
+
+        def join_thread(self) -> None:
+            pass
+
+    class FakeProcess:
+        pid = 4242
+
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float) -> None:
+            events.append(("join", timeout))
+
+        def terminate(self) -> None:
+            raise AssertionError("process-group cleanup should not fall back first")
+
+        def kill(self) -> None:
+            raise AssertionError("hard kill should not be needed after SIGTERM")
+
+    fake_process = FakeProcess()
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        events.append(("killpg", pid, sig))
+        fake_process.alive = False
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+    qe._terminate_reviewer_worker(
+        qe._ReviewerWorker("grok", fake_process, FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert events == [("killpg", 4242, signal.SIGTERM), ("join", qe._REVIEWER_CLEANUP_TIMEOUT)]
+
+
+def test_signal_reviewer_process_group_falls_back_when_group_missing_but_process_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name != "posix" or not hasattr(qe.os, "killpg"):
+        pytest.skip("process-group termination is POSIX-only")
+
+    class FakeProcess:
+        pid = 4242
+
+        def is_alive(self) -> bool:
+            return True
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        raise ProcessLookupError(pid)
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+
+    assert qe._signal_reviewer_process_group(FakeProcess(), signal.SIGTERM) is False  # type: ignore[arg-type]
+
+
+def test_read_reviewer_worker_result_waits_briefly_for_queue_feeder() -> None:
+    events: list[str] = []
+
+    class FakeQueue:
+        def get_nowait(self) -> ReviewerResult:
+            events.append("get_nowait")
+            raise queue.Empty
+
+        def get(self, timeout: float) -> ReviewerResult:
+            events.append(f"get:{timeout}")
+            return ReviewerResult("grok", "Verdict: PASS", True)
+
+    result = qe._read_reviewer_worker_result(
+        qe._ReviewerWorker("grok", SimpleNamespace(), FakeQueue())  # type: ignore[arg-type]
+    )
+
+    assert result.ok is True
+    assert result.family == "grok"
+    assert events == ["get_nowait", f"get:{qe._REVIEWER_RESULT_QUEUE_TIMEOUT}"]
 
 
 def test_collect_preserves_family_order_despite_completion_order() -> None:
@@ -1189,6 +1977,130 @@ def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
     assert sorted(outcome.supportive_families) == ["claude", "openai"]
     assert sorted(outcome.posted) == ["claude", "openai"]
     assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_collect_preflight_transport_retries_then_fails_closed_without_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("error connecting to api.github.com")
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        collect_evidence(
+            repo="o/r",
+            pr=1,
+            families=["claude", "grok"],
+            author="me",
+            apply=True,
+            **fakes,
+        )
+
+    assert attempts == 2
+    assert reviewer_calls == []
+    assert posted == []
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
+
+
+def test_collect_preflight_timeout_message_is_transport_error() -> None:
+    assert qe._is_preflight_context_transport_error(
+        RuntimeError("gh pr view 1 timed out after 30s")
+    )
+
+
+def test_collect_preflight_raw_timeout_exception_is_transport_blocked() -> None:
+    attempts = 0
+
+    def timeout_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise subprocess.TimeoutExpired(["gh", "pr", "view", str(pr)], timeout=30)
+
+    with pytest.raises(qe.CollectPreflightTransportError) as raised:
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            timeout_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 2
+    payload = raised.value.to_dict()
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+
+
+def test_collect_preflight_non_github_timeout_message_is_not_transport_error() -> None:
+    attempts = 0
+
+    def logic_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("policy parser timed out after reading an invalid fixture")
+
+    with pytest.raises(RuntimeError, match="policy parser timed out"):
+        qe._fetch_preflight_context(
+            "o/r",
+            1,
+            logic_context_fetcher,
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert attempts == 1
+
+
+def test_collect_preflight_transport_retry_can_recover_and_run_reviewers() -> None:
+    attempts = 0
+    reviewer_calls: list[str] = []
+    fakes, posted = _fakes(tier=1)
+
+    def flaky_context_fetcher(repo: str, pr: int) -> dict:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("error connecting to api.github.com")
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        reviewer_calls.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["context_fetcher"] = flaky_context_fetcher
+    fakes["reviewer_runner"] = reviewer_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert attempts >= 2
+    assert sorted(reviewer_calls) == ["claude", "grok"]
+    assert outcome.action == "post"
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert len(posted) == 2
 
 
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
@@ -1637,6 +2549,18 @@ def test_collect_dedupes_families() -> None:
         (" Grok ", "grok"),
         ("Claude", "claude"),
         ("gemini", "gemini"),
+        ("zhipu", "glm"),
+        ("z-ai", "glm"),
+        ("hy3", "tencent"),
+        ("hunyuan", "tencent"),
+        ("seed", "bytedance"),
+        ("seed-2.0", "bytedance"),
+        ("doubao", "bytedance"),
+        ("bytedance-seed", "bytedance"),
+        ("google", "gemini"),
+        # AgentRegistry name used in live protocol agent ids (#9363 round-5 [P2]).
+        ("gemini-cli", "gemini"),
+        ("Gemini-CLI", "gemini"),
     ],
 )
 def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
@@ -1645,9 +2569,9 @@ def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
     assert canonical_family(name) == expected
 
 
-def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
-    # codex/gpt are the OpenAI family's CLI/product names. They must collapse to
-    # ONE canonical family so a single provider can't satisfy the 2-family quorum.
+def test_collect_aliases_collapse_to_single_canonical_family() -> None:
+    # Aliases must collapse to ONE canonical family so a single provider cannot
+    # satisfy the 2-family quorum by using multiple product/model names.
     fakes, _ = _fakes(tier=4)
     outcome = collect_evidence(
         repo="o/r",
@@ -1658,6 +2582,17 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         **fakes,
     )
     assert [item.family for item in outcome.items] == ["openai"]
+
+    fakes, _ = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["bytedance", "seed-2.0"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+    assert [item.family for item in outcome.items] == ["bytedance"]
 
 
 @pytest.mark.parametrize(
@@ -1735,7 +2670,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
@@ -1816,6 +2751,49 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
     assert "deepseek" in q.FAMILY_PROVIDERS  # already a recognized counting family
 
 
+@pytest.mark.parametrize(
+    "family,provider,display,model",
+    [
+        ("glm", "zhipu", "GLM", "z-ai/glm-5.2"),
+        ("minimax", "minimax", "MiniMax", "minimax/minimax-m3"),
+        ("tencent", "tencent", "Tencent Hy3", "tencent/hy3"),
+        ("bytedance", "bytedance", "ByteDance Seed", "bytedance-seed/seed-2.0-lite"),
+    ],
+)
+def test_chinese_reviewer_family_has_openrouter_dispatch(
+    family: str, provider: str, display: str, model: str
+) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    assert q.FAMILY_PROVIDERS[family] == provider
+    assert q.FAMILY_DISPLAY[family] == display
+    assert q._openrouter_reviewer_model(family) == model
+    assert family in q._OPENROUTER_DIRECT_FAMILIES
+
+
+@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: str) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    called: list[str] = []
+    monkeypatch.setattr(
+        q,
+        "_run_openrouter_reviewer",
+        lambda fam, _prompt: called.append(fam) or q.ReviewerResult(fam, "PASS", True),
+    )
+    monkeypatch.setattr(
+        q,
+        "_run_api_agent",
+        lambda *_args, **_kwargs: pytest.fail("direct family must not use native API routing"),
+    )
+
+    result = q.default_reviewer_runner(family, "prompt")
+
+    assert result.ok is True
+    assert result.family == family
+    assert called == [family]
+
+
 def test_collect_missing_head_raises() -> None:
     fakes, _ = _fakes(tier=1, head="")
     with pytest.raises(ValueError):
@@ -1826,7 +2804,12 @@ def _prepared_body(family: str, verdict: str = "PASS") -> str:
     return f"Verdict: {verdict}\n\n{family} body\n"
 
 
-def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
+def _prepared_outcome_file(
+    tmp_path,
+    *,
+    items: list[EvidenceItem] | None = None,
+    adjudication: dict | None = None,
+) -> Path:
     outcome = CollectOutcome(
         repo="o/r",
         pr=1,
@@ -1840,6 +2823,7 @@ def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None)
             EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
             EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
         ],
+        adjudication=adjudication,
     )
     path = tmp_path / "prepared.json"
     path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
@@ -1884,6 +2868,55 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_recomputes_exact_head_adjudication(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_REVIEW_ADJUDICATOR", "1")
+    stale_adjudication = {"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"}
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem(
+                "openai",
+                "Verdict: CHANGES-REQUESTED\n"
+                "- [P1] aragora/swarm/quorum_evidence.py:2679 preserves stale "
+                "prepared adjudication after fresh lint rejects the reviewer.",
+                False,
+                [],
+                [],
+                "changes_requested",
+            ),
+        ],
+        adjudication=stale_adjudication,
+    )
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "openai"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: (
+            {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+            if "claude body" in args[4]
+            else {"would_count": False, "counted_reviewer_ids": [], "problems": []}
+        ),
+        poster=lambda repo, pr, body: None,
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["openai"]
+    assert outcome.adjudication is not None
+    assert outcome.adjudication["verdict"] == "adjudicated_block"
+    assert outcome.adjudication["verdict"] != stale_adjudication["verdict"]
+    assert outcome.adjudication["blocking_findings"]
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
@@ -2217,7 +3250,10 @@ def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> 
 
 
 def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        adjudication={"kind": "review_adjudication.v1", "verdict": "adjudicated_settle"},
+    )
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
@@ -2241,6 +3277,8 @@ def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
 
     assert outcome.action == "prepare"
     assert "prepared head" in outcome.action_reason
+    assert outcome.adjudication is None
+    assert "adjudication" not in outcome.to_dict()
     assert outcome.posted == []
     assert posted == []
 
@@ -2272,6 +3310,54 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_scopes_timeout_env_overrides(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "111")
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured.update(kwargs)
+        captured["claude_timeout"] = qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        captured["codex_timeout"] = qe.os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        captured["reviewer_timeout"] = qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout_seconds=90,
+        overall_timeout_seconds=150,
+    )
+
+    assert rc == 0
+    assert captured["overall_timeout_seconds"] == 150.0
+    assert captured["claude_timeout"] == "90"
+    assert captured["codex_timeout"] == "90"
+    assert captured["reviewer_timeout"] == "90"
+    assert qe.os.environ.get(qe._CLAUDE_TIMEOUT_ENV) == "111"
+    assert qe.os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
+    assert qe.os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
@@ -2339,6 +3425,30 @@ def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     assert rc == 1
 
 
+def test_run_collect_cli_timeout_returns_failure_even_with_supportive_quorum(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=0,
+            action="prepare",
+            action_reason="reviewer orchestration timeout; prepared only",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            orchestration_timeout=True,
+            timed_out_families=["grok"],
+            overall_timeout_seconds=1.0,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=False
+    )
+    assert rc == 1
+
+
 def test_run_collect_cli_error_path(monkeypatch, capsys) -> None:
     def boom(**kwargs):
         raise ValueError("no head")
@@ -2363,6 +3473,36 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+def test_run_collect_cli_preflight_transport_error_serializes_fail_closed_json(
+    monkeypatch, capsys
+) -> None:
+    def boom(**kwargs):
+        raise qe.CollectPreflightTransportError(
+            repo="o/r",
+            pr=1,
+            phase="preflight_pr_context",
+            error=RuntimeError("error connecting to api.github.com"),
+            attempts=2,
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "collect_evidence"
+    assert payload["status"] == "transport_blocked"
+    assert payload["transport_blocked"] is True
+    assert payload["preserve_no_mutate"] is True
+    assert payload["phase"] == "preflight_pr_context"
+    assert payload["posted_families"] == []
+    assert payload["items"] == []
+    assert payload["failures"] == []
 
 
 # --- build_review_prompt: complete file list + fair per-file body bounding ---
@@ -2404,6 +3544,20 @@ def test_build_review_prompt_keeps_all_added_paths_when_deletion_sorts_first() -
     # Every added path survives even though the diff body had to be bounded.
     for path in added:
         assert path in prompt
+
+
+def test_build_review_prompt_states_severity_verdict_contract() -> None:
+    """The prompt must teach reviewers the linter's counting contract: [P1]/[P2]
+    findings are blocking, so they require CHANGES-REQUESTED; [P3]-only may
+    accompany PASS. Without this, reviewers emit 'Verdict: PASS' + [P2] bodies
+    that has_blocking_or_negative_verdict rejects and the family never counts
+    (observed live on every claude review of 2026-07-09)."""
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=9073, head_sha=HEAD, diff_text="diff", name_status="M\tf.py"
+    )
+    assert "Severity contract" in prompt
+    assert "MUST be 'Verdict: CHANGES-REQUESTED'" in prompt
+    assert "[P3]-only findings may accompany a PASS" in prompt
 
 
 def test_build_review_prompt_never_truncates_complete_file_list_header() -> None:
@@ -2570,10 +3724,13 @@ def _force_grok_bin(monkeypatch, present: bool) -> None:
 
 def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
     _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "17")
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "verdict", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2583,6 +3740,8 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     # read-only sandbox + headless single-prompt, explicit Grok Build path.
     assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
     assert seen["argv"][0].endswith(".grok/bin/grok")
+    assert seen["prompt"] == "review prompt"
+    assert seen["timeout"] == 17.0
 
 
 def test_grok_build_bin_override(monkeypatch) -> None:
@@ -2613,11 +3772,14 @@ def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeyp
 def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     import shutil as _sh
 
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "19")
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
     seen: dict = {}
 
-    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+    def fake_cli(family, argv, harness, *, prompt, timeout=qe._REVIEWER_TIMEOUT):
         seen["argv"] = argv
+        seen["prompt"] = prompt
+        seen["timeout"] = timeout
         return qe.ReviewerResult(family, "v", True, harness=harness)
 
     monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
@@ -2626,6 +3788,8 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+    assert seen["prompt"] == "review prompt"
+    assert seen["timeout"] == 19.0
 
 
 def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:
@@ -3014,3 +4178,561 @@ def test_advisory_dissent_settle_enabled_accepts_injected_env() -> None:
         qe.advisory_dissent_settle_enabled({"ARAGORA_ENABLE_ADVISORY_DISSENT_SETTLE": "0"}) is False
     )
     assert qe.advisory_dissent_settle_enabled({}) is False
+
+
+# ---------------------------------------------------------------------------
+# Verdict contract (issue #9241 B1): malformed reviews never count
+# ---------------------------------------------------------------------------
+
+
+class TestNoVerdictNeverCounts:
+    """A review with no parseable verdict is malformed and must never count.
+
+    Observed live 2026-07-11: the grok CLI harness returned preamble-only
+    bodies ("I'll review the PR ... Pulling the full implementation ...") with
+    verdict=unknown yet would_count=True — a no-verdict review feeding
+    counting_families and 'families heard' conditions.
+    """
+
+    def test_unknown_verdict_demotes_would_count_at_construction(self) -> None:
+        item = EvidenceItem(
+            family="grok",
+            body="I'll review the PR diff for correctness. Pulling files now.",
+            would_count=True,
+            verdict="unknown",
+        )
+        assert item.would_count is False
+        assert any("never counts" in p for p in item.problems)
+        assert item.supportive is False
+
+    def test_unknown_verdict_excluded_from_counting_families(self) -> None:
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=3,
+            action="prepare",
+            action_reason="test",
+            items=[
+                EvidenceItem(family="grok", body="preamble only", would_count=True),
+                EvidenceItem(
+                    family="openai", body="Verdict: PASS", would_count=True, verdict="pass"
+                ),
+            ],
+        )
+        assert outcome.counting_families == ["openai"]
+
+    def test_grok_style_preamble_parses_to_unknown_verdict(self) -> None:
+        body = (
+            "## Grok independent model review\n\n"
+            "I'll review the PR #8809 diff at head 5899700 for correctness, "
+            "security, and regressions. Reading the full prompt and the "
+            "implementation files.\n\ndogfood: yes\n"
+        )
+        assert qe._reviewer_verdict(body) == "unknown"
+        item = EvidenceItem(family="grok", body=body, would_count=True)
+        assert item.would_count is False
+
+    @pytest.mark.parametrize("forged", ["approved", "UNKNOWN", "unknown ", "not_a_verdict", ""])
+    def test_forged_noncanonical_verdicts_never_count(self, forged: str) -> None:
+        """Prepared artifacts pass verdict strings verbatim: anything outside the
+        closed canonical set is untrusted and fails closed (#9249 review P2)."""
+        raw = {
+            "family": "grok",
+            "body": "body text",
+            "would_count": True,
+            "verdict": forged,
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
+
+    def test_pass_and_changes_requested_verdicts_unaffected(self) -> None:
+        passing = EvidenceItem(
+            family="claude", body="Verdict: PASS", would_count=True, verdict="pass"
+        )
+        assert passing.would_count is True
+        assert passing.supportive is True
+
+        dissenting = EvidenceItem(
+            family="gemini",
+            body="Verdict: CHANGES-REQUESTED\n- [P1] real blocker",
+            would_count=False,
+            verdict="changes_requested",
+        )
+        assert dissenting.would_count is False
+        assert dissenting.problems == []
+
+    def test_from_raw_prepared_artifact_cannot_smuggle_unknown_count(self) -> None:
+        raw = {
+            "family": "grok",
+            "body": "preamble with no verdict line",
+            "would_count": True,
+            "verdict": "unknown",
+        }
+        item = qe._evidence_item_from_dict(raw)
+        assert item.would_count is False
+        assert any("never counts" in problem for problem in item.problems)
+
+
+class TestTruncationAndContradictionNeverCount:
+    """#9241 B2: incomplete or self-contradictory reviews are not evidence."""
+
+    def test_truncated_review_never_counts(self) -> None:
+        body = "Verdict: PASS\n\nlooks good" + "x" * 10 + f"\n\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("truncated" in p for p in item.problems)
+
+    def test_cap_text_marker_matches_the_guard(self) -> None:
+        capped = qe._cap_text("y" * (qe._MAX_REVIEWER_CHARS + 10))
+        assert qe._TRUNCATION_MARKER in capped
+        item = EvidenceItem(
+            family="claude",
+            body=f"Verdict: PASS\n{capped}",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is False
+
+    def test_pass_with_blocking_finding_never_counts(self) -> None:
+        body = (
+            "Verdict: PASS\n\n"
+            "- [P1] `aragora/x.py:10` — unauthenticated endpoint allows fund transfers\n"
+        )
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+        assert any("contradicted" in p for p in item.problems)
+
+    def test_pass_with_p2_finding_never_counts_under_severity_gate(self) -> None:
+        body = "Verdict: PASS\n\n- [P2] `aragora/x.py:10` — prepared apply bypasses proof\n"
+        item = EvidenceItem(
+            family="openai",
+            body=body,
+            would_count=True,
+            verdict="pass",
+            severity_gated=True,
+        )
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("[P0]/[P1]/[P2]" in p for p in item.problems)
+
+    def test_pass_with_advisory_finding_still_counts(self) -> None:
+        body = "Verdict: PASS\n\n- [P3] `aragora/x.py:10` — minor naming nit\n"
+        item = EvidenceItem(family="openai", body=body, would_count=True, verdict="pass")
+        assert item.would_count is True
+        assert item.supportive is True
+
+    def test_clean_pass_still_counts(self) -> None:
+        item = EvidenceItem(
+            family="claude",
+            body="Verdict: PASS\n\nNo findings.\n",
+            would_count=True,
+            verdict="pass",
+        )
+        assert item.would_count is True
+
+
+def test_fresh_collect_verdict_parsed_from_composed_body(monkeypatch) -> None:
+    """A raw output whose verdict only becomes parseable after normalization
+    (e.g. wrapped in a thinking trace) must count via the composed body —
+    parsing raw text would over-reject (#9249 openai P2)."""
+    raw = "<think>deliberating at length</think>\nVerdict: PASS\n\nNo findings.\n"
+    assert qe._reviewer_verdict(qe._strip_thinking_traces(raw)) == "pass"
+
+    fakes, _posted = _fakes(tier=3)
+    fakes["reviewer_runner"] = lambda family, prompt: ReviewerResult(
+        family, raw, True, harness="test"
+    )
+    fakes["linter"] = lambda pr, head, committed, author, body, env: {
+        "would_count": True,
+        "counted_reviewer_ids": ["claude"],
+        "problems": [],
+    }
+    outcome = collect_evidence(
+        repo="synaptent/aragora", pr=1, families=["claude"], author="tester", apply=False, **fakes
+    )
+    (item,) = outcome.items
+    assert item.verdict == "pass"
+    assert item.would_count is True
+
+
+class TestFullFileGrounding:
+    """#9241 B3: reviewers get bounded post-change file contents so
+    import-existence claims are verifiable (the gemini false-P1 class)."""
+
+    DIFF = (
+        "diff --git a/aragora/x.py b/aragora/x.py\n"
+        "index 111..222 100644\n--- a/aragora/x.py\n+++ b/aragora/x.py\n"
+        "@@ -10,1 +10,2 @@\n+    use(NotFoundError)\n"
+        "diff --git a/aragora/y.py b/aragora/y.py\n"
+        "index 333..444 100644\n--- a/aragora/y.py\n+++ b/aragora/y.py\n"
+        "@@ -1,1 +1,1 @@\n-old\n+new\n"
+    )
+
+    def test_section_contains_import_block(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "from .exceptions import NotFoundError\n\ndef use(x): ...\n"
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert "from .exceptions import NotFoundError" in section
+        assert "VERIFY claims about imports" in section
+
+    def test_bounds_respected(self) -> None:
+        big = "\n".join(f"line {i}" for i in range(1000))
+
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return big
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert f"first {qe._FULL_FILE_MAX_LINES} of 1000 lines" in section
+        assert "line 999" not in section
+
+    def test_fetch_failure_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise RuntimeError("api down")
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        # All files unavailable -> empty section (grounding silently absent)
+        assert section == ""
+
+    def test_fetch_timeout_never_blocks(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            raise subprocess.TimeoutExpired(cmd=["gh", "api"], timeout=30)
+
+        section = qe._full_file_section("o/r", "a" * 40, self.DIFF, file_fetcher=fetcher)
+        assert section == ""
+
+    def test_prompt_appends_section(self) -> None:
+        prompt = qe.build_review_prompt(
+            repo="o/r",
+            pr=1,
+            head_sha="a" * 40,
+            diff_text=self.DIFF,
+            full_files="=== FULL CHANGED FILES ... ===\ncontent",
+        )
+        assert prompt.rstrip().endswith("content")
+
+    def test_empty_diff_yields_empty_section(self) -> None:
+        assert qe._full_file_section("o/r", "a" * 40, "", file_fetcher=lambda *a: "x") == ""
+
+
+class TestCredentialWallClassification:
+    """#9241 B4: credential walls are classified infra states, never opaque."""
+
+    @pytest.mark.parametrize(
+        "detail",
+        [
+            "You're out of usage credits. Run /usage-credits to keep using Fable 5",
+            "ERROR: You've hit your usage limit. Visit ... or try again at 4:50 PM.",
+            "Not logged in · Please run /login",
+        ],
+    )
+    def test_live_wall_messages_classified(self, detail: str) -> None:
+        assert qe._is_credential_wall(detail) is True
+
+    def test_ordinary_errors_not_classified(self) -> None:
+        assert qe._is_credential_wall("SyntaxError: invalid syntax") is False
+        assert qe._is_credential_wall("") is False
+
+    def test_probe_prefixes_credential_unhealthy(self, monkeypatch) -> None:
+        proc = SimpleNamespace(returncode=1, stderr="You're out of usage credits.", stdout="")
+        monkeypatch.setattr(qe.subprocess, "run", lambda *a, **k: proc)
+        error = qe._cli_liveness_probe("claude", ["claude", "-p"])
+        assert error is not None
+        assert error.startswith("credential_unhealthy(claude)")
+
+    def test_walled_primary_with_disabled_fallback_is_explicit(self, monkeypatch) -> None:
+        walled = ReviewerResult(
+            "claude", "", False, "claude CLI liveness probe exit 1: out of usage credits"
+        )
+        monkeypatch.setattr(qe, "_run_claude_reviewer", lambda prompt: walled)
+        monkeypatch.setattr(
+            qe,
+            "_run_openrouter_reviewer",
+            lambda fam, prompt: ReviewerResult(
+                fam, "", False, "OpenRouter fallback disabled (set ...)"
+            ),
+        )
+        result = qe.default_reviewer_runner("claude", "prompt")
+        assert result.ok is False
+        assert result.error.startswith("credential_unhealthy(claude)")
+        assert "fallback is not configured" in result.error
+
+
+class TestB4RoundTwoHardening:
+    """Direction-aware truncation, path safety, and byte caps (#9249 round-2 P2s)."""
+
+    def test_truncated_changes_requested_still_counts(self) -> None:
+        body = f"Verdict: CHANGES-REQUESTED\n\n- [P2] partial finding\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(
+            family="claude", body=body, would_count=True, verdict="changes_requested"
+        )
+        assert item.would_count is True  # dissent survives truncation
+
+    def test_truncated_pass_still_demoted(self) -> None:
+        body = f"Verdict: PASS\n\nfine so far\n{qe._TRUNCATION_MARKER}"
+        item = EvidenceItem(family="claude", body=body, would_count=True, verdict="pass")
+        assert item.would_count is False
+
+    @pytest.mark.parametrize(
+        "bad", ["../../etc/passwd", "/abs/path.py", "a?b.py", "a#b.py", "a\\b.py", "x/../y.py"]
+    )
+    def test_suspicious_paths_rejected(self, bad: str) -> None:
+        with pytest.raises(ValueError):
+            qe._fetch_file_at_ref("o/r", "a" * 40, bad)
+
+    def test_long_line_file_is_char_capped(self) -> None:
+        def fetcher(repo: str, ref: str, path: str) -> str:
+            return "x" * 500_000  # one enormous line
+
+        section = qe._full_file_section(
+            "o/r", "a" * 40, TestFullFileGrounding.DIFF, file_fetcher=fetcher
+        )
+        assert len(section) < qe._FULL_FILE_SECTION_MAX_CHARS + 10_000
+        assert "[file clipped for length]" in section
+
+
+def test_full_file_grounding_is_opt_in_default_off(monkeypatch) -> None:
+    """Egress boundary (#9249 openai P1): full-file contents must never reach
+    reviewer transports unless the operator explicitly enables the flag."""
+    monkeypatch.delenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", raising=False)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        qe, "_full_file_section", lambda *a, **k: calls.append("fetched") or "SECTION"
+    )
+    monkeypatch.setattr(
+        qe.merge_quorum_io,
+        "run",
+        lambda argv, env=None, timeout=None: SimpleNamespace(
+            returncode=0,
+            stdout=("deadbeef" * 5)
+            if "headRefOid" in " ".join(argv)
+            else TestFullFileGrounding.DIFF,
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(qe, "_fetch_name_status", lambda repo, pr: "")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == []
+    assert "SECTION" not in prompt
+
+    monkeypatch.setenv("ARAGORA_REVIEWER_FULL_FILE_GROUNDING", "1")
+    prompt = qe.default_prompt_builder("o/r", 1, {"head_sha": "deadbeef" * 5})
+    assert calls == ["fetched"]
+    assert prompt.rstrip().endswith("SECTION")
+
+
+def test_truncated_changes_requested_is_blocking_despite_advisory_visible_findings(
+    monkeypatch,
+) -> None:
+    """#9249 round-3 claude [P2]: hidden severity fails closed — a truncated CR
+    whose visible findings are advisory-only must still block."""
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    body = f"Verdict: CHANGES-REQUESTED\n\n- [P3] visible minor nit\n{qe._TRUNCATION_MARKER}"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=True,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is True  # fail-closed on hidden severity
+
+
+def test_untruncated_advisory_cr_stays_advisory(monkeypatch) -> None:
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P3] complete minor nit\n"
+    item = EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=False,
+        verdict="changes_requested",
+        severity_gated=True,
+    )
+    assert item.dissenting is False  # severity gating unchanged for complete reviews
+
+
+def test_truncation_marker_survives_llm_normalization(monkeypatch) -> None:
+    """openai #9249 r9 [P2]: the opt-in LLM normalizer may rewrite a truncated
+    body into clean canonical form — the marker must be re-appended so the
+    truncated-PASS demotion still fires."""
+    truncated_raw = "garbled preamble" + f"\n\n{qe._TRUNCATION_MARKER}"
+    monkeypatch.setattr(
+        qe, "normalize_reviewer_output", lambda text, family: "Verdict: PASS\n\nNo findings."
+    )
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text=truncated_raw,
+    )
+    assert qe._TRUNCATION_MARKER in body
+    lint = {"would_count": True, "counted_reviewer_ids": ["openai"], "problems": []}
+    item = EvidenceItem(
+        family="openai", body=body, would_count=True, verdict=qe._reviewer_verdict(body)
+    )
+    assert item.would_count is False  # incomplete PASS never counts
+
+
+def test_untruncated_normalization_unchanged() -> None:
+    body = compose_evidence_comment(
+        family="openai",
+        head_sha="a" * 40,
+        head_committed_at="2026-07-13T00:00:00Z",
+        pr=1,
+        reviewer_text="Verdict: PASS\n\nNo findings.",
+    )
+    assert qe._TRUNCATION_MARKER not in body
+
+
+class TestFounderRosterDirective20260716:
+    """Pins the 2026-07-16 founder roster directive: gemini out of the
+    counting set (repeat fabricated-claim pattern, see the committed
+    reviewer-reliability record in docs/governance/records/)."""
+
+    def test_every_gemini_registry_surface_is_demoted(self):
+        # The demotion keys off canonical_family(<agent id>), and live protocol
+        # payloads carry AgentRegistry names — so a Gemini-family agent whose
+        # registry id does not collapse to "gemini" silently escapes the
+        # directive and can block a merge (#9363 rounds 5-6: gemini-cli, then
+        # antigravity). Walk the registry so the next such surface fails CI
+        # instead of leaking.
+        import aragora.agents.cli_agents  # noqa: F401  (populates the registry)
+        from aragora.agents.registry import AgentRegistry
+        from aragora.swarm.quorum_evidence import ADVISORY_ONLY_FAMILIES, canonical_family
+
+        gemini_surfaces = {
+            name
+            for name, spec in AgentRegistry.list_all().items()
+            if str((spec or {}).get("default_model") or "").lower().startswith("gemini")
+        }
+        # Guard the guard: if this is empty the walk silently proves nothing.
+        assert gemini_surfaces, "expected at least one Gemini-family agent in the registry"
+        escaped = {n for n in gemini_surfaces if canonical_family(n) not in ADVISORY_ONLY_FAMILIES}
+        assert not escaped, (
+            f"Gemini-family agent ids escape the advisory-only demotion: {sorted(escaped)}. "
+            "Add each to _FAMILY_ALIASES so its dissent cannot re-enter the gate."
+        )
+
+    def test_gemini_family_does_not_count(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert "gemini" not in WESTERN_FAMILIES
+
+    def test_counting_set_retains_two_plus_families(self):
+        from aragora.swarm.quorum_evidence import WESTERN_FAMILIES
+
+        assert {"claude", "openai", "grok"} <= WESTERN_FAMILIES
+
+    def test_kimi_lane_uses_the_catalogued_slug(self):
+        # The record deferred the upgrade only until the model had a catalog
+        # entry; aragora/models/catalog.py now carries kimi-k2.7-code, so the
+        # lane follows the catalog. The invariant that survives the deferral is
+        # that the reviewer slug must always BE catalogued.
+        from aragora.models import by_any_id
+        from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
+
+        slug = _OPENROUTER_REVIEWER_MODELS["kimi"]
+        assert slug == "moonshotai/kimi-k2.7-code"
+        assert by_any_id(slug) is not None, f"reviewer slug {slug} is not in the model catalog"
+
+    def test_family_classification_is_total_and_disjoint(self):
+        # Explicit, total taxonomy: every recognized family belongs to exactly
+        # one of western / chinese-routed / advisory-only. An unclassified
+        # family would silently default to full Tier 0-1 counting.
+        from aragora.swarm.quorum_evidence import (
+            ADVISORY_ONLY_FAMILIES,
+            CHINESE_ROUTED_FAMILIES,
+            FAMILY_PROVIDERS,
+            WESTERN_FAMILIES,
+        )
+
+        assert not WESTERN_FAMILIES & CHINESE_ROUTED_FAMILIES
+        assert not WESTERN_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert not CHINESE_ROUTED_FAMILIES & ADVISORY_ONLY_FAMILIES
+        assert WESTERN_FAMILIES | CHINESE_ROUTED_FAMILIES | ADVISORY_ONLY_FAMILIES == set(
+            FAMILY_PROVIDERS
+        )
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    @pytest.mark.parametrize("gate", [False, True])
+    def test_gemini_pass_never_counts_toward_any_tier(self, tier, gate):
+        # Record mandate: an advisory-only PASS never counts FOR a quorum, at
+        # any tier, under either gate regime.
+        from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+        rule = tier_quorum_rule(tier, tiered_gate=gate)
+        assert "gemini" not in rule.counted_families({"gemini", "claude", "deepseek"})
+        # gemini alone never satisfies even the 1-signal Tier-0 bar.
+        assert rule.is_satisfied_by({"gemini"}) is False
+        # gemini's presence never changes the outcome for the rest of the set.
+        for others in ({"claude"}, {"claude", "openai"}, {"deepseek"}):
+            assert rule.is_satisfied_by(others | {"gemini"}) == rule.is_satisfied_by(others)
+
+    def test_gemini_evidence_item_never_counts_for(self):
+        item = EvidenceItem("gemini", "Verdict: PASS\n\nNo findings.", True, ["gemini"], [], "pass")
+        assert item.would_count is False
+        assert item.supportive is False
+        assert any("advisory-only" in problem for problem in item.problems)
+
+    def test_gemini_aliases_are_excluded_everywhere(self):
+        # #9363 round-4 [P3]: a raw alias/provider id must not dodge the
+        # advisory-only exclusion at any of the filter sites.
+        from aragora.swarm.quorum_evidence import canonical_family, tier_quorum_rule
+
+        gemini_aliases = ["google", "Google", " GEMINI "]
+        for alias in gemini_aliases:
+            assert canonical_family(alias) == "gemini"
+        for tier in (0, 1, 2, 3, 4):
+            rule = tier_quorum_rule(tier, tiered_gate=False)
+            for alias in gemini_aliases:
+                assert not rule.counted_families({alias})
+                assert rule.is_satisfied_by({alias}) is False
+        item = EvidenceItem("google", "Verdict: PASS\n\nNo findings.", True, ["google"], [], "pass")
+        assert item.would_count is False
+        cr = EvidenceItem(
+            "Google",
+            "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim",
+            True,
+            ["google"],
+            [],
+            "changes_requested",
+        )
+        assert cr.dissenting is False
+
+    @pytest.mark.parametrize("tier", [0, 1, 2, 3, 4])
+    def test_gemini_changes_requested_is_not_blocking_dissent(self, tier):
+        # Record mandate: "gemini dissent is NOT to be counted anywhere" — a
+        # gemini CHANGES-REQUESTED (even [P1]-backed) never blocks at any tier.
+        body = "Verdict: CHANGES-REQUESTED\n- [P1] fabricated blocking claim"
+        gemini = EvidenceItem("gemini", body, True, ["gemini"], [], "changes_requested")
+        assert gemini.dissenting is False
+        # Contrast pin: the same review from a counting family still blocks.
+        claude = EvidenceItem("claude", body, True, ["claude"], [], "changes_requested")
+        assert claude.dissenting is True
+        outcome = CollectOutcome(
+            repo="synaptent/aragora",
+            pr=9363,
+            head_sha="a" * 40,
+            head_committed_at="2026-07-17T00:00:00Z",
+            tier=tier,
+            action="collect",
+            action_reason="test",
+            items=[gemini],
+        )
+        assert outcome.dissenting_families == []
+        assert outcome.counting_families == []
+
+    def test_committed_reliability_record_is_auditable(self):
+        # The Tier-4 evidence artifact must live in the repo, not only in the
+        # gitignored operator-context directory.
+        from pathlib import Path
+
+        record = (
+            Path(__file__).resolve().parents[2]
+            / "docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md"
+        )
+        assert record.is_file()
+        assert "fabricated-claim pattern" in record.read_text(encoding="utf-8")

@@ -191,7 +191,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 46 agent types t
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`
+**Codebase metrics:** See `docs/METRICS.md` for canonical generated counts.
 
 ## Architecture
 
@@ -223,7 +223,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (42 registered)
+│       └── adapters/       # KM adapters (registered count: docs/METRICS.md)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -232,7 +232,7 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (3,386 API operations)
+│   ├── unified_server.py   # Main server (operation count: docs/METRICS.md)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
 │   ├── handlers/           # HTTP endpoint handlers (700+ modules)
@@ -439,7 +439,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)
+**Test suite metrics:** See `docs/METRICS.md` for canonical generated counts.
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)

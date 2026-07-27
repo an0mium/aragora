@@ -10,6 +10,7 @@ Validates that the verify command correctly:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import textwrap
@@ -25,6 +26,7 @@ from aragora.cli.commands.verify import (
     _recompute_checksum,
     _verify_receipt,
     cmd_verify,
+    create_verify_parser,
 )
 
 
@@ -237,6 +239,165 @@ class TestVerifyReceipt:
         assert "recomputed=" in checksum_check["detail"]
 
 
+def _sample_cruxes() -> dict[str, Any]:
+    return {
+        "items": [
+            {
+                "claim_id": "c1",
+                "statement": "The latency budget holds under burst load",
+                "author": "agent-alpha",
+                "crux_score": 0.82,
+                "contesting_agents": ["agent-beta"],
+            }
+        ],
+        "total_claims": 5,
+        "total_disagreements": 1,
+        "convergence_barrier": 0.41,
+        "detector": "belief_network",
+    }
+
+
+class TestCruxReceiptIntegrity:
+    """Crux receipts (schema >= 1.2) through the flagship `aragora verify`.
+
+    Regression for #9506 round 5: an earlier inline hash copy omitted the
+    cruxes branch, so every untampered --crux-cards receipt was reported
+    tampered by this command (while `aragora receipt verify` passed).
+    """
+
+    def _crux_receipt_data(self) -> dict[str, Any]:
+        data = _make_receipt_data(schema_version="1.2", include_checksum=False)
+        data["input_hash"] = "deadbeef"
+        data["risk_summary"] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}
+        data["cruxes"] = _sample_cruxes()
+        return data
+
+    def test_untampered_crux_receipt_from_canonical_producer_verifies(self):
+        """Round-trip: canonical producer hash -> _verify_receipt passes."""
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        data = self._crux_receipt_data()
+        receipt_dict = DecisionReceipt.from_dict(data).to_dict()
+        assert receipt_dict["cruxes"] == data["cruxes"]
+
+        result = _verify_receipt(receipt_dict)
+
+        assert result["valid"] is True
+        integrity = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity["passed"] is True
+        # Honest coverage: crux receipts report cruxes + schema_version too.
+        assert "cruxes" in integrity["covers"]
+        assert "schema_version" in integrity["covers"]
+
+    def test_tampered_cruxes_detected(self):
+        data = self._crux_receipt_data()
+        data["artifact_hash"] = _recompute_artifact_hash(data)
+        data["cruxes"]["items"][0]["statement"] = "tampered"
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+
+    def test_schema_downgrade_detected(self):
+        """1.2 -> 1.1 downgrade must fail: schema_version is bound into the
+        hash for crux receipts, so the version signal cannot be stripped."""
+        data = self._crux_receipt_data()
+        data["artifact_hash"] = _recompute_artifact_hash(data)
+        data["schema_version"] = "1.1"
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+
+    def test_pre_stamp_crux_receipt_with_11_schema_still_verifies(self):
+        """#9414 shipped crux binding on main BEFORE the 1.2 stamp existed:
+        persisted receipts carry cruxes + schema_version 1.1 with a hash
+        computed WITHOUT schema_version. The version binding is gated on the
+        1.2 stamp, so those audit receipts must keep verifying."""
+        data = self._crux_receipt_data()
+        data["schema_version"] = "1.1"
+        pre_pr_material = json.dumps(
+            {
+                "receipt_id": data["receipt_id"],
+                "gauntlet_id": data["gauntlet_id"],
+                "input_hash": data["input_hash"],
+                "risk_summary": data["risk_summary"],
+                "verdict": data["verdict"],
+                "confidence": data["confidence"],
+                "cruxes": data["cruxes"],
+            },
+            sort_keys=True,
+        )
+        data["artifact_hash"] = hashlib.sha256(pre_pr_material.encode()).hexdigest()
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert "cruxes" in integrity["covers"]
+        assert "schema_version" not in integrity["covers"]
+
+    def test_stripped_artifact_hash_crux_receipt_rejected(self):
+        """Stripping artifact_hash from a crux receipt must not downgrade
+        verification to the legacy 16-char checksum, which covers neither
+        cruxes nor schema_version."""
+        data = self._crux_receipt_data()
+        data.pop("artifact_hash", None)
+        data["checksum"] = _recompute_checksum(data)
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert "requires the full" in integrity["detail"]
+
+    def test_legacy_pre_crux_receipt_via_checksum_still_valid(self):
+        """Pre-crux receipts keep the legacy checksum fallback."""
+        data = _make_receipt_data(include_checksum=True)
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+
+    def test_legacy_receipt_hash_recipe_unchanged(self):
+        """Pre-crux (1.1) receipts keep the original recipe: schema_version
+        and cruxes are NOT bound, so existing stored hashes keep verifying."""
+        data = _make_receipt_data(schema_version="1.1", include_checksum=False)
+        legacy_material = json.dumps(
+            {
+                "receipt_id": data["receipt_id"],
+                "gauntlet_id": data["gauntlet_id"],
+                "input_hash": data.get("input_hash", ""),
+                "risk_summary": data.get("risk_summary", {}),
+                "verdict": data["verdict"],
+                "confidence": data["confidence"],
+            },
+            sort_keys=True,
+        )
+        data["artifact_hash"] = hashlib.sha256(legacy_material.encode()).hexdigest()
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert "schema_version" not in integrity["covers"]
+
+    def test_inline_fallback_matches_canonical_recipe(self):
+        """The no-gauntlet fallback must stay byte-equivalent to the shared
+        canonical recipe for pre-crux, 1.2-stamped crux, and pre-stamp
+        (#9414-era, schema 1.1) crux receipts."""
+        from aragora.cli.commands.verify import _inline_artifact_hash
+        from aragora.gauntlet.receipt_models import compute_receipt_artifact_hash
+
+        plain = _make_receipt_data(include_checksum=False)
+        crux = self._crux_receipt_data()
+        pre_stamp_crux = self._crux_receipt_data()
+        pre_stamp_crux["schema_version"] = "1.1"
+        for data in (plain, crux, pre_stamp_crux):
+            assert _inline_artifact_hash(data) == compute_receipt_artifact_hash(data)
+            assert _recompute_artifact_hash(data) == _inline_artifact_hash(data)
+
+
 # ---------------------------------------------------------------------------
 # CLI cmd_verify tests
 # ---------------------------------------------------------------------------
@@ -368,3 +529,95 @@ class TestCmdVerify:
         args = _FakeArgs(receipt_path=str(path))
         rc = cmd_verify(args)
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Help-text tests: `aragora receipt verify --help` (VAL-VERIFY-013)
+#
+# The `receipt verify` subcommand (aragora/cli/commands/receipt.py) is a
+# separate implementation from the top-level `verify` command tested above:
+# it checks artifact_hash presence, recomputes the SHA-256 decision-integrity
+# hash, checks required-field presence, and (if present) verifies a
+# cryptographic signature -- but unlike `cmd_verify` it does NOT fall back to
+# a legacy `checksum` field. Its --help text must describe that real behavior
+# instead of being blank, and must stay disambiguated from the standalone
+# `aragora-verify` ODR verifier per docs/specs/INDEPENDENT_VERIFIER_GUIDE.md.
+# ---------------------------------------------------------------------------
+
+
+def _build_receipt_verify_subparser() -> argparse.ArgumentParser:
+    """Construct just the 'receipt verify' subparser for help-text inspection."""
+    from aragora.cli.commands.receipt import add_receipt_parser
+
+    root = argparse.ArgumentParser(prog="aragora")
+    subparsers = root.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+    receipt_parser = subparsers.choices["receipt"]
+
+    receipt_subparsers_action = next(
+        action
+        for action in receipt_parser._actions  # noqa: SLF001
+        if isinstance(getattr(action, "choices", None), dict)
+    )
+    return receipt_subparsers_action.choices["verify"]
+
+
+def _build_top_level_verify_parser() -> argparse.ArgumentParser:
+    """Construct just the top-level 'verify' parser for help-text inspection."""
+    root = argparse.ArgumentParser(prog="aragora")
+    subparsers = root.add_subparsers(dest="command")
+    create_verify_parser(subparsers)
+    return subparsers.choices["verify"]
+
+
+# Terms that must appear (case-insensitively) in help text describing native
+# DecisionReceipt integrity verification, per the disambiguation table in
+# docs/specs/INDEPENDENT_VERIFIER_GUIDE.md: native = in-repo DecisionReceipt
+# checks (SHA-256 hash recompute + tamper detection + signature check), as
+# opposed to the standalone `aragora-verify` ODR document verifier.
+_NATIVE_INTEGRITY_TERMS = ("sha-256", "artifact_hash", "tamper", "signature")
+
+
+class TestReceiptVerifyHelpText:
+    """`aragora receipt verify --help` must describe what it actually verifies."""
+
+    def test_receipt_verify_has_nonempty_description(self):
+        """The subparser must declare a description, not rely on `help=` alone."""
+        verify_subparser = _build_receipt_verify_subparser()
+        assert verify_subparser.description, "receipt verify must have a description"
+
+    def test_receipt_verify_description_mentions_native_integrity_terms(self):
+        """Description must name the real checks: SHA-256 hash, tamper, signature."""
+        verify_subparser = _build_receipt_verify_subparser()
+        description = verify_subparser.description.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in description, f"expected {term!r} in receipt verify description"
+        assert "decisionreceipt" in description
+
+    def test_receipt_verify_description_disambiguates_from_odr_verifier(self):
+        """Description should point ODR holders at the standalone verifier instead."""
+        verify_subparser = _build_receipt_verify_subparser()
+        description = verify_subparser.description.lower()
+        assert "aragora-verify" in description or "odr" in description
+
+    def test_receipt_verify_help_exits_zero_and_prints_native_terms(self, capsys):
+        """`aragora receipt verify --help` must exit 0 and print the description."""
+        verify_subparser = _build_receipt_verify_subparser()
+        with pytest.raises(SystemExit) as exc_info:
+            verify_subparser.parse_args(["--help"])
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        output = captured.out.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in output
+
+    def test_top_level_verify_help_still_exits_zero_and_prints_native_terms(self, capsys):
+        """`aragora verify --help` keeps describing native verification (no regression)."""
+        verify_parser = _build_top_level_verify_parser()
+        with pytest.raises(SystemExit) as exc_info:
+            verify_parser.parse_args(["--help"])
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        output = captured.out.lower()
+        for term in _NATIVE_INTEGRITY_TERMS:
+            assert term in output

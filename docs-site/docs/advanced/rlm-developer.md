@@ -215,7 +215,7 @@ async def safe_rlm_query(context: str, question: str):
             mode=RLMMode.COMPRESSION,  # Force compression
         )
     except Exception as e:
-        logger.warning(f"RLM query failed: \{e\}")
+        logger.warning(f"RLM query failed: {e}")
         return await direct_llm_query(context, question)
 ```
 

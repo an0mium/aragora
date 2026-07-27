@@ -27,9 +27,9 @@ class TestRiskWarningToHealth:
     """Test risk warning → health registry degradation handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_component(self, make_event):
         handler = self._get_handler()
@@ -127,9 +127,9 @@ class TestGenesisToControlPlane:
     """Test genesis events → control plane registry sync handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_agent_id(self, make_event):
         handler = self._get_handler()
@@ -233,12 +233,17 @@ class TestGenesisToControlPlane:
 
 
 class TestApprovalToKMReinforcement:
-    """Test approval approved → KM confidence reinforcement handler."""
+    """Test approval approved → KM confidence reinforcement handler.
+
+    Relocated to ``KnowledgeEventSubscriber`` (P4a Batch E2c): it is
+    knowledge-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
 
-        return StrategicHandlersMixin()
+        return KnowledgeEventSubscriber()
 
     def test_skips_when_no_topic(self, make_event):
         handler = self._get_handler()
@@ -305,12 +310,17 @@ class TestApprovalToKMReinforcement:
 
 
 class TestBudgetAlertToTeamSelection:
-    """Test budget alert → team selection constraint handler."""
+    """Test budget alert → team selection constraint handler.
+
+    Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.debate.event_subscribers import DebateEventSubscriber
 
-        return StrategicHandlersMixin()
+        return DebateEventSubscriber()
 
     def test_records_budget_constraint_via_method(self, make_event):
         handler = self._get_handler()
@@ -369,12 +379,17 @@ class TestBudgetAlertToTeamSelection:
 
 
 class TestAlertEscalatedToWorkflowBrake:
-    """Test alert escalated → workflow emergency brake handler."""
+    """Test alert escalated → workflow emergency brake handler.
+
+    Relocated to ``WorkflowEventSubscriber`` (P4a Batch E5): it is
+    workflow-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.workflow.event_subscribers import WorkflowEventSubscriber
 
-        return StrategicHandlersMixin()
+        return WorkflowEventSubscriber()
 
     def test_skips_non_critical_severity(self, make_event):
         handler = self._get_handler()
@@ -385,9 +400,9 @@ class TestAlertEscalatedToWorkflowBrake:
                 "alert_id": "alert_1",
             },
         )
-        with patch("aragora.workflow.engine.get_workflow_engine") as mock_get:
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_get.assert_not_called()
+            pause_all.assert_not_called()
 
     def test_pauses_workflows_on_critical(self, make_event):
         handler = self._get_handler()
@@ -400,14 +415,13 @@ class TestAlertEscalatedToWorkflowBrake:
             },
         )
 
-        mock_engine = MagicMock()
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=mock_engine):
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_engine.pause_all.assert_called_once()
-            call_kwargs = mock_engine.pause_all.call_args[1]
+            pause_all.assert_called_once()
+            call_kwargs = pause_all.call_args[1]
             assert "Database connection pool" in call_kwargs["reason"]
 
-    def test_falls_back_to_emergency_stop(self, make_event):
+    def test_pauses_workflows_on_emergency(self, make_event):
         handler = self._get_handler()
         event = make_event(
             StreamEventType.ALERT_ESCALATED,
@@ -418,12 +432,9 @@ class TestAlertEscalatedToWorkflowBrake:
             },
         )
 
-        mock_engine = MagicMock(spec=[])
-        mock_engine.emergency_stop = MagicMock()
-        # Remove pause_all so fallback triggers
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=mock_engine):
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_engine.emergency_stop.assert_called_once()
+            pause_all.assert_called_once()
 
     def test_graceful_on_import_error(self, make_event):
         handler = self._get_handler()
@@ -443,12 +454,17 @@ class TestAlertEscalatedToWorkflowBrake:
 
 
 class TestMetaLearningToTeamSelection:
-    """Test meta-learning → team selection recalibration handler."""
+    """Test meta-learning → team selection recalibration handler.
+
+    Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
+    """
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.debate.event_subscribers import DebateEventSubscriber
 
-        return StrategicHandlersMixin()
+        return DebateEventSubscriber()
 
     def test_skips_when_no_adjustments(self, make_event):
         handler = self._get_handler()
@@ -533,29 +549,45 @@ class TestStrategicHandlersRegistration:
             "agent_birth_to_control_plane",
             "agent_death_to_control_plane",
             "agent_evolution_to_control_plane",
-            "approval_to_km_reinforcement",
-            "budget_alert_to_team_selection",
-            "alert_escalated_to_workflow_brake",
-            "meta_learning_to_team_selection",
         }
         assert expected.issubset(registered_names), (
             f"Missing handlers: {expected - registered_names}"
         )
+        # approval_to_km_reinforcement relocated to KnowledgeEventSubscriber
+        # (P4a Batch E2c); a bare manager no longer registers it directly.
+        assert "approval_to_km_reinforcement" not in registered_names
+        # budget_alert_to_team_selection / meta_learning_to_team_selection
+        # relocated to DebateEventSubscriber (P4a Batch E4); a bare manager no
+        # longer registers them directly.
+        assert "budget_alert_to_team_selection" not in registered_names
+        assert "meta_learning_to_team_selection" not in registered_names
+        # alert_escalated_to_workflow_brake relocated to WorkflowEventSubscriber
+        # (P4a Batch E5, application-tier home); a bare manager no longer
+        # registers it directly.
+        assert "alert_escalated_to_workflow_brake" not in registered_names
 
     def test_strategic_event_types_have_subscribers(self):
         from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
         manager = CrossSubscriberManager()
 
+        # APPROVAL_APPROVED excluded: its only bare-manager subscriber
+        # (approval_to_km_reinforcement) relocated to KnowledgeEventSubscriber
+        # (P4a Batch E2c) and is wired only via apply_registered_subscribers.
+        # BUDGET_ALERT / META_LEARNING_ADJUSTED excluded: their only bare-manager
+        # subscribers (budget_alert_to_team_selection, meta_learning_to_team_selection)
+        # relocated to DebateEventSubscriber (P4a Batch E4) and are wired only via
+        # apply_registered_subscribers.
+        # ALERT_ESCALATED excluded: its only bare-manager subscriber
+        # (alert_escalated_to_workflow_brake) relocated to WorkflowEventSubscriber
+        # (P4a Batch E5, application-tier home) and is wired only via
+        # apply_registered_subscribers (interface-superset bootstrap only - a
+        # pure-domain manager has no workflow engine to react through).
         expected_event_types = {
             StreamEventType.RISK_WARNING,
             StreamEventType.AGENT_BIRTH,
             StreamEventType.AGENT_DEATH,
             StreamEventType.AGENT_EVOLUTION,
-            StreamEventType.APPROVAL_APPROVED,
-            StreamEventType.BUDGET_ALERT,
-            StreamEventType.ALERT_ESCALATED,
-            StreamEventType.META_LEARNING_ADJUSTED,
         }
 
         for event_type in expected_event_types:

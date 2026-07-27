@@ -1,0 +1,90 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Should PR synaptent/aragora#9014 (raw SQL string interpolation in the reporting export) be merged?",
+    "verdict": "FAIL"
+  },
+  "confidence": {
+    "calibration": {
+      "reason": "no calibration record for these agents",
+      "status": "absent"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.82
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-07-02T10:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [],
+      "present": false,
+      "views": []
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 2,
+      "model_families": [
+        "anthropic",
+        "mistral"
+      ]
+    },
+    "method": "unanimous",
+    "participants": [
+      {
+        "agent": "claude-agent",
+        "model_family": "anthropic",
+        "model_id": "claude-opus-4-8"
+      },
+      {
+        "agent": "grok-agent",
+        "model_family": "undisclosed",
+        "model_id": "undisclosed"
+      },
+      {
+        "agent": "mistral-agent",
+        "model_family": "mistral",
+        "model_id": "mistral-large-2512"
+      }
+    ],
+    "reached": true,
+    "status": "present",
+    "supporting_agents": [
+      "claude-agent",
+      "grok-agent",
+      "mistral-agent"
+    ]
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "Unanimous FAIL: raw SQL string interpolation in the reporting export is a SQL-injection vector; merge blocked pending a parameterized-query fix."
+  },
+  "receipt_id": "r-blocked-0001",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [],
+  "source": {
+    "artifact_hash": "63df3311d82b3bc9b2fad1dcc6ef2b318c69ad318fa30757e6e60cb54c940d9b",
+    "receipt_id": "r-blocked-0001",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "21814d176088bbe00e380cc0c71c42f4c3b5f3c9d35f1247b2541ac80564b853"
+    },
+    "identifier": "merge-quorum/synaptent/aragora#9014",
+    "summary": "Should PR synaptent/aragora#9014 (raw SQL string interpolation in the reporting export) be merged?"
+  }
+}

@@ -47,8 +47,9 @@ class TestCrossSubscriberManager:
         # Should have built-in subscribers
         assert len(manager._stats) > 0
         assert "memory_to_rlm" in manager._stats
-        assert "elo_to_debate" in manager._stats
-        assert "knowledge_to_memory" in manager._stats
+        # elo_to_debate / calibration_to_agent relocated to
+        # aragora.debate.event_subscribers (P4a Batch E4); see
+        # tests/debate/test_event_subscribers.py for their coverage.
 
     def test_register_custom_subscriber(self):
         """Test registering a custom subscriber."""
@@ -122,9 +123,29 @@ class TestCrossSubscriberManager:
 
         handler.assert_not_called()
 
+    def test_required_dispatch_attempts_handler_with_open_circuit(self):
+        """Safety-critical dispatch must not suppress an attempt after prior failures."""
+        manager = CrossSubscriberManager(failure_threshold=1)
+        handler = MagicMock(return_value=True)
+        manager.register("required", StreamEventType.ALERT_ESCALATED, handler)
+        manager._circuit_breaker.record_failure("required")
+        assert manager._circuit_breaker.is_available("required") is False
+
+        event = make_stream_event(StreamEventType.ALERT_ESCALATED)
+        manager.dispatch_required(event, "required")
+
+        handler.assert_called_once_with(event)
+        assert manager._stats["required"].events_processed == 1
+
 
 class TestBuiltinHandlers:
-    """Test built-in cross-subsystem handlers."""
+    """Test built-in cross-subsystem handlers.
+
+    elo_to_debate / calibration_to_agent relocated to
+    ``aragora.debate.event_subscribers`` (P4a Batch E4 relocate-UP); see
+    ``tests/debate/test_event_subscribers.py`` for their handler-execution
+    coverage.
+    """
 
     def setup_method(self):
         reset_cross_subscriber_manager()
@@ -136,54 +157,6 @@ class TestBuiltinHandlers:
         event = make_stream_event(
             StreamEventType.MEMORY_RETRIEVED,
             data={"tier": "fast", "cache_hit": True},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
-    def test_elo_to_debate_handler(self):
-        """Test ELO update handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.AGENT_ELO_UPDATED,
-            data={"agent": "claude", "elo": 1600, "delta": 75},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
-    def test_knowledge_to_memory_handler(self):
-        """Test knowledge indexed handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.KNOWLEDGE_INDEXED,
-            data={"node_id": "node_001", "content": "Test content", "node_type": "fact"},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
-    def test_calibration_to_agent_handler(self):
-        """Test calibration update handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.CALIBRATION_UPDATE,
-            data={"agent": "claude", "score": 0.85},
-        )
-
-        # Should not raise
-        manager._dispatch_event(event)
-
-    def test_evidence_to_insight_handler(self):
-        """Test evidence found handler executes without error."""
-        manager = CrossSubscriberManager()
-
-        event = make_stream_event(
-            StreamEventType.EVIDENCE_FOUND,
-            data={"evidence_id": "ev_001", "source": "github"},
         )
 
         # Should not raise

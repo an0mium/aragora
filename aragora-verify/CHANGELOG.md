@@ -4,7 +4,36 @@ All notable changes to `aragora-verify` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses semantic
 versioning.
 
-## [0.1.0] — unreleased
+## [0.1.2] — Unreleased
+
+### Changed
+- Feeding a **native** Aragora receipt (what `aragora demo --receipt` /
+  `aragora receipt` write) still FAILs schema conformance, but the failure now
+  names the format mistake and the exact bridge command
+  (`aragora receipt export <file> --format odr -o receipt.odr.json`) instead of
+  only listing twelve missing ODR members (issue #9185). Exit codes are
+  unchanged.
+
+### Security
+- Raise the standalone package's direct `cryptography` dependency floor to
+  `>=48.0.1`, matching the root project security floor for GHSA-537c-gmf6-5ccf.
+  This matters for isolated `pip install aragora-verify` environments because
+  they do not inherit the root repository's uv constraint-dependencies.
+
+## [0.1.1] — 2026-07-04 (03:28 UTC)
+
+### Fixed
+- Signature `key_id` binding: a cryptographically valid signature only counts when
+  its recorded `key_id` matches the id recomputed from the supplied public key —
+  a relabeled signer now FAILs as tampering (mirrors the in-repo engine's
+  e0e7df74 fix; multi-signature precedence follows reference parity, #8810).
+- Supplying `--pubkey` for an unsigned receipt now yields UNVERIFIED (exit 3),
+  never VERIFIED; unsigned-without-key remains WARN (the v0.1 norm).
+
+## [0.1.0] — 2026-06-29
+
+_Published to PyPI 2026-06-29 (verified installable from a clean venv 2026-07-02;
+this entry previously read "unreleased" — corrected 2026-07-04)._
 
 ### Added
 - Initial release: standalone offline verifier for Open Decision Receipts (ODR v0.1).

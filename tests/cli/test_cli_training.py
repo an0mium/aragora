@@ -26,7 +26,7 @@ def runner():
 class TestExportSft:
     """Tests for export-sft command."""
 
-    @patch("aragora.cli.training.SFTExporter")
+    @patch("aragora.training.exporters.SFTExporter")
     def test_export_sft_basic(self, mock_exporter_class, runner, tmp_path):
         """export-sft creates output file."""
         mock_exporter = MagicMock()
@@ -42,7 +42,7 @@ class TestExportSft:
         assert "100" in result.output
         assert "SFT" in result.output
 
-    @patch("aragora.cli.training.SFTExporter")
+    @patch("aragora.training.exporters.SFTExporter")
     def test_export_sft_with_options(self, mock_exporter_class, runner, tmp_path):
         """export-sft respects options."""
         mock_exporter = MagicMock()
@@ -75,7 +75,7 @@ class TestExportSft:
 class TestExportDpo:
     """Tests for export-dpo command."""
 
-    @patch("aragora.cli.training.DPOExporter")
+    @patch("aragora.training.exporters.DPOExporter")
     def test_export_dpo_basic(self, mock_exporter_class, runner, tmp_path):
         """export-dpo creates output file."""
         mock_exporter = MagicMock()
@@ -91,7 +91,7 @@ class TestExportDpo:
         assert "75" in result.output
         assert "DPO" in result.output
 
-    @patch("aragora.cli.training.DPOExporter")
+    @patch("aragora.training.exporters.DPOExporter")
     def test_export_dpo_with_elo_diff(self, mock_exporter_class, runner, tmp_path):
         """export-dpo respects min-elo-diff option."""
         mock_exporter = MagicMock()
@@ -117,7 +117,7 @@ class TestExportDpo:
 class TestExportGauntlet:
     """Tests for export-gauntlet command."""
 
-    @patch("aragora.cli.training.GauntletExporter")
+    @patch("aragora.training.exporters.GauntletExporter")
     def test_export_gauntlet_basic(self, mock_exporter_class, runner, tmp_path):
         """export-gauntlet creates output file."""
         mock_exporter = MagicMock()
@@ -137,9 +137,9 @@ class TestExportGauntlet:
 class TestExportAll:
     """Tests for export-all command."""
 
-    @patch("aragora.cli.training.GauntletExporter")
-    @patch("aragora.cli.training.DPOExporter")
-    @patch("aragora.cli.training.SFTExporter")
+    @patch("aragora.training.exporters.GauntletExporter")
+    @patch("aragora.training.exporters.DPOExporter")
+    @patch("aragora.training.exporters.SFTExporter")
     def test_export_all_creates_multiple_files(
         self, mock_sft, mock_dpo, mock_gauntlet, runner, tmp_path
     ):
@@ -173,7 +173,7 @@ class TestTestConnection:
         assert "TINKER_API_KEY" in result.output
 
     @patch("aragora.cli.training.asyncio.run")
-    @patch("aragora.cli.training.TinkerClient")
+    @patch("aragora.training.tinker_client.TinkerClient")
     @patch.dict("os.environ", {"TINKER_API_KEY": "test-key"})
     def test_connection_success(self, mock_client_class, mock_run, runner):
         """test-connection succeeds with valid key."""
@@ -192,7 +192,7 @@ class TestTrainSft:
     """Tests for train-sft command."""
 
     @patch("aragora.cli.training.asyncio.run")
-    @patch("aragora.cli.training.TrainingScheduler")
+    @patch("aragora.training.TrainingScheduler")
     def test_train_sft_schedules_job(self, mock_scheduler_class, mock_run, runner):
         """train-sft schedules a training job."""
         mock_scheduler = AsyncMock()
@@ -222,7 +222,7 @@ class TestTrainDpo:
     """Tests for train-dpo command."""
 
     @patch("aragora.cli.training.asyncio.run")
-    @patch("aragora.cli.training.TrainingScheduler")
+    @patch("aragora.training.TrainingScheduler")
     def test_train_dpo_schedules_job(self, mock_scheduler_class, mock_run, runner):
         """train-dpo schedules a DPO training job."""
         mock_scheduler = AsyncMock()
@@ -240,7 +240,7 @@ class TestListModels:
     """Tests for list-models command."""
 
     @patch("aragora.cli.training.asyncio.run")
-    @patch("aragora.cli.training.TinkerClient")
+    @patch("aragora.training.tinker_client.TinkerClient")
     def test_list_models_empty(self, mock_client_class, mock_run, runner):
         """list-models shows message when no models."""
         mock_run.return_value = None
@@ -255,7 +255,7 @@ class TestSample:
     """Tests for sample command."""
 
     @patch("aragora.cli.training.asyncio.run")
-    @patch("aragora.cli.training.TinkerClient")
+    @patch("aragora.training.tinker_client.TinkerClient")
     def test_sample_generates_text(self, mock_client_class, mock_run, runner):
         """sample command generates text."""
         mock_client = AsyncMock()
@@ -275,8 +275,8 @@ class TestSample:
 class TestStats:
     """Tests for stats command."""
 
-    @patch("aragora.cli.training.EloSystem")
-    @patch("aragora.cli.training.CritiqueStore")
+    @patch("aragora.ranking.elo.EloSystem")
+    @patch("aragora.memory.store.CritiqueStore")
     def test_stats_shows_data(self, mock_critique, mock_elo, runner):
         """stats command shows training data statistics."""
         mock_critique_instance = MagicMock()

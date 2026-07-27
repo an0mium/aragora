@@ -18,14 +18,13 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 from aragora.config import (
     CACHE_TTL_AGENT_REPUTATION,
     CACHE_TTL_ALL_REPUTATIONS,
-    CACHE_TTL_ARCHIVE_STATS,
     CACHE_TTL_CRITIQUE_PATTERNS,
     CACHE_TTL_CRITIQUE_STATS,
     resolve_db_path,
@@ -38,6 +37,18 @@ from aragora.utils.json_helpers import safe_json_loads
 
 # Schema version for CritiqueStore migrations
 CRITIQUE_STORE_SCHEMA_VERSION = 1
+
+
+def _utc_now_iso() -> str:
+    """Current UTC time as a naive ISO-8601 string.
+
+    Rows stamped here are aged with UTC ``julianday('now')`` comparisons
+    (decay ranking, prune_stale_patterns), so stamps must be UTC. Kept naive
+    (no ``+00:00`` suffix) to match the format of legacy local-time rows and
+    SQLite's own ``CURRENT_TIMESTAMP`` defaults.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
 
 CRITIQUE_INITIAL_SCHEMA = """
     -- Debates table
@@ -266,27 +277,42 @@ class CritiqueStore(SQLiteStore):
         """Backfill columns for legacy critique store databases."""
         with self.connection() as conn:
             # safe_add_column is idempotent (no-op if column already exists)
-            for col_name, col_type, default in [
+            for pattern_col_name, pattern_col_type, pattern_default in [
                 ("surprise_score", "REAL", "0.0"),
                 ("base_rate", "REAL", "0.5"),
                 ("avg_prediction_error", "REAL", "0.0"),
                 ("prediction_count", "INTEGER", "0"),
             ]:
-                safe_add_column(conn, "patterns", col_name, col_type, default)
+                safe_add_column(
+                    conn, "patterns", pattern_col_name, pattern_col_type, pattern_default
+                )
 
-            for col_name, col_type, default in [
+            critique_columns: list[tuple[str, str, str | None]] = [
                 ("expected_usefulness", "REAL", "0.5"),
                 ("actual_usefulness", "REAL", None),
                 ("prediction_error", "REAL", None),
-            ]:
-                safe_add_column(conn, "critiques", col_name, col_type, default)
+            ]
+            for critique_col_name, critique_col_type, critique_default in critique_columns:
+                safe_add_column(
+                    conn,
+                    "critiques",
+                    critique_col_name,
+                    critique_col_type,
+                    critique_default,
+                )
 
-            for col_name, col_type, default in [
+            for reputation_col_name, reputation_col_type, reputation_default in [
                 ("total_predictions", "INTEGER", "0"),
                 ("total_prediction_error", "REAL", "0.0"),
                 ("calibration_score", "REAL", "0.5"),
             ]:
-                safe_add_column(conn, "agent_reputation", col_name, col_type, default)
+                safe_add_column(
+                    conn,
+                    "agent_reputation",
+                    reputation_col_name,
+                    reputation_col_type,
+                    reputation_default,
+                )
 
             conn.commit()
 
@@ -730,7 +756,7 @@ class CritiqueStore(SQLiteStore):
 
                 # Atomic upsert to avoid race condition in concurrent writes
                 # Uses INSERT ... ON CONFLICT to eliminate check-then-act race window
-                now = datetime.now().isoformat()
+                now = _utc_now_iso()
                 cursor.execute(
                     """
                     INSERT INTO patterns
@@ -806,7 +832,7 @@ class CritiqueStore(SQLiteStore):
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.now().isoformat(), pattern_id),
+                (_utc_now_iso(), pattern_id),
             )
 
             # Update surprise score based on unexpected failure
@@ -900,7 +926,7 @@ class CritiqueStore(SQLiteStore):
                 updated_at = ?
             WHERE agent_name = ?
             """,
-            (prediction_error, prediction_error, datetime.now().isoformat(), agent_name),
+            (prediction_error, prediction_error, _utc_now_iso(), agent_name),
         )
 
     def _calculate_surprise(self, cursor, issue_type: str, is_success: bool) -> float:
@@ -1396,7 +1422,7 @@ class CritiqueStore(SQLiteStore):
                     SET {", ".join(updates)}
                     WHERE agent_name = ?
                 """  # noqa: S608 -- dynamic clause from internal state
-                cursor.execute(sql, [datetime.now().isoformat(), agent_name])
+                cursor.execute(sql, [_utc_now_iso(), agent_name])
 
                 # Log reputation changes at debug level
                 change_types = []
@@ -1486,6 +1512,12 @@ class CritiqueStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
 
+            # Evaluate the age cutoff once so the archive SELECT and the
+            # DELETE match the exact same rows; separate julianday('now')
+            # calls could straddle the threshold and delete an unarchived row.
+            cursor.execute("SELECT julianday('now') - ?", (max_age_days,))
+            cutoff_julian = cursor.fetchone()[0]
+
             if archive:
                 # Move stale/unsuccessful patterns to archive table
                 cursor.execute(
@@ -1498,26 +1530,26 @@ class CritiqueStore(SQLiteStore):
                            failure_count, avg_severity, surprise_score, example_task,
                            created_at, updated_at
                     FROM patterns
-                    WHERE julianday('now') - julianday(updated_at) >= ?
+                    WHERE julianday(updated_at) <= ?
                       AND (
                         CAST(success_count AS REAL) /
                         NULLIF(success_count + failure_count, 0)
                       ) < ?
                     """,
-                    (max_age_days, min_success_rate),
+                    (cutoff_julian, min_success_rate),
                 )
 
             # Delete stale/unsuccessful patterns
             cursor.execute(
                 """
                 DELETE FROM patterns
-                WHERE julianday('now') - julianday(updated_at) >= ?
+                WHERE julianday(updated_at) <= ?
                   AND (
                     CAST(success_count AS REAL) /
                     NULLIF(success_count + failure_count, 0)
                   ) < ?
                 """,
-                (max_age_days, min_success_rate),
+                (cutoff_julian, min_success_rate),
             )
 
             pruned = cursor.rowcount
@@ -1527,7 +1559,6 @@ class CritiqueStore(SQLiteStore):
         invalidate_cache("archive_stats")
         return pruned
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=False)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
         with self.connection() as conn:

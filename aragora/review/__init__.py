@@ -188,3 +188,30 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
+
+
+# ---------------------------------------------------------------------------
+# Golden API collision guard (issue #8780)
+#
+# This subpackage shares its name with the golden callable
+# ``aragora.golden.review`` that ``aragora/__init__.py`` exports lazily via
+# ``_EXPORT_MAP``. When this subpackage is imported, the import system binds
+# the module object onto the ``aragora`` package, shadowing the golden callable.
+# Making the module itself callable keeps ``aragora.review(...)`` working in
+# every import order while preserving normal module semantics.
+# ---------------------------------------------------------------------------
+import sys as _sys
+import types as _types
+from typing import Any as _CallableAny
+
+
+class _CallableReviewModule(_types.ModuleType):
+    """Module subclass forwarding calls to :func:`aragora.golden.review`."""
+
+    def __call__(self, *args: _CallableAny, **kwargs: _CallableAny) -> _CallableAny:
+        from aragora.golden import review as _golden_review
+
+        return _golden_review(*args, **kwargs)
+
+
+_sys.modules[__name__].__class__ = _CallableReviewModule

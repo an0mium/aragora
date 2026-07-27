@@ -13,7 +13,12 @@ Exposes:
 - DIC-18: organizational truth map report (:class:`OrgTruthMapReport`,
   :func:`build_truth_map`, :func:`build_truth_map_from_manifests`)
 - DIC-20: epistemic decay monitor (:class:`DecaySignal`,
-  :class:`DecayReason`, :func:`evaluate_unit`)
+  :class:`DecayReason`, :func:`evaluate_unit`) plus world-state
+  event translation (:class:`WorldStateEvent`, :class:`WorldEventKind`,
+  :func:`claims_affected_by_event`, :func:`world_event_to_claim_results`,
+  :func:`world_events_enabled`, :func:`enable_world_events`,
+  :func:`reset_world_events`).
+  Flag gate: ``ARAGORA_WORLD_EVENTS_ENABLED`` (default off).
 - DIC-21: fail-closed quarantine policy (:class:`QuarantineDecision`,
   :class:`QuarantinePolicy`, :func:`apply_quarantine_policy`,
   :func:`quarantine_policy_enabled`)
@@ -101,8 +106,19 @@ from .gauntlet_crux_bridge import (
 from .decay_monitor import (
     DecayReason,
     DecaySignal,
+    EpistemicDecayBatchReport,
     compute_decay_impact_set,
     evaluate_unit,
+    evaluate_units,
+)
+from .world_event import (
+    WorldEventKind,
+    WorldStateEvent,
+    claims_affected_by_event,
+    enable_world_events,
+    reset_world_events,
+    world_event_to_claim_results,
+    world_events_enabled,
 )
 from .executable_claim import (
     ClaimConfidence,
@@ -178,6 +194,7 @@ from .genealogy_report import (
     build_genealogy_report,
 )
 from .truth_map import (
+    ArbitrationRow,
     OrgTruthMapReport,
     build_truth_map,
     build_truth_map_from_manifests,
@@ -249,6 +266,7 @@ __all__ = [
     "garden_outstanding_crux",
     "garden_resolved_crux",
     "run_gardening_pass",
+    "ArbitrationRow",
     "build_truth_map",
     "build_truth_map_from_manifests",
     "CodeUnitGenealogy",
@@ -268,8 +286,17 @@ __all__ = [
     "enable_epistemic_followup",
     "enable_repair_pipeline",
     "epistemic_followup_enabled",
+    "EpistemicDecayBatchReport",
     "compute_decay_impact_set",
     "evaluate_unit",
+    "evaluate_units",
+    "WorldEventKind",
+    "WorldStateEvent",
+    "claims_affected_by_event",
+    "enable_world_events",
+    "reset_world_events",
+    "world_event_to_claim_results",
+    "world_events_enabled",
     "from_belief_node",
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",

@@ -247,7 +247,7 @@ all_results = await engine.chain(
 
 # Results is list of lists (one per stage)
 for stage_idx, stage_results in enumerate(all_results):
-    print(f"Stage \{stage_idx\}: {len(stage_results)} handlers executed")
+    print(f"Stage {stage_idx}: {len(stage_results)} handlers executed")
 ```
 
 ### Retry with Backoff
@@ -276,7 +276,7 @@ results_by_event = await engine.broadcast(
 )
 
 for event_type, results in results_by_event.items():
-    print(f"\{event_type\}: {len(results)} handlers")
+    print(f"{event_type}: {len(results)} handlers")
 ```
 
 ### Statistics
@@ -430,7 +430,7 @@ hook_manager = HookManager()
 
 # Register hook for propulsion events
 async def on_propel(source_stage, target_stage, payload):
-    print(f"Propelling from \{source_stage\} to \{target_stage\}")
+    print(f"Propelling from {source_stage} to {target_stage}")
 
 hook_manager.register(HookType.ON_PROPEL, on_propel)
 

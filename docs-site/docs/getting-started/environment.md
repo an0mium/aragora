@@ -1563,7 +1563,7 @@ from aragora.config import validate_configuration, ConfigurationError
 try:
     validate_configuration(strict=True)
 except ConfigurationError as e:
-    print(f"Config error: \{e\}")
+    print(f"Config error: {e}")
 ```
 
 ### Validation Checks

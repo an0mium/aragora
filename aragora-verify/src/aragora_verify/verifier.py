@@ -1,8 +1,19 @@
 """Offline verification of an Open Decision Receipt (ODR v0.1).
 
-The single library behind both the ``aragora-verify`` CLI and the server's
-``POST /api/receipts/verify`` endpoint. It establishes, with nothing but the
-receipt JSON (and optionally a public key and a hash chain):
+This is the standalone library engine behind the ``aragora-verify`` CLI --
+zero-Aragora-dependency, stdlib + ``cryptography`` only. It is kept in
+lockstep with the in-tree mirror, ``aragora.gauntlet.odr_verify`` (issue
+#8226): both follow the same content profile
+(``docs/specs/OPEN_DECISION_RECEIPT.md``) and signature construction (§6 /
+issue #8225), so a receipt verifies identically whether checked here or
+in-tree. No shipped server endpoint wraps this engine today -- the existing
+``/api/v2/receipts/{id}/verify*`` and ``/receipts/{id}/verify`` routes verify
+the native or legacy receipt instead (see
+``docs/specs/RECEIPT_LINEAGE_RECONCILIATION.md`` "Two verifiers" for the full
+picture).
+
+It establishes, with nothing but the receipt JSON (and optionally a public
+key and a hash chain):
 
 1. **Structural conformance** to the ODR v0.1 profile (``schema``).
 2. **Canonical digest** — recomputes ``odr_digest = SHA-256(JCS(doc - signatures))``
@@ -82,10 +93,13 @@ class VerifyResult:
 
     @property
     def authenticity_unverified(self) -> bool:
-        """True iff the receipt carries signatures that were NOT checked (no public
-        key supplied) -- i.e. the ``signature`` check is SKIP. Such a receipt is
-        structurally OK but NOT authenticated, so callers must not treat it as
-        "verified" even though no check hard-failed (PR #8388 review [P2a])."""
+        """True iff authenticity could not be established -- i.e. the ``signature``
+        check is SKIP: either the receipt carries signatures that were NOT checked
+        (no public key supplied; PR #8388 review [P2a]), or a public key was
+        supplied but the receipt carries no signatures to check (PR #8802 round-5
+        review [P2]). Such a receipt is structurally OK but NOT authenticated, so
+        callers must not treat it as "verified" even though no check hard-failed.
+        An unsigned receipt verified WITHOUT a key stays WARN (the v0.1 norm)."""
         return any(c.name == "signature" and c.status == SKIP for c in self.checks)
 
 
@@ -188,7 +202,10 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
         return Check("signature", WARN, "receipt is unsigned (v0.1); authenticity not established")
     if not signatures and public_key is not None:
         return Check(
-            "signature", WARN, "receipt carries no signatures; nothing to verify with the key"
+            "signature",
+            SKIP,
+            "receipt carries no signatures; authenticity NOT established even though "
+            "a public key was supplied",
         )
     if signatures and public_key is None:
         return Check(
@@ -202,6 +219,7 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
     provided_key_id = compute_key_id(public_key)
     verified_any = False
     failed_matching = False
+    key_id_mismatch = False
     notes: list[str] = []
     for i, sig in enumerate(signatures):
         if not isinstance(sig, dict):
@@ -215,8 +233,16 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
             continue
         try:
             public_key.verify(raw_sig, message)
-            verified_any = True
-            notes.append(f"sig[{i}] (key_id={key_id or '?'}): verified")
+            if key_id == provided_key_id:
+                verified_any = True
+                notes.append(f"sig[{i}] (key_id={key_id}): verified")
+            else:
+                key_id_mismatch = True
+                notes.append(
+                    f"sig[{i}]: signature verifies with the supplied key but its recorded "
+                    f"key_id ({key_id or '?'}) does not match the supplied key's id "
+                    f"({provided_key_id}) — possible signer-label tampering"
+                )
         except InvalidSignature:
             notes.append(f"sig[{i}] (key_id={key_id or '?'}): INVALID")
             if key_id == provided_key_id:
@@ -224,11 +250,15 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
 
     detail = "; ".join(notes) or "no signatures evaluated"
     if failed_matching:
-        return Check(
-            "signature", FAIL, f"signature from the supplied key did not verify — {detail}"
-        )
+        return Check("signature", FAIL, f"signature check failed — {detail}")
+    # A valid, correctly-bound signature wins even when an extra entry carries a
+    # relabeled copy: authenticity is already established and the mislabeled entry
+    # is surfaced in the detail. Mirrors aragora.gauntlet.odr_verify's separate
+    # key_id_mismatch flag with verified_any-wins ordering (#8810 parity).
     if verified_any:
         return Check("signature", PASS, f"Ed25519 signature verified — {detail}")
+    if key_id_mismatch:
+        return Check("signature", FAIL, f"signer-label tampering suspected — {detail}")
     return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")
 
 
@@ -355,6 +385,27 @@ def _weakening_warnings(doc: dict[str, Any]) -> list[str]:
     return warnings
 
 
+def _looks_like_native_receipt(doc: Any) -> bool:
+    """Heuristic: is ``doc`` a native Aragora ``DecisionReceipt`` rather than an
+    ODR document? ``aragora demo --receipt`` / ``aragora receipt`` write the
+    native format, and strangers feed it to this verifier directly (issue
+    #9185); an ODR document always carries ``odr_version``, while the native
+    format carries its own distinctive members."""
+    if not isinstance(doc, dict) or "odr_version" in doc:
+        return False
+    if not doc.get("receipt_id"):
+        return False
+    native_markers = ("artifact_hash", "gauntlet_id", "schema_version", "verdict")
+    return any(marker in doc for marker in native_markers)
+
+
+_NATIVE_RECEIPT_HINT = (
+    "input looks like a native Aragora receipt, not an ODR document -- convert "
+    "it first: aragora receipt export <file> --format odr -o receipt.odr.json, "
+    "then re-run aragora-verify on receipt.odr.json"
+)
+
+
 # ---------------------------------------------------------------------------
 # Top-level entry point
 # ---------------------------------------------------------------------------
@@ -374,7 +425,12 @@ def verify(
 
     structure_errors = validate_structure(doc)
     if structure_errors:
-        checks.append(Check("schema_conformance", FAIL, "; ".join(structure_errors[:12])))
+        detail = "; ".join(structure_errors[:12])
+        if _looks_like_native_receipt(doc):
+            # Name the actual mistake and the exact bridge command instead of
+            # dumping 12 opaque schema errors on the stranger (issue #9185).
+            detail = f"{detail} | {_NATIVE_RECEIPT_HINT}"
+        checks.append(Check("schema_conformance", FAIL, detail))
         # A structurally invalid receipt cannot be digested/verified meaningfully.
         return VerifyResult(
             ok=False, receipt_id=receipt_id, odr_digest="", checks=checks, warnings=[]

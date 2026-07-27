@@ -262,7 +262,7 @@ async def test():
     pool = await get_postgres_pool()
     async with pool.acquire() as conn:
         result = await conn.fetchval('SELECT 1')
-        print(f'Connection successful: \{result\}')
+        print(f'Connection successful: {result}')
 
 asyncio.run(test())
 "

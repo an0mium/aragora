@@ -1,18 +1,27 @@
 """Tests for Post-Debate Workflow Automation Subscriber.
 
+``PostDebateWorkflowSubscriber`` relocated from infrastructure
+``aragora.events.subscribers.workflow_automation`` to its application home
+``aragora.workflow.event_subscribers`` (P4a Batch E5 relocate-UP); this test
+module was repointed in place rather than moved (same precedent as
+``TestBudgetAlertToTeamSelection`` in ``tests/events/test_strategic_handlers.py``
+for the P4a Batch E4 relocation). Registration/dispatch coverage for the
+``WorkflowEventSubscriber`` home (incl. the exactly-once invocation-count
+acceptance test) lives in ``tests/workflow/test_event_subscribers.py``.
+
 Tests cover:
 - Outcome classification (high/low confidence, no consensus, timeout)
 - Workflow template mapping and triggering
 - Custom workflow map overrides
 - Stats tracking (events_processed, workflows_triggered, errors)
-- Graceful degradation when WorkflowEngine import fails
+- Graceful degradation when workflow definition types are unavailable
 - Handling of malformed event data without crashing
 """
 
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.events.subscribers.workflow_automation import (
+from aragora.workflow.event_subscribers import (
     OUTCOME_WORKFLOW_MAP,
     PostDebateWorkflowSubscriber,
     get_post_debate_subscriber,
@@ -45,7 +54,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -70,7 +79,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -90,7 +99,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -111,7 +120,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -132,7 +141,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -154,7 +163,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -172,7 +181,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -185,7 +194,7 @@ class TestPostDebateWorkflowSubscriber:
         event = make_debate_end_event({"debate_id": "d3"})
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ):
             sub.handle_debate_end(event)
             sub.handle_debate_end(event)
@@ -196,32 +205,18 @@ class TestPostDebateWorkflowSubscriber:
     def test_stats_workflows_triggered_increments(self):
         """workflows_triggered should increment when a workflow is triggered."""
         sub = PostDebateWorkflowSubscriber()
-        event = make_debate_end_event(
-            {
-                "debate_id": "d4",
-                "consensus_reached": True,
-                "confidence": 0.9,
-            }
-        )
+        sub._trigger_workflow("test_template", {"debate_id": "d4", "outcome": "test"})
 
-        # Patch the workflow engine import to succeed without side effects
-        with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow",
-            wraps=sub._trigger_workflow,
-        ):
-            # We need to mock the actual import inside _trigger_workflow
-            pass
+        assert sub.stats["workflows_triggered"] == 1
 
-        # Call directly and patch the import chain
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.workflow.engine": MagicMock(),
-                "aragora.workflow.types": MagicMock(),
-            },
-        ):
+    def test_construction_stub_does_not_create_workflow_engine(self):
+        """Production dispatch must not probe workflow infrastructure in the stub."""
+        sub = PostDebateWorkflowSubscriber()
+
+        with patch("aragora.workflow.engine.WorkflowEngine") as mock_engine:
             sub._trigger_workflow("test_template", {"debate_id": "d4", "outcome": "test"})
 
+        mock_engine.assert_not_called()
         assert sub.stats["workflows_triggered"] == 1
 
     def test_stats_errors_on_malformed_data(self):
@@ -243,7 +238,7 @@ class TestPostDebateWorkflowSubscriber:
         plain_dict = {"debate_id": "d5", "consensus_reached": False, "confidence": 0.2}
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(plain_dict)
 
@@ -251,11 +246,11 @@ class TestPostDebateWorkflowSubscriber:
         mock_trigger.assert_called_once()
         assert mock_trigger.call_args[0][1]["outcome"] == "no_consensus"
 
-    def test_graceful_degradation_workflow_engine_unavailable(self):
-        """Should not crash when WorkflowEngine is not importable."""
+    def test_graceful_degradation_workflow_types_unavailable(self):
+        """Should not crash when workflow definition types are not importable."""
         sub = PostDebateWorkflowSubscriber()
 
-        with patch.dict("sys.modules", {"aragora.workflow.engine": None}):
+        with patch.dict("sys.modules", {"aragora.workflow.types": None}):
             # This will cause ImportError inside _trigger_workflow
             sub._trigger_workflow("test_template", {"debate_id": "x", "outcome": "test"})
 
@@ -280,7 +275,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -301,7 +296,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -313,7 +308,7 @@ class TestPostDebateWorkflowSubscriber:
         event = make_debate_end_event({})
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -356,7 +351,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 
@@ -374,7 +369,7 @@ class TestPostDebateWorkflowSubscriber:
         )
 
         with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
+            "aragora.workflow.event_subscribers.PostDebateWorkflowSubscriber._trigger_workflow"
         ) as mock_trigger:
             sub.handle_debate_end(event)
 

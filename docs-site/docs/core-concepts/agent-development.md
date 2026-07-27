@@ -45,7 +45,7 @@ class MyAgent(Agent):
             issues=["Missing edge case analysis"],
             suggestions=["Address failure modes explicitly"],
             severity=0.4,
-            reasoning=f"Quick critique for task: \{task\}",
+            reasoning=f"Quick critique for task: {task}",
         )
 ```
 
@@ -180,7 +180,7 @@ class OpenAICompatibleAgent(APIAgent):
         self.agent_type = "openai-compatible"
         self.client = httpx.AsyncClient(
             base_url=base_url,
-            headers={"Authorization": f"Bearer \{api_key\}"}
+            headers={"Authorization": f"Bearer {api_key}"}
         )
 
     async def generate(
@@ -211,8 +211,8 @@ class OpenAICompatibleAgent(APIAgent):
     ) -> Critique:
         critique_prompt = f"""Critically analyze this proposal:
 
-Task: \{task\}
-Proposal: \{proposal\}
+Task: {task}
+Proposal: {proposal}
 
 Format your response as:
 ISSUES:
@@ -281,8 +281,8 @@ class AnthropicAgent(APIAgent):
     ) -> Critique:
         critique_prompt = f"""Critically analyze this proposal:
 
-Task: \{task\}
-Proposal: \{proposal\}
+Task: {task}
+Proposal: {proposal}
 
 Format your response as:
 ISSUES:
@@ -363,8 +363,8 @@ class OllamaAgent(APIAgent):
     ) -> Critique:
         critique_prompt = f"""Critically analyze this proposal:
 
-Task: \{task\}
-Proposal: \{proposal\}
+Task: {task}
+Proposal: {proposal}
 
 Format your response as:
 ISSUES:
@@ -439,8 +439,8 @@ class VLLMAgent(APIAgent):
     ) -> Critique:
         critique_prompt = f"""Critically analyze this proposal:
 
-Task: \{task\}
-Proposal: \{proposal\}
+Task: {task}
+Proposal: {proposal}
 
 Format your response as:
 ISSUES:
@@ -491,7 +491,7 @@ class ExpertAgent(Agent):
 {self.expertise_prompt}
 
 Task prompt:
-\{prompt\}"""
+{prompt}"""
 
         return await self.base_agent.generate(enhanced_prompt, context)
 
@@ -593,9 +593,9 @@ class EnsembleAgent(Agent):
         ])
 
         # Synthesize into a single response
-        synthesis_prompt = f"""Given these responses to the prompt "\{prompt\}":
+        synthesis_prompt = f"""Given these responses to the prompt "{prompt}":
 
-{chr(10).join(f'Agent {agent.name}: \{response\}' for agent, response in zip(self.agents, responses))}
+{chr(10).join(f'Agent {agent.name}: {response}' for agent, response in zip(self.agents, responses))}
 
 Synthesize these into a single, coherent response that captures the best insights from each."""
 
@@ -903,7 +903,7 @@ class StreamingAgent(Agent):
         return "".join(chunks)
 
     async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        critique_prompt = f"Task: \{task\}\nProposal: \{proposal\}\nProvide issues and suggestions."
+        critique_prompt = f"Task: {task}\nProposal: {proposal}\nProvide issues and suggestions."
         response = await self.generate(critique_prompt, context)
         return Critique(
             agent=self.name,

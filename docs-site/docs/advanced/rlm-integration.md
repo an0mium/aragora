@@ -208,7 +208,7 @@ Without the `rlm` package:
 **Check mode:**
 ```python
 from aragora.rlm import HAS_OFFICIAL_RLM
-print(f"TRUE RLM available: \{HAS_OFFICIAL_RLM\}")
+print(f"TRUE RLM available: {HAS_OFFICIAL_RLM}")
 ```
 
 ## Integration with Memory

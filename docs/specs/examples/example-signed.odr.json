@@ -1,0 +1,93 @@
+{
+  "attestation": {
+    "disposition": "autonomous"
+  },
+  "claim": {
+    "statement": "Should the outbound webhook retry policy switch to exponential backoff with jitter?",
+    "verdict": "PASS"
+  },
+  "confidence": {
+    "calibration": {
+      "provenance_ref": {
+        "receipt_id": "r-signed-golden-0001",
+        "type": "aragora.settlement_metadata"
+      },
+      "status": "present"
+    },
+    "scale": "unit_interval",
+    "status": "present",
+    "value": 0.92
+  },
+  "cruxes": {
+    "reason": "no crux set recorded for this decision (DecisionReceipt does not carry one; supply crux_set= from a CruxReceipt)",
+    "status": "absent"
+  },
+  "issued_at": "2026-07-03T12:00:00+00:00",
+  "odr_version": "0.1",
+  "profile": "https://aragora.ai/specs/open-decision-receipt/v0.1",
+  "quorum": {
+    "dissent": {
+      "dissenting_agents": [],
+      "present": false,
+      "views": []
+    },
+    "independence": {
+      "disclosed": true,
+      "distinct_model_families": 2,
+      "model_families": [
+        "anthropic",
+        "google"
+      ]
+    },
+    "method": "unanimous",
+    "participants": [
+      {
+        "agent": "claude-agent",
+        "model_family": "anthropic",
+        "model_id": "claude-opus-4-8"
+      },
+      {
+        "agent": "gemini-agent",
+        "model_family": "google",
+        "model_id": "gemini-3.1-pro-preview"
+      }
+    ],
+    "reached": true,
+    "status": "present",
+    "supporting_agents": [
+      "claude-agent",
+      "gemini-agent"
+    ]
+  },
+  "reasoning": {
+    "status": "present",
+    "summary": "Quorum reached unanimously: exponential backoff with jitter reduces thundering-herd retries without materially increasing p99 latency; no dissent recorded."
+  },
+  "receipt_id": "r-signed-golden-0001",
+  "routing": {
+    "status": "reserved"
+  },
+  "signatures": [
+    {
+      "alg": "Ed25519",
+      "key_id": "ed25519-11e7e0701972f545",
+      "signature": "RBZ6OYL0DYuSz5VCigN4z0xPhbx/uGIiBAM8yvD74/P1cUD8wjhp3zSMMSQf8IcxNNNy0mISi2Y/ODnwsxR5DQ=="
+    }
+  ],
+  "source": {
+    "artifact_hash": "2c7e9e632150e08faf85a5da0fff87a35523372c38e2576a1a46ac27e32cadd9",
+    "receipt_id": "r-signed-golden-0001",
+    "schema": "aragora.gauntlet.DecisionReceipt",
+    "schema_version": "1.1",
+    "system": "aragora"
+  },
+  "subject": {
+    "digest": {
+      "alg": "sha-256",
+      "status": "present",
+      "value": "7a47e73fcb1607c39954737481529e29ec061e8e52290aa34d9f9e18dac5ec81"
+    },
+    "identifier": "g-signed-golden-1",
+    "summary": "Should the outbound webhook retry policy switch to exponential backoff with jitter?"
+  }
+}

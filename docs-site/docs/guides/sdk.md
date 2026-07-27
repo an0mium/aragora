@@ -25,6 +25,17 @@ Canonical migration path: [Python SDK migration](./python-sdk-migration).
 pip install aragora-sdk
 ```
 
+### Release cadence (recorded operator policy, 2026-07-16)
+
+`aragora-sdk` on PyPI follows a **decoupled release cadence**: the repository's
+`sdk/python/` may be ahead of the latest published wheel between releases
+(e.g. the repo can declare 2.9.0 while PyPI serves 2.8.0). This is intentional —
+releases are operator-gated and cut deliberately, not on every merge.
+Compatibility expectation: the published PyPI version always targets the
+`/api/v1` surface of the same or newer server release, and published versions
+never regress. If you need repo-tip SDK behavior before it is published,
+install from source (below). Tracking issue for this policy: #9234.
+
 Or install the full control plane package (includes the SDK and server):
 
 ```bash
@@ -43,20 +54,28 @@ pip install -e .
 
 ### Standalone SDK (aragora-sdk)
 
+This example is pinned to the public 2.8.0 surface and runs offline. Omit
+`demo=True` and provide `base_url` to call a running deployment.
+
 ```python
 import asyncio
-from aragora_sdk import AragoraClient
+from aragora_sdk import AragoraAsyncClient
 
 async def main():
-    client = AragoraClient("http://localhost:8080")
-    debate = await client.debates.run(
-        task="Should we use microservices?",
-        agents=["anthropic-api", "openai-api"],
-    )
-    print(f"Consensus: {debate.consensus.conclusion}")
+    async with AragoraAsyncClient(demo=True) as client:
+        debate = await client.debates.create(
+            task="Should we use microservices?",
+            agents=["demo"],
+        )
+        print(f"Consensus: {debate['consensus']['conclusion']}")
 
 asyncio.run(main())
 ```
+
+The public quickstart is mechanically checked against the committed
+[`aragora-sdk` 2.8.0 surface](https://github.com/synaptent/aragora/blob/main/docs/reference/sdk_released_surface_2.8.0.json).
+Later sections cover the broader repository API and may require installing
+`./sdk/python` when they use methods added after the published release.
 
 ### Full SDK (aragora) - Synchronous Usage
 
@@ -207,13 +226,13 @@ matrix = client.matrix_debates.get(response.matrix_id)
 conclusions = client.matrix_debates.get_conclusions(response.matrix_id)
 print("Universal conclusions (true in all scenarios):")
 for c in conclusions.universal:
-    print(f"  - \{c\}")
+    print(f"  - {c}")
 
 print("\nConditional conclusions:")
 for scenario, findings in conclusions.conditional.items():
-    print(f"  \{scenario\}:")
+    print(f"  {scenario}:")
     for f in findings:
-        print(f"    - \{f\}")
+        print(f"    - {f}")
 ```
 
 ### Verification (Formal Methods)
@@ -321,7 +340,7 @@ ELO rankings across all agents.
 rankings = client.leaderboard.get(limit=10)
 for entry in rankings:
     trend = {"up": "+", "down": "-", "stable": "="}[entry.recent_trend]
-    print(f"#{entry.rank} {entry.agent_id}: {entry.elo_rating} (\{trend\})")
+    print(f"#{entry.rank} {entry.agent_id}: {entry.elo_rating} ({trend})")
 ```
 
 ### Replays
@@ -533,7 +552,7 @@ client = AragoraClient(base_url="http://localhost:8080")
 try:
     debate = client.debates.get("nonexistent-id")
 except AragoraAPIError as e:
-    print(f"Error: \{e\}")
+    print(f"Error: {e}")
     print(f"Code: {e.code}")           # Machine-readable code
     print(f"Status: {e.status_code}")  # HTTP status
     print(f"Message: {e.message}")     # Human-readable message
@@ -588,7 +607,7 @@ except AragoraAPIError as e:
         print(f"Fix your request: {e.details}")
     elif e.code == "RATE_LIMITED":
         retry_after = e.details.get("retry_after", 60)
-        print(f"Rate limited. Retry in \{retry_after\}s")
+        print(f"Rate limited. Retry in {retry_after}s")
     elif e.code == "QUOTA_EXCEEDED":
         print("Upgrade your plan or wait for quota reset")
     elif e.status_code >= 500:
@@ -749,7 +768,7 @@ Third parties may access data for advertising.
 """
 
 result = client.gauntlet.run_and_wait(
-    task=f"Review this privacy policy for GDPR compliance: \{policy\}",
+    task=f"Review this privacy policy for GDPR compliance: {policy}",
     attack_rounds=5,
     timeout=900,
 )
@@ -795,13 +814,13 @@ async def analyze_decision():
 
         print("Universal conclusions:")
         for c in conclusions.universal:
-            print(f"  - \{c\}")
+            print(f"  - {c}")
 
         print("\nConditional conclusions:")
         for scenario, findings in conclusions.conditional.items():
-            print(f"\n  \{scenario\}:")
+            print(f"\n  {scenario}:")
             for f in findings:
-                print(f"    - \{f\}")
+                print(f"    - {f}")
 
 asyncio.run(analyze_decision())
 ```

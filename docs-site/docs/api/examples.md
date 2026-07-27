@@ -41,7 +41,7 @@ BASE_URL = "http://localhost:8080"
 API_TOKEN = "your-api-token"  # Set via ARAGORA_API_TOKEN env var
 
 headers = {
-    "Authorization": f"Bearer \{API_TOKEN\}",
+    "Authorization": f"Bearer {API_TOKEN}",
     "Content-Type": "application/json",
 }
 ```
@@ -65,13 +65,13 @@ async def create_debate_with_streaming():
         debate = response.json()
         debate_id = debate["debate_id"]
 
-        print(f"Debate created: \{debate_id\}")
+        print(f"Debate created: {debate_id}")
 
         # Connect to WebSocket for real-time updates
         async with httpx.AsyncClient() as ws_client:
             async with ws_client.stream(
                 "GET",
-                f"\{BASE_URL\}/ws?debate_id=\{debate_id\}"
+                f"{BASE_URL}/ws?debate_id={debate_id}"
             ) as stream:
                 async for line in stream.aiter_lines():
                     if line.startswith("data: "):
@@ -85,12 +85,12 @@ def handle_event(event: dict):
     if event_type == "agent_message":
         agent = event["agent"]
         content = event["content"][:100]
-        print(f"[\{agent\}] \{content\}...")
+        print(f"[{agent}] {content}...")
 
     elif event_type == "consensus":
         claim = event["claim"]
         confidence = event["confidence"]
-        print(f"Consensus reached: \{claim\} (confidence: {confidence:.0%})")
+        print(f"Consensus reached: {claim} (confidence: {confidence:.0%})")
 
     elif event_type == "debate_end":
         print("Debate completed!")
@@ -118,11 +118,11 @@ async def control_plane_example():
         task = response.json()
         task_id = task["task_id"]
 
-        print(f"Task submitted: \{task_id\}")
+        print(f"Task submitted: {task_id}")
 
         # Poll for completion
         while True:
-            status_response = await client.get(f"/api/control-plane/tasks/\{task_id\}")
+            status_response = await client.get(f"/api/control-plane/tasks/{task_id}")
             status = status_response.json()
 
             if status["status"] == "completed":
@@ -157,7 +157,7 @@ async def control_plane_decisionmaking():
         # Poll for completion
         while True:
             status_response = await client.get(
-                f"/api/control-plane/deliberations/\{request_id\}/status"
+                f"/api/control-plane/deliberations/{request_id}/status"
             )
             status = status_response.json()
             if status["status"] in ("completed", "failed"):
@@ -181,7 +181,7 @@ async def decision_router_example():
         result = response.json()
         request_id = result["request_id"]
 
-        status = await client.get(f"/api/v1/decisions/\{request_id\}/status")
+        status = await client.get(f"/api/v1/decisions/{request_id}/status")
         print(status.json())
 
 asyncio.run(decision_router_example())
@@ -194,14 +194,14 @@ async def codebase_security_scan():
     """Trigger a dependency vulnerability scan and fetch results."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
         repo_id = "example-repo"
-        scan = await client.post(f"/api/v1/codebase/\{repo_id\}/scan", json={
+        scan = await client.post(f"/api/v1/codebase/{repo_id}/scan", json={
             "repo_path": "/path/to/repo",
             "branch": "main",
         })
         scan_data = scan.json()
         scan_id = scan_data["scan_id"]
 
-        result = await client.get(f"/api/v1/codebase/\{repo_id\}/scan/\{scan_id\}")
+        result = await client.get(f"/api/v1/codebase/{repo_id}/scan/{scan_id}")
         print(result.json())
 
 asyncio.run(codebase_security_scan())
@@ -214,14 +214,14 @@ async def codebase_metrics():
     """Run code metrics analysis and fetch hotspots."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
         repo_id = "example-repo"
-        analysis = await client.post(f"/api/v1/codebase/\{repo_id\}/metrics/analyze", json={
+        analysis = await client.post(f"/api/v1/codebase/{repo_id}/metrics/analyze", json={
             "repo_path": "/path/to/repo",
             "complexity_warning": 10,
             "complexity_error": 20,
         })
         analysis_id = analysis.json()["analysis_id"]
 
-        hotspots = await client.get(f"/api/v1/codebase/\{repo_id\}/hotspots")
+        hotspots = await client.get(f"/api/v1/codebase/{repo_id}/hotspots")
         print(hotspots.json())
 
 asyncio.run(codebase_metrics())
@@ -241,7 +241,7 @@ async def github_pr_review():
         review_data = review.json()
         review_id = review_data["review_id"]
 
-        status = await client.get(f"/api/v1/github/pr/review/\{review_id\}")
+        status = await client.get(f"/api/v1/github/pr/review/{review_id}")
         print(status.json())
 
 asyncio.run(github_pr_review())
@@ -347,8 +347,8 @@ async def audit_session_run():
         })
         session_id = session.json()["id"]
 
-        await client.post(f"/api/v1/audit/sessions/\{session_id\}/start", json={})
-        findings = await client.get(f"/api/v1/audit/sessions/\{session_id\}/findings")
+        await client.post(f"/api/v1/audit/sessions/{session_id}/start", json={})
+        findings = await client.get(f"/api/v1/audit/sessions/{session_id}/findings")
         print(findings.json())
 
 asyncio.run(audit_session_run())
@@ -423,7 +423,7 @@ async def run_gauntlet_audit():
         for finding in result.get("findings", []):
             severity = finding["severity"]
             title = finding["title"]
-            print(f"  [\{severity\}] \{title\}")
+            print(f"  [{severity}] {title}")
 
 asyncio.run(run_gauntlet_audit())
 ```
@@ -515,10 +515,10 @@ async def batch_debate_analysis():
             slug = debate["slug"]
 
             # Get convergence data
-            convergence = await client.get(f"/api/debates/\{slug\}/convergence")
+            convergence = await client.get(f"/api/debates/{slug}/convergence")
 
             # Get consensus proof
-            proof = await client.get(f"/api/debates/\{slug\}/proof")
+            proof = await client.get(f"/api/debates/{slug}/proof")
 
             results.append({
                 "slug": slug,
@@ -531,7 +531,7 @@ async def batch_debate_analysis():
         # Print summary
         for r in results:
             status = "✓" if r["consensus_reached"] else "✗"
-            print(f"\{status\} {r['slug']}: convergence={r['convergence_score']:.2f}")
+            print(f"{status} {r['slug']}: convergence={r['convergence_score']:.2f}")
 
 asyncio.run(batch_debate_analysis())
 ```
@@ -877,20 +877,20 @@ BASE_URL = "http://localhost:8080"
 
 def get_leaderboard(limit=10):
     """Get top agents by ELO rating."""
-    resp = requests.get(f"\{BASE_URL\}/api/leaderboard", params={"limit": limit})
+    resp = requests.get(f"{BASE_URL}/api/leaderboard", params={"limit": limit})
     resp.raise_for_status()
     return resp.json()["rankings"]
 
 def get_debate(slug):
     """Get a specific debate."""
-    resp = requests.get(f"\{BASE_URL\}/api/debates/slug/\{slug\}")
+    resp = requests.get(f"{BASE_URL}/api/debates/slug/{slug}")
     resp.raise_for_status()
     return resp.json()
 
 def compare_agents(agent1, agent2):
     """Compare two agents head-to-head."""
     resp = requests.get(
-        f"\{BASE_URL\}/api/agent/compare",
+        f"{BASE_URL}/api/agent/compare",
         params={"agents": [agent1, agent2]}
     )
     resp.raise_for_status()
@@ -920,7 +920,7 @@ async def stream_debate(debate_id):
     uri = "ws://localhost:8765/ws"
 
     async with websockets.connect(uri) as ws:
-        print(f"Connected to stream (filtering for loop_id=\{debate_id\})")
+        print(f"Connected to stream (filtering for loop_id={debate_id})")
 
         async for message in ws:
             event = json.loads(message)
@@ -940,19 +940,19 @@ async def stream_debate(debate_id):
             if event_type == "agent_message":
                 agent = event.get("agent") or event["data"].get("agent", "unknown")
                 content = event["data"].get("content", "")[:100]
-                print(f"[\{agent\}] \{content\}...")
+                print(f"[{agent}] {content}...")
 
             elif event_type == "critique":
                 critic = event.get("agent") or "unknown"
                 target = event["data"].get("target", "unknown")
                 issues = event["data"].get("issues", [])
                 summary = "; ".join(issues) if issues else event["data"].get("content", "")
-                print(f"[CRITIQUE] \{critic\} -> \{target\}: \{summary\}")
+                print(f"[CRITIQUE] {critic} -> {target}: {summary}")
 
             elif event_type == "consensus":
                 reached = event["data"].get("reached")
                 answer = event["data"].get("answer", "")
-                print(f"[CONSENSUS] reached=\{reached\} answer={answer[:120]}")
+                print(f"[CONSENSUS] reached={reached} answer={answer[:120]}")
 
             elif event_type == "debate_end":
                 print("[END] Debate concluded")
@@ -975,12 +975,12 @@ def run_debate_workflow():
 
     # 1. List recent debates
     print("=== Recent Debates ===")
-    resp = requests.get(f"\{BASE_URL\}/api/debates", params={"limit": 5})
+    resp = requests.get(f"{BASE_URL}/api/debates", params={"limit": 5})
     debates = resp.json()["debates"]
 
     for d in debates:
         status = "Consensus" if d.get("consensus_reached") else "No consensus"
-        print(f"  [\{status\}] {d['topic'][:50]}")
+        print(f"  [{status}] {d['topic'][:50]}")
 
     if not debates:
         print("No debates found")
@@ -989,9 +989,9 @@ def run_debate_workflow():
     # 2. Get first debate details
     debate = debates[0]
     slug = debate["slug"]
-    print(f"\n=== Debate: \{slug\} ===")
+    print(f"\n=== Debate: {slug} ===")
 
-    resp = requests.get(f"\{BASE_URL\}/api/debates/slug/\{slug\}")
+    resp = requests.get(f"{BASE_URL}/api/debates/slug/{slug}")
     full_debate = resp.json()
 
     print(f"Topic: {full_debate.get('topic')}")
@@ -1000,7 +1000,7 @@ def run_debate_workflow():
 
     # 3. Check convergence
     print("\n=== Convergence ===")
-    resp = requests.get(f"\{BASE_URL\}/api/debates/\{slug\}/convergence")
+    resp = requests.get(f"{BASE_URL}/api/debates/{slug}/convergence")
     conv = resp.json()
 
     print(f"Status: {conv.get('convergence_status')}")
@@ -1008,16 +1008,16 @@ def run_debate_workflow():
 
     # 4. Get agent stats from the debate
     print("\n=== Agent Stats ===")
-    resp = requests.get(f"\{BASE_URL\}/api/leaderboard", params={"limit": 5})
+    resp = requests.get(f"{BASE_URL}/api/leaderboard", params={"limit": 5})
     for agent in resp.json()["rankings"]:
         print(f"  {agent['name']}: {agent['elo']} ELO ({agent.get('win_rate', 0):.0%} win rate)")
 
     # 5. Export
     print("\n=== Export ===")
-    resp = requests.get(f"\{BASE_URL\}/api/debates/\{slug\}/export/json")
-    with open(f"\{slug\}.json", "w") as f:
+    resp = requests.get(f"{BASE_URL}/api/debates/{slug}/export/json")
+    with open(f"{slug}.json", "w") as f:
         json.dump(resp.json(), f, indent=2)
-    print(f"Saved to \{slug\}.json")
+    print(f"Saved to {slug}.json")
 
 if __name__ == "__main__":
     run_debate_workflow()
@@ -1096,7 +1096,7 @@ def safe_api_call(url, params=None):
             pass
         return None
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: \{e\}")
+        print(f"Request failed: {e}")
         return None
 ```
 
@@ -1144,18 +1144,18 @@ async def quick_debate_with_receipt():
         })
         debate = response.json()
         debate_id = debate["debate_id"]
-        print(f"Debate started: \{debate_id\}")
+        print(f"Debate started: {debate_id}")
 
         # Wait for completion (in production, use WebSocket)
         import time
         while True:
-            status = await client.get(f"/api/debates/\{debate_id\}")
+            status = await client.get(f"/api/debates/{debate_id}")
             if status.json()["status"] == "completed":
                 break
             time.sleep(2)
 
         # Get decision receipt
-        receipt = await client.get(f"/api/debates/\{debate_id\}/receipt")
+        receipt = await client.get(f"/api/debates/{debate_id}/receipt")
         receipt_data = receipt.json()
 
         print(f"\n=== Decision Receipt ===")
@@ -1166,7 +1166,7 @@ async def quick_debate_with_receipt():
 
         # Export as PDF
         pdf_response = await client.get(
-            f"/api/debates/\{debate_id\}/export/pdf",
+            f"/api/debates/{debate_id}/export/pdf",
             follow_redirects=True
         )
         with open("decision_receipt.pdf", "wb") as f:

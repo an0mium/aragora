@@ -395,7 +395,7 @@ aws ssm send-command \
     "BRANCH=$(git branch --show-current 2>/dev/null || echo detached)",
     "echo \"$HOSTNAME: commit=$COMMIT branch=$BRANCH\"",
     "source venv/bin/activate 2>/dev/null",
-    "python -c \"from aragora import __version__; print(f\\\"package_version=\{__version__\}\\\")\" 2>/dev/null || echo \"package_version=unknown\""
+    "python -c \"from aragora import __version__; print(f\\\"package_version={__version__}\\\")\" 2>/dev/null || echo \"package_version=unknown\""
   ]' \
   --timeout-seconds 30 \
   --output text --query "Command.CommandId" \
@@ -808,7 +808,7 @@ aws ssm send-command \
     "echo branch=$(git branch --show-current 2>/dev/null || echo detached)",
     "echo last_commit_date=$(git log -1 --format=%ci)",
     "source venv/bin/activate 2>/dev/null",
-    "python -c \"from aragora import __version__; print(f\\\"version=\{__version__\}\\\")\" 2>/dev/null || echo version=unknown"
+    "python -c \"from aragora import __version__; print(f\\\"version={__version__}\\\")\" 2>/dev/null || echo version=unknown"
   ]' \
   --output text --query "Command.CommandId" \
   --region us-east-2

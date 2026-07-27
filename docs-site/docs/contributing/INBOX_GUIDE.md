@@ -61,7 +61,7 @@ across providers.
 ```
 POST /api/v1/inbox/connect          - Connect Gmail or Outlook account
 GET  /api/v1/inbox/accounts         - List connected accounts
-DELETE /api/v1/inbox/accounts/\{id\}  - Disconnect an account
+DELETE /api/v1/inbox/accounts/{id}  - Disconnect an account
 GET  /api/v1/inbox/messages         - Prioritized messages across accounts
 POST /api/v1/inbox/triage           - Multi-agent triage for a message
 GET  /api/v1/inbox/stats            - Inbox health metrics

@@ -20,6 +20,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from pydantic import ValidationError
+
 from aragora.agents.base import AgentType, create_agent
 from aragora.agents.spec import AgentSpec
 from aragora.config import (
@@ -296,6 +298,100 @@ def _is_server_available(server_url: str) -> bool:
         return False
 
 
+# Statuses Aragora's health endpoint can report. The public (unauthenticated)
+# ``/api/health`` response is exactly {"status": "healthy"|"degraded",
+# "timestamp": "<iso8601>Z"} (see aragora/server/handlers/admin/health).
+_ARAGORA_HEALTH_STATUSES = frozenset({"healthy", "degraded"})
+
+
+def _identifies_as_aragora(body: bytes) -> bool:
+    """Return True when a health response body matches Aragora's health schema.
+
+    This is a positive-signal check: the payload must be a JSON object whose
+    ``status`` is one of Aragora's health statuses and which carries a
+    ``timestamp`` field. Anything else (HTML login pages, Jenkins/Tomcat
+    banners, other projects' ``{"status": "ok"}`` probes) is rejected.
+    """
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    status = payload.get("status")
+    return (
+        isinstance(status, str)
+        and status.lower() in _ARAGORA_HEALTH_STATUSES
+        and "timestamp" in payload
+    )
+
+
+def _probe_server_identity(server_url: str) -> str:
+    """Probe ``server_url`` and classify what is listening.
+
+    Returns:
+        ``"aragora"``: HTTP 200 whose payload matches Aragora's health schema.
+        ``"foreign"``: something answered HTTP 200 but does not identify as an
+            Aragora server (e.g. another dev service squatting the port).
+        ``"unavailable"``: nothing healthy is listening.
+    """
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:  # noqa: S310 -- local server health check
+            status_code = getattr(resp, "status", None) or resp.getcode()
+            if status_code != 200:
+                return "unavailable"
+            body = resp.read(8192)
+    except (OSError, TimeoutError, ValueError) as e:
+        logger.debug("Server health probe failed at %s: %s", server_url, e)
+        return "unavailable"
+    if _identifies_as_aragora(body):
+        return "aragora"
+    logger.debug("Service at %s answered 200 but does not identify as Aragora", server_url)
+    return "foreign"
+
+
+def _is_explicitly_configured_api_url(server_url: str, *, flag_passed: bool = False) -> bool:
+    """True when the user opted in to this API URL (env var or --api-url flag).
+
+    ``flag_passed`` carries actual flag presence from argparse (the parser
+    defaults ``--api-url`` to ``None``), so ``--api-url http://localhost:8080``
+    counts as explicit even though it equals the default URL. The value
+    comparison remains as a fallback for callers without flag information.
+    """
+    if flag_passed:
+        return True
+    if os.environ.get("ARAGORA_API_URL", "").strip():
+        return True
+    return server_url.rstrip("/") != DEFAULT_API_URL.rstrip("/")
+
+
+def _trusted_server_available(server_url: str, *, flag_passed: bool = False) -> bool:
+    """Availability gate for auto-discovery: reachable AND identifies as Aragora.
+
+    Fail-closed trust check: port 8080 is the most commonly squatted dev port
+    (Jenkins, Tomcat, other projects' dev servers), so a bare HTTP 200 on
+    ``/api/health`` is not enough to route the user's debate content there.
+    An explicitly configured URL (``ARAGORA_API_URL`` or ``--api-url``) is
+    trusted as-is because the user opted in.
+    """
+    if not _is_server_available(server_url):
+        return False
+    if _is_explicitly_configured_api_url(server_url, flag_passed=flag_passed):
+        return True
+    identity = _probe_server_identity(server_url)
+    if identity == "aragora":
+        return True
+    if identity == "foreign":
+        print(
+            f"Note: service at {server_url} does not identify as an Aragora API server; "
+            "running the debate locally. Set ARAGORA_API_URL or pass --api-url to use it anyway.",
+            file=sys.stderr,
+        )
+    return False
+
+
 def _build_api_client(server_url: str, api_key: str | None):
     """Build an AragoraClient for API-backed runs."""
     from aragora.client import AragoraClient
@@ -376,6 +472,13 @@ async def _shutdown_cmd_ask_resources() -> None:
         logger.debug("Ask spam moderation shutdown skipped: %s", exc)
 
     try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    try:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
@@ -423,13 +526,6 @@ async def _shutdown_cmd_ask_resources() -> None:
         DatabaseManager.clear_instances()
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask SQLite manager shutdown skipped: %s", exc)
-
-    try:
-        from aragora.events.dispatcher import shutdown_dispatcher
-
-        shutdown_dispatcher(wait=True)
-    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
-        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
     # Give async transport/connector close callbacks one loop turn before
     # asyncio.run() tears the loop down. This avoids intermittent unclosed
@@ -772,7 +868,11 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         from datetime import datetime, timezone
         from pathlib import Path
 
-        from aragora.gauntlet.receipt_models import DecisionReceipt
+        from aragora.gauntlet.receipt_models import (
+            DecisionReceipt,
+            crux_cards_from_metadata,
+            receipt_schema_version,
+        )
 
         receipts_dir = Path.home() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -797,7 +897,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                     "agent": agent_name,
                     "role": str(getattr(msg, "role", "") or ""),
                     "round": int(getattr(msg, "round", 0) or 0),
-                    "response": content[:2000],
+                    "response": content,
                     "provider": str(model_meta.get("provider", "") or ""),
                     "provider_display": str(model_meta.get("provider_display", "") or ""),
                     "model": str(model_meta.get("model", "") or ""),
@@ -856,11 +956,11 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             "probes_run": 0,
             "vulnerabilities_found": 0,
             "verdict": "PASS" if consensus_reached else "CONDITIONAL",
-            "verdict_reasoning": final_answer[:2000],
+            "verdict_reasoning": final_answer,
             "robustness_score": round(confidence, 4) if confidence else 0.0,
             "consensus_reached": consensus_reached,
             "confidence": round(confidence, 4) if confidence else 0.0,
-            "final_answer": final_answer[:2000],
+            "final_answer": final_answer,
             "rounds_used": getattr(result, "rounds_used", 0),
             "agents": agents,
             "agents_requested": requested_roster or agents,
@@ -887,11 +987,19 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                     "evidence_hash": input_hash,
                 }
             ],
-            "schema_version": "1.1",
         }
         model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
+
+        # Crux cards (#8227): attached by the consensus phase when the debate
+        # ran with enable_crux_cards (--crux-cards). Shared helpers enforce
+        # the "only carry non-empty blocks" invariant and the schema-version
+        # bump (1.2 when cruxes bind into the hash) with from_debate_result.
+        cruxes = crux_cards_from_metadata(metadata)
+        if cruxes is not None:
+            receipt["cruxes"] = cruxes
+        receipt["schema_version"] = receipt_schema_version(cruxes)
 
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]
@@ -1586,6 +1694,52 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 "This task was interpreted from an ambiguous input and requires confirmation."
             )
 
+    # Crux cards (#8227): only the local run_debate path honors
+    # enable_crux_cards, so the flag uniformly requires local execution.
+    # Graph/matrix are rejected unconditionally (they conflict with local
+    # execution below anyway). Explicit API configuration (--api, --api-url,
+    # ARAGORA_API_URL) is rejected only when the run is not already local
+    # (--local/--demo/ARAGORA_OFFLINE) — a merely-exported ARAGORA_API_URL
+    # must not reject a run that could never dispatch to it. Checked up
+    # front, before context engineering burns LLM work or ARAGORA_OFFLINE is
+    # mutated. Otherwise local execution is forced below (mirroring --demo),
+    # with a Note so the auto-discovery path is never silent.
+    crux_cards_requested = bool(getattr(args, "crux_cards", False))
+    if crux_cards_requested:
+        from aragora.utils.env import is_offline_mode as _crux_is_offline
+
+        if getattr(args, "graph", False) or getattr(args, "matrix", False):
+            print(
+                "--crux-cards currently requires local execution; graph/matrix "
+                "debates do not honor it. Remove --graph/--matrix or drop "
+                "--crux-cards.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        already_local = (
+            getattr(args, "local", False) or getattr(args, "demo", False) or _crux_is_offline()
+        )
+        crux_api_url = getattr(args, "api_url", None)
+        if not already_local and (
+            getattr(args, "api", False)
+            or _is_explicitly_configured_api_url(
+                crux_api_url or DEFAULT_API_URL, flag_passed=crux_api_url is not None
+            )
+        ):
+            print(
+                "--crux-cards currently requires local execution; API debates do "
+                "not honor it. Add --local, remove --api/--api-url and unset "
+                "ARAGORA_API_URL, or drop --crux-cards.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        if not getattr(args, "local", False):
+            print(
+                "Note: --crux-cards is only honored by local execution; "
+                "running the debate locally.",
+                file=sys.stderr,
+            )
+
     explicit_codebase_context = bool(getattr(args, "codebase_context", False))
     mode_name = str(getattr(args, "mode", "") or "").strip().lower()
     inferred_codebase_context = mode_name == "orchestrator" or _looks_like_self_improvement_task(
@@ -1714,6 +1868,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
         protocol_overrides["enable_evidence_weighting"] = False
     if not getattr(args, "trending", True):
         protocol_overrides["enable_trending_injection"] = False
+    if crux_cards_requested:
+        # Crux cards (#8227): attach load-bearing disagreements to the debate
+        # result metadata so the decision receipt carries a cruxes block.
+        protocol_overrides["enable_crux_cards"] = True
     # Note: ELO weighting is controlled via WeightCalculatorConfig, passed via protocol
 
     # Demo mode forces local execution
@@ -1759,7 +1917,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
             }
         )
 
-    server_url = getattr(args, "api_url", DEFAULT_API_URL)
+    api_url_arg = getattr(args, "api_url", None)
+    api_url_flag_passed = api_url_arg is not None
+    server_url = api_url_arg or DEFAULT_API_URL
     api_key = (
         getattr(args, "api_key", None)
         or os.environ.get("ARAGORA_API_TOKEN")
@@ -1768,6 +1928,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     requested_api = getattr(args, "api", False)
     requested_local = getattr(args, "local", False)
+    if crux_cards_requested:
+        # Explicit API configuration was rejected above; force the local path
+        # (like --demo does) so enable_crux_cards is honored even when a
+        # trusted API server would otherwise be auto-selected.
+        requested_local = True
     graph_mode = getattr(args, "graph", False)
     matrix_mode = getattr(args, "matrix", False)
     decision_integrity = bool(getattr(args, "decision_integrity", False))
@@ -2009,7 +2174,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     use_api = requested_api
     if not requested_api and not requested_local:
-        use_api = _is_server_available(server_url)
+        use_api = _trusted_server_available(server_url, flag_passed=api_url_flag_passed)
 
     if use_api:
         try:
@@ -2085,6 +2250,20 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 )
                 _print_decision_integrity_summary(package)
             return
+        except ValidationError as e:
+            # The server answered but returned a payload the SDK models could
+            # not parse (version skew, or a non-Aragora service on the port).
+            # Surface a friendly error instead of a raw pydantic traceback.
+            print(
+                f"API run failed: server at {server_url} returned an unexpected "
+                "response. If this is not an Aragora API server, rerun with "
+                "--local (or set ARAGORA_API_URL). Use --verbose for details.",
+                file=sys.stderr,
+            )
+            logger.debug("SDK response validation failed: %s", e)
+            if args.verbose:
+                print(f"Validation details: {e}", file=sys.stderr)
+            raise SystemExit(1)
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             if requested_api or graph_mode or matrix_mode:
                 print(f"API run failed: {e}", file=sys.stderr)
@@ -2886,6 +3065,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
     if _result_has_only_agent_failure_outputs(result):
+        # Surface a substantive final answer if one exists (issue #9304): the
+        # engine can synthesize a real answer even when round messages were
+        # placeholders — hiding it behind a bare exit-1 buries user value.
+        final = str(getattr(result, "final_answer", "") or "")
+        if final and not _looks_like_agent_failure_response(final):
+            print("\n" + "=" * 60)
+            print("FINAL ANSWER (degraded run — agent rounds reported errors):")
+            print("=" * 60)
+            print(final)
         print(
             "Debate failed: all selected agents returned provider/error placeholders. "
             f"Run 'aragora validate-env --smoke --agents {agents} --verbose' and retry.",

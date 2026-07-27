@@ -602,7 +602,7 @@ class TestKnowledgeHandlerSearch:
 
         assert result is not None
         assert result.status_code == 400
-        assert b"Query parameter 'q' is required" in result.body
+        assert b"Query parameter 'q' or 'query' is required" in result.body
 
     def test_search_success(self):
         """Should search and return results."""

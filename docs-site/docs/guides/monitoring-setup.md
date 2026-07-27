@@ -327,7 +327,7 @@ logger.info(
           {
             "file_path": "/var/log/aragora/*.log",
             "log_group_name": "aragora-api",
-            "log_stream_name": "\{instance_id\}",
+            "log_stream_name": "{instance_id}",
             "timezone": "UTC"
           }
         ]

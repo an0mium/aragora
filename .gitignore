@@ -112,6 +112,15 @@ drafts/
 # Local exports / generated artifacts
 exports/
 artifacts/
+# …but committed proof/compliance artifacts under docs/ are real documentation,
+# not build output. Without this negation every gitignore-respecting tool
+# (grep harnesses, doc-link validators, reviewers) believes they don't exist
+# even though they are tracked (#8824 evidence round 1).
+!docs/artifacts/
+docs/artifacts/*
+!docs/artifacts/2026-07-decision-integrity-dogfooding.md
+!docs/artifacts/2026-07-reviewer-failure-taxonomy.md
+!docs/artifacts/2026-07-10-stranger-sim-run-1.md
 smoke_output/
 replays/*.mp3
 

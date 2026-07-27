@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+  push:
+    branches: [main]
   schedule:
     # Nightly at 1:10 UTC
     - cron: '10 1 * * *'
@@ -368,6 +370,9 @@ jobs:
 
       - name: Validate handler route coverage
         run: |
+          # pipefail: without it, `| tee` masks the validator's exit code and
+          # the gate silently passes on drift (that happened Jan-Jul 2026).
+          set -o pipefail
           python scripts/validate_openapi_routes.py \
             --spec docs/api/openapi.json \
             --fail-on-missing \
@@ -468,11 +473,12 @@ jobs:
               core.warning(`Unable to post PR comment: ${error.message}`);
             }
 
+  # sync is manual-only: auto-committing to main on every push was armed accidentally by the push trigger (PR #8952 review); dispatch it deliberately.
   sync:
     name: Sync Spec (main only)
     runs-on: ubuntu-latest
     needs: generate-run
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
 

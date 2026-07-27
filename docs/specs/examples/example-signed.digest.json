@@ -1,0 +1,6 @@
+{
+  "algorithm": "sha-256(JCS(doc - signatures))",
+  "note": "Pinned reproducible content digest for example-signed.odr.json (VAL-RECON-011). Recompute via aragora_verify.odr_content_digest(doc) or aragora.gauntlet.odr_export.odr_content_digest(doc); signatures are excluded from the digest, so re-signing never changes this value. A mismatch signals a JCS/serialization regression that would silently invalidate every signature riding on this digest.",
+  "odr_digest": "6d7f70d080876e0f9d58b2016725a70285bdfdb4244b9341436afa4308d40405",
+  "receipt": "example-signed.odr.json"
+}

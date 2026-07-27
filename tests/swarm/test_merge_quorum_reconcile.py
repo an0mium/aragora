@@ -154,6 +154,11 @@ class TestPlanRerun:
         assert decision.should_rerun is False
         assert "round budget exhausted" in decision.reason
         assert "net-value adjudication" in decision.reason
+        assert decision.needs_adjudication is True
+
+    def test_needs_adjudication_false_on_all_other_paths(self) -> None:
+        assert self._call(pr_rounds_consumed=2, pr_round_budget=6).needs_adjudication is False
+        assert self._call(reruns_this_head=5).needs_adjudication is False
 
     def test_pr_budget_bites_even_when_per_head_cap_is_fresh(self) -> None:
         # THE fix: a repair push creates a new head, so the per-head cap resets

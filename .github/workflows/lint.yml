@@ -3,16 +3,6 @@ name: Lint
 on:
   push:
     branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'AGENTS.md'
-      - 'pyproject.toml'
-      - '.github/workflows/**'
-      - 'deploy/**'
-      - 'security/policies/**'
-      - 'aragora-operator/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]

@@ -1,27 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, Inter, DM_Serif_Display } from 'next/font/google';
 import './globals.css';
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-jetbrains-mono',
-});
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-inter',
-});
-
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  display: 'swap',
-  variable: '--font-dm-serif',
-});
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
@@ -92,7 +70,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${jetbrainsMono.variable} ${inter.variable} ${dmSerif.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Build SHA for deploy verification */}
         <meta name="aragora-build-sha" content={process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown'} />

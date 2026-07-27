@@ -601,7 +601,7 @@ async def verify_claim(claim: str):
 async def get_debate_cruxes(debate_id: str):
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"http://localhost:8080/api/belief-network/\{debate_id\}/cruxes",
+            f"http://localhost:8080/api/belief-network/{debate_id}/cruxes",
             params={"top_k": 5}
         )
         return resp.json()

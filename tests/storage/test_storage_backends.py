@@ -154,19 +154,13 @@ class TestPostgreSQLBackend:
 
     def test_placeholder_conversion(self):
         """Test SQL placeholder conversion."""
-        from aragora.storage.backends import PostgreSQLBackend, POSTGRESQL_AVAILABLE
-        from unittest.mock import MagicMock, patch
+        from aragora.storage.backends import PostgreSQLBackend
 
-        # Create mock pool
-        with patch("aragora.storage.backends.pg_pool") as mock_pool:
-            mock_pool.ThreadedConnectionPool.return_value = MagicMock()
-
-            backend = PostgreSQLBackend("postgresql://user:pass@localhost/db")
-
-            # Test placeholder conversion
-            sql = "SELECT * FROM users WHERE id = ? AND name = ?"
-            converted = backend.convert_placeholder(sql)
-            assert converted == "SELECT * FROM users WHERE id = %s AND name = %s"
+        # Placeholder conversion is a pure SQL-string compatibility helper; it
+        # must stay testable in smoke environments without optional psycopg2.
+        sql = "SELECT * FROM users WHERE id = ? AND name = ?"
+        converted = PostgreSQLBackend.convert_placeholder(sql)
+        assert converted == "SELECT * FROM users WHERE id = %s AND name = %s"
 
 
 class TestGetDatabaseBackend:

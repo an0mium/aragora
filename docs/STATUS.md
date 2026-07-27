@@ -3,7 +3,7 @@
 *Last updated: May 14, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](status/STATUS.md).
-> The thesis settlement ledger has been archived at [archive/status/2026-04-21-thesis-settlement-session.md](archive/status/2026-04-21-thesis-settlement-session.md).
+> The thesis settlement ledger from 2026-04-21 has been archived.
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
@@ -151,15 +151,19 @@ For the full current-status narrative, use the canonical doc:
 - **CLI**: `aragora swarm run "goal"`, `aragora swarm status [--json]`, `aragora swarm reconcile --all-runs`
 - **98 tests** (89 swarm + 9 reconciler)
 
-### Codebase Metrics (March 6, 2026)
-- **Python modules**: 3,700+
-- **Tests**: 210,000+ across 5,000+ test files
+### Codebase Metrics (generated from `docs/METRICS.md`)
+<!-- metrics:begin status-codebase-metrics -->
+- **Python files (`aragora/`)**: 4,302
+- **Tests**: 224,872 across 5,513 test files
+- **KM adapters**: 41 registered adapter specs
+- **API operations**: 3,084 across 2,876 paths
+<!-- metrics:end -->
+
+Manually maintained:
 - **HTTP handlers**: 700+
-- **KM adapters**: 42 registered adapter specs
 - **Agent types**: 43
-- **API operations**: 3,100+ across 2,600+ paths
 - **RBAC permissions**: 420+
-- **Version**: v2.8.0
+- **Version**: v2.9.0
 
 ---
 
@@ -563,7 +567,7 @@ Independent verification found substantial launch-ready infrastructure, but Arag
 
 ## Current Release
 
-Current released version is **v2.8.0**.
+Current released version is **v2.9.0**.
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 
@@ -2925,7 +2929,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 3,100+ API operations across 2,600+ paths, 580+ HTTP handler modules
+- Full REST API surface (operation/path counts canonical in `docs/METRICS.md`), 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

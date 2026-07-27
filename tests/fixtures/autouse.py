@@ -7,11 +7,71 @@ setup/teardown ordering is identical.
 """
 
 import json
+import math
 import os
+import random
 
 import pytest
 
 from aragora.resilience import reset_all_circuit_breakers
+
+try:
+    import numpy as _np
+except ModuleNotFoundError:  # pragma: no cover - exercised in minimal CI lanes
+    _np = None
+
+
+class _FakeArray(list):
+    """Small list-backed array surface for test doubles when numpy is absent."""
+
+    @property
+    def shape(self):
+        if self and isinstance(self[0], list):
+            return (len(self), len(self[0]))
+        return (len(self),)
+
+    def astype(self, _dtype):
+        return self
+
+    def tolist(self):
+        return [item.tolist() if hasattr(item, "tolist") else item for item in self]
+
+
+def _fake_array(values):
+    if _np is not None:
+        return _np.array(values)
+    if values and isinstance(values[0], (list, tuple)):
+        return _FakeArray(_FakeArray(row) for row in values)
+    return _FakeArray(values)
+
+
+def _fake_zeros(size: int):
+    if _np is not None:
+        return _np.zeros(size, dtype=_np.float32)
+    return _FakeArray([0.0] * size)
+
+
+def _fake_randn(seed: int, size: int):
+    if _np is not None:
+        return _np.random.RandomState(seed).randn(size).astype(_np.float32)
+    rng = random.Random(seed)
+    return _FakeArray([rng.gauss(0.0, 1.0) for _ in range(size)])
+
+
+def _add_scaled(left, right, scale: float):
+    if _np is not None:
+        return left + right * scale
+    return _FakeArray(a + b * scale for a, b in zip(left, right, strict=False))
+
+
+def _normalize(vector):
+    if _np is not None:
+        norm = _np.linalg.norm(vector)
+        return vector / norm if norm > 0 else vector
+    norm = math.sqrt(sum(value * value for value in vector))
+    if norm <= 0:
+        return vector
+    return _FakeArray(value / norm for value in vector)
 
 
 @pytest.fixture(autouse=True)
@@ -135,8 +195,6 @@ def _preinstall_fake_sentence_transformers():
     import sys
     import types
 
-    import numpy as np
-
     # Only install fake if the real module isn't already loaded
     if "sentence_transformers" in sys.modules:
         yield
@@ -151,11 +209,8 @@ def _preinstall_fake_sentence_transformers():
             single = isinstance(sentences, str)
             if single:
                 sentences = [sentences]
-            result = np.array(
-                [
-                    np.random.RandomState(hash(t) % 2**32).randn(384).astype(np.float32)
-                    for t in sentences
-                ]
+            result = _fake_array(
+                [_fake_randn(hash(t) % 2**32, self._embedding_dim) for t in sentences]
             )
             return result[0] if single else result
 
@@ -168,8 +223,8 @@ def _preinstall_fake_sentence_transformers():
 
         def predict(self, sentence_pairs, **kwargs):
             if not sentence_pairs:
-                return np.array([])
-            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+                return _fake_array([])
+            return _fake_array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
 
     # Create fake module hierarchy
     fake_st = types.ModuleType("sentence_transformers")
@@ -311,8 +366,6 @@ def mock_sentence_transformers(request, monkeypatch):
     """
     import sys
 
-    import numpy as np
-
     # Clear embedding service cache to ensure fresh instances per test.
     # IMPORTANT: Use sys.modules lookup instead of import to avoid triggering
     # the heavy sentence_transformers/transformers import chain (~30s) which
@@ -364,26 +417,23 @@ def mock_sentence_transformers(request, monkeypatch):
             embeddings = []
             for text in sentences:
                 # Create embedding based on word tokens for semantic-like similarity
-                emb = np.zeros(self._embedding_dim, dtype=np.float32)
+                emb = _fake_zeros(self._embedding_dim)
                 words = text.lower().split()
                 for word in words:
                     # Add contribution from each word (deterministic)
                     word_seed = hash(word) % (2**32)
-                    word_rng = np.random.RandomState(word_seed)
-                    word_vec = word_rng.randn(self._embedding_dim).astype(np.float32)
-                    emb += word_vec * 0.1
+                    word_vec = _fake_randn(word_seed, self._embedding_dim)
+                    emb = _add_scaled(emb, word_vec, 0.1)
                 # Add small unique component for exact text
                 text_seed = hash(text) % (2**32)
-                text_rng = np.random.RandomState(text_seed)
-                emb += text_rng.randn(self._embedding_dim).astype(np.float32) * 0.01
+                text_vec = _fake_randn(text_seed, self._embedding_dim)
+                emb = _add_scaled(emb, text_vec, 0.01)
 
                 if normalize_embeddings:
-                    norm = np.linalg.norm(emb)
-                    if norm > 0:
-                        emb = emb / norm
+                    emb = _normalize(emb)
                 embeddings.append(emb)
 
-            result = np.array(embeddings)
+            result = _fake_array(embeddings)
 
             # Return 1D array for single input (matches real SentenceTransformer behavior)
             if single_input:
@@ -410,9 +460,9 @@ def mock_sentence_transformers(request, monkeypatch):
         def predict(self, sentence_pairs, **kwargs):
             """Return mock contradiction scores."""
             if not sentence_pairs:
-                return np.array([])
+                return _fake_array([])
             # Return neutral scores (entailment, neutral, contradiction)
-            return np.array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
+            return _fake_array([[0.1, 0.8, 0.1]] * len(sentence_pairs))
 
     # Mock at the sentence_transformers module level.
     # IMPORTANT: Only patch if already imported. Do NOT trigger the heavy
@@ -1570,6 +1620,7 @@ except ImportError:
     _GlobalBaseHandler = None
 
 # Capture the side_effect property descriptor
+from unittest.mock import Mock as _GlobalMock
 from unittest.mock import NonCallableMock as _GlobalNCMock
 
 _global_side_effect_descriptor = None
@@ -1596,12 +1647,86 @@ try:
 except ImportError:
     _global_real_oauth_impl_module = None
 
+try:
+    import aragora.server.handlers.social.social_media as _global_real_social_media_module
 
-@pytest.fixture(autouse=True)
-def _global_mock_pollution_guard():
-    """Repair mock pollution that can leak across test files."""
-    import sys
+    _global_real_social_oauth_states = _global_real_social_media_module._oauth_states
+    _global_real_social_oauth_states_lock = _global_real_social_media_module._oauth_states_lock
+    _global_real_social_store_oauth_state = _global_real_social_media_module._store_oauth_state
+    _global_real_social_validate_oauth_state = (
+        _global_real_social_media_module._validate_oauth_state
+    )
+except ImportError:
+    _global_real_social_media_module = None
+    _global_real_social_oauth_states = None
+    _global_real_social_oauth_states_lock = None
+    _global_real_social_store_oauth_state = None
+    _global_real_social_validate_oauth_state = None
 
+
+def _repair_handler_lazy_cache_pollution() -> None:
+    """Drop handler lazy caches if a test populated them with synthetic handlers."""
+    try:
+        import aragora.server.handlers as handlers_pkg
+        from aragora.server.handlers.selection import SelectionHandler
+    except (ImportError, AttributeError):
+        return
+
+    # ALL_HANDLERS is normally served by module __getattr__; a real attribute
+    # shadows lazy resolution after tests patch the package-level export.
+    handlers_pkg.__dict__.pop("ALL_HANDLERS", None)
+
+    cached_handlers = getattr(handlers_pkg, "_all_handlers_cache", None)
+    if cached_handlers is None:
+        return
+
+    if not isinstance(cached_handlers, list):
+        handlers_pkg._all_handlers_cache = None
+        try:
+            handlers_pkg._handler_cache.clear()
+        except AttributeError:
+            pass
+        return
+
+    cache_is_mocked = any(isinstance(handler, _GlobalMock) for handler in cached_handlers)
+    if cache_is_mocked or SelectionHandler not in cached_handlers:
+        handlers_pkg._all_handlers_cache = None
+        try:
+            handlers_pkg._handler_cache.clear()
+        except AttributeError:
+            pass
+
+
+def _repair_social_oauth_alias_pollution() -> None:
+    """Restore social OAuth re-export identity after tests rebind module globals."""
+    if (
+        _global_real_social_media_module is None
+        or _global_real_social_oauth_states is None
+        or _global_real_social_oauth_states_lock is None
+        or _global_real_social_store_oauth_state is None
+        or _global_real_social_validate_oauth_state is None
+    ):
+        return
+
+    social_media = _global_real_social_media_module
+    social_media._oauth_states = _global_real_social_oauth_states
+    social_media._oauth_states_lock = _global_real_social_oauth_states_lock
+    social_media._store_oauth_state = _global_real_social_store_oauth_state
+    social_media._validate_oauth_state = _global_real_social_validate_oauth_state
+
+    try:
+        import aragora.server.handlers.social as social_pkg
+    except ImportError:
+        return
+
+    social_pkg._oauth_states = _global_real_social_oauth_states
+    social_pkg._oauth_states_lock = _global_real_social_oauth_states_lock
+    social_pkg._store_oauth_state = _global_real_social_store_oauth_state
+    social_pkg._validate_oauth_state = _global_real_social_validate_oauth_state
+
+
+def _repair_global_mock_pollution(sys_module) -> None:
+    """Repair process globals that can leak mock state between handler tests."""
     # Repair MagicMock.side_effect property descriptor
     if _global_side_effect_descriptor is not None:
         current = _GlobalNCMock.__dict__.get("side_effect")
@@ -1616,7 +1741,7 @@ def _global_mock_pollution_guard():
 
     # Restore run_async in loaded modules
     if _global_real_run_async is not None:
-        for mod_name, mod in tuple(sys.modules.copy().items()):
+        for mod_name, mod in tuple(sys_module.modules.copy().items()):
             if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
                 continue
             for attr in ("run_async", "_run_async"):
@@ -1629,41 +1754,26 @@ def _global_mock_pollution_guard():
         if _GlobalAgent.__init__ is not _global_real_agent_init:
             _GlobalAgent.__init__ = _global_real_agent_init
 
+    _repair_handler_lazy_cache_pollution()
+    _repair_social_oauth_alias_pollution()
+
     # Some OAuth tests temporarily replace or remove _oauth_impl from
     # sys.modules. Restore the canonical module object between tests so later
     # re-export identity assertions see the original module again.
     if _global_real_oauth_impl_module is not None:
-        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
+        current = sys_module.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
         if current is None:
-            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+            sys_module.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+
+
+@pytest.fixture(autouse=True)
+def _global_mock_pollution_guard():
+    """Repair mock pollution that can leak across test files."""
+    import sys
+
+    _repair_global_mock_pollution(sys)
 
     yield
 
     # Teardown: same repairs
-    if _global_side_effect_descriptor is not None:
-        current = _GlobalNCMock.__dict__.get("side_effect")
-        if current is not _global_side_effect_descriptor:
-            _GlobalNCMock.side_effect = _global_side_effect_descriptor
-
-    if _GlobalBaseHandler is not None and _global_real_extract_path_param is not None:
-        current = getattr(_GlobalBaseHandler, "extract_path_param", None)
-        if current is not _global_real_extract_path_param:
-            setattr(_GlobalBaseHandler, "extract_path_param", _global_real_extract_path_param)
-
-    if _global_real_run_async is not None:
-        for mod_name, mod in tuple(sys.modules.copy().items()):
-            if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
-                continue
-            for attr in ("run_async", "_run_async"):
-                current = getattr(mod, attr, None)
-                if current is not None and current is not _global_real_run_async:
-                    setattr(mod, attr, _global_real_run_async)
-
-    if _GlobalAgent is not None and _global_real_agent_init is not None:
-        if _GlobalAgent.__init__ is not _global_real_agent_init:
-            _GlobalAgent.__init__ = _global_real_agent_init
-
-    if _global_real_oauth_impl_module is not None:
-        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
-        if current is None:
-            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+    _repair_global_mock_pollution(sys)

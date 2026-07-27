@@ -17,22 +17,49 @@ if TYPE_CHECKING:
     from aragora.events.cross_subscribers import CrossSubscriberManager
 
 
+def register_webhook_store() -> None:
+    """Register durable webhook storage without loading server subscribers."""
+    from aragora.events.dispatcher import register_webhook_store_provider
+    from aragora.storage.webhook_config_store import get_webhook_config_store
+
+    register_webhook_store_provider(get_webhook_config_store)
+
+
 def bootstrap_event_subscribers() -> CrossSubscriberManager:
     """Import all event-subscriber home modules and wire them into the manager.
 
     Superset of the domain-subset bootstrap: it also imports application and
-    interface home modules. Idempotent. E1 is a pure enabler: no home modules
-    exist yet, so this currently composes the domain-subset bootstrap and ensures
-    the manager is initialized. E2-E7 add application/interface
-    ``import aragora.<pkg>.event_subscribers`` lines here (e.g. workflow,
-    notifications, server) as handlers relocate to their home layers.
+    interface home modules. Idempotent. Currently adds the workflow
+    application-tier home (P4a Batch E5) and the server interface-tier home
+    (P4a Batch E6): a pure-library debate with no workflow engine or HTTP server
+    has no such reactions, so ``aragora.workflow.event_subscribers`` and
+    ``aragora.server.event_subscribers`` are imported here rather than by the
+    domain-subset bootstrap. Further application/interface
+    ``import aragora.<pkg>.event_subscribers`` lines (e.g. notifications) are
+    added here as remaining handlers relocate to their home layers.
 
     Returns:
         The registry-backed cross-subscriber manager singleton.
     """
     from aragora.debate.event_subscribers import bootstrap_debate_event_subscribers
+    from aragora.server import event_subscribers as server_home
+    from aragora.workflow import event_subscribers as workflow_home
 
-    # Application + interface home-module imports are added here by E2-E7, e.g.
-    # ``import aragora.workflow.event_subscribers`` (a side-effect import for
-    # registration; mark it with a noqa F401 to silence unused-import lint).
-    return bootstrap_debate_event_subscribers()
+    register_webhook_store()
+    bootstrap_debate_event_subscribers()
+    workflow_home.register()
+    server_home.register()
+
+    from aragora.events.cross_subscribers import bootstrap
+
+    manager = bootstrap()
+    expected_handlers = (
+        workflow_home.WORKFLOW_EVENT_SUBSCRIBER_HANDLER_NAMES
+        | server_home.SERVER_EVENT_SUBSCRIBER_HANDLER_NAMES
+    )
+    missing = expected_handlers - set(manager.get_stats())
+    if missing:
+        raise RuntimeError(
+            f"Application event subscriber bootstrap incomplete; missing handlers: {sorted(missing)}"
+        )
+    return manager

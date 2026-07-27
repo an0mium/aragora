@@ -332,7 +332,9 @@ class TestUnanimousConsensusMode:
 
         assert ctx.result.consensus_reached is False
         assert ctx.result.consensus_strength == "none"
-        assert "[No unanimous consensus reached]" in ctx.result.final_answer
+        assert ctx.result.synthesis == ctx.result.final_answer
+        assert "Proposal A" in ctx.result.final_answer
+        assert "Proposal B" in ctx.result.final_answer
 
     @pytest.mark.asyncio
     async def test_unanimous_with_voting_errors(self):
@@ -357,10 +359,12 @@ class TestUnanimousConsensusMode:
 
         await phase.execute(ctx)
 
-        # Voting errors are logged but don't prevent consensus
-        # If all successful votes agree, that's still unanimous
-        assert ctx.result.consensus_reached is True
-        assert ctx.result.final_answer == "Proposal A"
+        # Voting errors count as dissent for unanimous consensus.
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.consensus_strength == "none"
+        assert ctx.result.confidence == pytest.approx(0.5, rel=0.01)
+        assert "Proposal A" in ctx.result.final_answer
+        assert ctx.result.synthesis == ctx.result.final_answer
 
 
 # ============================================================================
@@ -392,9 +396,11 @@ class TestJudgeConsensusMode:
 
         await phase.execute(ctx)
 
-        assert ctx.result.final_answer == "Synthesized answer"
         assert ctx.result.consensus_reached is True
         assert ctx.result.confidence == 0.8
+        assert ctx.result.synthesis == ctx.result.final_answer
+        assert "Proposal A" in ctx.result.final_answer
+        assert "Proposal B" in ctx.result.final_answer
 
     @pytest.mark.asyncio
     async def test_judge_error_fallback(self):

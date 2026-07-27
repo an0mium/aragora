@@ -13,7 +13,7 @@ The broadcast module converts decision stress-test debates into audio podcasts, 
 
 ```bash
 # Generate podcast audio via API
-curl -X POST https://api.aragora.ai/api/debates/\{debate_id\}/broadcast
+curl -X POST https://api.aragora.ai/api/debates/{debate_id}/broadcast
 
 # Response:
 {
@@ -53,7 +53,7 @@ trace = DebateTrace.load(Path("debate_trace.json"))
 
 # Generate audio (returns path to MP3 file)
 audio_path = await broadcast_debate(trace)
-print(f"Generated: \{audio_path\}")
+print(f"Generated: {audio_path}")
 ```
 
 ## Architecture
@@ -71,7 +71,7 @@ MP3 files (one per segment)
 Single MP3 (concatenated)
     │
     ▼ (storage.py)
-.nomic/audio/\{debate_id\}.mp3 + metadata.json
+.nomic/audio/{debate_id}.mp3 + metadata.json
     │
     ▼ (rss_gen.py)
 iTunes RSS feed / JSON episode list

@@ -132,7 +132,7 @@ config = RLMConfig(
 
     # Output format
     include_citations=True,       # Include source references
-    citation_format="[L\{level\}:\{chunk\}]",
+    citation_format="[L{level}:{chunk}]",
 )
 ```
 

@@ -144,7 +144,7 @@ def upgrade():
                 SELECT id FROM large_table
                 WHERE new_field IS NULL
                 ORDER BY id
-                LIMIT \{batch_size\}
+                LIMIT {batch_size}
             )
         """))
 

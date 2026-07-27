@@ -1076,9 +1076,7 @@ def _add_ask_parser(subparsers) -> None:
         "--no-learn", dest="learn", action="store_false", help="Don't store patterns"
     )
     ask_parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Run with built-in demo agents (no API keys required)",
+        "--demo", action="store_true", help="Run with built-in demo agents (no API keys required)"
     )
     ask_parser.add_argument(
         "--mode",
@@ -1108,8 +1106,9 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--api-url",
-        default=DEFAULT_API_URL,
-        help=f"API server URL (default: {DEFAULT_API_URL})",
+        default=None,
+        help=f"API server URL (default: {DEFAULT_API_URL}); passing the flag "
+        "explicitly opts in to that server even if it does not identify as Aragora",
     )
     ask_parser.add_argument(
         "--api-key",
@@ -1118,14 +1117,10 @@ def _add_ask_parser(subparsers) -> None:
     )
     debate_type = ask_parser.add_mutually_exclusive_group()
     debate_type.add_argument(
-        "--graph",
-        action="store_true",
-        help="Run a graph debate with branching (API mode only)",
+        "--graph", action="store_true", help="Run a graph debate with branching (API mode only)"
     )
     debate_type.add_argument(
-        "--matrix",
-        action="store_true",
-        help="Run a matrix debate with scenarios (API mode only)",
+        "--matrix", action="store_true", help="Run a matrix debate with scenarios (API mode only)"
     )
     ask_parser.add_argument(
         "--graph-rounds",
@@ -1219,6 +1214,11 @@ def _add_ask_parser(subparsers) -> None:
         "--explain",
         action="store_true",
         help="Generate and display decision explanation (evidence chains, vote pivots)",
+    )
+    ask_parser.add_argument(
+        "--crux-cards",
+        action="store_true",
+        help="Attach crux cards (load-bearing disagreements) to the receipt; local-only",
     )
     ask_parser.add_argument(
         "--preset",
@@ -1349,14 +1349,11 @@ def _add_stats_parser(subparsers) -> None:
 def _add_status_parser(subparsers) -> None:
     """Add the 'status' subcommand parser."""
     status_parser = subparsers.add_parser(
-        "status", help="Show environment health and agent availability"
+        "status", help="Show environment health, agent availability, or founder ops status"
     )
-    status_parser.add_argument(
-        "--server",
-        "-s",
-        default=DEFAULT_API_URL,
-        help=f"Server URL to check (default: {DEFAULT_API_URL})",
-    )
+    from aragora.cli.commands.founder_status import add_founder_status_arguments
+
+    add_founder_status_arguments(status_parser, default_api_url=DEFAULT_API_URL)
     status_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_status"))
 
 
@@ -1954,6 +1951,15 @@ def _add_review_parser(subparsers) -> None:
     )
     parser.add_argument("--output-dir", help="Directory to save output artifacts")
     parser.add_argument(
+        "--emit-odr",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help="Emit a verifiable Open Decision Receipt (default: review.odr.json, or inside "
+        "--output-dir when set); place after the PR URL or pass a PATH; failed write exits 3",
+    )
+    parser.add_argument(
         "--sarif",
         nargs="?",
         const="review-results.sarif",
@@ -1971,7 +1977,7 @@ def _add_review_parser(subparsers) -> None:
         "--ci",
         action="store_true",
         default=False,
-        help="CI mode: exit with non-zero code based on findings severity.",
+        help="CI mode: exit code by findings severity (1=critical, 2=high; 3=ODR write failure).",
     )
     parser.add_argument(
         "--demo",
@@ -2146,6 +2152,11 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Build prioritized review queue from open PRs",
     )
     build_parser.add_argument("--limit", type=int, default=100, help="Max PRs to fetch")
+    build_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
     build_parser.add_argument(
         "--ready-only",
         action="store_true",
@@ -2352,6 +2363,20 @@ def _add_review_queue_parser(subparsers) -> None:
         "--apply",
         action="store_true",
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--reviewer-timeout",
+        dest="reviewer_timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    collect_evidence_parser.add_argument(
+        "--overall-timeout",
+        dest="overall_timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds for this invocation.",
     )
     collect_evidence_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON"

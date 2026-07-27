@@ -39,7 +39,7 @@ Both SDKs provide complete coverage of all API endpoints including:
 | [API_VERSIONING.md](./versioning) | Version strategy | API migration planning |
 | [API_STABILITY.md](./stability) | Stability guarantees | Production decisions |
 | [WEBSOCKET_EVENTS.md](../guides/websocket-events) | WebSocket event types | Real-time integration |
-| [MCP README](../analysis/adr) | MCP server tools and setup | AI tool integration via MCP |
+| [MCP README](https://github.com/synaptent/aragora/blob/main/aragora/mcp/README.md) | MCP server tools and setup | AI tool integration via MCP |
 
 ## Endpoint Usage Status
 
@@ -5488,7 +5488,7 @@ Query parameters:
 ### Get Job Status
 
 ```http
-GET /api/queue/jobs/\{job_id\}
+GET /api/queue/jobs/{job_id}
 ```
 
 Response:
@@ -5506,14 +5506,14 @@ Response:
 ### Retry Failed Job
 
 ```http
-POST /api/queue/jobs/\{job_id\}/retry
+POST /api/queue/jobs/{job_id}/retry
 Authorization: Bearer <token>
 ```
 
 ### Cancel Job
 
 ```http
-DELETE /api/queue/jobs/\{job_id\}
+DELETE /api/queue/jobs/{job_id}
 Authorization: Bearer <token>
 ```
 
@@ -5619,7 +5619,7 @@ Returns most significant recent moments.
 ### Get Moments by Type
 
 ```http
-GET /api/moments/by-type/\{type\}
+GET /api/moments/by-type/{type}
 ```
 
 Valid types: `upset_victory`, `position_reversal`, `calibration_vindication`, `alliance_shift`, `consensus_breakthrough`, `streak_achievement`, `domain_mastery`
@@ -5663,7 +5663,7 @@ Returns checkpoints that can be resumed.
 ### Get Checkpoint Details
 
 ```http
-GET /api/checkpoints/\{id\}
+GET /api/checkpoints/{id}
 ```
 
 Response:
@@ -5685,7 +5685,7 @@ Response:
 ### Resume from Checkpoint
 
 ```http
-POST /api/checkpoints/\{id\}/resume
+POST /api/checkpoints/{id}/resume
 Authorization: Bearer <token>
 ```
 
@@ -5694,14 +5694,14 @@ Resumes a paused debate from the checkpoint state.
 ### Delete Checkpoint
 
 ```http
-DELETE /api/checkpoints/\{id\}
+DELETE /api/checkpoints/{id}
 Authorization: Bearer <token>
 ```
 
 ### Create Checkpoint for Debate
 
 ```http
-POST /api/debates/\{id\}/checkpoint
+POST /api/debates/{id}/checkpoint
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -5713,7 +5713,7 @@ Content-Type: application/json
 ### Pause Debate
 
 ```http
-POST /api/debates/\{id\}/pause
+POST /api/debates/{id}/pause
 Authorization: Bearer <token>
 ```
 
@@ -5752,21 +5752,21 @@ Authorization: Bearer <token>
 ### Get Workspace Details
 
 ```http
-GET /api/workspaces/\{id\}
+GET /api/workspaces/{id}
 Authorization: Bearer <token>
 ```
 
 ### Delete Workspace
 
 ```http
-DELETE /api/workspaces/\{id\}
+DELETE /api/workspaces/{id}
 Authorization: Bearer <token>
 ```
 
 ### Add Workspace Member
 
 ```http
-POST /api/workspaces/\{id\}/members
+POST /api/workspaces/{id}/members
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -5780,7 +5780,7 @@ Content-Type: application/json
 ### Remove Workspace Member
 
 ```http
-DELETE /api/workspaces/\{id\}/members/\{user_id\}
+DELETE /api/workspaces/{id}/members/{user_id}
 Authorization: Bearer <token>
 ```
 
@@ -5789,9 +5789,9 @@ Authorization: Bearer <token>
 ```http
 GET /api/retention/policies
 POST /api/retention/policies
-PUT /api/retention/policies/\{id\}
-DELETE /api/retention/policies/\{id\}
-POST /api/retention/policies/\{id\}/execute
+PUT /api/retention/policies/{id}
+DELETE /api/retention/policies/{id}
+POST /api/retention/policies/{id}/execute
 GET /api/retention/expiring
 ```
 
@@ -6001,10 +6001,10 @@ Response:
 
 ```http
 GET /api/training/jobs
-POST /api/training/jobs/\{id\}/start
-POST /api/training/jobs/\{id\}/complete
-GET /api/training/jobs/\{id\}/metrics
-GET /api/training/jobs/\{id\}/artifacts
+POST /api/training/jobs/{id}/start
+POST /api/training/jobs/{id}/complete
+GET /api/training/jobs/{id}/metrics
+GET /api/training/jobs/{id}/artifacts
 ```
 
 ---
@@ -6016,7 +6016,7 @@ Get decision explanations, evidence chains, vote pivots, counterfactuals, and su
 ### Get Full Explanation
 
 ```http
-GET /api/v1/debates/\{debate_id\}/explanation
+GET /api/v1/debates/{debate_id}/explanation
 Authorization: Bearer <token>
 ```
 
@@ -6041,7 +6041,7 @@ Authorization: Bearer <token>
 ### Get Evidence Chain
 
 ```http
-GET /api/v1/debates/\{debate_id\}/evidence
+GET /api/v1/debates/{debate_id}/evidence
 Authorization: Bearer <token>
 ```
 
@@ -6062,7 +6062,7 @@ Authorization: Bearer <token>
 ### Get Vote Pivots
 
 ```http
-GET /api/v1/debates/\{debate_id\}/votes/pivots
+GET /api/v1/debates/{debate_id}/votes/pivots
 Authorization: Bearer <token>
 ```
 
@@ -6072,7 +6072,7 @@ Authorization: Bearer <token>
 ### Get Counterfactuals
 
 ```http
-GET /api/v1/debates/\{debate_id\}/counterfactuals
+GET /api/v1/debates/{debate_id}/counterfactuals
 Authorization: Bearer <token>
 ```
 
@@ -6082,7 +6082,7 @@ Authorization: Bearer <token>
 ### Get Summary
 
 ```http
-GET /api/v1/debates/\{debate_id\}/summary
+GET /api/v1/debates/{debate_id}/summary
 Authorization: Bearer <token>
 ```
 
@@ -6125,7 +6125,7 @@ Content-Type: application/json
 #### Get Batch Status
 
 ```http
-GET /api/v1/explainability/batch/\{batch_id\}/status
+GET /api/v1/explainability/batch/{batch_id}/status
 Authorization: Bearer <token>
 ```
 
@@ -6147,7 +6147,7 @@ Authorization: Bearer <token>
 #### Get Batch Results
 
 ```http
-GET /api/v1/explainability/batch/\{batch_id\}/results
+GET /api/v1/explainability/batch/{batch_id}/results
 Authorization: Bearer <token>
 ```
 
@@ -6275,14 +6275,14 @@ Authorization: Bearer <token>
 ### Get Template Details
 
 ```http
-GET /api/workflow/templates/\{template_id\}
+GET /api/workflow/templates/{template_id}
 Authorization: Bearer <token>
 ```
 
 ### Get Template Package
 
 ```http
-GET /api/workflow/templates/\{template_id\}/package
+GET /api/workflow/templates/{template_id}/package
 Authorization: Bearer <token>
 ```
 
@@ -6323,7 +6323,7 @@ Authorization: Bearer <token>
 ### Run Workflow Template
 
 ```http
-POST /api/workflow/templates/\{template_id\}/run
+POST /api/workflow/templates/{template_id}/run
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -6422,7 +6422,7 @@ GET /api/workflow/patterns
 ### Instantiate Pattern
 
 ```http
-POST /api/workflow/patterns/\{pattern_id\}/instantiate
+POST /api/workflow/patterns/{pattern_id}/instantiate
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -6480,7 +6480,7 @@ Authorization: Bearer <token>
 ### Get Receipt Details
 
 ```http
-GET /api/gauntlet/receipts/\{receipt_id\}
+GET /api/gauntlet/receipts/{receipt_id}
 Authorization: Bearer <token>
 ```
 
@@ -6513,7 +6513,7 @@ Authorization: Bearer <token>
 ### Verify Receipt Integrity
 
 ```http
-GET /api/gauntlet/receipts/\{receipt_id\}/verify
+GET /api/gauntlet/receipts/{receipt_id}/verify
 Authorization: Bearer <token>
 ```
 
@@ -6530,7 +6530,7 @@ Authorization: Bearer <token>
 ### Export Receipt
 
 ```http
-GET /api/gauntlet/receipts/\{receipt_id\}/export
+GET /api/gauntlet/receipts/{receipt_id}/export
 Authorization: Bearer <token>
 ```
 
@@ -6559,7 +6559,7 @@ Authorization: Bearer <token>
 ### Create Shareable Link
 
 ```http
-POST /api/v2/receipts/\{receipt_id\}/share
+POST /api/v2/receipts/{receipt_id}/share
 Authorization: Bearer <token>
 Content-Type: application/json
 

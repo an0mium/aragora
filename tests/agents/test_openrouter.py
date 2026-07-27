@@ -48,12 +48,22 @@ class TestFallbackModelChain:
             OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
         )
 
+    def test_legacy_default_keys_keep_fallback(self):
+        """Renamed defaults keep their legacy keys as aliases (#9073 P2):
+        callers still pinning the old ids must not lose retry fallback."""
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-max"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.7-max"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-5"
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-5"
+
     def test_kimi_has_fallback(self):
         """Test Kimi models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "moonshotai/kimi-k2.6" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-4.8"
+        assert "moonshotai/kimi-k2.7-code" in OPENROUTER_FALLBACK_MODELS
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-5"
 
     def test_llama_has_fallback(self):
         """Test Llama models have fallbacks."""
@@ -505,3 +515,49 @@ class TestRequiredMethods:
 
             assert hasattr(agent, "_generate_with_model")
             assert callable(agent._generate_with_model)
+
+
+class TestSamplingParamStripOnFallback:
+    """Opus 4.7+ reject temperature/top_p/top_k with a 400.
+
+    The strip must key off the model actually being SENT, not ``self.model``:
+    on the quota-fallback path a non-Claude primary is re-sent as Claude Opus 5
+    while ``self.model`` still names the primary. Regression test requested by
+    the merge-quorum review on #9588 (round 4).
+    """
+
+    def test_non_claude_primary_keeps_sampling_params(self) -> None:
+        from aragora.models.compat import strip_sampling_params
+
+        payload = {"model": "moonshotai/kimi-k2.7-code", "temperature": 0.7, "top_p": 0.9}
+        strip_sampling_params(payload, payload["model"])
+        assert payload["temperature"] == 0.7, "non-Claude routing must be unchanged"
+        assert payload["top_p"] == 0.9
+
+    def test_non_claude_primary_falling_back_to_opus5_is_stripped(self) -> None:
+        """The exact bug: Kimi agent (temperature set) falls back to Opus 5."""
+        from aragora.models.compat import strip_sampling_params
+
+        # self.model is still the Kimi primary...
+        self_model = "moonshotai/kimi-k2.7-code"
+        # ...but the payload is being re-sent as the Opus 5 fallback target.
+        payload = {"model": "anthropic/claude-opus-5", "temperature": 0.7, "top_p": 0.9}
+
+        # Keying off self.model would leave the params in place and 400.
+        strip_sampling_params(payload, self_model)
+        assert "temperature" in payload, "guard-rail: self.model is the wrong key"
+
+        # Keying off the payload's own model strips them correctly.
+        strip_sampling_params(payload, payload["model"])
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+
+    def test_both_openrouter_payload_sites_key_off_payload_model(self) -> None:
+        """Pin the call shape so a future edit cannot reintroduce self.model."""
+        from pathlib import Path
+
+        import aragora.agents.api_agents.openrouter as mod
+
+        src = Path(mod.__file__).read_text(encoding="utf-8")
+        assert src.count('strip_sampling_params(payload, payload["model"])') == 2
+        assert "strip_sampling_params(payload, self.model)" not in src

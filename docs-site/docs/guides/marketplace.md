@@ -128,7 +128,7 @@ class AgentTemplate:
 @dataclass
 class DebateTemplate:
     metadata: TemplateMetadata
-    task_template: str           # Template with \{placeholders\}
+    task_template: str           # Template with {placeholders}
     agent_roles: list[dict]      # Role definitions
     protocol: dict               # Debate protocol settings
     evaluation_criteria: list[str]
@@ -164,7 +164,7 @@ registry.rate(rating)
 
 # Get average rating
 avg = registry.get_average_rating("devil-advocate")
-print(f"Average rating: \{avg\}")
+print(f"Average rating: {avg}")
 
 # Track downloads
 registry.increment_downloads("devil-advocate")

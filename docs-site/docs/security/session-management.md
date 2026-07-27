@@ -230,21 +230,21 @@ import requests
 BASE_URL = "https://api.aragora.ai"
 TOKEN = "your_access_token"
 
-headers = {"Authorization": f"Bearer \{TOKEN\}"}
+headers = {"Authorization": f"Bearer {TOKEN}"}
 
 # List sessions
-response = requests.get(f"\{BASE_URL\}/api/auth/sessions", headers=headers)
+response = requests.get(f"{BASE_URL}/api/auth/sessions", headers=headers)
 sessions = response.json()["sessions"]
 
 print(f"You have {len(sessions)} active sessions:")
 for s in sessions:
     current = " (current)" if s["is_current"] else ""
-    print(f"  - {s['device_name']}: last active {s['last_activity']}\{current\}")
+    print(f"  - {s['device_name']}: last active {s['last_activity']}{current}")
 
 # Revoke a session
 session_to_revoke = next(s for s in sessions if not s["is_current"])
 response = requests.delete(
-    f"\{BASE_URL\}/api/auth/sessions/{session_to_revoke['session_id']}",
+    f"{BASE_URL}/api/auth/sessions/{session_to_revoke['session_id']}",
     headers=headers
 )
 print(response.json()["message"])
@@ -256,17 +256,17 @@ print(response.json()["message"])
 const API_BASE = 'https://api.aragora.ai';
 
 async function listSessions(token: string) {
-  const response = await fetch(`$\{API_BASE\}/api/auth/sessions`, {
-    headers: { Authorization: `Bearer $\{token\}` }
+  const response = await fetch(`${API_BASE}/api/auth/sessions`, {
+    headers: { Authorization: `Bearer ${token}` }
   });
   const data = await response.json();
   return data.sessions;
 }
 
 async function revokeSession(token: string, sessionId: string) {
-  const response = await fetch(`$\{API_BASE\}/api/auth/sessions/$\{sessionId\}`, {
+  const response = await fetch(`${API_BASE}/api/auth/sessions/${sessionId}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer $\{token\}` }
+    headers: { Authorization: `Bearer ${token}` }
   });
   return response.json();
 }

@@ -6,7 +6,8 @@ groundedness and decides:
 
 - any [P0]/[P1] present            -> BLOCK      (hard bar; never suppressed)
 - all dissent thin (below bar)     -> SETTLE     (the treadmill escape)
-- grounded dissent, no grounded support -> BLOCK  (evidence-backed nit stands)
+- grounded advisory dissent defaults to SETTLE as follow-up, unless callers
+  explicitly opt into promoting grounded advisory findings to BLOCK
 - grounded dissent AND grounded support -> ESCALATE (material two-sided crux)
 - no supportive signal / no dissent -> NOT_APPLICABLE (not a stall)
 
@@ -15,12 +16,14 @@ Default is flag-OFF (byte-identical to today).
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
 import pytest
 
 from aragora.swarm.review_adjudicator import (
     AdjudicationVerdict,
+    AdvisorySeverityPolicy,
     adjudicate,
     review_adjudicator_enabled,
     score_groundedness,
@@ -38,6 +41,16 @@ class _Item:
     @property
     def supportive(self) -> bool:
         return self.verdict == "pass"
+
+
+@dataclass
+class _ConflictingItem:
+    """EvidenceItem-shaped stand-in with a contradictory supportive flag."""
+
+    family: str
+    body: str
+    verdict: str
+    supportive: bool
 
 
 def _pass(family: str, body: str = "Verdict: PASS\nLGTM.") -> _Item:
@@ -72,6 +85,18 @@ class TestGroundednessScorer:
     def test_grounded_above_default_bar(self) -> None:
         assert score_groundedness(_GROUNDED_P2) >= 0.5
 
+    def test_default_scorer_falls_back_to_in_tree_analyzer(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setitem(sys.modules, "aragora_debate", None)
+        monkeypatch.setitem(sys.modules, "aragora_debate.evidence", None)
+
+        r = adjudicate([_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")])
+        dissent = next(a for a in r.assessments if a.family == "openai")
+
+        assert r.verdict is AdjudicationVerdict.SETTLE
+        assert dissent.groundedness >= 0.5
+
 
 class TestAdjudicate:
     def test_all_thin_dissent_settles(self) -> None:
@@ -82,12 +107,30 @@ class TestAdjudicate:
         assert r.settled_findings  # the thin finding is filed for follow-up
         assert not r.blocking_findings
 
-    def test_evidence_backed_advisory_blocks(self) -> None:
-        # #8748 acceptance: a grounded [P2] (concrete repro) is NOT suppressed.
+    def test_evidence_backed_advisory_can_be_promoted_to_block_explicitly(self) -> None:
+        # #8748 acceptance remains available as an explicit policy: a grounded
+        # [P2] (concrete repro) is NOT suppressed.
         items = [_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")]
-        r = adjudicate(items)
+        r = adjudicate(
+            items,
+            advisory_severity_policy=AdvisorySeverityPolicy.PROMOTE_GROUNDED_TO_BLOCK,
+        )
         assert r.verdict is AdjudicationVerdict.BLOCK
         assert r.blocking_findings
+
+    def test_grounded_advisory_dissent_defaults_to_advisory_followup(self) -> None:
+        # #8752: the default must not re-promote [P2]/[P3]-only dissent into a
+        # hard block after severity-gated dissent made those findings advisory.
+        items = [_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")]
+        r = adjudicate(items, scorer=lambda body: 0.9 if "CHANGES-REQUESTED" in body else 0.1)
+        assert r.verdict is AdjudicationVerdict.SETTLE
+        assert r.settled_findings == [_GROUNDED_P2]
+        assert not r.blocking_findings
+        assert r.advisory_severity_policy is AdvisorySeverityPolicy.CAP_AT_ADVISORY
+        assert (
+            r.to_receipt_dict()["advisory_severity_policy"]
+            == AdvisorySeverityPolicy.CAP_AT_ADVISORY.value
+        )
 
     def test_blocking_p1_always_blocks(self) -> None:
         # The hard bar is inviolate: any [P0]/[P1] -> BLOCK regardless of scores.
@@ -190,12 +233,8 @@ class TestReviewFindingsFixes:
         # claude [P3] round 2: a definite [P0]/[P1] block must not construct (or
         # import) the default analyzer, so a missing aragora_debate never crashes
         # a hard block.
-        import aragora_debate.evidence as ev
-
-        def _explode(*_a: object, **_k: object) -> None:
-            raise ImportError("aragora_debate unavailable")
-
-        monkeypatch.setattr(ev, "EvidenceQualityAnalyzer", _explode)
+        monkeypatch.setitem(sys.modules, "aragora_debate", None)
+        monkeypatch.setitem(sys.modules, "aragora_debate.evidence", None)
         items = [_pass("claude"), _Item("openai", _BLOCKING_P1, "changes_requested")]
         r = adjudicate(items)  # scorer=None default; must not raise
         assert r.verdict is AdjudicationVerdict.BLOCK
@@ -210,3 +249,46 @@ class TestReviewFindingsFixes:
         assert adjudicate(no_dissent, scorer=boom).verdict is AdjudicationVerdict.NOT_APPLICABLE
         no_support = [_Item("openai", _THIN_P3, "changes_requested")]
         assert adjudicate(no_support, scorer=boom).verdict is AdjudicationVerdict.NOT_APPLICABLE
+
+
+class TestReviewFindingsAdvisoryRefinements:
+    """#8752 advisory refinements deferred from #8749 review."""
+
+    def test_custom_scorer_values_are_clamped_before_verdict(self) -> None:
+        def out_of_range(body: str) -> float:
+            return 2.0 if "CHANGES-REQUESTED" in body else -3.0
+
+        items = [_pass("claude"), _Item("openai", _GROUNDED_P2, "changes_requested")]
+        r = adjudicate(
+            items,
+            scorer=out_of_range,
+            advisory_severity_policy=AdvisorySeverityPolicy.PROMOTE_GROUNDED_TO_BLOCK,
+        )
+
+        support = next(a for a in r.assessments if a.family == "claude")
+        dissent = next(a for a in r.assessments if a.family == "openai")
+        assert support.groundedness == 0.0
+        assert dissent.groundedness == 1.0
+        assert r.verdict is AdjudicationVerdict.BLOCK
+
+    def test_non_finite_custom_scorer_output_fails_closed(self) -> None:
+        items = [_pass("claude"), _Item("openai", _THIN_P3, "changes_requested")]
+        r = adjudicate(items, scorer=lambda _body: float("nan"))
+        assert r.verdict is AdjudicationVerdict.ESCALATE
+        assert "scoring failed" in r.reason
+
+    def test_groundedness_bar_is_clamped_for_receipts(self) -> None:
+        items = [_pass("claude"), _pass("openai")]
+        assert adjudicate(items, groundedness_bar=2.5).groundedness_bar == 1.0
+        assert adjudicate(items, groundedness_bar=-0.5).groundedness_bar == 0.0
+
+    def test_changes_requested_item_is_not_also_supportive(self) -> None:
+        item = _ConflictingItem(
+            family="openai",
+            body=_GROUNDED_P2,
+            verdict="changes_requested",
+            supportive=True,
+        )
+        r = adjudicate([item], scorer=lambda _body: 0.9)
+        assert r.verdict is AdjudicationVerdict.NOT_APPLICABLE
+        assert "no supportive signal" in r.reason

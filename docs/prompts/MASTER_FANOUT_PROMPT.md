@@ -1,4 +1,25 @@
-# Master Fan-Out Prompt (v14)
+# Master Fan-Out Prompt (v15)
+
+## REVIEW-GATE DISCIPLINE (v15 — proven in run close-the-loop-20260701)
+
+Every lane that faces adversarial review evidence obeys the attempt-cap contract:
+
+1. **Two full gate cycles per unit, hard cap.** Implement → gate; on dissent revise ONCE
+   (fix the findings verbatim, at exact head) → re-gate. Still dissenting → **PARK**.
+2. **Parking is a legal terminal disposition, never a failure.** Park = push the branch,
+   record the dissent verbatim on the tracking issue, file each surviving finding as its
+   own bounded issue (boss-loop format), queue for human settlement, move on.
+3. **Never post SUPPORTIVE settlement evidence while dissent stands — but always RECORD
+   the dissent** (verbatim, on the tracking issue and in the parked handoff) so the human
+   settler has the full basis. Never silence a reviewer; never stretch scope to
+   satisfy a reviewer's new-scope finding — new scope in round 2 is a park-and-file
+   signal, not a round 3.
+4. **A reviewer finding that contradicts an intentional characterization test is a design
+   crux, not a bug** — escalate to the human with both positions; do not change semantics.
+
+Rationale: in the 2026-07-01 run this discipline settled 2 of 4 gated PRs cleanly (each
+after exactly one repair round that fixed real bugs) and parked 2 with high-quality
+follow-up issues — zero treadmills, zero suppressed findings.
 
 Canonical idempotent prompt for autonomous parallel agents working the Aragora
 proof-first loop. Drop this prompt unchanged into any agent (Claude Code, Codex

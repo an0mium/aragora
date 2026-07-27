@@ -1,0 +1,93 @@
+schema_version: 1
+manifest_id: outsider_verifiable_claims
+description: >
+  Jul 2026 preservation claims for outsider-verifiable public proof, dogfood
+  artifact reproducibility, strategy durability, and question-battery tracking.
+  These claims are report/propose-only and do not mutate the queue directly.
+claims:
+  - claim_id: outsider.odr.offline_verifier_path
+    statement: "A stranger can verify a checked-in Open Decision Receipt offline using the standalone aragora-verify path."
+    owner: decision-integrity
+    scope: public-proof
+    confidence: high
+    evidence:
+      - path: README.md
+      - path: docs/specs/examples/example-decision-receipt.odr.json
+      - issue: 8223
+      - pull_request: 8816
+    freshness_sla_hours: 168
+    verification:
+      kind: manual
+      command: "In a fresh environment, install aragora-verify and run it against docs/specs/examples/example-decision-receipt.odr.json."
+      expected_result: "The receipt verifies offline without requiring Aragora service credentials."
+    failure:
+      severity: blocking
+      allowed_action: propose_bounded_issue
+      repair_note: "Fix the install, verifier, or README path before repeating the public claim."
+    receipts:
+      - type: outsider_verifier_path
+        note: "Captured by the README repair PR #8816; future runs should bind this to a signed receipt."
+
+  - claim_id: outsider.dogfood_artifact.reproducible_public_proof
+    statement: "The July 2026 dogfood artifact gives reproducible public evidence for Aragora gating its own merges with its decision-integrity product."
+    owner: decision-integrity
+    scope: public-proof
+    confidence: medium
+    evidence:
+      - path: docs/artifacts/2026-07-decision-integrity-dogfooding.md
+      - issue: 8856
+    freshness_sla_hours: 168
+    verification:
+      kind: manual
+      command: "Re-run the GitHub queries and receipt verification commands embedded in docs/artifacts/2026-07-decision-integrity-dogfooding.md."
+      expected_result: "The artifact's quoted counts and receipt examples are still reproducible or are marked stale with a replacement artifact."
+    failure:
+      severity: warning
+      allowed_action: propose_bounded_issue
+      repair_note: "Refresh the dogfood artifact or build the live dashboard tracked under #8856."
+    receipts:
+      - type: dogfood_public_proof_artifact
+        path: docs/artifacts/2026-07-decision-integrity-dogfooding.md
+
+  - claim_id: strategy.durability_capture.current
+    statement: "The Jul 1-5 strategy value is preserved in a repo-visible strategy document and parent GitHub issue instead of only chat or session memory."
+    owner: founder-review
+    scope: strategy
+    confidence: high
+    evidence:
+      - path: docs/strategy/2026-07-05-durable-strategy-capture.md
+      - issue: 8856
+    freshness_sla_hours: 720
+    verification:
+      kind: command
+      command: "test -s docs/strategy/2026-07-05-durable-strategy-capture.md"
+      expected_result: "The strategy capture document exists and is non-empty."
+    failure:
+      severity: warning
+      allowed_action: propose_bounded_issue
+      repair_note: "Restore or recreate the durability capture before relying on #8856 as the parent epic."
+    receipts:
+      - type: strategy_durability_capture
+        path: docs/strategy/2026-07-05-durable-strategy-capture.md
+
+  - claim_id: strategy.question_batteries.tracked
+    statement: "Operator-side and product-side question batteries are tracked in durable repo artifacts rather than only chat transcripts."
+    owner: founder-review
+    scope: strategy
+    confidence: medium
+    evidence:
+      - path: docs/strategy/2026-07-05-durable-strategy-capture.md
+      - issue: 8815
+      - issue: 8856
+    freshness_sla_hours: 720
+    verification:
+      kind: manual
+      command: "Confirm #8815, #8856, and docs/strategy/2026-07-05-durable-strategy-capture.md still link the product-side and operator-side question batteries."
+      expected_result: "Question batteries remain discoverable from both the product issue and the operator strategy doc."
+    failure:
+      severity: warning
+      allowed_action: propose_bounded_issue
+      repair_note: "Re-link or refresh the question-battery tracking before using the prompts as product/roadmap guidance."
+    receipts:
+      - type: question_battery_tracking
+        note: "Operator prompts are captured in the Jul 2026 strategy doc; product implementation remains tracked by #8815."

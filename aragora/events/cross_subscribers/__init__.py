@@ -65,7 +65,7 @@ def reset_cross_subscriber_manager() -> None:
     _bootstrapped = False
 
 
-def bootstrap() -> CrossSubscriberManager:
+def bootstrap(*, include_names: set[str] | None = None) -> CrossSubscriberManager:
     """Ensure the manager exists and has applied every registered subscriber.
 
     Domain-free composition primitive: this imports NO domain code. Home modules
@@ -77,11 +77,17 @@ def bootstrap() -> CrossSubscriberManager:
     import those home modules and then call this to wire them into the manager.
     Idempotent - repeated calls only apply newly registered subscribers.
 
+    Args:
+        include_names: Forwarded to
+            :meth:`CrossSubscriberManager.apply_registered_subscribers` - see
+            that method for why a subset bootstrap needs this to stay narrow
+            regardless of what else has already been imported in-process.
+
     See docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md §4.4.
     """
     global _bootstrapped
     manager = get_cross_subscriber_manager()
-    newly_applied = manager.apply_registered_subscribers()
+    newly_applied = manager.apply_registered_subscribers(include_names=include_names)
     count = len(manager.get_stats())
     if not _bootstrapped or newly_applied:
         logger.info(

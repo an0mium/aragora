@@ -448,7 +448,7 @@ curl -s "https://api.cloudflare.com/client/v4/user/load_balancers/pools" \
 
 # Manually check endpoint health
 for region in us-east-1 eu-west-1 ap-south-1; do
-    curl -s -o /dev/null -w "%\{http_code\}" https://aragora.$region.example.com/health
+    curl -s -o /dev/null -w "%{http_code}" https://aragora.$region.example.com/health
 done
 ```
 
