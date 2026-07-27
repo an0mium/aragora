@@ -51,6 +51,8 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
         "claude-fable-5": Decimal("10.00"),  # catalog / live capture 2026-07-16
         "claude-fable-5-output": Decimal("50.00"),
+        "claude-opus-5": Decimal("5.00"),  # live catalog 2026-07-24
+        "claude-opus-5-output": Decimal("25.00"),
         "claude-opus-4-8": Decimal("5.00"),
         "claude-opus-4-8-output": Decimal("25.00"),
         "claude-opus-4-7": Decimal("5.00"),
@@ -143,10 +145,12 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "x-ai/grok-4.3-output": Decimal("2.50"),
         "qwen/qwen3.7-max": Decimal("1.475"),
         "qwen/qwen3.7-max-output": Decimal("4.425"),
-        "moonshotai/kimi-k2.7-code": Decimal("0.75"),
-        "moonshotai/kimi-k2.7-code-output": Decimal("3.50"),
+        "moonshotai/kimi-k2.7-code": Decimal("0.82"),
+        "moonshotai/kimi-k2.7-code-output": Decimal("3.75"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
+        "anthropic/claude-opus-5": Decimal("5.00"),
+        "anthropic/claude-opus-5-output": Decimal("25.00"),
         "anthropic/claude-opus-4-8": Decimal("5.00"),
         "anthropic/claude-opus-4-8-output": Decimal("25.00"),
         "anthropic/claude-opus-4.8": Decimal("5.00"),

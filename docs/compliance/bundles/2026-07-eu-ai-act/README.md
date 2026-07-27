@@ -4,9 +4,12 @@
 **Plan:** [`docs/plans/2026-07-09-thirty-day-external-proof-month.md`](../../../plans/2026-07-09-thirty-day-external-proof-month.md) (W3, Jul 23–30)
 **Scope:** GPAI / Art. 50 transparency posture ahead of the **Aug 2, 2026** EU AI Act GPAI deadline, plus the Article 14 human-oversight evidence pack (#8230 / ODR-6).
 **Assembled:** 2026-07-20
-**Status checked:** 2026-07-21 against current main. Issue #9391 remains open;
-its latest recorded external probe (2026-07-20) still classifies production as
-unreachable.
+**Status checked:** 2026-07-24 against current main. Issue #9391 remains open
+and production was re-probed directly on 2026-07-24 (`https://api.aragora.ai/health`
+returned no response), so Variant A stays blocked and Variant B remains the
+shipping default. The crux-cards gap was re-attributed on the same date after
+direct testing — see "Crux cards" below and
+[#9581](https://github.com/synaptent/aragora/issues/9581).
 
 This bundle packages what Aragora can already prove — signed, dissent-preserving
 decision receipts with third-party offline verification — into one auditable
@@ -27,7 +30,7 @@ with an honest pending status and the exact step that closes it.
 | 8 | Rekor transparency-log note | `rekor-note.md` | present (log entry itself: **pending** — submission is an external publish, held for operator) |
 | 9 | ODR-2 (#8225) closure comment draft | `odr2-closure-draft.md` | present (**pending-founder-review** — do not post until reviewed) |
 | 10 | Signed **production** receipt — **Variant A** | — | **pending-prod** (blocked on AWS reinstatement, [#9391](https://github.com/synaptent/aragora/issues/9391)) |
-| 11 | Crux-cards receipt (`cruxes` block populated) | — | **pending** (see "Crux cards" below) |
+| 11 | Crux-cards receipt (`cruxes` block populated) | — | **pending — blocked by product defect [#9581](https://github.com/synaptent/aragora/issues/9581)** (see "Crux cards" below) |
 | 12 | Founder earned-claim review of the bundle | — | **pending-founder-review** (W3 exit criterion) |
 
 ## Remaining exit gates
@@ -36,7 +39,7 @@ with an honest pending status and the exact step that closes it.
 |---|---|---|
 | Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
 | Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
-| Crux-cards receipt | machine-capable, credentialed | Run one real provider-backed debate with `enable_crux_cards=True`, verify the populated `cruxes` block, and add the receipt. |
+| Crux-cards receipt | **product defect** | Fix [#9581](https://github.com/synaptent/aragora/issues/9581) (belief network built without factor edges), then run one debate with `aragora ask --crux-cards`, verify the populated `cruxes` block, and add the receipt. Not blocked on credentials or on AWS. |
 | Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
 
 The repository can prepare and validate these artifacts, but none of the four
@@ -144,20 +147,36 @@ aragora compliance oversight-pack --window 30d --fetch-settlements \
 Crux cards (#9414, `DebateProtocol.enable_crux_cards`, default OFF) attach
 load-bearing disagreements to receipts; the ODR `cruxes` block renders them
 to verifiers. **No existing receipt in `docs/receipts/` or the local store
-carries a populated `cruxes` block** (checked 2026-07-20), and no CLI flag
-exposes `enable_crux_cards` yet (`aragora demo` and `aragora ask` do not
-surface it), so generating one requires a real (API-key) debate run:
+carries a populated `cruxes` block** (checked 2026-07-20).
 
-```python
-# Requires provider API keys; run from repo root.
-from aragora import Arena, Environment, DebateProtocol
-env = Environment(task="<real dogfood question>")
-protocol = DebateProtocol(rounds=2, enable_crux_cards=True)
-# ... build agents, run arena, save the DecisionReceipt JSON
-```
+**Gap re-attributed 2026-07-24 — the original attribution was wrong.** This
+entry previously stated that no CLI flag exposed `enable_crux_cards` and that
+generating a crux-bearing receipt therefore "requires a real (API-key) debate
+run". Both halves are now false:
 
-W3 plan line: "crux cards in ≥1 published receipt" — this is the named gap.
-When a crux-bearing receipt exists, add it under `receipts/` and update this
+- A CLI flag does exist: `aragora ask --crux-cards`, shipped in #9506 (merged
+  2026-07-22, after this bundle was assembled).
+- Credentials are **not** the blocker. Crux cards cannot currently be produced
+  by *any* standard debate — see [#9581](https://github.com/synaptent/aragora/issues/9581).
+  Both paths that build the `BeliefNetwork` for crux detection
+  (`crux_cards._network_from_messages` and
+  `winner_selector.analyze_belief_network`) add claims but never add the
+  `SUPPORTS`/`CONTRADICTS` factor edges that
+  `CruxDetector.compute_disagreement_scores()` requires, so
+  `total_disagreements` is always `0` and no crux clears any threshold.
+
+Evidence for the re-attribution: two real provider-backed debates were run on
+2026-07-24 (`aragora ask --agents claude,codex --crux-cards`, 2 and 3 rounds,
+deliberately contested prompts). Both produced receipts with
+`schema_version: 1.1` and no `cruxes` block. An isolated test confirmed the
+detector itself is sound — the same claims yield 3 cruxes once factor edges are
+added by hand.
+
+W3 plan line: "crux cards in ≥1 published receipt" — this remains the named
+gap, now with an accurate cause and a tracking issue. It is a **product
+defect**, not a credentials or infrastructure gap, and it is the one remaining
+W3 gap that is neither operator-held nor blocked on AWS. When #9581 is fixed
+and a crux-bearing receipt exists, add it under `receipts/` and update this
 table.
 
 ## Verification chain (what an auditor can check today)

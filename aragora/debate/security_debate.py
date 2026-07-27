@@ -200,7 +200,7 @@ async def get_security_debate_agents() -> list[Agent]:
         agents.append(
             AnthropicAPIAgent(
                 name="security-auditor",
-                model="claude-opus-4-8",
+                model="claude-opus-5",
             )
         )
     except (ImportError, Exception) as e:

@@ -168,6 +168,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     # Live catalog 2026-07-16 (enforced by tests/models/test_catalog.py).
     "claude-fable-5": (10.00, 50.00),
+    "claude-opus-5": (5.00, 25.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-4.8": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
@@ -242,7 +243,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-v3.2-exp": (0.27, 1.10),
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
-    "kimi-k2.7-code": (0.75, 3.50),
+    "kimi-k2.7-code": (0.82, 3.75),
     "kimi-k2.6": (0.7448, 4.655),
     "kimi-k2.5": (0.44, 2.00),
     "kimi-k2": (0.57, 2.30),

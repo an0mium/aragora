@@ -120181,7 +120181,7 @@ paths:
                   providers:
                     anthropic:
                       available: true
-                      model: claude-opus-4-8
+                      model: claude-opus-5
                     openai:
                       available: true
                       model: gpt-5.3
@@ -150778,14 +150778,14 @@ components:
           items:
             type: string
           example:
-          - claude-opus-4-8
+          - claude-opus-5
           - gpt-4o
           - gemini-pro
       example:
         num_agents: 3
         num_rounds: 9
         model_types:
-        - claude-opus-4-8
+        - claude-opus-5
         - gpt-4o
         - gemini-pro
     DebateCostEstimateResponse:
