@@ -117,9 +117,11 @@ def _cmd_status(args: argparse.Namespace) -> int:
     parked = sum(1 for feature in state.features if feature.status == Status.PARKED)
     terminal = sum(1 for feature in state.features if feature.status == Status.TERMINAL)
     in_progress = sum(1 for feature in state.features if feature.status == Status.IN_PROGRESS)
+    awaiting = sum(1 for feature in state.features if feature.status == Status.AWAITING_CLAIM)
     print(f"Mission {state.mission_id}: {state.goal}")
     print(
-        f"Progress: {done}/{total} completed, {blocked} blocked, {parked} parked, "
+        f"Progress: {done}/{total} completed, {awaiting} awaiting claim, "
+        f"{blocked} blocked, {parked} parked, "
         f"{terminal} terminal, {in_progress} in progress"
     )
     for feature in state.features:

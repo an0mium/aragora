@@ -37,6 +37,11 @@ from .state import (
 
 logger = logging.getLogger(__name__)
 
+# Retryable park constraints expire after this many seconds so the ledger can
+# hand the unit back to a worker for its paced retry (#8766 claude P1); the
+# ledger attempt budget still bounds total retries at park_threshold.
+RETRYABLE_PARK_CONSTRAINT_TTL = 300.0
+
 # Same seam shape as live_gate.Runner: run argv in cwd, return stdout, raise on error.
 GitRunner = Callable[[list[str], Path], str]
 
@@ -123,8 +128,15 @@ class BranchMaterializer:
         for candidate in (hint, self._suffixed(hint)):
             if not self._ref_exists(candidate):
                 return candidate
-            if self._head_of(candidate) == self._head_of(self.base):
-                # Exactly at base: an empty crash orphan of ours — adopt it.
+            if candidate != hint and self._head_of(candidate) == self._head_of(self.base):
+                # Exactly at base AND in our deterministic hash-suffixed
+                # namespace: an empty crash orphan of ours (created between
+                # _create_branch and record_branch) -- adopt it. The PLAIN hint
+                # name at base is NOT adopted (#8766 claude P3): every fresh
+                # branch starts at base, so a foreign actor's just-pushed name
+                # is indistinguishable from our orphan -- committing onto it
+                # would be silent branch hijack. Fail toward the suffixed
+                # namespace instead.
                 return candidate
         raise BranchMaterializationError(
             f"branch {hint} and its deterministic suffix are both taken by "
@@ -433,16 +445,31 @@ def _run_worker_fenced(
         # without aging through repeated attempts.
         constraint_key = None
         constraint_reason = None
+        constraint_ttl = 0.0
         parked = False
         if handoff.parked or handoff.terminal or attempts >= park_threshold:
-            if handoff.parked:
-                kind = handoff.parked_kind or "retryable"
-            elif handoff.terminal:
-                kind = "terminal"
-            else:
+            # Budget exhaustion WINS over the retryable flavor (#8766 claude
+            # P1): a park that keeps recurring must reach the generic
+            # "N blocks" kind (folds to operator-recoverable BLOCKED) instead
+            # of cycling as retryable forever.
+            if attempts >= park_threshold and not handoff.terminal:
                 kind = f"{attempts} blocks"
+            elif handoff.parked:
+                kind = handoff.parked_kind or "retryable"
+            else:
+                kind = "terminal"
             constraint_key = f"feature:{unit}"
             constraint_reason = f"parked ({kind}): {handoff.blocked_reason}"
+            if handoff.parked and not handoff.terminal and attempts < park_threshold:
+                # Retryable parks must not wedge at the ledger layer (#8766
+                # claude P1: ttl=0 means active FOREVER and only a successful
+                # record_branch ever invalidates — the orchestrator's paced
+                # unpark could never actually reach a worker). A finite TTL
+                # lets claim_actionable hand the unit back to a worker once
+                # the pacing window has plausibly elapsed, while the ledger
+                # attempt budget (surviving across retries) still bounds the
+                # loop at park_threshold -> BLOCKED.
+                constraint_ttl = RETRYABLE_PARK_CONSTRAINT_TTL
             parked = True
         if ledger.fail(
             unit,
@@ -450,6 +477,7 @@ def _run_worker_fenced(
             discoveries=notes,
             constraint_key=constraint_key,
             constraint_reason=constraint_reason,
+            constraint_ttl=constraint_ttl,
         ):
             res.blocked.append(unit)
             if parked:

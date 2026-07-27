@@ -180,7 +180,15 @@ class Feature:
 
     def __post_init__(self) -> None:
         if self.status not in Status.ALL:
-            raise ValueError(f"invalid status {self.status!r} for feature {self.id!r}")
+            # Forward-compat (#8766 claude P3): a state file written by a
+            # NEWER writer may carry statuses this reader does not know.
+            # Hard-failing the whole mission load on rollback bricked every
+            # feature; quarantine the single feature to BLOCKED (operator-
+            # recoverable) with the original status preserved in notes.
+            unknown = self.status
+            self.status = Status.BLOCKED
+            note = f"quarantined: unknown status {unknown!r} from a newer writer"
+            self.notes = (self.notes + "\n" if self.notes else "") + note
 
 
 @dataclass

@@ -174,17 +174,36 @@ def test_materialize_hint_collision_gets_deterministic_suffix(tmp_path):
     assert second == first
 
 
-def test_materialize_adopts_own_crash_orphan_at_base(tmp_path):
-    # The hint ref exists but points exactly at origin/main: a prior attempt
-    # created it and crashed before recording. Adopt it — no branch litter.
+def test_materialize_does_not_adopt_plain_hint_at_base(tmp_path):
+    # #8766 claude P3: a plain-hint-named branch at base may be a FOREIGN
+    # actor's fresh branch (every new branch starts at base) — adopting it
+    # would silently hijack their branch. The materializer moves to its
+    # deterministic hash-suffixed namespace instead.
     git = FakeGit(branches={"mission/mission-intake-tests": BASE_HEAD})
     ledger = Ledger(tmp_path / "ledger.json")
 
     branch = _materializer(git)(_child(), ledger)
 
-    assert branch == "mission/mission-intake-tests"
-    assert git.created_branches() == []  # adopted, not re-created
+    assert branch != "mission/mission-intake-tests"
+    assert branch.startswith("mission/mission-intake-tests-")
     assert ledger.materialized_branch("mission-intake-tests") == branch
+
+
+def test_materialize_adopts_suffixed_crash_orphan_at_base(tmp_path):
+    # The suffixed ref exists at base: only a prior attempt of OURS generates
+    # that hash-suffixed name (created between _create_branch and
+    # record_branch) — adopt it, no branch litter.
+    import hashlib
+
+    hint = "mission/mission-intake-tests"
+    suffixed = f"{hint}-{hashlib.sha256(hint.encode()).hexdigest()[:8]}"
+    git = FakeGit(branches={hint: "f" * 40, suffixed: BASE_HEAD})
+    ledger = Ledger(tmp_path / "ledger.json")
+
+    branch = _materializer(git)(_child(), ledger)
+
+    assert branch == suffixed
+    assert git.created_branches() == []  # adopted, not re-created
 
 
 def test_materialize_is_idempotent_via_ledger_record(tmp_path):

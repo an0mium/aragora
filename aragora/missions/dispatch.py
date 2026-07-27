@@ -28,7 +28,22 @@ from typing import Protocol
 
 from .orchestrator import Handoff
 from .reconcile import write_operator_receipt
-from .state import PARK_KIND_MISSING_BRANCH, Feature
+from .state import PARK_KIND_MATERIALIZATION, PARK_KIND_MISSING_BRANCH, Feature
+
+# git rev-parse --verify failure signatures: the ref genuinely does not
+# resolve (vs a transient runner failure such as a timeout or lock).
+_UNKNOWN_REV_MARKERS = (
+    "unknown revision",
+    "bad revision",
+    "needed a single revision",
+    "not a valid ref",
+)
+
+
+def _is_unknown_revision(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _UNKNOWN_REV_MARKERS)
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +132,25 @@ class BossLoopDispatch:
         try:
             head = self.gate.head_of(branch)
         except RuntimeError as exc:
+            # The runner raises RuntimeError for EVERY nonzero exit and for
+            # timeouts (#8766 claude P2): only a genuine unknown-revision
+            # failure means the recorded ref is dead. Anything else is a
+            # transient git failure and parks as MATERIALIZATION — the paced,
+            # retry-bounded flavor — so one git outage cannot masquerade as a
+            # dead branch and burn the missing-branch budget.
+            if not _is_unknown_revision(exc):
+                return Handoff(
+                    success=False,
+                    parked=True,
+                    parked_kind=PARK_KIND_MATERIALIZATION,
+                    blocked_reason=(
+                        f"transient git failure resolving metadata.branch {branch!r}; "
+                        f"parked (retryable) for a paced retry: {exc}"
+                    ),
+                    discovered=[
+                        f"feature {feature.id}: transient git failure on head_of; paced retry"
+                    ],
+                )
             return _park_missing_live_branch(
                 feature,
                 (

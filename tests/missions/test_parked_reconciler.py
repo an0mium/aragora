@@ -199,7 +199,9 @@ def test_dead_recorded_branch_reaches_blocked_instead_of_spinning(tmp_path):
         calls["n"] += 1
         return inner(feature)
 
-    MissionOrchestrator(state_path).run(counting, max_ticks=50)  # must drain, not spin
+    MissionOrchestrator(state_path, decomposition_retry_backoff=0.0).run(
+        counting, max_ticks=50
+    )  # must drain, not spin (dead-ref releases are paced; zero backoff here)
 
     feat = MissionState.load(state_path).get("f1")
     assert feat.status == Status.BLOCKED  # stable end state, not PARKED/PENDING

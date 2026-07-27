@@ -247,6 +247,14 @@ class MissionOrchestrator:
             if kind == PARK_KIND_MISSING_BRANCH:
                 branch = feat.metadata.get("branch")
                 if isinstance(branch, str) and branch.strip():
+                    # Dead-ref flavor pacing (#8766 claude P2): when a branch
+                    # string is RECORDED, dispatch may still fail to resolve
+                    # it and re-park — releasing on every tick would burn all
+                    # retries in consecutive ticks during one git outage.
+                    # Same pacing contract as decomposition. Parks with no
+                    # recorded branch still release the moment one appears.
+                    if feat.retry_count > 0 and not self._decomposition_retry_due(feat):
+                        continue
                     state.unpark(feat.id, f"metadata.branch {branch} appeared")
                     logger.info("reconciler released parked feature %s: branch appeared", feat.id)
                     changed = True
