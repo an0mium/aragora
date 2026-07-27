@@ -85,8 +85,9 @@ jobs:
       # A green build alone does not prove the image runs: the standalone output is
       # produced by a build script (NEXT_OUTPUT=standalone), so a Dockerfile that
       # builds with the wrong script yields an image whose server.js is absent.
-      # Names are run-scoped and no port is published, because the `aragora` runners
-      # are shared and a fixed -p 3000:3000 would collide with a concurrent job.
+      # Names are run-scoped and no port is published so nothing here depends on the
+      # runner being exclusive, which keeps the job correct if it is ever moved to a
+      # shared self-hosted runner.
       - name: Smoke test container
         shell: bash
         env:
@@ -99,8 +100,13 @@ jobs:
           # around it. That only succeeds if the server bound to a loopback-reachable
           # address -- a regression a plain "does it build" check cannot see, and one
           # this image shipped with until 2026-07-24.
+          #
+          # 60 x 2s = 120s, deliberately clear of the 90s floor for Docker to reach a
+          # verdict (interval=30s x retries=3). At exactly 90s a slow-but-healthy image
+          # that passes on its third probe could flake, and a broken one would usually
+          # time out still reporting "starting" rather than "unhealthy".
           health=starting
-          for _ in $(seq 1 45); do
+          for _ in $(seq 1 60); do
             health=$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER")
             if [[ "$health" == "healthy" || "$health" == "unhealthy" ]]; then
               break
