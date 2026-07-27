@@ -4318,8 +4318,8 @@ def compare_accepted_authorities(
 ) -> dict[str, Any]:
     base_summary = validate_accepted_authority(base, repo_root=repo_root, live_ref=base_ref)
     head_summary = validate_accepted_authority(head, repo_root=repo_root, live_ref=head_ref)
-    if base["canonical_artifacts"] != head["canonical_artifacts"]:
-        raise ValueError("immutable canonical artifacts changed")
+    if (base["canonical_artifacts"], base["analyzer_bundle"]) != (head["canonical_artifacts"], head["analyzer_bundle"]):  # fmt: skip
+        raise ValueError("immutable authority bindings changed")
     base_rows = {item["original_record_id"]: item for item in base["active_inventory"]}
     head_rows = {item["original_record_id"]: item for item in head["active_inventory"]}
     if any(
@@ -4393,9 +4393,12 @@ def build_accepted_result(
         return _accepted_failure("as-of must be an ISO UTC date", "invalid_as_of")
     if as_of_date > datetime.now(UTC).date():
         return _accepted_failure("live as-of may not be future-dated", "future_as_of")
-    program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
-    weeks = max(0, (as_of_date - program["start_date"]).days // 7)
-    target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)
+    try:
+        program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
+        weeks = max(0, (as_of_date - program["start_date"]).days // 7)
+        target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)  # fmt: skip
+    except (OSError, ValueError) as exc:
+        return _accepted_failure(str(exc), "invalid_program")
     current = len(summary["live_original_record_ids"])
     passing = current <= target
     program_result = {
@@ -4455,6 +4458,7 @@ def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -
         numerator, denominator = 1, 2
     else:
         raise ValueError("weekly reduction must have an exact integer recurrence")
+    # Every UTC week is a distinct integer recurrence step, not deferred one-shot flooring.
     target = start_total
     for _ in range(max(0, weeks)):
         target = numerator * target // denominator

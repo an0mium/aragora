@@ -4060,3 +4060,11 @@ def test_accepted_authority_rejects_unbound_paydown_and_bundle():
     authority["analyzer_bundle"]["files"].pop()
     with pytest.raises(ValueError, match="file set"):
         ratchet._bundle_metadata(authority)
+
+
+def test_accepted_authority_rejects_bundle_evolution(monkeypatch):
+    authority, changed = _accepted_authority(), _accepted_authority()
+    changed["analyzer_bundle"]["interpreter_flags"] = ["-I", "-S"]
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *args, **kwargs: {})
+    with pytest.raises(ValueError, match="immutable authority bindings"):
+        ratchet.compare_accepted_authorities(authority, changed, repo_root=Path("."))
