@@ -429,7 +429,7 @@ def canonical_family(name: str) -> str:
     return _FAMILY_ALIASES.get(fam, fam)
 
 
-# Default reviewer pair: the two western-frontier families (claude→opus-4.8,
+# Default reviewer pair: the two western-frontier families (claude→opus-5,
 # openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
 # a substantial diff can actually clear a 2-signal quorum. Tier 3-4 requires two
 # distinct families from TIER_3_4_COUNTED_FAMILIES (claude, openai, grok); grok
