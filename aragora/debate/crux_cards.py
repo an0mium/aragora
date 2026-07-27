@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 CRUX_CARDS_METADATA_KEY = "crux_cards"
 
+# An agent that states a claim in a debate is asserting it. ``add_claim`` defaults
+# to 0.5 — maximum entropy, i.e. "no opinion" — which recorded every author as
+# neutral about their own claim, leaving no variance for
+# ``CruxDetector.compute_disagreement_scores`` to measure and an empty
+# ``contesting_agents`` on every card (#9644). Deliberately short of certainty: an
+# asserted debate claim is a position, not a proof.
+_ASSERTED_CONFIDENCE = 0.8
+
 
 def build_crux_cards(
     *,
@@ -108,6 +116,7 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
                 claim_id=f"msg_{i}_{getattr(msg, 'agent', 'unknown')}",
                 statement=str(getattr(msg, "content", ""))[:500],
                 author=str(getattr(msg, "agent", "unknown")),
+                initial_confidence=_ASSERTED_CONFIDENCE,
             )
             added += 1
     if not added:

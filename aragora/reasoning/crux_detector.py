@@ -196,16 +196,36 @@ class CruxDetector:
         """
         Compute disagreement scores for all claims.
 
-        Disagreement = variance in how different agents' claims affect this belief.
-        Also returns list of contesting agents.
+        Disagreement = variance across what each author *asserted* about a claim.
+        Also returns the list of contesting agents.
+
+        Read from **priors, not posteriors** (#9644). ``detect_cruxes`` runs
+        ``network.propagate()`` first — it must, since influence scoring needs a
+        converged network — and propagation pulls every node toward a consistent
+        joint belief. Measuring variance after that measures what is left of the
+        disagreement once the network has reconciled it, which for a genuinely
+        contested claim approaches zero: disagreement counted but
+        ``contesting_agents`` came back empty, so a crux card could never say who
+        contested what. A prior is what an author put on the table and does not
+        move, so it is the right quantity for "who disagreed, and how much".
+
+        The claim's own author is seeded too. Without it the map held only
+        *neighbours*, so the score measured how far contesters sat from each
+        other rather than whether anyone contested the author at all — two agents
+        both contradicting a claim scored zero variance.
         """
         from aragora.reasoning.claims import RelationType
 
         disagreement_scores: dict[str, tuple[float, list[str]]] = {}
 
         for node_id, node in self.network.nodes.items():
-            # Group incoming evidence by author
+            # Group asserted positions by author.
             author_beliefs: dict[str, list[float]] = {}
+
+            # The author asserted their own claim; that is one side of any
+            # disagreement about it.
+            if node.author:
+                author_beliefs[node.author] = [node.prior.p_true]
 
             # Look at claims from different authors that relate to this claim
             for factor_id in self.network.node_factors.get(node_id, []):
@@ -227,11 +247,11 @@ class CruxDetector:
                 if author not in author_beliefs:
                     author_beliefs[author] = []
 
-                # Record what this author's claim implies about the current claim
+                # Record what this author's asserted claim implies about this one
                 if factor.relation_type == RelationType.SUPPORTS:
-                    author_beliefs[author].append(other_node.posterior.p_true)
+                    author_beliefs[author].append(other_node.prior.p_true)
                 elif factor.relation_type == RelationType.CONTRADICTS:
-                    author_beliefs[author].append(1 - other_node.posterior.p_true)
+                    author_beliefs[author].append(1 - other_node.prior.p_true)
                 else:
                     author_beliefs[author].append(0.5)
 
@@ -245,11 +265,18 @@ class CruxDetector:
                     variance = sum((x - mean) ** 2 for x in author_means) / len(author_means)
                     disagreement = math.sqrt(variance) * 2  # Scale to 0-1 range
 
-                    # Find contesting agents (those far from mean)
+                    # Find contesting agents (those far from mean). The claim's
+                    # own author is excluded: their position is seeded above so
+                    # the variance has something to measure against, but an
+                    # author does not *contest* their own claim, and this list
+                    # becomes DecisionReceipt dissent attribution — naming the
+                    # proposer as a dissenter would be a false attribution.
                     contesting = [
                         author
                         for author, beliefs in author_beliefs.items()
-                        if beliefs and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
+                        if author != node.author
+                        and beliefs
+                        and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
                     ]
                     disagreement_scores[node_id] = (min(1.0, disagreement), contesting)
                 else:

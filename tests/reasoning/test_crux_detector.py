@@ -1261,3 +1261,52 @@ class TestCruxDetectorIntegration:
             assert "claim_id" in crux_data
             assert "crux_score" in crux_data
             assert "influence_score" in crux_data
+
+
+def test_disagreement_reads_priors_not_post_propagation_posteriors():
+    """#9644: propagation reconciles the disagreement before it is measured.
+
+    `detect_cruxes` must propagate (influence scoring needs a converged
+    network), and propagation pulls every node toward a consistent joint belief.
+    Measuring variance on posteriors therefore measures what survives that
+    reconciliation, which for a genuinely contested claim tends to zero — the
+    disagreement was counted but `contesting_agents` came back empty.
+    """
+    from aragora.reasoning.belief import BeliefNetwork
+    from aragora.reasoning.claims import RelationType
+    from aragora.reasoning.crux_detector import CruxDetector
+
+    network = BeliefNetwork(max_iterations=3)
+    network.add_claim(claim_id="p", statement="ship it", author="claude", initial_confidence=0.8)
+    network.add_claim(claim_id="c", statement="do not", author="codex", initial_confidence=0.8)
+    network.add_factor("c", "p", RelationType.CONTRADICTS, 0.8)
+
+    detector = CruxDetector(network)
+    # Propagate first, exactly as detect_cruxes does, then measure.
+    network.propagate()
+    scores = detector.compute_disagreement_scores()
+
+    disagreement, contesting = scores["bn-0000"]
+    assert disagreement > 0, "a contradicted claim must register disagreement"
+    assert contesting == ["codex"], "the contester must be named, and not the author"
+
+
+def test_author_is_never_listed_as_contesting_its_own_claim():
+    """This list becomes DecisionReceipt dissent attribution.
+
+    The author's position is seeded so the variance has a second side to measure
+    against, but naming the proposer as a dissenter would be a false attribution.
+    """
+    from aragora.reasoning.belief import BeliefNetwork
+    from aragora.reasoning.claims import RelationType
+    from aragora.reasoning.crux_detector import CruxDetector
+
+    network = BeliefNetwork(max_iterations=3)
+    network.add_claim(claim_id="p", statement="x", author="claude", initial_confidence=0.8)
+    network.add_claim(claim_id="c", statement="y", author="codex", initial_confidence=0.8)
+    network.add_factor("c", "p", RelationType.CONTRADICTS, 0.9)
+
+    scores = CruxDetector(network).compute_disagreement_scores()
+    for node_id, (_disagreement, contesting) in scores.items():
+        author = network.nodes[node_id].author
+        assert author not in contesting, f"{author} listed as contesting its own claim"
