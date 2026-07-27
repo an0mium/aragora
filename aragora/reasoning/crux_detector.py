@@ -215,10 +215,17 @@ class CruxDetector:
         their own claim: this list becomes ``DecisionReceipt`` dissent
         attribution, where either would be a false statement about a person.
 
-        Magnitude is the mean contest strength (``factor.strength``, carrying
-        critique severity) scaled by the contested share of related authors, so a
-        severity-9 objection outweighs a nitpick and a claim with three
+        Magnitude is the summed contest strength (``factor.strength``, carrying
+        critique severity), capped at 1.0 and scaled by the contested share of
+        the authors who took a *stance* on the claim. So a severity-9 objection
+        outweighs a nitpick, two objections outweigh one, and a claim with three
         supporters and one contester scores below one contested by three.
+
+        Only ``SUPPORTS``/``CONTRADICTS`` authors count toward that share.
+        Non-stance relations (``REFINES``, ``QUALIFIES``, ``DEPENDS_ON``) are not
+        treated as either agreement or dissent — silence about a claim is not
+        support for it. Whether a qualification is *partial* dissent is a
+        modelling question worth its own change.
         """
         from aragora.reasoning.claims import RelationType
 
@@ -254,10 +261,15 @@ class CruxDetector:
                 disagreement_scores[node_id] = (0.0, [])
                 continue
 
-            related = len(contesters) + len(supporters - set(contesters))
-            contested_share = len(contesters) / related if related else 1.0
-            mean_strength = sum(contesters.values()) / len(contesters)
-            disagreement = min(1.0, max(0.0, mean_strength * contested_share))
+            # Capped sum, not mean: averaging made a second, weaker contester
+            # LOWER the score (0.7 alone -> 0.7; 0.7 plus a 0.1 nitpick -> 0.4),
+            # so a more widely contested claim could rank as less contested.
+            # This is monotonic in both the strength of objections and the
+            # number of distinct agents raising them.
+            contest_weight = min(1.0, sum(contesters.values()))
+            stance_authors = len(contesters) + len(supporters - set(contesters))
+            contested_share = len(contesters) / stance_authors if stance_authors else 1.0
+            disagreement = min(1.0, max(0.0, contest_weight * contested_share))
             disagreement_scores[node_id] = (disagreement, sorted(contesters))
 
         return disagreement_scores

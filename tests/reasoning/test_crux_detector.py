@@ -1362,3 +1362,21 @@ def test_zero_strength_contradiction_names_nobody():
     """
     net = _net([("a", "alice"), ("b", "bob")], [("b", "a", "CONTRADICTS", 0.0)])
     assert _scores(net)["a"] == (0.0, [])
+
+
+def test_more_contesters_never_lower_the_score():
+    """Monotonic in contester count — a wider dispute is not a smaller one.
+
+    Averaging contest strengths let a weak second objection drag the score below
+    the strong first one (0.7 alone, 0.4 once a 0.1 nitpick joined), so a claim
+    contested by more agents could rank as less contested.
+    """
+    one = _scores(_net([("a", "alice"), ("b", "bob")], [("b", "a", "CONTRADICTS", 0.7)]))
+    two = _scores(
+        _net(
+            [("a", "alice"), ("b", "bob"), ("c", "carol")],
+            [("b", "a", "CONTRADICTS", 0.7), ("c", "a", "CONTRADICTS", 0.1)],
+        )
+    )
+    assert two["a"][0] >= one["a"][0]
+    assert two["a"][1] == ["bob", "carol"]
