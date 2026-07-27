@@ -196,9 +196,12 @@ a *published* crux block additionally needs the two conditions below.
 **Two conditions still stand between that and a crux-bearing receipt, and both
 are stated here rather than discovered at audit:**
 
-1. **A crux receipt needs a 3+ agent debate.** `CruxDetector` registers a
-   disagreement only when **≥2 authors other than the claim's own** relate to
-   it, so two agents trading reciprocal critiques never reach one. #9643 also
+1. **A crux receipt needs a 3+ agent debate.**
+   `CruxDetector.compute_disagreement_scores()` registers a disagreement on a
+   claim only when **≥2 distinct authors appear among the claims related to
+   it**. Edge construction only ever links a critic to a *different* agent's
+   proposal, so in a two-agent debate every related claim comes from the single
+   other agent and the count never reaches two. #9643 also
    made `build_crux_cards` return nothing when no disagreement was detected —
    `crux_score` is a composite, so claims can clear the threshold on
    uncertainty and centrality alone, and publishing those as "crux cards" would
@@ -216,9 +219,10 @@ Also unchanged: the fix covers the network the debate builds itself (the
 default path). A KM-seeded `ctx.belief_network` — only present under
 `enable_km_belief_sync` — uses KM-derived claim ids that message-derived ids
 cannot match, so crux cards remain unproducible for those debates.
-[#9581](https://github.com/synaptent/aragora/issues/9581) was **closed** by the
-#9643 merge (default path); that remaining configuration is tracked separately
-as [#9649](https://github.com/synaptent/aragora/issues/9649).
+[#9581](https://github.com/synaptent/aragora/issues/9581) was **closed
+2026-07-27**; its default-path defect is what #9643 fixed. That remaining
+configuration is tracked separately as
+[#9649](https://github.com/synaptent/aragora/issues/9649).
 
 W3 plan line: "crux cards in ≥1 published receipt" — still the named gap. It is
 a **product defect**, not a credentials or infrastructure gap, and remains the
