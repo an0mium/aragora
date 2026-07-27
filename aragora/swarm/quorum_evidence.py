@@ -439,6 +439,20 @@ def canonical_family(name: str) -> str:
 # (2026-07-16 roster directive). Override per-run with --reviewers.
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
+#: Families that have a grounded (agent/CLI) reviewer transport available — one that
+#: runs in the checkout and can read files and reach the network to check a claim
+#: before making it. For these families an UNGROUNDED review (VibeProxy, family API,
+#: OpenRouter) is demoted to advisory, because a grounded review of the same family
+#: is obtainable and is now tried first.
+#:
+#: Families absent from this set have no CLI harness at all, so demoting their only
+#: transport would delete them from the reviewer pool and strand Tier 0-2 quorums that
+#: legitimately count them today. Their API reviews therefore keep their existing
+#: authority pending a separate roster decision — a deliberate, narrower scope than
+#: "no ungrounded reviewer anywhere". Revisit alongside
+#: ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.
+GROUNDED_TRANSPORT_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "gemini"))
+
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
 
@@ -664,6 +678,14 @@ class ReviewerResult:
     error: str = ""
     harness: str = ""
     allow_transport_fallback: bool = True
+    #: Whether this reviewer could verify repository/network facts while reviewing.
+    #: CLI harnesses (claude CLI, Codex CLI, Grok Build, Antigravity) run as agents
+    #: in the checkout and can read files and reach the network. Single-shot API
+    #: transports (VibeProxy, the family APIs, OpenRouter) receive only the prompt
+    #: text — no tools — so they cannot check any fact the prompt does not contain.
+    #: Ungrounded reviews stay visible but carry no authority; see
+    #: :meth:`EvidenceItem.__post_init__`.
+    grounded: bool = True
 
 
 @dataclass
@@ -676,6 +698,10 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
+    #: Whether the transport that produced ``body`` could verify repository/network
+    #: facts. Mirrors :attr:`ReviewerResult.grounded`; see the demotion in
+    #: ``__post_init__`` and the veto in :attr:`dissenting`.
+    grounded: bool = True
     # Captured ONCE at construction (not re-read per property access) so a
     # security-relevant gate decision stays deterministic within a single
     # settlement flow even if the process env mutates mid-run. Uses the same
@@ -684,6 +710,32 @@ class EvidenceItem:
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     def __post_init__(self) -> None:
+        # Transport-grounding contract (2026-07-24 operator directive). A reviewer
+        # reached over a single-shot API transport (VibeProxy, a family API,
+        # OpenRouter) gets the prompt text and nothing else: no repo reads, no
+        # network. It therefore cannot verify any claim whose truth lives outside
+        # the diff, yet the prompt's severity contract pressures it to report
+        # findings — so it asserts, and blocking findings come out fabricated.
+        # Observed live on #9505: three ungrounded reviews produced "node:24.18-alpine
+        # does not exist" (it does — pulled, digest sha256:a0b9bf06, container reports
+        # v24.18.0), "24.18 is not an LTS line" (Node 24 is Active LTS), and
+        # "`--only` was removed in npm 9" (it still omits devDependencies under
+        # npm 11). Both grounded CLI reviewers passed the same head. Ungrounded
+        # reviews stay posted and readable as advisory signal; they never count
+        # toward a quorum and never block a merge. Demoted here, the single choke
+        # point every construction path shares, so a prepared artifact cannot
+        # smuggle an ungrounded review back into counting_families.
+        if (
+            self.would_count
+            and not self.grounded
+            and canonical_family(self.family) in GROUNDED_TRANSPORT_FAMILIES
+        ):
+            self.would_count = False
+            self.problems.append(
+                "reviewer ran on an ungrounded transport (no repo or network access) "
+                "while a grounded transport exists for this family — its review posts "
+                "but never counts for or against quorum"
+            )
         # Advisory-only contract (2026-07-16 roster directive; #9363 round-3):
         # an advisory-only family's review posts, parses, and lints as an
         # evidence comment, but it never counts for or against any tier's
@@ -753,6 +805,14 @@ class EvidenceItem:
     @property
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
+            return False
+        # Ungrounded reviewers never block. A transport that cannot read the repo
+        # or reach the network cannot substantiate a blocking finding, so its
+        # CHANGES-REQUESTED is advisory: it posts and stays readable, but it does
+        # not gate a merge. Checked BEFORE truncation (which fails closed) because
+        # a review that could never verify anything gains nothing from being
+        # complete. See the __post_init__ contract for the live evidence.
+        if not self.grounded and canonical_family(self.family) in GROUNDED_TRANSPORT_FAMILIES:
             return False
         # Advisory-only families never block (roster record: "gemini dissent is
         # NOT to be counted anywhere"): their CHANGES-REQUESTED posts and stays
@@ -887,6 +947,7 @@ class CollectOutcome:
                 {
                     "family": item.family,
                     "would_count": item.would_count,
+                    "grounded": item.grounded,
                     "verdict": item.verdict,
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
@@ -986,6 +1047,15 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
+        # Grounding describes the transport that produced ``body``, which cannot be
+        # recomputed at apply time (relint re-parses the text, it does not re-run the
+        # reviewer). An artifact written before this field existed has an unknown
+        # transport, so absence defaults to grounded=True to keep in-flight prepared
+        # packets settleable rather than silently demoting all of them mid-settlement.
+        # Unlike ``severity_gated`` this is deliberately NOT fail-closed: ungrounded
+        # lowers BOTH counting and blocking, so neither default is uniformly stricter,
+        # and every live collect path now sets the field explicitly.
+        grounded=bool(raw.get("grounded", True)),
         # Restore the prepare-time regime; default fail-CLOSED (strict — every
         # changes_requested blocks) when an older/forged artifact omits it, so a
         # missing field can never RELAX the gate. apply_prepared_evidence then
@@ -1537,7 +1607,21 @@ def build_review_prompt(
         "report any [P1] or [P2], your verdict MUST be 'Verdict: CHANGES-REQUESTED' (a PASS "
         "carrying a [P1]/[P2] line is self-contradictory and will not be counted). Use [P3] for "
         "non-blocking observations; [P3]-only findings may accompany a PASS. "
-        "If there are no findings at all, write 'No findings.' Be concise.\n\n"
+        "If there are no findings at all, write 'No findings.' Be concise.\n"
+        # Grounding contract (2026-07-24). Reviewers were reporting [P1]/[P2] findings
+        # about state they had never been shown -- a base image tag's existence on a
+        # registry, an `engines` field in an unlisted package.json, a version pin in an
+        # unlisted workflow -- and those assertions came back false. The severity
+        # contract above pressures a reviewer to report SOMETHING, so absent this
+        # clause the cheapest "finding" is a confident guess about the surrounding
+        # repository. Unverifiable concerns are still worth raising; they are just not
+        # blocking evidence.
+        "Grounding: you have been shown the files listed above and nothing else. Do NOT "
+        "assert facts about any other file, about the contents of a registry or package "
+        "index, or about release/support status you cannot see here. If a concern depends "
+        "on information outside this diff, you may still raise it -- but tag it [P3], say "
+        "plainly that you could not verify it, and name what would verify it. Never tag an "
+        "unverified assumption [P1] or [P2].\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
     )
@@ -1742,24 +1826,41 @@ def _run_claude_cli(prompt: str, *, timeout: float | None = None) -> ReviewerRes
 
 
 def _run_claude_reviewer(prompt: str) -> ReviewerResult:
-    """Run Claude evidence through explicit VibeProxy policy, CLI, then API.
+    """Run Claude evidence through the grounded CLI first, then VibeProxy, then API.
 
-    VibeProxy is attempted only when ``ARAGORA_MODEL_TRANSPORT`` explicitly
-    selects ``vibeproxy-prefer`` or ``vibeproxy-required``. It remains the Claude
-    family and exact model; the proxy client rejects response-model substitution.
-    Direct mode preserves the existing subscription CLI/API order. Required mode
-    fails closed instead of using a direct or OpenRouter fallback.
+    The CLI runs as an agent in the checkout, so it can read files and reach the
+    network to check a claim before making it — the only Claude transport that can.
+    It is therefore tried FIRST (2026-07-24 operator directive), ahead of the
+    single-shot transports, so a countable Claude signal is a grounded one whenever
+    the CLI is healthy.
+
+    VibeProxy is still attempted when ``ARAGORA_MODEL_TRANSPORT`` explicitly selects
+    ``vibeproxy-prefer`` or ``vibeproxy-required`` and the CLI did not produce a
+    review — it keeps the family visible when the subscription CLI is credential-
+    walled. It remains the Claude family and exact model; the proxy client rejects
+    response-model substitution. Required mode fails closed rather than falling back.
+    Results from VibeProxy and the Anthropic API are marked ``grounded=False``: they
+    post as advisory evidence and never count for or against a quorum.
     """
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
+
+    # Ask the transport policy first. In direct mode (the default) this returns
+    # ``attempted=False`` without touching the proxy, so it costs nothing and the
+    # grounded CLI below runs exactly as before.
     vibeproxy = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
-    if vibeproxy.ok:
-        return ReviewerResult(
-            "claude",
-            _cap_text(vibeproxy.text),
-            True,
-            harness=vibeproxy.harness,
-        )
     if vibeproxy.required:
+        # ``vibeproxy-required`` means "the proxy or nothing": it must never reach the
+        # direct CLI or an OpenRouter fallback, so this branch returns either the proxy
+        # result or a fail-closed error. Decided from the attempt itself rather than
+        # from the env, because the resolved policy is what actually governs.
+        if vibeproxy.ok:
+            return ReviewerResult(
+                "claude",
+                _cap_text(vibeproxy.text),
+                True,
+                harness=vibeproxy.harness,
+                grounded=False,
+            )
         return ReviewerResult(
             "claude",
             "",
@@ -1768,42 +1869,57 @@ def _run_claude_reviewer(prompt: str) -> ReviewerResult:
             allow_transport_fallback=False,
         )
 
-    # Charge the direct fallback only the wall-clock the proxy leg actually
-    # consumed, not its allotted budget: a proxy that fails in ~1ms must not
-    # cost the direct CLI half its deadline (which still has to cover the
-    # liveness probe). Floor keeps a usable deadline even if elapsed is large.
-    direct_timeout = max(timeout / 2, timeout - vibeproxy.elapsed_seconds)
-    result = _run_claude_cli(prompt, timeout=direct_timeout)
-    if result.ok:
-        return result
+    # Not required (direct, or prefer). Try the grounded CLI BEFORE accepting a proxy
+    # result: under ``prefer`` the proxy would otherwise win and yield an advisory-only
+    # review, leaving the family with no countable signal at all.
+    cli_result = _run_claude_cli(prompt, timeout=timeout)
+    if cli_result.ok:
+        return cli_result
+    if vibeproxy.ok:
+        return ReviewerResult(
+            "claude",
+            _cap_text(vibeproxy.text),
+            True,
+            harness=vibeproxy.harness,
+            grounded=False,
+        )
+
     if os.environ.get("ANTHROPIC_API_KEY", "").strip():
         # Use the Anthropic *API* agent type ("claude" maps to the CLI agent);
-        # relabel the result to the "claude" family so it counts in the quorum.
+        # relabel the result to the "claude" family so it stays attributable.
         api = _run_api_agent("anthropic-api", prompt)
         if api.ok:
-            return replace(api, family="claude")
+            return replace(api, family="claude", grounded=False)
     if vibeproxy.attempted and vibeproxy.error:
         return replace(
-            result,
+            cli_result,
             error=(
-                f"VibeProxy prefer attempt failed: {vibeproxy.error}; "
-                f"direct Claude path failed: {result.error}"
+                f"direct Claude CLI failed: {cli_result.error}; "
+                f"VibeProxy fallback failed: {vibeproxy.error}"
             ),
         )
-    return result
+    return cli_result
 
 
 def _run_openai_reviewer(prompt: str) -> ReviewerResult:
-    """Run OpenAI evidence via direct API when available, else Codex CLI.
+    """Run OpenAI evidence via the grounded Codex CLI first, then the direct API.
 
-    Operator machines often have Codex subscription auth but no direct
-    ``OPENAI_API_KEY``. In that case Codex CLI is the local OpenAI-family
-    reviewer; the normal exact-head comment composition and lint-before-post
-    paths still decide whether the resulting evidence can count.
+    Codex CLI runs as an agent in the checkout, so it can read files and reach the
+    network to check a claim before making it; the direct API cannot. CLI-first
+    (2026-07-24 operator directive) means a countable OpenAI signal is a grounded
+    one whenever Codex auth is healthy — previously an ``OPENAI_API_KEY`` on the
+    machine silently routed every OpenAI review through the ungrounded API path.
+    The API remains the fallback so a wedged Codex CLI cannot make the family
+    invisible; those results are marked ungrounded and post as advisory only.
     """
+    result = _run_codex_openai_cli(prompt)
+    if result.ok:
+        return result
     if os.environ.get("OPENAI_API_KEY", "").strip():
-        return _run_api_agent("openai", prompt)
-    return _run_codex_openai_cli(prompt)
+        api = _run_api_agent("openai", prompt)
+        if api.ok:
+            return api
+    return result
 
 
 _GROK_BUILD_HARNESS = "Grok Build CLI harness"
@@ -2146,6 +2262,10 @@ def _run_api_agent(family: str, prompt: str, model: str | None = None) -> Review
             str(payload.get("text") or ""),
             bool(payload.get("ok")),
             str(payload.get("error") or ""),
+            # This is the single-shot API transport: no tools, so never grounded.
+            # Set explicitly here because the dict path reconstructs the result and
+            # would otherwise inherit the grounded=True default.
+            grounded=False,
         )
     return ReviewerResult(family, "", False, f"{family} reviewer returned invalid result")
 
@@ -2194,7 +2314,10 @@ def _run_api_agent_in_current_process(
     text = (text or "").strip()
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
-    return ReviewerResult(family, _cap_text(text), True)
+    # Single-shot API transport (also the OpenRouter path, which routes through here
+    # with an explicit model): the agent gets the prompt and no tools, so it cannot
+    # verify any claim the prompt does not already contain.
+    return ReviewerResult(family, _cap_text(text), True, grounded=False)
 
 
 def _build_openrouter_agent(family: str, model: str) -> Any:
@@ -2641,6 +2764,9 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
+                # Carry the transport's grounding through from the reviewer run: the
+                # linter reads only text and cannot tell which transport produced it.
+                grounded=result.grounded,
                 # Parse the COMPOSED body, not the raw reviewer text: composition
                 # normalizes messy output (thinking traces, preamble) into a
                 # canonical verdict line, and the prepared-apply relint path
@@ -3033,6 +3159,7 @@ def _clone_prepared_items(
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
+            grounded=item.grounded,
             severity_gated=(
                 item.severity_gated
                 if live_severity_gated is None
@@ -3199,6 +3326,9 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
+                # Grounding is a property of the transport that produced the body, so
+                # a relint (which only re-parses text) must preserve it verbatim.
+                grounded=item.grounded,
                 # Preserve the regime already reconciled by _clone_prepared_items
                 # (effective = prepared AND live). Re-running the linter must NOT
                 # let EvidenceItem.default_factory re-read the live env and undo

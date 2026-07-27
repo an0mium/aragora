@@ -370,9 +370,15 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
-def test_claude_reviewer_uses_successful_vibeproxy_attempt(
+def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """In prefer mode the grounded CLI wins even when the proxy also succeeds.
+
+    The proxy has no tools, so its review can never count toward quorum. Letting a
+    successful proxy attempt short-circuit the CLI would leave the Claude family with
+    an advisory-only review and no countable signal at all.
+    """
     monkeypatch.setattr(
         qe,
         "run_claude_vibeproxy",
@@ -390,7 +396,37 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
     monkeypatch.setattr(
         qe,
         "_run_claude_cli",
-        lambda _prompt, *, timeout=None: pytest.fail("direct CLI must not run after proxy success"),
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "Verdict: PASS", True),
+    )
+
+    result = qe._run_claude_reviewer("review prompt")
+
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+    assert result.grounded is True
+
+
+def test_claude_reviewer_falls_back_to_vibeproxy_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed CLI still yields a proxy review, but marked ungrounded (advisory)."""
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            attempted=True,
+            required=False,
+            ok=True,
+            text="Verdict: PASS",
+            error="",
+            harness="local VibeProxy Anthropic Messages transport",
+            timeout_seconds=30.0,
+            elapsed_seconds=0.0,
+        ),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_claude_cli",
+        lambda _prompt, *, timeout=None: ReviewerResult("claude", "", False, "cli unavailable"),
     )
 
     result = qe._run_claude_reviewer("review prompt")
@@ -400,6 +436,7 @@ def test_claude_reviewer_uses_successful_vibeproxy_attempt(
         "Verdict: PASS",
         True,
         harness="local VibeProxy Anthropic Messages transport",
+        grounded=False,
     )
 
 
@@ -503,22 +540,57 @@ def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
 # --- OpenAI reviewer fallback ----------------------------------------------
 
 
-def test_run_openai_reviewer_uses_api_when_openai_key_present(
+def test_run_openai_reviewer_prefers_codex_cli_even_with_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An ``OPENAI_API_KEY`` must not silently route OpenAI through the ungrounded API.
+
+    Codex CLI runs as an agent in the checkout and can verify claims; the direct API
+    cannot. Before this ordering, any machine with the key set produced ungrounded
+    OpenAI evidence without that being visible anywhere.
+    """
     calls: list[tuple[str, str]] = []
 
     def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
         calls.append((family, prompt))
-        return ReviewerResult(family, "Verdict: PASS from API", True)
+        return ReviewerResult(family, "Verdict: PASS from API", True, grounded=False)
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "Verdict: PASS from CLI", True),
+    )
 
     result = qe._run_openai_reviewer("review prompt")
 
-    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
-    assert calls == [("openai", "review prompt")]
+    assert result == ReviewerResult("openai", "Verdict: PASS from CLI", True)
+    assert result.grounded is True
+    assert calls == []
+
+
+def test_run_openai_reviewer_falls_back_to_api_as_ungrounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wedged Codex CLI still yields API evidence, marked ungrounded (advisory)."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        qe,
+        "_run_codex_openai_cli",
+        lambda _prompt: ReviewerResult("openai", "", False, "codex cli unavailable"),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda family, prompt: ReviewerResult(
+            family, "Verdict: PASS from API", True, grounded=False
+        ),
+    )
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True, grounded=False)
 
 
 def test_run_openai_reviewer_without_api_key_uses_codex_cli(
@@ -917,7 +989,9 @@ def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.Mon
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == [
         "create:grok:grok_reviewer:critic",
         "generate:review prompt",
@@ -1127,7 +1201,9 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -1155,7 +1231,9 @@ def test_run_api_agent_closes_shared_connector_without_agent_close(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "connector_close"]
 
 
@@ -1184,7 +1262,9 @@ def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -1216,7 +1296,9 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
 
     result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
-    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    # grounded=False: this is the single-shot API transport, which has no tools and
+    # therefore cannot verify any claim the prompt does not already contain.
+    assert result == ReviewerResult("grok", "Verdict: PASS", True, grounded=False)
     assert events == ["generate", "agent_close", "connector_close"]
 
 
@@ -1249,8 +1331,8 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
     first = qe._run_api_agent_in_current_process("grok", "one")
     second = qe._run_api_agent_in_current_process("grok", "two")
 
-    assert first == ReviewerResult("grok", "Verdict: PASS one", True)
-    assert second == ReviewerResult("grok", "Verdict: PASS two", True)
+    assert first == ReviewerResult("grok", "Verdict: PASS one", True, grounded=False)
+    assert second == ReviewerResult("grok", "Verdict: PASS two", True, grounded=False)
     assert events == [
         "create:grok",
         "generate:one",
@@ -1261,6 +1343,63 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
         "agent_close",
         "connector_close",
     ]
+
+
+# --- transport-grounding contract -------------------------------------------
+
+
+def _grounding_item(family: str, verdict: str, *, grounded: bool) -> qe.EvidenceItem:
+    body = (
+        "Verdict: PASS\nNo findings.\n"
+        if verdict == "pass"
+        else "Verdict: CHANGES-REQUESTED\n- [P2] something\n"
+    )
+    return qe.EvidenceItem(
+        family=family, body=body, would_count=True, verdict=verdict, grounded=grounded
+    )
+
+
+def test_ungrounded_review_never_counts_when_family_has_a_cli() -> None:
+    item = _grounding_item("claude", "pass", grounded=False)
+    assert item.would_count is False
+    assert item.supportive is False
+    assert any("ungrounded transport" in p for p in item.problems)
+
+
+def test_grounded_review_still_counts() -> None:
+    assert _grounding_item("claude", "pass", grounded=True).would_count is True
+
+
+def test_ungrounded_dissent_never_blocks() -> None:
+    # The live case this fixes: three ungrounded CHANGES-REQUESTED reviews on #9505
+    # asserted facts about a registry tag and unlisted files they were never shown.
+    assert _grounding_item("claude", "changes_requested", grounded=False).dissenting is False
+    assert _grounding_item("grok", "changes_requested", grounded=False).dissenting is False
+
+
+def test_grounded_dissent_still_blocks() -> None:
+    assert _grounding_item("claude", "changes_requested", grounded=True).dissenting is True
+
+
+def test_api_only_family_keeps_authority_without_a_cli_transport() -> None:
+    # mistral has no CLI harness, so demoting its only transport would delete it from
+    # the reviewer pool and strand Tier 0-2 quorums that legitimately count it today.
+    assert "mistral" not in qe.GROUNDED_TRANSPORT_FAMILIES
+    assert _grounding_item("mistral", "pass", grounded=False).would_count is True
+
+
+def test_grounding_survives_prepared_artifact_roundtrip() -> None:
+    """A prepared artifact must not be able to smuggle an ungrounded review into counting."""
+    raw = {
+        "family": "claude",
+        "body": "Verdict: PASS\nNo findings.\n",
+        "would_count": True,
+        "verdict": "pass",
+        "grounded": False,
+    }
+    restored = qe._evidence_item_from_dict(raw)
+    assert restored.grounded is False
+    assert restored.would_count is False
 
 
 # --- collect_evidence orchestration (fully offline via injected callables) ---
