@@ -718,3 +718,15 @@ class TestLongContextTierBilling:
     def test_openrouter_alias_is_tier_aware_too(self):
         cost = calculate_token_cost("openrouter", "x-ai/grok-4.5", 1_000_000, 1_000_000)
         assert cost == Decimal("16")
+
+    def test_cached_prompt_tokens_count_toward_tier_threshold(self):
+        # 150k fresh + 100k cached = 250k prompt >= 200k threshold: the whole
+        # request bills at the long-context tier (fresh in at $4, out at $12,
+        # cached at 10% of tier input price).
+        cost = calculate_token_cost("xai", "grok-4.5", 150_000, 10_000, 100_000)
+        expected = (
+            Decimal("150000") / Decimal("1000000") * Decimal("4")
+            + Decimal("10000") / Decimal("1000000") * Decimal("12")
+            + Decimal("100000") / Decimal("1000000") * Decimal("4") * Decimal("0.1")
+        )
+        assert cost == expected

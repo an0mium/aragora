@@ -188,7 +188,9 @@ def calculate_token_cost(
 
     spec = by_any_id(model)
     if spec is not None:
-        rate_in, rate_out = spec.rates_for(int(tokens_in))
+        # Cached prompt tokens still count toward the tier threshold: xAI's
+        # tier triggers on total PROMPT size, cached or not (#9064 r6).
+        rate_in, rate_out = spec.rates_for(int(tokens_in) + int(tokens_cached))
         input_price = Decimal(str(rate_in))
         output_price = Decimal(str(rate_out))
         input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
