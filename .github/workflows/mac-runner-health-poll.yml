@@ -18,6 +18,10 @@ name: Mac Runner Health Poll
 # Survives the failure mode from issue #6474: the host's outbound TCP
 # was broken, so a host-initiated alert would not have reached GH.
 # This workflow runs on GH-hosted ubuntu and SSHes IN to the Macs.
+#
+# This job fails loudly if it cannot poll (missing SSH key), and only reports
+# "healthy" when the poll actually ran and returned no drift. It must never be
+# possible for this workflow to be green without having checked anything.
 
 on:
   schedule:
@@ -61,17 +65,22 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          if [ -n "${MAC_RUNNER_SSH_KEY:-}" ]; then
-            echo "$MAC_RUNNER_SSH_KEY" > ~/.ssh/mac_runner
-            chmod 600 ~/.ssh/mac_runner
-            echo "KEY_READY=1" >> "$GITHUB_ENV"
-          else
-            echo "::warning::MAC_RUNNER_SSH_KEY secret not set; poll will be skipped"
+          if [ -z "${MAC_RUNNER_SSH_KEY:-}" ]; then
+            # Hard failure, not a warning. This previously warned and exited 0,
+            # so every scheduled run since the workflow landed reported success
+            # while polling nothing -- the secret has never been set. That green
+            # tick was read as "Macs are healthy" for months, including the
+            # ~3 weeks mac-studio-m3ultra spent with a full disk failing every
+            # CI job on it. A monitor that cannot run must be loudly broken.
+            echo "::error::MAC_RUNNER_SSH_KEY secret is not set, so no Mac runner can be polled. Add the secret (private key authorized on all hosts in HOSTS_JSON) or disable this workflow. Do not leave it green and inert."
+            exit 1
           fi
+          echo "$MAC_RUNNER_SSH_KEY" > ~/.ssh/mac_runner
+          chmod 600 ~/.ssh/mac_runner
+          echo "KEY_READY=1" >> "$GITHUB_ENV"
 
       - name: Poll each Mac
         id: poll
-        if: env.KEY_READY == '1'
         env:
           HOSTS_JSON: |
             [
@@ -207,5 +216,5 @@ jobs:
           fi
 
       - name: Report clean
-        if: steps.poll.outputs.drift != '1' && env.KEY_READY == '1'
+        if: steps.poll.outputs.drift == '0'
         run: echo "::notice::All Mac runners healthy — TIME_WAIT within threshold, logs fresh, disk above minimum."
