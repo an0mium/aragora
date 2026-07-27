@@ -69,6 +69,19 @@ def build_crux_cards(
     analysis = detector.detect_cruxes(top_k=top_k, min_score=min_score)
     if not analysis.cruxes:
         return None
+    if not analysis.total_disagreements:
+        # `crux_score` is a composite, so a claim can clear `min_score` on
+        # uncertainty and centrality alone. Emitting those as "crux cards" would
+        # publish load-bearing-disagreement claims into a DecisionReceipt with no
+        # disagreement actually detected behind them — an overclaim in exactly
+        # the surface auditors read. Absent is honest; mislabelled is not.
+        #
+        # `CruxDetector` registers a disagreement only when >=2 authors *other
+        # than the claim's own* relate to it, so a two-agent debate trading
+        # reciprocal critiques never reaches one. Making a two-agent debate
+        # attribute dissent is #9644's scope, not this edge-construction fix.
+        logger.info("crux_cards_suppressed_no_disagreement claims=%d", analysis.total_claims)
+        return None
 
     return {
         # CruxClaim.to_dict() carries per-crux dissent attribution:
@@ -150,7 +163,14 @@ def _target_claim_for_critique(messages: list[Any], target: str, critique: Any) 
 
     wanted = str(getattr(critique, "target_content", "") or "").strip()
     if wanted:
-        for i, msg in candidates:
+        # Newest first: a revision commonly keeps the earlier proposal's header
+        # or opening paragraph, so a prefix comparison can match round 1 as well
+        # as round N. Scanning backwards biases toward the current position —
+        # the same bias as the no-match fallback below — instead of silently
+        # re-introducing the stale-text attribution this function exists to
+        # avoid. A degenerate short early proposal ("Agreed.") would otherwise
+        # absorb every critique whose excerpt starts with it.
+        for i, msg in reversed(candidates):
             content = str(getattr(msg, "content", "") or "").strip()
             if not content:
                 continue
@@ -200,7 +220,10 @@ def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> 
             severity = float(getattr(critique, "severity", 0.0) or 0.0)
         except (TypeError, ValueError):
             severity = 0.0
-        if severity <= 0:
+        # `severity != severity` catches NaN: every NaN comparison is False, so a
+        # NaN would pass `<= 0` and then `min(1.0, nan/10.0)` returns 1.0 —
+        # a maximum-strength edge from an unusable value.
+        if severity != severity or severity <= 0:  # noqa: PLR0124 - NaN check
             continue
 
         target_claim = _target_claim_for_critique(messages, target, critique)
@@ -209,6 +232,12 @@ def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> 
 
         # Consume this critic's critic-role messages in order, so successive
         # critiques anchor to successive messages instead of all to the first.
+        # This relies on `result.critiques` and the critic-role entries in
+        # `result.messages` being appended 1:1 in the same order — true today in
+        # both `critique_generator` and `debate_rounds`, but not asserted
+        # anywhere. A producer that records critiques without mirroring messages
+        # degrades to mis-anchored source prose or a skipped edge, never an
+        # error: the edge's agents and severity stay correct either way.
         source_claims = _claim_ids_for_agent(messages, critic, "critic")
         index = used_source.get(critic, 0)
         if index >= len(source_claims):

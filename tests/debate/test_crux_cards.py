@@ -121,6 +121,9 @@ class TestConsensusPhaseAttach:
 # threshold, at any min_score, with any agents.
 
 
+AGENTS = ("claude", "codex", "gemini")
+
+
 def _contested_debate() -> tuple[list[Message], list[Critique]]:
     """A real two-agent disagreement, as a debate actually records it."""
     messages = [
@@ -158,16 +161,49 @@ def test_messages_without_critiques_still_yield_nothing():
     assert build_crux_cards(messages=messages) is None
 
 
-def test_critiques_make_a_contested_debate_produce_cruxes():
-    """The #9581 regression: the same debate WITH its critiques yields cruxes."""
+def test_two_agent_debate_emits_no_cards_without_detected_disagreement():
+    """Cards are suppressed when no disagreement was actually detected.
+
+    `crux_score` is a composite, so claims can clear `min_score` on uncertainty
+    and centrality alone. Publishing those as "crux cards" would put
+    load-bearing-disagreement claims into a DecisionReceipt with nothing behind
+    them. CruxDetector needs >=2 authors *other than the claim's own*, which a
+    two-agent debate trading reciprocal critiques never reaches (#9644).
+    """
     messages, critiques = _contested_debate()
+    assert build_crux_cards(messages=messages, critiques=critiques) is None
+
+
+def test_critiques_make_a_contested_debate_produce_cruxes():
+    """The #9581 regression: with critiques, a genuinely contested debate cards.
+
+    Needs two distinct contesters of the same claim for the detector to register
+    a disagreement at all, so this is the three-agent shape.
+    """
+    messages = [Message(role="proposer", agent=a, content=f"{a} proposal") for a in AGENTS]
+    messages += [Message(role="critic", agent=a, content=f"{a} objection") for a in AGENTS]
+    critiques = [
+        Critique(
+            agent=critic,
+            target_agent="claude",
+            target_content="claude proposal",
+            issues=["x"],
+            suggestions=[],
+            severity=severity,
+            reasoning=f"{critic} contests claude",
+        )
+        for critic, severity in (("codex", 7.0), ("gemini", 6.0))
+    ]
     cards = build_crux_cards(messages=messages, critiques=critiques)
     assert cards is not None
     assert cards["items"], "a contested debate must surface at least one crux"
-    # `total_disagreements` stays 0 here: CruxDetector counts a claim as
-    # disagreed-about only when >=2 *other* authors relate to it, so a 2-agent
-    # debate cannot register one. Scoring semantics (author stance, propagate
-    # ordering, double counting) are #9644 and deliberately out of scope.
+    assert cards["total_disagreements"] > 0
+
+
+def test_same_debate_without_critiques_yields_nothing():
+    """Pinned for contrast: claims alone can never produce a crux."""
+    messages = [Message(role="proposer", agent=a, content=f"{a} proposal") for a in AGENTS]
+    assert build_crux_cards(messages=messages) is None
 
 
 def test_critique_severity_drives_edge_strength():
@@ -384,3 +420,57 @@ def test_truncated_target_content_still_matches_its_proposal():
     assert len(targets) == 1
     assert long_proposal.startswith(targets[0])
     assert targets[0] != "round 2 revision"
+
+
+def test_nan_severity_is_skipped_not_maximised():
+    """NaN passes `<= 0` (all NaN comparisons are False) and min(1.0, nan/10)=1.0.
+
+    Without an explicit check an unusable severity became a maximum-strength
+    edge — the strongest possible disagreement from a value that means nothing.
+    """
+    messages = [
+        Message(role="proposer", agent="claude", content="P"),
+        Message(role="critic", agent="codex", content="C"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="P",
+            issues=["x"],
+            suggestions=[],
+            severity=float("nan"),
+            reasoning="r",
+        )
+    ]
+    network = _network_from_messages(messages, critiques)
+    assert not network.factors
+
+
+def test_revision_sharing_a_prefix_anchors_to_the_revision():
+    """Scanning newest-first keeps a shared opening from re-attributing to round 1.
+
+    A revision commonly keeps the earlier proposal's header, so a prefix
+    comparison can match both rounds; biasing to the newest matches the
+    no-match fallback and avoids the stale-text attribution.
+    """
+    shared = "# Proposal\nWe should ship it."
+    messages = [
+        Message(role="proposer", agent="claude", content=shared),
+        Message(role="proposer", agent="claude", content=shared + "\nRevised: with a caveat."),
+        Message(role="critic", agent="codex", content="objection"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content=shared,  # matches BOTH rounds by prefix
+            issues=["x"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r",
+        )
+    ]
+    network = _network_from_messages(messages, critiques)
+    targets = [network.nodes[f.target_node_id].claim_statement for f in network.factors.values()]
+    assert targets == [shared + "\nRevised: with a caveat."]
