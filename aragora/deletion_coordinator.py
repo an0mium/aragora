@@ -32,6 +32,8 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+_EXPECTED_DELETION_ERRORS = (OSError, RuntimeError, TypeError, ValueError)
+
 
 # ============================================================================
 # Protocols and Types
@@ -376,7 +378,7 @@ class UnifiedDeletionCoordinator:
             for hook in self._pre_deletion_hooks:
                 try:
                     await hook(user_id)
-                except Exception as e:
+                except _EXPECTED_DELETION_ERRORS as e:
                     result.warnings.append(f"Pre-deletion hook failed: {e}")
                     logger.warning("Pre-deletion hook failed for %s: %s", user_id, e)
 
@@ -404,7 +406,7 @@ class UnifiedDeletionCoordinator:
                         self._backup_coordinator.mark_backup_for_purge(backup_id, user_id)
 
                     logger.info("Marked %s backups for purge for user %s", len(backup_ids), user_id)
-                except Exception as e:
+                except _EXPECTED_DELETION_ERRORS as e:
                     result.warnings.append(f"Backup coordination failed: {e}")
                     logger.warning("Backup coordination failed for %s: %s", user_id, e)
 
@@ -419,7 +421,7 @@ class UnifiedDeletionCoordinator:
                     count = await deleter.delete_for_user(user_id)
                     result.entities_deleted[entity_type] = count
                     logger.info("Deleted %s %s entities for user %s", count, entity_type, user_id)
-                except Exception as e:
+                except _EXPECTED_DELETION_ERRORS as e:
                     result.errors.append(f"Failed to delete {entity_type}: {e}")
                     logger.error("Failed to delete %s for user %s: %s", entity_type, user_id, e)
 
@@ -438,7 +440,7 @@ class UnifiedDeletionCoordinator:
             for post_hook in self._post_deletion_hooks:
                 try:
                     await post_hook(user_id, result)
-                except Exception as e:
+                except _EXPECTED_DELETION_ERRORS as e:
                     result.warnings.append(f"Post-deletion hook failed: {e}")
                     logger.warning("Post-deletion hook failed for %s: %s", user_id, e)
 
@@ -451,7 +453,7 @@ class UnifiedDeletionCoordinator:
                     actor_id=actor_id,
                 )
 
-        except Exception as e:
+        except _EXPECTED_DELETION_ERRORS as e:
             result.status = CascadeStatus.FAILED
             result.errors.append(f"Cascade deletion failed: {e}")
             result.completed_at = datetime.now(timezone.utc)
@@ -497,7 +499,7 @@ class UnifiedDeletionCoordinator:
                 if not is_deleted:
                     all_storage_verified = False
                     result.errors.append(f"Data still exists for entity type: {entity_type}")
-            except Exception as e:
+            except _EXPECTED_DELETION_ERRORS as e:
                 result.entity_results[entity_type] = False
                 all_storage_verified = False
                 result.errors.append(f"Failed to verify {entity_type} deletion: {e}")
@@ -511,7 +513,7 @@ class UnifiedDeletionCoordinator:
                 result.backup_verified = backup_verified
                 if not backup_verified:
                     result.errors.append("User data may still exist in backups")
-            except Exception as e:
+            except _EXPECTED_DELETION_ERRORS as e:
                 result.backup_verified = False
                 result.errors.append(f"Failed to verify backup purge: {e}")
         else:
@@ -688,7 +690,7 @@ class UnifiedDeletionCoordinator:
 
                     results.append(result)
 
-                except Exception as e:
+                except _EXPECTED_DELETION_ERRORS as e:
                     logger.error("Failed to process deletion for %s: %s", deletion_req.user_id, e)
                     # Create a failed result
                     failed_result = CascadeResult(
@@ -702,7 +704,7 @@ class UnifiedDeletionCoordinator:
 
         except ImportError:
             logger.warning("Deletion scheduler not available")
-        except Exception as e:
+        except _EXPECTED_DELETION_ERRORS as e:
             logger.exception("Error processing pending deletions: %s", e)
 
         return results
