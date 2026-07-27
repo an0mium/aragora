@@ -103,7 +103,7 @@ class AgentPerformanceMonitor:
         try:
             response = await agent.generate(prompt)
             monitor.record_completion(tracking, success=True, response=response)
-        except Exception as e:
+        except (RuntimeError, TimeoutError) as e:
             monitor.record_completion(tracking, success=False, error=str(e))
 
         # Get insights
