@@ -187,7 +187,7 @@ async def evaluate_essay(
 
     try:
         response = await judge_agent.generate(prompt)
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         logger.exception("Judge agent failed during essay evaluation")
         return EssayScore()
 
