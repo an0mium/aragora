@@ -138,7 +138,7 @@ class SynthesisGenerator:
 
             return True
 
-        # Try 1: Claude Opus 4.5
+        # Try 1: Claude Opus 5
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 

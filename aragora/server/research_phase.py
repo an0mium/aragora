@@ -192,7 +192,30 @@ class PreDebateResearcher:
 
             response = await asyncio.wait_for(asyncio.to_thread(_call_anthropic), timeout_seconds)
             # Opus 5 thinks by default: content[0] is a thinking block.
-            return first_text_block(response.content).strip()
+            text = first_text_block(response.content).strip()
+            if text:
+                return text
+
+            # Empty text is a FAILURE, not a success. On a thinking-by-default
+            # model an exhausted max_tokens yields thinking blocks and no text
+            # block; returning "" here would look like a successful summary and
+            # silently skip the OpenRouter fallback below.
+            logger.warning(
+                "[research] Anthropic returned no text block (thinking may have "
+                "consumed max_tokens=%s); falling back to OpenRouter",
+                max_tokens,
+                extra={
+                    "triage_diag_code": "provider_fallback",
+                    "triage_diag_severity": "degraded",
+                },
+            )
+            empty_fallback = self._get_openrouter_agent()
+            if empty_fallback is None:
+                return ""
+            return await asyncio.wait_for(
+                empty_fallback.generate(prompt),
+                timeout_seconds,
+            )
         except Exception as e:  # noqa: BLE001 - provider SDK raises many exception types
             if not self._should_try_openrouter_fallback(e):
                 raise
@@ -355,7 +378,7 @@ Respond with just "yes" or "no".""",
                 tools: list[Any] = [{"type": "web_search_20250305", "name": "web_search"}]
                 return self.anthropic_client.messages.create(
                     model=RESEARCH_MODEL,
-                    max_tokens=2000,
+                    max_tokens=4096,
                     tools=cast(Any, tools),
                     messages=[
                         {
@@ -571,7 +594,7 @@ Provide a brief, factual summary (2-3 paragraphs) of the current situation.
 Focus on facts, not opinions. Include relevant dates and specifics."""
             result.summary = await self._generate_text_with_fallback(
                 prompt,
-                max_tokens=500,
+                max_tokens=4096,
                 timeout_seconds=SUMMARIZATION_TIMEOUT,
             )
 
@@ -597,7 +620,7 @@ Please share what you know about this topic, including:
 Note: Clearly indicate if certain information may be outdated or requires verification."""
             summary = await self._generate_text_with_fallback(
                 prompt,
-                max_tokens=800,
+                max_tokens=4096,
                 timeout_seconds=SUMMARIZATION_TIMEOUT,
             )
             return ResearchResult(
