@@ -52,3 +52,15 @@
 - Current-main overlap is a live tripwire, not a one-time staging check. PR
   #9589 merged during baseline and changed both package metadata files, so the
   lane stopped before product edits as designed.
+
+## 2026-07-27 implementation
+
+- Exact selector maps are valuable for mixed-purpose workflows: the new test
+  caught an ambiguous repeated-literal edit that changed the SDK job instead
+  of the frontend build job in `release.yml`.
+- Exact container proof must mount the repository root, not only
+  `aragora/live`, because the live lockfile references
+  `file:../../sdk/typescript`.
+- A structured comparison that deletes only the intended root metadata is a
+  stronger lockfile invariant than line-count inspection, especially when
+  `.gitattributes` suppresses normal text diffs for generated lockfiles.

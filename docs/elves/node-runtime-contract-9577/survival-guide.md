@@ -24,29 +24,21 @@ that order.
 
 ## Current state
 
-Batch 1 is in progress after merging the exact authorized main commit
-`1cd722cc2df2330466af2511f6f3b6b83d496b83` without rewriting published
-history. PR #9589's `package.json` and `package-lock.json` state matches that
-main commit byte-for-byte; no product edit from this lane exists yet.
+Batch 1 is complete locally. The exact authorized main `1cd722cc...` and later
+non-overlapping main `b0633c5f...` were merged without rewriting published
+history. PR #9589's dependency, override, and 1,034 non-root lock records are
+preserved; this lane adds only the root Node engine metadata.
 
-After an elapsed-time reactivation on 2026-07-27, local HEAD remained the
-lane-owned merge commit
-`158701f0a4e90813469a72032e30cd5d0daabf7d`; the remote branch and PR head
-remained the last pushed lane checkpoint `254a193567...`; current main still
-matched the exact authorized commit; steering remained empty; three Linux
-`aragora` runners were online; and the expired lease was reclaimed with the
-same narrow scope as `8e6a0fa7-5ef`.
+The package contract, 21 live workflow selectors, three preserved Node 20
+exceptions, and exhaustive focused test are committed at `6a2426923a...`.
+Post-merge validation is green: focused test `3 passed`, complete `tests/ci`
+`200 passed, 1 skipped`, workflow policies PASS, preflight PASS, and the exact
+Node `24.18.0` install/lint/typecheck/228-route build PASS. Fresh independent
+non-countable review found no blocker.
 
-Batch 1 implementation and local validation are complete. The focused test
-passes, complete `tests/ci` is `200 passed, 1 skipped`, repository workflow
-policies pass, and exact Node `24.18.0` install/lint/typecheck/228-route build
-passes. Fresh independent non-countable review found no blocker.
-
-During review, current main advanced to
-`b0633c5f76738dfcc5412107a97753be91db6f8d`; its four settlement files have
-zero overlap with this lane. The single next action is to commit the reviewed
-Batch 1 work, merge that non-overlapping main commit without rebasing, rerun
-the gates, and push.
+The single next action is to push completed Batch 1 after the required live
+steering, lease, remote-head, current-main, diff, and preflight checks. Then
+start Batch 2 exact-tip validation and final readiness.
 
 ## Stop Gate
 
@@ -169,20 +161,20 @@ python3 scripts/check_work_lease.py codex/node24-runtime-contract-9577 \
 
 ## Known live observations
 
-- The 13 approved workflows currently select Node 20 for jobs that install or
-  execute `aragora/live`.
+- The 13 approved workflows now resolve exact Node `24.18.0` for all 21 jobs
+  that install or execute `aragora/live`.
 - `release.yml` and `test.yml` also contain Node 20 selectors for non-live
   packages; those selectors are not automatically in scope.
 - `live-deploy-mode-gate.yml` already runs `npm ci`, TypeScript checks, and a
   frontend build for live paths, making it the preferred build-proof surface.
 - The gate skips draft PRs, so PR #9591 cannot obtain its Node 24 build proof
   from that CI job while remaining draft. Use the exact-Node container proof.
-- `aragora/live/package.json` and the lockfile root currently have no
-  `engines` field.
+- `aragora/live/package.json` and the lockfile root now declare
+  `>=24.18.0 <25`.
 - Current main's five non-quorum protected required contexts are green. The
   visible uptime-monitor failure is not protected.
-- Four `aragora` runners were online at staging preflight, including three
-  Linux runners.
+- Three Linux `aragora` runners were online at the latest Batch 1 pre-push
+  tripwire.
 - The pre-edit exact-Node container baseline passed on Node `24.18.0`: `npm
   ci`, lint, TypeScript, and the complete 228-route Next build.
 - PR #9589 subsequently changed `package.json` overrides and regenerated the

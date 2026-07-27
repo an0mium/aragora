@@ -342,6 +342,25 @@
   cover the remaining regression surface.
 - Timing: implementation 12m; validation 16m; independent review 5m.
 
+### 2026-07-27T14:34Z — Batch 1 committed and rebased by merge
+
+- Committed implementation and run-state record:
+  `6a2426923afa35a99dd1a6b644430fbf18f0a1c6`.
+- Merged non-overlapping current main
+  `b0633c5f76738dfcc5412107a97753be91db6f8d` without rebasing or rewriting
+  published history. Merge commit:
+  `16cdac1ced7c95e50b450d1a45291b81ec1ff5e0`.
+- Revalidated after the merge:
+  - workflow checkout-integrity policy: PASS;
+  - required-check priority policy: PASS;
+  - complete `tests/ci`: `200 passed, 1 skipped`;
+  - `git diff --check`: PASS;
+  - `bash scripts/automation_pr_preflight.sh origin/main HEAD`: PASS.
+- The cumulative diff from current main contains only the authorized package,
+  workflow, test, plan, and temporary Elves paths.
+- Batch 1 Completion Contract: met. Next: required live pre-push tripwires,
+  push, post-push survival-guide/plan check, and PR feedback/check poll.
+
 ## Batch 2/2 — validation and final readiness
 
 Pending Batch 1.
