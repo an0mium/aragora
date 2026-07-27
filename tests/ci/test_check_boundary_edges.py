@@ -340,6 +340,28 @@ def test_boundary_hook_covers_default_install_and_nested_sources():
     assert not pattern.search("frontend/src/unrelated.ts")
 
 
+def test_boundary_checker_runs_in_required_lint_job():
+    workflow = yaml.safe_load(
+        (REPO_ROOT / ".github/workflows/lint.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["lint-run"]["steps"]
+
+    assert {
+        "name": "Enforce Boundary 2 receipts+verifier edges",
+        "run": "${{ steps.lint_python.outputs.python_bin }} scripts/ci/check_boundary_edges.py",
+    } in steps
+
+
+def test_lint_scope_includes_standalone_verifier():
+    classifier = yaml.safe_load(
+        (REPO_ROOT / ".github/actions/pr-scope-classifier/action.yml").read_text(encoding="utf-8")
+    )
+    filter_step = next(step for step in classifier["runs"]["steps"] if step.get("id") == "filter")
+    filters = yaml.safe_load(filter_step["with"]["filters"])
+
+    assert "aragora-verify/**" in filters["lint_python"]
+
+
 def test_schema_mirror_drift_exits_one(tmp_path, capsys):
     map_path = _write_map(tmp_path)
     baseline = _write_baseline(tmp_path, map_path, set())

@@ -155,6 +155,9 @@ jobs:
       - name: Validate Prometheus rule syntax with promtool
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_prometheus_rules.py
 
+      - name: Enforce Boundary 2 receipts+verifier edges
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/ci/check_boundary_edges.py
+
       - name: Enforce code quality ratchet
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/report_code_quality.py --check
 
