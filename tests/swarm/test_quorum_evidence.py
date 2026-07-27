@@ -1418,7 +1418,22 @@ def test_stringly_grounded_false_cannot_truthify() -> None:
     assert qe._coerce_grounded_flag("true") is True
     assert qe._coerce_grounded_flag(True) is True
     # Absent means "artifact predates the field", which keeps historical authority.
-    assert qe._coerce_grounded_flag(None) is True
+    assert qe._coerce_grounded_flag(qe._GROUNDED_MISSING) is True
+    # An EXPLICIT null is present-but-not-true, so it must not masquerade as legacy
+    # (openai #9641 round-2 [P2]): dict.get collapses both to None without the sentinel.
+    assert qe._coerce_grounded_flag(None) is False
+    assert (
+        qe._evidence_item_from_dict(
+            {
+                "family": "claude",
+                "body": "Verdict: PASS\nNo findings.\n",
+                "would_count": True,
+                "verdict": "pass",
+                "grounded": None,
+            }
+        ).would_count
+        is False
+    )
 
     item = qe._evidence_item_from_dict(
         {

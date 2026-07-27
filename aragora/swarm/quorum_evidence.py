@@ -1031,26 +1031,35 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if str(item)]
 
 
+#: Sentinel distinguishing "key absent" from an explicit ``null``. ``dict.get`` collapses
+#: both to ``None``, which would let a forged artifact write ``"grounded": null`` and be
+#: treated as a legacy artifact, recovering counting authority (openai #9641 round-2 [P2]).
+_GROUNDED_MISSING = object()
+
+
 def _coerce_grounded_flag(value: Any) -> bool:
     """Coerce a serialized ``grounded`` flag to bool without stringly truthiness.
 
     Grounding describes the transport that produced the body, and it cannot be
     recomputed at apply time (relint re-parses text; it does not re-run the reviewer).
 
-    A MISSING field means the artifact predates the field, so its transport is unknown
-    and it keeps its historical authority — demoting every legacy artifact would strand
-    in-flight prepared packets mid-settlement. Unlike ``severity_gated`` that default is
-    deliberately not fail-closed, because ungrounded lowers BOTH counting and blocking,
-    so neither default is uniformly stricter, and every live collect path now sets the
-    field explicitly.
+    A MISSING field (the ``_GROUNDED_MISSING`` sentinel) means the artifact predates the
+    field, so its transport is unknown and it keeps its historical authority — demoting
+    every legacy artifact would strand in-flight prepared packets mid-settlement. Unlike
+    ``severity_gated`` that default is deliberately not fail-closed, because ungrounded
+    lowers BOTH counting and blocking, so neither default is uniformly stricter, and every
+    live collect path now sets the field explicitly.
 
-    A PRESENT value is parsed strictly: only a real ``True`` or an explicit true token
-    grounds it. Plain ``bool()`` would truthify the string ``"false"`` and let a
-    stringly or forged artifact smuggle an ungrounded review back into counting
-    authority (openai #9641 [P2]) — the same hazard ``_coerce_relaxed_flag`` guards.
+    Any PRESENT value is parsed strictly: only a real ``True`` or an explicit true token
+    grounds it. Plain ``bool()`` would truthify the string ``"false"``, and a bare ``None``
+    default would let an explicit ``"grounded": null`` masquerade as a legacy artifact —
+    both would smuggle an ungrounded review back into counting authority (openai #9641
+    rounds 1-2 [P2]). Same hazard ``_coerce_relaxed_flag`` guards for the regime flags.
     """
-    if value is None:
+    if value is _GROUNDED_MISSING:
         return True
+    if value is None:
+        return False
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -1074,7 +1083,7 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
-        grounded=_coerce_grounded_flag(raw.get("grounded")),
+        grounded=_coerce_grounded_flag(raw.get("grounded", _GROUNDED_MISSING)),
         # Restore the prepare-time regime; default fail-CLOSED (strict — every
         # changes_requested blocks) when an older/forged artifact omits it, so a
         # missing field can never RELAX the gate. apply_prepared_evidence then
@@ -1635,12 +1644,15 @@ def build_review_prompt(
         # clause the cheapest "finding" is a confident guess about the surrounding
         # repository. Unverifiable concerns are still worth raising; they are just not
         # blocking evidence.
-        "Grounding: you have been shown the files listed above and nothing else. Do NOT "
-        "assert facts about any other file, about the contents of a registry or package "
-        "index, or about release/support status you cannot see here. If a concern depends "
-        "on information outside this diff, you may still raise it -- but tag it [P3], say "
-        "plainly that you could not verify it, and name what would verify it. Never tag an "
-        "unverified assumption [P1] or [P2].\n\n"
+        "Grounding: the files listed above are all you have been SHOWN. A concern about "
+        "anything else -- another file, a registry or package index, release/support "
+        "status -- is reportable only according to whether you actually VERIFIED it:\n"
+        "  - If you verified it (you read the file, resolved the tag, ran the check), "
+        "report it at its true severity and state in the finding HOW you verified it.\n"
+        "  - If you could not verify it, tag it [P3], say plainly that it is unverified, "
+        "and name what would verify it.\n"
+        "Never tag an UNVERIFIED assumption [P1] or [P2]. Verification, not visibility, "
+        "is what makes a finding blocking.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
     )
