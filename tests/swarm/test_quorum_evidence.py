@@ -381,23 +381,19 @@ def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
     """
     monkeypatch.setattr(
         qe,
-        "run_claude_vibeproxy",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            attempted=True,
-            required=False,
-            ok=True,
-            text="Verdict: PASS",
-            error="",
-            harness="local VibeProxy Anthropic Messages transport",
-            timeout_seconds=30.0,
-            elapsed_seconds=0.0,
-        ),
-    )
-    monkeypatch.setattr(
-        qe,
         "_run_claude_cli",
         lambda _prompt, *, timeout=None: ReviewerResult("claude", "Verdict: PASS", True),
     )
+    # In prefer mode the proxy performs a FULL generation, so a successful CLI must not
+    # cost one (claude #9641 round-3 [P2]): the proxy is not to be touched at all here.
+    monkeypatch.setattr(
+        qe,
+        "run_claude_vibeproxy",
+        lambda *_args, **_kwargs: pytest.fail(
+            "proxy must not be attempted when the grounded CLI succeeds"
+        ),
+    )
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
 
     result = qe._run_claude_reviewer("review prompt")
 
@@ -477,6 +473,10 @@ def test_claude_reviewer_prefer_failure_uses_direct_path(
 def test_claude_reviewer_required_failure_never_runs_direct_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
     monkeypatch.setattr(
         qe,
         "run_claude_vibeproxy",
@@ -509,6 +509,10 @@ def test_claude_reviewer_required_failure_never_runs_direct_path(
 def test_default_reviewer_required_proxy_failure_never_uses_openrouter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Put the process in required mode: the stub reports required=True, and the
+    # resolved policy is what actually governs that (the reviewer now reads the mode
+    # before paying for a proxy generation), so env and stub must agree.
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
     monkeypatch.setattr(
         qe,
         "run_claude_vibeproxy",

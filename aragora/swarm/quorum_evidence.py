@@ -720,11 +720,14 @@ class EvidenceItem:
         # does not exist" (it does — pulled, digest sha256:a0b9bf06, container reports
         # v24.18.0), "24.18 is not an LTS line" (Node 24 is Active LTS), and
         # "`--only` was removed in npm 9" (it still omits devDependencies under
-        # npm 11). Both grounded CLI reviewers passed the same head. Ungrounded
-        # reviews stay posted and readable as advisory signal; they never count
-        # toward a quorum and never block a merge. Demoted here, the single choke
-        # point every construction path shares, so a prepared artifact cannot
-        # smuggle an ungrounded review back into counting_families.
+        # npm 11). Both grounded CLI reviewers passed the same head. An ungrounded
+        # review never counts toward a quorum and never blocks a merge; it is kept
+        # in the prepared artifact as advisory evidence and stays readable there.
+        # (Note it is not AUTO-posted: the posting loops skip every non-supportive
+        # item, which predates this change and applies to advisory-only families
+        # too — openai #9641 round-3 [P3].) Demoted here, the single choke point
+        # every construction path shares, so a prepared artifact cannot smuggle an
+        # ungrounded review back into counting_families.
         if (
             self.would_count
             and not self.grounded
@@ -1856,6 +1859,32 @@ def _run_claude_cli(prompt: str, *, timeout: float | None = None) -> ReviewerRes
     return ReviewerResult("claude", _cap_text(text), True)
 
 
+def _claude_transport_mode_is_required() -> bool:
+    """Whether the resolved transport policy is ``vibeproxy-required``.
+
+    Resolved from the policy WITHOUT contacting the proxy, so the CLI-first ordering can
+    be chosen before any generation is paid for: in prefer mode ``run_claude_vibeproxy``
+    performs a full ``anthropic_message`` generation, so attempting it eagerly and then
+    discarding it whenever the CLI succeeds — the common case under CLI-first — would
+    burn a whole generation on every review (claude #9641 round-3 [P2]).
+
+    A malformed configuration degrades to "not required", mirroring
+    ``run_claude_vibeproxy``'s own deliberate typo-tolerance: only an explicit
+    ``required`` token may escalate to the fail-closed path.
+    """
+    from aragora.agents.transports.vibeproxy import (
+        ModelTransportPolicy,
+        TransportMode,
+        VibeProxyConfigurationError,
+    )
+
+    try:
+        return ModelTransportPolicy.from_env().mode is TransportMode.REQUIRED
+    except VibeProxyConfigurationError:
+        raw_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "").strip().lower()
+        return raw_mode == TransportMode.REQUIRED.value
+
+
 def _run_claude_reviewer(prompt: str) -> ReviewerResult:
     """Run Claude evidence through the grounded CLI first, then VibeProxy, then API.
 
@@ -1875,37 +1904,36 @@ def _run_claude_reviewer(prompt: str) -> ReviewerResult:
     """
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
 
-    # Ask the transport policy first. In direct mode (the default) this returns
-    # ``attempted=False`` without touching the proxy, so it costs nothing and the
-    # grounded CLI below runs exactly as before.
-    vibeproxy = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
-    if vibeproxy.required:
+    if _claude_transport_mode_is_required():
         # ``vibeproxy-required`` means "the proxy or nothing": it must never reach the
         # direct CLI or an OpenRouter fallback, so this branch returns either the proxy
-        # result or a fail-closed error. Decided from the attempt itself rather than
-        # from the env, because the resolved policy is what actually governs.
-        if vibeproxy.ok:
+        # result or a fail-closed error.
+        required_attempt = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
+        if required_attempt.ok:
             return ReviewerResult(
                 "claude",
-                _cap_text(vibeproxy.text),
+                _cap_text(required_attempt.text),
                 True,
-                harness=vibeproxy.harness,
+                harness=required_attempt.harness,
                 grounded=False,
             )
         return ReviewerResult(
             "claude",
             "",
             False,
-            vibeproxy.error,
+            required_attempt.error,
             allow_transport_fallback=False,
         )
 
-    # Not required (direct, or prefer). Try the grounded CLI BEFORE accepting a proxy
-    # result: under ``prefer`` the proxy would otherwise win and yield an advisory-only
-    # review, leaving the family with no countable signal at all.
+    # Direct or prefer: the grounded CLI runs FIRST and the proxy is touched only if it
+    # fails. The proxy is NOT attempted eagerly here -- in prefer mode that performs a
+    # full message generation, which CLI-first would then discard on every successful
+    # review (claude #9641 round-3 [P2]). In direct mode it was always a no-op.
     cli_result = _run_claude_cli(prompt, timeout=timeout)
     if cli_result.ok:
         return cli_result
+
+    vibeproxy = run_claude_vibeproxy(prompt, reviewer_timeout=timeout)
     if vibeproxy.ok:
         return ReviewerResult(
             "claude",
