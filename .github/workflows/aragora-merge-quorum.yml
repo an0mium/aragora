@@ -265,10 +265,10 @@ jobs:
                   "status. See docs/governance/MERGE_GATE_RECONCILIATION.md."
               )
 
-          # The PR is already merged and its settlement receipt is recorded. There is
-          # nothing left to authorize, so do not fail closed on it.
-          if status == "settled":
-              print(f"PR #{pr_number} is already merged with settlement recorded; nothing to gate.")
+          # The PR is already merged ('settled' additionally has a settlement receipt
+          # recorded). There is nothing left to authorize, so do not fail closed on it.
+          if status in ("settled", "already_merged"):
+              print(f"PR #{pr_number} is already merged (status={status}); nothing left to gate.")
               sys.exit(0)
 
           # The live gate withheld admin-squash authorization even though the model

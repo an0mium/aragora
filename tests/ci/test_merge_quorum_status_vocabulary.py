@@ -25,8 +25,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PRODUCER = REPO_ROOT / "aragora" / "cli" / "commands" / "review_queue.py"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "aragora-merge-quorum.yml"
 
-# `status = "..."` / `entry_status = "..."` assignments in the evaluator.
-_PRODUCED = re.compile(r'^\s*(?:entry_)?status = "([a-z0-9_]+)"', re.MULTILINE)
+# The evaluator defines a status two ways, and the guard must catch both:
+#   * assignment ...... `status = "..."` / `entry_status = "..."`
+#   * dict literal .... `"status": "..."`   (how `already_merged` is defined)
+# Missing the dict form is not hypothetical: the first version of this guard only
+# matched assignments, shipped green, and `already_merged` still reached the
+# catch-all in production. See #9640.
+_PRODUCED = re.compile(
+    r'^\s*(?:(?:entry_)?status = "([a-z0-9_]+)"|"status": "([a-z0-9_]+)")',
+    re.MULTILINE,
+)
 # `status == "..."` and `status in ("...", "...")` in the workflow's dispatch.
 _HANDLED_EQ = re.compile(r'status == "([a-z0-9_]+)"')
 _HANDLED_IN = re.compile(r"status in \(([^)]*)\)")
@@ -34,7 +42,9 @@ _LITERAL = re.compile(r'"([a-z0-9_]+)"')
 
 
 def produced_statuses() -> set[str]:
-    return set(_PRODUCED.findall(PRODUCER.read_text(encoding="utf-8")))
+    found = _PRODUCED.findall(PRODUCER.read_text(encoding="utf-8"))
+    # Each match yields one group per alternative; keep whichever matched.
+    return {value for groups in found for value in groups if value}
 
 
 def handled_statuses() -> set[str]:
@@ -67,9 +77,9 @@ def test_every_produced_status_is_handled_by_the_gate() -> None:
 
 
 def test_regression_9640_statuses_have_explicit_branches() -> None:
-    """Pin the two statuses that were missing, so a revert cannot silently undo the fix."""
+    """Pin the statuses that were missing, so a revert cannot silently undo the fix."""
     handled = handled_statuses()
-    for status in ("blocked_by_live_gate", "settled"):
+    for status in ("blocked_by_live_gate", "settled", "already_merged"):
         assert status in handled, (
             f"'{status}' lost its explicit branch in aragora-merge-quorum.yml; it would "
             "again hard-fail a required check via the catch-all. See #9640."
