@@ -45,7 +45,7 @@ with an honest pending status and the exact step that closes it.
 |---|---|---|
 | Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
 | Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
-| Crux-cards receipt | **product defect** | Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643). Still needs [#9644](https://github.com/synaptent/aragora/issues/9644) (dissent attribution) **and** a 3+ agent debate — two agents cannot register a disagreement. Verify the `cruxes` block including non-empty `contesting_agents` before adding. Not blocked on credentials or on AWS. |
+| Crux-cards receipt | **product defect** | Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643) (default path; KM-belief-sync path tracked as [#9649](https://github.com/synaptent/aragora/issues/9649)). Still needs [#9644](https://github.com/synaptent/aragora/issues/9644) (dissent attribution) **and** a 3+ agent debate — two agents cannot register a disagreement. Verify the `cruxes` block including non-empty `contesting_agents` before adding. Not blocked on credentials or on AWS. |
 | Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
 
 The repository can prepare and validate these artifacts, but none of the four
@@ -163,14 +163,16 @@ run". Both halves are now false:
 - A CLI flag does exist: `aragora ask --crux-cards`, shipped in #9506 (merged
   2026-07-23T02:43Z, after this bundle was assembled). All timestamps in this
   bundle are UTC, matching what GitHub records.
-- Credentials are **not** the blocker. Crux cards cannot currently be produced
-  by *any* standard debate — see [#9581](https://github.com/synaptent/aragora/issues/9581).
+- Credentials are **not** the blocker. *(Assessment as of 2026-07-24; see the
+  2026-07-27 status below, which supersedes the present tense here.)* Crux cards
+  could not then be produced by *any* standard debate — see
+  [#9581](https://github.com/synaptent/aragora/issues/9581).
   Both paths that build the `BeliefNetwork` for crux detection
   (`crux_cards._network_from_messages` and
   `winner_selector.analyze_belief_network`) add claims but never add the
   `SUPPORTS`/`CONTRADICTS` factor edges that
   `CruxDetector.compute_disagreement_scores()` requires, so
-  `total_disagreements` is always `0` and no crux clears any threshold.
+  `total_disagreements` was always `0` and no crux cleared any threshold.
 
 Evidence for the re-attribution: two real provider-backed debates were run on
 2026-07-24 (`aragora ask --agents claude,codex --crux-cards`, 2 and 3 rounds,
@@ -182,8 +184,14 @@ deliberately contested prompts). Both produced receipts with
 [#9643](https://github.com/synaptent/aragora/pull/9643) (merged
 2026-07-27T17:10Z) fixed the missing edges: each `Critique` already records
 which agent contested whose proposal and how hard (`severity`), so those now
-become the `CONTRADICTS` edges the detector needs. Verified 0 crux cards before
-and 4 after on the same contested debate.
+become the `CONTRADICTS` edges the detector needs.
+
+Measured on a contested **two-agent** debate, the detector went from **0
+candidate cruxes to 4**. That is a detector-level count, not a published card
+count: at current head that same debate still emits **no** `cruxes` block,
+because two agents cannot register a disagreement (condition 1 below) and
+#9643 suppresses cards when none is detected. The edge construction is fixed;
+a *published* crux block additionally needs the two conditions below.
 
 **Two conditions still stand between that and a crux-bearing receipt, and both
 are stated here rather than discovered at audit:**
@@ -200,14 +208,17 @@ are stated here rather than discovered at audit:**
    [#9644](https://github.com/synaptent/aragora/issues/9644). `detect_cruxes()`
    calls `network.propagate()` *before* `compute_disagreement_scores()`, so
    belief propagation converges the authors' stances and flattens the variance
-   it then measures. **Fixing #9581 alone can therefore yield a populated but
+   it then measures. **The edge fix alone can therefore yield a populated but
    misattributed `cruxes` block** — the earlier claim in this section that "the
    detector itself is sound" was under-scoped, and is corrected here.
 
 Also unchanged: the fix covers the network the debate builds itself (the
 default path). A KM-seeded `ctx.belief_network` — only present under
 `enable_km_belief_sync` — uses KM-derived claim ids that message-derived ids
-cannot match, so #9581 remains open for those debates.
+cannot match, so crux cards remain unproducible for those debates.
+[#9581](https://github.com/synaptent/aragora/issues/9581) was **closed** by the
+#9643 merge (default path); that remaining configuration is tracked separately
+as [#9649](https://github.com/synaptent/aragora/issues/9649).
 
 W3 plan line: "crux cards in ≥1 published receipt" — still the named gap. It is
 a **product defect**, not a credentials or infrastructure gap, and remains the
