@@ -186,14 +186,15 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
 
-      # Next.js inlines NEXT_PUBLIC_* at build time, so the published image needs
-      # them passed here. Without build-args the image inherits the Dockerfile's
-      # localhost ARG defaults; src/config.ts then derives api.<serving-host> at
-      # runtime, so the image still works, but it is built as a development
-      # bundle: NEXT_PUBLIC_API_URL contains "localhost", so _isProductionBuild is
-      # false, SSR renders dev defaults while the client renders production ones
-      # (hydration mismatch), and the "NEXT_PUBLIC_WS_URL not set" banner fires.
-      # Values match deploy-frontend.yml so both publishing lanes agree.
+      # Deliberately passes no NEXT_PUBLIC_* build-args. This is a general-purpose
+      # published image: self-hosters pull it (see deploy/helm values.yaml) and
+      # serve it from their own domain, and NEXT_PUBLIC_* is inlined at build
+      # time, so baking https://api.aragora.ai here would make every self-hosted
+      # deployment send browser API and WebSocket traffic to Aragora's backend.
+      # The image is host-agnostic instead: it inherits the Dockerfile's localhost
+      # defaults, which src/config.ts recognises as unusable and replaces with a
+      # derivation from the serving host. aragora.ai itself is built with explicit
+      # production values by deploy-frontend.yml's Vercel lane, not from this image.
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
@@ -205,9 +206,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            NEXT_PUBLIC_API_URL=https://api.aragora.ai
-            NEXT_PUBLIC_WS_URL=wss://api.aragora.ai
 
       - name: Build frontend for scanning
         run: |
