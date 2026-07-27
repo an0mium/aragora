@@ -557,6 +557,19 @@ def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
                 # Keep operator context for generic park-after-N blockers.
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
                 n += 1
+        elif feat.status == Status.PARKED and _retryable_park_kind_from_constraint(
+            str(feat.metadata.get("parked_reason") or "")
+        ):
+            # Swarm-path release (#8766 openai P2): select_for only claims
+            # PENDING/AWAITING_CLAIM/IN_PROGRESS and _reevaluate_parked lives
+            # in the orchestrator — a pure reconcile_from_ledger flow would
+            # otherwise leave the feature PARKED forever once its retryable
+            # constraint TTL expires. The TTL IS the pacing on this path:
+            # expiry releases the park back to claimable, the surviving
+            # ledger attempt budget still bounds total retries, and budget
+            # exhaustion folds to BLOCKED via the generic park above.
+            state.unpark(feat.id, "retryable park constraint expired; paced retry due")
+            n += 1
 
     # Fold discovered notes (advisory) into the matching feature. Never insert a
     # feature from ledger data — that stays the orchestrator+gate's job.

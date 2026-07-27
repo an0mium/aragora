@@ -177,3 +177,52 @@ def test_status_summary_counts_awaiting_claim(tmp_path, capsys) -> None:
     _cmd_status(Args())
     out = capsys.readouterr().out
     assert "1 awaiting claim" in out
+
+
+def test_swarm_reconcile_releases_expired_retryable_park(tmp_path) -> None:
+    """#8766 openai P2 (post-session round): select_for only claims
+    PENDING/AWAITING_CLAIM/IN_PROGRESS and _reevaluate_parked is
+    orchestrator-only, so a pure swarm flow must release a PARKED feature
+    itself once its retryable constraint TTL expires."""
+    from aragora.missions.ledger import Ledger as _Ledger
+    from aragora.missions.swarm import _reconcile_locked
+
+    state = MissionState(
+        mission_id="m1",
+        goal="g",
+        milestones=["m1"],
+        features=[Feature(id="f1", description="", milestone="m1", status=Status.AWAITING_CLAIM)],
+    )
+    state_path = tmp_path / "state.json"
+    state.save(state_path)
+    ledger_path = tmp_path / "ledger.json"
+    import time as _time
+
+    ledger = _Ledger(ledger_path)
+    now = _time.time()
+    assert ledger.claim("f1", "w1", now=now)
+    assert ledger.fail(
+        "f1",
+        "w1",
+        constraint_key="feature:f1",
+        constraint_reason=f"parked ({PARK_KIND_MATERIALIZATION}): git blip",
+        constraint_ttl=RETRYABLE_PARK_CONSTRAINT_TTL,
+        now=now,
+    )
+    # While the constraint is active the park folds in and holds.
+    _reconcile_locked(state_path, ledger_path)
+    assert MissionState.load(state_path).get("f1").status == Status.PARKED
+    # Re-record the same park far enough in the past that its TTL has
+    # expired: reconcile must release the park back to a claimable status.
+    past = now - RETRYABLE_PARK_CONSTRAINT_TTL - 10
+    assert ledger.claim("f1", "w2", now=past)
+    assert ledger.fail(
+        "f1",
+        "w2",
+        constraint_key="feature:f1",
+        constraint_reason=f"parked ({PARK_KIND_MATERIALIZATION}): git blip",
+        constraint_ttl=RETRYABLE_PARK_CONSTRAINT_TTL,
+        now=past,
+    )
+    _reconcile_locked(state_path, ledger_path)
+    assert MissionState.load(state_path).get("f1").status == Status.PENDING
