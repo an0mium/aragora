@@ -16,6 +16,9 @@ on:
       - 'aragora/live/**'
       - 'sdk/typescript/**'
       - 'deploy/Dockerfile.frontend'
+      # The build context is the repo root, so .dockerignore can break the image
+      # (e.g. by newly excluding sdk/typescript) without touching any file above.
+      - '.dockerignore'
       - '.github/workflows/frontend-image-build.yml'
   push:
     branches: [main]
@@ -23,6 +26,9 @@ on:
       - 'aragora/live/**'
       - 'sdk/typescript/**'
       - 'deploy/Dockerfile.frontend'
+      # The build context is the repo root, so .dockerignore can break the image
+      # (e.g. by newly excluding sdk/typescript) without touching any file above.
+      - '.dockerignore'
       - '.github/workflows/frontend-image-build.yml'
   workflow_dispatch:
 
