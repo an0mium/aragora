@@ -263,8 +263,10 @@ class OpenRouterAgent(APIAgent):
             payload["frequency_penalty"] = self.frequency_penalty
         # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
         # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
-        # 400. No-ops for every non-Claude model.
-        strip_sampling_params(payload, self.model)
+        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
+        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
+        # self.model would still name the primary. No-ops for non-Claude models.
+        strip_sampling_params(payload, payload["model"])
 
         # Acquire rate limit token
         limiter = get_openrouter_limiter()
@@ -447,8 +449,10 @@ class OpenRouterAgent(APIAgent):
             payload["frequency_penalty"] = self.frequency_penalty
         # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
         # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
-        # 400. No-ops for every non-Claude model.
-        strip_sampling_params(payload, self.model)
+        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
+        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
+        # self.model would still name the primary. No-ops for non-Claude models.
+        strip_sampling_params(payload, payload["model"])
 
         estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
             full_prompt,
