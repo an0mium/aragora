@@ -6,7 +6,18 @@ FROM node:20.11-alpine AS builder
 
 WORKDIR /app
 
-# Build-time public env (injected into Next.js build)
+# Build-time public env (injected into Next.js build).
+#
+# These defaults must stay pointed at localhost. Publishing lanes pass real
+# values (see docker.yml and deploy-frontend.yml); everything else — the compose
+# files here, and anyone running `docker build` directly — is a local or
+# self-hosted deployment.
+#
+# Do NOT "fix" these to https://api.aragora.ai. src/config.ts honours a
+# non-local baked URL verbatim, so a production default would make every
+# self-hosted deployment send its API and WebSocket traffic to Aragora's own
+# backend. A localhost default is what lets config.ts detect the value as
+# unusable and derive api.<serving-host> instead.
 ARG NEXT_PUBLIC_API_URL=http://localhost:8080
 ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 

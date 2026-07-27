@@ -130,13 +130,33 @@ function resolveApiBaseUrl(): string {
   return 'http://localhost:8080';
 }
 
+function isLocalWsEndpoint(value: string): boolean {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
 function resolveWsUrl(
   envValue: string | undefined,
   prodDefault: (host: string) => string,
   devDefault: string,
 ): string {
-  if (envValue) return envValue;
-  if (typeof window === 'undefined') {
+  const inBrowser = typeof window !== 'undefined';
+  const isProd = inBrowser && isProductionEnvironment();
+
+  // A localhost WebSocket URL baked in at build time cannot work once the bundle
+  // is served from a real hostname. This happens whenever a frontend image is
+  // built without NEXT_PUBLIC_WS_URL, since deploy/Dockerfile.frontend defaults
+  // the ARG to localhost and Next.js inlines it. Mirror resolveApiBaseUrl and
+  // prefer the serving host over an unusable baked value — unlike HTTP there is
+  // no same-origin rewrite to fall back on, so without this every WebSocket
+  // feature silently dials localhost.
+  if (envValue && !(isProd && isLocalWsEndpoint(envValue))) return envValue;
+
+  if (!inBrowser) {
     // SSR: use production default when build is production to match client render
     if (_isProductionBuild) {
       try {
@@ -148,8 +168,7 @@ function resolveWsUrl(
     }
     return devDefault;
   }
-  const host = window.location.hostname;
-  return isProductionEnvironment() ? prodDefault(host) : devDefault;
+  return isProd ? prodDefault(window.location.hostname) : devDefault;
 }
 
 // In production, prefer api.<host> unless explicitly configured.
