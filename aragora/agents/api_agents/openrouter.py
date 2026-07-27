@@ -34,6 +34,7 @@ from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import ExternalServiceError
+from aragora.models.compat import strip_sampling_params
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_fallback_chain_depth,
@@ -260,6 +261,10 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
+        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
+        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
+        # 400. No-ops for every non-Claude model.
+        strip_sampling_params(payload, self.model)
 
         # Acquire rate limit token
         limiter = get_openrouter_limiter()
@@ -440,6 +445,10 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
+        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
+        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
+        # 400. No-ops for every non-Claude model.
+        strip_sampling_params(payload, self.model)
 
         estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
             full_prompt,

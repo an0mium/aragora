@@ -571,6 +571,10 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if self.top_p is not None:
             payload["top_p"] = self.top_p
 
+        # Claude Opus 4.7+ (incl. the Opus 5 default) reject sampling
+        # params with a 400. No-ops for every other model.
+        strip_sampling_params(payload, self.model)
+
         if self.system_prompt:
             payload["system"] = self.system_prompt
 
