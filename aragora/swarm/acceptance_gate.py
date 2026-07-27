@@ -59,6 +59,33 @@ _TEST_CRITERION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Criteria that explicitly ask for test files to be written. Requires an
+# action verb: the bare noun ("unit tests") also appears in regression
+# phrasings like "existing unit tests still pass".
+_TEST_CREATION_RE = re.compile(
+    r"\b(?:add|writ(?:e|ing)|creat(?:e|ing)|includ(?:e|ing)|extend(?:ing)?|"
+    r"introduc(?:e|ing)|updat(?:e|ing)|cover)\b[^.;]{0,48}?\b(?:tests?|coverage)\b",
+    re.IGNORECASE,
+)
+
+# Criteria that only require ALREADY-EXISTING tests to keep passing. These are
+# regression guards, not requests for new tests, and on their own they must not
+# trigger the test-presence check — otherwise every pure-refactor issue becomes
+# structurally ungateable. The auto-generated narrowing/silencing issues all
+# carry "Existing tests still pass", so this is the common case, not an edge
+# case (#9638).
+_TEST_REGRESSION_ONLY_RE = re.compile(
+    r"\b(?:"
+    r"existing\s+(?:unit\s+|integration\s+)?tests?|"
+    r"(?:all|current)\s+tests?\s+(?:still\s+)?pass(?:es|ing)?|"
+    r"tests?\s+(?:still\s+|continue\s+to\s+|should\s+still\s+)?pass(?:es|ing)?|"
+    r"no\s+(?:new\s+)?test\s+(?:failures|regressions)|"
+    r"(?:do(?:es)?\s+not|don't|doesn't)\s+break\s+(?:existing\s+)?tests?|"
+    r"without\s+breaking\s+(?:existing\s+)?tests?"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Pull explicit pytest target file paths out of a criterion.
 _PYTEST_TARGET_RE = re.compile(
     r"(?:pytest|python\s+-m\s+pytest)\s+([^\s'\"`]+\.py)",
@@ -159,9 +186,21 @@ def _is_test_path(path: str) -> bool:
 
 
 def _criterion_requires_tests(criteria: Sequence[str]) -> bool:
+    """True when the criteria ask for test files, not merely mention tests.
+
+    Order matters. An explicit request wins even when the same criterion also
+    carries regression phrasing ("add tests and keep existing tests passing"),
+    a regression-only criterion is skipped, and anything else that mentions
+    testing still requires tests — preserving the module's conservative
+    default for phrasings neither pattern anticipates.
+    """
     for item in criteria or []:
         text = str(item or "").strip()
         if not text:
+            continue
+        if _TEST_CREATION_RE.search(text):
+            return True
+        if _TEST_REGRESSION_ONLY_RE.search(text):
             continue
         if _TEST_CRITERION_RE.search(text):
             return True

@@ -9,6 +9,8 @@ Fixtures inspired by Cycle 1 drift cases #5904, #5899, #5895.
 
 from __future__ import annotations
 
+import pytest
+
 from aragora.swarm.acceptance_gate import (
     AcceptanceGateResult,
     evaluate_acceptance,
@@ -133,6 +135,82 @@ def test_evaluate_passes_when_tests_added_even_via_companion() -> None:
         ],
     )
     assert result.passed, result
+
+
+def test_regression_only_criterion_does_not_demand_new_tests() -> None:
+    """A refactor whose criteria only guard existing tests must be gateable.
+
+    Real case from #9638: every auto-generated exception-narrowing issue ends
+    with "Existing tests still pass". Treating that as a request for new tests
+    made the whole class structurally ungateable — a correct one-line narrowing
+    could never pass, and four such deliverables (#9631/#9633/#9635/#9637) were
+    published and then marked needs_human.
+    """
+    result = evaluate_acceptance(
+        acceptance_criteria=[
+            "No `except Exception:` without `# noqa: BLE001` justification",
+            "`ruff check aragora/agents/performance_monitor.py` passes",
+            "Existing tests still pass",
+        ],
+        file_scope_hints=["aragora/agents/performance_monitor.py"],
+        changed_paths=["aragora/agents/performance_monitor.py"],
+    )
+    assert result.passed, result
+    assert "test_presence_missing" not in result.failure_classes
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Existing tests still pass",
+        "All tests pass",
+        "Current tests still passing",
+        "Do not break existing tests",
+        "No new test failures",
+        "without breaking existing tests",
+        "Existing unit tests still pass",
+    ],
+)
+def test_regression_phrasings_do_not_trigger_test_presence(criterion: str) -> None:
+    result = evaluate_acceptance(
+        acceptance_criteria=[criterion],
+        file_scope_hints=["aragora/swarm/helper.py"],
+        changed_paths=["aragora/swarm/helper.py"],
+    )
+    assert result.passed, criterion
+    assert "test_presence" not in result.checks_run
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Add unit tests for aragora/utils/error_sanitizer.py",
+        "Write regression tests covering the new branch",
+        "Add tests and ensure existing tests still pass",
+        "Test coverage for the new branch is added",
+        "pytest tests/swarm/test_helper.py passes",
+    ],
+)
+def test_creation_criteria_still_demand_tests(criterion: str) -> None:
+    """Narrowing the match must not weaken the real 'asked for tests' case."""
+    result = evaluate_acceptance(
+        acceptance_criteria=[criterion],
+        file_scope_hints=["aragora/swarm/helper.py"],
+        changed_paths=["aragora/swarm/helper.py"],
+    )
+    assert result.passed is False, criterion
+    assert "test_presence_missing" in result.failure_classes
+
+
+def test_unanticipated_test_phrasing_keeps_conservative_default() -> None:
+    """Neither pattern matching must still fall through to requiring tests."""
+    result = evaluate_acceptance(
+        acceptance_criteria=["The assert helper is exercised end to end"],
+        file_scope_hints=["aragora/swarm/helper.py"],
+        changed_paths=["aragora/swarm/helper.py"],
+    )
+    assert result.passed is False
+    assert "test_presence_missing" in result.failure_classes
 
 
 def test_evaluate_test_presence_skipped_when_no_test_criterion() -> None:
