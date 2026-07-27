@@ -4908,23 +4908,6 @@ def _run_hermetic_pr(
         launcher_sha = _sha256_bytes(launcher.read_bytes())
         if launcher_sha != bundle_metadata["launcher_sha256"]:
             raise ValueError("executed launcher differs from accepted launcher binding")
-        options = {
-            "--mode": "pr",
-            "--trusted-bundle": bundle_sha,
-            "--base-ref": base_sha,
-            "--head-ref": head_sha,
-            "--repo-root": str(repo_root),
-            "--inventory": rel_inventory,
-        }
-        command = [
-            sys.executable,
-            *ANALYZER_FLAGS,
-            str(launcher),
-            str(checker.parent),
-            str(checker),
-        ]
-        command.extend(token for pair in options.items() for token in pair)
-        command.append("--json")
         env = {
             "CDG_AUTHORITY_ROOT": str(bundle),
             "CDG_EXECUTED_LAUNCHER_SHA256": launcher_sha,
@@ -4932,7 +4915,7 @@ def _run_hermetic_pr(
             "HOME": cwd_raw,
             "PATH": "/usr/bin:/bin",
         }
-        proc = subprocess.run(command, cwd=cwd_raw, env=env, capture_output=True, text=True)
+        proc = subprocess.run([sys.executable, *ANALYZER_FLAGS, str(launcher), str(checker.parent), str(checker), "--mode", "pr", "--trusted-bundle", bundle_sha, "--base-ref", base_sha, "--head-ref", head_sha, "--repo-root", str(repo_root), "--inventory", rel_inventory, "--json"], cwd=cwd_raw, env=env, capture_output=True, text=True)  # fmt: skip
         if proc.returncode not in {0, 1}:
             raise ValueError(f"hermetic analyzer failed: {proc.stderr.strip()}")
         result = json.loads(proc.stdout)

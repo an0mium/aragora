@@ -115,9 +115,13 @@ PYTHON_EXECUTABLE_ARGUMENT_BINDINGS = frozenset(
     }
 )
 NON_REPOSITORY_COMMAND_ARGUMENT_BINDINGS = {
+    (
+        "scripts/check_contract_drift_ratchet.py",
+        "launcher",
+    ): "__contract_drift_hermetic_launcher.py",
     ("scripts/generate_contract_drift_inventory.py", "runner_path"): (
         "__contract_drift_exact_ref_runner.py"
-    )
+    ),
 }
 DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES = frozenset(
     {
