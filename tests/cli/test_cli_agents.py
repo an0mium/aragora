@@ -1441,7 +1441,9 @@ class TestCLIAgentModelMapping:
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
         agent = GrokCLIAgent(name="test", model="grok-3")
-        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-4.5"
+        # Legacy slug follows xAI's documented retirement redirect to 4.3
+        # (#9064 openai P2): no silent upgrade to flagship pricing.
+        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-4.3"
 
     def test_deepseek_model_mapping(self):
         """Should map Deepseek models correctly."""
