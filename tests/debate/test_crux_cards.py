@@ -8,10 +8,15 @@ default) must leave results and receipts byte-identical to pre-flag behavior.
 
 from __future__ import annotations
 
+import dataclasses
 from types import SimpleNamespace
 
-from aragora.core_types import DebateResult, Message
-from aragora.debate.crux_cards import CRUX_CARDS_METADATA_KEY, build_crux_cards
+from aragora.core_types import Critique, DebateResult, Message
+from aragora.debate.crux_cards import (
+    CRUX_CARDS_METADATA_KEY,
+    _network_from_messages,
+    build_crux_cards,
+)
 from aragora.debate.protocol import DebateProtocol
 from aragora.reasoning.belief import BeliefNetwork
 from aragora.reasoning.claims import RelationType
@@ -108,3 +113,111 @@ class TestConsensusPhaseAttach:
         phase = self._phase(DebateProtocol(enable_crux_cards=True))
         broken_ctx = SimpleNamespace(result=None, belief_network=None)
         phase._attach_crux_cards(broken_ctx)  # must swallow, not raise
+
+
+# --- #9581: cruxes were structurally unreachable in a real debate -------------
+# The detector scores a claim by how much authors disagree about it, which it
+# reads from the network's FACTOR EDGES. Both build paths added claims and no
+# edges, so `total_disagreements` was always 0 and no crux cleared any
+# threshold, at any min_score, with any agents.
+
+
+def _contested_debate() -> tuple[list[Message], list[Critique]]:
+    """A real two-agent disagreement, as a debate actually records it."""
+    messages = [
+        Message(role="proposer", agent="claude", content="Declare the month failed."),
+        Message(role="proposer", agent="codex", content="Ship local proofs and count them."),
+        Message(role="critic", agent="codex", content="Failing discards real evidence."),
+        Message(role="critic", agent="claude", content="Counting overstates what was proven."),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="",
+            issues=["discards evidence"],
+            suggestions=[],
+            severity=7.0,
+            reasoning="Failing the month discards real evidence.",
+        ),
+        Critique(
+            agent="claude",
+            target_agent="codex",
+            target_content="",
+            issues=["overstates proof"],
+            suggestions=[],
+            severity=8.0,
+            reasoning="Counting local proofs overstates what was proven.",
+        ),
+    ]
+    return messages, critiques
+
+
+def test_messages_without_critiques_still_yield_nothing():
+    """The pre-fix behaviour, pinned: claims alone can never produce a crux."""
+    messages, _ = _contested_debate()
+    assert build_crux_cards(messages=messages) is None
+
+
+def test_critiques_make_a_contested_debate_produce_cruxes():
+    """The #9581 regression: the same debate WITH its critiques yields cruxes."""
+    messages, critiques = _contested_debate()
+    cards = build_crux_cards(messages=messages, critiques=critiques)
+    assert cards is not None
+    assert cards["items"], "a contested debate must surface at least one crux"
+    assert cards["total_disagreements"] > 0
+
+
+def test_critique_severity_drives_edge_strength():
+    """Severity sets the CONTRADICTS edge weight (0-10 scale -> 0.1-1.0).
+
+    Deliberately asserts the edge weight rather than a crux-score direction:
+    the score is a composite, and a *weakly* contested claim can legitimately
+    score higher because it stays unresolved and therefore more load-bearing.
+    """
+    messages, critiques = _contested_debate()
+    network = _network_from_messages(messages, critiques)
+    strengths = sorted(f.strength for f in network.factors.values())
+    assert strengths == [0.7, 0.8]  # severity 7.0 and 8.0
+
+    floored = _network_from_messages(
+        messages, [dataclasses.replace(c, severity=0.0) for c in critiques]
+    )
+    # A severity-0 nit is still a recorded disagreement, so it keeps a floor
+    # rather than becoming a zero-weight (invisible) edge.
+    assert all(f.strength == 0.1 for f in floored.factors.values())
+
+
+def test_unmappable_critiques_are_skipped_not_raised():
+    """Crux building is optional enrichment; bad input must not break a debate."""
+    messages, _ = _contested_debate()
+    junk = [
+        Critique(
+            agent="ghost",
+            target_agent="nobody",  # no such proposer
+            target_content="",
+            issues=[],
+            suggestions=[],
+            severity=5.0,
+            reasoning="unmappable",
+        )
+    ]
+    # No proposal to attach to -> no edges -> no cruxes, and no exception.
+    assert build_crux_cards(messages=messages, critiques=junk) is None
+
+
+def test_self_critique_does_not_create_an_edge():
+    """An agent critiquing itself is not a disagreement between authors."""
+    messages, _ = _contested_debate()
+    selfish = [
+        Critique(
+            agent="claude",
+            target_agent="claude",
+            target_content="",
+            issues=["x"],
+            suggestions=[],
+            severity=9.0,
+            reasoning="self",
+        )
+    ]
+    assert build_crux_cards(messages=messages, critiques=selfish) is None

@@ -207,6 +207,15 @@ class CruxDetector:
             # Group incoming evidence by author
             author_beliefs: dict[str, list[float]] = {}
 
+            # The claim's own author asserts it. Without this the map holds only
+            # *neighbours*, so the score measured how much contesters differ from
+            # EACH OTHER and not whether anyone contested the author at all: two
+            # agents both contradicting a claim scored zero variance -> zero
+            # disagreement and an empty `contesting_agents`, which is precisely
+            # the case a crux card exists to surface.
+            if node.author:
+                author_beliefs[node.author] = [node.posterior.p_true]
+
             # Look at claims from different authors that relate to this claim
             for factor_id in self.network.node_factors.get(node_id, []):
                 factor = self.network.factors.get(factor_id)
