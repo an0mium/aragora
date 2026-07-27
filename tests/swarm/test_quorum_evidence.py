@@ -1388,6 +1388,51 @@ def test_api_only_family_keeps_authority_without_a_cli_transport() -> None:
     assert _grounding_item("mistral", "pass", grounded=False).would_count is True
 
 
+def test_openrouter_fallback_review_is_ungrounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The OpenRouter re-wrap must not restore grounded authority.
+
+    Regression for claude/openai #9641: this is the credential-walled fallback path,
+    i.e. precisely where ungrounded reviews get produced, so a grounded default here
+    reopened the hole the grounding contract closes.
+    """
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    monkeypatch.setattr(qe, "_openrouter_reviewer_model", lambda _fam: "some/model")
+    monkeypatch.setattr(
+        qe,
+        "_run_api_agent",
+        lambda fam, prompt, model=None: ReviewerResult(fam, "Verdict: PASS", True, grounded=False),
+    )
+
+    result = qe._run_openrouter_reviewer("claude", "review prompt")
+
+    assert result.ok is True
+    assert result.grounded is False
+
+
+def test_stringly_grounded_false_cannot_truthify() -> None:
+    """`bool("false")` is True — a forged artifact must not smuggle authority back in."""
+    assert qe._coerce_grounded_flag("false") is False
+    assert qe._coerce_grounded_flag("0") is False
+    assert qe._coerce_grounded_flag(0) is False
+    assert qe._coerce_grounded_flag("true") is True
+    assert qe._coerce_grounded_flag(True) is True
+    # Absent means "artifact predates the field", which keeps historical authority.
+    assert qe._coerce_grounded_flag(None) is True
+
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": "Verdict: PASS\nNo findings.\n",
+            "would_count": True,
+            "verdict": "pass",
+            "grounded": "false",
+        }
+    )
+    assert item.grounded is False
+    assert item.would_count is False
+
+
 def test_grounding_survives_prepared_artifact_roundtrip() -> None:
     """A prepared artifact must not be able to smuggle an ungrounded review into counting."""
     raw = {

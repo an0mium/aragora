@@ -1031,6 +1031,33 @@ def _string_list(value: Any) -> list[str]:
     return [str(item) for item in value if str(item)]
 
 
+def _coerce_grounded_flag(value: Any) -> bool:
+    """Coerce a serialized ``grounded`` flag to bool without stringly truthiness.
+
+    Grounding describes the transport that produced the body, and it cannot be
+    recomputed at apply time (relint re-parses text; it does not re-run the reviewer).
+
+    A MISSING field means the artifact predates the field, so its transport is unknown
+    and it keeps its historical authority — demoting every legacy artifact would strand
+    in-flight prepared packets mid-settlement. Unlike ``severity_gated`` that default is
+    deliberately not fail-closed, because ungrounded lowers BOTH counting and blocking,
+    so neither default is uniformly stricter, and every live collect path now sets the
+    field explicitly.
+
+    A PRESENT value is parsed strictly: only a real ``True`` or an explicit true token
+    grounds it. Plain ``bool()`` would truthify the string ``"false"`` and let a
+    stringly or forged artifact smuggle an ungrounded review back into counting
+    authority (openai #9641 [P2]) — the same hazard ``_coerce_relaxed_flag`` guards.
+    """
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return False
+
+
 def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
     if not isinstance(raw, dict):
         raise ValueError("prepared evidence item must be an object")
@@ -1047,15 +1074,7 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
-        # Grounding describes the transport that produced ``body``, which cannot be
-        # recomputed at apply time (relint re-parses the text, it does not re-run the
-        # reviewer). An artifact written before this field existed has an unknown
-        # transport, so absence defaults to grounded=True to keep in-flight prepared
-        # packets settleable rather than silently demoting all of them mid-settlement.
-        # Unlike ``severity_gated`` this is deliberately NOT fail-closed: ungrounded
-        # lowers BOTH counting and blocking, so neither default is uniformly stricter,
-        # and every live collect path now sets the field explicitly.
-        grounded=bool(raw.get("grounded", True)),
+        grounded=_coerce_grounded_flag(raw.get("grounded")),
         # Restore the prepare-time regime; default fail-CLOSED (strict — every
         # changes_requested blocks) when an older/forged artifact omits it, so a
         # missing field can never RELAX the gate. apply_prepared_evidence then
@@ -2119,7 +2138,12 @@ def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
     )
     result = _run_api_agent(fam, prompt, model=model)
     if result.ok:
-        return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
+        # OpenRouter is a single-shot API transport with no tools, so this review is
+        # ungrounded. Set it EXPLICITLY: this re-wrap drops whatever `_run_api_agent`
+        # returned, and defaulting to grounded here would reopen the hole on exactly
+        # the path that produces ungrounded reviews — a credential-walled CLI falling
+        # back to OpenRouter (claude/openai #9641 review).
+        return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS, grounded=False)
     return result
 
 
