@@ -4376,9 +4376,8 @@ def build_accepted_result(
         return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
         source = source_sha or ""
-        argv = ("git", "-C", str(repo_root), "rev-list", "--first-parent", source)
         valid = FULL_SHA_RE.fullmatch(source)
-        proc = subprocess.run(argv, capture_output=True, text=True) if valid else None
+        proc = subprocess.run(["git", "-C", str(repo_root), "rev-list", "--first-parent", source], capture_output=True, text=True) if valid else None  # fmt: skip
         chain = proc.stdout.splitlines() if proc and proc.returncode == 0 else []
         passing = bool(chain and chain[0] == source_sha)
         return {
