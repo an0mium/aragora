@@ -59,9 +59,13 @@ def build_crux_cards(
     network = belief_network
     if network is None:
         network = _network_from_messages(messages or [], critiques or [])
-    elif critiques:
-        # A KM-seeded network still carries no debate-relative edges.
-        _link_critiques(network, messages or [], critiques)
+    # NOT linked into a supplied ``belief_network``. That network is KM-seeded at
+    # debate setup (only when ``enable_km_belief_sync``) and its claim ids are
+    # KM-derived, so the message-derived ids here match nothing in it: every
+    # ``add_factor`` would no-op while ``add_claim`` left orphan nodes behind in
+    # state that ``consensus_storage.get_cruxes`` and crux_finder later read.
+    # Crux building is optional enrichment and stays read-only on that path;
+    # #9581 therefore remains open for KM-belief-sync debates (see #9644).
     if network is None or not getattr(network, "nodes", None):
         return None
 
@@ -104,12 +108,19 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
     return network
 
 
-def _first_claim_id_for_agent(messages: list[Any], agent: str, role: str) -> str | None:
-    """The claim id of ``agent``'s first ``role`` message, matching the ids above."""
-    for i, msg in enumerate(messages):
-        if getattr(msg, "role", "") == role and str(getattr(msg, "agent", "")) == agent:
-            return f"msg_{i}_{agent}"
-    return None
+def _claim_ids_for_agent(messages: list[Any], agent: str, role: str) -> list[str]:
+    """Claim ids of every ``role`` message by ``agent``, in order.
+
+    A list rather than the first match: a critic writes one message per round
+    per target, so anchoring every one of their critiques to their *first*
+    message would mis-attribute the source statement and stack duplicate
+    parallel edges between the same claim pair in a multi-round debate.
+    """
+    return [
+        f"msg_{i}_{agent}"
+        for i, msg in enumerate(messages)
+        if getattr(msg, "role", "") == role and str(getattr(msg, "agent", "")) == agent
+    ]
 
 
 def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> int:
@@ -120,9 +131,15 @@ def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> 
     relation :class:`CruxDetector` needs, so edges are derived from the debate's
     own structured records rather than inferred from prose.
 
-    Edge strength is ``severity / 10`` (the documented 0-10 scale) clamped to a
-    small floor, so a critical objection weighs more than a cosmetic one and a
-    ``severity=0`` nit still registers as contested rather than vanishing.
+    Edge strength is ``severity / 10`` (the documented 0-10 scale), so a critical
+    objection weighs more than a moderate one.
+
+    ``severity <= 0`` is skipped entirely. The debate emits placeholder critiques
+    with ``severity=0.0`` when a critic times out or errors
+    (``critique_generator``/``debate_rounds``), and flooring those to a nonzero
+    weight would manufacture crux cards for disagreements that never happened.
+    A genuine 0-severity finding is "trivial/cosmetic" by the documented scale
+    and so is not load-bearing either — which is precisely what a crux is.
 
     Best-effort: an unmappable critique is skipped rather than raising, since
     the caller treats crux-building as optional enrichment.
@@ -133,34 +150,35 @@ def _link_critiques(network: Any, messages: list[Any], critiques: list[Any]) -> 
         return 0
 
     linked = 0
-    for n, critique in enumerate(critiques):
+    used_source: dict[str, int] = {}
+    for critique in critiques:
         critic = str(getattr(critique, "agent", "") or "")
         target = str(getattr(critique, "target_agent", "") or getattr(critique, "target", "") or "")
         if not critic or not target or critic == target:
             continue
 
-        target_claim = _first_claim_id_for_agent(messages, target, "proposer")
-        if target_claim is None:
-            continue
-
-        source_claim = _first_claim_id_for_agent(messages, critic, "critic")
-        if source_claim is None:
-            # The critique exists but its text never became a message (e.g. a
-            # critique-only round); represent it as its own claim so the
-            # disagreement is still attributable to its author.
-            source_claim = f"critique_{n}_{critic}"
-            network.add_claim(
-                claim_id=source_claim,
-                statement=str(getattr(critique, "reasoning", "") or "")[:500],
-                author=critic,
-                initial_confidence=_ASSERTED_CONFIDENCE,
-            )
-
         try:
             severity = float(getattr(critique, "severity", 0.0) or 0.0)
         except (TypeError, ValueError):
             severity = 0.0
-        strength = min(1.0, max(0.1, severity / 10.0))
+        if severity <= 0:
+            continue
+
+        target_claims = _claim_ids_for_agent(messages, target, "proposer")
+        if not target_claims:
+            continue
+        target_claim = target_claims[0]
+
+        # Consume this critic's critic-role messages in order, so successive
+        # critiques anchor to successive messages instead of all to the first.
+        source_claims = _claim_ids_for_agent(messages, critic, "critic")
+        index = used_source.get(critic, 0)
+        if index >= len(source_claims):
+            continue
+        used_source[critic] = index + 1
+        source_claim = source_claims[index]
+
+        strength = min(1.0, severity / 10.0)
 
         if network.add_factor(source_claim, target_claim, RelationType.CONTRADICTS, strength):
             linked += 1

@@ -254,11 +254,19 @@ class CruxDetector:
                     variance = sum((x - mean) ** 2 for x in author_means) / len(author_means)
                     disagreement = math.sqrt(variance) * 2  # Scale to 0-1 range
 
-                    # Find contesting agents (those far from mean)
+                    # Find contesting agents (those far from mean). The claim's
+                    # own author is excluded: their stance is seeded above so the
+                    # variance can be measured against it, but an author does not
+                    # *contest* their own claim, and this list flows through
+                    # CruxClaim -> crux cards -> DecisionReceipt dissent
+                    # attribution, where naming the proposer as a dissenter would
+                    # be read as a false attribution.
                     contesting = [
                         author
                         for author, beliefs in author_beliefs.items()
-                        if beliefs and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
+                        if author != node.author
+                        and beliefs
+                        and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
                     ]
                     disagreement_scores[node_id] = (min(1.0, disagreement), contesting)
                 else:

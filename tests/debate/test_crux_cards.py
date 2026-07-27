@@ -169,7 +169,7 @@ def test_critiques_make_a_contested_debate_produce_cruxes():
 
 
 def test_critique_severity_drives_edge_strength():
-    """Severity sets the CONTRADICTS edge weight (0-10 scale -> 0.1-1.0).
+    """Severity sets the CONTRADICTS edge weight (0-10 scale -> 0.0-1.0).
 
     Deliberately asserts the edge weight rather than a crux-score direction:
     the score is a composite, and a *weakly* contested claim can legitimately
@@ -177,15 +177,82 @@ def test_critique_severity_drives_edge_strength():
     """
     messages, critiques = _contested_debate()
     network = _network_from_messages(messages, critiques)
-    strengths = sorted(f.strength for f in network.factors.values())
-    assert strengths == [0.7, 0.8]  # severity 7.0 and 8.0
+    assert sorted(f.strength for f in network.factors.values()) == [0.7, 0.8]
 
-    floored = _network_from_messages(
-        messages, [dataclasses.replace(c, severity=0.0) for c in critiques]
-    )
-    # A severity-0 nit is still a recorded disagreement, so it keeps a floor
-    # rather than becoming a zero-weight (invisible) edge.
-    assert all(f.strength == 0.1 for f in floored.factors.values())
+
+def test_zero_severity_placeholder_critiques_make_no_edges():
+    """A timed-out critic must not manufacture a disagreement.
+
+    `critique_generator` / `debate_rounds` emit placeholder Critiques with
+    severity=0.0 when a critic errors or times out. Flooring those to a nonzero
+    weight would emit crux cards for disagreements that never happened.
+    """
+    messages, _ = _contested_debate()
+    placeholders = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="",
+            issues=["[Critique failed: timeout]"],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Critique generation failed due to timeout or agent error.",
+        )
+    ]
+    assert build_crux_cards(messages=messages, critiques=placeholders) is None
+
+
+def test_supplied_belief_network_is_not_mutated():
+    """Crux building is optional enrichment and must stay read-only there.
+
+    A KM-seeded ctx.belief_network uses KM-derived claim ids, so message-derived
+    ids match nothing in it: linking would no-op every edge while leaving orphan
+    claims behind in state that consensus_storage/crux_finder later read.
+    """
+    messages, critiques = _contested_debate()
+    seeded = BeliefNetwork(max_iterations=3)
+    seeded.add_claim(claim_id="km-derived-001", statement="seeded", author="claude")
+    before_nodes, before_factors = len(seeded.nodes), len(seeded.factors)
+
+    build_crux_cards(belief_network=seeded, messages=messages, critiques=critiques)
+
+    assert (len(seeded.nodes), len(seeded.factors)) == (before_nodes, before_factors)
+
+
+def test_successive_critiques_anchor_to_successive_messages():
+    """A critic's Nth critique must not re-anchor to their first message.
+
+    Otherwise every critique by one agent stacks duplicate parallel edges
+    between the same claim pair and mis-attributes the source statement.
+    """
+    messages = [
+        Message(role="proposer", agent="claude", content="P1"),
+        Message(role="critic", agent="codex", content="first objection"),
+        Message(role="critic", agent="codex", content="second objection"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="",
+            issues=["a"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r1",
+        ),
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content="",
+            issues=["b"],
+            suggestions=[],
+            severity=6.0,
+            reasoning="r2",
+        ),
+    ]
+    network = _network_from_messages(messages, critiques)
+    sources = {network.nodes[f.source_node_id].claim_statement for f in network.factors.values()}
+    assert sources == {"first objection", "second objection"}
 
 
 def test_unmappable_critiques_are_skipped_not_raised():
