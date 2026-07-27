@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 CRUX_CARDS_METADATA_KEY = "crux_cards"
 
+# An agent that states a claim in a debate is asserting it, so it is not recorded
+# at ``add_claim``'s 0.5 default — maximum entropy, i.e. "no opinion" about its
+# own claim. Dissent attribution no longer reads belief values at all (#9644
+# derives it from edge polarity), so this now feeds only the uncertainty/entropy
+# component of ``crux_score`` and propagation dynamics. Deliberately short of
+# certainty: an asserted debate claim is a position, not a proof.
+_ASSERTED_CONFIDENCE = 0.8
+
 
 def build_crux_cards(
     *,
@@ -76,10 +84,9 @@ def build_crux_cards(
         # disagreement actually detected behind them — an overclaim in exactly
         # the surface auditors read. Absent is honest; mislabelled is not.
         #
-        # `CruxDetector` registers a disagreement only when >=2 authors *other
-        # than the claim's own* relate to it, so a two-agent debate trading
-        # reciprocal critiques never reaches one. Making a two-agent debate
-        # attribute dissent is #9644's scope, not this edge-construction fix.
+        # Reached when nothing was contested at all: since #9644 a single
+        # CONTRADICTS edge registers a disagreement and names its contester, so
+        # any real critique clears this guard.
         logger.info("crux_cards_suppressed_no_disagreement claims=%d", analysis.total_claims)
         return None
 
@@ -108,6 +115,7 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
                 claim_id=f"msg_{i}_{getattr(msg, 'agent', 'unknown')}",
                 statement=str(getattr(msg, "content", ""))[:500],
                 author=str(getattr(msg, "agent", "unknown")),
+                initial_confidence=_ASSERTED_CONFIDENCE,
             )
             added += 1
     if not added:

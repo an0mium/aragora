@@ -161,17 +161,32 @@ def test_messages_without_critiques_still_yield_nothing():
     assert build_crux_cards(messages=messages) is None
 
 
-def test_two_agent_debate_emits_no_cards_without_detected_disagreement():
-    """Cards are suppressed when no disagreement was actually detected.
+def test_two_agent_debate_now_attributes_dissent():
+    """#9644: a contested two-agent debate cards WITH named contesters.
 
-    `crux_score` is a composite, so claims can clear `min_score` on uncertainty
-    and centrality alone. Publishing those as "crux cards" would put
-    load-bearing-disagreement claims into a DecisionReceipt with nothing behind
-    them. CruxDetector needs >=2 authors *other than the claim's own*, which a
-    two-agent debate trading reciprocal critiques never reaches (#9644).
+    Previously impossible twice over: disagreement was measured after
+    propagation had reconciled it, and the map held only neighbours so the
+    author's own position was never counted. A two-agent debate therefore
+    registered no disagreement at all and cards were suppressed.
     """
     messages, critiques = _contested_debate()
-    assert build_crux_cards(messages=messages, critiques=critiques) is None
+    cards = build_crux_cards(messages=messages, critiques=critiques)
+    assert cards is not None
+    assert cards["total_disagreements"] > 0
+    contested = [item for item in cards["items"] if item["contesting_agents"]]
+    assert contested, "a contested debate must name who contested what"
+    # The claim's own author is never listed as contesting their own claim.
+    for item in contested:
+        assert item["author"] not in item["contesting_agents"]
+
+
+def test_cards_suppressed_when_nothing_is_contested():
+    """The suppression guard still holds when there is genuinely no dissent."""
+    messages = [
+        Message(role="proposer", agent="claude", content="A"),
+        Message(role="proposer", agent="codex", content="B"),
+    ]
+    assert build_crux_cards(messages=messages, critiques=[]) is None
 
 
 def test_critiques_make_a_contested_debate_produce_cruxes():
