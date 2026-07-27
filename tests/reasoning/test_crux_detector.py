@@ -1351,3 +1351,14 @@ def test_author_is_never_listed_as_contesting_its_own_claim():
     )
     scores = _scores(net)
     assert scores["a"][1] == ["bob"], "a self-critique is not dissent"
+
+
+def test_zero_strength_contradiction_names_nobody():
+    """A named contester and a zero score would tell contradictory stories.
+
+    `total_disagreements` counts claims scoring > 0, so a zero-weight
+    contradiction would list an agent as contesting a claim that the same
+    result says nothing contested.
+    """
+    net = _net([("a", "alice"), ("b", "bob")], [("b", "a", "CONTRADICTS", 0.0)])
+    assert _scores(net)["a"] == (0.0, [])

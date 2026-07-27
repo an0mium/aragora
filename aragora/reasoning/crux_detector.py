@@ -240,6 +240,12 @@ class CruxDetector:
 
                 if factor.relation_type == RelationType.CONTRADICTS:
                     strength = float(getattr(factor, "strength", 1.0) or 0.0)
+                    if strength <= 0:
+                        # A zero-weight contradiction would name a contester on a
+                        # claim scoring 0.0 — listed as contested by someone while
+                        # the same result excludes it from `total_disagreements`.
+                        # Keep the list and the count telling one story.
+                        continue
                     contesters[source.author] = max(contesters.get(source.author, 0.0), strength)
                 elif factor.relation_type == RelationType.SUPPORTS:
                     supporters.add(source.author)

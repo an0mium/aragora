@@ -84,10 +84,9 @@ def build_crux_cards(
         # disagreement actually detected behind them — an overclaim in exactly
         # the surface auditors read. Absent is honest; mislabelled is not.
         #
-        # `CruxDetector` registers a disagreement only when >=2 authors *other
-        # than the claim's own* relate to it, so a two-agent debate trading
-        # reciprocal critiques never reaches one. Making a two-agent debate
-        # attribute dissent is #9644's scope, not this edge-construction fix.
+        # Reached when nothing was contested at all: since #9644 a single
+        # CONTRADICTS edge registers a disagreement and names its contester, so
+        # any real critique clears this guard.
         logger.info("crux_cards_suppressed_no_disagreement claims=%d", analysis.total_claims)
         return None
 
