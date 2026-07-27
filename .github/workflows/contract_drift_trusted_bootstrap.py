@@ -446,6 +446,10 @@ def _execute_candidate(
         workflow_run=workflow_run,
     )
     _materialize_bundle(repo, head_sha, temporary_root)
+    launcher_target = temporary_root / LAUNCHER_PATH
+    launcher_target.parent.mkdir(parents=True, exist_ok=True)
+    launcher_target.write_bytes(trusted_launcher.read_bytes())
+    launcher_target.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
     bundle_sha = _sha256(_canonical(bundle, terminal_lf=False))
     env = {
         "CDG_AUTHORITY_ROOT": str(temporary_root),
@@ -458,7 +462,7 @@ def _execute_candidate(
     command = [
         sys.executable,
         *ANALYZER_FLAGS,
-        str(trusted_launcher),
+        LAUNCHER_PATH,
         str(temporary_root),
         "scripts/check_contract_drift_ratchet.py",
         "--mode",
