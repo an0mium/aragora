@@ -136,6 +136,24 @@ class TestFirstTextBlock:
         """A thinking block must not be returned even though it has content."""
         assert first_text_block([{"type": "thinking", "thinking": "secret reasoning"}]) == ""
 
+    def test_accepts_test_double_whose_type_is_not_a_string(self) -> None:
+        """MagicMock(text="yes") auto-creates a non-str .type; a block with no
+        usable declared type but a str .text is the text block."""
+        from unittest.mock import MagicMock
+
+        assert first_text_block([MagicMock(text="yes")]) == "yes"
+
+    def test_rejects_test_double_without_a_string_text(self) -> None:
+        """A bare MagicMock has a MagicMock .text, which is not usable text."""
+        from unittest.mock import MagicMock
+
+        assert first_text_block([MagicMock()]) == ""
+
+    def test_declared_non_text_type_wins_over_a_text_attribute(self) -> None:
+        """A block that declares type="thinking" is skipped even if something
+        put a str in .text — an explicit type is authoritative."""
+        assert first_text_block([{"type": "thinking", "text": "leaked"}]) == ""
+
     def test_tolerates_tool_use_and_malformed_blocks(self) -> None:
         content = [
             {"type": "tool_use", "id": "x", "input": {}},

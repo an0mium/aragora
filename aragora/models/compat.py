@@ -84,14 +84,20 @@ def first_text_block(content: Any) -> str:
         if isinstance(block, dict):
             block_type = block.get("type")
             text = block.get("text")
-            # An untyped block carrying "text" is unambiguously a text block:
-            # thinking blocks carry "thinking", tool blocks carry "input"/
-            # "content". Accepting it keeps older/hand-built payloads working.
-            if block_type in ("text", None) and isinstance(text, str):
+        else:
+            block_type = getattr(block, "type", None)
+            text = getattr(block, "text", None)
+
+        if not isinstance(text, str):
+            # Thinking blocks carry "thinking", tool blocks carry "input"/
+            # "content"; neither exposes a str "text".
+            continue
+        if isinstance(block_type, str):
+            # The block declares a type — honour it strictly.
+            if block_type == "text":
                 return text
             continue
-        block_type = getattr(block, "type", None)
-        text = getattr(block, "text", None)
-        if block_type in ("text", None) and isinstance(text, str):
-            return text
+        # No usable declared type (absent, None, or a test double's auto-attr):
+        # a block exposing a str "text" is unambiguously the text block.
+        return text
     return ""

@@ -24,6 +24,7 @@ import httpx
 from aragora.agents.errors.classifier import ErrorClassifier
 from aragora.agents.fallback import get_default_fallback_enabled
 from aragora.config.secrets import get_secret_presence
+from aragora.models.compat import first_text_block
 
 if TYPE_CHECKING:
     import anthropic
@@ -190,8 +191,8 @@ class PreDebateResearcher:
                 )
 
             response = await asyncio.wait_for(asyncio.to_thread(_call_anthropic), timeout_seconds)
-            content_block = response.content[0]
-            return str(getattr(content_block, "text", "")).strip()
+            # Opus 5 thinks by default: content[0] is a thinking block.
+            return first_text_block(response.content).strip()
         except Exception as e:  # noqa: BLE001 - provider SDK raises many exception types
             if not self._should_try_openrouter_fallback(e):
                 raise
@@ -241,7 +242,9 @@ class PreDebateResearcher:
             def _call_classify() -> Any:
                 return self.anthropic_client.messages.create(
                     model=RESEARCH_MODEL,
-                    max_tokens=100,
+                    # Opus 5 thinks by default and max_tokens covers thinking +
+                    # response; 100 could be consumed entirely by thinking.
+                    max_tokens=2048,
                     messages=[
                         {
                             "role": "user",
@@ -255,8 +258,8 @@ Respond with just "yes" or "no".""",
                 )
 
             response = await asyncio.to_thread(_call_classify)
-            content_block = response.content[0]
-            content = str(getattr(content_block, "text", "")).strip().lower()
+            # Opus 5 thinks by default: content[0] is a thinking block.
+            content = first_text_block(response.content).strip().lower()
             return content.startswith("yes")
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning("LLM classification failed: %s", e)
