@@ -64,10 +64,12 @@ _TEST_CRITERION_RE = re.compile(
 # applied to what remains, so a criterion carrying both ("add tests, and keep
 # existing tests passing") still demands tests on the strength of its residue.
 #
-# Every alternative requires an explicit backward-looking qualifier
-# (existing/all/current/still/continue). A bare "tests pass" is deliberately
-# NOT matched: "the new tests pass" presupposes tests that must be written, so
-# treating it as a regression guard would weaken a fail-closed gate.
+# Every alternative must assert something about tests *continuing to hold* —
+# a qualifier alone is not enough. "existing tests" is only subtracted when it
+# comes with a pass-clause, so "extend existing tests" (a request to edit test
+# files) still demands tests, while "existing tests still pass" does not.
+# A bare "tests pass" is likewise not matched: "the new tests pass"
+# presupposes tests that must be written. Both choices fail closed.
 #
 # Motivation: the auto-generated narrowing and silent-exception issues all end
 # with "Existing tests still pass", which made that whole class of refactor
@@ -75,7 +77,7 @@ _TEST_CRITERION_RE = re.compile(
 _TEST_REGRESSION_ONLY_RE = re.compile(
     r"\b(?:"
     r"(?:existing|all|current)\s+(?:unit\s+|integration\s+)?tests?"
-    r"(?:\s+(?:still\s+|continue\s+to\s+|should\s+still\s+)?pass(?:es|ing)?)?|"
+    r"\s+(?:still\s+|continue\s+to\s+|should\s+still\s+)?pass(?:es|ing)?|"
     r"tests?\s+(?:still|continue\s+to|should\s+still)\s+pass(?:es|ing)?|"
     r"no\s+(?:new\s+)?test\s+(?:failures|regressions)|"
     r"(?:do(?:es)?\s+not|don't|doesn't)\s+break\s+(?:existing\s+)?tests?|"

@@ -196,6 +196,12 @@ def test_regression_phrasings_do_not_trigger_test_presence(criterion: str) -> No
         # "the new tests pass" presupposes tests that must be written, so a
         # bare tests-pass phrase is deliberately not treated as a guard.
         "New tests pass",
+        # A creation verb in front of a guard noun is a request to edit test
+        # files: only "existing tests ... pass" is a guard, not "existing
+        # tests" alone.
+        "Extend existing tests",
+        "Update existing tests to cover the new branch",
+        "Add cases to existing tests",
     ],
 )
 def test_creation_criteria_still_demand_tests(criterion: str) -> None:
