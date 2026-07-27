@@ -11,13 +11,13 @@
   "branch": "codex/node24-runtime-contract-9577",
   "worktree": "$HOME/.codex/worktrees/node24-runtime-contract-9577/aragora",
   "base_ref": "origin/main",
-  "base_sha": "8b97a31d1f81ec74d63e30409b867971999bb2aa",
-  "head_sha_at_last_checkpoint": "2750e5d09c0c93a8a39c5f668d2eef7edbc6b232",
-  "last_checked_main_sha": "1cd722cc2df2330466af2511f6f3b6b83d496b83",
+  "base_sha": "1cd722cc2df2330466af2511f6f3b6b83d496b83",
+  "head_sha_at_last_checkpoint": "158701f0a4e90813469a72032e30cd5d0daabf7d",
+  "last_checked_main_sha": "b0633c5f76738dfcc5412107a97753be91db6f8d",
   "issue_number": 9577,
   "pr_number": 9591,
   "pr_url": "https://github.com/synaptent/aragora/pull/9591",
-  "lease_id": "00ea44f4-78d",
+  "lease_id": "8e6a0fa7-5ef",
   "lease_owner": "elves-node-runtime-contract-9577-20260724",
   "plan_path": "docs/plans/2026-07-24-node-runtime-contract-9577.md",
   "plan_sha256": "5f144491f957af73445dca1ed3d08bf8616db8564f091479dd46e8908df01a5d",
@@ -48,7 +48,7 @@
     "stop_allowed": false,
     "checkpoint_is_stop": false,
     "reason": "Exact overlap reconciliation is authorized and both batches remain incomplete",
-    "next_required_action": "Merge authorized main 1cd722cc, preserve PR #9589, recapture the baseline, write the Batch 1 contract, and implement"
+    "next_required_action": "Commit reviewed Batch 1, merge non-overlapping main b0633c5f, rerun gates, and push"
   },
   "test_baseline": {
     "passed": 197,
@@ -58,14 +58,27 @@
     "scope": "tests/ci"
   },
   "validation": {
-    "baseline": "tests/ci: 197 passed, 1 skipped; workflow policy checks passed; exact Node 24.18.0 npm ci, lint, typecheck, and Next build passed before PR #9589 merged",
-    "latest": "overlap authorization received; live ownership, head, main, runner, and protected-check tripwires passed before reconciliation"
+    "baseline": "reconciled main 1cd722cc: tests/ci 197 passed, 1 skipped; workflow policies passed; exact Node 24.18.0 npm ci, lint, typecheck, and 228-route Next build passed",
+    "latest": "post-change: focused 3 passed; tests/ci 200 passed, 1 skipped; policies passed; exact Node 24.18.0 install, lint, typecheck, and 228-route build passed"
   },
   "independent_review": {
-    "status": "pending",
-    "mode": "non-countable local review; no Fable or inference consult"
+    "status": "passed",
+    "mode": "non-countable local review; no Fable or inference consult",
+    "reviewer": "batch1_review_2",
+    "result": "no blocking findings; HIGH regression confidence",
+    "reviewed_at": "2026-07-27T14:31:00Z"
   },
   "active_compute": [],
-  "review_comments": [],
-  "last_updated": "2026-07-25T00:21:21Z"
+  "review_comments": [
+    {
+      "id": 5075729284,
+      "type": "issue_comment",
+      "source": "self",
+      "batch": 1,
+      "summary": "current-main overlap stop on PR #9589",
+      "disposition": "resolved",
+      "reason": "operator supplied the exact requested reconciliation authorization"
+    }
+  ],
+  "last_updated": "2026-07-27T14:31:00Z"
 }

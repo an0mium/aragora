@@ -29,7 +29,7 @@ permissions:
   packages: write
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24.18.0'
   REGISTRY: ghcr.io
   LIVE_FRONTEND_BASE_URL: ${{ vars.LIVE_FRONTEND_BASE_URL }}
 

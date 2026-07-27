@@ -18,27 +18,35 @@ that order.
 - Issue: `#9577`
 - Pull request: draft `#9591`
 - Staging base: `c7c4681eb08d5e7c7966d10dfba3a1520d671319`
-- Lease: `00ea44f4-78d`
+- Lease: `8e6a0fa7-5ef`
 - Run mode: finite, two batches, eight-hour lease budget
 - Merge owner: user
 
 ## Current state
 
-Batch 1 resumed after the operator explicitly authorized merging current main
-`1cd722cc2df2330466af2511f6f3b6b83d496b83` into PR #9591, preserving PR
-#9589's dependency and lockfile changes, reconciling the baseline and
-contract, and continuing the approved Node 24 engine/workflow implementation.
+Batch 1 is in progress after merging the exact authorized main commit
+`1cd722cc2df2330466af2511f6f3b6b83d496b83` without rewriting published
+history. PR #9589's `package.json` and `package-lock.json` state matches that
+main commit byte-for-byte; no product edit from this lane exists yet.
 
-The authorization was re-grounded against live state: local, remote-branch,
-and PR heads all remained
-`254a1935670d0178d2894bb2d900e43c36e0de24`; main remained the exact
-authorized commit; steering was empty; lease `00ea44f4-78d` was renewed; all
-five non-quorum protected main checks were green; and four `aragora` runners
-were online.
+After an elapsed-time reactivation on 2026-07-27, local HEAD remained the
+lane-owned merge commit
+`158701f0a4e90813469a72032e30cd5d0daabf7d`; the remote branch and PR head
+remained the last pushed lane checkpoint `254a193567...`; current main still
+matched the exact authorized commit; steering remained empty; three Linux
+`aragora` runners were online; and the expired lease was reclaimed with the
+same narrow scope as `8e6a0fa7-5ef`.
 
-The single next action is to merge the exact authorized main commit without
-rewriting published history, verify PR #9589's package and lockfile state is
-preserved, then recapture the Batch 1 baseline before product edits.
+Batch 1 implementation and local validation are complete. The focused test
+passes, complete `tests/ci` is `200 passed, 1 skipped`, repository workflow
+policies pass, and exact Node `24.18.0` install/lint/typecheck/228-route build
+passes. Fresh independent non-countable review found no blocker.
+
+During review, current main advanced to
+`b0633c5f76738dfcc5412107a97753be91db6f8d`; its four settlement files have
+zero overlap with this lane. The single next action is to commit the reviewed
+Batch 1 work, merge that non-overlapping main commit without rebasing, rerun
+the gates, and push.
 
 ## Stop Gate
 
@@ -97,7 +105,7 @@ Then:
 1. re-read `$HOME/.codex/aragora_steering/mailbox.jsonl`;
 2. run `scripts/read_operator_steering.py` for the branch and, once known, the
    PR;
-3. renew lease `00ea44f4-78d` with session
+3. renew lease `8e6a0fa7-5ef` with session
    `elves-node-runtime-contract-9577-20260724`;
 4. refresh lane `node-runtime-contract-9577-20260724`;
 5. verify the exact PR head and compare current `origin/main` with the recorded
