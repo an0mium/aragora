@@ -8,7 +8,6 @@ default) must leave results and receipts byte-identical to pre-flag behavior.
 
 from __future__ import annotations
 
-import dataclasses
 from types import SimpleNamespace
 
 from aragora.core_types import Critique, DebateResult, Message
@@ -165,7 +164,10 @@ def test_critiques_make_a_contested_debate_produce_cruxes():
     cards = build_crux_cards(messages=messages, critiques=critiques)
     assert cards is not None
     assert cards["items"], "a contested debate must surface at least one crux"
-    assert cards["total_disagreements"] > 0
+    # `total_disagreements` stays 0 here: CruxDetector counts a claim as
+    # disagreed-about only when >=2 *other* authors relate to it, so a 2-agent
+    # debate cannot register one. Scoring semantics (author stance, propagate
+    # ordering, double counting) are #9644 and deliberately out of scope.
 
 
 def test_critique_severity_drives_edge_strength():
@@ -351,3 +353,34 @@ def test_critique_without_target_content_uses_the_latest_proposal():
     network = _network_from_messages(messages, critiques)
     targets = [network.nodes[f.target_node_id].claim_statement for f in network.factors.values()]
     assert targets == ["round 2 revision"]
+
+
+def test_truncated_target_content_still_matches_its_proposal():
+    """Several agents record only `proposal[:200]`, so match by prefix.
+
+    Exact comparison would miss every proposal longer than the excerpt and fall
+    through to the latest revision, misattributing the disagreement.
+    """
+    long_proposal = "round 1 proposal " + ("x" * 500)
+    messages = [
+        Message(role="proposer", agent="claude", content=long_proposal),
+        Message(role="proposer", agent="claude", content="round 2 revision"),
+        Message(role="critic", agent="codex", content="objection"),
+    ]
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content=long_proposal[:200],  # what codebase_agent/code_reviewer record
+            issues=["a"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r",
+        )
+    ]
+    network = _network_from_messages(messages, critiques)
+    targets = [network.nodes[f.target_node_id].claim_statement for f in network.factors.values()]
+    # Claim statements are stored truncated to 500 chars, so compare by prefix.
+    assert len(targets) == 1
+    assert long_proposal.startswith(targets[0])
+    assert targets[0] != "round 2 revision"

@@ -207,15 +207,6 @@ class CruxDetector:
             # Group incoming evidence by author
             author_beliefs: dict[str, list[float]] = {}
 
-            # The claim's own author asserts it. Without this the map holds only
-            # *neighbours*, so the score measured how much contesters differ from
-            # EACH OTHER and not whether anyone contested the author at all: two
-            # agents both contradicting a claim scored zero variance -> zero
-            # disagreement and an empty `contesting_agents`, which is precisely
-            # the case a crux card exists to surface.
-            if node.author:
-                author_beliefs[node.author] = [node.posterior.p_true]
-
             # Look at claims from different authors that relate to this claim
             for factor_id in self.network.node_factors.get(node_id, []):
                 factor = self.network.factors.get(factor_id)
@@ -254,19 +245,11 @@ class CruxDetector:
                     variance = sum((x - mean) ** 2 for x in author_means) / len(author_means)
                     disagreement = math.sqrt(variance) * 2  # Scale to 0-1 range
 
-                    # Find contesting agents (those far from mean). The claim's
-                    # own author is excluded: their stance is seeded above so the
-                    # variance can be measured against it, but an author does not
-                    # *contest* their own claim, and this list flows through
-                    # CruxClaim -> crux cards -> DecisionReceipt dissent
-                    # attribution, where naming the proposer as a dissenter would
-                    # be read as a false attribution.
+                    # Find contesting agents (those far from mean)
                     contesting = [
                         author
                         for author, beliefs in author_beliefs.items()
-                        if author != node.author
-                        and beliefs
-                        and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
+                        if beliefs and abs(sum(beliefs) / len(beliefs) - mean) > 0.2
                     ]
                     disagreement_scores[node_id] = (min(1.0, disagreement), contesting)
                 else:

@@ -21,13 +21,6 @@ logger = logging.getLogger(__name__)
 
 CRUX_CARDS_METADATA_KEY = "crux_cards"
 
-# An agent that states a claim in a debate is asserting it. ``add_claim`` defaults
-# to 0.5, i.e. maximum entropy — "no opinion" — which left every author recorded as
-# neutral about their own claim, so the disagreement variance was zero and
-# ``contesting_agents`` came back empty even for a genuinely contested debate.
-# Deliberately short of certainty: an asserted debate claim is not a proof.
-_ASSERTED_CONFIDENCE = 0.8
-
 
 def build_crux_cards(
     *,
@@ -64,8 +57,11 @@ def build_crux_cards(
     # KM-derived, so the message-derived ids here match nothing in it: every
     # ``add_factor`` would no-op while ``add_claim`` left orphan nodes behind in
     # state that ``consensus_storage.get_cruxes`` and crux_finder later read.
-    # Crux building is optional enrichment and stays read-only on that path;
-    # #9581 therefore remains open for KM-belief-sync debates (see #9644).
+    # This function therefore adds no claims and no edges to a supplied network.
+    # It is not a full read-only guarantee: `detect_cruxes` below still runs
+    # `propagate()`/`compute_resolution_impact()`, which update posteriors on
+    # whatever network it is given — pre-existing behaviour, not introduced here.
+    # #9581 remains open for KM-belief-sync debates (see #9644).
     if network is None or not getattr(network, "nodes", None):
         return None
 
@@ -99,7 +95,6 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
                 claim_id=f"msg_{i}_{getattr(msg, 'agent', 'unknown')}",
                 statement=str(getattr(msg, "content", ""))[:500],
                 author=str(getattr(msg, "agent", "unknown")),
-                initial_confidence=_ASSERTED_CONFIDENCE,
             )
             added += 1
     if not added:
@@ -132,10 +127,18 @@ def _target_claim_for_critique(messages: list[Any], target: str, critique: Any) 
     text on the crux card — and would leave revision claims unable to accrue any
     disagreement edge at all.
 
-    ``Critique.target_content`` records the exact proposal text that was
-    critiqued, so it is matched directly rather than guessed. When it is absent
-    or does not match (older records, reformatting), the most recent proposal is
-    the better default: it is the target's current position.
+    ``Critique.target_content`` records the proposal text that was critiqued, so
+    it is matched against the proposals rather than guessed.
+
+    Matched by **prefix**, not equality: several agents record only an excerpt
+    (``proposal[:200]`` in ``codebase_agent``, ``code_reviewer``,
+    ``test_generator``), so an exact comparison would miss every proposal longer
+    than the excerpt and silently fall through to the wrong revision. Comparing
+    in whichever direction is shorter handles a truncated record and a truncated
+    message equally.
+
+    When ``target_content`` is absent or matches nothing, the most recent
+    proposal is the better default: it is the target's current position.
     """
     candidates = [
         (i, msg)
@@ -148,7 +151,11 @@ def _target_claim_for_critique(messages: list[Any], target: str, critique: Any) 
     wanted = str(getattr(critique, "target_content", "") or "").strip()
     if wanted:
         for i, msg in candidates:
-            if str(getattr(msg, "content", "") or "").strip() == wanted:
+            content = str(getattr(msg, "content", "") or "").strip()
+            if not content:
+                continue
+            shorter, longer = sorted((content, wanted), key=len)
+            if longer.startswith(shorter):
                 return f"msg_{i}_{target}"
 
     index = candidates[-1][0]
