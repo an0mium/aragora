@@ -189,6 +189,13 @@ def test_regression_phrasings_do_not_trigger_test_presence(criterion: str) -> No
         "Add tests and ensure existing tests still pass",
         "Test coverage for the new branch is added",
         "pytest tests/swarm/test_helper.py passes",
+        # Passive/past forms: the guard subtracts phrases, it does not depend
+        # on a verb list, so these must still demand tests.
+        "Tests are added for the new branch",
+        "Test coverage was extended",
+        # "the new tests pass" presupposes tests that must be written, so a
+        # bare tests-pass phrase is deliberately not treated as a guard.
+        "New tests pass",
     ],
 )
 def test_creation_criteria_still_demand_tests(criterion: str) -> None:
@@ -200,6 +207,31 @@ def test_creation_criteria_still_demand_tests(criterion: str) -> None:
     )
     assert result.passed is False, criterion
     assert "test_presence_missing" in result.failure_classes
+
+
+def test_guard_phrase_is_subtracted_not_whole_criterion() -> None:
+    """Only the guard phrase is removed; the rest still faces the fallback.
+
+    Discarding the entire criterion on a guard match would suppress the
+    conservative default for everything else in the same sentence.
+    """
+    result = evaluate_acceptance(
+        acceptance_criteria=["Add pytest coverage, and existing tests still pass"],
+        file_scope_hints=["aragora/swarm/helper.py"],
+        changed_paths=["aragora/swarm/helper.py"],
+    )
+    assert result.passed is False
+    assert "test_presence_missing" in result.failure_classes
+
+
+def test_refactor_criterion_carrying_a_guard_is_not_gated_on_tests() -> None:
+    result = evaluate_acceptance(
+        acceptance_criteria=["Update the retry helper so existing tests still pass"],
+        file_scope_hints=["aragora/swarm/helper.py"],
+        changed_paths=["aragora/swarm/helper.py"],
+    )
+    assert result.passed, result
+    assert "test_presence" not in result.checks_run
 
 
 def test_unanticipated_test_phrasing_keeps_conservative_default() -> None:
