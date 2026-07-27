@@ -799,14 +799,20 @@ class TestNewFamilyCostTracking:
         ) == pytest.approx(18.0)
 
     def test_grok_4_5_cost_matches_published_rate(self) -> None:
-        # grok-4.5 (the new panel default): (2.00, 6.00)
-        # → $8.00 at 1M/1M. Verified against
-        # https://docs.x.ai/developers/models (July 2026).
+        # grok-4.5 (the new panel default): (2.00, 6.00) below the 200k
+        # prompt threshold; xAI's documented long-context tier (#9656) bills
+        # (4.00, 12.00) for the WHOLE request at >= 200k prompt tokens.
+        # Verified against https://docs.x.ai/developers/pricing (July 2026).
+        assert estimate_cost_usd(
+            model="grok-4.5",
+            tokens_in=100_000,
+            tokens_out=100_000,
+        ) == pytest.approx(0.1 * 2.00 + 0.1 * 6.00)
         assert estimate_cost_usd(
             model="grok-4.5",
             tokens_in=1_000_000,
             tokens_out=1_000_000,
-        ) == pytest.approx(8.0)
+        ) == pytest.approx(16.0)
 
     def test_deepseek_chat_cost_with_prefix(self) -> None:
         assert (
