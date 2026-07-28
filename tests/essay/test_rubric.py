@@ -10,9 +10,11 @@ import textwrap
 import pytest
 import yaml
 
+from aragora.agents.errors import AgentError
 from aragora.essay.rubric import (
     EssayScore,
     _DEFAULT_WEIGHTS,
+    evaluate_essay,
     load_rubric,
     parse_score_response,
 )
@@ -221,3 +223,16 @@ def test_parse_score_response_returns_empty_on_garbage():
     score = parse_score_response("This is not JSON at all!")
     assert score.overall == 0.0
     assert score.thesis_clarity == 0.0
+
+
+@pytest.mark.asyncio
+async def test_evaluate_essay_returns_empty_score_on_agent_error():
+    """Provider failures use the established empty-score fallback."""
+
+    class FailingJudge:
+        async def generate(self, prompt: str) -> str:
+            raise AgentError("provider unavailable")
+
+    score = await evaluate_essay("Draft", FailingJudge())
+
+    assert score == EssayScore()

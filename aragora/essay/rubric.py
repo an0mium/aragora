@@ -12,6 +12,7 @@ from typing import Any
 
 import yaml
 
+from aragora.agents.errors import AgentError
 from aragora.essay.prompts import build_evaluation_prompt
 
 logger = logging.getLogger(__name__)
@@ -187,7 +188,7 @@ async def evaluate_essay(
 
     try:
         response = await judge_agent.generate(prompt)
-    except (OSError, RuntimeError, ValueError):
+    except (AgentError, OSError, RuntimeError, ValueError):
         logger.exception("Judge agent failed during essay evaluation")
         return EssayScore()
 
