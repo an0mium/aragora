@@ -943,38 +943,11 @@ def _add_epistemic_check_parser(subparsers) -> None:
 
 
 def _add_repair_plan_parser(subparsers) -> None:
-    """Add the 'repair-plan' subcommand (DIC-22 / #6033).
-
-    Flag-gated: ARAGORA_REPAIR_PIPELINE_ENABLED is required only for
-    non-report-only repair kinds.  report_only (the default) is always safe.
-    Live queue effect: none (produces a spec dict for human review only).
-    """
-    p = subparsers.add_parser(
-        "repair-plan",
-        help="DIC-22: produce a bounded repair spec from a DecaySignal",
-        description=(
-            "Read a DecaySignal JSON (from 'aragora decay-monitor --json') and emit a\n"
-            "bounded RepairSpec.  report_only (default) needs no flag; shadow_candidate\n"
-            "and pr_candidate require ARAGORA_REPAIR_PIPELINE_ENABLED=1.\n"
-            "No queue mutation, no issue creation, no live dispatch changes."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = subparsers.add_parser("repair-plan", help="DIC-22: repair spec from a DecaySignal")
+    p.add_argument("--input", required=True, metavar="JSON", help="DecaySignal JSON path")
     p.add_argument(
-        "--input",
-        required=True,
-        metavar="JSON",
-        help="Path to a DecaySignal JSON file (from 'aragora decay-monitor --json')",
-    )
-    p.add_argument(
-        "--repair-kind",
-        dest="repair_kind",
-        default="report_only",
+        "--repair-kind", dest="repair_kind", default="report_only",
         choices=("report_only", "shadow_candidate", "pr_candidate"),
-        help=(
-            "Repair kind to produce (default: report_only). "
-            "shadow_candidate and pr_candidate require ARAGORA_REPAIR_PIPELINE_ENABLED=1."
-        ),
     )
     p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic22_repair_plan", "cmd_repair_plan"))
