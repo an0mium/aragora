@@ -225,6 +225,7 @@ Examples:
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
+    _add_repair_plan_parser(subparsers)  # DIC-22 / #6033
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -939,6 +940,44 @@ def _add_epistemic_check_parser(subparsers) -> None:
         help="Repository root for resolving relative evidence paths (defaults to cwd)",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.epistemic_check", "cmd_epistemic_check"))
+
+
+def _add_repair_plan_parser(subparsers) -> None:
+    """Add the 'repair-plan' subcommand (DIC-22 / #6033).
+
+    Flag-gated: ARAGORA_REPAIR_PIPELINE_ENABLED is required only for
+    non-report-only repair kinds.  report_only (the default) is always safe.
+    Live queue effect: none (produces a spec dict for human review only).
+    """
+    p = subparsers.add_parser(
+        "repair-plan",
+        help="DIC-22: produce a bounded repair spec from a DecaySignal",
+        description=(
+            "Read a DecaySignal JSON (from 'aragora decay-monitor --json') and emit a\n"
+            "bounded RepairSpec.  report_only (default) needs no flag; shadow_candidate\n"
+            "and pr_candidate require ARAGORA_REPAIR_PIPELINE_ENABLED=1.\n"
+            "No queue mutation, no issue creation, no live dispatch changes."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a DecaySignal JSON file (from 'aragora decay-monitor --json')",
+    )
+    p.add_argument(
+        "--repair-kind",
+        dest="repair_kind",
+        default="report_only",
+        choices=("report_only", "shadow_candidate", "pr_candidate"),
+        help=(
+            "Repair kind to produce (default: report_only). "
+            "shadow_candidate and pr_candidate require ARAGORA_REPAIR_PIPELINE_ENABLED=1."
+        ),
+    )
+    p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic22_repair_plan", "cmd_repair_plan"))
 
 
 def _add_ask_parser(subparsers) -> None:
