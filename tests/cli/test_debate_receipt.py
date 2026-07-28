@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,10 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(
+        "aragora.cli.commands.debate._receipt_source_revision",
+        lambda: "a" * 40,
+    )
     result = SimpleNamespace(
         debate_id="debate-smoke",
         task="Verify provider-bootstrap dogfood receipts.",
@@ -51,6 +56,18 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
     assert data["receipt_id"] == "debate-debate-smoke"
     assert data["verdict"] == "PASS"
     assert data["timestamp"].endswith("Z")
+    assert data["input_hash"] == hashlib.sha256(data["task"].encode()).hexdigest()
+    expected_evidence_hash = hashlib.sha256(data["final_answer"].encode()).hexdigest()
+    assert data["consensus_proof"]["evidence_hash"] == expected_evidence_hash
+    assert data["provenance_chain"][0]["evidence_hash"] == expected_evidence_hash
+    assert data["config_used"] == {
+        "source_revision": "a" * 40,
+        "input_hash_recipe": "sha256(utf8(task))",
+        "evidence_hash_recipe": "sha256(utf8(final_answer))",
+        "round_numbering": (
+            "round 0 is the seed proposal; rounds_used counts subsequent deliberation rounds"
+        ),
+    }
     assert len(data["artifact_hash"]) == 64
     assert DecisionReceipt.from_dict(data).verify_integrity() is True
 
@@ -59,6 +76,42 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
 
     assert excinfo.value.code == 0
     assert "Result: VALID" in capsys.readouterr().out
+
+
+def test_persisted_debate_receipt_deduplicates_identical_messages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #9661: mirrored phase writes must not double-count responses."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    message = SimpleNamespace(
+        agent="codex",
+        role="critic",
+        round=1,
+        content="This objection should appear once.",
+    )
+    result = SimpleNamespace(
+        debate_id="debate-dedup",
+        task="Should repeated objections accumulate?",
+        consensus_reached=True,
+        confidence=0.8,
+        final_answer="Count each recorded response once.",
+        rounds_used=1,
+        dissenting_views=[],
+        participants=["codex"],
+        proposals={},
+        critiques=[],
+        votes=[],
+        metadata={},
+        messages=[message, message],
+    )
+
+    receipt_path = _persist_debate_receipt(result)
+
+    assert receipt_path is not None
+    data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    assert len(data["agent_responses"]) == 1
+    assert data["agent_contributions"]["codex"]["messages"] == 1
+    assert data["input_hash"] == hashlib.sha256(data["task"].encode()).hexdigest()
 
 
 def _mixed_family_result() -> SimpleNamespace:

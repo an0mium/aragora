@@ -820,7 +820,7 @@ def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
         )
         entry[kind] += 1
 
-    for msg in getattr(result, "messages", []) or []:
+    for msg in _unique_debate_messages(result):
         if str(getattr(msg, "content", "") or "").strip():
             _bump(getattr(msg, "agent", ""), "messages")
     proposals = getattr(result, "proposals", None)
@@ -832,6 +832,35 @@ def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
     for vote in getattr(result, "votes", []) or []:
         _bump(getattr(vote, "agent", ""), "votes")
     return contributions
+
+
+def _unique_debate_messages(result: Any) -> list[Any]:
+    """Return each recorded debate message once, preserving first-seen order."""
+    unique: list[Any] = []
+    seen: set[tuple[str, str, int, str]] = set()
+    for msg in getattr(result, "messages", []) or []:
+        key = (
+            str(getattr(msg, "agent", "") or "").strip(),
+            str(getattr(msg, "role", "") or "").strip(),
+            int(getattr(msg, "round", 0) or 0),
+            str(getattr(msg, "content", "") or "").strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(msg)
+    return unique
+
+
+def _receipt_source_revision() -> str:
+    """Resolve the code revision that generated a CLI debate receipt."""
+    try:
+        from aragora.server.build_info import get_build_info
+
+        revision = str(get_build_info().get("sha", "") or "").strip()
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return "unknown"
+    return revision or "unknown"
 
 
 def _create_revision_agent(
@@ -884,7 +913,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         task = str(getattr(result, "task", "") or "")
         metadata = getattr(result, "metadata", None)
         agent_models = metadata.get("agent_models", {}) if isinstance(metadata, dict) else {}
-        messages = list(getattr(result, "messages", []) or [])
+        messages = _unique_debate_messages(result)
         agent_responses = []
         for msg in messages[:40]:
             agent_name = str(getattr(msg, "agent", "") or "").strip()
@@ -931,17 +960,8 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
             )
         contributing_agents = [name for name in agents if any(contributions[name].values())]
-        input_hash = hashlib.sha256(
-            json.dumps(
-                {
-                    "task": task,
-                    "agents": agents,
-                    "agent_responses": agent_responses,
-                },
-                sort_keys=True,
-                default=str,
-            ).encode()
-        ).hexdigest()
+        input_hash = hashlib.sha256(task.encode()).hexdigest() if task else ""
+        evidence_hash = hashlib.sha256(final_answer.encode()).hexdigest() if final_answer else ""
         receipt = {
             "receipt_id": f"debate-{debate_id}",
             "gauntlet_id": str(debate_id),
@@ -976,7 +996,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 "supporting_agents": contributing_agents if consensus_reached else [],
                 "dissenting_agents": [],
                 "method": "majority",
-                "evidence_hash": input_hash,
+                "evidence_hash": evidence_hash,
             },
             "provenance_chain": [
                 {
@@ -984,9 +1004,18 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                     "event_type": "verdict",
                     "agent": "aragora ask",
                     "description": "Debate receipt persisted from aragora ask.",
-                    "evidence_hash": input_hash,
+                    "evidence_hash": evidence_hash,
                 }
             ],
+            "config_used": {
+                "source_revision": _receipt_source_revision(),
+                "input_hash_recipe": "sha256(utf8(task))",
+                "evidence_hash_recipe": "sha256(utf8(final_answer))",
+                "round_numbering": (
+                    "round 0 is the seed proposal; rounds_used counts subsequent "
+                    "deliberation rounds"
+                ),
+            },
         }
         model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
         if isinstance(model_comparison, dict):

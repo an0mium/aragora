@@ -308,6 +308,29 @@ def test_successive_critiques_anchor_to_successive_messages():
     assert sources == {"first objection", "second objection"}
 
 
+def test_duplicate_messages_do_not_duplicate_crux_nodes():
+    """Issue #9661: mirrored result messages must not distort crux ranking."""
+    proposal = Message(role="proposer", agent="claude", content="Ship the change.", round=0)
+    objection = Message(role="critic", agent="codex", content="The risk is high.", round=1)
+    critiques = [
+        Critique(
+            agent="codex",
+            target_agent="claude",
+            target_content=proposal.content,
+            issues=["risk"],
+            suggestions=[],
+            severity=5.0,
+            reasoning="r",
+        )
+    ]
+
+    network = _network_from_messages([proposal, objection, objection], critiques)
+
+    assert network is not None
+    assert len(network.nodes) == 2
+    assert len(network.factors) == 1
+
+
 def test_unmappable_critiques_are_skipped_not_raised():
     """Crux building is optional enrichment; bad input must not break a debate."""
     messages, _ = _contested_debate()
