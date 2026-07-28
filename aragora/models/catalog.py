@@ -68,9 +68,30 @@ class ModelSpec:
     # (the 14-day availability rule); None = long-established.
     soak_until: date | None = None
     aliases: tuple[str, ...] = field(default_factory=tuple)
+    # Documented long-context tier: requests whose PROMPT reaches
+    # ``long_context_threshold`` tokens are billed at the ``*_long`` rates for
+    # ALL tokens in the request (xAI's documented model; source recorded per
+    # entry). None = flat pricing. The OpenRouter snapshot mirrors only the
+    # flat fields, so tier rates are verified against provider pricing pages.
+    long_context_threshold: int | None = None
+    input_per_mtok_long: float | None = None
+    output_per_mtok_long: float | None = None
 
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
+
+    def rates_for(self, prompt_tokens: int) -> tuple[float, float]:
+        """Applicable (input, output) USD-per-MTok pair for a request whose
+        prompt is ``prompt_tokens`` long. Falls back to flat rates when the
+        model has no documented tier."""
+        if (
+            self.long_context_threshold is not None
+            and prompt_tokens >= self.long_context_threshold
+            and self.input_per_mtok_long is not None
+            and self.output_per_mtok_long is not None
+        ):
+            return (self.input_per_mtok_long, self.output_per_mtok_long)
+        return (self.input_per_mtok, self.output_per_mtok)
 
     def is_under_soak(self, today: date | None = None) -> bool:
         """True while the model is inside its post-release soak window
@@ -176,6 +197,11 @@ CATALOG: dict[str, ModelSpec] = {
             max_output_tokens=64_000,
             release_date=date(2026, 7, 8),
             soak_until=date(2026, 7, 22),
+            # docs.x.ai/developers/pricing (verified 2026-07-27): prompts
+            # >= 200k tokens bill 2x for the whole request.
+            long_context_threshold=200_000,
+            input_per_mtok_long=4.00,
+            output_per_mtok_long=12.00,
         ),
         ModelSpec(
             canonical_id="grok-4.3",
@@ -187,6 +213,10 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=64_000,
             release_date=date(2026, 4, 1),
+            # docs.x.ai/developers/pricing (verified 2026-07-27).
+            long_context_threshold=200_000,
+            input_per_mtok_long=2.50,
+            output_per_mtok_long=5.00,
         ),
         ModelSpec(
             canonical_id="qwen3.7-max",
