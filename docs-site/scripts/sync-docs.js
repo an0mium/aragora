@@ -408,6 +408,8 @@ const DOC_MAP = {
     'specs/advisory-review-recognizable-header.md',
   'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
     'specs/aragora-roadmap-revision-advocates.md',
+  'specs/CHINESE_ROUTED_REVIEWER_FAMILIES_9071.md':
+    'specs/chinese-routed-reviewer-families-9071.md',
   'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
   'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
   'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
