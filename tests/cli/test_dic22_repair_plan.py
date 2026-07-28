@@ -29,12 +29,14 @@ def _ns(input_path: str, *, repair_kind: str = "report_only", json_output: bool 
 def _write_signal(tmp_path: Path, code_unit_id: str = "proof.unit.alpha") -> Path:
     p = tmp_path / "signal.json"
     p.write_text(
-        json.dumps({
-            "code_unit_id": code_unit_id,
-            "integrity_score": 0.4,
-            "reasons": [{"kind": "failed_claim", "detail": "stale", "claim_id": "b0.truth"}],
-            "recommended_action": "repair_required",
-        }),
+        json.dumps(
+            {
+                "code_unit_id": code_unit_id,
+                "integrity_score": 0.4,
+                "reasons": [{"kind": "failed_claim", "detail": "stale", "claim_id": "b0.truth"}],
+                "recommended_action": "repair_required",
+            }
+        ),
         encoding="utf-8",
     )
     return p
@@ -115,8 +117,16 @@ def test_json_has_required_keys(tmp_path, capsys):
     with patch.dict("os.environ", {}, clear=False):
         cmd_repair_plan(_ns(str(p), json_output=True))
     out = json.loads(capsys.readouterr().out)
-    assert {"spec_id", "code_unit_id", "repair_kind", "linked_claims",
-            "linked_crux_ids", "created_at", "provenance_hash", "decay_signal"} <= out.keys()
+    assert {
+        "spec_id",
+        "code_unit_id",
+        "repair_kind",
+        "linked_claims",
+        "linked_crux_ids",
+        "created_at",
+        "provenance_hash",
+        "decay_signal",
+    } <= out.keys()
 
 
 def test_report_only_provenance_hash_empty(tmp_path, capsys):
@@ -142,6 +152,7 @@ def test_spec_id_has_repair_prefix(tmp_path, capsys):
 
 def test_parser_registers_repair_plan():
     from aragora.cli.parser import build_parser
+
     parser = build_parser()
     sub = next(a for a in parser._actions if hasattr(a, "_name_parser_map"))
     assert "repair-plan" in sub._name_parser_map

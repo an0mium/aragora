@@ -946,7 +946,9 @@ def _add_repair_plan_parser(subparsers) -> None:
     p = subparsers.add_parser("repair-plan", help="DIC-22: repair spec from a DecaySignal")
     p.add_argument("--input", required=True, metavar="JSON", help="DecaySignal JSON path")
     p.add_argument(
-        "--repair-kind", dest="repair_kind", default="report_only",
+        "--repair-kind",
+        dest="repair_kind",
+        default="report_only",
         choices=("report_only", "shadow_candidate", "pr_candidate"),
     )
     p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
