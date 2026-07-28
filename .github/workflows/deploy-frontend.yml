@@ -305,8 +305,8 @@ jobs:
       # "@aragora/sdk": "file:../../sdk/typescript", which resolves outside an
       # aragora/live-scoped context. Dockerfile.frontend copies the SDK in and
       # mirrors the repo layout so that path resolves, and is the single frontend
-      # image definition. The production NEXT_PUBLIC_* values are passed as
-      # build-args below, because they are baked into the bundle at build time.
+      # image definition. NEXT_PUBLIC_* is deliberately left at the Dockerfile's
+      # defaults -- see the note on the build-args-free step below.
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
