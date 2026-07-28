@@ -16,23 +16,20 @@ jobs:
     timeout-minutes: 15
     env: {BASE_SHA: "${{ github.event.pull_request.base.sha }}", HEAD_SHA: "${{ github.event.pull_request.head.sha }}"}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - name: Run immutable admission
-        id: admission
+      - {uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065, with: {python-version: "3.11"}}
+      - id: admission
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           python3 -B scripts/check_contract_drift_ratchet.py --mode pr \
             --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA" --strict --json \
             --repo-root "$GITHUB_WORKSPACE" | tee contract-drift-pr-delta.json
-      - name: Upload admission evidence
-        if: always() && !cancelled()
+      - if: always() && !cancelled()
         uses: actions/upload-artifact@v4
         with: {name: "contract-drift-pr-delta-${{ github.event.pull_request.head.sha }}", path: contract-drift-pr-delta.json}
-      - name: Require admission success
-        if: always()
+      - if: always()
         run: |
           test "${{ steps.admission.outcome }}" = "success"
           test -s contract-drift-pr-delta.json
@@ -46,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0, ref: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
+      - {uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065, with: {python-version: "3.11"}}
       - run: |
           set -euo pipefail
           python3 -B scripts/check_contract_drift_ratchet.py --mode receipt \
@@ -62,9 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 1, ref: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
+      - {uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065, with: {python-version: "3.11"}}
       - run: |
           set -euo pipefail
-          AS_OF="$(date -u +%F)"
           python3 -B scripts/check_contract_drift_ratchet.py --mode program \
-            --ref "$SOURCE_SHA" --as-of "$AS_OF" --strict --json \
+            --ref "$SOURCE_SHA" --as-of "$(date -u +%F)" --strict --json \
             --repo-root "$GITHUB_WORKSPACE" | tee contract-drift-program-trajectory.json

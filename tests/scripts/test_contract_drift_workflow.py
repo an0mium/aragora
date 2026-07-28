@@ -8,11 +8,9 @@ JOBS = DOC["jobs"]
 
 
 def test_workflow_has_exact_live_checks_and_events():
-    assert {job["name"] for job in JOBS.values()} == {
-        f"contract-drift-{name}" for name in ("pr-delta", "main-receipt", "program-trajectory")
-    }
-    assert set(DOC["on"]) == {"pull_request", "push", "schedule", "workflow_dispatch"}
-    assert not {"paths", "paths-ignore"} & set(DOC["on"]["pull_request"])
+    assert {job["name"] for job in JOBS.values()} == {f"contract-drift-{name}" for name in ("pr-delta", "main-receipt", "program-trajectory")}  # fmt: skip
+    assert set(DOC["on"]) == {"pull_request", "push", "schedule", "workflow_dispatch"} and not {"paths", "paths-ignore"} & set(DOC["on"]["pull_request"])  # fmt: skip
+    assert all({"uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065", "with": {"python-version": "3.11"}} in job["steps"] for job in JOBS.values())  # fmt: skip
 
 
 def test_pr_admission_is_event_bound_absolute_and_terminal():
