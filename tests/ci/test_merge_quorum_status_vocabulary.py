@@ -86,6 +86,24 @@ def test_regression_9640_statuses_have_explicit_branches() -> None:
         )
 
 
+def test_merged_statuses_are_checked_before_the_dissent_guard() -> None:
+    """An already-merged PR must short-circuit before any fail-closed guard.
+
+    The dissent guard tests the ``unresolved_dissent`` *field*, not just the status, and
+    the producer does not clear that field when it settles a merged PR. So if the
+    settled/already_merged branch sits after it, a merged-and-settled PR carrying the
+    flag hard-fails a required check and the pass branch is unreachable (#9650 openai [P2]).
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    merged_at = text.index('if status in ("settled", "already_merged"):')
+    dissent_at = text.index('if status == "unresolved_dissent"')
+    assert merged_at < dissent_at, (
+        "the settled/already_merged branch must come BEFORE the unresolved_dissent "
+        "guard; otherwise it is unreachable for a merged PR that still carries "
+        "unresolved_dissent=True. See #9650."
+    )
+
+
 def test_blocked_by_live_gate_still_fails_closed() -> None:
     """The fix is diagnostic only — it must not turn an operator hold into a pass.
 
