@@ -36,7 +36,7 @@ with an honest pending status and the exact step that closes it.
 | 8 | Rekor transparency-log note | `rekor-note.md` | present (log entry itself: **pending** — submission is an external publish, held for operator) |
 | 9 | ODR-2 (#8225) closure comment draft | `odr2-closure-draft.md` | present (**pending-founder-review** — do not post until reviewed) |
 | 10 | Signed **production** receipt — **Variant A** | — | **pending-prod** (blocked on AWS reinstatement, [#9391](https://github.com/synaptent/aragora/issues/9391)) |
-| 11 | Crux-cards receipt (`cruxes` block populated, dissent attributed) | `receipts/2026-07-27-crux-cards-scoring-decision.receipt.json` | **present** |
+| 11 | Crux-cards receipt (`cruxes` block populated, dissent attributed) | `receipts/2026-07-27-crux-cards-scoring-decision.receipt.json` | present — attribution sound, ranking provisional ([#9661](https://github.com/synaptent/aragora/issues/9661)) |
 | 12 | Founder earned-claim review of the bundle | — | **pending-founder-review** (W3 exit criterion) |
 
 ## Remaining exit gates
@@ -45,12 +45,14 @@ with an honest pending status and the exact step that closes it.
 |---|---|---|
 | Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
 | Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
-| ~~Crux-cards receipt~~ | **closed 2026-07-27** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. The artifact carries two disclosed receipt defects ([#9661](https://github.com/synaptent/aragora/issues/9661)) that leave dissent attribution sound but crux ranking provisional — see "Crux cards" below. |
+| Crux-cards receipt | **met 2026-07-27 for dissent attribution; ranking provisional** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. The artifact carries two disclosed receipt defects ([#9661](https://github.com/synaptent/aragora/issues/9661)) that leave dissent attribution sound but crux ranking provisional — see "Crux cards" below. |
 | Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
 
 The repository can prepare and validate these artifacts, but no gate is silently
-treated as complete by this draft. Three gates remain: two are operator or
-infrastructure actions, and one is the founder's earned-claim review.
+treated as complete by this draft. Two gates are operator or infrastructure
+actions, one is the founder's earned-claim review, and the crux-cards gate is
+recorded as partially met rather than closed — see the section below for exactly
+which part is sound.
 
 ## Signed-receipt contingency (Variant A / Variant B)
 
@@ -149,7 +151,7 @@ aragora compliance oversight-pack --window 30d --fetch-settlements \
   digest recomputed. The signed ODR's `reasoning.summary` reproduces the
   same truncated text; the ODR bytes and signature are unchanged.
 
-## Crux cards (closed 2026-07-27)
+## Crux cards (met for dissent attribution 2026-07-27; ranking provisional)
 
 Crux cards (#9414, `DebateProtocol.enable_crux_cards`, default OFF) attach
 load-bearing disagreements to receipts; the ODR `cruxes` block renders them
@@ -180,7 +182,7 @@ Evidence for the re-attribution: two real provider-backed debates were run on
 deliberately contested prompts). Both produced receipts with
 `schema_version: 1.1` and no `cruxes` block.
 
-### Status 2026-07-27 — CLOSED
+### Status 2026-07-27 — met for dissent attribution; card ranking provisional
 
 Both defects are fixed and the artifact exists. Artifact 11 above
 (`receipts/2026-07-27-crux-cards-scoring-decision.receipt.json`) is a real
@@ -242,13 +244,16 @@ dissent.
    and the ranking as provisional until #9661 is fixed.
 2. **`input_hash` is not reproducible** from the recorded input. It is sha256 of
    neither `task` nor `input_summary`; the pre-image is an upstream payload the
-   receipt does not carry. No claim in this bundle rests on it — the
+   receipt does not carry. `consensus_proof.evidence_hash` and the
+   `provenance_chain` event's `evidence_hash` reuse that same pre-image, so an
+   auditor probing either hits the same wall. No claim in this bundle rests on it — the
    verification chain below names the artifact-hash check, which passes — but an
    auditor who tries to recompute it will not match.
 
 **Verify it yourself:**
 
 ```bash
+cd docs/compliance/bundles/2026-07-eu-ai-act    # paths below are bundle-relative
 aragora receipt verify receipts/2026-07-27-crux-cards-scoring-decision.receipt.json
 ```
 
@@ -276,9 +281,17 @@ required. #9652 removed that limitation along with the attribution defect: a
 single cross-author `CONTRADICTS` edge with positive strength now registers a
 contester, which is why a two-agent debate closes this gate.
 
-**W3 plan line: "crux cards in ≥1 published receipt" — met** as of 2026-07-27 by
-artifact 11. It was a product defect rather than a credentials or infrastructure
-gap, which is why it could be closed while #9391 remains open.
+**W3 plan line: "crux cards in ≥1 published receipt".** Artifact 11 satisfies it
+literally — a published receipt carrying crux cards with dissent attributed by
+agent — and that part is sound. The gate is deliberately **not** recorded as
+fully closed: #9661 distorts `crux_score` ranking, so the *ordering* of the
+cards is not yet trustworthy even though the attribution is. Marking a
+compliance gate met on an artifact with a known systemic distortion would be the
+kind of overclaim this bundle exists to avoid. It closes fully when #9661 is
+fixed and the artifact is regenerated.
+
+This was a product defect rather than a credentials or infrastructure gap, which
+is why it could progress at all while #9391 remains open.
 
 ## Verification chain (what an auditor can check today)
 
