@@ -149,7 +149,7 @@ aragora compliance oversight-pack --window 30d --fetch-settlements \
   digest recomputed. The signed ODR's `reasoning.summary` reproduces the
   same truncated text; the ODR bytes and signature are unchanged.
 
-## Crux cards (pending)
+## Crux cards (closed 2026-07-27)
 
 Crux cards (#9414, `DebateProtocol.enable_crux_cards`, default OFF) attach
 load-bearing disagreements to receipts; the ODR `cruxes` block renders them
@@ -221,6 +221,24 @@ codex, and codex's critiques as contested by nobody — an agent is never listed
 as contesting their own claim, and a critique nobody answered attracts no
 dissent.
 
+**Two known defects in this receipt, disclosed rather than left to be found**
+([#9661](https://github.com/synaptent/aragora/issues/9661)):
+
+1. **Mid-debate responses are recorded twice.** `agent_responses` holds each
+   round-1 and round-2 response twice, so `agent_contributions` overcounts
+   messages (codex shows 4 for two actual messages) and the duplicated codex
+   critique enters the belief network as two byte-identical claims — rows 3 and
+   4 of the listing above. This is systemic across every debate run today, not
+   specific to this artifact, so regenerating would not produce a cleaner one.
+   Crux *scoring* is unaffected: disagreement takes the maximum per author, so
+   duplicate edges from one agent do not accumulate, and the two 0.5 scores
+   above attach to two genuinely distinct claude claims.
+2. **`input_hash` is not reproducible** from the recorded input. It is sha256 of
+   neither `task` nor `input_summary`; the pre-image is an upstream payload the
+   receipt does not carry. No claim in this bundle rests on it — the
+   verification chain below names the artifact-hash check, which passes — but an
+   auditor who tries to recompute it will not match.
+
 **Verify it yourself:**
 
 ```bash
@@ -241,6 +259,12 @@ message-derived ids match nothing and crux cards are still unproducible for that
 configuration — tracked as
 [#9649](https://github.com/synaptent/aragora/issues/9649). This artifact was
 produced on the default path, where the flag is off.
+
+An earlier revision of this section stated as a hard condition that "two agents
+cannot register a disagreement", and therefore that a 3+ agent debate was
+required. #9652 removed that limitation along with the attribution defect: a
+single cross-author `CONTRADICTS` edge with positive strength now registers a
+contester, which is why a two-agent debate closes this gate.
 
 **W3 plan line: "crux cards in ≥1 published receipt" — met** as of 2026-07-27 by
 artifact 11. It was a product defect rather than a credentials or infrastructure
