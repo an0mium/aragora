@@ -45,7 +45,7 @@ with an honest pending status and the exact step that closes it.
 |---|---|---|
 | Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
 | Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
-| ~~Crux-cards receipt~~ | **closed 2026-07-27** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. |
+| ~~Crux-cards receipt~~ | **closed 2026-07-27** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. The artifact carries two disclosed receipt defects ([#9661](https://github.com/synaptent/aragora/issues/9661)) that leave dissent attribution sound but crux ranking provisional — see "Crux cards" below. |
 | Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
 
 The repository can prepare and validate these artifacts, but no gate is silently
@@ -230,9 +230,16 @@ dissent.
    critique enters the belief network as two byte-identical claims — rows 3 and
    4 of the listing above. This is systemic across every debate run today, not
    specific to this artifact, so regenerating would not produce a cleaner one.
-   Crux *scoring* is unaffected: disagreement takes the maximum per author, so
-   duplicate edges from one agent do not accumulate, and the two 0.5 scores
-   above attach to two genuinely distinct claude claims.
+
+   **Dissent attribution is unaffected** — `disagreement_score` takes the
+   maximum per author, so duplicate edges from one agent do not accumulate, and
+   the two 0.5 scores above attach to two genuinely distinct claude claims.
+   **`crux_score` ranking is affected**, and an earlier revision of this
+   paragraph wrongly said otherwise: the composite also draws on influence,
+   centrality and resolution impact, which the duplicate nodes change. The two
+   duplicate codex entries carry `crux_score` 0.4539 and 0.4533 and occupy two
+   of the four listed slots. Read the `contesting_agents` attribution as sound
+   and the ranking as provisional until #9661 is fixed.
 2. **`input_hash` is not reproducible** from the recorded input. It is sha256 of
    neither `task` nor `input_summary`; the pre-image is an upstream payload the
    receipt does not carry. No claim in this bundle rests on it — the
@@ -250,7 +257,10 @@ verified, required fields present.
 
 **Provenance.** Generated on 2026-07-27 from `main` at `36e75c45c6` (the #9652
 merge commit), so the artifact is reproducible from shipped code rather than
-from a branch. Agents `claude` and `codex` via local CLI transports; no API keys
+from a branch. **This claim rests on the author, not on the artifact:** the
+receipt records no generating commit or code version — its `provenance_chain`
+holds a single `verdict` event — so an auditor cannot confirm it from the file.
+Recording the generating revision in the receipt is folded into #9661. Agents `claude` and `codex` via local CLI transports; no API keys
 and no production dependency, so this artifact is unaffected by #9391.
 
 **Remaining limitation, unchanged.** Under `enable_km_belief_sync` the debate
