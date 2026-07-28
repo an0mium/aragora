@@ -30,6 +30,10 @@ ANALYZER_DIGESTS = (
     "1528c5cda481d83e157b973be610e820e4750d5d4a5fa59924484137877a2bb4",
     "0328ec88fa524d8ff4259f6bf1dbeb0fd1514de18d2ac472914e39e4e688921c",
 )
+# Immutable source of the serial PR #9645 analyzer bundle. The prerequisite
+# intentionally authenticates these future candidate bytes, not the older
+# analyzer versions on its own base.
+ANALYZER_SOURCE_SHA = "3007c20d4b2036543f7a4bf5695ad90d895f82bc"
 ANALYZER_FLAGS = ("-I", "-S", "-B")
 ACCEPTED_CATEGORIES = (
     "python_sdk_drift",
@@ -42,6 +46,22 @@ AUTHORITY_FIELDS = frozenset(
     "active_inventory active_inventory_sha256 analyzer_bundle canonical_artifact_bindings "
     "canonical_artifacts categories manifest_sha256 publication schema transition".split()
 )
+EXPECTED_HISTORICAL_NONCONFORMING = [
+    {
+        "actor": "scarmani",
+        "head_sha": "83a7c59169ea238e0439a27fbb80d3cb3ce7e916",
+        "merge_sha": "14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        "merged_at": "2026-07-16T18:30:08Z",
+        "pr": 9346,
+    },
+    {
+        "actor": "scarmani",
+        "head_sha": "aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        "merge_sha": "0b28f68b9f4d204ae14814169093723ea84c1364",
+        "merged_at": "2026-07-16T20:00:49Z",
+        "pr": 9320,
+    },
+]
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 HERMETIC_LAUNCHER = (
     b"import hashlib,os,runpy,sys;p=__file__;assert "
@@ -77,6 +97,7 @@ class RunProvenance:
 @dataclass(frozen=True)
 class BootstrapPolicy:
     analyzer_digests: tuple[str, ...] = ANALYZER_DIGESTS
+    analyzer_source_sha: str = ANALYZER_SOURCE_SHA
     artifact_bindings: tuple[ArtifactBinding, ...] = (
         ArtifactBinding(
             path="library/contract-drift-original-cohort-v1.json",
@@ -300,7 +321,7 @@ def _validate_first_authority(
         }
         or transition.get("kind") != "authority_transition"
         or transition.get("base_sha") != policy.transition_base_sha
-        or not isinstance(transition.get("historical_nonconforming"), list)
+        or transition.get("historical_nonconforming") != EXPECTED_HISTORICAL_NONCONFORMING
         or transition.get("accepted_transition_head") != "bound-by-release-capsule"
     ):
         if (
@@ -309,6 +330,11 @@ def _validate_first_authority(
         ):
             raise BootstrapError("first authority transition base mismatch")
         raise BootstrapError("first authority transition attempts self-authorization")
+    active_inventory = authority.get("active_inventory")
+    if not isinstance(active_inventory, list) or authority.get(
+        "active_inventory_sha256"
+    ) != _sha256(_canonical(active_inventory, terminal_lf=False)):
+        raise BootstrapError("accepted authority active inventory digest mismatch")
 
     expected_bindings = [_binding_dict(binding) for binding in policy.artifact_bindings]
     if authority.get("canonical_artifact_bindings") != expected_bindings:
@@ -351,11 +377,21 @@ def _validate_first_authority(
         or [item.get("path") for item in files if isinstance(item, dict)] != list(ANALYZER_FILES)
     ):
         raise BootstrapError("accepted analyzer bundle file set is not exact")
+    if not SHA_RE.fullmatch(policy.analyzer_source_sha):
+        raise BootstrapError("base-owned analyzer source ref is not immutable")
+    resolved_source = (
+        _git(repo, "rev-parse", "--verify", f"{policy.analyzer_source_sha}^{{commit}}")
+        .stdout.decode()
+        .strip()
+    )
+    if resolved_source != policy.analyzer_source_sha:
+        raise BootstrapError("base-owned analyzer source ref did not resolve exactly")
     for item, path, digest in zip(files, ANALYZER_FILES, policy.analyzer_digests, strict=True):
         if (
             not isinstance(item, dict)
             or set(item) != {"path", "sha256"}
             or item.get("sha256") != digest
+            or _sha256(_git_blob(repo, policy.analyzer_source_sha, path)) != digest
             or _sha256(_git_blob(repo, head_sha, path)) != digest
         ):
             raise BootstrapError(f"candidate analyzer digest mismatch: {path}")
@@ -552,6 +588,30 @@ def _write_not_first_receipt(
     return path
 
 
+def _write_no_authority_receipt(
+    output_dir: Path,
+    *,
+    base_sha: str,
+    head_sha: str,
+    workflow_run: dict[str, Any],
+) -> Path:
+    payload = {
+        "candidate_head_sha": head_sha,
+        "schema": "contract-drift-trusted-bootstrap-admission-v1",
+        "status": "no-authority-proposed",
+        "trusted_base_sha": base_sha,
+        "workflow_run": workflow_run,
+    }
+    envelope = {
+        "payload": payload,
+        "receipt_sha256": _sha256(_canonical(payload)),
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "trusted-bootstrap-admission.json"
+    path.write_bytes(_canonical(envelope))
+    return path
+
+
 def run_bootstrap(
     *,
     repo: Path,
@@ -593,7 +653,17 @@ def run_bootstrap(
         }
     authority = _authority(repo, head_sha)
     if authority is None:
-        raise BootstrapError("candidate does not propose a first accepted authority")
+        _write_no_authority_receipt(
+            output_dir,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            workflow_run=workflow_run,
+        )
+        return {
+            "candidate_head_sha": head_sha,
+            "status": "no-authority-proposed",
+            "trusted_base_sha": base_sha,
+        }
     bundle, comparison = _validate_first_authority(repo, head_sha, authority, policy)
     signal_path = _write_comparison_signal(
         output_dir,
@@ -667,7 +737,7 @@ def main() -> int:
         print(f"::error::{exc}", file=sys.stderr)  # noqa: T201
         return 2
     print(json.dumps(result, indent=2, sort_keys=True))  # noqa: T201
-    return 0 if result["status"] in {"pass", "not-first-transition"} else 1
+    return 0 if result["status"] in {"pass", "not-first-transition", "no-authority-proposed"} else 1
 
 
 if __name__ == "__main__":

@@ -27,17 +27,22 @@ jobs:
         with:
           python-version: "3.11"
       - env:
+          ANALYZER_SOURCE_SHA: 3007c20d4b2036543f7a4bf5695ad90d895f82bc
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          [[ "$ANALYZER_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$BASE_SHA" != "$HEAD_SHA"
           git init -q "$GITHUB_WORKSPACE"
           git -C "$GITHUB_WORKSPACE" remote add origin "https://github.com/$REPOSITORY.git"
-          git -C "$GITHUB_WORKSPACE" fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git -C "$GITHUB_WORKSPACE" fetch --no-tags origin \
+            "$BASE_SHA" "$HEAD_SHA" "$ANALYZER_SOURCE_SHA"
+          test "$(git -C "$GITHUB_WORKSPACE" rev-parse "$ANALYZER_SOURCE_SHA^{commit}")" \
+            = "$ANALYZER_SOURCE_SHA"
           test "$(git -C "$GITHUB_WORKSPACE" rev-parse "$BASE_SHA^{commit}")" = "$BASE_SHA"
           test "$(git -C "$GITHUB_WORKSPACE" rev-parse "$HEAD_SHA^{commit}")" = "$HEAD_SHA"
       - env:

@@ -134,7 +134,7 @@ def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
         "transition": {
             "accepted_transition_head": "bound-by-release-capsule",
             "base_sha": genesis,
-            "historical_nonconforming": [],
+            "historical_nonconforming": bootstrap.EXPECTED_HISTORICAL_NONCONFORMING,
             "kind": "authority_transition",
         },
     }
@@ -174,6 +174,10 @@ def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
         authority["transition"]["base_sha"] = base
     elif mutation == "authority-manifest":
         authority["manifest_sha256"] = "4" * 64
+    elif mutation == "active-inventory-digest":
+        authority["active_inventory_sha256"] = "5" * 64
+    elif mutation == "historical-nonconforming":
+        authority["transition"]["historical_nonconforming"] = []
     elif mutation == "self-signal":
         authority["comparison_signal"] = {
             "candidate_head_sha": "candidate-controlled",
@@ -216,6 +220,7 @@ def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
     event.write_bytes(_canonical(event_data))
     policy = bootstrap.BootstrapPolicy(
         analyzer_digests=original_digests,
+        analyzer_source_sha=head,
         artifact_bindings=bindings,
         expected_head_sha=head,
         transition_base_sha=genesis,
@@ -250,7 +255,8 @@ def test_workflow_uses_base_owned_python_without_merge_checkout():
     assert "pull_request_target:" in workflow
     assert 'python-version: "3.11"' in workflow
     assert "actions/checkout" not in workflow
-    assert 'fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"' in workflow
+    assert '"$BASE_SHA" "$HEAD_SHA" "$ANALYZER_SOURCE_SHA"' in workflow
+    assert f"ANALYZER_SOURCE_SHA: {bootstrap.ANALYZER_SOURCE_SHA}" in workflow
     assert 'for path in "$BOOTSTRAP_PATH" "$LAUNCHER_PATH" "$MANIFEST_PATH"' in workflow
     assert 'show "$BASE_SHA:$path"' in workflow
     assert "python -I -S -B" in workflow
@@ -350,6 +356,26 @@ def test_accepted_launcher_substitution_fails_closed(tmp_path):
         _run(fixture, tmp_path)
 
 
+def test_base_owned_analyzer_source_substitution_fails_closed(tmp_path):
+    fixture = _build_fixture(tmp_path)
+    _git(fixture.repo, "checkout", "-qb", "substituted-source", fixture.base)
+    for path in bootstrap.ANALYZER_FILES:
+        _write(fixture.repo, path, bootstrap._git_blob(fixture.repo, fixture.head, path))
+    _write(fixture.repo, bootstrap.ANALYZER_FILES[0], "raise SystemExit('source substitute')\n")
+    _git(fixture.repo, "add", ".")
+    _git(fixture.repo, "commit", "-qm", "substituted analyzer source")
+    source_sha = _git(fixture.repo, "rev-parse", "HEAD")
+    fixture.policy = bootstrap.BootstrapPolicy(
+        analyzer_digests=fixture.policy.analyzer_digests,
+        analyzer_source_sha=source_sha,
+        artifact_bindings=fixture.policy.artifact_bindings,
+        expected_head_sha=fixture.head,
+        transition_base_sha=fixture.policy.transition_base_sha,
+    )
+    with pytest.raises(bootstrap.BootstrapError, match="analyzer digest"):
+        _run(fixture, tmp_path)
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
@@ -359,6 +385,8 @@ def test_accepted_launcher_substitution_fails_closed(tmp_path):
         ("wrong-digest", "analyzer digest"),
         ("wrong-transition-base", "transition base"),
         ("authority-manifest", "manifest digest"),
+        ("active-inventory-digest", "active inventory digest"),
+        ("historical-nonconforming", "self-authorization"),
     ],
 )
 def test_wrong_ref_or_digest_fails_closed(tmp_path, mutation, message):
@@ -457,6 +485,7 @@ def test_existing_base_authority_writes_not_first_receipt(tmp_path):
     fixture.head = next_head
     fixture.policy = bootstrap.BootstrapPolicy(
         analyzer_digests=fixture.policy.analyzer_digests,
+        analyzer_source_sha=fixture.policy.analyzer_source_sha,
         artifact_bindings=fixture.policy.artifact_bindings,
         expected_head_sha=next_head,
         transition_base_sha=fixture.policy.transition_base_sha,
@@ -465,6 +494,30 @@ def test_existing_base_authority_writes_not_first_receipt(tmp_path):
     assert result["status"] == "not-first-transition"
     receipt = json.loads((tmp_path / "output/trusted-bootstrap-admission.json").read_text())
     assert receipt["payload"]["status"] == "not-first-transition"
+
+
+def test_no_authority_candidate_writes_neutral_receipt(tmp_path):
+    fixture = _build_fixture(tmp_path)
+    _git(fixture.repo, "checkout", "-qb", "neutral-candidate", fixture.base)
+    _write(fixture.repo, "unrelated.txt", "routine maintenance\n")
+    _git(fixture.repo, "add", ".")
+    _git(fixture.repo, "commit", "-qm", "routine candidate")
+    neutral_head = _git(fixture.repo, "rev-parse", "HEAD")
+    event_data = json.loads(fixture.event.read_text())
+    event_data["pull_request"]["head"]["sha"] = neutral_head
+    fixture.event.write_bytes(_canonical(event_data))
+    fixture.head = neutral_head
+    fixture.policy = bootstrap.BootstrapPolicy(
+        analyzer_digests=fixture.policy.analyzer_digests,
+        analyzer_source_sha=fixture.policy.analyzer_source_sha,
+        artifact_bindings=fixture.policy.artifact_bindings,
+        expected_head_sha=neutral_head,
+        transition_base_sha=fixture.policy.transition_base_sha,
+    )
+    result = _run(fixture, tmp_path)
+    assert result["status"] == "no-authority-proposed"
+    receipt = json.loads((tmp_path / "output/trusted-bootstrap-admission.json").read_text())
+    assert receipt["payload"]["status"] == "no-authority-proposed"
 
 
 def test_self_authorized_first_transition_fails_closed(tmp_path):
