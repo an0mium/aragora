@@ -33,6 +33,7 @@ from aragora.config import (
 from aragora.config.secrets import get_secret_presence
 from aragora.core import Environment
 from aragora.debate.arena_primary_configs import MLConfig, MemoryConfig
+from aragora.debate.message_utils import unique_debate_messages
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
 from aragora.modes import ModeRegistry
@@ -820,7 +821,7 @@ def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
         )
         entry[kind] += 1
 
-    for msg in _unique_debate_messages(result):
+    for msg in unique_debate_messages(getattr(result, "messages", []) or []):
         if str(getattr(msg, "content", "") or "").strip():
             _bump(getattr(msg, "agent", ""), "messages")
     proposals = getattr(result, "proposals", None)
@@ -832,24 +833,6 @@ def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
     for vote in getattr(result, "votes", []) or []:
         _bump(getattr(vote, "agent", ""), "votes")
     return contributions
-
-
-def _unique_debate_messages(result: Any) -> list[Any]:
-    """Return each recorded debate message once, preserving first-seen order."""
-    unique: list[Any] = []
-    seen: set[tuple[str, str, int, str]] = set()
-    for msg in getattr(result, "messages", []) or []:
-        key = (
-            str(getattr(msg, "agent", "") or "").strip(),
-            str(getattr(msg, "role", "") or "").strip(),
-            int(getattr(msg, "round", 0) or 0),
-            str(getattr(msg, "content", "") or "").strip(),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(msg)
-    return unique
 
 
 def _receipt_source_revision() -> str:
@@ -909,11 +892,11 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         debate_id = getattr(result, "debate_id", None) or "unknown"
         consensus_reached = getattr(result, "consensus_reached", False)
         confidence = getattr(result, "confidence", 0.0)
-        final_answer = getattr(result, "final_answer", "") or ""
+        final_answer = str(getattr(result, "final_answer", "") or "")
         task = str(getattr(result, "task", "") or "")
         metadata = getattr(result, "metadata", None)
         agent_models = metadata.get("agent_models", {}) if isinstance(metadata, dict) else {}
-        messages = _unique_debate_messages(result)
+        messages = unique_debate_messages(getattr(result, "messages", []) or [])
         agent_responses = []
         for msg in messages[:40]:
             agent_name = str(getattr(msg, "agent", "") or "").strip()
@@ -960,6 +943,9 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
             )
         contributing_agents = [name for name in agents if any(contributions[name].values())]
+        dissenting_views = [
+            str(view)[:500] for view in (getattr(result, "dissenting_views", []) or [])
+        ]
         input_hash = hashlib.sha256(task.encode()).hexdigest() if task else ""
         evidence_hash = hashlib.sha256(final_answer.encode()).hexdigest() if final_answer else ""
         receipt = {
@@ -987,9 +973,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             "agents_failed": failed_roster,
             "agent_contributions": contributions,
             "agent_responses": agent_responses,
-            "dissenting_views": [
-                str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
-            ],
+            "dissenting_views": dissenting_views,
             "consensus_proof": {
                 "reached": bool(consensus_reached),
                 "confidence": round(confidence, 4) if confidence else 0.0,
@@ -1028,7 +1012,10 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         cruxes = crux_cards_from_metadata(metadata)
         if cruxes is not None:
             receipt["cruxes"] = cruxes
-        receipt["schema_version"] = receipt_schema_version(cruxes)
+        receipt["schema_version"] = receipt_schema_version(
+            cruxes,
+            bind_debate_content=True,
+        )
 
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]

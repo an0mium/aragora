@@ -56,6 +56,7 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
     assert data["receipt_id"] == "debate-debate-smoke"
     assert data["verdict"] == "PASS"
     assert data["timestamp"].endswith("Z")
+    assert data["schema_version"] == "1.3"
     assert data["input_hash"] == hashlib.sha256(data["task"].encode()).hexdigest()
     expected_evidence_hash = hashlib.sha256(data["final_answer"].encode()).hexdigest()
     assert data["consensus_proof"]["evidence_hash"] == expected_evidence_hash
@@ -76,6 +77,60 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
 
     assert excinfo.value.code == 0
     assert "Result: VALID" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("final_answer", "Tampered answer"),
+        ("agents", ["unknown-agent"]),
+        (
+            "agent_responses",
+            [
+                {
+                    "agent": "grok_proposer",
+                    "role": "proposer",
+                    "round": 0,
+                    "response": "Tampered response",
+                }
+            ],
+        ),
+        ("dissenting_views", ["Tampered dissent"]),
+        ("config_used", {"source_revision": "tampered"}),
+    ],
+)
+def test_schema_13_receipt_binds_recorded_debate_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    replacement: object,
+) -> None:
+    """Schema 1.3 must reject edits to externally auditable debate content."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    result = _mixed_family_result()
+
+    receipt_path = _persist_debate_receipt(result)
+
+    assert receipt_path is not None
+    data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    data[field] = replacement
+    assert DecisionReceipt.from_dict(data).verify_integrity() is False
+
+
+def test_persisted_debate_receipt_stringifies_non_string_final_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Receipt persistence must not disappear when a result carries a rich answer."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    result = _mixed_family_result()
+    result.final_answer = {"decision": "ship"}
+
+    receipt_path = _persist_debate_receipt(result)
+
+    assert receipt_path is not None
+    data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    assert data["final_answer"] == "{'decision': 'ship'}"
+    assert DecisionReceipt.from_dict(data).verify_integrity() is True
 
 
 def test_persisted_debate_receipt_deduplicates_identical_messages(
@@ -261,9 +316,9 @@ def test_receipt_carries_crux_cards_from_metadata(
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert data["cruxes"]["items"][0]["claim_id"] == "c1"
     assert data["cruxes"]["detector"] == "belief_network"
-    # Cruxes bind into artifact_hash, so the schema version must signal it
-    # to older verifiers instead of reading as tampering.
-    assert data["schema_version"] == "1.2"
+    # CLI debate receipts use schema 1.3 to bind both cruxes and the recorded
+    # debate content into artifact_hash.
+    assert data["schema_version"] == "1.3"
     assert DecisionReceipt.from_dict(data).verify_integrity() is True
 
 
@@ -304,7 +359,7 @@ def test_receipt_omits_cruxes_when_crux_cards_absent_or_empty(
     assert receipt_path is not None
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert "cruxes" not in data
-    assert data["schema_version"] == "1.1"
+    assert data["schema_version"] == "1.3"
 
     empty = _mixed_family_result()
     empty.metadata["crux_cards"] = {"items": []}
@@ -312,4 +367,4 @@ def test_receipt_omits_cruxes_when_crux_cards_absent_or_empty(
     assert receipt_path is not None
     data = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
     assert "cruxes" not in data
-    assert data["schema_version"] == "1.1"
+    assert data["schema_version"] == "1.3"

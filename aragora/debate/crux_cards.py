@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.debate.message_utils import unique_debate_messages
+
 logger = logging.getLogger(__name__)
 
 CRUX_CARDS_METADATA_KEY = "crux_cards"
@@ -107,7 +109,7 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
     except ImportError:
         return None
 
-    messages = _unique_messages(messages)
+    messages = unique_debate_messages(messages)
     network = BeliefNetwork(max_iterations=3)
     added = 0
     for i, msg in enumerate(messages):
@@ -123,24 +125,6 @@ def _network_from_messages(messages: list[Any], critiques: list[Any] | None = No
         return None
     _link_critiques(network, messages, critiques or [])
     return network
-
-
-def _unique_messages(messages: list[Any]) -> list[Any]:
-    """Deduplicate mirrored debate messages while preserving their first order."""
-    unique: list[Any] = []
-    seen: set[tuple[str, str, int, str]] = set()
-    for msg in messages:
-        key = (
-            str(getattr(msg, "agent", "") or "").strip(),
-            str(getattr(msg, "role", "") or "").strip(),
-            int(getattr(msg, "round", 0) or 0),
-            str(getattr(msg, "content", "") or "").strip(),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(msg)
-    return unique
 
 
 def _claim_ids_for_agent(messages: list[Any], agent: str, role: str) -> list[str]:

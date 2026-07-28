@@ -476,6 +476,7 @@ def build_crux_receipt_from_proof(
 # Pre-crux receipts (no cruxes) keep the original recipe untouched.
 RECEIPT_SCHEMA_VERSION = "1.1"
 RECEIPT_SCHEMA_VERSION_CRUXES = "1.2"
+RECEIPT_SCHEMA_VERSION_DEBATE_CONTENT = "1.3"
 
 
 def compute_receipt_artifact_hash(data: Any) -> str:
@@ -502,25 +503,58 @@ def compute_receipt_artifact_hash(data: Any) -> str:
         "verdict": data.get("verdict", ""),
         "confidence": data.get("confidence", 0.0),
     }
+    schema_version = data.get("schema_version", "1.0")
     if data.get("cruxes") is not None:
         payload["cruxes"] = data.get("cruxes")
         # Missing schema_version defaults to "1.0" (the from_dict convention)
         # so the same JSON cannot hash two ways.
-        schema_version = data.get("schema_version", "1.0")
-        if schema_version == RECEIPT_SCHEMA_VERSION_CRUXES:
+        if schema_version in {
+            RECEIPT_SCHEMA_VERSION_CRUXES,
+            RECEIPT_SCHEMA_VERSION_DEBATE_CONTENT,
+        }:
             payload["schema_version"] = schema_version
+    if schema_version == RECEIPT_SCHEMA_VERSION_DEBATE_CONTENT:
+        payload.update(
+            {
+                "schema_version": schema_version,
+                "input_summary": data.get("input_summary", ""),
+                "task": data.get("task", ""),
+                "final_answer": data.get("final_answer", ""),
+                "rounds_used": data.get("rounds_used", 0),
+                "agents": data.get("agents", []),
+                "agents_requested": data.get("agents_requested", []),
+                "agents_failed": data.get("agents_failed", []),
+                "agent_contributions": data.get("agent_contributions", {}),
+                "agent_responses": data.get("agent_responses", []),
+                "dissenting_views": data.get("dissenting_views", []),
+                "consensus_proof": data.get("consensus_proof"),
+                "provenance_chain": data.get("provenance_chain", []),
+                "verdict_reasoning": data.get("verdict_reasoning", ""),
+                "config_used": data.get("config_used", {}),
+            }
+        )
     content = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(content.encode()).hexdigest()
 
 
-def receipt_schema_version(cruxes: dict[str, Any] | None) -> str:
+def receipt_schema_version(
+    cruxes: dict[str, Any] | None,
+    *,
+    bind_debate_content: bool = False,
+) -> str:
     """Schema version for a receipt given its cruxes block.
 
     Bumps to 1.2 exactly when a cruxes block is carried, giving older
     verifiers a version signal instead of a spurious tampering report.
     Shared by ``DecisionReceipt.from_debate_result`` and the CLI receipt
     persistence so version and content cannot drift apart.
+
+    CLI debate receipts use 1.3 to bind their recorded debate content directly
+    into ``artifact_hash``. Older 1.1/1.2 receipts retain their original hash
+    recipe and continue to verify unchanged.
     """
+    if bind_debate_content:
+        return RECEIPT_SCHEMA_VERSION_DEBATE_CONTENT
     return RECEIPT_SCHEMA_VERSION_CRUXES if cruxes is not None else RECEIPT_SCHEMA_VERSION
 
 
@@ -649,6 +683,16 @@ class DecisionReceipt:
     # flag-off receipts remain byte-identical to pre-crux receipts.
     cruxes: dict[str, Any] | None = None
 
+    # Debate-specific content carried by CLI receipts. Schema 1.3 binds these
+    # fields directly into artifact_hash; older schemas ignore the defaults.
+    task: str = ""
+    final_answer: str = ""
+    rounds_used: int = 0
+    agents: list[str] = field(default_factory=list)
+    agents_requested: list[str] = field(default_factory=list)
+    agents_failed: list[str] = field(default_factory=list)
+    agent_contributions: dict[str, dict[str, int]] = field(default_factory=dict)
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -689,6 +733,22 @@ class DecisionReceipt:
                 "confidence": self.confidence,
                 "cruxes": self.cruxes,
                 "schema_version": self.schema_version,
+                "input_summary": self.input_summary,
+                "task": self.task,
+                "final_answer": self.final_answer,
+                "rounds_used": self.rounds_used,
+                "agents": self.agents,
+                "agents_requested": self.agents_requested,
+                "agents_failed": self.agents_failed,
+                "agent_contributions": self.agent_contributions,
+                "agent_responses": [response.to_dict() for response in self.agent_responses],
+                "dissenting_views": self.dissenting_views,
+                "consensus_proof": (
+                    self.consensus_proof.to_dict() if self.consensus_proof else None
+                ),
+                "provenance_chain": [record.to_dict() for record in self.provenance_chain],
+                "verdict_reasoning": self.verdict_reasoning,
+                "config_used": self.config_used,
             }
         )
 
@@ -2202,6 +2262,18 @@ class DecisionReceipt:
         # flag-off receipts stay byte-identical (#8227).
         if self.cruxes is not None:
             data["cruxes"] = self.cruxes
+        if self.schema_version == RECEIPT_SCHEMA_VERSION_DEBATE_CONTENT:
+            data.update(
+                {
+                    "task": self.task,
+                    "final_answer": self.final_answer,
+                    "rounds_used": self.rounds_used,
+                    "agents": self.agents,
+                    "agents_requested": self.agents_requested,
+                    "agents_failed": self.agents_failed,
+                    "agent_contributions": self.agent_contributions,
+                }
+            )
         # Include signature fields if present
         if self.signature:
             data["signature"] = self.signature
@@ -2253,6 +2325,13 @@ class DecisionReceipt:
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
             cruxes=data.get("cruxes"),
+            task=data.get("task", ""),
+            final_answer=data.get("final_answer", ""),
+            rounds_used=data.get("rounds_used", 0),
+            agents=data.get("agents", []) or [],
+            agents_requested=data.get("agents_requested", []) or [],
+            agents_failed=data.get("agents_failed", []) or [],
+            agent_contributions=data.get("agent_contributions", {}) or {},
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),
