@@ -148,7 +148,9 @@ class RevisionGenerator:
         proposals = ctx.proposals
         updated_proposals: dict[str, str] = {}
 
-        if not self._generate_with_agent or not self._build_revision_prompt:
+        generate_with_agent = self._generate_with_agent
+        build_revision_prompt = self._build_revision_prompt
+        if generate_with_agent is None or build_revision_prompt is None:
             logger.warning("Missing callbacks for revision phase")
             return updated_proposals
 
@@ -168,16 +170,13 @@ class RevisionGenerator:
                 self._start_molecule(agent.name)
                 with streaming_task_context(task_id):
                     with_timeout = self._with_timeout
-                    generate = self._generate_with_agent
-                    if generate is None:
-                        return None
                     if with_timeout is not None:
                         return await with_timeout(
-                            generate(agent, revision_prompt, ctx.context_messages),
+                            generate_with_agent(agent, revision_prompt, ctx.context_messages),
                             agent.name,
                             timeout_seconds=timeout,
                         )
-                    return await generate(agent, revision_prompt, ctx.context_messages)
+                    return await generate_with_agent(agent, revision_prompt, ctx.context_messages)
 
         # Build revision tasks for all proposers
         revision_tasks = []
@@ -192,7 +191,7 @@ class RevisionGenerator:
                 logger.debug("No critiques targeting %s, skipping revision", agent.name)
                 continue
 
-            revision_prompt = self._build_revision_prompt(
+            revision_prompt = build_revision_prompt(
                 agent, proposals.get(agent.name, ""), agent_critiques, round_num
             )
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))

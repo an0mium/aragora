@@ -2557,6 +2557,32 @@ class TestRevisionGeneratorIntegration:
         assert ctx.proposals["agent1"] == "Revised A1"
         assert ctx.proposals["agent2"] == "Untouched A2"
 
+    @pytest.mark.asyncio
+    async def test_uses_callbacks_bound_at_phase_entry(self):
+        """A later attribute mutation must not yield a silent None revision."""
+        generate = AsyncMock(return_value="Revised A1")
+        generator = RevisionGenerator(generate_with_agent=generate)
+
+        def build_prompt(*_args):
+            generator._generate_with_agent = None
+            return "prompt"
+
+        generator._build_revision_prompt = build_prompt
+        ctx = MockDebateContext(
+            proposers=[MockAgent("agent1")],
+            proposals={"agent1": "Old A1"},
+        )
+
+        result = await generator.execute_revision_phase(
+            ctx,
+            1,
+            [MockCritique("critic", "agent1")],
+            [],
+        )
+
+        assert result == {"agent1": "Revised A1"}
+        generate.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 async def test_revision_message_is_recorded_exactly_once():

@@ -156,7 +156,8 @@ class CritiqueGenerator:
         new_messages: list[Message] = []
         new_critiques: list[Critique] = []
 
-        if not self._critique_with_agent:
+        critique_with_agent = self._critique_with_agent
+        if critique_with_agent is None:
             logger.warning("No critique_with_agent callback, skipping critiques")
             return (new_messages, new_critiques)
 
@@ -166,11 +167,6 @@ class CritiqueGenerator:
         async def generate_critique(critic: Agent, proposal_agent: str, proposal: str):
             """Generate critique and return CritiqueResult."""
             logger.debug("critique_generating critic=%s target=%s", critic.name, proposal_agent)
-            # Bound once so the optional-callable narrowing holds at every call
-            # site below (the attribute form defeats it).
-            critique_with_agent = self._critique_with_agent
-            if critique_with_agent is None:
-                return None
             base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
             timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
             task_id = f"{critic.name}:critique:{proposal_agent}"
