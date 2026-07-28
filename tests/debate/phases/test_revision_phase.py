@@ -88,12 +88,25 @@ class MockDebateContext:
         self.env = MockEnvironment(task=task)
         self.result = MockDebateResult(id=debate_id)
         self.context_messages = []
+        self.partial_messages = []
         self.loop_id = "loop-1"
         self.debate_id = debate_id
 
     def add_message(self, msg):
-        """Add a message to context."""
+        """Mirror :meth:`DebateContext.add_message` — all three destinations.
+
+        The real method appends to ``context_messages``, ``partial_messages``
+        AND ``result.messages`` (``debate_state.py``). This mock previously
+        appended only to ``context_messages``, so phases that *also* appended to
+        ``result.messages`` themselves looked correct here while double-counting
+        every message in production — which is exactly how #9661 survived: the
+        assertion below expects one message and got one, because the mock did
+        not reproduce the duplication the real context caused.
+        """
         self.context_messages.append(msg)
+        self.partial_messages.append(msg)
+        if self.result is not None:
+            self.result.messages.append(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -2543,3 +2556,28 @@ class TestRevisionGeneratorIntegration:
 
         assert ctx.proposals["agent1"] == "Revised A1"
         assert ctx.proposals["agent2"] == "Untouched A2"
+
+
+@pytest.mark.asyncio
+async def test_revision_message_is_recorded_exactly_once():
+    """#9661: every mid-debate message was recorded twice.
+
+    `DebateContext.add_message` already appends to `result.messages`, and the
+    phases appended again themselves, so each message landed twice — inflating
+    `agent_contributions` and putting byte-identical duplicate claims into the
+    crux top-k, which distorted card ranking in published receipts.
+
+    Asserting "exactly once" rather than "at least one" is the point: the old
+    assertion passed against a mock that did not reproduce the duplication.
+    """
+    generator = RevisionGenerator(
+        generate_with_agent=AsyncMock(return_value="Revised proposal"),
+        build_revision_prompt=MagicMock(return_value="Revision prompt"),
+    )
+    ctx = MockDebateContext(proposers=[MockAgent("agent1")], proposals={"agent1": "Proposal"})
+
+    await generator.execute_revision_phase(ctx, 1, [MockCritique("critic", "agent1")], [])
+
+    assert len(ctx.result.messages) == 1
+    assert len(ctx.context_messages) == 1
+    assert len(ctx.partial_messages) == 1

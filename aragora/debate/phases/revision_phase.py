@@ -167,16 +167,17 @@ class RevisionGenerator:
                 # Mark molecule as in_progress
                 self._start_molecule(agent.name)
                 with streaming_task_context(task_id):
-                    if self._with_timeout:
-                        return await self._with_timeout(
-                            self._generate_with_agent(agent, revision_prompt, ctx.context_messages),
+                    with_timeout = self._with_timeout
+                    generate = self._generate_with_agent
+                    if generate is None:
+                        return None
+                    if with_timeout is not None:
+                        return await with_timeout(
+                            generate(agent, revision_prompt, ctx.context_messages),
                             agent.name,
                             timeout_seconds=timeout,
                         )
-                    else:
-                        return await self._generate_with_agent(
-                            agent, revision_prompt, ctx.context_messages
-                        )
+                    return await generate(agent, revision_prompt, ctx.context_messages)
 
         # Build revision tasks for all proposers
         revision_tasks = []
@@ -295,8 +296,7 @@ class RevisionGenerator:
                 content=revised_str,
                 round=round_num,
             )
-            ctx.add_message(msg)
-            result.messages.append(msg)
+            ctx.add_message(msg)  # also appends to result.messages (#9661)
             partial_messages.append(msg)
 
             # Emit message event
@@ -316,11 +316,14 @@ class RevisionGenerator:
                     logger.debug("Recorder error for revision: %s", e)
 
             # Record position for grounded personas
-            if self._record_grounded_position:
+            record_position = self._record_grounded_position
+            if record_position is not None:
                 debate_id = (
-                    result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                    result.id
+                    if result is not None and hasattr(result, "id")
+                    else (ctx.env.task[:50] if ctx.env else "")
                 )
-                self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
+                record_position(agent.name, revised_str, debate_id, round_num, 0.75)
 
             # Observe rhetorical patterns for audience engagement
             loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
