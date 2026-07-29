@@ -228,6 +228,15 @@ jobs:
               # The statuses API returns most-recent first.
               return bool(states) and states[0] == "success"
 
+          # Already merged ('settled' additionally has a settlement receipt recorded).
+          # Checked FIRST: nothing about a merged PR is gateable, and the producer does
+          # not clear `unresolved_dissent` on settle — so any later placement is
+          # unreachable for a merged-and-settled PR that still carries that flag
+          # (#9650 openai [P2]).
+          if status in ("settled", "already_merged"):
+              print(f"PR #{pr_number} is already merged (status={status}); nothing left to gate.")
+              sys.exit(0)
+
           # Tier 0-2: model quorum alone authorizes the merge.
           if status == "satisfied":
               if verdict == "operator_advisory_settlement":
@@ -263,6 +272,23 @@ jobs:
                   f"settlement signal is recorded for head {head_sha[:12]}. The operator "
                   "must record settlement and set the 'aragora/human-settlement' commit "
                   "status. See docs/governance/MERGE_GATE_RECONCILIATION.md."
+              )
+
+          # The live gate withheld admin-squash authorization even though the model
+          # quorum itself is satisfied — e.g. an 'operator-review-required' label, or
+          # a mergeStateStatus outside {CLEAN, BLOCKED}. Failing closed is correct: an
+          # operator hold must never be merged away. Only the reason needs surfacing,
+          # and the packet already carries it.
+          if status == "blocked_by_live_gate":
+              gate_blockers = entry.get("admin_squash_gate_blockers") or []
+              for blocker in gate_blockers:
+                  print(f"  - {blocker}")
+              detail = "; ".join(str(b) for b in gate_blockers) or "no blocker detail in packet"
+              fail(
+                  f"Tier {tier}: model quorum is satisfied, but the live gate withheld "
+                  f"admin-squash authorization ({detail}). Clear the blockers above — for "
+                  "an 'operator-review-required' label, that means an operator removing it "
+                  "— then re-run this check."
               )
 
           fail(f"Unrecognized merge-quorum status '{status}' — failing closed.")
