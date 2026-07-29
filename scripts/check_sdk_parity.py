@@ -636,11 +636,117 @@ def _expected_budget_max(
     start_date: dt.date,
     today: dt.date,
 ) -> int:
-    """Compute expected maximum debt after weekly reduction cadence."""
+    """Compute the *advisory* debt-reduction target for a date.
+
+    This is reported, never enforced. Enforcement reads the committed ceiling —
+    see ``_committed_ceilings``. Deriving the enforced ceiling from elapsed time
+    is what let the required ``sdk-parity`` check go red with no code change
+    (#9086): the 54 -> 51 roll landed at a week boundary while actual debt was 53.
+    """
     if weekly_reduction <= 0 or today <= start_date:
         return initial
     weeks_elapsed = (today - start_date).days // 7
     return max(0, initial - (weeks_elapsed * weekly_reduction))
+
+
+def _resolve_today(value: str | None) -> dt.date:
+    """Resolve the effective date, pinned to UTC.
+
+    ``dt.date.today()`` is local-time, so the same commit passed under
+    TZ=America/Chicago and failed under TZ=UTC — CI and a laptop disagreed about
+    whether the tree was green (#9086). UTC is the one clock both share.
+    """
+    if value:
+        return dt.date.fromisoformat(value)
+    return dt.datetime.now(dt.timezone.utc).date()
+
+
+CEILING_FIELDS = {
+    "max_missing_from_both_sdks": "missing_from_both_sdks",
+    "max_stale_python_sdk_paths": "stale_python_sdk_paths",
+}
+
+
+def _committed_ceilings(budget_data: dict) -> dict[str, int]:
+    """Read the explicitly committed debt ceilings.
+
+    These change only when a human commits a new number (``--tighten`` writes
+    them), so the gate cannot tighten on a timer.
+    """
+    missing_fields = [field for field in CEILING_FIELDS if field not in budget_data]
+    if missing_fields:
+        raise ValueError(
+            f"budget file must declare {', '.join(sorted(missing_fields))}. "
+            "Time-derived ceilings were removed in #9086 because they reddened the "
+            "required check with no code change. Run with --tighten to write the "
+            "current debt as the committed ceiling, then commit the file."
+        )
+    return {field: int(budget_data[field]) for field in CEILING_FIELDS}
+
+
+def _print_advisory_target(
+    *,
+    budget_data: dict,
+    start_date: dt.date,
+    today: dt.date,
+    ceilings: dict[str, int],
+) -> None:
+    """Report the debt-reduction cadence as guidance, never as a gate.
+
+    The cadence fields survive #9086 so the original reduction intent stays
+    visible; what changed is that missing the target prints a nudge instead of
+    failing a required check.
+    """
+    for ceiling_field, label in (
+        ("max_missing_from_both_sdks", "missing_from_both_sdks"),
+        ("max_stale_python_sdk_paths", "stale_python_sdk_paths"),
+    ):
+        weekly = int(budget_data.get(f"weekly_reduction_{label}", 0))
+        if weekly <= 0:
+            continue
+        initial = int(budget_data.get(f"initial_{label}", ceilings[ceiling_field]))
+        target = _expected_budget_max(
+            initial=initial, weekly_reduction=weekly, start_date=start_date, today=today
+        )
+        committed = ceilings[ceiling_field]
+        if committed > target:
+            print(
+                f"  advisory: {label} cadence target for {today.isoformat()} is {target}; "
+                f"committed ceiling is {committed}. Pay down debt and run --tighten."
+            )
+
+
+def _tighten_budget(
+    *,
+    path: Path,
+    budget_data: dict,
+    current: dict[str, int],
+    ceilings: dict[str, int],
+) -> int:
+    """Commit current debt as the new ceiling. Ratchets down only."""
+    regressions = [
+        f"{field}: current {current[field]} > committed ceiling {ceilings[field]}"
+        for field in CEILING_FIELDS
+        if current[field] > ceilings[field]
+    ]
+    if regressions:
+        print("\nFAIL: refusing to tighten — that would raise the ceiling and hide a regression:")
+        for line in regressions:
+            print(f"  {line}")
+        return 1
+
+    changes = {f: (ceilings[f], current[f]) for f in CEILING_FIELDS if current[f] < ceilings[f]}
+    if not changes:
+        print("\nBudget already tight; nothing to lower.")
+        return 0
+
+    budget_data.update(current)
+    path.write_text(json.dumps(budget_data, indent=2) + "\n", encoding="utf-8")
+    print(f"\nTightened {path}:")
+    for field, (was, now) in sorted(changes.items()):
+        print(f"  {field}: {was} -> {now}")
+    print("Commit this file — the roll is only real once it is committed.")
+    return 0
 
 
 def main() -> int:
@@ -680,6 +786,15 @@ def main() -> int:
         type=str,
         default=None,
         help="Override current date (YYYY-MM-DD) for deterministic budget checks",
+    )
+    parser.add_argument(
+        "--tighten",
+        action="store_true",
+        help=(
+            "Write current debt back as the committed ceiling in the budget file. "
+            "This is the explicit budget roll — it only ever lowers the ceiling, and "
+            "exits 1 without writing if current debt is above it."
+        ),
     )
     args = parser.parse_args()
 
@@ -728,43 +843,44 @@ def main() -> int:
             if not start_date_str:
                 raise ValueError("budget.start_date is required")
             start_date = dt.date.fromisoformat(start_date_str)
-            today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
+            today = _resolve_today(args.today)
 
-            initial_missing = int(
-                budget_data.get(
-                    "initial_missing_from_both_sdks",
-                    report["summary"]["routes_missing_from_both_sdks"],
-                )
-            )
-            weekly_missing = int(budget_data.get("weekly_reduction_missing_from_both_sdks", 0))
-            expected_missing = _expected_budget_max(
-                initial=initial_missing,
-                weekly_reduction=weekly_missing,
-                start_date=start_date,
-                today=today,
-            )
+            ceilings = _committed_ceilings(budget_data)
+            expected_missing = ceilings["max_missing_from_both_sdks"]
+            expected_stale = ceilings["max_stale_python_sdk_paths"]
 
             stale_current = len(report["gaps"]["stale_python_sdk_paths"])
-            initial_stale = int(budget_data.get("initial_stale_python_sdk_paths", stale_current))
-            weekly_stale = int(budget_data.get("weekly_reduction_stale_python_sdk_paths", 0))
-            expected_stale = _expected_budget_max(
-                initial=initial_stale,
-                weekly_reduction=weekly_stale,
-                start_date=start_date,
-                today=today,
-            )
+            current_missing = report["summary"]["routes_missing_from_both_sdks"]
 
             budget_status = {
                 "expected_missing_max": expected_missing,
-                "current_missing": report["summary"]["routes_missing_from_both_sdks"],
+                "current_missing": current_missing,
                 "expected_stale_python_max": expected_stale,
                 "current_stale_python": stale_current,
             }
+
+            if args.tighten:
+                return _tighten_budget(
+                    path=args.budget,
+                    budget_data=budget_data,
+                    current={
+                        "max_missing_from_both_sdks": current_missing,
+                        "max_stale_python_sdk_paths": stale_current,
+                    },
+                    ceilings=ceilings,
+                )
+
             if not args.json:
                 print(
                     "\nBudget status: "
-                    f"missing_from_both {budget_status['current_missing']}/{budget_status['expected_missing_max']} "
-                    f"| stale_python {budget_status['current_stale_python']}/{budget_status['expected_stale_python_max']}"
+                    f"missing_from_both {current_missing}/{expected_missing} "
+                    f"| stale_python {stale_current}/{expected_stale}"
+                )
+                _print_advisory_target(
+                    budget_data=budget_data,
+                    start_date=start_date,
+                    today=today,
+                    ceilings=ceilings,
                 )
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             print(f"\nFAIL: Invalid SDK parity budget file ({args.budget}): {exc}")

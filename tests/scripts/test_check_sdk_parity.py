@@ -103,10 +103,8 @@ def test_strict_budget_fails_when_missing_exceeds_budget(monkeypatch, tmp_path):
         """
 {
   "start_date": "2026-01-01",
-  "initial_missing_from_both_sdks": 2,
-  "weekly_reduction_missing_from_both_sdks": 0,
-  "initial_stale_python_sdk_paths": 1,
-  "weekly_reduction_stale_python_sdk_paths": 0
+  "max_missing_from_both_sdks": 2,
+  "max_stale_python_sdk_paths": 1
 }
 """.strip()
         + "\n",
@@ -135,10 +133,8 @@ def test_strict_budget_fails_when_stale_exceeds_budget(monkeypatch, tmp_path):
         """
 {
   "start_date": "2026-01-01",
-  "initial_missing_from_both_sdks": 0,
-  "weekly_reduction_missing_from_both_sdks": 0,
-  "initial_stale_python_sdk_paths": 4,
-  "weekly_reduction_stale_python_sdk_paths": 0
+  "max_missing_from_both_sdks": 0,
+  "max_stale_python_sdk_paths": 4
 }
 """.strip()
         + "\n",
@@ -172,6 +168,8 @@ def test_strict_budget_passes_when_within_budget(monkeypatch, tmp_path):
         """
 {
   "start_date": "2026-02-13",
+  "max_missing_from_both_sdks": 2,
+  "max_stale_python_sdk_paths": 10,
   "initial_missing_from_both_sdks": 2,
   "weekly_reduction_missing_from_both_sdks": 1,
   "initial_stale_python_sdk_paths": 10,
@@ -359,3 +357,137 @@ def test_handler_coverage_excludes_internal_route_families():
     assert report["gaps"]["missing_from_python_sdk"] == []
     assert report["gaps"]["missing_from_typescript_sdk"] == []
     assert report["gaps"]["missing_from_both_sdks"] == []
+
+
+# ---------------------------------------------------------------------------
+# Budget semantics (#9086)
+#
+# The progressive budget used to be derived from wall-clock: an `initial` debt
+# minus `weekly_reduction` per elapsed week. Two consequences, both real:
+#
+#   1. The required `sdk-parity` check could go red with NO code change, simply
+#      because a week boundary passed. #9086 records the 54 -> 51 roll doing
+#      exactly that while actual debt sat at 53.
+#   2. `dt.date.today()` is local-time, so the same commit passed under
+#      TZ=America/Chicago and failed under TZ=UTC — CI and a developer's laptop
+#      disagreed about whether the tree was green.
+#
+# The enforced ceiling is now an explicit committed number (`max_*`). It changes
+# when a human commits a change to it, never when the clock advances.
+# ---------------------------------------------------------------------------
+
+import datetime as dt  # noqa: E402
+import json  # noqa: E402
+
+
+def _budget(tmp_path, *, max_missing: int, max_stale: int, extra: str = "") -> Path:
+    path = tmp_path / "budget.json"
+    payload = {
+        "start_date": "2026-01-01",
+        "max_missing_from_both_sdks": max_missing,
+        "max_stale_python_sdk_paths": max_stale,
+    }
+    if extra:
+        payload.update(json.loads(extra))
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _run(monkeypatch, budget: Path, *, today: str | None = None) -> int:
+    argv = ["check_sdk_parity.py", "--strict", "--allow-missing", "--budget", str(budget)]
+    if today:
+        argv += ["--today", today]
+    monkeypatch.setattr(sys, "argv", argv)
+    return check_sdk_parity.main()
+
+
+def test_budget_verdict_is_stable_across_dates(monkeypatch, tmp_path):
+    """The #9086 invariant: the calendar alone must never flip the verdict.
+
+    Same tree, same budget file, dates a year apart — identical result. Under the
+    old date-derived ceiling the later date went red with no code change.
+    """
+    budget = _budget(tmp_path, max_missing=0, max_stale=44)
+    verdicts = []
+    for today in ("2026-01-01", "2026-08-07", "2027-06-01"):
+        _patch_report(monkeypatch, missing=0, stale_python=44)
+        verdicts.append(_run(monkeypatch, budget, today=today))
+    assert verdicts == [0, 0, 0], (
+        f"verdict changed with the calendar alone: {verdicts}. A gate that reddens "
+        "without a code change is untruthful (#9086)."
+    )
+
+
+def test_default_today_is_utc_not_local_time(monkeypatch):
+    """CI and a laptop must agree on the date.
+
+    `dt.date.today()` is local-time, which is why the same commit passed under
+    TZ=America/Chicago and failed under TZ=UTC.
+    """
+    resolved = check_sdk_parity._resolve_today(None)
+    assert resolved == dt.datetime.now(dt.timezone.utc).date(), (
+        "default 'today' is not UTC-pinned; local timezone can shift it by a day"
+    )
+
+
+def test_budget_fails_when_actual_exceeds_committed_ceiling(monkeypatch, tmp_path):
+    """A real regression — debt rose above the committed number — still fails."""
+    _patch_report(monkeypatch, missing=0, stale_python=45)
+    budget = _budget(tmp_path, max_missing=0, max_stale=44)
+    assert _run(monkeypatch, budget, today="2026-08-07") == 1
+
+
+def test_budget_passes_when_actual_within_committed_ceiling(monkeypatch, tmp_path):
+    _patch_report(monkeypatch, missing=0, stale_python=44)
+    budget = _budget(tmp_path, max_missing=0, max_stale=44)
+    assert _run(monkeypatch, budget, today="2026-08-07") == 0
+
+
+def test_budget_file_without_committed_ceiling_fails_closed(monkeypatch, tmp_path):
+    """A legacy time-derived budget file must not silently resurrect the bug.
+
+    Failing closed with an actionable message beats quietly re-enabling a ceiling
+    that tightens on a timer.
+    """
+    _patch_report(monkeypatch, missing=0, stale_python=44)
+    legacy = tmp_path / "budget.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "start_date": "2026-04-24",
+                "initial_stale_python_sdk_paths": 87,
+                "weekly_reduction_stale_python_sdk_paths": 3,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert _run(monkeypatch, legacy, today="2026-08-07") == 2
+
+
+def test_tighten_lowers_ceiling_to_current_actuals(monkeypatch, tmp_path):
+    """`--tighten` is the explicit roll: debt paid down, ceiling committed lower."""
+    _patch_report(monkeypatch, missing=0, stale_python=40)
+    budget = _budget(tmp_path, max_missing=0, max_stale=44)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_sdk_parity.py", "--budget", str(budget), "--tighten", "--today", "2026-08-07"],
+    )
+    assert check_sdk_parity.main() == 0
+    written = json.loads(budget.read_text(encoding="utf-8"))
+    assert written["max_stale_python_sdk_paths"] == 40
+
+
+def test_tighten_never_raises_the_ceiling(monkeypatch, tmp_path):
+    """A ratchet only turns one way — `--tighten` must not launder a regression."""
+    _patch_report(monkeypatch, missing=0, stale_python=60)
+    budget = _budget(tmp_path, max_missing=0, max_stale=44)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_sdk_parity.py", "--budget", str(budget), "--tighten", "--today", "2026-08-07"],
+    )
+    assert check_sdk_parity.main() == 1
+    written = json.loads(budget.read_text(encoding="utf-8"))
+    assert written["max_stale_python_sdk_paths"] == 44, "ceiling was raised to hide a regression"
