@@ -1437,7 +1437,10 @@ def _write_synthetic_canonical_artifacts(
         "partition": {
             "core_original_record_id_set_sha256": core_id_set_sha256,
             "extended_original_record_id_set_sha256": extended_id_set_sha256,
+            "intersection_count": 0,
+            "rule_schema": "cdg-sdk-partition-rule-v1",
             "sdk_original_record_id_set_sha256": sdk_id_set_sha256,
+            "union_count": 598,
         },
         "record_digest_set_sha256": provenance_record_set_sha256,
         "records": provenance_records,
@@ -1477,6 +1480,48 @@ def _write_synthetic_canonical_artifacts(
     monkeypatch.setattr(ratchet, "CORE_ID_SET_SHA256", core_id_set_sha256)
     monkeypatch.setattr(ratchet, "EXTENDED_ID_SET_SHA256", extended_id_set_sha256)
     return cohort_path, provenance_path
+
+
+def _clone_repository_with_synthetic_accepted_authority(
+    tmp_path: Path,
+    *,
+    cohort_path: Path,
+    provenance_path: Path,
+) -> tuple[Path, str, str, bool]:
+    source_repo = Path(__file__).resolve().parents[2]
+    repo_root = tmp_path / "synthetic-authority-repo"
+    subprocess.run(
+        ["git", "clone", "-q", "--no-hardlinks", str(source_repo), str(repo_root)],
+        check=True,
+    )
+    production_sha = subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    inventory_path = repo_root / gen.DEFAULT_INVENTORY
+    inventory = json.loads(inventory_path.read_bytes())
+    accepted_authority = inventory.get("accepted_authority")
+    has_accepted_authority = isinstance(accepted_authority, dict)
+    if accepted_authority is not None and not has_accepted_authority:
+        raise AssertionError("production accepted authority is malformed")
+    if has_accepted_authority:
+        canonical_artifacts = accepted_authority.get("canonical_artifacts")
+        if not isinstance(canonical_artifacts, dict):
+            raise AssertionError("production accepted authority lacks canonical artifacts")
+        before = copy.deepcopy(inventory)
+        original_canonical_artifacts = copy.deepcopy(canonical_artifacts)
+        cohort = json.loads(cohort_path.read_bytes())
+        provenance = json.loads(provenance_path.read_bytes())
+        canonical_artifacts["original_cohort"] = cohort
+        canonical_artifacts["sdk_provenance"] = provenance
+        reverted = copy.deepcopy(inventory)
+        reverted_artifacts = reverted["accepted_authority"]["canonical_artifacts"]
+        reverted_artifacts["original_cohort"] = original_canonical_artifacts["original_cohort"]
+        reverted_artifacts["sdk_provenance"] = original_canonical_artifacts["sdk_provenance"]
+        assert reverted == before
+        _write_json(inventory_path, inventory)
+    fixture_sha = _commit(repo_root, "bind synthetic accepted authority")
+    return repo_root, production_sha, fixture_sha, has_accepted_authority
 
 
 def _fixture_sdk_partitions() -> dict[str, list[str]]:
@@ -2043,20 +2088,13 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         tmp_path,
         monkeypatch,
     )
-    source_repo = Path(__file__).resolve().parents[2]
-    repo_root = tmp_path / "production-repo"
-    subprocess.run(
-        ["git", "clone", "-q", "--no-hardlinks", str(source_repo), str(repo_root)],
-        check=True,
+    repo_root, start_sha, end_sha, _has_accepted_authority = (
+        _clone_repository_with_synthetic_accepted_authority(
+            tmp_path,
+            cohort_path=cohort_path,
+            provenance_path=provenance_path,
+        )
     )
-    start_sha = subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD^"],
-        text=True,
-    ).strip()
-    end_sha = subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-        text=True,
-    ).strip()
     operation_log: list[dict[str, Any]] = []
     authority = ratchet._authenticate_authority_manifest(
         repo_root=repo_root,
@@ -2376,11 +2414,29 @@ def test_canonical_cohort_and_provenance_artifacts_are_in_authority_closure(
         "sha256",
         hashlib.sha256(original_raw).hexdigest(),
     )
-    source_repo = Path(__file__).resolve().parents[2]
-    end_sha = subprocess.check_output(
-        ["git", "-C", str(source_repo), "rev-parse", "HEAD"],
-        text=True,
-    ).strip()
+    repo_root, production_sha, end_sha, has_accepted_authority = (
+        _clone_repository_with_synthetic_accepted_authority(
+            tmp_path,
+            cohort_path=cohort_path,
+            provenance_path=provenance_path,
+        )
+    )
+    if has_accepted_authority:
+        with pytest.raises(
+            gen.AuthorityClosureError,
+            match="accepted authority differs from authenticated canonical artifacts",
+        ):
+            ratchet._authenticate_authority_manifest(
+                repo_root=repo_root,
+                end_sha=production_sha,
+                authority_manifest_path=None,
+                authority_manifest_byte_length=None,
+                authority_manifest_sha256=None,
+                cohort_artifact_path=cohort_path,
+                sdk_provenance_artifact_path=provenance_path,
+                scratch_root=tmp_path,
+                operation_log=[],
+            )
     captured: dict[str, Any] = {}
     original_build = ratchet.inventory_mod.build_authority_manifest
 
@@ -2395,7 +2451,7 @@ def test_canonical_cohort_and_provenance_artifacts_are_in_authority_closure(
         capture_manifest,
     )
     ratchet._authenticate_authority_manifest(
-        repo_root=source_repo,
+        repo_root=repo_root,
         end_sha=end_sha,
         authority_manifest_path=None,
         authority_manifest_byte_length=None,

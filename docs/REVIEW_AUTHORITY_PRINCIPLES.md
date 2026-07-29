@@ -75,6 +75,19 @@ Advisory-only families (currently gemini) count at **no** tier in this table, fo
 
 Rationale: mixed quorums realize the cost advantage of open-weight Chinese families on routine Tier 0-2 work; Western-only counted quorums for Tier 3+ preserve the calibration-trained-on-Western-OSS prior that high-stakes governance and security review depend on. At Tier 4, the requirement is strictly Western-only (not just "at least one Western signal") because merge-authority self-modifications are the highest-stakes class of change in this repo and the entire counted quorum must originate from training-data lineages with documented Western alignment work. Chinese reviewers are never silenced at any Tier — their comments still post and remain readable — but they do not satisfy the quorum-count condition for Tier 3-4 merges.
 
+### Transport grounding (orthogonal to family eligibility)
+
+Family eligibility answers *who* reviewed. Grounding answers *how they were reached*, and a family eligible at a tier still carries no authority when it was reached over a transport that cannot check anything.
+
+- **Grounded transports** run as an agent inside the checkout: the Claude CLI, Codex CLI, Grok Build, Antigravity. They can read files and reach the network, so they can verify a claim before asserting it.
+- **Ungrounded transports** are single-shot API calls with no tools: VibeProxy, the family APIs, OpenRouter. They receive the prompt text and nothing else.
+
+An ungrounded review from a family listed in `GROUNDED_TRANSPORT_FAMILIES` (claude, openai, grok, gemini) **never counts toward a quorum and never creates blocking dissent** — the same both-directions treatment advisory-only families get. It still parses and lints as an evidence comment and is retained in the prepared artifact as advisory evidence. Note it is not *auto-posted*: the posting loops skip every non-supportive item, which predates this rule and applies equally to advisory-only families and to dissents; an operator posting a prepared packet by hand still surfaces it on the PR. Families with no CLI harness at all (Mistral, Hermes, and the Chinese-routed set) are exempt: demoting their only transport would remove them from the reviewer pool entirely and strand Tier 0-2 quorums that legitimately count them today. Reviewers are also now attempted CLI-first, so a countable signal is a grounded one whenever the subscription CLI is healthy.
+
+Rationale — the evidence is [PR #9505](https://github.com/synaptent/aragora/pull/9505) (2026-07-24). Three ungrounded reviews blocked a four-file container change with findings that were all false: that `node:24.18-alpine` did not exist (it did — pulled, digest `sha256:a0b9bf06`, the built container reported `v24.18.0`), that Node 24 was not an LTS line (it has been Active LTS since October 2025), and that `npm`'s `--only` flag was removed in npm 9 (it still omits devDependencies under npm 11). Both grounded CLI reviewers passed the same head. The failure is structural rather than model-specific: the reviewer prompt shows only the diff and a bounded set of changed files, while the severity contract requires that any `[P1]`/`[P2]` block the merge — so a reviewer that cannot look anything up is pushed toward asserting a confident guess about the surrounding repository. A companion prompt clause now instructs reviewers not to assert facts about files they were not shown and to tag unverifiable concerns `[P3]`.
+
+This demotion follows the same governance rule as any other: adding a family to, or removing one from, `GROUNDED_TRANSPORT_FAMILIES` — or otherwise loosening the grounding requirement in CI — is a Tier 4 change under *Family-additive change governance* below.
+
 ### Payload-jurisdiction routing rule
 
 Independent of Tier, the *content being sent to the reviewer* determines which jurisdictions may receive it:

@@ -48,6 +48,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol as _TypingProtocol, Sequence
 
+from aragora.models import by_any_id
 from aragora.pdb.panel_config import PDBPanelSlot
 from aragora.pdb.protocol import (
     SlotCritiqueResponse,
@@ -168,6 +169,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     # Live catalog 2026-07-16 (enforced by tests/models/test_catalog.py).
     "claude-fable-5": (10.00, 50.00),
+    "claude-opus-5": (5.00, 25.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-4.8": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
@@ -242,7 +244,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-v3.2-exp": (0.27, 1.10),
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
-    "kimi-k2.7-code": (0.75, 3.50),
+    "kimi-k2.7-code": (0.82, 3.75),
     "kimi-k2.6": (0.7448, 4.655),
     "kimi-k2.5": (0.44, 2.00),
     "kimi-k2": (0.57, 2.30),
@@ -282,6 +284,13 @@ def estimate_cost_usd(
     """
     tokens_in = max(0, int(tokens_in or 0))
     tokens_out = max(0, int(tokens_out or 0))
+    spec = by_any_id(model)
+    if spec is not None:
+        # Tier-aware catalog rates (documented long-context pricing);
+        # identical to the flat row below the threshold.
+        in_price, out_price = spec.rates_for(tokens_in)
+        cost = (tokens_in / 1_000_000.0) * in_price + (tokens_out / 1_000_000.0) * out_price
+        return round(cost, 6)
     rates = _PRICE_PER_MTOK.get(model)
     if rates is None:
         # Strip provider prefixes (``anthropic/...`` etc.) and try again.

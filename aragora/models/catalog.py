@@ -68,9 +68,30 @@ class ModelSpec:
     # (the 14-day availability rule); None = long-established.
     soak_until: date | None = None
     aliases: tuple[str, ...] = field(default_factory=tuple)
+    # Documented long-context tier: requests whose PROMPT reaches
+    # ``long_context_threshold`` tokens are billed at the ``*_long`` rates for
+    # ALL tokens in the request (xAI's documented model; source recorded per
+    # entry). None = flat pricing. The OpenRouter snapshot mirrors only the
+    # flat fields, so tier rates are verified against provider pricing pages.
+    long_context_threshold: int | None = None
+    input_per_mtok_long: float | None = None
+    output_per_mtok_long: float | None = None
 
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
+
+    def rates_for(self, prompt_tokens: int) -> tuple[float, float]:
+        """Applicable (input, output) USD-per-MTok pair for a request whose
+        prompt is ``prompt_tokens`` long. Falls back to flat rates when the
+        model has no documented tier."""
+        if (
+            self.long_context_threshold is not None
+            and prompt_tokens >= self.long_context_threshold
+            and self.input_per_mtok_long is not None
+            and self.output_per_mtok_long is not None
+        ):
+            return (self.input_per_mtok_long, self.output_per_mtok_long)
+        return (self.input_per_mtok, self.output_per_mtok)
 
     def is_under_soak(self, today: date | None = None) -> bool:
         """True while the model is inside its post-release soak window
@@ -106,6 +127,29 @@ CATALOG: dict[str, ModelSpec] = {
             release_date=date(2026, 6, 20),
         ),
         ModelSpec(
+            canonical_id="claude-opus-5",
+            provider="anthropic",
+            direct_id="claude-opus-5",
+            openrouter_id="anthropic/claude-opus-5",
+            # Same economics as Opus 4.8 ($5/$25) per the provider model page.
+            input_per_mtok=5.00,
+            output_per_mtok=25.00,
+            context_window=1_000_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 7, 24),
+            # SOAK WAIVED BY OPERATOR (2026-07-24). Opus 5 is a day-0 model and
+            # would normally carry soak_until=2026-08-07 under the 14-day
+            # availability rule, which would bar it from merge-authority
+            # evidence and routing candidate enumeration. The operator
+            # explicitly directed an immediate repo-wide bump, so it is
+            # adoptable from release. Reinstating the window is a one-line
+            # change: soak_until=date(2026, 8, 7).
+            soak_until=None,
+        ),
+        ModelSpec(
+            # Retained deliberately: still Active upstream (retires no sooner
+            # than 2027-05-28) AND it is Opus 5's documented fallback target for
+            # cyber-classifier refusals, so it must stay resolvable and priced.
             canonical_id="claude-opus-4-8",
             provider="anthropic",
             direct_id="claude-opus-4-8",
@@ -153,6 +197,11 @@ CATALOG: dict[str, ModelSpec] = {
             max_output_tokens=64_000,
             release_date=date(2026, 7, 8),
             soak_until=date(2026, 7, 22),
+            # docs.x.ai/developers/pricing (verified 2026-07-27): prompts
+            # >= 200k tokens bill 2x for the whole request.
+            long_context_threshold=200_000,
+            input_per_mtok_long=4.00,
+            output_per_mtok_long=12.00,
         ),
         ModelSpec(
             canonical_id="grok-4.3",
@@ -164,6 +213,10 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=64_000,
             release_date=date(2026, 4, 1),
+            # docs.x.ai/developers/pricing (verified 2026-07-27).
+            long_context_threshold=200_000,
+            input_per_mtok_long=2.50,
+            output_per_mtok_long=5.00,
         ),
         ModelSpec(
             canonical_id="qwen3.7-max",
@@ -183,9 +236,11 @@ CATALOG: dict[str, ModelSpec] = {
             provider="moonshot",
             direct_id="kimi-k2.7-code",
             openrouter_id="moonshotai/kimi-k2.7-code",
-            # Prompt rate corrected 0.72 -> 0.75 per live catalog (#9073).
-            input_per_mtok=0.75,
-            output_per_mtok=3.50,
+            # Prompt rate corrected 0.72 -> 0.75 per live catalog (#9073), then
+            # 0.75/3.50 -> 0.82/3.75 by a provider reprice caught by the
+            # 2026-07-24 snapshot refresh (incidental to the Opus 5 bump).
+            input_per_mtok=0.82,
+            output_per_mtok=3.75,
             context_window=262_144,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 15),

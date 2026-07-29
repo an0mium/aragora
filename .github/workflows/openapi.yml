@@ -168,10 +168,10 @@ jobs:
           "$PY_BIN" --version
           pip --version || "$PY_BIN" -m pip --version
 
-      - name: Set up Node 20
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24.18.0"
 
       - name: Configure npm cache for self-hosted runners
         shell: bash

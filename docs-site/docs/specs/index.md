@@ -13,6 +13,7 @@ Explore the documentation in this section to learn more.
 ## In This Section
 
 - [Aragora Roadmap Revision: Local Advocates as an Augmentation Layer (Draft v0.1)](./aragora-roadmap-revision-advocates)
+- [Chinese-Routed Reviewer Families for #9071](./chinese-routed-reviewer-families-9071)
 - [Essay Refinement Pipeline — Implementation Spec](./essay-refinement-pipeline)
 - [Finding-Severity Dissent Gate (Tier 4 Pre-Approval)](./finding-severity-gate)
 - [Independent Verifier Guide — aragora-verify](./independent-verifier-guide)

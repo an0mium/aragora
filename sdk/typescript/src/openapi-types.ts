@@ -64163,7 +64163,7 @@ export interface components {
          *       "num_agents": 3,
          *       "num_rounds": 9,
          *       "model_types": [
-         *         "claude-opus-4-8",
+         *         "claude-opus-5",
          *         "gpt-4o",
          *         "gemini-pro"
          *       ]
@@ -64183,7 +64183,7 @@ export interface components {
             /**
              * @description Model types to use
              * @example [
-             *       "claude-opus-4-8",
+             *       "claude-opus-5",
              *       "gpt-4o",
              *       "gemini-pro"
              *     ]
