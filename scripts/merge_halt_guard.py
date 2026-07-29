@@ -21,8 +21,16 @@ while the halt was armed and byte-identical before and after: nothing on the
 merging path ever opened the file. See #9216.
 
 This module is the shared guard. Every merge-capable entry point calls
-``assert_merge_allowed`` immediately before invoking a merge, so "is main
-halted?" has exactly one answer and one implementation.
+``assert_merge_allowed`` immediately before invoking a merge.
+
+One deliberate divergence: ``merge_executor.py`` keeps its own existence-based
+halt check and does **not** honour waivers, because it also *writes* the marker
+and re-locks branch protection. So a waived PR can merge through the six guarded
+paths while ``merge_executor`` still refuses it. That asymmetry is strictly
+fail-closed — the stricter path stays stricter — and is left rather than
+rewiring the most sensitive merge path in the same change that introduces the
+guard. It is recorded here so the divergence is intentional and visible rather
+than discovered later.
 
 Everything here fails CLOSED. An armed halt, a corrupt halt file, a waiver that
 does not parse, a waiver for a different PR or a different head — all block. The
@@ -35,11 +43,15 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
 
 DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
 DEFAULT_WAIVER_FILE = _REPO_ROOT / ".aragora" / "merge_executor.waiver"
@@ -83,9 +95,20 @@ def _now(now: dt.datetime | None) -> dt.datetime:
 
 
 def _read_json(path: Path) -> tuple[dict | None, str | None]:
-    """Return (payload, error). A present-but-unreadable file is an error, not absence."""
-    if not path.exists():
+    """Return (payload, error). A present-but-unreadable file is an error, not absence.
+
+    Deliberately uses ``os.stat`` rather than ``Path.exists()``: ``exists()``
+    swallows every ``OSError`` and returns False, so an unreadable parent
+    directory or a permissions failure would present an *armed* halt marker as
+    absent — allowing the merge. That is a fail-open path inside the guard whose
+    only job is to fail closed. Only ``FileNotFoundError`` means "no halt".
+    """
+    try:
+        os.stat(path)
+    except FileNotFoundError:
         return None, None
+    except OSError as exc:
+        return None, f"{path.name} could not be stat'd ({exc})"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -113,11 +136,15 @@ def _waiver_applies(waiver: dict, *, pr: int, head_sha: str, now: dt.datetime) -
     head = head_sha.strip().lower()
     # Exact head only. A prefix match would let a waiver survive a force-push,
     # which is precisely the "stale-head waiver" case #9216 asks to reject.
-    if not head or waiver_head != head:
-        return (
-            False,
-            f"waiver head {waiver_head[:12] or '(empty)'} != PR head {head[:12] or '(empty)'}",
-        )
+    #
+    # Equality alone is not enough: if a caller passes an abbreviated SHA and the
+    # waiver holds the same abbreviation, the two match and the waiver applies to
+    # every commit sharing that prefix. Both sides must therefore be full 40-hex.
+    for label, value in (("waiver", waiver_head), ("PR", head)):
+        if not _FULL_SHA.fullmatch(value):
+            return False, f"{label} head {value[:12] or '(empty)'!r} is not a full 40-char SHA"
+    if waiver_head != head:
+        return False, f"waiver head {waiver_head[:12]} != PR head {head[:12]}"
 
     try:
         expires = dt.datetime.fromisoformat(expires_raw)

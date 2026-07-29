@@ -25,6 +25,16 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.github_cli_health import check_github_cli_health  # noqa: E402
 
+# Bootstrap the repo root before importing the shared guard: these scripts are
+# invoked as `python3 scripts/<name>.py`, so sys.path[0] is scripts/ and the
+# `scripts` package is not importable without this (the editable install maps
+# only `aragora`). Verified: without it the import dies at startup.
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
 from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
 
 DEFAULT_GITHUB_REPO = "synaptent/aragora"

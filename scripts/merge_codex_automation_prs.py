@@ -18,6 +18,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+# Bootstrap the repo root before importing the shared guard: these scripts are
+# invoked as `python3 scripts/<name>.py`, so sys.path[0] is scripts/ and the
+# `scripts` package is not importable without this (the editable install maps
+# only `aragora`). Verified: without it the import dies at startup.
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
 from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
 
 SAFE_CHECK_CONCLUSIONS = {"success", "neutral", "skipped"}

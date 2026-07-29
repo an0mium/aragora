@@ -114,6 +114,45 @@ def test_waiver_head_prefix_is_not_enough(halt: Path, waiver_path: Path) -> None
     assert not _evaluate(halt, waiver_path).allowed
 
 
+def test_matching_prefix_on_both_sides_still_does_not_apply(halt: Path, waiver_path: Path) -> None:
+    """Equality is not enough — both sides must be a full SHA.
+
+    Found by the openai reviewer on #9677, verified by calling `_waiver_applies`
+    directly: with waiver head and caller head both set to `HEAD[:12]`, the old
+    code returned `(True, "scarmani")`. A caller passing an abbreviated SHA (e.g.
+    from `git rev-parse --short`) would match a waiver covering every commit that
+    shares the prefix, which is the stale-head hole the exact match exists to close.
+    """
+    _write_waiver(waiver_path, head_sha=HEAD[:12])
+    decision = guard.evaluate(PR, HEAD[:12], halt_file=halt, waiver_file=waiver_path, now=NOW)
+    assert not decision.allowed, decision.reason
+
+
+def test_unreadable_halt_marker_is_not_treated_as_absent(tmp_path: Path, waiver_path: Path) -> None:
+    """`Path.exists()` returns False on any OSError, which would read armed as absent.
+
+    Found by the claude reviewer on #9677. Simulated with an unsearchable parent
+    directory: the marker is present, but a stat failure must fail closed rather
+    than report "no halt marker present".
+    """
+    import os as _os
+    import stat as _stat
+
+    parent = tmp_path / "locked"
+    parent.mkdir()
+    marker = parent / "merge_executor.halt"
+    marker.write_text('{"reason": "main_red"}', encoding="utf-8")
+    _os.chmod(parent, 0o000)
+    try:
+        if _os.access(parent, _os.X_OK):  # running as root; the stat would succeed
+            pytest.skip("cannot revoke directory access as this user")
+        decision = guard.evaluate(PR, HEAD, halt_file=marker, waiver_file=waiver_path, now=NOW)
+        assert not decision.allowed, decision.reason
+        assert "no halt marker present" not in decision.reason
+    finally:
+        _os.chmod(parent, _stat.S_IRWXU)
+
+
 def test_expired_waiver_does_not_apply(halt: Path, waiver_path: Path) -> None:
     _write_waiver(waiver_path, expires_at="2026-07-11T05:59:00+00:00")
     assert not _evaluate(halt, waiver_path).allowed
@@ -178,6 +217,10 @@ _MERGE_INVOCATIONS = (
     re.compile(r'\[[^\]]*"gh"\s*,\s*(?:\n\s*)?"pr"\s*,\s*(?:\n\s*)?"merge"', re.S),
     re.compile(r'"pr"\s*,\s*(?:\n\s*)?"merge"\s*,\s*(?:\n\s*)?str\(', re.S),
     re.compile(r'f?"gh pr merge [^"]*\{'),
+    # Incrementally built argv: `cmd = ["gh", "pr"]` then `cmd += ["merge", ...]`.
+    # Flagged as a residual gap by the claude reviewer on #9677.
+    re.compile(r'\+=\s*\[\s*"merge"'),
+    re.compile(r'\.append\(\s*"merge"\s*\)'),
 )
 
 
