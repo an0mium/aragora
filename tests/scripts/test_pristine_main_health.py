@@ -202,14 +202,19 @@ def test_no_halt_file_flag_reports_only(mod, monkeypatch, tmp_path):
 def test_missing_pytest_records_infra_error_without_touching_halt(
     mod, monkeypatch, tmp_path, capsys
 ):
-    monkeypatch.setattr(
-        mod,
-        "refresh_pristine_worktree",
-        lambda repo, pristine: pytest.fail("runtime probe must precede worktree refresh"),
-    )
+    pristine = tmp_path / "pristine"
+    events: list[tuple[str, Path]] = []
+
+    def fake_refresh(repo, target):
+        events.append(("refresh", target))
+        target.mkdir()
+        return "deadbeef" * 5
+
+    monkeypatch.setattr(mod, "refresh_pristine_worktree", fake_refresh)
 
     def fake_run(cmd, *, cwd, timeout):
         assert _is_runtime_probe(cmd)
+        events.append(("runtime", cwd))
         return _Proc(
             1,
             "probe stdout",
@@ -226,7 +231,7 @@ def test_missing_pytest_records_infra_error_without_touching_halt(
             "--repo-root",
             str(tmp_path),
             "--pristine-dir",
-            str(tmp_path / "pristine"),
+            str(pristine),
             "--halt-file",
             str(halt),
             "--suite",
@@ -250,6 +255,7 @@ def test_missing_pytest_records_infra_error_without_touching_halt(
     assert record.data["failures"] == []
     assert "probe stdout" in record.data["infra_errors"][0]
     assert "No module named pytest" in record.data["infra_errors"][0]
+    assert events == [("refresh", pristine), ("runtime", pristine)]
 
 
 def test_locked_mypy_failure_is_infra_error_without_touching_halt(
@@ -309,6 +315,16 @@ def test_infra_failure_signature_classification(mod):
         mod._infra_failure_signature(_Proc(2, "make: mypy: No such file or directory")) is not None
     )
     assert mod._infra_failure_signature(_Proc(127, "zsh: ruff: command not found")) is not None
+    assert (
+        mod._infra_failure_signature(
+            _Proc(
+                2,
+                "",
+                "error: Failed to spawn: `ruff`\n  Caused by: No such file or directory (os error 2)",
+            )
+        )
+        is not None
+    )
     # A missing THIRD-PARTY module in the runner interpreter is infra.
     proc = _Proc(1, "")
     proc.stderr = "ModuleNotFoundError: No module named 'jsonschema'"
@@ -331,7 +347,11 @@ def test_suite_tool_missing_is_infra_error_without_touching_halt(
     monkeypatch.setattr(
         mod,
         "_run_suite",
-        lambda cmd, *, cwd, timeout: _Proc(2, "make: ruff: command not found"),
+        lambda cmd, *, cwd, timeout: _Proc(
+            2,
+            "",
+            "error: Failed to spawn: `ruff`\n  Caused by: No such file or directory (os error 2)",
+        ),
     )
 
     halt = tmp_path / "halt.json"
@@ -350,7 +370,7 @@ def test_suite_tool_missing_is_infra_error_without_touching_halt(
 
     assert rc == mod.INFRA_ERROR_EXIT
     assert not halt.exists()
-    assert "command not found" in capsys.readouterr().err
+    assert "Failed to spawn" in capsys.readouterr().err
 
     from aragora.nomic.throughput import ThroughputLedger
 

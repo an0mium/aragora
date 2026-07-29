@@ -240,6 +240,7 @@ def _format_process_failure(cmd: list[str], proc: subprocess.CompletedProcess) -
 _INFRA_OUTPUT_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?m)^make(\[\d+\])?: .*(command not found|No such file or directory)"),
     re.compile(r"(?m)command not found"),
+    re.compile(r"(?m)^error: Failed to spawn: .+"),
     # check_mypy_baseline.py could not produce a verdict (mypy crashed, output
     # unparsable, baseline file missing) — inconclusive, exactly like a timeout.
     re.compile(r"(?m)^MYPY_BASELINE_INFRA: .*"),
@@ -455,11 +456,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    runtime_error = _check_test_runtime(args.repo_root)
+    sha = refresh_pristine_worktree(args.repo_root, args.pristine_dir)
+    print(f"pristine origin/main at {sha[:12]} in {args.pristine_dir}")
+
+    runtime_error = _check_test_runtime(args.pristine_dir)
     if runtime_error:
         _record_health(
             args.repo_root,
-            sha=None,
+            sha=sha,
             suite=args.suite,
             status="infra_error",
             failures=[],
@@ -469,9 +473,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {runtime_error}", file=sys.stderr)
         print("halt marker NOT written (infrastructure failure)", file=sys.stderr)
         return INFRA_ERROR_EXIT
-
-    sha = refresh_pristine_worktree(args.repo_root, args.pristine_dir)
-    print(f"pristine origin/main at {sha[:12]} in {args.pristine_dir}")
 
     failures: list[str] = []
     infra_errors: list[str] = []
