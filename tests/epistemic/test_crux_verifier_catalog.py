@@ -6,8 +6,6 @@ flag-gate, idempotency, checksum validity, and cruxset_id stability.
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from aragora.epistemic.crux_verifier_catalog import (
