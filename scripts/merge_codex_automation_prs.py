@@ -18,6 +18,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 SAFE_CHECK_CONCLUSIONS = {"success", "neutral", "skipped"}
 SENSITIVE_PATH_TOKENS = (
     "/auth/",
@@ -229,7 +231,10 @@ def select_mergeable_prs(
     return decisions
 
 
-def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
+def _merge_pr(repo_root: Path, repo: str, number: int, head_sha: str = "") -> None:
+    # This path does not track the head SHA, so an armed halt blocks it outright:
+    # an exact-head waiver cannot be matched without a head to match against.
+    assert_merge_allowed(number, head_sha)
     proc = _run(
         [
             "gh",

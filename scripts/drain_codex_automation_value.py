@@ -25,6 +25,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.github_cli_health import check_github_cli_health  # noqa: E402
 
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 DEFAULT_GITHUB_REPO = "synaptent/aragora"
 DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_MAX_OPEN_ISSUES = 16
@@ -703,6 +705,20 @@ def _run_merge_phase(config: DrainConfig, runner: Runner) -> dict[str, Any]:
             continue
 
         merge_cmd = evaluation.command
+        try:
+            assert_merge_allowed(evaluation.pr_number, evaluation.head_sha)
+        except MergeHalted as exc:
+            phase["evaluations"].append(evaluation_payload)
+            phase["skipped"].append(
+                {
+                    "pr_number": evaluation.pr_number,
+                    "head_sha": evaluation.head_sha,
+                    "reason": "merge halt armed",
+                    "error": str(exc),
+                }
+            )
+            phase["ok"] = False
+            return phase
         proc = runner(merge_cmd, config.repo_root)
         merge_result = _phase_result(f"pr_{pr_number}_protected_squash_merge", merge_cmd, proc)
         phase["commands"].append(merge_result)

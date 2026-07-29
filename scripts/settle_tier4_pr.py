@@ -27,6 +27,8 @@ if str(REPO_ROOT) not in sys.path:
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_transport import _GhError
 
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 try:
     from aragora.swarm.github_app_auth import (
         gh_subprocess_run,
@@ -2028,6 +2030,7 @@ def _apply_merge(
         "--match-head-commit",
         head,
     ]
+    assert_merge_allowed(pr, head)
     merge_invoked = False
     try:
         merge_invoked = True

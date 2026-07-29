@@ -46,6 +46,8 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TRIAGE_SCRIPT = REPO_ROOT / "scripts" / "triage_open_prs.py"
 RECEIPT_DIR = REPO_ROOT / "docs" / "status"
@@ -288,6 +290,7 @@ def gh_pr_merge_squash(
     process so callers can inspect stdout/stderr.
     """
     runner = runner or _default_runner
+    assert_merge_allowed(pr_number, head_sha)
     args = [
         "gh",
         "pr",
