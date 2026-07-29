@@ -185,9 +185,26 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate sdk-parity result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.changes.result }}
+          WORKER_RESULT: ${{ needs.sdk-parity-run.result }}
+          IN_SCOPE: ${{ needs.changes.outputs.relevant }}
         run: |
-          if [[ "${{ needs.sdk-parity-run.result }}" == "failure" ]]; then
-            echo "::error::SDK parity check failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "SDK parity passed (or skipped — no relevant changes)"
+          if [[ "$IN_SCOPE" == "true" ]]; then
+            if [[ "$WORKER_RESULT" != "success" ]]; then
+              echo "::error::SDK parity concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+              exit 1
+            fi
+            echo "SDK parity passed."
+            exit 0
+          fi
+          if [[ "$WORKER_RESULT" != "skipped" ]]; then
+            echo "::error::SDK parity was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+            exit 1
+          fi
+          echo "SDK parity not required — no relevant changes."
