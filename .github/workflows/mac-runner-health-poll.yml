@@ -76,7 +76,11 @@ jobs:
 
             echo "=== Polling $name ($host) ==="
 
-            LAST_LINE=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            # -n is load-bearing: without it ssh inherits this loop's stdin (the
+            # jq host stream) and forwards it to the remote, draining the remaining
+            # hosts. The loop would then exit after the FIRST host with alerts empty
+            # and report every Mac healthy. See tests/ci/test_workflow_ssh_stdin.py.
+            LAST_LINE=$(ssh -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
                            -i ~/.ssh/mac_runner \
                            armand@"$host" \
                            'tail -n 1 ~/Library/Logs/aragora-runner-health.log 2>/dev/null || echo no-log' \
