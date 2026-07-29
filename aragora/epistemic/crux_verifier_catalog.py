@@ -102,7 +102,7 @@ def enrich_cruxset(cruxset: CruxSet, catalog: CruxVerifierCatalog) -> CruxSet:
     updated: list[Crux] = []
     changed = False
     for crux in cruxset.cruxes:
-        if crux.candidate_verifier:
+        if (crux.candidate_verifier or "").strip():
             updated.append(crux)
             continue
         verifier = catalog.lookup(crux)
@@ -125,6 +125,10 @@ def enrich_cruxset(cruxset: CruxSet, catalog: CruxVerifierCatalog) -> CruxSet:
         receipt_id=cruxset.receipt_id,
         provenance=dict(cruxset.provenance),
         created_at=cruxset.created_at,
+        # Enrichment only sets candidate_verifier. Without this, CruxSet.build
+        # restamps a deserialized set with the current CRUXSET_SCHEMA_VERSION,
+        # silently changing metadata this function does not own.
+        schema_version=cruxset.schema_version,
     )
 
 

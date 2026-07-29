@@ -256,3 +256,43 @@ def test_enrich_idempotent_second_pass(monkeypatch: pytest.MonkeyPatch) -> None:
     # Second call: all cruxes already have candidate_verifier → original returned
     enriched_again = enrich_cruxset(enriched, catalog)
     assert enriched_again is enriched
+
+
+# ---------------------------------------------------------------------------
+# enrich_cruxset — metadata it must NOT touch (openai review, PR #9565)
+# ---------------------------------------------------------------------------
+
+
+def test_enrich_preserves_deserialized_schema_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enrichment must not restamp schema_version.
+
+    ``CruxSet.build`` defaults schema_version to CRUXSET_SCHEMA_VERSION, so
+    rebuilding a set deserialized at an older/future version silently rewrote
+    metadata unrelated to candidate_verifier — while ``from_json`` deliberately
+    preserves what it read.
+    """
+    monkeypatch.setenv(_ENV_VAR, "1")
+    catalog = CruxVerifierCatalog.from_dict({"bc12.": "docs/foo.md"})
+
+    payload = _cruxset(_crux("bc12.x", "Something")).to_json()
+    payload["schema_version"] = "0.9-legacy"
+    legacy = CruxSet.from_json(payload)
+    assert legacy.schema_version == "0.9-legacy"
+
+    result = enrich_cruxset(legacy, catalog)
+
+    assert result is not legacy, "expected enrichment to produce a new set"
+    assert result.cruxes[0].candidate_verifier == "docs/foo.md"
+    assert result.schema_version == "0.9-legacy"
+    assert result.verify_checksum(), "checksum must cover the preserved version"
+
+
+def test_whitespace_only_verifier_is_treated_as_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A blank candidate_verifier is not "already populated"."""
+    monkeypatch.setenv(_ENV_VAR, "1")
+    catalog = CruxVerifierCatalog.from_dict({"bc12.": "docs/foo.md"})
+    cs = _cruxset(_crux("bc12.x", "Something", candidate_verifier="   "))
+
+    result = enrich_cruxset(cs, catalog)
+
+    assert result.cruxes[0].candidate_verifier == "docs/foo.md"
