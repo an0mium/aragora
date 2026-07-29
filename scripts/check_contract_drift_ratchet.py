@@ -4224,6 +4224,9 @@ def _live_witnesses(authority: dict[str, Any], *, repo_root: Path, live_ref: str
         raise ValueError(duplicate_issues[0])
     live = set(inventory_mod.collect_ids(docs))
     records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
+    original_keys = {f"{record['source_json_key']}:{inventory_mod.normalize_key(record['exact_historical_literal_record'])}" for record in records}
+    if live_ref and (residue := sorted(live - original_keys)):
+        raise ValueError(f"live baseline keys outside immutable original cohort: {residue}")
     return sorted(record["original_record_id"] for record in records if f"{record['source_json_key']}:{inventory_mod.normalize_key(record['exact_historical_literal_record'])}" in live)
 
 def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None = None) -> dict[str, Any]:
