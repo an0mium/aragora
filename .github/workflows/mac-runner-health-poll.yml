@@ -119,7 +119,7 @@ jobs:
             # a missing or stale log still gets its free space reported. On APFS
             # "/" is the read-only system snapshot, but it shares the container's
             # free space with /System/Volumes/Data, so a single df is accurate.
-            DISK_FREE_KB=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            DISK_FREE_KB=$(ssh -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
                                -i ~/.ssh/mac_runner \
                                armand@"$host" \
                                'df -Pk / | tail -1 | tr -s " " | cut -d" " -f4' \
