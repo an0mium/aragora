@@ -66,3 +66,6 @@ jobs:
           python3 -B scripts/check_contract_drift_ratchet.py --mode program \
             --ref "$SOURCE_SHA" --as-of "$(date -u +%F)" --strict --json \
             --repo-root "$GITHUB_WORKSPACE" | tee contract-drift-program-trajectory.json
+      - if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with: {name: "contract-drift-program-trajectory-${{ github.sha }}", path: contract-drift-program-trajectory.json}
