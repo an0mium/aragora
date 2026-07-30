@@ -94,7 +94,7 @@ class ExecutableClaimAdapter(KnowledgeMoundAdapter):
                 item = self._build_item(result, now)
                 stored = await self._store(item)
                 item_ids.append(stored if stored else item.id)
-            except Exception as exc:  # noqa: BLE001
+            except (Exception,) as exc:  # noqa: BLE001
                 msg = f"claim {result.claim_id}: {exc}"
                 logger.warning("ExecutableClaimAdapter – %s", msg)
                 errors.append(msg)
