@@ -10,7 +10,7 @@ import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 
 import pytest
 import scripts.check_contract_drift_ratchet as ratchet
@@ -74,6 +74,32 @@ def _write_docs(repo: Path, docs: dict[str, dict]) -> None:
     for alias, (rel_path, _keys) in gen.BASELINE_SPECS.items():
         if alias in docs:
             _write_json(repo / rel_path, docs[alias])
+
+
+@overload
+def _seed(
+    tmp_path: Path,
+    *,
+    verify: dict | None = None,
+    routes: dict | None = None,
+    parity: dict | None = None,
+    program: dict | None = None,
+    inventory_items: list[dict] | None = None,
+    commit: Literal[True] = True,
+) -> tuple[dict[str, Path], Path, str]: ...
+
+
+@overload
+def _seed(
+    tmp_path: Path,
+    *,
+    verify: dict | None = None,
+    routes: dict | None = None,
+    parity: dict | None = None,
+    program: dict | None = None,
+    inventory_items: list[dict] | None = None,
+    commit: Literal[False],
+) -> tuple[dict[str, Path], Path, None]: ...
 
 
 def _seed(
@@ -219,8 +245,8 @@ def test_program_numbers_read_only_from_program_baseline(tmp_path: Path):
 
 def test_program_schedule_math_per_class_and_batch_clocks(tmp_path: Path):
     cohort_verify = {"python_sdk_drift": ["a", "b"], "typescript_sdk_drift": []}
-    routes = {"missing_in_spec": [], "orphaned_in_spec": []}
-    parity = {"missing_from_both_sdks": []}
+    routes: dict[str, list[str]] = {"missing_in_spec": [], "orphaned_in_spec": []}
+    parity: dict[str, list[str]] = {"missing_from_both_sdks": []}
     paths, repo, cohort = _seed(
         tmp_path,
         verify=cohort_verify,
@@ -338,8 +364,8 @@ def test_fail_closed_unknown_status(tmp_path: Path):
 def test_resolved_items_excluded_but_retained(tmp_path: Path):
     today = date.today().isoformat()
     cohort_verify = {"python_sdk_drift": ["a", "gone"], "typescript_sdk_drift": []}
-    routes = {"missing_in_spec": [], "orphaned_in_spec": []}
-    parity = {"missing_from_both_sdks": []}
+    routes: dict[str, list[str]] = {"missing_in_spec": [], "orphaned_in_spec": []}
+    parity: dict[str, list[str]] = {"missing_from_both_sdks": []}
     paths, repo, cohort = _seed(
         tmp_path,
         verify=cohort_verify,
@@ -1616,7 +1642,7 @@ def _boundary_git_repo(
             )
         if sdk_debt_partition is not None and boundary == sdk_debt_at:
             category, literal = _fixture_sdk_literal(sdk_debt_partition)
-            verify = {"python_sdk_drift": [], "typescript_sdk_drift": []}
+            verify: dict[str, list[str]] = {"python_sdk_drift": [], "typescript_sdk_drift": []}
             verify[category] = [literal]
             _write_json(baselines / "verify_sdk_contracts.json", verify)
         (repo / "fixture.txt").write_text(f"boundary-{index}\n", encoding="utf-8")
@@ -2463,23 +2489,21 @@ def test_canonical_cohort_and_provenance_artifacts_are_in_authority_closure(
     )
 
     external_artifacts = captured["manifest"]["inventory"]["external_artifacts"]
-    assert external_artifacts == sorted(
-        [
-            {
-                "byte_length": cohort_path.stat().st_size,
-                "canonical_bytes": True,
-                "path": cohort_path.name,
-                "sha256": hashlib.sha256(cohort_path.read_bytes()).hexdigest(),
-            },
-            {
-                "byte_length": provenance_path.stat().st_size,
-                "canonical_bytes": True,
-                "path": provenance_path.name,
-                "sha256": hashlib.sha256(provenance_path.read_bytes()).hexdigest(),
-            },
-        ],
-        key=lambda item: item["path"],
-    )
+    expected_artifacts: list[dict[str, Any]] = [
+        {
+            "byte_length": cohort_path.stat().st_size,
+            "canonical_bytes": True,
+            "path": cohort_path.name,
+            "sha256": hashlib.sha256(cohort_path.read_bytes()).hexdigest(),
+        },
+        {
+            "byte_length": provenance_path.stat().st_size,
+            "canonical_bytes": True,
+            "path": provenance_path.name,
+            "sha256": hashlib.sha256(provenance_path.read_bytes()).hexdigest(),
+        },
+    ]
+    assert external_artifacts == sorted(expected_artifacts, key=lambda item: item["path"])
 
 
 def test_external_authority_manifest_and_evidence_index_bytes_are_canonical_before_semantic_digest(
