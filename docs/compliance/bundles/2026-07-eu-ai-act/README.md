@@ -45,7 +45,7 @@ with an honest pending status and the exact step that closes it.
 |---|---|---|
 | Production-signed receipt | infrastructure/operator | Restore production access under #9391, then run the documented Variant A export and independent verification. |
 | Rekor entry | external publish/operator | Review `rekor-note.md`, publish the digest once, and record the returned UUID. |
-| Crux-cards receipt | **met 2026-07-27 for dissent attribution; ranking provisional** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. The artifact carries two disclosed receipt defects ([#9661](https://github.com/synaptent/aragora/issues/9661)) that leave dissent attribution sound but crux ranking provisional — see "Crux cards" below. |
+| Crux-cards receipt | **met 2026-07-27 for dissent attribution; ranking provisional** | Artifact 11 above. Edge construction fixed in [#9643](https://github.com/synaptent/aragora/pull/9643), dissent attribution in [#9652](https://github.com/synaptent/aragora/pull/9652). The KM-belief-sync configuration remains unfixed and is tracked as [#9649](https://github.com/synaptent/aragora/issues/9649); it does not affect this artifact, which was produced on the default path. The duplication defect is fixed ([#9665](https://github.com/synaptent/aragora/pull/9665)) and the artifact regenerated. Remaining disclosed characteristics — ordering is a pivotality ranking rather than a dissent ranking, and `input_hash` is not reproducible — are in "Crux cards" below. |
 | Earned-claim and ODR-2 text | founder review | Review this bundle and `odr2-closure-draft.md`; publication and issue closure remain separate operator actions. |
 
 The repository can prepare and validate these artifacts, but no gate is silently
@@ -210,12 +210,12 @@ open in this repo, tracked as
 [#9655](https://github.com/synaptent/aragora/issues/9655). The receipt records:
 
 ```
-schema_version: 1.2          # the crux-bearing schema
+schema_version: 1.2
 total_disagreements: 2
-  author=claude  contested_by=['codex']   disagreement=0.5
-  author=claude  contested_by=['codex']   disagreement=0.5
-  author=codex   contested_by=[]          disagreement=0.0
-  author=codex   contested_by=[]          disagreement=0.0
+  author=codex   contested_by=[]          disagreement=0.00
+  author=codex   contested_by=[]          disagreement=0.00
+  author=claude  contested_by=['codex']   disagreement=0.30
+  author=claude  contested_by=['codex']   disagreement=0.30
 ```
 
 Both directions are correct: claude's positions are recorded as contested by
@@ -223,28 +223,49 @@ codex, and codex's critiques as contested by nobody — an agent is never listed
 as contesting their own claim, and a critique nobody answered attracts no
 dissent.
 
-**Two known defects in this receipt, disclosed rather than left to be found**
-([#9661](https://github.com/synaptent/aragora/issues/9661)):
+**Known characteristics of this receipt, disclosed rather than left to be found**
+([#9661](https://github.com/synaptent/aragora/issues/9661),
+[#9655](https://github.com/synaptent/aragora/issues/9655)):
 
-1. **Mid-debate responses are recorded twice.** `agent_responses` holds each
-   round-1 and round-2 response twice, so `agent_contributions` overcounts
-   messages (codex shows 4 for two actual messages) and the duplicated codex
-   critique enters the belief network as two byte-identical claims — rows 3 and
-   4 of the listing above. This is systemic across every debate run today, not
-   specific to this artifact, so regenerating would not produce a cleaner one.
+1. **Duplication — FIXED, and this artifact was regenerated.** Every mid-debate
+   response used to be recorded twice: `DebateContext.add_message` already
+   appends to `result.messages` and five phases appended again. That inflated
+   `agent_contributions` and put byte-identical duplicate claims into the crux
+   top-k. Fixed in
+   [#9665](https://github.com/synaptent/aragora/pull/9665) and this receipt was
+   regenerated against it — `agent_responses` now holds 5 entries with **zero
+   duplicates** (per-round 1/2/2, previously 1/4/4).
 
-   **Dissent attribution is unaffected** — `disagreement_score` takes the
-   maximum per author, so duplicate edges from one agent do not accumulate, and
-   the two 0.5 scores above attach to two genuinely distinct claude claims.
-   **`crux_score` ranking is affected**, and an earlier revision of this
-   paragraph wrongly said otherwise: the composite also draws on influence,
-   centrality and resolution impact, which the duplicate nodes change. The two
-   duplicate codex entries carry `crux_score` 0.4539 and 0.4533 and occupy two
-   of the four listed slots. Read the `contesting_agents` attribution as sound
-   and the ranking as provisional until #9661 is fixed.
-2. **`input_hash` is not reproducible** from the recorded input. It is sha256 of
-   neither `task` nor `input_summary`; the pre-image is an upstream payload the
-   receipt does not carry. `consensus_proof.evidence_hash` and the
+   Worth knowing why it survived so long: `MockDebateContext.add_message`
+   appended to only one of the three lists the real method writes, so the mock
+   cancelled the production bug out and a test asserting "exactly one message"
+   passed. The mock now mirrors the real contract.
+
+2. **Ranking leads with uncontested claims.** `crux_score` is a composite —
+   influence, uncertainty, centrality and resolution impact, with disagreement
+   weighted 0.3 — so a highly-connected claim nobody contested can outrank a
+   contested one. In this artifact the top two entries carry
+   `disagreement_score 0.00` and empty `contesting_agents`, while the two
+   genuinely contested claims rank third and fourth:
+
+   ```
+   0.4707  disagreement=0.00  contested_by=[]         influence=1.00
+   0.4707  disagreement=0.00  contested_by=[]         influence=1.00
+   0.4219  disagreement=0.30  contested_by=['codex']  influence=0.63
+   0.4217  disagreement=0.30  contested_by=['codex']  influence=0.63
+   ```
+
+   So read this block as *"the top-k most pivotal claims, with dissent
+   attributed where it exists"* — **not** as "a ranked list of the
+   disagreements". The attribution is exact; the ordering is a pivotality
+   ranking in which disagreement is one input among four. Whether a crux should
+   require disagreement at all is an open design question
+   ([#9655](https://github.com/synaptent/aragora/issues/9655)).
+
+3. **`input_hash` is not reproducible** from the recorded input, and the
+   receipt records no generating commit. `input_hash` is sha256 of neither
+   `task` nor `input_summary`; the pre-image is an upstream payload the receipt
+   does not carry. `consensus_proof.evidence_hash` and the
    `provenance_chain` event's `evidence_hash` reuse that same pre-image, so an
    auditor probing either hits the same wall. No claim in this bundle rests on it — the
    verification chain below names the artifact-hash check, which passes — but an
@@ -260,9 +281,9 @@ aragora receipt verify receipts/2026-07-27-crux-cards-scoring-decision.receipt.j
 Expected: `VALID (3/3 checks passed)` — artifact hash present, integrity
 verified, required fields present.
 
-**Provenance.** Generated on 2026-07-27 from `main` at `36e75c45c6` (the #9652
-merge commit), so the artifact is reproducible from shipped code rather than
-from a branch. **This claim rests on the author, not on the artifact:** the
+**Provenance.** Regenerated on 2026-07-28 from `main` at `9807a69a3f` (the
+#9665 merge commit, which fixed the duplication), so the artifact is
+reproducible from shipped code rather than from a branch. **This claim rests on the author, not on the artifact:** the
 receipt records no generating commit or code version — its `provenance_chain`
 holds a single `verdict` event — so an auditor cannot confirm it from the file.
 Recording the generating revision in the receipt is folded into #9661. Agents `claude` and `codex` via local CLI transports; no API keys
