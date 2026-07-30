@@ -29,6 +29,7 @@ def _mound(sid: str = "stored-1") -> MagicMock:
 
 # ── ClaimIngestionResult ──────────────────────────────────────────────────────
 
+
 class TestClaimIngestionResult:
     def test_success(self) -> None:
         assert ClaimIngestionResult(1, ["x"]).success is True
@@ -46,6 +47,7 @@ class TestClaimIngestionResult:
 
 # ── _stable_id ────────────────────────────────────────────────────────────────
 
+
 def test_stable_id_hex16_and_deterministic() -> None:
     r = _stable_id("c", "fail")
     assert len(r) == 16 and all(c in "0123456789abcdef" for c in r)
@@ -54,6 +56,7 @@ def test_stable_id_hex16_and_deterministic() -> None:
 
 
 # ── _build_item ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "status,conf",
@@ -78,12 +81,16 @@ def test_item_fields() -> None:
     assert item.source_id == "x.claim"
     assert "x.claim" in item.content and "fail" in item.content
     assert item.metadata["dic_issue"] == "DIC-16/#6026"
-    assert item.importance > ExecutableClaimAdapter()._build_item(
-        _r(ClaimStatus.PASS, cid="x.claim"), datetime(2026, 7, 30, tzinfo=UTC)
-    ).importance
+    assert (
+        item.importance
+        > ExecutableClaimAdapter()
+        ._build_item(_r(ClaimStatus.PASS, cid="x.claim"), datetime(2026, 7, 30, tzinfo=UTC))
+        .importance
+    )
 
 
 # ── flag gating ───────────────────────────────────────────────────────────────
+
 
 class TestFlagGating:
     def test_skips_when_flag_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,14 +110,13 @@ class TestFlagGating:
     def test_bypass_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
         r = asyncio.get_event_loop().run_until_complete(
-            ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(
-                _r(), require_enabled=False
-            )
+            ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(_r(), require_enabled=False)
         )
         assert r.claims_ingested == 1
 
 
 # ── batch & error paths ───────────────────────────────────────────────────────
+
 
 class TestBatch:
     def test_skips_batch(self, monkeypatch: pytest.MonkeyPatch) -> None:
