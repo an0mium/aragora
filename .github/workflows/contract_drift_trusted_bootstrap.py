@@ -26,14 +26,14 @@ ANALYZER_FILES = (
     "scripts/baselines/contract_drift_program.json",
 )
 ANALYZER_DIGESTS = (
-    "635bd14b75818623b1018da8eea3cb8af26de229ebd270c598a3620be6b7352e",
+    "716d360c5fd4bd5dc1b423005b5dcc4c7f2000e3d6f099a9bc0a314bd1fca4e1",
     "1528c5cda481d83e157b973be610e820e4750d5d4a5fa59924484137877a2bb4",
     "0328ec88fa524d8ff4259f6bf1dbeb0fd1514de18d2ac472914e39e4e688921c",
 )
 # Immutable source of the serial PR #9645 analyzer bundle. The prerequisite
 # intentionally authenticates these future candidate bytes, not the older
 # analyzer versions on its own base.
-ANALYZER_SOURCE_SHA = "d4ab26e4b30b7f65956b4cdd9d738837b78ca4a3"
+ANALYZER_SOURCE_SHA = "1722a6145c0c23a2c1c0d20be5ed1329bb01d666"
 ANALYZER_FLAGS = ("-I", "-S", "-B")
 ACCEPTED_CATEGORIES = (
     "python_sdk_drift",

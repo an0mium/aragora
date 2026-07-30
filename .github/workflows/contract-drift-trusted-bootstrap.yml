@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
       - env:
-          ANALYZER_SOURCE_SHA: d4ab26e4b30b7f65956b4cdd9d738837b78ca4a3
+          ANALYZER_SOURCE_SHA: 1722a6145c0c23a2c1c0d20be5ed1329bb01d666
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPOSITORY: ${{ github.repository }}
