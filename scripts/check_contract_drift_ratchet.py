@@ -4217,7 +4217,15 @@ def _validate_bundle(authority: dict[str, Any], repo_root: Path, bundle_ref: str
     return _sha256_bytes(_canonical_json_bytes(bundle))
 
 
-def _live_witnesses(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None) -> list[str]:
+def _outside_cohort_residue(repo_root: Path, ref: str, original_keys: set[str]) -> set[str]:
+    try:
+        docs = inventory_mod.load_git_docs(repo_root, ref)
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        raise ValueError(f"residue tolerance ref is unavailable: {ref}") from exc
+    return set(inventory_mod.collect_ids(docs)) - original_keys
+
+
+def _live_witnesses(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None, residue_ref: str | None = None) -> list[str]:
     docs = inventory_mod.load_git_docs(repo_root, live_ref) if live_ref else inventory_mod.load_working_docs(repo_root)
     duplicate_issues = inventory_mod.find_duplicate_entry_issues(docs)
     if duplicate_issues:
@@ -4225,11 +4233,15 @@ def _live_witnesses(authority: dict[str, Any], *, repo_root: Path, live_ref: str
     live = set(inventory_mod.collect_ids(docs))
     records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
     original_keys = {f"{record['source_json_key']}:{inventory_mod.normalize_key(record['exact_historical_literal_record'])}" for record in records}
-    if live_ref and (residue := sorted(live - original_keys)):
-        raise ValueError(f"live baseline keys outside immutable original cohort: {residue}")
+    if live_ref and (residue := live - original_keys):
+        if not residue_ref:
+            raise ValueError(f"{len(residue)} live baseline keys outside immutable original cohort lack a residue tolerance ref")
+        tolerated = residue if residue_ref == live_ref else _outside_cohort_residue(repo_root, residue_ref, original_keys)
+        if new_keys := sorted(residue - tolerated):
+            raise ValueError(f"new live baseline keys outside immutable original cohort versus {residue_ref}: {new_keys}")
     return sorted(record["original_record_id"] for record in records if f"{record['source_json_key']}:{inventory_mod.normalize_key(record['exact_historical_literal_record'])}" in live)
 
-def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None = None) -> dict[str, Any]:
+def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None = None, residue_ref: str | None = None) -> dict[str, Any]:
     if authority.get("schema") != ACCEPTED_AUTHORITY_SCHEMA or set(authority) != AUTHORITY_FIELDS:
         raise ValueError("accepted authority schema or fields mismatch")
     artifacts = authority.get("canonical_artifacts")
@@ -4252,7 +4264,7 @@ def validate_accepted_authority(authority: dict[str, Any], *, repo_root: Path, l
     provenance_summary = _validate_sdk_provenance(provenance, cohort_summary)
     records = {item["original_record_id"]: item for item in cohort["original_records"]}
     original_ids = set(records)
-    live = _live_witnesses(authority, repo_root=repo_root, live_ref=live_ref)
+    live = _live_witnesses(authority, repo_root=repo_root, live_ref=live_ref, residue_ref=residue_ref)
     live_digest = _sha256_bytes(_canonical_json_bytes(live))
     dispositions = authority.get("active_inventory")
     if not isinstance(dispositions, list) or len(dispositions) != 655:
@@ -4319,8 +4331,8 @@ def compare_accepted_authorities(
     base_ref: str | None = None,
     head_ref: str | None = None,
 ) -> dict[str, Any]:
-    base_summary = validate_accepted_authority(base, repo_root=repo_root, live_ref=base_ref)
-    head_summary = validate_accepted_authority(head, repo_root=repo_root, live_ref=head_ref)
+    base_summary = validate_accepted_authority(base, repo_root=repo_root, live_ref=base_ref, residue_ref=base_ref)  # fmt: skip
+    head_summary = validate_accepted_authority(head, repo_root=repo_root, live_ref=head_ref, residue_ref=base_ref)  # fmt: skip
     if (base["canonical_artifacts"], base["analyzer_bundle"]) != (head["canonical_artifacts"], head["analyzer_bundle"]):  # fmt: skip
         raise ValueError("immutable authority bindings changed")
     base_rows = {item["original_record_id"]: item for item in base["active_inventory"]}
@@ -4374,7 +4386,7 @@ def build_accepted_result(
             "resolved base has no accepted authority manifest", "authority_transition_required"
         )
     try:
-        summary = validate_accepted_authority(authority, repo_root=repo_root, live_ref=source_sha)
+        summary = validate_accepted_authority(authority, repo_root=repo_root, live_ref=source_sha, residue_ref=f"{source_sha}^" if source_sha else None)  # fmt: skip
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
@@ -5082,9 +5094,7 @@ def main() -> int:
                 if not isinstance(head_authority, dict):
                     raise ValueError("head has no accepted authority candidate")
                 if not isinstance(base_authority, dict):
-                    summary = validate_accepted_authority(
-                        head_authority, repo_root=args.repo_root, live_ref=args.head_ref
-                    )
+                    summary = validate_accepted_authority(head_authority, repo_root=args.repo_root, live_ref=args.head_ref, residue_ref=args.base_ref)  # fmt: skip
                     if len(summary["active_original_record_ids"]) != 655:
                         raise ValueError("authority transition must install all-active genesis")
                     result = {
