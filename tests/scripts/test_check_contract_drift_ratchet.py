@@ -4026,3 +4026,102 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
             ratchet._guard_subprocess_argv(argv)
     ratchet._guard_subprocess_argv(["git", "status", "--porcelain=v1"])
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
+
+
+def _accepted_authority() -> dict[str, Any]:
+    path = Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json"
+    return json.loads(path.read_text())["accepted_authority"]
+
+
+def test_accepted_authority_keeps_genesis_and_reconciles_live_witnesses():
+    authority, root = _accepted_authority(), Path(ratchet.__file__).parents[1]
+    summary = ratchet.validate_accepted_authority(authority, repo_root=root)
+    assert (summary["original_record_total"], summary["sdk_provenance_record_total"]) == (655, 598)
+    assert (len(summary["active_original_record_ids"]), len(summary["live_original_record_ids"])) == (655, 400)  # fmt: skip
+    paydown, live = copy.deepcopy(authority), set(summary["live_original_record_ids"])
+    live_digest = ratchet._sha256_bytes(ratchet._canonical_json_bytes(sorted(live)))
+    for item in paydown["active_inventory"]:
+        if item["original_record_id"] in live:
+            continue
+        fact = {"active_original_record_ids_sha256": live_digest, "as_of": "2026-07-27", "original_record_id": item["original_record_id"]}  # fmt: skip
+        item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": fact["as_of"], "evidence": {"fact": fact, "sha256": ratchet._fact_digest(ratchet.PAYDOWN_SCHEMA, fact)}, "status": "resolved"}])  # fmt: skip
+    paydown["active_inventory_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(paydown["active_inventory"]))  # fmt: skip
+    paydown["manifest_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes({key: value for key, value in paydown.items() if key != "manifest_sha256"}))  # fmt: skip
+    assert len(ratchet.compare_accepted_authorities(authority, paydown, repo_root=root)["removed_original_record_ids"]) == 255  # fmt: skip
+
+
+def test_accepted_authority_rejects_unbound_paydown_and_bundle():
+    authority = _accepted_authority()
+    item = authority["active_inventory"][0]
+    item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": "2026-07-27", "evidence": {}, "status": "resolved"}])  # fmt: skip
+    with pytest.raises(ValueError, match="paydown"):
+        ratchet.validate_accepted_authority(authority, repo_root=Path(ratchet.__file__).parents[1])
+    authority = _accepted_authority()
+    authority["analyzer_bundle"]["files"].pop()
+    with pytest.raises(ValueError, match="file set"):
+        ratchet._bundle_metadata(authority)
+
+
+def test_accepted_authority_rejects_bundle_evolution(monkeypatch):
+    authority, changed = _accepted_authority(), _accepted_authority()
+    changed["analyzer_bundle"]["interpreter_flags"] = ["-I", "-S"]
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *args, **kwargs: {})
+    with pytest.raises(ValueError, match="immutable authority bindings"):
+        ratchet.compare_accepted_authorities(authority, changed, repo_root=Path("."))
+
+
+def _residue_fixture(root: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str]:
+    authority = _accepted_authority()
+    records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
+    original = {f"{r['source_json_key']}:{gen.normalize_key(r['exact_historical_literal_record'])}" for r in records}  # fmt: skip
+    docs = gen.load_working_docs(root)
+    ids = set(gen.collect_ids(docs))
+    entry = next(e for e in docs["routes"]["missing_in_spec"] if f"missing_in_spec:{gen.normalize_key(e)}" not in original and f"orphaned_in_spec:{gen.normalize_key(e)}" not in ids)  # fmt: skip
+    return authority, docs, entry
+
+
+def test_live_residue_is_frozen_shrink_only_against_tolerance_ref(monkeypatch):
+    root = Path(ratchet.__file__).parents[1]
+    authority, base_docs, entry = _residue_fixture(root)
+    head_docs = copy.deepcopy(base_docs)
+    head_docs["routes"]["missing_in_spec"].remove(entry)
+    by_ref = {"tolerance-ref": base_docs, "candidate-ref": head_docs}
+
+    def fake_git_docs(repo_root: Path, ref: str) -> dict[str, dict[str, Any]]:
+        if ref not in by_ref:
+            raise subprocess.CalledProcessError(128, ["git", "rev-parse", ref])
+        return copy.deepcopy(by_ref[ref])
+
+    monkeypatch.setattr(ratchet.inventory_mod, "load_git_docs", fake_git_docs)
+    kwargs = {"repo_root": root, "live_ref": "candidate-ref", "residue_ref": "tolerance-ref"}
+    removal_live = ratchet._live_witnesses(authority, **kwargs)
+    equal_live = ratchet._live_witnesses(authority, repo_root=root, live_ref="tolerance-ref", residue_ref="tolerance-ref")  # fmt: skip
+    assert removal_live == equal_live and len(equal_live) == 400
+    head_docs["routes"]["missing_in_spec"].append(f"{entry}/guard-v2-new")
+    with pytest.raises(ValueError, match="new live baseline keys outside immutable original cohort") as one_new:  # fmt: skip
+        ratchet._live_witnesses(authority, **kwargs)
+    assert f"missing_in_spec:{entry}/guard-v2-new" in str(one_new.value)
+    head_docs["routes"]["missing_in_spec"].remove(f"{entry}/guard-v2-new")
+    head_docs["routes"]["orphaned_in_spec"].append(entry)
+    with pytest.raises(ValueError, match="new live baseline keys outside immutable original cohort") as flipped:  # fmt: skip
+        ratchet._live_witnesses(authority, **kwargs)
+    assert f"orphaned_in_spec:{gen.normalize_key(entry)}" in str(flipped.value)
+    with pytest.raises(ValueError, match="lack a residue tolerance ref"):
+        ratchet._live_witnesses(authority, repo_root=root, live_ref="candidate-ref", residue_ref=None)  # fmt: skip
+    with pytest.raises(ValueError, match="residue tolerance ref is unavailable"):
+        ratchet._live_witnesses(authority, repo_root=root, live_ref="tolerance-ref", residue_ref="0" * 40)  # fmt: skip
+
+
+def test_residue_tolerance_refs_bind_event_base_and_first_parent(monkeypatch):
+    calls: list[tuple[str | None, str | None]] = []
+
+    def fake_validate(authority: dict[str, Any], *, repo_root: Path, live_ref: str | None = None, residue_ref: str | None = None) -> dict[str, Any]:  # fmt: skip
+        calls.append((live_ref, residue_ref))
+        return {"active_original_record_ids": [], "analyzer_bundle_sha256": "", "live_original_record_ids": []}  # fmt: skip
+
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", fake_validate)
+    root = Path(ratchet.__file__).parents[1]
+    ratchet.compare_accepted_authorities(_accepted_authority(), _accepted_authority(), repo_root=root, base_ref="base-sha", head_ref="head-sha")  # fmt: skip
+    source = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()  # fmt: skip
+    ratchet.build_accepted_result(mode="receipt", repo_root=root, inventory_path=root / "scripts/baselines/contract_drift_inventory.json", source_sha=source)  # fmt: skip
+    assert calls == [("base-sha", "base-sha"), ("head-sha", "base-sha"), (source, f"{source}^")]
