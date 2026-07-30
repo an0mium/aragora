@@ -1,0 +1,140 @@
+"""Tests for DIC-16 ExecutableClaimAdapter (pure schema/logic)."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus
+from aragora.knowledge.mound.adapters.executable_claim_adapter import (
+    ClaimIngestionResult,
+    ExecutableClaimAdapter,
+    _stable_id,
+)
+from aragora.knowledge.unified.types import ConfidenceLevel, KnowledgeSource
+
+
+def _r(status: ClaimStatus = ClaimStatus.PASS, cid: str = "b0.claim") -> ClaimResult:
+    return ClaimResult(claim_id=cid, status=status, message="ok", severity="info")
+
+
+def _mound(sid: str = "stored-1") -> MagicMock:
+    m = MagicMock()
+    m.store = AsyncMock(return_value=sid)
+    return m
+
+
+# ── ClaimIngestionResult ──────────────────────────────────────────────────────
+
+class TestClaimIngestionResult:
+    def test_success(self) -> None:
+        assert ClaimIngestionResult(1, ["x"]).success is True
+
+    def test_no_ingested_is_failure(self) -> None:
+        assert ClaimIngestionResult(0, []).success is False
+
+    def test_errors_mark_failure(self) -> None:
+        assert ClaimIngestionResult(1, ["x"], errors=["e"]).success is False
+
+    def test_to_dict(self) -> None:
+        d = ClaimIngestionResult(2, ["a", "b"]).to_dict()
+        assert d["claims_ingested"] == 2 and d["success"] is True
+
+
+# ── _stable_id ────────────────────────────────────────────────────────────────
+
+def test_stable_id_hex16_and_deterministic() -> None:
+    r = _stable_id("c", "fail")
+    assert len(r) == 16 and all(c in "0123456789abcdef" for c in r)
+    assert _stable_id("c", "fail") == _stable_id("c", "fail")
+    assert _stable_id("a", "pass") != _stable_id("a", "fail")
+
+
+# ── _build_item ───────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize(
+    "status,conf",
+    [
+        (ClaimStatus.PASS, ConfidenceLevel.HIGH),
+        (ClaimStatus.FAIL, ConfidenceLevel.LOW),
+        (ClaimStatus.STALE, ConfidenceLevel.MEDIUM),
+        (ClaimStatus.ERROR, ConfidenceLevel.LOW),
+    ],
+)
+def test_confidence_mapping(status: ClaimStatus, conf: ConfidenceLevel) -> None:
+    item = ExecutableClaimAdapter()._build_item(_r(status), datetime.now(UTC))
+    assert item.confidence == conf
+
+
+def test_item_fields() -> None:
+    item = ExecutableClaimAdapter()._build_item(
+        _r(ClaimStatus.FAIL, cid="x.claim"), datetime(2026, 7, 30, tzinfo=UTC)
+    )
+    assert item.source == KnowledgeSource.BELIEF
+    assert item.id == "claim_km_" + _stable_id("x.claim", "fail")
+    assert item.source_id == "x.claim"
+    assert "x.claim" in item.content and "fail" in item.content
+    assert item.metadata["dic_issue"] == "DIC-16/#6026"
+    assert item.importance > ExecutableClaimAdapter()._build_item(
+        _r(ClaimStatus.PASS, cid="x.claim"), datetime(2026, 7, 30, tzinfo=UTC)
+    ).importance
+
+
+# ── flag gating ───────────────────────────────────────────────────────────────
+
+class TestFlagGating:
+    def test_skips_when_flag_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
+        r = asyncio.get_event_loop().run_until_complete(
+            ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(_r())
+        )
+        assert r.claims_ingested == 0 and r.skipped == 1
+
+    def test_proceeds_when_flag_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
+        r = asyncio.get_event_loop().run_until_complete(
+            ExecutableClaimAdapter(mound=_mound("y")).ingest_claim_result(_r())
+        )
+        assert r.claims_ingested == 1 and r.knowledge_item_ids == ["y"]
+
+    def test_bypass_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
+        r = asyncio.get_event_loop().run_until_complete(
+            ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(
+                _r(), require_enabled=False
+            )
+        )
+        assert r.claims_ingested == 1
+
+
+# ── batch & error paths ───────────────────────────────────────────────────────
+
+class TestBatch:
+    def test_skips_batch(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
+        r = asyncio.get_event_loop().run_until_complete(
+            ExecutableClaimAdapter(mound=_mound()).ingest_claim_results(
+                [_r(cid=f"c{i}") for i in range(3)]
+            )
+        )
+        assert r.claims_ingested == 0 and r.skipped == 3
+
+    def test_store_error_captured(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
+        bad = MagicMock()
+        bad.store = AsyncMock(side_effect=RuntimeError("down"))
+        r = asyncio.get_event_loop().run_until_complete(
+            ExecutableClaimAdapter(mound=bad).ingest_claim_results([_r()])
+        )
+        assert r.claims_ingested == 0 and "down" in r.errors[0]
+
+
+def test_no_mound_returns_generated_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
+    r = asyncio.get_event_loop().run_until_complete(
+        ExecutableClaimAdapter().ingest_claim_result(_r(), require_enabled=False)
+    )
+    assert r.claims_ingested == 1 and r.knowledge_item_ids[0].startswith("claim_km_")
