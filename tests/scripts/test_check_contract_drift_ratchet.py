@@ -5330,19 +5330,43 @@ def test_deterministic_boundary_status_pass_is_reachable(
     monkeypatch: pytest.MonkeyPatch,
 ):
     for boundary in ("corrective_bootstrap", "final_seal"):
-        result = _boundary_result(tmp_path / boundary, monkeypatch, boundary)
-        assert (result["status"], result["passing"]) == ("pass", True)
-        assert result["blocked_reason"] is None
-        assert result["error_code"] if result["status"] == "fail" else True
-        assert list(result["predicates"]) == list(
-            ratchet.BOUNDARY_NAMES[: ratchet.BOUNDARY_NAMES.index(boundary) + 1]
+        base = tmp_path / boundary
+        repo, start_sha, boundary_shas = _boundary_git_repo(base)
+        end_sha = boundary_shas[boundary]
+        index_path, index_length, index_sha256 = _write_boundary_index(
+            base, boundary, start_sha, end_sha, boundary_shas, repo=repo
         )
-        assert all(entry["proven"] is True for entry in result["predicates"].values())
-        # Deterministic: the same fixture double-runs to identical bytes
-        # modulo the freshly generated operation log.
-        again = _boundary_result(tmp_path / f"{boundary}-again", monkeypatch, boundary)
-        assert again["status"] == "pass"
-        assert again["predicates"] == result["predicates"]
+        _stub_boundary_dependencies(monkeypatch)
+        _stub_boundary_evidence_index(
+            monkeypatch,
+            index_path=index_path,
+            index_length=index_length,
+            index_sha256=index_sha256,
+            pr_additions=400,
+            pr_deletions=400,
+        )
+        runs = [
+            ratchet.build_boundary_result(
+                repo_root=repo,
+                schema_version=1,
+                boundary=boundary,
+                start_ref=start_sha,
+                end_ref=end_sha,
+            )
+            for _run in range(2)
+        ]
+        for result in runs:
+            assert (result["status"], result["passing"]) == ("pass", True)
+            assert result["blocked_reason"] is None
+            assert list(result["predicates"]) == list(
+                ratchet.BOUNDARY_NAMES[: ratchet.BOUNDARY_NAMES.index(boundary) + 1]
+            )
+            assert all(entry["proven"] is True for entry in result["predicates"].values())
+        # Deterministic: the same fixture double-runs to identical canonical
+        # bytes (the manifest digest covers everything but the fresh
+        # operation log).
+        assert runs[0]["predicates"] == runs[1]["predicates"]
+        assert runs[0]["manifest_sha256"] == runs[1]["manifest_sha256"]
 
 
 def test_read_only_cli_mutation_attempt_fails_closed(tmp_path: Path):
@@ -5902,3 +5926,588 @@ def test_undeclared_import_fails_closed(tmp_path: Path):
     )
     with pytest.raises(gen.AuthorityClosureError, match="repository-local import is unavailable"):
         gen._python_import_edges(root, "scripts/missing_target.py")
+
+
+# ------- VAL-CDG-006: no item replacement; mathematically exact set diffs
+
+
+def _swap_baseline_entry(paths: dict[str, Path], alias: str, list_key: str, old: str, new: str):
+    doc = json.loads(paths[alias].read_text())
+    entries = doc[list_key]
+    entries[entries.index(old)] = new
+    _write_json(paths[alias], doc)
+
+
+def _pr_result_and_recomputed_sets(
+    paths: dict[str, Path], repo: Path, base: str
+) -> tuple[dict, set[str], set[str]]:
+    """PR-mode result plus independently recomputed base/head ID-set diffs."""
+    base_docs = {
+        alias: json.loads(
+            subprocess.run(
+                ["git", "-C", str(repo), "show", f"{base}:{rel_path}"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        )
+        for alias, (rel_path, _k) in gen.BASELINE_SPECS.items()
+    }
+    head_docs = {alias: json.loads(paths[alias].read_text()) for alias in base_docs}
+    base_ids = set(gen.collect_ids(base_docs))
+    head_ids = set(gen.collect_ids(head_docs))
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    return result, base_ids - head_ids, head_ids - base_ids
+
+
+def test_pr_mode_fails_same_count_sdk_literal_replacement(tmp_path: Path):
+    # Replace one python SDK literal with a distinct literal: total and every
+    # category count are unchanged, yet admission fails and names both sides.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    _swap_baseline_entry(paths, "verify", "python_sdk_drift", "b", "b-replacement")
+    result, removed, added = _pr_result_and_recomputed_sets(paths, repo, base)
+    assert not result["passing"]
+    deltas = result["pr_delta"]["counts"]
+    assert all(entry["delta"] == 0 for entry in deltas.values())
+    assert result["pr_delta"]["increased"] == []
+    # Independently recomputed set differences match the JSON exactly.
+    assert added == {"python_sdk_drift:b-replacement"}
+    assert removed == {"python_sdk_drift:b"}
+    assert result["pr_delta"]["new_entries"] == sorted(added)
+    issues = result["integrity"]["issues"]
+    assert any("python_sdk_drift:b-replacement" in issue for issue in issues)
+    assert any("python_sdk_drift:b" in issue for issue in issues)
+    # Accepted-authority layer: a same-count literal method edit rehashes the
+    # record ID, which cannot exist in the immutable cohort.
+    authority = _accepted_authority()
+    record = next(
+        item
+        for item in authority["canonical_artifacts"]["original_cohort"]["original_records"]
+        if item["category"] == "python_sdk_drift"
+    )
+    record["exact_historical_literal_record"] = record["exact_historical_literal_record"].replace(
+        record["method"], "BREW", 1
+    )
+    with pytest.raises(ValueError, match="ID payload .*mismatch"):
+        ratchet._validate_original_cohort(authority["canonical_artifacts"]["original_cohort"])
+
+
+def test_pr_mode_fails_same_count_route_literal_replacement(tmp_path: Path):
+    # Replace one route path literal with a distinct path: same counts, fail.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    _swap_baseline_entry(paths, "routes", "missing_in_spec", "m2", "/api/replaced")
+    result, removed, added = _pr_result_and_recomputed_sets(paths, repo, base)
+    assert not result["passing"]
+    assert all(entry["delta"] == 0 for entry in result["pr_delta"]["counts"].values())
+    assert added == {"missing_in_spec:/api/replaced"}
+    assert removed == {"missing_in_spec:m2"}
+    assert result["pr_delta"]["new_entries"] == sorted(added)
+    issues = result["integrity"]["issues"]
+    assert any("missing_in_spec:/api/replaced" in issue for issue in issues)
+    assert any("missing_in_spec:m2" in issue for issue in issues)
+    # A parity path-literal replacement is equally identity tamper.
+    (tmp_path / "parity").mkdir()
+    parity_paths, parity_repo, parity_base = _seed(tmp_path / "parity", program=RED_PROGRAM)
+    _swap_baseline_entry(parity_paths, "parity", "missing_from_both_sdks", "p1", "p1-swapped")
+    parity_result, parity_removed, parity_added = _pr_result_and_recomputed_sets(
+        parity_paths, parity_repo, parity_base
+    )
+    assert not parity_result["passing"]
+    assert parity_added == {"missing_from_both_sdks:p1-swapped"}
+    assert parity_removed == {"missing_from_both_sdks:p1"}
+
+
+def test_pr_mode_fails_cross_category_original_record_replacement(tmp_path: Path):
+    # Move one unit from missing_in_spec to orphaned_in_spec: total is
+    # unchanged but the growing category and both exact IDs are named.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    routes = json.loads(paths["routes"].read_text())
+    routes["missing_in_spec"].remove("m2")
+    routes["orphaned_in_spec"].append("o-cross")
+    _write_json(paths["routes"], routes)
+    result, removed, added = _pr_result_and_recomputed_sets(paths, repo, base)
+    assert not result["passing"]
+    deltas = result["pr_delta"]["counts"]
+    assert sum(entry["delta"] for entry in deltas.values()) == 0
+    assert deltas["routes_missing_in_spec"]["delta"] == -1
+    assert deltas["routes_orphaned_in_spec"]["delta"] == 1
+    assert result["pr_delta"]["increased"] == ["routes_orphaned_in_spec"]
+    assert added == {"orphaned_in_spec:o-cross"}
+    assert removed == {"missing_in_spec:m2"}
+    reasons = result["pr_delta"]["unexplained_increase"]
+    assert any("orphaned_in_spec:o-cross" in reason for reason in reasons)
+    # Same entry text flipped across categories is still a new identity: the
+    # per-category ID is the unit of identity, not the literal alone.
+    (tmp_path / "flip").mkdir()
+    flip_paths, flip_repo, flip_base = _seed(tmp_path / "flip", program=RED_PROGRAM)
+    flip_routes = json.loads(flip_paths["routes"].read_text())
+    flip_routes["missing_in_spec"].remove("m2")
+    flip_routes["orphaned_in_spec"].append("m2")
+    _write_json(flip_paths["routes"], flip_routes)
+    flip_result, flip_removed, flip_added = _pr_result_and_recomputed_sets(
+        flip_paths, flip_repo, flip_base
+    )
+    assert not flip_result["passing"]
+    assert flip_added == {"orphaned_in_spec:m2"}
+    assert flip_removed == {"missing_in_spec:m2"}
+    # Accepted-authority layer: swapping a disposition row's category to
+    # another category is identity tamper.
+    authority = _accepted_authority()
+    row = authority["active_inventory"][0]
+    row["category"] = next(
+        category for category in ratchet.ACCEPTED_CATEGORIES if category != row["category"]
+    )
+    with pytest.raises(ValueError, match="identity or genesis is invalid"):
+        ratchet.validate_accepted_authority(authority, repo_root=Path(ratchet.__file__).parents[1])
+
+
+def _projection_case(mutate) -> tuple[dict, dict]:
+    """Deep-copied real cohort with `mutate(projection_records)` applied and
+    projection digests relinked, so validation reaches semantic checks."""
+    inventory = json.loads(
+        (Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json").read_text()
+    )
+    cohort = inventory["accepted_authority"]["canonical_artifacts"]["original_cohort"]
+    projection = cohort["operation_projection"]
+    mutate(projection["records"])
+    for record in projection["records"]:
+        record["record_sha256"] = ratchet._sha256_bytes(
+            ratchet._canonical_json_bytes(
+                {key: value for key, value in record.items() if key != "record_sha256"}
+            )
+        )
+    projection["record_digest_set_sha256"] = ratchet._digest_set(
+        "cdg-operation-projection-record-digest-set-v1",
+        [record["record_sha256"] for record in projection["records"]],
+        "record_sha256_values",
+    )
+    return cohort, projection
+
+
+def test_projection_many_to_one_dedup_cannot_remove_original_record(tmp_path: Path):
+    # The ratified projection contains 66 operations shared by multiple
+    # originals; deduplicating any shared operation to one membership record
+    # (654 memberships) breaks the 655 bijection and fails closed.
+    inventory = json.loads(
+        (Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json").read_text()
+    )
+    records = inventory["accepted_authority"]["canonical_artifacts"]["original_cohort"][
+        "operation_projection"
+    ]["records"]
+    by_operation: dict[tuple, list[int]] = {}
+    for index, record in enumerate(records):
+        key = tuple(
+            sorted((edge["method"], edge["normalized_path"]) for edge in record["operation_edges"])
+        )
+        by_operation.setdefault(key, []).append(index)
+    shared = next(indexes for indexes in by_operation.values() if len(indexes) > 1)
+    assert sum(1 for indexes in by_operation.values() if len(indexes) > 1) == 66
+
+    def dedup(projection_records: list[dict]) -> None:
+        del projection_records[shared[1]]
+
+    cohort, _projection = _projection_case(dedup)
+    with pytest.raises(ValueError, match="655 membership records"):
+        ratchet._validate_original_cohort(cohort)
+
+    # Padding the count back with a duplicate membership for the surviving
+    # original is caught by the bijection check.
+    def dedup_and_pad(projection_records: list[dict]) -> None:
+        clone = copy.deepcopy(projection_records[shared[0]])
+        projection_records[shared[1]] = clone
+
+    padded, _projection = _projection_case(dedup_and_pad)
+    with pytest.raises(ValueError, match="does not biject"):
+        ratchet._validate_original_cohort(padded)
+
+
+def test_projection_one_to_many_edge_omission_cannot_hide_original_or_operation(tmp_path: Path):
+    inventory = json.loads(
+        (Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json").read_text()
+    )
+    records = inventory["accepted_authority"]["canonical_artifacts"]["original_cohort"][
+        "operation_projection"
+    ]["records"]
+    multi_index = next(
+        index for index, record in enumerate(records) if len(record["operation_edges"]) > 1
+    )
+
+    # Omitting one witnessed edge from a multi-edge membership departs from
+    # the ratified projection witness (digest-set pin) and, arithmetically,
+    # from the 666-edge cardinality; either way it fails closed.
+    def omit_edge(projection_records: list[dict]) -> None:
+        projection_records[multi_index]["operation_edges"].pop()
+
+    omitted, _projection = _projection_case(omit_edge)
+    with pytest.raises(ValueError, match="record-digest-set mismatch|cardinality mismatch"):
+        ratchet._validate_original_cohort(omitted)
+
+    # Fanning one original into multiple membership records is a membership
+    # count/bijection failure, not silent growth.
+    def fan_out(projection_records: list[dict]) -> None:
+        clone = copy.deepcopy(projection_records[multi_index])
+        clone["operation_edges"] = [clone["operation_edges"][0]]
+        projection_records[multi_index]["operation_edges"] = projection_records[multi_index][
+            "operation_edges"
+        ][1:]
+        projection_records.append(clone)
+
+    fanned, _projection = _projection_case(fan_out)
+    with pytest.raises(ValueError, match="655 membership records"):
+        ratchet._validate_original_cohort(fanned)
+
+
+def test_projection_method_refinement_cannot_replace_original_record(tmp_path: Path):
+    # "Refining" a projected edge's method (GET -> POST) is a digest-set
+    # departure from the ratified projection witness, never a re-keyed
+    # original: the 655 original-record IDs are computed from category +
+    # literal only, so no projection edit can mint or replace an identity.
+    inventory = json.loads(
+        (Path(ratchet.__file__).parent / "baselines/contract_drift_inventory.json").read_text()
+    )
+    records = inventory["accepted_authority"]["canonical_artifacts"]["original_cohort"][
+        "original_records"
+    ]
+    expected_ids = sorted(record["original_record_id"] for record in records)
+
+    def refine(projection_records: list[dict]) -> None:
+        edge = projection_records[0]["operation_edges"][0]
+        edge["method"] = "POST" if edge["method"] != "POST" else "PUT"
+
+    refined, projection = _projection_case(refine)
+    assert projection["record_digest_set_sha256"] != ratchet.PROJECTION_RECORD_SET_SHA256
+    with pytest.raises(ValueError, match="record-digest-set mismatch"):
+        ratchet._validate_original_cohort(refined)
+    # The original-ID universe is untouched by the attempted refinement.
+    assert sorted(record["original_record_id"] for record in refined["original_records"]) == expected_ids  # fmt: skip
+    # An inferred method on a path-level original record remains forbidden.
+    authority = _accepted_authority()
+    path_record = next(
+        record
+        for record in authority["canonical_artifacts"]["original_cohort"]["original_records"]
+        if record["category"] == "routes_missing_in_spec"
+    )
+    path_record["method"] = "GET"
+    with pytest.raises(ValueError, match="carries a method"):
+        ratchet._validate_original_cohort(authority["canonical_artifacts"]["original_cohort"])
+
+
+def test_pr_mode_language_metadata_change_does_not_replace_identity(tmp_path: Path):
+    # sdk_language is category-derived provenance, not identity: it is not an
+    # input to the original-record ID hash.
+    authority = _accepted_authority()
+    record = next(
+        item
+        for item in authority["canonical_artifacts"]["original_cohort"]["original_records"]
+        if item["category"] == "python_sdk_drift"
+    )
+    payload = {
+        "category": record["category"],
+        "exact_historical_literal_record": record["exact_historical_literal_record"],
+        "schema": "cdg-original-record-id-v1",
+    }
+    raw = ratchet._canonical_json_bytes(payload)
+    assert record["original_record_id"] == f"cdg1:{ratchet._sha256_bytes(raw)}"
+    assert "sdk_language" not in payload
+    # Flipping the language annotation neither creates a new identity nor
+    # hides a replacement: the canonical artifact binding rejects the edit
+    # wholesale (separately versioned projection witnesses cannot alter the
+    # added/removed sets either).
+    flipped = copy.deepcopy(authority)
+    flipped_record = next(
+        item
+        for item in flipped["canonical_artifacts"]["original_cohort"]["original_records"]
+        if item["category"] == "python_sdk_drift"
+    )
+    flipped_record["sdk_language"] = ["typescript"]
+    assert flipped_record["original_record_id"] == record["original_record_id"]
+    with pytest.raises(ValueError, match="canonical artifact or category binding mismatch"):
+        ratchet.validate_accepted_authority(flipped, repo_root=Path(ratchet.__file__).parents[1])
+    # And a language-only mutation inside the cohort validator is a literal
+    # shape violation, not a new/removed ID.
+    cohort = copy.deepcopy(authority["canonical_artifacts"]["original_cohort"])
+    target = next(
+        item for item in cohort["original_records"] if item["category"] == "python_sdk_drift"
+    )
+    target["sdk_language"] = []
+    with pytest.raises(ValueError, match="language"):
+        ratchet._validate_sdk_provenance(
+            copy.deepcopy(_accepted_authority()["canonical_artifacts"]["sdk_provenance"]),
+            ratchet._validate_original_cohort(cohort),
+        )
+
+
+def test_pr_mode_exact_original_record_diagnostics_are_sorted_complete_and_untruncated(
+    tmp_path: Path,
+):
+    # 26 added + 1 removed in one PR: every ID appears, sorted, no caps.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    added_entries = [f"bulk-{index:03d}" for index in range(26)]
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("a")
+    verify["python_sdk_drift"].extend(added_entries)
+    _write_json(paths["verify"], verify)
+    result, removed, added = _pr_result_and_recomputed_sets(paths, repo, base)
+    assert not result["passing"]
+    expected_added = sorted(f"python_sdk_drift:{entry}" for entry in added_entries)
+    assert added == set(expected_added)
+    assert removed == {"python_sdk_drift:a"}
+    # JSON diagnostics equal the independently recomputed sets: complete,
+    # sorted, unique, untruncated (no ellipses/caps/count-only summaries).
+    assert result["pr_delta"]["new_entries"] == expected_added
+    assert len(result["pr_delta"]["new_entries"]) == len(set(result["pr_delta"]["new_entries"]))
+    reasons = result["pr_delta"]["unexplained_increase"]
+    for item_id in expected_added:
+        assert any(item_id in reason for reason in reasons)
+    assert not any("..." in reason for reason in reasons)
+    stale = [issue for issue in result["integrity"]["issues"] if "python_sdk_drift:a" in issue]
+    assert stale
+    # Per-category delta arithmetic is exact.
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == 25
+
+
+def test_pr_mode_passes_strict_original_record_subset(tmp_path: Path):
+    # A strict subset in two categories (with matching resolutions) passes
+    # while the program schedule stays honestly red.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("b")
+    _write_json(paths["verify"], verify)
+    routes = json.loads(paths["routes"].read_text())
+    routes["missing_in_spec"].remove("m2")
+    _write_json(paths["routes"], routes)
+
+    def resolve(inventory: dict) -> None:
+        for item in inventory["items"]:
+            if item["id"] in {"python_sdk_drift:b", "missing_in_spec:m2"}:
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve)
+    result, removed, added = _pr_result_and_recomputed_sets(paths, repo, base)
+    assert result["passing"] and not result["program_passing"]
+    assert added == set() and removed == {"missing_in_spec:m2", "python_sdk_drift:b"}
+    assert result["pr_delta"]["increased"] == []
+    assert result["pr_delta"]["new_entries"] == []
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == -1
+    assert result["pr_delta"]["counts"]["routes_missing_in_spec"]["delta"] == -1
+    # Accepted-authority layer: a global+per-category strict subset head
+    # passes with exact removed IDs and empty added IDs.
+    root = Path(ratchet.__file__).parents[1]
+    authority = _accepted_authority()
+    summary = ratchet.validate_accepted_authority(authority, repo_root=root)
+    live = set(summary["live_original_record_ids"])
+    live_digest = ratchet._sha256_bytes(ratchet._canonical_json_bytes(sorted(live)))
+    paydown = copy.deepcopy(authority)
+    for item in paydown["active_inventory"]:
+        if item["original_record_id"] in live:
+            continue
+        fact = {"active_original_record_ids_sha256": live_digest, "as_of": "2026-07-27", "original_record_id": item["original_record_id"]}  # fmt: skip
+        item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": fact["as_of"], "evidence": {"fact": fact, "sha256": ratchet._fact_digest(ratchet.PAYDOWN_SCHEMA, fact)}, "status": "resolved"}])  # fmt: skip
+    paydown["active_inventory_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(paydown["active_inventory"]))  # fmt: skip
+    paydown["manifest_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes({key: value for key, value in paydown.items() if key != "manifest_sha256"}))  # fmt: skip
+    compared = ratchet.compare_accepted_authorities(authority, paydown, repo_root=root)
+    assert compared["passing"] and compared["status"] == "pass"
+    assert compared["added_original_record_ids"] == []
+    expected_removed = sorted(set(summary["active_original_record_ids"]) - live)
+    assert compared["removed_original_record_ids"] == expected_removed
+    assert len(expected_removed) == 255
+
+
+# ---- VAL-CDG-008: exact UTC week arithmetic, non-backdated final as-of
+
+
+def _program_dict(program: dict) -> dict:
+    return {**program, "start_date": date.fromisoformat(program["start_date"])}
+
+
+def test_program_preserves_655_2026_04_17_ten_percent():
+    baseline = json.loads(
+        (Path(ratchet.__file__).parent / "baselines/contract_drift_program.json").read_text()
+    )
+    assert baseline["start_total_items"] == 655
+    assert baseline["start_date"] == "2026-04-17"
+    assert baseline["weekly_reduction"] == 0.10
+    assert baseline.get("grace_weeks", 0) == 0
+    program = ratchet._load_program(
+        Path(ratchet.__file__).parent / "baselines/contract_drift_program.json"
+    )
+    assert program["start_date"] == date(2026, 4, 17)
+    assert program["start_total_items"] == 655
+    assert program["weekly_reduction"] == 0.1
+    assert program["grace_weeks"] == 0
+
+
+def test_target_uses_exact_integer_floor_recurrence():
+    # T(0)=655, T(n+1) = 9*T(n)//10 — the exact integer recurrence chain.
+    expected = [655, 589, 530, 477, 429, 386, 347, 312, 280, 252, 226, 203, 182, 163, 146, 131]
+    chain = [ratchet._target_after_weeks(655, 0.1, weeks) for weeks in range(16)]
+    assert chain == expected
+    # Divergence witnesses: one-shot binary-float flooring first differs at
+    # week 6 (348 vs 347) and nearest-rounding differs at week 1 (590 vs
+    # 589) — the recurrence matches neither.
+    import math
+
+    assert math.floor(655 * 0.9**6) == 348 and chain[6] == 347
+    assert round(655 * 0.9**1) == 590 and chain[1] == 589
+    # Monotone and eventually zero; never negative.
+    long_chain = [ratchet._target_after_weeks(655, 0.1, weeks) for weeks in range(100)]
+    assert all(later <= earlier for earlier, later in zip(long_chain, long_chain[1:]))
+    assert long_chain[-1] == 0 and min(long_chain) == 0
+    # Only exact integer recurrences are accepted — arbitrary multipliers
+    # (which would need binary-float multiplication) fail closed.
+    with pytest.raises(ValueError, match="exact integer recurrence"):
+        ratchet._target_after_weeks(655, 0.25, 1)
+
+
+def test_utc_boundary_controls_week_increment(tmp_path: Path):
+    # Fixed dates around the start pin the integer week boundaries exactly:
+    # days 0/6 -> week 0; days 7/13 -> week 1; day 14 -> week 2.
+    program = {
+        "start_date": "2026-04-17",
+        "start_total_items": 655,
+        "weekly_reduction": 0.1,
+        "grace_weeks": 0,
+    }
+    start = date(2026, 4, 17)
+    for offset, expected_weeks, expected_target in (
+        (0, 0, 655),
+        (6, 0, 655),
+        (7, 1, 589),
+        (13, 1, 589),
+        (14, 2, 530),
+    ):
+        classes = ratchet._evaluate_classes(
+            _program_dict(program), [], start + timedelta(days=offset)
+        )
+        assert classes[0]["weeks_elapsed"] == expected_weeks
+        assert classes[0]["target_max"] == expected_target
+
+
+def test_before_start_and_partial_week_do_not_decay(tmp_path: Path):
+    program = {
+        "start_date": "2026-04-17",
+        "start_total_items": 655,
+        "weekly_reduction": 0.1,
+        "grace_weeks": 0,
+    }
+    # Before the start date the clock clamps to zero (never negative weeks).
+    for as_of in (date(2026, 4, 10), date(2026, 4, 16), date(2025, 12, 31)):
+        classes = ratchet._evaluate_classes(_program_dict(program), [], as_of)
+        assert classes[0]["weeks_elapsed"] == 0
+        assert classes[0]["target_max"] == 655
+    # A partial week (1-6 days) never decays the target.
+    for days in range(1, 7):
+        classes = ratchet._evaluate_classes(
+            _program_dict(program), [], date(2026, 4, 17) + timedelta(days=days)
+        )
+        assert classes[0]["target_max"] == 655
+
+
+def test_local_timezone_cannot_change_default_as_of(monkeypatch: pytest.MonkeyPatch):
+    root = Path(ratchet.__file__).parents[1]
+    inventory = root / "scripts/baselines/contract_drift_inventory.json"
+    utc_today = datetime.now(UTC).date().isoformat()
+    observed: dict[str, str] = {}
+    for timezone_name in ("Pacific/Kiritimati", "Etc/GMT+11", "UTC"):
+        monkeypatch.setenv("TZ", timezone_name)
+        time.tzset()
+        try:
+            result = ratchet.build_accepted_result(
+                mode="program", repo_root=root, inventory_path=inventory
+            )
+        finally:
+            monkeypatch.setenv("TZ", "UTC")
+            time.tzset()
+        observed[timezone_name] = result["program"]["as_of"]
+    # Kiritimati (UTC+14) local "today" is ahead of UTC and GMT+11 local
+    # "today" is behind around midnight, yet the default as-of is the UTC
+    # date in every process timezone.
+    assert set(observed.values()) == {utc_today}
+
+
+def test_malformed_or_future_live_as_of_fails_closed():
+    root = Path(ratchet.__file__).parents[1]
+    inventory = root / "scripts/baselines/contract_drift_inventory.json"
+    future = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
+    result = ratchet.build_accepted_result(
+        mode="program", repo_root=root, inventory_path=inventory, as_of=future
+    )
+    assert (result["status"], result["passing"]) == ("fail", False)
+    assert result["error_code"] == "future_as_of"
+    for malformed in ("07/31/2026", "2026-7-1x", "yesterday", "2026-13-40"):
+        malformed_result = ratchet.build_accepted_result(
+            mode="program", repo_root=root, inventory_path=inventory, as_of=malformed
+        )
+        assert (malformed_result["status"], malformed_result["passing"]) == ("fail", False)
+        assert malformed_result["error_code"] == "invalid_as_of"
+
+
+def test_program_mode_exit_matches_truthful_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Red: 10 open items against a decayed target -> exit 1 under --strict,
+    # with passing == (total <= target) truthfully false.
+    paths, repo, cohort = _seed(tmp_path, program=RED_PROGRAM)
+    red = _result(paths, "2026-07-16", repo=repo, cohort=cohort)
+    assert red["passing"] is False
+    assert red["current"]["total_items"] == 10
+    assert red["current"]["total_items"] > red["target"]["max_open_items"]
+    monkeypatch.setattr(
+        sys, "argv", _argv(paths, repo, cohort, "--strict", "--as-of", "2026-07-16")
+    )
+    assert ratchet.main() == 1
+    # Green: same inventory on day zero -> exit 0, passing truthfully true.
+    monkeypatch.setattr(
+        sys, "argv", _argv(paths, repo, cohort, "--strict", "--as-of", "2026-04-17")
+    )
+    assert ratchet.main() == 0
+    green = _result(paths, "2026-04-17", repo=repo, cohort=cohort)
+    assert green["passing"] is (green["current"]["total_items"] <= green["target"]["max_open_items"])  # fmt: skip
+    assert green["passing"] is True
+
+
+# - VAL-CDG-009 (ratchet side): PR admission is independent of program red
+
+
+def test_unchanged_pr_passes_while_program_is_red(tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    program = _result(paths, "2026-07-16", repo=repo, cohort=base)
+    assert not program["passing"]  # trajectory is intentionally red
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    # The unchanged PR passes on its own signal; the red program is reported
+    # separately and cannot mask or replace the PR-delta verdict.
+    assert result["passing"] is True
+    assert result["program_passing"] is False
+    assert result["pr_delta"]["counts"] == {
+        key: {"base": value, "head": value, "delta": 0}
+        for key, value in {
+            "verify_python_sdk_drift": 2,
+            "verify_typescript_sdk_drift": 3,
+            "routes_missing_in_spec": 2,
+            "routes_orphaned_in_spec": 1,
+            "sdk_missing_from_both": 2,
+        }.items()
+    }
+    assert result["pr_delta"]["unexplained_increase"] == []
+
+
+def test_shrinking_pr_passes_while_program_is_red(tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    verify = json.loads(paths["verify"].read_text())
+    verify["typescript_sdk_drift"].remove("z")
+    _write_json(paths["verify"], verify)
+
+    def resolve(inventory: dict) -> None:
+        for item in inventory["items"]:
+            if item["id"] == "typescript_sdk_drift:z":
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve)
+    program = _result(paths, "2026-07-16", repo=repo, cohort=base)
+    assert not program["passing"]  # still red: 9 open vs decayed target
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["passing"] is True
+    assert result["program_passing"] is False
+    assert result["pr_delta"]["counts"]["verify_typescript_sdk_drift"]["delta"] == -1
+    assert result["pr_delta"]["increased"] == []
+    assert result["pr_delta"]["unexplained_increase"] == []
