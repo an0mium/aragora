@@ -2343,3 +2343,766 @@ def test_annotation_or_later_move_cannot_change_partition(monkeypatch):
         ratchet._validate_sdk_provenance(
             copy.deepcopy(provenance), ratchet._validate_original_cohort(_cohort())
         )
+
+
+# --- VAL-CDG-007 (census/gen side): every invalid input fails closed --------
+
+
+def test_missing_required_source_fails_closed(tmp_path: Path):
+    repo, _sha = _init_repo(tmp_path)
+    (repo / "scripts/baselines/verify_sdk_contracts.json").unlink()
+    with pytest.raises(ValueError, match="Baseline file missing"):
+        gen.load_working_docs(repo)
+    # The CLI surface exits non-zero with an ERROR line, writing nothing.
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/generate_contract_drift_inventory.py",
+            "--repo-root",
+            str(repo),
+            "--check",
+        ],  # fmt: skip
+        capture_output=True,
+        text=True,
+        cwd=Path(gen.__file__).resolve().parents[1],
+    )
+    assert proc.returncode == 1
+    assert "ERROR:" in proc.stdout
+
+
+def test_missing_cohort_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    authority = copy.deepcopy(_accepted_authority())
+    del authority["canonical_artifacts"]["original_cohort"]
+    with pytest.raises(ValueError, match="canonical artifacts are malformed"):
+        ratchet.validate_accepted_authority(authority, repo_root=tmp_path)
+    monkeypatch.delenv("FACTORY_MISSION_DIR", raising=False)
+    monkeypatch.delenv("FACTORY_RUNTIME_SETTINGS_PATH", raising=False)
+    with pytest.raises(ValueError, match="unavailable"):
+        ratchet._discover_canonical_artifact(None, ratchet.COHORT_ARTIFACT, tmp_path / "repo")
+
+
+def test_missing_sdk_provenance_artifact_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    authority = copy.deepcopy(_accepted_authority())
+    del authority["canonical_artifacts"]["sdk_provenance"]
+    with pytest.raises(ValueError, match="canonical artifacts are malformed"):
+        ratchet.validate_accepted_authority(authority, repo_root=tmp_path)
+    monkeypatch.delenv("FACTORY_MISSION_DIR", raising=False)
+    monkeypatch.delenv("FACTORY_RUNTIME_SETTINGS_PATH", raising=False)
+    with pytest.raises(ValueError, match="unavailable"):
+        ratchet._discover_canonical_artifact(None, ratchet.PROVENANCE_ARTIFACT, tmp_path / "repo")
+
+
+def test_canonical_artifact_length_or_sha_mismatch_fails_closed(tmp_path: Path):
+    raw = ratchet._canonical_json_bytes(_cohort(), terminal_lf=True)
+    path = tmp_path / "cohort.json"
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="byte-length mismatch"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="cohort",
+            expected_byte_length=len(raw) - 1,
+            expected_sha256=ratchet._sha256_bytes(raw),
+            terminal_lf=True,
+        )
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="cohort",
+            expected_byte_length=len(raw),
+            expected_sha256="0" * 64,
+            terminal_lf=True,
+        )
+    for length, sha in ((None, ratchet._sha256_bytes(raw)), (len(raw), None), (len(raw), "xyz")):
+        with pytest.raises(ValueError, match="independently supplied"):
+            ratchet._load_canonical_json_bytes(
+                path,
+                label="cohort",
+                expected_byte_length=length,
+                expected_sha256=sha,
+                terminal_lf=True,
+            )
+
+
+def test_canonical_artifact_noncanonical_bytes_fail_closed(tmp_path: Path):
+    hostiles = {
+        "bom": b"\xef\xbb\xbf" + ratchet._canonical_json_bytes({"a": 1}, terminal_lf=True),
+        "no-lf": ratchet._canonical_json_bytes({"a": 1}),
+        "double-lf": ratchet._canonical_json_bytes({"a": 1}) + b"\n\n",
+        "unsorted": b'{"b":1,"a":2}\n',
+        "spaced": b'{"a": 1}\n',
+        "non-utf8": b'{"a":"\xff"}\n',
+    }
+    for name, raw in hostiles.items():
+        path = tmp_path / f"{name}.json"
+        path.write_bytes(raw)
+        with pytest.raises(ValueError):
+            ratchet._load_canonical_json_bytes(
+                path,
+                label=name,
+                expected_byte_length=len(raw),
+                expected_sha256=ratchet._sha256_bytes(raw),
+                terminal_lf=True,
+            )
+
+
+def test_external_manifest_parse_reserialize_substitution_fails_closed(tmp_path: Path):
+    # Same parsed value, different bytes: parse-reserialize equivalence is
+    # not proof, so the noncanonical byte stream fails even with a correct
+    # length/digest binding for those bytes.
+    reserialized = (
+        json.dumps({"a": [1, 2]}, sort_keys=True, separators=(", ", ": ")) + "\n"
+    ).encode()
+    path = tmp_path / "reserialized.json"
+    path.write_bytes(reserialized)
+    with pytest.raises(ValueError, match="parse-reserialize equivalence is not proof"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="external manifest",
+            expected_byte_length=len(reserialized),
+            expected_sha256=ratchet._sha256_bytes(reserialized),
+            terminal_lf=True,
+        )
+
+
+def test_malformed_json_fails_closed(tmp_path: Path):
+    repo, _sha = _init_repo(tmp_path)
+    (repo / "scripts/baselines/verify_sdk_contracts.json").write_text("{not json", encoding="utf-8")
+    with pytest.raises(json.JSONDecodeError):
+        gen.load_working_docs(repo)
+    path = tmp_path / "broken.json"
+    path.write_bytes(b"{broken\n")
+    with pytest.raises(ValueError, match="not valid duplicate-free JSON"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="broken",
+            expected_byte_length=8,
+            expected_sha256=ratchet._sha256_bytes(b"{broken\n"),
+            terminal_lf=True,
+        )
+    with pytest.raises(ValueError, match="unparseable"):
+        ratchet._load_json_strict(path, "inventory")
+
+
+def test_duplicate_json_key_fails_closed(tmp_path: Path):
+    raw = b'{"a":1,"a":2}\n'
+    path = tmp_path / "dup.json"
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="duplicate JSON object key"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="dup",
+            expected_byte_length=len(raw),
+            expected_sha256=ratchet._sha256_bytes(raw),
+            terminal_lf=True,
+        )
+    with pytest.raises(ValueError, match="not canonical UTF-8 JSON"):
+        ratchet._strict_json_bytes(raw, "dup")
+
+
+def test_unsupported_schema_version_fails_closed(tmp_path: Path):
+    result = ratchet.build_boundary_result(
+        repo_root=tmp_path,
+        schema_version=2,
+        boundary="corrective_bootstrap",
+        start_ref="1" * 40,
+        end_ref="2" * 40,
+    )
+    assert (result["status"], result["passing"]) == ("fail", False)
+    assert result["error_code"] == "boundary_validation_failed"
+    assert "unsupported boundary schema version" in result["error"]
+    unknown = ratchet.build_boundary_result(
+        repo_root=tmp_path,
+        schema_version=1,
+        boundary="imaginary_boundary",
+        start_ref="1" * 40,
+        end_ref="2" * 40,
+    )
+    assert (unknown["status"], unknown["passing"]) == ("fail", False)
+    assert "unsupported Contract Drift boundary" in unknown["error"]
+
+
+def test_wrong_cohort_count_fails_closed():
+    short = copy.deepcopy(_cohort())
+    short["original_records"].pop()
+    with pytest.raises(ValueError, match="exactly 655 original records"):
+        ratchet._validate_original_cohort(short)
+    short_prov = copy.deepcopy(_provenance())
+    short_prov["records"].pop()
+    with pytest.raises(ValueError, match="598 records"):
+        ratchet._validate_sdk_provenance(short_prov, ratchet._validate_original_cohort(_cohort()))
+
+
+def test_cohort_digest_mismatch_fails_closed():
+    hostile = copy.deepcopy(_cohort())
+    hostile["original_record_id_set"]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="ID-set digest mismatch"):
+        ratchet._validate_original_cohort(hostile)
+    authority = copy.deepcopy(_accepted_authority())
+    authority["canonical_artifact_bindings"][0]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="artifact or category binding mismatch"):
+        ratchet.validate_accepted_authority(authority, repo_root=Path(ratchet.__file__).parents[1])
+
+
+def test_original_descriptor_or_original_record_ids_changed_fails_closed():
+    # The ratified artifact descriptor is a module constant; a runtime that
+    # claims different bytes cannot revalidate the production artifact.
+    assert ratchet.COHORT_ARTIFACT["sha256"] == (
+        "565cd84a9a5d266f61b66bd7965e0a036e4817ef5fed32edb8c41a2dea6cc208"
+    )
+    assert ratchet.ORIGINAL_ID_SET_SHA256 == (
+        "c1235670c183b1887ba3fe4280fa0320f9fd6f4a85b8f346d4332ac2aebbe269"
+    )
+    swapped = copy.deepcopy(_cohort())
+    first, second = swapped["original_records"][0], swapped["original_records"][1]
+    literal = first["exact_historical_literal_record"]
+    first["exact_historical_literal_record"] = second["exact_historical_literal_record"]
+    second["exact_historical_literal_record"] = literal
+    with pytest.raises(ValueError, match="ID payload (length|digest) mismatch"):
+        ratchet._validate_original_cohort(swapped)
+    reidentified = copy.deepcopy(_cohort())
+    record = reidentified["original_records"][0]
+    record["original_record_id"] = "cdg1:" + "0" * 64
+    with pytest.raises(ValueError, match="ID mismatch"):
+        ratchet._validate_original_cohort(reidentified)
+
+
+def test_duplicate_or_conflicting_original_record_id_fails_closed():
+    duplicated = copy.deepcopy(_cohort())
+    target = duplicated["original_records"][1]
+    source = duplicated["original_records"][0]
+    for key in (
+        "category",
+        "exact_historical_literal_record",
+        "id_payload_byte_length",
+        "id_payload_sha256",
+        "original_record_id",
+    ):
+        target[key] = copy.deepcopy(source[key])
+    with pytest.raises(ValueError, match="duplicate original record IDs|category counts mismatch|ID-set"):  # fmt: skip
+        ratchet._validate_original_cohort(duplicated)
+    conflicting = copy.deepcopy(_provenance())
+    conflicting["records"][1]["original_record_id"] = conflicting["records"][0][
+        "original_record_id"
+    ]
+    with pytest.raises(ValueError, match="digest mismatch|biject"):
+        ratchet._validate_sdk_provenance(conflicting, ratchet._validate_original_cohort(_cohort()))
+
+
+def test_malformed_historical_literal_shape_fails_closed():
+    cohort = _cohort()
+    sdk_index = next(
+        index
+        for index, record in enumerate(cohort["original_records"])
+        if record["category"] in SDK_CATEGORIES
+    )
+    hostile = copy.deepcopy(cohort)
+    record = hostile["original_records"][sdk_index]
+    # A literal whose bound bytes are intact but whose shape is not a
+    # method-bearing record: keep ID bookkeeping consistent so only the
+    # shape/link layer can reject.
+    record["exact_historical_literal_record"] = "/path-without-method"
+    raw, original_id = _original_id(record["category"], record["exact_historical_literal_record"])
+    record.update(
+        id_payload_byte_length=len(raw),
+        id_payload_sha256=ratchet._sha256_bytes(raw),
+        original_record_id=original_id,
+    )
+    with pytest.raises(ValueError, match="ID set is incomplete|ID-set digest mismatch"):
+        ratchet._validate_sdk_provenance(
+            copy.deepcopy(_provenance()), ratchet._validate_original_cohort(hostile)
+        )
+    nonstring = copy.deepcopy(cohort)
+    nonstring["original_records"][0]["exact_historical_literal_record"] = ["GET", "/a"]
+    with pytest.raises(ValueError, match="lacks identity fields"):
+        ratchet._validate_original_cohort(nonstring)
+
+
+def test_method_on_path_level_original_record_fails_closed():
+    hostile = copy.deepcopy(_cohort())
+    record = next(r for r in hostile["original_records"] if r["category"] in ROUTE_CATEGORIES)
+    record["method"] = "GET"
+    with pytest.raises(ValueError, match="path-level cohort record .* carries a method"):
+        ratchet._validate_original_cohort(hostile)
+
+
+def test_null_or_invalid_method_on_runtime_or_projection_edge_fails_closed():
+    nulled = copy.deepcopy(_cohort())
+    sdk_record = next(r for r in nulled["original_records"] if r["category"] in SDK_CATEGORIES)
+    sdk_record["method"] = None
+    with pytest.raises(ValueError, match="lacks a method"):
+        ratchet._validate_original_cohort(nulled)
+    omitted = copy.deepcopy(_cohort())
+    edge = omitted["operation_projection"]["records"][0]["operation_edges"][0]
+    del edge["method"]
+    _rehash_projection(omitted)
+    with pytest.raises(ValueError, match="malformed edge|invalid method"):
+        ratchet._validate_original_cohort(omitted)
+
+
+def test_sdk_language_not_derived_from_category_fails_closed():
+    cohort, provenance = _linked_provenance_mutation(
+        lambda record: record.update(
+            sdk_language=(
+                "typescript"
+                if _provenance()["records"][0]["sdk_language"] == "python"
+                else "python"
+            )
+        )
+    )
+    with pytest.raises(ValueError, match="language link mismatch"):
+        ratchet._validate_sdk_provenance(provenance, ratchet._validate_original_cohort(cohort))
+    hostile_cohort = copy.deepcopy(_cohort())
+    record = next(
+        r for r in hostile_cohort["original_records"] if r["category"] == "python_sdk_drift"
+    )
+    record["sdk_language"] = ["typescript"]
+    with pytest.raises(ValueError, match="language"):
+        ratchet._validate_sdk_provenance(
+            copy.deepcopy(_provenance()), ratchet._validate_original_cohort(hostile_cohort)
+        )
+
+
+def test_incomplete_handler_extraction_fails_closed():
+    # A provenance record with one of its source occurrences dropped no
+    # longer matches its bound digest chain; with the digests relinked, the
+    # occurrence/count reconciliation still fails closed.
+    multi_index = next(
+        index
+        for index, record in enumerate(_provenance()["records"])
+        if len(record["source_occurrences"]) > 1
+    )
+    cohort, hostile = _linked_provenance_mutation(
+        lambda record: record["source_occurrences"].pop(), index=multi_index
+    )
+    with pytest.raises(ValueError, match="record-digest-set mismatch|reconstructed counts mismatch"):  # fmt: skip
+        ratchet._validate_sdk_provenance(hostile, ratchet._validate_original_cohort(cohort))
+    emptied_cohort, emptied = _linked_provenance_mutation(
+        lambda record: record.update(source_occurrences=[])
+    )
+    with pytest.raises(ValueError, match="lacks source occurrences"):
+        ratchet._validate_sdk_provenance(emptied, ratchet._validate_original_cohort(emptied_cohort))  # fmt: skip
+
+
+def test_partial_sdk_extraction_fails_closed():
+    # Dropping an entire SDK record (partial extraction) breaks the exact 598
+    # bijection; padding the count back with a duplicate breaks digests.
+    partial = copy.deepcopy(_provenance())
+    partial["records"].pop(0)
+    with pytest.raises(ValueError, match="598 records"):
+        ratchet._validate_sdk_provenance(partial, ratchet._validate_original_cohort(_cohort()))
+    padded = copy.deepcopy(_provenance())
+    padded["records"][0] = copy.deepcopy(padded["records"][1])
+    with pytest.raises(ValueError, match="biject|digest"):
+        ratchet._validate_sdk_provenance(padded, ratchet._validate_original_cohort(_cohort()))
+
+
+def test_sdk_provenance_birth_or_dependency_closure_mismatch_fails_closed():
+    provenance = _provenance()
+    birth = provenance["baseline_birth"]
+    dependencies = provenance["dependencies"]
+    # The birth/dependency claims are part of the artifact's canonical bytes:
+    # any mutation changes the artifact digest away from the ratified pin.
+    ratified = ratchet.PROVENANCE_ARTIFACT["sha256"]
+    assert (
+        ratchet._sha256_bytes(ratchet._canonical_json_bytes(provenance, terminal_lf=True))
+        == ratified
+    )
+    for mutate in (
+        lambda p: p["baseline_birth"].update(commit_sha="0" * 40),
+        lambda p: p["baseline_birth"].update(first_parent_sha="0" * 40),
+        lambda p: p["dependencies"]["baseline_source"].update(git_blob_oid="0" * 40),
+        lambda p: p["dependencies"]["baseline_source"].update(sha256="0" * 64),
+    ):
+        hostile = copy.deepcopy(provenance)
+        mutate(hostile)
+        assert (
+            ratchet._sha256_bytes(ratchet._canonical_json_bytes(hostile, terminal_lf=True))
+            != ratified
+        )
+    # And the birth chain is internally consistent in the ratified artifact.
+    assert birth["membership_anchor_baseline_blob_git_oid"] == birth["ratified_baseline_blob_git_oid"]  # fmt: skip
+    assert dependencies["baseline_source"]["git_blob_oid"] == birth["ratified_baseline_blob_git_oid"]  # fmt: skip
+    assert dependencies["baseline_source"]["commit_sha"] == birth["commit_sha"]
+
+
+def test_sdk_provenance_record_occurrence_partition_or_digest_mismatch_fails_closed():
+    # Undeclared occurrence atom.
+    atom_cohort, undeclared_atom = _linked_provenance_mutation(
+        lambda record: record["source_occurrences"][0].update(provenance_atom="not-declared")
+    )
+    with pytest.raises(ValueError, match="occurrence atom is not declared"):
+        ratchet._validate_sdk_provenance(
+            undeclared_atom, ratchet._validate_original_cohort(atom_cohort)
+        )
+    # Occurrence language disagreeing with its record.
+    lang_cohort, wrong_lang = _linked_provenance_mutation(
+        lambda record: record["source_occurrences"][0].update(
+            sdk_language="typescript"
+            if _provenance()["records"][0]["sdk_language"] == "python"
+            else "python"
+        )
+    )
+    with pytest.raises(ValueError, match="occurrence language mismatch"):
+        ratchet._validate_sdk_provenance(wrong_lang, ratchet._validate_original_cohort(lang_cohort))
+    # Partition claim contradicting the atom-derived partition.
+    part_cohort, wrong_partition = _linked_provenance_mutation(
+        lambda record: record.update(
+            partition="extended" if _provenance()["records"][0]["partition"] == "core" else "core"
+        )
+    )
+    with pytest.raises(ValueError, match="partition mismatch"):
+        ratchet._validate_sdk_provenance(
+            wrong_partition, ratchet._validate_original_cohort(part_cohort)
+        )
+    # Raw record digest tamper without relinking.
+    tampered = copy.deepcopy(_provenance())
+    tampered["records"][0]["record_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="digest mismatch"):
+        ratchet._validate_sdk_provenance(tampered, ratchet._validate_original_cohort(_cohort()))
+    # Record-set digest tamper.
+    set_tampered = copy.deepcopy(_provenance())
+    set_tampered["record_digest_set_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="record-digest-set mismatch"):
+        ratchet._validate_sdk_provenance(set_tampered, ratchet._validate_original_cohort(_cohort()))  # fmt: skip
+
+
+def test_missing_empty_malformed_free_text_or_path_partition_provenance_fails_closed():
+    for hostile_atoms in (None, [], [""], [42], "billing", ["billing", ""]):
+        cohort, hostile = _linked_provenance_mutation(
+            lambda record, atoms=hostile_atoms: record.update(provenance_atoms=atoms)
+        )
+        with pytest.raises(ValueError, match="atoms|partition|matched-domain"):
+            ratchet._validate_sdk_provenance(hostile, ratchet._validate_original_cohort(cohort))
+    # Free-text and path-shaped "atoms" are whole atoms, not substring grants:
+    # they never match a core domain by containment.
+    partition, matches = ratchet._partition_from_atoms(["memory-and-other-things"])
+    assert (partition, matches) == ("extended", [])
+    path_partition, path_matches = ratchet._partition_from_atoms(["sdk/python/memory.py"])
+    assert (path_partition, path_matches) == ("extended", [])
+    exact, exact_matches = ratchet._partition_from_atoms(["memory"])
+    assert exact == "core" and exact_matches[0]["match_rule"] == "exact"
+
+
+def test_unresolved_or_abbreviated_sha_fails_closed(tmp_path: Path):
+    repo, sha = _init_repo(tmp_path)
+    for bad in (sha[:12], "HEAD", "main", sha.upper(), ""):
+        with pytest.raises(gen.AuthorityClosureError, match="full lowercase 40-hex"):
+            gen._resolve_full_commit(repo, bad)
+    unresolvable = "f" * 40
+    with pytest.raises(subprocess.CalledProcessError):
+        gen._resolve_full_commit(repo, unresolvable)
+    result = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=sha[:12],
+        end_ref=sha,
+    )
+    assert (result["status"], result["error_code"]) == ("fail", "boundary_validation_failed")
+    assert "full lowercase 40-hex" in result["error"]
+    nonexistent = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref="f" * 40,
+        end_ref=sha,
+    )
+    assert (nonexistent["status"], nonexistent["passing"]) == ("fail", False)
+
+
+def test_source_sha_mismatch_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    repo, sha = _init_repo(tmp_path)
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    )
+    assert proc.stdout.strip() == sha
+    # A receipt whose source SHA is not the exact first-parent tip fails.
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {"active_original_record_ids": [], "analyzer_bundle_sha256": "", "live_original_record_ids": []})  # fmt: skip
+    inventory_path = Path(ratchet.__file__).parents[1] / "scripts/baselines/contract_drift_inventory.json"  # fmt: skip
+    mismatched = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=repo,
+        inventory_path=inventory_path,
+        source_sha="f" * 40,
+    )
+    assert (mismatched["passing"], mismatched["status"]) == (False, "fail")
+    exact = ratchet.build_accepted_result(
+        mode="receipt", repo_root=repo, inventory_path=inventory_path, source_sha=sha
+    )
+    assert (exact["passing"], exact["status"]) == (True, "pass")
+    abbreviated = ratchet.build_accepted_result(
+        mode="receipt", repo_root=repo, inventory_path=inventory_path, source_sha=sha[:12]
+    )
+    assert (abbreviated["passing"], abbreviated["status"]) == (False, "fail")
+
+
+def test_authority_manifest_mismatch_fails_closed(tmp_path: Path):
+    manifest = {
+        "authority_manifest_sha256": "0" * 64,
+        "ref": "1" * 40,
+        "schema": "wrong-schema",
+    }
+    with pytest.raises(ValueError, match="schema mismatch"):
+        ratchet._validate_authority_manifest(
+            manifest, repo_root=tmp_path, end_sha="1" * 40, operation_log=[]
+        )
+    manifest["schema"] = gen.AUTHORITY_MANIFEST_SCHEMA
+    manifest["ref"] = "2" * 40
+    with pytest.raises(ValueError, match="exact-ref mismatch"):
+        ratchet._validate_authority_manifest(
+            manifest, repo_root=tmp_path, end_sha="1" * 40, operation_log=[]
+        )
+    manifest["ref"] = "1" * 40
+    with pytest.raises(ValueError, match="semantic digest mismatch"):
+        ratchet._validate_authority_manifest(
+            manifest, repo_root=tmp_path, end_sha="1" * 40, operation_log=[]
+        )
+
+
+def test_dependency_hash_or_version_mismatch_fails_closed(tmp_path: Path):
+    authority = copy.deepcopy(_accepted_authority())
+    authority["analyzer_bundle"]["files"][0]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="bundle digest mismatch"):
+        ratchet._validate_bundle(authority, Path(ratchet.__file__).parents[1])
+    versioned = copy.deepcopy(_accepted_authority())
+    versioned["analyzer_bundle"]["dependencies"] = [{"name": "requests", "version": "2.0"}]
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(versioned)
+    flags = copy.deepcopy(_accepted_authority())
+    flags["analyzer_bundle"]["interpreter_flags"] = ["-I"]
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(flags)
+    launcher = copy.deepcopy(_accepted_authority())
+    launcher["analyzer_bundle"]["launcher_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(launcher)
+
+
+def test_undeclared_import_fails_closed(tmp_path: Path):
+    root = tmp_path / "extraction"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts/module_under_test.py").write_text(
+        "import importlib\nimportlib.import_module(computed_name)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic repository import is forbidden"):
+        gen._python_import_edges(root, "scripts/module_under_test.py")
+    (root / "scripts/missing_target.py").write_text(
+        "import scripts.never_written_module\n", encoding="utf-8"
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="repository-local import is unavailable"):
+        gen._python_import_edges(root, "scripts/missing_target.py")
+
+
+def test_path_traversal_or_symlink_escape_fails_closed(tmp_path: Path):
+    root = tmp_path / "extract"
+    root.mkdir()
+    for hostile in ("../escape.txt", "/absolute.txt", "nested/../../escape.txt"):
+        with pytest.raises(gen.AuthorityClosureError, match="unsafe|escapes"):
+            gen._safe_archive_target(root, hostile)
+    assert gen._safe_archive_target(root, "nested/ok.txt") == (root / "nested/ok.txt").resolve()
+    # Symlinked external inputs are refused before any read.
+    target = tmp_path / "real.json"
+    target.write_bytes(b"{}\n")
+    link = tmp_path / "link.json"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="symlink"):
+        ratchet._load_canonical_json_bytes(
+            link,
+            label="linked",
+            expected_byte_length=3,
+            expected_sha256=ratchet._sha256_bytes(b"{}\n"),
+            terminal_lf=True,
+        )
+    # Evidence-index resource paths cannot escape the evidence root.
+    with pytest.raises(ValueError, match="write outside explicit scratch/output roots"):
+        ratchet._guard_write_path(tmp_path / "outside.txt", root, root)
+
+
+def test_non_utf8_input_fails_closed(tmp_path: Path):
+    raw = b'{"a":"\xff\xfe"}\n'
+    path = tmp_path / "latin.json"
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="not exact UTF-8"):
+        ratchet._load_canonical_json_bytes(
+            path,
+            label="latin",
+            expected_byte_length=len(raw),
+            expected_sha256=ratchet._sha256_bytes(raw),
+            terminal_lf=True,
+        )
+    with pytest.raises(ValueError, match="not exact UTF-8"):
+        ratchet._parse_canonical_json_raw(raw, label="latin", terminal_lf=True)
+
+
+def test_analyzer_timeout_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    root = tmp_path / "extraction"
+    (root / "aragora/cli/commands").mkdir(parents=True)
+    (root / "scripts").mkdir(parents=True)
+    (root / "aragora/cli/commands/review_queue.py").write_text("", encoding="utf-8")
+    (root / "scripts/tier4_merge_train.py").write_text("", encoding="utf-8")
+    monkeypatch.setattr(gen, "EXACT_REF_POLICY_TIMEOUT_SECONDS", 0.0001)
+    with pytest.raises(gen.AuthorityClosureError, match="timeout"):
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+    # The scratch runner/request files are cleaned up even on timeout.
+    assert not (root / "__contract_drift_exact_ref_runner.py").exists()
+    assert not (root / "__contract_drift_exact_ref_request.json").exists()
+
+
+def test_target_code_execution_attempt_fails_closed(tmp_path: Path):
+    # The classifier runner forbids subprocess/network/write actions via an
+    # audit hook; a policy module that attempts execution fails the classify
+    # call rather than executing target code.
+    root = tmp_path / "extraction"
+    (root / "aragora/cli/commands").mkdir(parents=True)
+    (root / "scripts").mkdir(parents=True)
+    for init in (
+        "aragora/__init__.py",
+        "aragora/cli/__init__.py",
+        "aragora/cli/commands/__init__.py",
+    ):
+        (root / init).write_text("", encoding="utf-8")
+    (root / "aragora/cli/commands/review_queue.py").write_text(
+        "import subprocess\nsubprocess.Popen(['/bin/echo', 'pwned'])\n",
+        encoding="utf-8",
+    )
+    (root / "scripts/tier4_merge_train.py").write_text("", encoding="utf-8")
+    with pytest.raises(gen.AuthorityClosureError, match="classifier failed"):
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+
+
+def test_caller_or_head_shadow_import_fails_closed(tmp_path: Path):
+    # The exact-ref runner pins sys.path[0] to the extraction root and
+    # verifies the loaded policy module resolves inside it; a caller- or
+    # head-planted shadow module outside the root is rejected.
+    runner = gen._EXACT_REF_RUNNER
+    assert "sys.path[:] = [str(root)" in runner
+    assert "noncanonical policy module" in runner
+    assert "namespace-blended or noncanonical package" in runner
+    root = tmp_path / "extraction"
+    (root / "aragora/cli/commands").mkdir(parents=True)
+    (root / "scripts").mkdir(parents=True)
+    # No __init__ chain: import resolves (namespace pkg) but fails the
+    # canonical-package check, proving shadow/namespace blends are refused.
+    (root / "aragora/cli/commands/review_queue.py").write_text("", encoding="utf-8")
+    (root / "scripts/tier4_merge_train.py").write_text("", encoding="utf-8")
+    with pytest.raises(gen.AuthorityClosureError, match="classifier failed"):
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+
+
+def test_exact_ref_review_queue_policy_unavailable_or_ambient_fails_closed(tmp_path: Path):
+    root = tmp_path / "extraction"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts/tier4_merge_train.py").write_text("", encoding="utf-8")
+    with pytest.raises(gen.AuthorityClosureError, match="canonical exact-ref policy is unavailable"):  # fmt: skip
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+    (root / "aragora/cli/commands").mkdir(parents=True)
+    policy = root / "aragora/cli/commands/review_queue.py"
+    policy.write_text("", encoding="utf-8")
+    mirror = root / "scripts/tier4_merge_train.py"
+    mirror.unlink()
+    with pytest.raises(gen.AuthorityClosureError, match="merge-train mirror is unavailable"):
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+    mirror.write_text("", encoding="utf-8")
+    policy.unlink()
+    policy.symlink_to(root / "scripts/tier4_merge_train.py")
+    with pytest.raises(gen.AuthorityClosureError, match="cannot be a symlink"):
+        gen._invoke_exact_ref_policy(root, ["scripts/x.py"], scratch_root=tmp_path / "scratch")
+    # Ambient interpreter/site-packages authority is stripped: hermetic flags
+    # and a minimal environment (no inherited PYTHONPATH/HOME).
+    assert gen.PYTHON_FLAGS == ("-I", "-S")
+    env = gen._minimal_subprocess_env(tmp_path / "scratch-env")
+    assert "PYTHONPATH" not in env
+    assert set(env) == {"HOME", "LANG", "LC_ALL", "PATH", "TMPDIR", "TZ"}
+
+
+def test_incomplete_public_symbol_manifest_fails_closed():
+    manifest = {
+        "authority_roots": ["scripts/check_contract_drift_ratchet.py"],
+        "inventory": {},
+        "repo_files": [
+            {
+                "authority_root": True,
+                "path": "scripts/check_contract_drift_ratchet.py",
+                "sha256": "1" * 64,
+            }
+        ],
+        "authority_manifest_sha256": "0" * 64,
+    }
+    # A closure that omits the boundary verifier is unusable...
+    del manifest["repo_files"][0]
+    manifest["repo_files"].append(
+        {"authority_root": True, "path": "aragora/other.py", "sha256": "2" * 64}
+    )
+    with pytest.raises(ValueError, match="omits the boundary verifier"):
+        ratchet._authority_summary(manifest)
+    # ...and with the verifier restored, the summary derives the public-symbol
+    # digest from exactly the public/symbol members present, so omitting one
+    # changes the bound digest.
+    manifest["repo_files"] = [
+        {
+            "authority_root": True,
+            "path": "scripts/check_contract_drift_ratchet.py",
+            "sha256": "1" * 64,
+        },  # fmt: skip
+        {"authority_root": False, "path": "aragora/server/public_symbols.py", "sha256": "3" * 64},
+    ]
+    complete = ratchet._authority_summary(manifest)
+    manifest["repo_files"] = manifest["repo_files"][:1]
+    incomplete = ratchet._authority_summary(manifest)
+    assert complete["public_symbol_sha256"] != incomplete["public_symbol_sha256"]
+    assert complete["repo_file_count"] == 2 and incomplete["repo_file_count"] == 1
+
+
+def test_incomplete_operation_projection_fails_closed():
+    missing = copy.deepcopy(_cohort())
+    del missing["operation_projection"]
+    with pytest.raises(ValueError, match="lacks operation projection"):
+        ratchet._validate_original_cohort(missing)
+    short = copy.deepcopy(_cohort())
+    short["operation_projection"]["records"].pop()
+    with pytest.raises(ValueError, match="655 membership records"):
+        ratchet._validate_original_cohort(short)
+    unbalanced = copy.deepcopy(_cohort())
+    unbalanced["operation_projection"]["records"][0] = copy.deepcopy(
+        unbalanced["operation_projection"]["records"][1]
+    )
+    with pytest.raises(ValueError, match="biject|digest"):
+        ratchet._validate_original_cohort(unbalanced)
+
+
+def test_projection_edge_omission_exactly_one_assumption_or_edge_count_substitution_fails_closed():
+    cohort = _cohort()
+    multi_index = next(
+        index
+        for index, record in enumerate(cohort["operation_projection"]["records"])
+        if len(record["operation_edges"]) > 1
+    )
+    # Omitting one edge from a multi-edge membership breaks the ratified
+    # cardinality (666 edges) even when all digests are relinked.
+    omitted = copy.deepcopy(cohort)
+    omitted["operation_projection"]["records"][multi_index]["operation_edges"].pop()
+    _rehash_projection(omitted)
+    with pytest.raises(ValueError, match="record-digest-set mismatch|cardinality mismatch"):
+        ratchet._validate_original_cohort(omitted)
+    # An exactly-one-edge consumer assumption (collapsing every membership to
+    # its first edge) is likewise rejected.
+    collapsed = copy.deepcopy(cohort)
+    for record in collapsed["operation_projection"]["records"]:
+        record["operation_edges"] = record["operation_edges"][:1]
+    _rehash_projection(collapsed)
+    with pytest.raises(ValueError, match="record-digest-set mismatch|cardinality mismatch"):
+        ratchet._validate_original_cohort(collapsed)
+    # Edge-count-for-record-count substitution: 666 can never satisfy the 655
+    # membership requirement, in either direction.
+    padded = copy.deepcopy(cohort)
+    records = padded["operation_projection"]["records"]
+    while len(records) < 666:
+        records.append(copy.deepcopy(records[0]))
+    with pytest.raises(ValueError, match="655 membership records"):
+        ratchet._validate_original_cohort(padded)
+    summary = ratchet._validate_original_cohort(copy.deepcopy(cohort))
+    projection = summary["operation_projection"]
+    assert (projection["membership_count"], projection["edge_count"]) == (655, 666)
