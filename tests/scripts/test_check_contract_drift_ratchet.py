@@ -6,9 +6,11 @@ import copy
 import hashlib
 import inspect
 import json
+import os
 import subprocess
 import sys
-from datetime import date, timedelta
+import time
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, overload
 
@@ -5374,3 +5376,529 @@ def test_read_only_cli_mutation_attempt_fails_closed(tmp_path: Path):
     link.symlink_to(target)
     with pytest.raises((ValueError, OSError)):
         ratchet._write_exclusive_private_file(link, b"{}", scratch_root=scratch, output_root=output)
+
+
+# ------------- VAL-CDG-004: trusted base-SHA authority, hermetic execution
+
+_HERMETIC_FILES = (
+    "scripts/check_contract_drift_ratchet.py",
+    "scripts/generate_contract_drift_inventory.py",
+    "scripts/baselines/contract_drift_program.json",
+    "scripts/baselines/contract_drift_inventory.json",
+    "scripts/baselines/verify_sdk_contracts.json",
+    "scripts/baselines/validate_openapi_routes.json",
+    "scripts/baselines/check_sdk_parity.json",
+)
+_HERMETIC_INVENTORY = Path("scripts/baselines/contract_drift_inventory.json")
+
+
+def _hermetic_repo(
+    tmp_path: Path,
+    *,
+    mutate_base_inventory=None,
+    head_writes: dict[str, str] | None = None,
+) -> tuple[Path, str, str]:
+    """Disposable repo whose base commit carries the real accepted authority
+    and analyzer bundle; head applies `head_writes` (default: README only)."""
+    src = Path(ratchet.__file__).parents[1]
+    repo = tmp_path / "hermetic-repo"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    for rel in _HERMETIC_FILES:
+        destination = repo / rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((src / rel).read_bytes())
+    if mutate_base_inventory is not None:
+        inventory = json.loads((repo / _HERMETIC_INVENTORY).read_text())
+        mutate_base_inventory(inventory)
+        (repo / _HERMETIC_INVENTORY).write_text(json.dumps(inventory))
+    base = _commit(repo, "base")
+    for rel, content in (head_writes or {"README.md": "head change\n"}).items():
+        head_path = repo / rel
+        head_path.parent.mkdir(parents=True, exist_ok=True)
+        head_path.write_text(content, encoding="utf-8")
+    head = _commit(repo, "head")
+    return repo, base, head
+
+
+def _recorded_hermetic_pr(
+    repo: Path, base: str, head: str, monkeypatch: pytest.MonkeyPatch
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    calls: list[dict[str, Any]] = []
+    real_run = subprocess.run
+
+    def recorder(cmd, *args, **kwargs):
+        entry: dict[str, Any] = {
+            "argv": [str(part) for part in cmd],
+            "cwd": kwargs.get("cwd"),
+            "env": kwargs.get("env"),
+        }
+        if entry["argv"] and entry["argv"][0] == sys.executable and kwargs.get("cwd"):
+            entry["cwd_listing"] = sorted(os.listdir(kwargs["cwd"]))
+        calls.append(entry)
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", recorder)
+    result = ratchet._run_hermetic_pr(
+        repo_root=repo, base_ref=base, head_ref=head, inventory_path=_HERMETIC_INVENTORY
+    )
+    monkeypatch.setattr(subprocess, "run", real_run)
+    return result, calls
+
+
+_HERMETIC_PROBE = """
+import importlib, json, sys
+report = {
+    "path": list(sys.path),
+    "base_prefix": sys.base_prefix,
+    "prefix": sys.prefix,
+    "site_loaded": "site" in sys.modules,
+    "sitecustomize_loaded": "sitecustomize" in sys.modules,
+}
+module = importlib.import_module("generate_contract_drift_inventory")
+report["gen_file"] = module.__file__
+report["gen_marker"] = getattr(module, "HOSTILE_MARKER", None)
+try:
+    importlib.import_module("cdg_namespace_probe")
+    report["namespace_import"] = "imported"
+except ModuleNotFoundError:
+    report["namespace_import"] = "missing"
+print(json.dumps(report))
+"""
+
+
+def _hermetic_probe(tmp_path: Path, *, env_extra: dict[str, str] | None = None) -> dict[str, Any]:
+    """Run a probe script through the real launcher + interpreter flags with
+    only the bundle on the injected path, returning its introspection JSON."""
+    src = Path(ratchet.__file__).parents[1]
+    bundle_scripts = tmp_path / "bundle" / "scripts"
+    bundle_scripts.mkdir(parents=True, exist_ok=True)
+    for rel in ("check_contract_drift_ratchet.py", "generate_contract_drift_inventory.py"):
+        (bundle_scripts / rel).write_bytes((src / "scripts" / rel).read_bytes())
+    probe = tmp_path / "probe.py"
+    probe.write_text(_HERMETIC_PROBE, encoding="utf-8")
+    cwd = tmp_path / "empty-cwd"
+    cwd.mkdir(exist_ok=True)
+    launcher = cwd / "launcher.py"
+    launcher.write_bytes(ratchet.HERMETIC_LAUNCHER)
+    env = {
+        "CDG_EXECUTED_LAUNCHER_SHA256": ratchet._sha256_bytes(ratchet.HERMETIC_LAUNCHER),
+        "HOME": str(cwd),
+        "PATH": "/usr/bin:/bin",
+        **(env_extra or {}),
+    }
+    proc = subprocess.run(
+        [sys.executable, *ratchet.ANALYZER_FLAGS, str(launcher), str(bundle_scripts), str(probe)],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    report = json.loads(proc.stdout)
+    report["bundle_scripts"] = str(bundle_scripts)
+    return report
+
+
+def _hostile_module(directory: Path, marker: Path, label: str) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "generate_contract_drift_inventory.py").write_text(
+        f'HOSTILE_MARKER = "{label}"\nopen(r"{marker}", "w").write("{label}")\n',
+        encoding="utf-8",
+    )
+
+
+def test_pr_mode_uses_analyzer_from_resolved_base_sha(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    assert result["passing"] and result["status"] == "pass"
+    # The executed analyzer authority is the resolved base SHA, and every
+    # bundle file is extracted from that SHA (never the head or the caller
+    # worktree).
+    assert result["execution"]["analyzer_sha"] == base
+    assert result["execution"]["base_sha"] == base
+    assert result["execution"]["head_sha"] == head
+    extractions = [
+        call["argv"][-1]
+        for call in calls
+        if "show" in call["argv"]
+        and call["argv"][-1].endswith(tuple(ratchet.ANALYZER_BUNDLE_FILES))  # fmt: skip
+    ]
+    assert extractions == [f"{base}:{rel}" for rel in ratchet.ANALYZER_BUNDLE_FILES]
+
+    # A base whose manifest digest does not match the base blob fails closed
+    # before any analyzer byte executes.
+    def forge(inventory: dict[str, Any]) -> None:
+        inventory["accepted_authority"]["analyzer_bundle"]["files"][0]["sha256"] = "0" * 64
+
+    forged_repo, forged_base, forged_head = _hermetic_repo(
+        tmp_path / "forged", mutate_base_inventory=forge
+    )
+    with pytest.raises(ValueError, match="authority analyzer binding differs from exact ref"):
+        ratchet._run_hermetic_pr(
+            repo_root=forged_repo,
+            base_ref=forged_base,
+            head_ref=forged_head,
+            inventory_path=_HERMETIC_INVENTORY,
+        )
+
+
+def test_pr_mode_resolves_base_and_head_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    assert result["passing"]
+    # Exactly one resolution per ref; every subsequent git read binds the
+    # already-resolved full SHA (no mutable-ref reread).
+    resolves = [call["argv"] for call in calls if "rev-parse" in call["argv"]]
+    assert [argv[-1] for argv in resolves] == [f"{base}^{{commit}}", f"{head}^{{commit}}"]
+    shows = [call["argv"][-1] for call in calls if "show" in call["argv"]]
+    assert shows and all(spec.startswith((f"{base}:", f"{head}:")) for spec in shows)
+    # Abbreviated or symbolic refs are rejected outright.
+    for hostile_ref in (base[:12], "HEAD", "main", base.upper()):
+        with pytest.raises(ValueError, match="full lowercase 40-hex"):
+            ratchet._run_hermetic_pr(
+                repo_root=repo,
+                base_ref=hostile_ref,
+                head_ref=head,
+                inventory_path=_HERMETIC_INVENTORY,
+            )
+
+
+def test_hermetic_launcher_uses_explicit_interpreter_I_S_and_empty_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    analyzer = next(call for call in calls if call["argv"][0] == sys.executable)
+    # Explicitly resolved interpreter (absolute path), with -I and -S flags.
+    assert os.path.isabs(analyzer["argv"][0])
+    assert analyzer["argv"][1:4] == list(ratchet.ANALYZER_FLAGS)
+    assert {"-I", "-S"} <= set(analyzer["argv"][1:4])
+    # Empty temporary working directory: at spawn the cwd holds only the
+    # digest-pinned launcher, and the caller worktree is not the cwd.
+    assert analyzer["cwd_listing"] == ["launcher.py"]
+    assert Path(analyzer["cwd"]).name.startswith("cdg-cwd-")
+    assert Path(analyzer["cwd"]).resolve() != Path.cwd().resolve()
+    assert result["execution"]["working_directory"] == "<empty-temporary-directory>"
+    assert result["execution"]["interpreter_flags"] == list(ratchet.ANALYZER_FLAGS)
+    # Scrubbed environment manifest: exactly the declared keys, nothing
+    # ambient.
+    assert set(analyzer["env"]) == {
+        "CDG_AUTHORITY_ROOT",
+        "CDG_EXECUTED_LAUNCHER_SHA256",
+        "CDG_TRUSTED_BUNDLE",
+        "HOME",
+        "PATH",
+    }
+    assert analyzer["env"]["HOME"] == analyzer["cwd"]
+    launcher_sha = result["execution"]["launcher_sha256"]
+    assert launcher_sha == ratchet._sha256_bytes(ratchet.HERMETIC_LAUNCHER)
+    assert analyzer["env"]["CDG_EXECUTED_LAUNCHER_SHA256"] == launcher_sha
+
+
+def test_hermetic_sys_path_contains_only_base_bundle_hashed_dependencies_and_stdlib(
+    tmp_path: Path,
+):
+    report = _hermetic_probe(tmp_path)
+    entries = report["path"]
+    # The bundle is the first entry; the rest is the standard library. The
+    # accepted dependency manifest is empty, so no other roots may appear.
+    assert entries[0] == report["bundle_scripts"]
+    assert "" not in entries
+    repo_root = str(Path(ratchet.__file__).parents[1])
+    for entry in entries[1:]:
+        assert not entry.startswith(repo_root)
+        assert "site-packages" not in entry
+        assert entry.startswith((report["base_prefix"], report["prefix"])) or entry.endswith(".zip")
+    assert report["gen_file"].startswith(report["bundle_scripts"])
+
+
+def test_stdlib_only_or_base_pinned_hashed_dependencies(tmp_path: Path):
+    # The ratified analyzer bundle is stdlib-only: its dependency manifest is
+    # exactly empty and the execution contract pins interpreter flags and the
+    # launcher digest.
+    authority = _accepted_authority()
+    bundle, files = ratchet._bundle_metadata(authority)
+    assert bundle["dependencies"] == []
+    assert bundle["interpreter_flags"] == list(ratchet.ANALYZER_FLAGS)
+    assert [item["path"] for item in files] == list(ratchet.ANALYZER_BUNDLE_FILES)
+    assert all(ratchet.SHA256_RE.fullmatch(item["sha256"]) for item in files)
+    # A dependency claim without base-pinned hash identity is not accepted in
+    # any form: the contract admits no unhashed dependency records at all.
+    for hostile_dependencies in (
+        [{"name": "requests"}],
+        [{"name": "requests", "version": "2.32.0"}],
+        [{"name": "requests", "version": "2.32.0", "sha256": "0" * 64}],
+    ):
+        hostile = _accepted_authority()
+        hostile["analyzer_bundle"]["dependencies"] = hostile_dependencies
+        with pytest.raises(ValueError, match="execution contract mismatch"):
+            ratchet._bundle_metadata(hostile)
+
+
+def test_head_cannot_replace_base_analyzer_authority(tmp_path: Path):
+    marker = tmp_path / "hostile-analyzer-executed.txt"
+    hostile_checker = (
+        f'open(r"{marker}", "w").write("executed")\nraise SystemExit("hostile analyzer executed")\n'
+    )
+    repo, base, head = _hermetic_repo(
+        tmp_path,
+        head_writes={"scripts/check_contract_drift_ratchet.py": hostile_checker},
+    )
+    result = ratchet._run_hermetic_pr(
+        repo_root=repo, base_ref=base, head_ref=head, inventory_path=_HERMETIC_INVENTORY
+    )
+    # The measuring authority stays the base SHA and the head's replacement
+    # analyzer never executes; tampering with a pinned bundle surface is
+    # itself fail-closed drift.
+    assert result["execution"]["analyzer_sha"] == base
+    assert (result["passing"], result["status"]) == (False, "fail")
+    assert "bundle digest mismatch" in result["error"]
+    assert not marker.exists()
+
+
+def test_hostile_head_module_shadowing_is_not_executed(tmp_path: Path):
+    marker = tmp_path / "hostile-shadow-executed.txt"
+    # The head plants a same-name module at the repository root — outside the
+    # pinned bundle file set — hoping the analyzer import resolves to it.
+    repo, base, head = _hermetic_repo(
+        tmp_path,
+        head_writes={
+            "generate_contract_drift_inventory.py": (
+                f'open(r"{marker}", "w").write("shadow")\n'
+                'raise RuntimeError("hostile head shadow executed")\n'
+            )
+        },
+    )
+    result = ratchet._run_hermetic_pr(
+        repo_root=repo, base_ref=base, head_ref=head, inventory_path=_HERMETIC_INVENTORY
+    )
+    assert result["passing"] is True
+    assert result["execution"]["analyzer_sha"] == base
+    assert not marker.exists()
+
+
+def test_hostile_head_sitecustomize_is_not_executed(tmp_path: Path):
+    marker = tmp_path / "sitecustomize-executed.txt"
+    # Repo layer: a head-introduced sitecustomize is never extracted (it is
+    # not a pinned bundle member).
+    repo, base, head = _hermetic_repo(
+        tmp_path,
+        head_writes={
+            "scripts/sitecustomize.py": f'open(r"{marker}", "w").write("site")\n',
+            "sitecustomize.py": f'open(r"{marker}", "w").write("site")\n',
+        },
+    )
+    result = ratchet._run_hermetic_pr(
+        repo_root=repo, base_ref=base, head_ref=head, inventory_path=_HERMETIC_INVENTORY
+    )
+    assert result["passing"] is True
+    assert not marker.exists()
+    # Interpreter layer: even a sitecustomize planted directly inside the
+    # bundle directory (sys.path[0]) is not imported because -S disables site
+    # processing entirely.
+    probe_dir = tmp_path / "probe"
+    bundle_scripts = probe_dir / "bundle" / "scripts"
+    bundle_scripts.mkdir(parents=True)
+    (bundle_scripts / "sitecustomize.py").write_text(
+        f'open(r"{marker}", "w").write("site")\n', encoding="utf-8"
+    )
+    report = _hermetic_probe(probe_dir)
+    assert report["site_loaded"] is False
+    assert report["sitecustomize_loaded"] is False
+    assert not marker.exists()
+
+
+def test_hostile_caller_module_shadowing_is_not_executed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    marker = tmp_path / "caller-shadow-executed.txt"
+    hostile_cwd = tmp_path / "caller-cwd"
+    _hostile_module(hostile_cwd, marker, "caller")
+    monkeypatch.chdir(hostile_cwd)
+    repo, base, head = _hermetic_repo(tmp_path)
+    result = ratchet._run_hermetic_pr(
+        repo_root=repo, base_ref=base, head_ref=head, inventory_path=_HERMETIC_INVENTORY
+    )
+    # The caller's working directory is not the analyzer cwd and -I removes
+    # implicit cwd entries: the hostile caller module never executes.
+    assert result["passing"] is True
+    assert not marker.exists()
+    report = _hermetic_probe(tmp_path / "probe")
+    assert str(hostile_cwd) not in report["path"]
+    assert report["gen_marker"] is None
+
+
+def test_editable_or_global_project_install_is_not_imported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    marker = tmp_path / "global-install-executed.txt"
+    fake_site = tmp_path / "venv" / "lib" / "site-packages"
+    _hostile_module(fake_site, marker, "editable-install")
+    # Caller-level: editable/global install env vars never propagate into the
+    # scrubbed analyzer environment.
+    monkeypatch.setenv("PYTHONPATH", str(fake_site))
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "venv"))
+    monkeypatch.setenv("PYTHONUSERBASE", str(tmp_path / "venv"))
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    assert result["passing"] is True
+    analyzer = next(call for call in calls if call["argv"][0] == sys.executable)
+    assert "PYTHONPATH" not in analyzer["env"]
+    assert "VIRTUAL_ENV" not in analyzer["env"]
+    assert not marker.exists()
+    # Interpreter-level: even with user-site variables set, -I -S never adds
+    # a site-packages root.
+    report = _hermetic_probe(
+        tmp_path / "probe", env_extra={"PYTHONUSERBASE": str(tmp_path / "venv")}
+    )
+    assert not any("site-packages" in entry for entry in report["path"])
+    assert report["gen_file"].startswith(report["bundle_scripts"])
+    assert report["gen_marker"] is None
+
+
+def test_hostile_same_version_global_package_is_not_imported(tmp_path: Path):
+    marker = tmp_path / "same-version-executed.txt"
+    hostile_root = tmp_path / "global-site"
+    _hostile_module(hostile_root, marker, "same-version-global")
+    # The hostile global package carries the same module name (and any
+    # version string it likes): with PYTHONPATH pointing straight at it, -I
+    # still ignores it and the bundle module wins.
+    report = _hermetic_probe(tmp_path / "probe", env_extra={"PYTHONPATH": str(hostile_root)})
+    assert str(hostile_root) not in report["path"]
+    assert report["gen_file"].startswith(report["bundle_scripts"])
+    assert report["gen_marker"] is None
+    assert not marker.exists()
+
+
+def test_hostile_namespace_package_contribution_is_not_blended(tmp_path: Path):
+    marker = tmp_path / "namespace-executed.txt"
+    hostile_root = tmp_path / "namespace-site"
+    # A namespace-package portion shadowing the bundle module name, plus a
+    # hostile namespace-only package.
+    portion = hostile_root / "generate_contract_drift_inventory"
+    portion.mkdir(parents=True)
+    (portion / "extra.py").write_text(f'open(r"{marker}", "w").write("ns")\n', encoding="utf-8")
+    probe_pkg = hostile_root / "cdg_namespace_probe"
+    probe_pkg.mkdir()
+    (probe_pkg / "inner.py").write_text("VALUE = 1\n", encoding="utf-8")
+    report = _hermetic_probe(tmp_path / "probe", env_extra={"PYTHONPATH": str(hostile_root)})
+    # The namespace contribution is never blended: the file module from the
+    # bundle wins, and the namespace-only package is unimportable.
+    assert report["gen_file"].startswith(report["bundle_scripts"])
+    assert report["namespace_import"] == "missing"
+    assert str(hostile_root) not in report["path"]
+    assert not marker.exists()
+
+
+def test_hostile_pth_injector_is_not_executed(tmp_path: Path):
+    marker = tmp_path / "pth-executed.txt"
+    hostile_site = tmp_path / "pth-site"
+    hostile_site.mkdir()
+    (hostile_site / "inject.pth").write_text(
+        f'import os; open(r"{marker}", "w").write("pth")\n', encoding="utf-8"
+    )
+    probe_dir = tmp_path / "probe"
+    # Even a .pth planted inside the bundle directory itself is inert: .pth
+    # execution is a site-module feature and -S disables site processing.
+    bundle_scripts = probe_dir / "bundle" / "scripts"
+    bundle_scripts.mkdir(parents=True)
+    (bundle_scripts / "inject.pth").write_text(
+        f'import os; open(r"{marker}", "w").write("pth")\n', encoding="utf-8"
+    )
+    report = _hermetic_probe(probe_dir, env_extra={"PYTHONPATH": str(hostile_site)})
+    assert report["site_loaded"] is False
+    assert str(hostile_site) not in report["path"]
+    assert not marker.exists()
+
+
+def test_caller_pythonpath_cannot_replace_base_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    marker = tmp_path / "pythonpath-executed.txt"
+    hostile_root = tmp_path / "pythonpath-authority"
+    _hostile_module(hostile_root, marker, "pythonpath")
+    (hostile_root / "check_contract_drift_ratchet.py").write_text(
+        f'open(r"{marker}", "w").write("pythonpath-checker")\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(hostile_root))
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    assert result["passing"] is True
+    assert result["execution"]["analyzer_sha"] == base
+    analyzer = next(call for call in calls if call["argv"][0] == sys.executable)
+    assert "PYTHONPATH" not in analyzer["env"]
+    assert not marker.exists()
+    # Even if PYTHONPATH leaked into the child environment, -I ignores it.
+    report = _hermetic_probe(tmp_path / "probe", env_extra={"PYTHONPATH": str(hostile_root)})
+    assert report["gen_file"].startswith(report["bundle_scripts"])
+    assert report["gen_marker"] is None
+    assert not marker.exists()
+
+
+def test_analyzer_dependency_manifest_is_identical_for_both_trees(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    # One extraction measures both trees: each pinned bundle file is read
+    # exactly once, from the base SHA, and the (empty) dependency manifest is
+    # bound into the execution record for the whole run.
+    assert result["execution"]["dependencies"] == []
+    extractions = [
+        call["argv"][-1]
+        for call in calls
+        if "show" in call["argv"]
+        and call["argv"][-1].endswith(tuple(ratchet.ANALYZER_BUNDLE_FILES))  # fmt: skip
+    ]
+    assert extractions == [f"{base}:{rel}" for rel in ratchet.ANALYZER_BUNDLE_FILES]
+    bundle_metadata, _files = ratchet._bundle_metadata(_accepted_authority())
+    assert result["execution"]["base_bundle_sha256"] == ratchet._sha256_bytes(
+        ratchet._canonical_json_bytes(bundle_metadata)
+    )
+    # A head proposing a different dependency manifest is a binding change
+    # and fails closed.
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {})
+    hostile = _accepted_authority()
+    hostile["analyzer_bundle"]["dependencies"] = [
+        {"name": "requests", "sha256": "0" * 64, "version": "2.32.0"}
+    ]
+    with pytest.raises(ValueError, match="immutable authority bindings changed"):
+        ratchet.compare_accepted_authorities(_accepted_authority(), hostile, repo_root=repo)
+
+
+def test_dependency_hash_or_version_mismatch_fails_closed(tmp_path: Path):
+    authority = copy.deepcopy(_accepted_authority())
+    authority["analyzer_bundle"]["files"][0]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="bundle digest mismatch"):
+        ratchet._validate_bundle(authority, Path(ratchet.__file__).parents[1])
+    versioned = copy.deepcopy(_accepted_authority())
+    versioned["analyzer_bundle"]["dependencies"] = [{"name": "requests", "version": "2.0"}]
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(versioned)
+    flags = copy.deepcopy(_accepted_authority())
+    flags["analyzer_bundle"]["interpreter_flags"] = ["-I"]
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(flags)
+    launcher = copy.deepcopy(_accepted_authority())
+    launcher["analyzer_bundle"]["launcher_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="execution contract mismatch"):
+        ratchet._bundle_metadata(launcher)
+
+
+def test_undeclared_import_fails_closed(tmp_path: Path):
+    root = tmp_path / "extraction"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts/module_under_test.py").write_text(
+        "import importlib\nimportlib.import_module(computed_name)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic repository import is forbidden"):
+        gen._python_import_edges(root, "scripts/module_under_test.py")
+    (root / "scripts/missing_target.py").write_text(
+        "import scripts.never_written_module\n", encoding="utf-8"
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="repository-local import is unavailable"):
+        gen._python_import_edges(root, "scripts/missing_target.py")

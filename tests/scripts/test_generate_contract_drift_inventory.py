@@ -2861,41 +2861,6 @@ def test_authority_manifest_mismatch_fails_closed(tmp_path: Path):
         )
 
 
-def test_dependency_hash_or_version_mismatch_fails_closed(tmp_path: Path):
-    authority = copy.deepcopy(_accepted_authority())
-    authority["analyzer_bundle"]["files"][0]["sha256"] = "0" * 64
-    with pytest.raises(ValueError, match="bundle digest mismatch"):
-        ratchet._validate_bundle(authority, Path(ratchet.__file__).parents[1])
-    versioned = copy.deepcopy(_accepted_authority())
-    versioned["analyzer_bundle"]["dependencies"] = [{"name": "requests", "version": "2.0"}]
-    with pytest.raises(ValueError, match="execution contract mismatch"):
-        ratchet._bundle_metadata(versioned)
-    flags = copy.deepcopy(_accepted_authority())
-    flags["analyzer_bundle"]["interpreter_flags"] = ["-I"]
-    with pytest.raises(ValueError, match="execution contract mismatch"):
-        ratchet._bundle_metadata(flags)
-    launcher = copy.deepcopy(_accepted_authority())
-    launcher["analyzer_bundle"]["launcher_sha256"] = "0" * 64
-    with pytest.raises(ValueError, match="execution contract mismatch"):
-        ratchet._bundle_metadata(launcher)
-
-
-def test_undeclared_import_fails_closed(tmp_path: Path):
-    root = tmp_path / "extraction"
-    (root / "scripts").mkdir(parents=True)
-    (root / "scripts/module_under_test.py").write_text(
-        "import importlib\nimportlib.import_module(computed_name)\n",
-        encoding="utf-8",
-    )
-    with pytest.raises(gen.AuthorityClosureError, match="dynamic repository import is forbidden"):
-        gen._python_import_edges(root, "scripts/module_under_test.py")
-    (root / "scripts/missing_target.py").write_text(
-        "import scripts.never_written_module\n", encoding="utf-8"
-    )
-    with pytest.raises(gen.AuthorityClosureError, match="repository-local import is unavailable"):
-        gen._python_import_edges(root, "scripts/missing_target.py")
-
-
 def test_path_traversal_or_symlink_escape_fails_closed(tmp_path: Path):
     root = tmp_path / "extract"
     root.mkdir()
