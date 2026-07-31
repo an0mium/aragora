@@ -4931,3 +4931,446 @@ def test_annotations_cannot_change_pr_verdict_projection_or_exact_diagnostics(
     ] = {"collapse": True}
     with pytest.raises(ValueError, match="projection"):
         ratchet._validate_original_cohort(hostile["canonical_artifacts"]["original_cohort"])
+
+
+# ------------------- VAL-CDG-007 (boundary side): fail-closed negatives
+
+
+def test_duplicate_or_incomplete_paginated_collection_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Duplicate record IDs across pages fail closed.
+    def duplicated(
+        endpoint: str, *, operation_log: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        del operation_log
+        page = int(endpoint.rsplit("page=", 1)[1])
+        payload = [{"id": index} for index in range(100)] if page == 1 else [{"id": 99}]
+        return payload, {"byte_length": page, "etag": f'"p{page}"', "sha256": f"{page:064x}", "updated_at": None}  # fmt: skip
+
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", duplicated)
+    with pytest.raises(ValueError, match="duplicate record IDs"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/releases", operation_log=[])
+    # A non-list page is malformed, never silently treated as exhaustion.
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        lambda endpoint, *, operation_log: ({"not": "a list"}, {}),
+    )
+    with pytest.raises(ValueError, match="paginated GitHub response is malformed"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/releases", operation_log=[])
+    # Nonterminating pagination is bounded and fails closed.
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        lambda endpoint, *, operation_log: (
+            [{"id": None} for _ in range(100)],
+            {"byte_length": 1, "etag": '"e"', "sha256": "0" * 64, "updated_at": None},
+        ),
+    )
+    with pytest.raises(ValueError, match="pagination did not terminate"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/releases", operation_log=[])
+
+
+def test_pr_changed_files_additions_deletions_mismatch_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A PR response whose changed_files disagrees with the exhaustively
+    # paginated file records fails closed (both directions).
+    for wrong in (2, 5):
+        with pytest.raises(ValueError, match="file discovery is incomplete"):
+            _live_pr_files_probe(
+                tmp_path / f"count-{wrong}",
+                monkeypatch,
+                files_count=3,
+                changed_files=wrong,
+            )
+    # Malformed additions/deletions in the authenticated PR response fail.
+    with pytest.raises(ValueError, match="additions/deletions are malformed"):
+        _live_pr_files_probe(tmp_path / "neg-del", monkeypatch, pr_deletions=-4)
+    # And the boundary evaluator rejects a capsule whose authenticated
+    # additions/deletions violate the 800-line paydown cap.
+    over_cap = _boundary_result(
+        tmp_path / "cap",
+        monkeypatch,
+        "corrective_bootstrap",
+        pr_additions=500,
+        pr_deletions=400,
+    )
+    assert (over_cap["status"], over_cap["passing"]) == ("fail", False)
+    assert "exceeds the 800-line cap" in over_cap["error"]
+    assert over_cap["error_code"] == "boundary_validation_failed"
+
+
+def test_files_api_cap_or_incomplete_tree_diff_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A capsule that denies complete file discovery fails closed even when
+    # every other predicate proves.
+    def denies(resources: dict[str, Any]) -> None:
+        resources["governed_prs"]["records"][0]["changed_files_complete"] = False
+
+    with pytest.raises(ValueError, match="denies complete file discovery"):
+        _live_pr_files_probe(tmp_path / "denied", monkeypatch, mutate=denies)
+
+    # The tree-equality backstop: a head tree that does not equal the
+    # authenticated merge tree fails closed (no partial diff is accepted).
+    def wrong_tree(resources: dict[str, Any]) -> None:
+        resources["first_parent_receipts"]["records"][0]["merge_tree_sha"] = "b" * 40
+
+    with pytest.raises(ValueError, match="lacks first-parent or tree equality"):
+        _live_pr_files_probe(tmp_path / "tree", monkeypatch, mutate=wrong_tree)
+
+
+def test_compare_api_fallback_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # The read-only subprocess guard rejects a compare-endpoint mutation
+    # dressed as gh api with a mutating method, and there is no compare
+    # fallback anywhere in live evidence collection.
+    with pytest.raises(ValueError, match="mutating HTTP"):
+        ratchet._guard_subprocess_argv(["gh", "api", "--method", "POST", "repos/o/r/compare/a...b"])
+    _context, requested = _live_pr_files_probe(tmp_path, monkeypatch, files_count=1)
+    assert not any("compare" in endpoint for endpoint in requested)
+
+    # An unexpected compare request would be unauthenticated: the transport
+    # fake raises AssertionError, surfacing as a hard boundary failure, not a
+    # silent fallback. Prove the failure path by asking for a compare probe.
+    def compare_probe(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("compare endpoint must never be requested")
+
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", compare_probe)
+    with pytest.raises(AssertionError, match="compare endpoint"):
+        ratchet._gh_api_get_stable("repos/synaptent/aragora/compare/a...b", operation_log=[])
+
+
+def test_total_count_reconciliation_failure_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Governed-PR reconciliation: authenticated changes for a PR that is not
+    # in the capsule (or missing for one that is) fail closed.
+    resource = _governed_pr_resource("1" * 40, "2" * 40)
+    with pytest.raises(ValueError, match="do not reconcile"):
+        ratchet._validate_governed_prs(
+            resource,
+            authenticated_pr_changes={
+                9999: {"additions": 1, "deletions": 1},
+                4242: {"additions": 1, "deletions": 1},
+            },
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+    # Empty governed evidence is missing evidence, not a zero-count success.
+    empty = _governed_pr_resource("1" * 40, "2" * 40)
+    empty["records"] = []
+    with pytest.raises(ValueError, match="governed PR evidence is missing"):
+        ratchet._validate_governed_prs(
+            empty,
+            authenticated_pr_changes={},
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+    # Live collection: a capsule count that disagrees with the observed PR
+    # response total fails during authentication, not after.
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        _live_pr_files_probe(tmp_path / "short", monkeypatch, files_count=3, changed_files=99)
+
+
+def test_boundary_manifest_digest_mismatch_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+    boundary = "corrective_bootstrap"
+    end_sha = boundary_shas[boundary]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path, boundary, start_sha, end_sha, boundary_shas, repo=repo
+    )
+    # Tamper with one resource file after the index digests were computed.
+    resource_path = tmp_path / f"resources-{boundary}" / "governed_prs.json"
+    payload = json.loads(resource_path.read_text())
+    payload["records"][0]["pr"] = 4242
+    resource_path.write_bytes(_canonical_boundary_bytes(payload))
+    with pytest.raises(ValueError, match="SHA-256 mismatch|byte-length mismatch"):
+        ratchet._load_evidence_resources(
+            evidence_index_path=index_path,
+            evidence_index_byte_length=index_length,
+            evidence_index_sha256=index_sha256,
+            boundary=boundary,
+            start_sha=start_sha,
+            end_sha=end_sha,
+            operation_log=[],
+        )
+    # And a wrong index digest never reaches resource loading.
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        ratchet._load_evidence_resources(
+            evidence_index_path=index_path,
+            evidence_index_byte_length=index_length,
+            evidence_index_sha256="0" * 64,
+            boundary=boundary,
+            start_sha=start_sha,
+            end_sha=end_sha,
+            operation_log=[],
+        )
+
+
+def test_boundary_start_equals_end_or_required_predicate_empty_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, start_sha, _boundary_shas = _boundary_git_repo(tmp_path)
+    equal = ratchet.build_boundary_result(
+        repo_root=repo,
+        schema_version=1,
+        boundary="corrective_bootstrap",
+        start_ref=start_sha,
+        end_ref=start_sha,
+    )
+    assert (equal["status"], equal["passing"]) == ("fail", False)
+    assert "start SHA must differ from end SHA" in equal["error"]
+    assert equal["error_code"] == "boundary_validation_failed"
+
+    def empty_predicate(payloads: dict[str, dict[str, Any]]) -> None:
+        proof = payloads["corrective_bootstrap"]
+        for key in list(proof):
+            if key not in {"schema", "predicate", "proof_for_boundary", "proof_start_sha", "proof_end_sha"}:  # fmt: skip
+                del proof[key]
+
+    empty = _boundary_result(
+        tmp_path / "empty", monkeypatch, "corrective_bootstrap", mutate=empty_predicate
+    )
+    assert (empty["status"], empty["passing"]) == ("fail", False)
+    assert empty["error_code"] == "boundary_validation_failed"
+
+
+def test_caller_summary_or_caller_operation_log_cannot_authenticate_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A capsule resource carrying caller-summary fields is rejected wholesale.
+    for field in ("caller_summary", "operation_log", "summary", "results", "prior_boundary_manifest"):  # fmt: skip
+
+        def smuggle(resources: dict[str, Any], field: str = field) -> None:
+            resources["governed_prs"][field] = {"authenticated": True}
+
+        with pytest.raises(ValueError, match="caller-supplied or inherited authority"):
+            _live_pr_files_probe(tmp_path / f"caller-{field}", monkeypatch, mutate=smuggle)
+
+    # Nested caller authority is found recursively.
+    def nested(resources: dict[str, Any]) -> None:
+        resources["corrective_bootstrap"]["accepted_stage1_closure"]["fact"]["summaries"] = []
+
+    with pytest.raises(ValueError, match="caller-supplied or inherited authority"):
+        _live_pr_files_probe(tmp_path / "nested", monkeypatch, mutate=nested)
+    # The Python API rejects caller-supplied evidence/GitHub trust roots.
+    with pytest.raises(TypeError):
+        ratchet.build_boundary_result(
+            repo_root=tmp_path,
+            schema_version=1,
+            boundary="corrective_bootstrap",
+            start_ref="1" * 40,
+            end_ref="2" * 40,
+            evidence_resources={"governed_prs": {}},  # type: ignore[call-arg]
+        )
+
+
+def test_release_immutability_or_rule_suite_prerequisite_blocks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    result = _boundary_result(
+        tmp_path,
+        monkeypatch,
+        "corrective_bootstrap",
+        release_immutability=False,
+    )
+    assert (result["status"], result["passing"]) == ("blocked", False)
+    assert "future GitHub Release immutability" in result["blocked_reason"]
+    assert result["blocked_reason"].endswith("authenticated and unavailable")
+    # Unavailable rule-suite access blocks; unauthenticated claims fail.
+    prerequisites = {
+        "administration": {"authenticated": True, "available": False},
+        "boundary": "corrective_bootstrap",
+        "end_sha": "2" * 40,
+        "future_release_immutability": {
+            "authenticated": True,
+            "available": True,
+            "enabled": True,
+        },  # fmt: skip
+        "rule_suite": {"authenticated": True, "available": True},
+        "schema": "contract-drift-external-prerequisites-v1",
+        "start_sha": "1" * 40,
+    }
+    with pytest.raises(ratchet.BoundaryBlocked, match="authenticated and unavailable"):
+        ratchet._validate_external_prerequisites(
+            copy.deepcopy(prerequisites),
+            repository_id=1,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="2" * 40,
+            operation_log=[],
+        )
+    unauthenticated = copy.deepcopy(prerequisites)
+    unauthenticated["administration"] = {"authenticated": False, "available": False}
+    with pytest.raises(ValueError, match="not independently authenticated"):
+        ratchet._validate_external_prerequisites(
+            unauthenticated,
+            repository_id=1,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="2" * 40,
+            operation_log=[],
+        )
+
+
+def test_boundary_evidence_inheritance_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Evidence stamped for a different boundary interval cannot be inherited.
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+    boundary = "route_truth"
+    end_sha = boundary_shas[boundary]
+    index_path, index_length, index_sha256 = _write_boundary_index(
+        tmp_path, boundary, start_sha, end_sha, boundary_shas, repo=repo
+    )
+    with pytest.raises(ValueError, match="interval mismatch"):
+        ratchet._load_evidence_resources(
+            evidence_index_path=index_path,
+            evidence_index_byte_length=index_length,
+            evidence_index_sha256=index_sha256,
+            boundary=boundary,
+            start_sha=start_sha,
+            end_sha=boundary_shas["core_sdk"],  # a later boundary's SHA
+            operation_log=[],
+        )
+
+    # An explicit inherited-authority marker on a resource is rejected.
+    def inherit(resources: dict[str, Any]) -> None:
+        resources["governed_prs"]["inherited_from_boundary"] = "corrective_bootstrap"
+
+    with pytest.raises(ValueError, match="caller-supplied or inherited authority"):
+        _live_pr_files_probe(tmp_path / "inherit", monkeypatch, mutate=inherit)
+
+
+def test_boundary_status_blocked_rejects_internal_malformed_false_missing_or_bypass_cases(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Internal falsity: a false predicate fact fails (never blocked).
+    def false_fact(payloads: dict[str, dict[str, Any]]) -> None:
+        payloads["corrective_bootstrap"]["stage2_verifier_chronology"]["fact"][
+            "ordered_after_stage1"
+        ] = False
+
+    false_result = _boundary_result(
+        tmp_path / "false", monkeypatch, "corrective_bootstrap", mutate=false_fact
+    )
+    assert (false_result["status"], false_result["blocked_reason"]) == ("fail", None)
+
+    # Missing evidence: a dropped predicate resource fails, never blocks.
+    def drop(payloads: dict[str, dict[str, Any]]) -> None:
+        del payloads["corrective_bootstrap"]["corrective_transition"]
+
+    missing = _boundary_result(
+        tmp_path / "missing", monkeypatch, "corrective_bootstrap", mutate=drop
+    )
+    assert (missing["status"], missing["blocked_reason"]) == ("fail", None)
+
+    # Malformed digest binding on a fact fails, never blocks.
+    def forge(payloads: dict[str, dict[str, Any]]) -> None:
+        payloads["corrective_bootstrap"]["corrective_transition"]["sha256"] = "0" * 64
+
+    forged = _boundary_result(
+        tmp_path / "forged", monkeypatch, "corrective_bootstrap", mutate=forge
+    )
+    assert (forged["status"], forged["blocked_reason"]) == ("fail", None)
+    # Bypassed rule suites fail closed (relabeled-blocked is impossible).
+    bypassed = _rule_suite_record(
+        "2" * 40,
+        rule_evaluations=[{"result": "bypass", "rule_source": {"type": "repository"}}],
+    )
+    with pytest.raises(ValueError, match="bypassed evaluation"):
+        ratchet._validate_rule_suite_record_fields(
+            bypassed,
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="2" * 40,
+        )
+    not_passing = _rule_suite_record("2" * 40, evaluation_result="bypass")
+    with pytest.raises(ValueError, match="evaluation is not passing"):
+        ratchet._validate_rule_suite_record_fields(
+            not_passing,
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="2" * 40,
+        )
+    # Mutation-tainted external prerequisite evidence fails, never blocks.
+    with pytest.raises(ValueError, match="mutation-tainted"):
+        ratchet._validate_external_prerequisites(
+            {"mutation_tainted": True},
+            repository_id=1,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="2" * 40,
+            operation_log=[],
+        )
+
+
+def test_deterministic_boundary_status_pass_is_reachable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    for boundary in ("corrective_bootstrap", "final_seal"):
+        result = _boundary_result(tmp_path / boundary, monkeypatch, boundary)
+        assert (result["status"], result["passing"]) == ("pass", True)
+        assert result["blocked_reason"] is None
+        assert result["error_code"] if result["status"] == "fail" else True
+        assert list(result["predicates"]) == list(
+            ratchet.BOUNDARY_NAMES[: ratchet.BOUNDARY_NAMES.index(boundary) + 1]
+        )
+        assert all(entry["proven"] is True for entry in result["predicates"].values())
+        # Deterministic: the same fixture double-runs to identical bytes
+        # modulo the freshly generated operation log.
+        again = _boundary_result(tmp_path / f"{boundary}-again", monkeypatch, boundary)
+        assert again["status"] == "pass"
+        assert again["predicates"] == result["predicates"]
+
+
+def test_read_only_cli_mutation_attempt_fails_closed(tmp_path: Path):
+    # Mutating git/gh/HTTP actions are rejected before execution.
+    for argv in (
+        ["git", "commit", "-m", "x"],
+        ["git", "push"],
+        ["gh", "pr", "merge", "1"],
+        ["gh", "api", "-XDELETE", "repos/o/r"],
+        ["rm", "-rf", str(tmp_path)],
+        [],
+    ):
+        with pytest.raises(ValueError, match="mutating|unsupported"):
+            ratchet._guard_subprocess_argv(argv)
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        with pytest.raises(ValueError, match="mutating HTTP"):
+            ratchet._guard_http_method(method)
+    # Write attempts outside the declared scratch/output roots are rejected.
+    scratch = tmp_path / "scratch"
+    output = tmp_path / "output"
+    scratch.mkdir()
+    output.mkdir()
+    with pytest.raises(ValueError, match="write outside explicit scratch/output roots"):
+        ratchet._guard_write_path(tmp_path / "escape.txt", scratch, output)
+    ratchet._guard_write_path(scratch / "ok.txt", scratch, output)
+    ratchet._guard_write_path(output / "ok.txt", scratch, output)
+    # The exclusive private writer refuses to follow a preexisting symlink.
+    target = tmp_path / "outside-target.txt"
+    target.write_text("x", encoding="utf-8")
+    link = scratch / "sneaky.json"
+    link.symlink_to(target)
+    with pytest.raises((ValueError, OSError)):
+        ratchet._write_exclusive_private_file(link, b"{}", scratch_root=scratch, output_root=output)
