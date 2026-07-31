@@ -2110,6 +2110,216 @@ def test_sdk_partition_is_scheduling_metadata_only():
     assert moved_id == record["original_record_id"]
 
 
+# --- VAL-CDG-005 (census side): closed category schema ----------------------
+
+CATEGORY_SOURCE_KEYS = {
+    "python_sdk_drift": "python_sdk_drift",
+    "typescript_sdk_drift": "typescript_sdk_drift",
+    "routes_missing_in_spec": "missing_in_spec",
+    "routes_orphaned_in_spec": "orphaned_in_spec",
+    "sdk_missing_from_both": "missing_from_both_sdks",
+}
+CATEGORY_SOURCE_PATHS = {
+    "python_sdk_drift": "scripts/baselines/verify_sdk_contracts.json",
+    "typescript_sdk_drift": "scripts/baselines/verify_sdk_contracts.json",
+    "routes_missing_in_spec": "scripts/baselines/validate_openapi_routes.json",
+    "routes_orphaned_in_spec": "scripts/baselines/validate_openapi_routes.json",
+    "sdk_missing_from_both": "scripts/baselines/check_sdk_parity.json",
+}
+
+
+def _reidentified_category_mutation(category: str) -> dict:
+    """Reclassify a path-level record into `category` with all ID bookkeeping
+    recomputed, leaving only the closed-schema/count layer to reject it."""
+    hostile = copy.deepcopy(_cohort())
+    record = next(
+        r for r in hostile["original_records"] if r["category"] == "routes_missing_in_spec"
+    )
+    record["category"] = category
+    raw, original_id = _original_id(category, record["exact_historical_literal_record"])
+    record.update(
+        id_payload_byte_length=len(raw),
+        id_payload_sha256=ratchet._sha256_bytes(raw),
+        original_record_id=original_id,
+    )
+    ids = sorted(r["original_record_id"] for r in hostile["original_records"])
+    hostile["original_record_id_set"] = {
+        "original_record_ids": ids,
+        "sha256": ratchet._digest_set("cdg-original-record-id-set-v1", ids, "original_record_ids"),
+    }
+    return hostile
+
+
+def test_category_schema_is_closed_and_complete():
+    schema_categories = sorted(CATEGORY_SOURCE_KEYS)
+    assert sorted(ratchet.EXPECTED_CATEGORY_COUNTS) == schema_categories
+    assert sorted(ratchet.ACCEPTED_CATEGORIES) == schema_categories
+    assert _accepted_authority()["categories"] == list(ratchet.ACCEPTED_CATEGORIES)
+    # Every category occurs exactly once in the analyzer count plumbing and in
+    # the generator baseline specs; there is no sixth bucket.
+    count_lists = [(alias, list_key) for _count, alias, list_key in ratchet.COUNT_KEYS]
+    assert len(count_lists) == len(set(count_lists)) == 5
+    spec_lists = [
+        (alias, list_key)
+        for alias, (_path, list_keys) in gen.BASELINE_SPECS.items()
+        for list_key in list_keys
+    ]
+    assert sorted(spec_lists) == sorted(count_lists)
+    counts = _cohort()["counts"]["by_category"]
+    assert sorted(counts) == schema_categories  # complete, including any zero
+    assert sum(counts.values()) == 655
+    # An added sixth category fails the closed schema even with consistent IDs.
+    with pytest.raises(ValueError, match="ID-set digest mismatch|category counts mismatch"):
+        ratchet._validate_original_cohort(_reidentified_category_mutation("experimental_drift"))
+
+
+def test_ratified_category_literal_shapes_and_sdk_language_mapping_match():
+    for record in _cohort()["original_records"]:
+        category = record["category"]
+        literal = record["exact_historical_literal_record"]
+        assert record["source_json_key"] == CATEGORY_SOURCE_KEYS[category]
+        assert record["source_manifest"]["path"] == CATEGORY_SOURCE_PATHS[category]
+        assert record["sdk_language"] == CATEGORY_LANGUAGES[category]
+        if category in SDK_CATEGORIES:
+            token, _, path = literal.partition(" ")
+            assert token == record["method"] and token in RUNTIME_METHODS
+            assert path.startswith("/")
+        else:
+            assert record["method"] is None
+            assert literal.startswith("/") and " " not in literal
+
+
+def test_method_null_is_limited_to_57_original_path_memberships():
+    cohort = _cohort()
+    null_records = [r for r in cohort["original_records"] if r["method"] is None]
+    assert len(null_records) == 57
+    assert {r["category"] for r in null_records} <= set(ROUTE_CATEGORIES)
+    assert sum(1 for r in cohort["original_records"] if r["method"] is not None) == 598
+    null_ids = {r["original_record_id"] for r in null_records}
+    memberships = [
+        record
+        for record in cohort["operation_projection"]["records"]
+        if record["original_record_id"] in null_ids
+    ]
+    assert len(memberships) == 57
+    assert sum(len(m["operation_edges"]) for m in memberships) == 68
+    # Path-level membership never leaks a null method onto its runtime edges.
+    for membership in memberships:
+        for edge in membership["operation_edges"]:
+            assert edge["method"] in RUNTIME_METHODS
+
+
+def test_runtime_and_projection_edges_require_exact_method_tokens():
+    for record in _cohort()["operation_projection"]["records"]:
+        for edge in record["operation_edges"]:
+            assert edge["method"] in RUNTIME_METHODS
+            assert edge["method"] == edge["method"].upper()
+    hostile = copy.deepcopy(_cohort())
+    edge = hostile["operation_projection"]["records"][0]["operation_edges"][0]
+    for token in ("get", "GETS", " GET", "GET ", "ANY", "*", None):
+        edge["method"] = token
+        _rehash_projection(hostile)
+        with pytest.raises(ValueError, match="invalid method"):
+            ratchet._validate_original_cohort(hostile)
+
+
+def test_unknown_category_fails_closed():
+    # Census side: a record reclassified into an unknown category (with its ID
+    # bookkeeping fully recomputed) still fails the closed schema.
+    with pytest.raises(ValueError, match="ID-set digest mismatch|category counts mismatch"):
+        ratchet._validate_original_cohort(_reidentified_category_mutation("other_bucket"))
+    # Generator side: unknown baseline arrays never enter discovery — there is
+    # no 'other' bucket in collect_ids.
+    docs = {
+        "verify": {
+            "python_sdk_drift": ["GET /a"],
+            "typescript_sdk_drift": [],
+            "experimental_drift": ["GET /other"],
+        },
+        "routes": {"missing_in_spec": [], "orphaned_in_spec": []},
+        "parity": {"missing_from_both_sdks": []},
+    }
+    ids = gen.collect_ids(docs)
+    assert sorted(ids) == ["python_sdk_drift:GET /a"]
+    assert not any("experimental" in item_id for item_id in ids)
+
+
+def test_missing_schema_category_fails_closed():
+    hostile = copy.deepcopy(_cohort())
+    hostile["schema"] = "contract-drift-original-cohort-v0"
+    with pytest.raises(ValueError, match="schema mismatch"):
+        ratchet._validate_original_cohort(hostile)
+    missing_field = copy.deepcopy(_cohort())
+    del missing_field["original_records"][0]["category"]
+    with pytest.raises(ValueError, match="lacks identity fields"):
+        ratchet._validate_original_cohort(missing_field)
+    missing_counts = copy.deepcopy(_cohort())
+    del missing_counts["counts"]["by_category"]
+    with pytest.raises(ValueError, match="declared counts mismatch"):
+        ratchet._validate_original_cohort(missing_counts)
+
+
+def test_category_literal_shape_or_provenance_mismatch_fails_closed():
+    # A mutated literal breaks the bound ID payload before anything downstream
+    # can consume the malformed shape.
+    hostile = copy.deepcopy(_cohort())
+    hostile["original_records"][0]["exact_historical_literal_record"] += "?tampered"
+    with pytest.raises(ValueError, match="ID payload (length|digest) mismatch"):
+        ratchet._validate_original_cohort(hostile)
+    # A provenance-incoherent SDK record (cohort digest link no longer equal to
+    # the recomputed provenance record digest) fails closed.
+    cohort = copy.deepcopy(_cohort())
+    provenance = copy.deepcopy(_provenance())
+    linked = next(
+        r
+        for r in cohort["original_records"]
+        if r["original_record_id"] == provenance["records"][0]["original_record_id"]
+    )
+    linked["sdk_provenance_record_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="cohort digest link mismatch"):
+        ratchet._validate_sdk_provenance(provenance, ratchet._validate_original_cohort(cohort))
+
+
+# --- VAL-CDG-003 (census side): annotations are nonoperative ----------------
+
+
+def test_annotation_order_and_shape_do_not_change_original_record_ids():
+    record = _cohort()["original_records"][0]
+    raw, original_id = _original_id(record["category"], record["exact_historical_literal_record"])
+    assert record["original_record_id"] == original_id
+    # The ID payload embeds exactly the three identity fields; annotations of
+    # any shape sit outside it and cannot perturb the digest.
+    annotated = {
+        **record,
+        "annotations": {"candidate_intentional_growth": True, "reviewers": ["a", "b"]},
+        "generated_artifact": None,
+        "stale_sdk": [{"since": "2026-07-01"}],
+    }
+    _, annotated_id = _original_id(
+        annotated["category"], annotated["exact_historical_literal_record"]
+    )
+    assert annotated_id == original_id
+    assert json.loads(raw.decode()) == {
+        "category": record["category"],
+        "exact_historical_literal_record": record["exact_historical_literal_record"],
+        "schema": "cdg-original-record-id-v1",
+    }
+    # Reordering the cohort array changes bytes, never the governed ID set.
+    reordered = copy.deepcopy(_cohort())
+    reordered["original_records"] = list(reversed(reordered["original_records"]))
+    assert sorted(r["original_record_id"] for r in reordered["original_records"]) == sorted(
+        r["original_record_id"] for r in _cohort()["original_records"]
+    )
+    # Generator discovery keys are equally annotation-blind: baseline-derived
+    # IDs come only from the source arrays, never inventory annotations.
+    docs = {
+        "verify": {"python_sdk_drift": ["GET /a"], "typescript_sdk_drift": []},
+        "routes": {"missing_in_spec": [], "orphaned_in_spec": []},
+        "parity": {"missing_from_both_sdks": []},
+    }
+    assert gen.collect_ids(docs) == {"python_sdk_drift:GET /a": "python_sdk_drift"}
+
+
 def test_annotation_or_later_move_cannot_change_partition(monkeypatch):
     provenance = _provenance()
     # The partition is a pure function of the provenance atoms: annotating a
