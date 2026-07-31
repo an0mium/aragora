@@ -21,7 +21,7 @@ VERIFY = {
     "missing_stable": [],
 }
 ROUTES = {"missing_in_spec": ["m1"], "orphaned_in_spec": ["o1"]}
-PARITY = {"missing_from_both_sdks": []}
+PARITY: dict[str, list[str]] = {"missing_from_both_sdks": []}
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -358,9 +358,9 @@ def _authority_fixture(
         "github_literal": "      - run: python .github/scripts/tool.py\n",
         "github_dynamic": "      - run: python .github/scripts/$HELPER.py\n",
     }
-    helper_run = dynamic_runs.get(
-        dynamic_run_reference, "      - run: python sdk/python/client.py\n"
-    )
+    helper_run = "      - run: python sdk/python/client.py\n"
+    if dynamic_run_reference is not None:
+        helper_run = dynamic_runs.get(dynamic_run_reference, helper_run)
     _write_text(
         repo / ".github/workflows/authority.yml",
         "on:\n"
@@ -1144,16 +1144,20 @@ def test_standalone_classifier_rejects_unavailable_or_ambient_policy(tmp_path: P
 
 
 @pytest.mark.parametrize(
-    ("fixture_options", "message"),
+    ("fixture_option", "message"),
     [
-        ({"namespace_package": True}, "namespace-blended or noncanonical package"),
-        ({"symlink_policy": True}, "policy cannot be a symlink"),
+        ("namespace_package", "namespace-blended or noncanonical package"),
+        ("symlink_policy", "policy cannot be a symlink"),
     ],
 )
 def test_standalone_classifier_rejects_namespace_blended_or_copied_policy(
-    tmp_path: Path, fixture_options: dict[str, bool], message: str
+    tmp_path: Path, fixture_option: str, message: str
 ):
-    repo, sha = _authority_fixture(tmp_path, **fixture_options)
+    repo, sha = _authority_fixture(
+        tmp_path,
+        namespace_package=fixture_option == "namespace_package",
+        symlink_policy=fixture_option == "symlink_policy",
+    )
     with pytest.raises(gen.AuthorityClosureError, match=message):
         _manifest(repo, sha)
 

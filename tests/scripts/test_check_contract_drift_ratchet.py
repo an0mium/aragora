@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import Any, Literal, cast, overload
 
 import pytest
 import scripts.check_contract_drift_ratchet as ratchet
@@ -4425,10 +4425,14 @@ def test_pr_files_bind_changed_files_additions_and_deletions(
             operation_log=[],
         )
     for additions, deletions in ((True, 0), (-1, 0), (0, None), ("4", 0)):
+        malformed = cast(
+            "dict[int, dict[str, int]]",
+            {9999: {"additions": additions, "deletions": deletions}},
+        )
         with pytest.raises(ValueError, match="additions/deletions are malformed"):
             ratchet._validate_governed_prs(
                 _governed_pr_resource(start_sha, end_sha),
-                authenticated_pr_changes={9999: {"additions": additions, "deletions": deletions}},
+                authenticated_pr_changes=malformed,
                 repo_root=tmp_path,
                 operation_log=[],
             )
@@ -4520,8 +4524,8 @@ def test_files_api_incomplete_uses_exact_tree_diff_with_pinned_rename_policy(
     assert gen.collect_ids(head_docs) == {}
     assert ratchet._git_doc(repo, head_sha, repo / verify_rel) == {}
     # No rename-following flags exist anywhere in the analyzer sources.
-    for module in (ratchet, gen):
-        source = Path(module.__file__).read_text(encoding="utf-8")
+    for module_file in (ratchet.__file__, gen.__file__):
+        source = Path(module_file).read_text(encoding="utf-8")
         assert "--follow" not in source
         assert "find-renames" not in source
         assert "-M100" not in source
@@ -4529,8 +4533,8 @@ def test_files_api_incomplete_uses_exact_tree_diff_with_pinned_rename_policy(
 
 def test_compare_api_is_never_a_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Static: neither analyzer module constructs a GitHub compare endpoint.
-    for module in (ratchet, gen):
-        source = Path(module.__file__).read_text(encoding="utf-8")
+    for module_file in (ratchet.__file__, gen.__file__):
+        source = Path(module_file).read_text(encoding="utf-8")
         assert "/compare" not in source
         assert "compare/" not in source
         assert "compare?" not in source
@@ -7785,8 +7789,8 @@ def test_workflow_history_is_unfiltered_or_disjoint_below_1000_shards(
         ratchet._gh_api_paginated("repos/synaptent/aragora/actions/runs", operation_log=[])
     # No analyzer surface bakes a status/conclusion filter into a workflow
     # history query.
-    for module in (ratchet, gen):
-        source = Path(module.__file__).read_text(encoding="utf-8")
+    for module_file in (ratchet.__file__, gen.__file__):
+        source = Path(module_file).read_text(encoding="utf-8")
         assert "status=completed" not in source
         assert "conclusion=success" not in source
 
@@ -8050,14 +8054,16 @@ def test_normal_protected_exact_head_merge_is_last_and_never_admin(
     # binds --match-head-commit to the settled head and, without protection
     # reconciliation, is the only command issued.
     commands: list[list[str]] = []
-    monkeypatch.setattr(
-        settle, "_run_command", lambda command, *, cwd, input_text=None: commands.append(command)
-    )
-    monkeypatch.setattr(
-        settle,
-        "_run_text_command",
-        lambda command, *, cwd, input_text=None: (commands.append(command), "")[1],
-    )
+
+    def _record_command(command: list[str], *, cwd: Any, input_text: Any = None) -> None:
+        commands.append(command)
+
+    def _record_text_command(command: list[str], *, cwd: Any, input_text: Any = None) -> str:
+        commands.append(command)
+        return ""
+
+    monkeypatch.setattr(settle, "_run_command", _record_command)
+    monkeypatch.setattr(settle, "_run_text_command", _record_text_command)
     settle._apply_merge(pr=9645, head="7" * 40, repo="synaptent/aragora", cwd=tmp_path)
     assert len(commands) == 1
     merge_command = commands[0]

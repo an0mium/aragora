@@ -139,7 +139,7 @@ def _paginated_protection_checks(pages: list[list[tuple[str, int]]]) -> list[tup
     for page in pages:
         if len(page) > 100:
             raise ValueError("paginated protection page exceeds per_page=100")
-        checks.extend(tuple(item) for item in page)
+        checks.extend((str(context), int(app_id)) for context, app_id in page)
     if len(checks) != len(set(checks)):
         raise ValueError("paginated protection capture returned duplicate tuples")
     return checks
