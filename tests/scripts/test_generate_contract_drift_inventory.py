@@ -1594,17 +1594,33 @@ def test_all_655_original_ids_reproduce_from_anchored_source_blobs():
             "missing_from_both_sdks",
         ]  # fmt: skip
     )
-    # Anchored source binding: every membership source pins blob bytes; when the
-    # anchor blobs are reachable in this clone, the cohort reproduces from them.
+    # Anchored source binding: every membership source pins blob bytes. The
+    # binding phase is mandatory whenever the membership anchor commit exists
+    # in this clone (every full clone: the anchor is an ancestor of main); a
+    # blob missing despite the anchor commit is corruption, never a soft pass.
+    anchor_sha = cohort["membership_anchor"]["commit_sha"]
+    anchor_present = (
+        subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{anchor_sha}^{{commit}}"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+    verified_sources = 0
     for source in cohort["membership_sources"]:
         assert ratchet.SHA256_RE.fullmatch(source["sha256"])
-        assert source["commit_sha"] == cohort["membership_anchor"]["commit_sha"]
+        assert source["commit_sha"] == anchor_sha
         probe = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "cat-file", "blob", source["git_blob_oid"]],
             capture_output=True,
         )
         if probe.returncode != 0:
+            assert not anchor_present, (
+                f"membership anchor commit {anchor_sha} is present but source blob "
+                f"{source['git_blob_oid']} ({source['path']}) is unreachable"
+            )
             continue
+        verified_sources += 1
         blob = probe.stdout
         assert len(blob) == source["byte_length"]
         assert ratchet._sha256_bytes(blob) == source["sha256"]
@@ -1616,6 +1632,8 @@ def test_all_655_original_ids_reproduce_from_anchored_source_blobs():
             # Unrelated arrays such as missing_stable never join the cohort.
             assert "missing_stable" in arrays
             assert "missing_stable" not in by_source
+    if anchor_present:
+        assert verified_sources == len(cohort["membership_sources"])
 
 
 def test_ratified_original_id_set_digest_supersedes_provisional_digest():
