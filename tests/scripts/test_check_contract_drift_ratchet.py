@@ -6556,7 +6556,7 @@ H2_SHA = "d4ab26e4b30b7f65956b4cdd9d738837b78ca4a3"
 H3_SHA = "1722a6145c0c23a2c1c0d20be5ed1329bb01d666"
 H4_SHA = "f50902a19bdc6cce7049da87212dc27759f727a0"
 OLD_H2_PIN_SHA = "017ce1d7a4024f3001858d2385cd153c1ffc8bb2"
-CORRECTIVE_BASE_SHA = "8f1dd9684a3bf311e65b40de2ab35415612cc051"
+CORRECTIVE_BASE_SHA = "d5c9df5cea5719404b54c34fdb62a89daf65a92f"
 PR_9346_FACT = {
     "actor": "scarmani",
     "head_sha": "83a7c59169ea238e0439a27fbb80d3cb3ce7e916",
@@ -8064,3 +8064,940 @@ def test_normal_protected_exact_head_merge_is_last_and_never_admin(
     assert merge_command[:3] == ["gh", "pr", "merge"]
     assert "--match-head-commit" in merge_command
     assert merge_command[merge_command.index("--match-head-commit") + 1] == "7" * 40
+
+
+# ---------------------------------------------------------------------------
+# VAL-CDG-014: authority transitions are closed, atomic, and fail safely
+# across old bases.
+# ---------------------------------------------------------------------------
+
+
+def test_base_without_accepted_authority_requires_transition(tmp_path: Path):
+    # An inventory without the accepted-authority manifest yields the
+    # dedicated transition error, never head-authority execution.
+    inventory = _real_inventory()
+    del inventory["accepted_authority"]
+    bare = tmp_path / "inventory.json"
+    bare.write_text(json.dumps(inventory), encoding="utf-8")
+    result = ratchet.build_accepted_result(
+        mode="program", repo_root=_REPO_ROOT, inventory_path=bare
+    )
+    assert result["status"] == "fail" and result["passing"] is False
+    assert result["error_code"] == "authority_transition_required"
+    # A missing/unreadable inventory is the same closed transition failure.
+    missing = ratchet.build_accepted_result(
+        mode="program", repo_root=_REPO_ROOT, inventory_path=tmp_path / "absent.json"
+    )
+    assert missing["error_code"] == "authority_transition_required"
+    # Degraded-schema bases (manifest present but not an object) fail the
+    # same way rather than executing whatever the head proposes.
+    inventory["accepted_authority"] = "not-a-manifest"
+    bare.write_text(json.dumps(inventory), encoding="utf-8")
+    degraded = ratchet.build_accepted_result(
+        mode="program", repo_root=_REPO_ROOT, inventory_path=bare
+    )
+    assert degraded["error_code"] == "authority_transition_required"
+
+
+def test_corrective_merge_parent_requires_transition(tmp_path: Path):
+    # PARENT is the recorded corrective transition base: it descends to the
+    # current main and its inventory has no accepted authority manifest.
+    parent = _real_authority()["transition"]["base_sha"]
+    assert parent == CORRECTIVE_BASE_SHA
+    subprocess.run(
+        ["git", "-C", str(_REPO_ROOT), "merge-base", "--is-ancestor", parent, "HEAD"],
+        check=True,
+    )
+    parent_doc = json.loads(
+        subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "show", f"{parent}:{gen.DEFAULT_INVENTORY}"],
+            text=True,
+        )
+    )
+    assert not isinstance(parent_doc.get("accepted_authority"), dict)
+    # PR mode under PARENT's inventory fails authority_transition_required.
+    parent_inventory = tmp_path / "parent-inventory.json"
+    parent_inventory.write_text(json.dumps(parent_doc), encoding="utf-8")
+    result = ratchet.build_accepted_result(
+        mode="program", repo_root=_REPO_ROOT, inventory_path=parent_inventory
+    )
+    assert result["error_code"] == "authority_transition_required"
+    assert result["passing"] is False
+
+
+def test_head_cannot_self_bootstrap_authority(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # When the resolved base carries accepted authority, PR mode executes the
+    # base analyzer/authority — the head cannot swap in its own.
+    repo, base, head = _hermetic_repo(tmp_path)
+    result, _calls = _recorded_hermetic_pr(repo, base, head, monkeypatch)
+    assert result["passing"] is True
+    assert result["execution"]["analyzer_sha"] == base
+    assert result["authority"] == {"source": "accepted_authority"}
+    # A head that rewrites the authority manifest cannot smuggle it through
+    # the comparison: immutable bindings are compared exactly.
+    hostile = _real_authority()
+    hostile["analyzer_bundle"]["interpreter_flags"] = ["-I"]
+    _relink_authority_manifest(hostile)
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {})
+    with pytest.raises(ValueError, match="immutable authority bindings changed"):
+        ratchet.compare_accepted_authorities(_real_authority(), hostile, repo_root=_REPO_ROOT)
+
+
+def test_approved_authority_transition_is_atomic():
+    # The accepted authority is a closed atomic unit: its field set is exact,
+    # and removing any single plane fails the whole manifest closed.
+    authority = _real_authority()
+    assert set(authority) == ratchet.AUTHORITY_FIELDS
+    for field in sorted(ratchet.AUTHORITY_FIELDS):
+        partial = _real_authority()
+        del partial[field]
+        with pytest.raises(ValueError, match="schema or fields mismatch"):
+            ratchet.validate_accepted_authority(partial, repo_root=_REPO_ROOT)
+    # The installed transition is the dedicated authority_transition kind
+    # with the exact recorded base.
+    transition = authority["transition"]
+    assert transition["kind"] == "authority_transition"
+    assert transition["base_sha"] == CORRECTIVE_BASE_SHA
+    assert set(transition) == {
+        "accepted_transition_head",
+        "base_sha",
+        "historical_nonconforming",
+        "kind",
+    }
+
+
+def test_accepted_authority_manifest_is_unique():
+    # Exactly one accepted-authority manifest exists in the tree.
+    listing = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(_REPO_ROOT),
+            "grep",
+            "-l",
+            '"accepted_authority"',
+            "HEAD",
+            "--",
+            "*.json",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    assert listing == [f"HEAD:{gen.DEFAULT_INVENTORY}"]
+    # The manifest digest binds every field: duplicating or editing any part
+    # of the unique manifest breaks the digest and fails closed.
+    forged = _real_authority()
+    forged["categories"] = list(forged["categories"]) + ["python_sdk_drift"]
+    with pytest.raises(ValueError, match="mismatch"):
+        ratchet.validate_accepted_authority(forged, repo_root=_REPO_ROOT)
+
+
+def test_canonical_cohort_and_provenance_artifact_bytes_never_change_across_transition(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Both canonical artifacts re-serialize to the exact ratified byte pairs.
+    authority = _real_authority()
+    artifacts = authority["canonical_artifacts"]
+    cohort_bytes = ratchet._canonical_json_bytes(artifacts["original_cohort"], terminal_lf=True)
+    provenance_bytes = ratchet._canonical_json_bytes(artifacts["sdk_provenance"], terminal_lf=True)
+    assert len(cohort_bytes) == ratchet.COHORT_ARTIFACT["byte_length"]
+    assert ratchet._sha256_bytes(cohort_bytes) == ratchet.COHORT_ARTIFACT["sha256"]
+    assert len(provenance_bytes) == ratchet.PROVENANCE_ARTIFACT["byte_length"]
+    assert ratchet._sha256_bytes(provenance_bytes) == ratchet.PROVENANCE_ARTIFACT["sha256"]
+    # A transition that changes artifact bytes is rejected before any set
+    # comparison is attempted.
+    head = _real_authority()
+    head["canonical_artifacts"]["original_cohort"]["original_records"][0][
+        "exact_historical_literal_record"
+    ] += "-drift"
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {})
+    with pytest.raises(ValueError, match="immutable authority bindings changed"):
+        ratchet.compare_accepted_authorities(_real_authority(), head, repo_root=_REPO_ROOT)
+
+
+def test_ratified_literal_anchors_and_original_descriptor_never_change_across_transition():
+    # The ratified anchors are pinned: category tuple, genesis disposition,
+    # and the sole normative original-ID set digest.
+    authority = _real_authority()
+    assert authority["categories"] == list(ratchet.ACCEPTED_CATEGORIES)
+    assert ratchet.GENESIS_DISPOSITION == {
+        "as_of": "2026-04-17",
+        "evidence": "canonical-original-cohort-v1",
+        "status": "active",
+    }
+    cohort = authority["canonical_artifacts"]["original_cohort"]
+    assert cohort["original_record_id_set"]["sha256"] == ratchet.ORIGINAL_ID_SET_SHA256
+    # The original descriptor is exactly (category, exact historical literal):
+    # changing either re-derives a different ID and fails closed.
+    tampered = copy.deepcopy(cohort)
+    tampered["original_records"][0]["exact_historical_literal_record"] += "!"
+    with pytest.raises(ValueError, match="ID payload length mismatch|ID payload digest mismatch"):
+        ratchet._validate_original_cohort(tampered)
+    recategorized = copy.deepcopy(cohort)
+    record = next(
+        item for item in recategorized["original_records"] if item["category"] == "python_sdk_drift"
+    )
+    record["category"] = "typescript_sdk_drift"
+    with pytest.raises(ValueError, match="mismatch"):
+        ratchet._validate_original_cohort(recategorized)
+
+
+def test_transition_reconstructs_all_655_ids_and_598_provenance_records():
+    # The validator independently reconstructs the full closure end to end.
+    summary = ratchet.validate_accepted_authority(_real_authority(), repo_root=_REPO_ROOT)
+    assert summary["original_record_total"] == 655
+    assert summary["sdk_provenance_record_total"] == 598
+    assert len(summary["active_original_record_ids"]) == 655
+    # Reconstruction is not trust-the-artifact: a self-consistent-looking but
+    # wrong ID payload digest is recomputed and rejected.
+    cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    cohort["original_records"][7]["id_payload_sha256"] = "f" * 64
+    with pytest.raises(ValueError, match="ID payload digest mismatch"):
+        ratchet._validate_original_cohort(cohort)
+    # Provenance records are reconstructed against the cohort link plane.
+    authority = _real_authority()
+    cohort_summary = ratchet._validate_original_cohort(
+        authority["canonical_artifacts"]["original_cohort"]
+    )
+    provenance = authority["canonical_artifacts"]["sdk_provenance"]
+    short = copy.deepcopy(provenance)
+    short["records"] = short["records"][:-1]
+    with pytest.raises(ValueError, match="must contain 598 records"):
+        ratchet._validate_sdk_provenance(short, cohort_summary)
+
+
+def test_transition_preserves_exact_provenance_links_counts_partitions_and_digests():
+    authority = _real_authority()
+    cohort_summary = ratchet._validate_original_cohort(
+        authority["canonical_artifacts"]["original_cohort"]
+    )
+    provenance = authority["canonical_artifacts"]["sdk_provenance"]
+    summary = ratchet._validate_sdk_provenance(provenance, cohort_summary)
+    # Exact 598/690/12/0/75/523 counts and the ratified partition digests.
+    assert summary["record_count"] == 598
+    assert summary["source_occurrence_count"] == 690
+    assert summary["multiple_atom_record_count"] == 12
+    assert summary["missing_provenance_count"] == 0
+    assert summary["core_count"] == 75
+    assert summary["extended_count"] == 523
+    assert summary["core_original_record_id_set_sha256"] == ratchet.CORE_ID_SET_SHA256
+    assert summary["extended_original_record_id_set_sha256"] == ratchet.EXTENDED_ID_SET_SHA256
+    assert summary["sdk_original_record_id_set_sha256"] == ratchet.SDK_ID_SET_SHA256
+    assert len(summary["record_links"]) == 598
+    # Per-record links/partitions are reconstructed, not declared: flipping a
+    # declared partition fails against the atom-derived partition.
+    flipped = copy.deepcopy(provenance)
+    flipped["records"][0]["partition"] = (
+        "extended" if flipped["records"][0]["partition"] == "core" else "core"
+    )
+    with pytest.raises(ValueError, match="partition mismatch|digest mismatch"):
+        ratchet._validate_sdk_provenance(flipped, cohort_summary)
+    miscounted = copy.deepcopy(provenance)
+    miscounted["counts"]["source_occurrences"] = 691
+    with pytest.raises(ValueError, match="declared counts mismatch"):
+        ratchet._validate_sdk_provenance(miscounted, cohort_summary)
+
+
+def test_transition_preserves_exact_global_and_per_category_original_record_sets():
+    cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    by_category: dict[str, list[str]] = {}
+    for record in cohort["original_records"]:
+        by_category.setdefault(record["category"], []).append(record["original_record_id"])
+    assert {name: len(ids) for name, ids in sorted(by_category.items())} == {
+        "python_sdk_drift": 74,
+        "routes_missing_in_spec": 11,
+        "routes_orphaned_in_spec": 17,
+        "sdk_missing_from_both": 29,
+        "typescript_sdk_drift": 524,
+    }
+    # The global set digest is recomputed from the exact IDs and must be the
+    # sole normative digest across every transition.
+    all_ids = [record["original_record_id"] for record in cohort["original_records"]]
+    assert len(set(all_ids)) == 655
+    recomputed = ratchet._digest_set(
+        "cdg-original-record-id-set-v1", all_ids, "original_record_ids"
+    )
+    assert recomputed == ratchet.ORIGINAL_ID_SET_SHA256
+    # Any other digest fails: swapping in a different 655th ID breaks both
+    # the ID-set listing and the digest.
+    swapped = copy.deepcopy(cohort)
+    swapped["original_record_id_set"]["original_record_ids"][-1] = "cdg1:" + "0" * 64
+    with pytest.raises(ValueError, match="ID set is incomplete or unsorted"):
+        ratchet._validate_original_cohort(swapped)
+
+
+def test_transition_rejects_addition_removal_replacement_dedup_fanout_or_reidentification():
+    base_cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    # Addition and removal break the exact 655 cardinality.
+    grown = copy.deepcopy(base_cohort)
+    grown["original_records"].append(copy.deepcopy(grown["original_records"][0]))
+    with pytest.raises(ValueError, match="exactly 655 original records"):
+        ratchet._validate_original_cohort(grown)
+    shrunk = copy.deepcopy(base_cohort)
+    shrunk["original_records"].pop()
+    with pytest.raises(ValueError, match="exactly 655 original records"):
+        ratchet._validate_original_cohort(shrunk)
+    # Replacement/re-identification: the ID derives only from the descriptor,
+    # so a swapped literal or category cannot keep its recorded ID.
+    replaced = copy.deepcopy(base_cohort)
+    replaced["original_records"][3]["exact_historical_literal_record"] += " replaced"
+    with pytest.raises(ValueError, match="mismatch"):
+        ratchet._validate_original_cohort(replaced)
+    # Dedup/fanout: membership multiplicity is pinned via the projection
+    # bijection — duplicating one membership and dropping another fails.
+    faned = copy.deepcopy(base_cohort)
+    projection_records = faned["operation_projection"]["records"]
+    projection_records[1] = copy.deepcopy(projection_records[0])
+    with pytest.raises(ValueError, match="does not biject|digest"):
+        ratchet._validate_original_cohort(faned)
+
+
+def test_operation_projection_revision_preserves_655_memberships_666_complete_edges_nine_multi_edge_and_max_four():  # noqa: E501
+    summary = ratchet.validate_accepted_authority(_real_authority(), repo_root=_REPO_ROOT)
+    projection = summary["operation_projection"]
+    assert projection["membership_count"] == 655
+    assert projection["edge_count"] == 666
+    assert projection["multi_edge_originals"] == 9
+    assert projection["max_edges"] == 4
+    assert projection["record_digest_set_sha256"] == ratchet.PROJECTION_RECORD_SET_SHA256
+    distribution = projection["edge_count_distribution"]
+    assert sum(int(size) * count for size, count in distribution.items()) == 666
+    assert sum(count for size, count in distribution.items() if int(size) > 1) == 9
+    assert max(int(size) for size in distribution) == 4
+    # A revision that drops one witnessed edge (even with a relinked record
+    # digest) cannot reproduce the pinned record-digest set.
+    cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    record = next(
+        item
+        for item in cohort["operation_projection"]["records"]
+        if len(item["operation_edges"]) > 1
+    )
+    record["operation_edges"].pop()
+    relinked = {key: value for key, value in record.items() if key != "record_sha256"}
+    record["record_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(relinked))
+    with pytest.raises(ValueError, match="record-digest-set mismatch|cardinality mismatch"):
+        ratchet._validate_original_cohort(cohort)
+
+
+def test_operation_projection_revision_cannot_change_original_identity_or_omit_witnessed_edge():
+    cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    # Re-identifying a projection membership breaks the cohort bijection.
+    reidentified = copy.deepcopy(cohort)
+    record = reidentified["operation_projection"]["records"][0]
+    record["original_record_id"] = "cdg1:" + "1" * 64
+    relinked = {key: value for key, value in record.items() if key != "record_sha256"}
+    record["record_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(relinked))
+    with pytest.raises(ValueError, match="does not biject|record-digest-set mismatch"):
+        ratchet._validate_original_cohort(reidentified)
+    # Omitting a witnessed edge's evidence fails closed: every edge must
+    # carry nonempty witness evidence.
+    unwitnessed = copy.deepcopy(cohort)
+    edge_record = unwitnessed["operation_projection"]["records"][0]
+    edge_record["operation_edges"][0]["evidence"] = []
+    relinked = {key: value for key, value in edge_record.items() if key != "record_sha256"}
+    edge_record["record_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(relinked))
+    with pytest.raises(ValueError, match="lacks evidence|record-digest-set mismatch"):
+        ratchet._validate_original_cohort(unwitnessed)
+
+
+def test_null_method_never_enters_runtime_or_projection_edges():
+    cohort = _real_authority()["canonical_artifacts"]["original_cohort"]
+    # Exactly the 57 path-level route/parity originals carry method=null.
+    null_methods = [
+        record["category"] for record in cohort["original_records"] if record["method"] is None
+    ]
+    assert len(null_methods) == 57
+    assert set(null_methods) == {
+        "routes_missing_in_spec",
+        "routes_orphaned_in_spec",
+        "sdk_missing_from_both",
+    }
+    # Every projected operation edge carries an exact uppercase method token.
+    for record in cohort["operation_projection"]["records"]:
+        for edge in record["operation_edges"]:
+            assert isinstance(edge["method"], str) and edge["method"].isupper()
+    # A null method in a projection edge fails closed.
+    nulled = copy.deepcopy(cohort)
+    edge_record = nulled["operation_projection"]["records"][0]
+    edge_record["operation_edges"][0]["method"] = None
+    relinked = {key: value for key, value in edge_record.items() if key != "record_sha256"}
+    edge_record["record_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(relinked))
+    with pytest.raises(ValueError, match="invalid method|record-digest-set mismatch"):
+        ratchet._validate_original_cohort(nulled)
+    # An SDK record with a null method fails closed (598 are method-bearing).
+    stripped = copy.deepcopy(cohort)
+    sdk_record = next(
+        item for item in stripped["original_records"] if item["category"] == "python_sdk_drift"
+    )
+    sdk_record["method"] = None
+    with pytest.raises(ValueError, match="lacks a method"):
+        ratchet._validate_original_cohort(stripped)
+
+
+def test_strict_subset_requires_separate_authenticated_paydown():
+    root = _REPO_ROOT
+    authority = _real_authority()
+    summary = ratchet.validate_accepted_authority(authority, repo_root=root)
+    live = set(summary["live_original_record_ids"])
+    live_digest = ratchet._sha256_bytes(ratchet._canonical_json_bytes(sorted(live)))
+
+    def resolve(target: dict, digest: str) -> None:
+        for item in target["active_inventory"]:
+            if item["original_record_id"] in live:
+                continue
+            fact = {
+                "active_original_record_ids_sha256": digest,
+                "as_of": "2026-07-27",
+                "original_record_id": item["original_record_id"],
+            }
+            item.update(
+                status="resolved",
+                disposition_history=[
+                    ratchet.GENESIS_DISPOSITION,
+                    {
+                        "as_of": fact["as_of"],
+                        "evidence": _relink_fact(ratchet.PAYDOWN_SCHEMA, fact),
+                        "status": "resolved",
+                    },
+                ],
+            )
+        target["active_inventory_sha256"] = ratchet._sha256_bytes(
+            ratchet._canonical_json_bytes(target["active_inventory"])
+        )
+        _relink_authority_manifest(target)
+
+    # A strict subset with exact appended paydown evidence is a paydown
+    # disposition — not a transition — and passes the comparison.
+    paydown = copy.deepcopy(authority)
+    resolve(paydown, live_digest)
+    compared = ratchet.compare_accepted_authorities(authority, paydown, repo_root=root)
+    assert compared["passing"] is True
+    assert len(compared["removed_original_record_ids"]) == 255
+    assert compared["authority"] == {"source": "accepted_authority"}
+    assert "transition" not in compared
+    # The same subset without the exact appended active-set digest cannot be
+    # folded through: it fails the paydown authentication.
+    unauthenticated = copy.deepcopy(authority)
+    resolve(unauthenticated, "0" * 64)
+    with pytest.raises(ValueError, match="exact appended paydown evidence"):
+        ratchet.compare_accepted_authorities(authority, unauthenticated, repo_root=root)
+
+
+def test_transition_changes_only_versioned_analyzer_schema_dependency_projection_evidence_and_active_representation(  # noqa: E501
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Original identities are frozen: canonical artifacts and the analyzer
+    # bundle cannot drift through an ordinary comparison.
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {})
+    for mutate in (
+        lambda head: head["canonical_artifacts"]["original_cohort"]["original_records"][0].update(
+            {"exact_historical_literal_record": "swapped"}
+        ),
+        lambda head: head["analyzer_bundle"].update({"dependencies": ["pyyaml==6.0"]}),
+    ):
+        head = _real_authority()
+        mutate(head)
+        with pytest.raises(ValueError, match="immutable authority bindings changed"):
+            ratchet.compare_accepted_authorities(_real_authority(), head, repo_root=_REPO_ROOT)
+    # The active representation may only move append-only: truncating a
+    # disposition history is rejected.
+    base = _real_authority()
+    event = {
+        "as_of": "2026-07-27",
+        "evidence": _relink_fact(
+            ratchet.PAYDOWN_SCHEMA,
+            {
+                "active_original_record_ids_sha256": "1" * 64,
+                "as_of": "2026-07-27",
+                "original_record_id": base["active_inventory"][0]["original_record_id"],
+            },
+        ),
+        "status": "resolved",
+    }
+    base["active_inventory"][0]["disposition_history"] = [ratchet.GENESIS_DISPOSITION, event]
+    truncated = copy.deepcopy(base)
+    truncated["active_inventory"][0]["disposition_history"] = [ratchet.GENESIS_DISPOSITION]
+    with pytest.raises(ValueError, match="append-only"):
+        ratchet.compare_accepted_authorities(base, truncated, repo_root=_REPO_ROOT)
+
+
+def test_post_merge_authority_capsule_is_full_merge_sha_bound():
+    # Pre-merge, publication is exactly the pending future-capsule marker.
+    assert _real_authority()["publication"] == {
+        "authority": "future-immutable-github-release-capsule",
+        "status": "pending-merge",
+    }
+    # The durable capsule validator binds the release tag to the exact full
+    # merge SHA: any other tag fails closed.
+    end_sha = "5" * 40
+    capsule = {
+        "attestation": {
+            "bundle_sha256": "6" * 64,
+            "verified": True,
+            "workflow": "actions/attest@v4",
+        },
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "release": {
+            "asset_api_ids": [101, 102, 103],
+            "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
+            "exact_full_sha_tag": end_sha,
+            "immutable": True,
+            "release_api_id": 100,
+            "verified": True,
+        },
+        "schema": "contract-drift-durable-capsule-v1",
+        "start_sha": "1" * 40,
+    }
+    validated = ratchet._validate_durable_capsule(capsule, end_sha=end_sha)
+    assert validated["release"]["exact_full_sha_tag"] == end_sha
+    retagged = copy.deepcopy(capsule)
+    retagged["release"]["exact_full_sha_tag"] = "4" * 40
+    with pytest.raises(ValueError, match="not the exact end SHA"):
+        ratchet._validate_durable_capsule(retagged, end_sha=end_sha)
+
+
+def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_attestation_rule_suite_sets_and_edges():  # noqa: E501
+    end_sha = "5" * 40
+    capsule = {
+        "attestation": {
+            "bundle_sha256": "6" * 64,
+            "verified": True,
+            "workflow": "actions/attest@v4",
+        },
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "release": {
+            "asset_api_ids": [101, 102, 103],
+            "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
+            "exact_full_sha_tag": end_sha,
+            "immutable": True,
+            "release_api_id": 100,
+            "verified": True,
+        },
+        "schema": "contract-drift-durable-capsule-v1",
+        "start_sha": "1" * 40,
+    }
+    # The capsule pins exactly the manifest/payload/checksums asset triple.
+    partial = copy.deepcopy(capsule)
+    partial["release"]["asset_names"] = ["manifest.json", "payload.json"]
+    with pytest.raises(ValueError, match="asset names are incomplete or noncanonical"):
+        ratchet._validate_durable_capsule(partial, end_sha=end_sha)
+    duplicated = copy.deepcopy(capsule)
+    duplicated["release"]["asset_api_ids"] = [101, 101, 102]
+    with pytest.raises(ValueError, match="asset API IDs are incomplete"):
+        ratchet._validate_durable_capsule(duplicated, end_sha=end_sha)
+    # Attestation provenance is exactly actions/attest@v4 with a bound bundle.
+    unattested = copy.deepcopy(capsule)
+    unattested["attestation"]["workflow"] = "actions/attest@v3"
+    with pytest.raises(ValueError, match="attestation workflow identity mismatch"):
+        ratchet._validate_durable_capsule(unattested, end_sha=end_sha)
+    # Rule-suite pass results are part of the boundary prerequisites: a
+    # bypassed evaluation can never authenticate.
+    with pytest.raises(ValueError, match="bypassed evaluation"):
+        ratchet._validate_rule_suite_record_fields(
+            _rule_suite_record(end_sha, rule_evaluations=[{"result": "bypass"}]),
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha=end_sha,
+        )
+    # The capsule-bound sets/edges plane is the pinned projection digest.
+    summary = ratchet.validate_accepted_authority(_real_authority(), repo_root=_REPO_ROOT)
+    assert (
+        summary["operation_projection"]["record_digest_set_sha256"]
+        == ratchet.PROJECTION_RECORD_SET_SHA256
+    )
+
+
+def test_release_replacement_deletion_or_tag_reuse_is_detected():
+    end_sha = "5" * 40
+    capsule = {
+        "attestation": {
+            "bundle_sha256": "6" * 64,
+            "verified": True,
+            "workflow": "actions/attest@v4",
+        },
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "release": {
+            "asset_api_ids": [101, 102, 103],
+            "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
+            "exact_full_sha_tag": end_sha,
+            "immutable": True,
+            "release_api_id": 100,
+            "verified": True,
+        },
+        "schema": "contract-drift-durable-capsule-v1",
+        "start_sha": "1" * 40,
+    }
+    # A replaced (mutable) or unverified release fails closed.
+    for field in ("immutable", "verified"):
+        mutable = copy.deepcopy(capsule)
+        mutable["release"][field] = False
+        with pytest.raises(ValueError, match="false or missing"):
+            ratchet._validate_durable_capsule(mutable, end_sha=end_sha)
+    # Tag reuse from any other SHA is detected by exact-tag binding.
+    reused = copy.deepcopy(capsule)
+    reused["release"]["exact_full_sha_tag"] = "9" * 40
+    with pytest.raises(ValueError, match="not the exact end SHA"):
+        ratchet._validate_durable_capsule(reused, end_sha=end_sha)
+    # Replacement/deletion of the remote resource surfaces as identity
+    # movement, which blocks rather than silently passing.
+    assert ratchet._remote_identity_moved({"etag": '"a"'}, {"etag": '"b"'}) is True
+    assert (
+        ratchet._remote_identity_moved(
+            {"etag": '"a"', "updated_at": "t"}, {"etag": '"a"', "updated_at": "t"}
+        )
+        is False
+    )
+    with pytest.raises(ratchet.BoundaryBlocked, match="moved"):
+        ratchet._retry_stable_remote_probe(lambda: ({"etag": '"a"'}, {"etag": '"b"'}), attempts=2)
+
+
+def test_transition_uses_hermetic_base_bundle_and_hashed_dependencies():
+    # The accepted analyzer bundle execution contract is hermetic: empty
+    # hashed dependency manifest, pinned isolation flags, pinned launcher.
+    metadata, files = ratchet._bundle_metadata(_real_authority())
+    assert metadata["dependencies"] == []
+    assert metadata["interpreter_flags"] == list(ratchet.ANALYZER_FLAGS)
+    assert ratchet.ANALYZER_FLAGS == ("-I", "-S", "-B")
+    assert metadata["launcher_sha256"] == ratchet._sha256_bytes(ratchet.HERMETIC_LAUNCHER)
+    assert [binding["path"] for binding in files] == list(ratchet.ANALYZER_BUNDLE_FILES)
+    for binding in files:
+        assert len(binding["sha256"]) == 64
+    # The launcher itself enforces its own digest before executing anything.
+    assert b"CDG_EXECUTED_LAUNCHER_SHA256" in ratchet.HERMETIC_LAUNCHER
+    # Any drift in the execution contract fails closed.
+    for mutate in (
+        lambda bundle: bundle.update({"dependencies": ["requests==2.32.0"]}),
+        lambda bundle: bundle.update({"interpreter_flags": ["-I"]}),
+        lambda bundle: bundle.update({"launcher_sha256": "0" * 64}),
+    ):
+        drifted = _real_authority()
+        mutate(drifted["analyzer_bundle"])
+        with pytest.raises(ValueError, match="execution contract mismatch"):
+            ratchet._bundle_metadata(drifted)
+
+
+def test_transition_chronology_binds_base_head_checks_evidence_settlement_run_attempt_and_merge(
+    tmp_path: Path,
+):
+    # BASE/HEAD binding: chronology must start at the bound base and end at
+    # the bound head, in exact order.
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+    end_sha = boundary_shas["corrective_bootstrap"]
+    chronology = {
+        "boundaries": [{"boundary": "corrective_bootstrap", "sha": end_sha}],
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "schema": "contract-drift-boundary-chronology-v1",
+        "start_sha": start_sha,
+    }
+    validated = ratchet._validate_boundary_chronology(
+        chronology,
+        repo_root=repo,
+        boundary="corrective_bootstrap",
+        start_sha=start_sha,
+        end_sha=end_sha,
+        operation_log=[],
+    )
+    assert validated["corrective_bootstrap"] == end_sha
+    moved_head = copy.deepcopy(chronology)
+    with pytest.raises(ValueError, match="does not equal end SHA"):
+        ratchet._validate_boundary_chronology(
+            moved_head,
+            repo_root=repo,
+            boundary="corrective_bootstrap",
+            start_sha=start_sha,
+            end_sha=boundary_shas["route_truth"],
+            operation_log=[],
+        )
+    # Settlement identity binds the exact head before any merge action.
+    moved = settle.evaluate_tier4_settlement_preconditions(
+        pr=9645,
+        expected_head="a" * 40,
+        pr_view=_settle_pr_view("b" * 40),
+        merge_packet=_settle_packet(9645),
+        required_checks=[{"name": "x", "state": "SUCCESS"}],
+    )
+    assert any("head mismatch" in blocker for blocker in moved["blockers"])
+    # Post-settlement execution identity is (run_id, run_attempt) and the
+    # comparison signal is attempt- and base+head-specific.
+    run = bootstrap._validate_run_provenance(
+        bootstrap.RunProvenance(
+            event_name="pull_request_target",
+            repository="synaptent/aragora",
+            run_attempt=2,
+            run_id=777,
+            workflow_ref=bootstrap.EXPECTED_WORKFLOW_REF,
+        )
+    )
+    signal = bootstrap._write_comparison_signal(
+        tmp_path,
+        "1" * 40,
+        "2" * 40,
+        "3" * 40,
+        {"path": "digest"},
+        {"authority": True},
+        {"bundle": True},
+        [{"schema": "artifact"}],
+        run,
+    )
+    assert bootstrap._authenticate_comparison_signal(
+        signal, base_sha="1" * 40, head_sha="2" * 40, workflow_run=run
+    )
+    for base_sha, head_sha, workflow_run in (
+        ("9" * 40, "2" * 40, run),
+        ("1" * 40, "9" * 40, run),
+        ("1" * 40, "2" * 40, {**run, "run_attempt": 3}),
+    ):
+        with pytest.raises(bootstrap.BootstrapError, match="comparison signal is invalid"):
+            bootstrap._authenticate_comparison_signal(
+                signal, base_sha=base_sha, head_sha=head_sha, workflow_run=workflow_run
+            )
+
+
+def test_strict_false_main_or_head_movement_restarts_all_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Head movement invalidates the settlement gate and authorizes nothing.
+    moved_gate = settle.evaluate_tier4_gate(
+        pr=9645,
+        expected_head="a" * 40,
+        pr_view=_settle_pr_view("b" * 40),
+        merge_packet=_settle_packet(9645),
+        required_checks=[{"name": "x", "state": "SUCCESS"}],
+        permission_checker=lambda _login: True,
+    )
+    assert not moved_gate["ok"]
+    assert moved_gate["authorized_actions"] == []
+    # Main/remote movement during evidence collection blocks the boundary
+    # (restart), never a partial pass.
+    tick = {"count": 0}
+
+    def moving_probe():
+        tick["count"] += 1
+        return {"noise": tick["count"]}, {"etag": f'"v{tick["count"]}"'}
+
+    with pytest.raises(ratchet.BoundaryBlocked, match="moved concurrently"):
+        ratchet._retry_stable_remote_probe(moving_probe, attempts=3)
+    # A strict-false (contradictory) reread fails loudly rather than reusing
+    # stale evidence.
+    bodies = iter([b"one", b"two"])
+
+    def contradictory(endpoint: str, *, operation_log: list, attempts: int = 3):
+        del endpoint, attempts
+        operation_log.append({})
+        return next(bodies), {"etag": '"same"'}
+
+    monkeypatch.setattr(ratchet, "_gh_api_get_raw", contradictory)
+    with pytest.raises(ValueError, match="contradicted stable identity"):
+        ratchet._gh_api_get_raw_stable("repos/synaptent/aragora/releases/1", operation_log=[])
+
+
+def test_transition_merge_first_parent_equals_bound_base():
+    # The transition merge receipt freezes first parent == BASE_SHA.
+    def receipt(**overrides: Any) -> dict[str, Any]:
+        record = {
+            "base_sha": CORRECTIVE_BASE_SHA,
+            "first_parent_sha": CORRECTIVE_BASE_SHA,
+            "head_sha": "2" * 40,
+            "head_tree_sha": "3" * 40,
+            "merge_sha": "4" * 40,
+            "merge_tree_sha": "3" * 40,
+            "pr": 9645,
+            **overrides,
+        }
+        return {
+            "boundary": "corrective_bootstrap",
+            "end_sha": "4" * 40,
+            "records": [record],
+            "schema": "contract-drift-first-parent-receipts-v1",
+            "start_sha": CORRECTIVE_BASE_SHA,
+        }
+
+    validated = ratchet._validate_first_parent_receipts(receipt())
+    assert validated[0]["first_parent_sha"] == CORRECTIVE_BASE_SHA
+    with pytest.raises(ValueError, match="does not equal the frozen base SHA"):
+        ratchet._validate_first_parent_receipts(receipt(first_parent_sha="9" * 40))
+
+
+def test_identical_settlement_identity_is_retry_safe_with_base_and_head(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    head = "e" * 40
+    # The settlement identity is a pure function of (pr, head): a retry can
+    # only ever produce the byte-identical settlement text naming the head.
+    first = settle._settlement_comment_template(pr=9645, head=head)
+    assert first == settle._settlement_comment_template(pr=9645, head=head)
+    assert head in first and "#9645" in first
+    assert settle._settlement_comment_template(pr=9645, head="f" * 40) != first
+
+    def forbid_writes(*_args, **_kwargs):
+        raise AssertionError("gate evaluation must not run commands")
+
+    monkeypatch.setattr(settle, "_run_command", forbid_writes)
+    monkeypatch.setattr(settle, "_run_text_command", forbid_writes)
+    view = _settle_pr_view(head, comments=[_settlement_comment(9645, head)])
+    gate = settle.evaluate_tier4_gate(
+        pr=9645,
+        expected_head=head,
+        pr_view=view,
+        merge_packet=_settle_packet(9645),
+        required_checks=[{"name": "x", "state": "SUCCESS"}],
+        permission_checker=lambda _login: True,
+    )
+    retried = settle.evaluate_tier4_gate(
+        pr=9645,
+        expected_head=head,
+        pr_view=view,
+        merge_packet=_settle_packet(9645),
+        required_checks=[{"name": "x", "state": "SUCCESS"}],
+        permission_checker=lambda _login: True,
+    )
+    assert gate["ok"] and retried["ok"]
+    assert gate["authorized_actions"] == retried["authorized_actions"]
+
+
+def test_settlement_helper_never_merges(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    recorded: list[list[str]] = []
+
+    def record_text(command: list[str], *, cwd: Path, input_text: str | None = None) -> str:
+        del cwd, input_text
+        recorded.append(command)
+        return "https://example.test/comment"
+
+    def record(command: list[str], *, cwd: Path, input_text: str | None = None) -> None:
+        del cwd, input_text
+        recorded.append(command)
+
+    monkeypatch.setattr(settle, "_run_text_command", record_text)
+    monkeypatch.setattr(settle, "_run_command", record)
+    settle._apply_settlement_signal(pr=9645, head="f" * 40, repo="synaptent/aragora", cwd=tmp_path)
+    assert [command[:3] for command in recorded] == [
+        ["gh", "pr", "comment"],
+        ["gh", "api", "--method"],
+    ]
+    flattened = " ".join(part for command in recorded for part in command)
+    assert " merge" not in f" {flattened}"
+    # Settle-only cannot be combined with the merge phase in one invocation.
+    with pytest.raises(SystemExit):
+        settle.build_parser().parse_args(
+            ["--settle-only", "--merge-apply", "--pr", "9645", "--head", "f" * 40]
+        )
+
+
+def test_admin_merge_is_rejected():
+    # A protection-bypassing merge is visible as a bypassed rule evaluation
+    # and fails the boundary closed, in every shape GitHub reports it.
+    assert ratchet._contains_rule_suite_bypass({"result": "bypass"})
+    assert ratchet._contains_rule_suite_bypass(
+        {"rule_evaluations": [{"result": "pass"}, {"evaluation_result": "bypass"}]}
+    )
+    assert ratchet._contains_rule_suite_bypass({"bypass_actors": [123]})
+    assert not ratchet._contains_rule_suite_bypass({"result": "pass", "bypassed": False})
+    with pytest.raises(ValueError, match="bypassed evaluation"):
+        ratchet._validate_rule_suite_record_fields(
+            _rule_suite_record("5" * 40, rule_evaluations=[{"result": "bypass"}]),
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="5" * 40,
+        )
+    # A rule suite that did not pass cannot satisfy the boundary either.
+    with pytest.raises(ValueError, match="not passing"):
+        ratchet._validate_rule_suite_record_fields(
+            _rule_suite_record("5" * 40, result="failed", evaluation_result="failed"),
+            repository_id=1126097105,
+            repository_name="aragora",
+            expected_ref="refs/heads/main",
+            end_sha="5" * 40,
+        )
+
+
+def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.MonkeyPatch):
+    # The ratchet imports the canonical inventory module and defaults every
+    # mode to the canonical inventory path.
+    assert ratchet.inventory_mod is gen
+    assert gen.DEFAULT_INVENTORY == "scripts/baselines/contract_drift_inventory.json"
+    main_source = inspect.getsource(ratchet.main)
+    assert "inventory_mod.DEFAULT_INVENTORY" in main_source
+    # Legacy program/receipt entrypoints route through the accepted authority
+    # (build_accepted_result -> validate_accepted_authority) — never through
+    # a parallel raw-baseline reader.
+    calls: list[tuple[str | None, str | None]] = []
+
+    def fake_validate(
+        authority: dict[str, Any],
+        *,
+        repo_root: Path,
+        live_ref: str | None = None,
+        residue_ref: str | None = None,
+    ) -> dict[str, Any]:
+        calls.append((live_ref, residue_ref))
+        return {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        }
+
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", fake_validate)
+    source = subprocess.run(
+        ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source,
+    )
+    assert calls == [(source, f"{source}^")]
+    assert result["authority"]["source"] == "accepted_authority"
+    # Live-witness reconciliation delegates to the canonical inventory
+    # loaders rather than reading baselines through a private copy.
+    live_source = inspect.getsource(ratchet._live_witnesses)
+    assert "inventory_mod.load_git_docs" in live_source
+    assert "inventory_mod.collect_ids" in live_source
+
+
+def test_no_reachable_classification_filtered_or_raw_baseline_fallback():
+    # Neither analyzer surface carries PR #9346's classification-filtered or
+    # raw-baseline fallback identifiers at all.
+    for module in (ratchet, gen):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert "classification_filtered" not in source
+        assert "raw_baseline" not in source
+        assert "raw-baseline" not in source
+    # With accepted authority present, program mode routes to the accepted
+    # authority; without it, the only reachable verdict is the transition
+    # failure — never a fallback execution.
+    main_source = inspect.getsource(ratchet.main)
+    assert "accepted_default" in main_source
+    result = ratchet.build_accepted_result(
+        mode="program",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+    )
+    assert result["authority"]["source"] == "accepted_authority"
+
+
+def test_post_transition_noop_pr_uses_only_accepted_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # A hermetic no-op at the transition merge passes with
+    # base_sha == head_sha == analyzer_sha == MERGE.
+    repo, base, _head = _hermetic_repo(tmp_path)
+    result, _calls = _recorded_hermetic_pr(repo, base, base, monkeypatch)
+    assert result["passing"] is True and result["status"] == "pass"
+    assert result["authority"] == {"source": "accepted_authority"}
+    assert result["added_original_record_ids"] == []
+    assert result["removed_original_record_ids"] == []
+    execution = result["execution"]
+    assert execution["base_sha"] == execution["head_sha"] == execution["analyzer_sha"] == base
+    assert execution["dependencies"] == []
+    assert execution["interpreter_flags"] == list(ratchet.ANALYZER_FLAGS)
