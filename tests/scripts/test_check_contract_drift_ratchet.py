@@ -4149,3 +4149,785 @@ def test_residue_tolerance_refs_bind_event_base_and_first_parent(monkeypatch):
     source = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()  # fmt: skip
     ratchet.build_accepted_result(mode="receipt", repo_root=root, inventory_path=root / "scripts/baselines/contract_drift_inventory.json", source_sha=source)  # fmt: skip
     assert calls == [("base-sha", "base-sha"), ("head-sha", "base-sha"), (source, f"{source}^")]
+
+
+# ------------------------- VAL-CDG-005 (pr side): file evidence and growth
+
+
+def _governed_pr_resource(start_sha: str, end_sha: str, **overrides: Any) -> dict[str, Any]:
+    record = {
+        "base_sha": start_sha,
+        "changed_files_complete": True,
+        "head_sha": end_sha,
+        "head_tree_sha": "d" * 40,
+        "pr": 9999,
+        **overrides,
+    }
+    return {
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "records": [record],
+        "schema": "contract-drift-governed-prs-v1",
+        "start_sha": start_sha,
+    }
+
+
+def _live_pr_files_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    files_count: int = 1,
+    changed_files: int | None = None,
+    pr_additions: int = 400,
+    pr_deletions: int = 400,
+    duplicate_file_ids: bool = False,
+    mutate: Any | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Run _collect_live_evidence with real pagination over fake transport."""
+    repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
+    end_sha = boundary_shas["corrective_bootstrap"]
+    resources = _boundary_payloads("corrective_bootstrap", start_sha, end_sha, boundary_shas, repo=repo)  # fmt: skip
+    selected = {
+        "boundary_chronology",
+        "corrective_bootstrap",
+        "durable_capsule",
+        "external_prerequisites",
+        "first_parent_receipts",
+        "governed_prs",
+    }
+    resources = {name: value for name, value in resources.items() if name in selected}
+    resources["boundary_chronology"]["boundaries"] = resources["boundary_chronology"]["boundaries"][
+        :1
+    ]
+    verification_identity = {"byte_length": 18, "sha256": "a" * 64}
+    attestation_digest = hashlib.sha256(
+        ratchet._canonical_json_bytes([verification_identity] * 7)
+    ).hexdigest()
+    resources["durable_capsule"]["release"] = {
+        "asset_api_ids": [102, 103, 101],
+        "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
+        "exact_full_sha_tag": end_sha,
+        "immutable": True,
+        "release_api_id": 100,
+        "verified": True,
+    }
+    resources["durable_capsule"]["attestation"] = {
+        "bundle_sha256": attestation_digest,
+        "verified": True,
+        "workflow": "actions/attest@v4",
+    }
+    if mutate is not None:
+        mutate(resources)
+    payload = {
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "resources": [{"name": name, "value": value} for name, value in sorted(resources.items())],
+        "schema": ratchet.BOUNDARY_CAPSULE_PAYLOAD_SCHEMA,
+        "start_sha": start_sha,
+    }
+    payload_raw = _canonical_boundary_bytes(payload)
+    manifest = {
+        "boundary": "corrective_bootstrap",
+        "end_sha": end_sha,
+        "payload_byte_length": len(payload_raw),
+        "payload_sha256": hashlib.sha256(payload_raw).hexdigest(),
+        "schema": ratchet.BOUNDARY_CAPSULE_MANIFEST_SCHEMA,
+        "start_sha": start_sha,
+    }
+    manifest_raw = _canonical_boundary_bytes(manifest)
+    checksums_raw = (
+        f"{hashlib.sha256(manifest_raw).hexdigest()}  manifest.json\n"
+        f"{hashlib.sha256(payload_raw).hexdigest()}  payload.json\n"
+    ).encode()
+    assets = {101: checksums_raw, 102: manifest_raw, 103: payload_raw}
+    identity = {
+        "byte_length": 2,
+        "etag": '"stable"',
+        "sha256": hashlib.sha256(b"{}").hexdigest(),
+        "updated_at": "2026-07-20T00:00:00Z",
+    }
+    files = [{"filename": f"file-{index}.txt", "id": index + 1} for index in range(files_count)]
+    if duplicate_file_ids:
+        files = [dict(item, id=1) for item in files]
+    observed_changed_files = files_count if changed_files is None else changed_files
+    requested: list[str] = []
+
+    def stable_get(
+        endpoint: str,
+        *,
+        operation_log: list[dict[str, Any]],
+        attempts: int = 3,
+        preserve_raw: bool = False,
+    ) -> tuple[Any, dict[str, Any]]:
+        del operation_log, attempts
+        requested.append(endpoint)
+        if "per_page=100&page=" in endpoint:
+            page = int(endpoint.rsplit("page=", 1)[1])
+            if "/pulls/9999/files" in endpoint:
+                return files[(page - 1) * 100 : page * 100], identity
+            if endpoint.startswith("repos/synaptent/aragora/releases?"):
+                return [{"id": 100, "tag_name": end_sha}], identity
+            if "rulesets/rule-suites?ref=" in endpoint:
+                return [_rule_suite_record(end_sha)], identity
+            raise AssertionError(endpoint)
+        if endpoint == "repos/synaptent/aragora":
+            return {"full_name": "synaptent/aragora", "id": 1126097105, "name": "aragora"}, identity
+        if endpoint.endswith("/branches/main"):
+            return {"commit": {"sha": end_sha}, "name": "main"}, identity
+        if endpoint.endswith("/branches/main/protection"):
+            return {"required_status_checks": {"strict": False}}, identity
+        if endpoint.endswith("/immutable-releases"):
+            return {"enabled": True}, identity
+        if endpoint.endswith("/releases/100"):
+            return {
+                "assets": [
+                    {"id": 101, "name": "checksums.txt"},
+                    {"id": 102, "name": "manifest.json"},
+                    {"id": 103, "name": "payload.json"},
+                ],
+                "draft": False,
+                "id": 100,
+                "immutable": True,
+                "prerelease": False,
+                "tag_name": end_sha,
+            }, identity
+        if endpoint.endswith("/rulesets/rule-suites/987654"):
+            record = _rule_suite_record(end_sha)
+            raw = ratchet._canonical_json_bytes(record).decode("utf-8")
+            rule_suite_identity = dict(identity)
+            if preserve_raw:
+                rule_suite_identity.update(
+                    {
+                        "byte_length": len(raw.encode("utf-8")),
+                        "raw_response": raw,
+                        "response_fields": record,
+                        "sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+                    }
+                )
+            return record, rule_suite_identity
+        if endpoint.endswith("/pulls/9999"):
+            return {
+                "additions": pr_additions,
+                "base": {"sha": "f" * 40},
+                "changed_files": observed_changed_files,
+                "deletions": pr_deletions,
+                "head": {"sha": end_sha},
+                "merge_commit_sha": end_sha,
+                "merged_at": "2026-07-20T00:00:00Z",
+                "number": 9999,
+            }, identity
+        if endpoint.endswith(f"/git/commits/{end_sha}"):
+            tree_sha = resources["governed_prs"]["records"][0]["head_tree_sha"]
+            return {
+                "parents": [{"sha": start_sha}],
+                "sha": end_sha,
+                "tree": {"sha": tree_sha},
+            }, identity
+        raise AssertionError(endpoint)
+
+    def raw_get(
+        endpoint: str,
+        *,
+        operation_log: list[dict[str, Any]],
+        attempts: int = 3,
+    ) -> tuple[bytes, dict[str, Any]]:
+        del operation_log, attempts
+        asset_id = int(endpoint.rsplit("/", 1)[1])
+        raw = assets[asset_id]
+        return raw, {
+            "byte_length": len(raw),
+            "etag": f'"asset-{asset_id}"',
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "updated_at": "2026-07-20T00:00:00Z",
+        }
+
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", stable_get)
+    monkeypatch.setattr(ratchet, "_gh_api_get_raw_stable", raw_get)
+    monkeypatch.setattr(
+        ratchet,
+        "_run_live_verification",
+        lambda argv, *, operation_log, resource: (
+            {"resource": resource, "verified": bool(argv)},
+            verification_identity,
+        ),
+    )
+    _discovered, _summary, context = ratchet._collect_live_evidence(
+        github_repository="synaptent/aragora",
+        github_branch="main",
+        boundary="corrective_bootstrap",
+        start_sha=start_sha,
+        end_sha=end_sha,
+        scratch_root=tmp_path,
+        operation_log=[],
+    )
+    return context, requested
+
+
+def test_pr_files_bind_changed_files_additions_and_deletions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    context, _requested = _live_pr_files_probe(
+        tmp_path, monkeypatch, files_count=3, pr_additions=123, pr_deletions=45
+    )
+    # The exact PR response additions/deletions are bound into the live
+    # context, keyed by PR number, with nothing inferred or defaulted.
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 123, "deletions": 45}}
+    with pytest.raises(ValueError, match="additions/deletions are malformed"):
+        _live_pr_files_probe(tmp_path / "neg", monkeypatch, pr_additions=-1)
+    with pytest.raises(ValueError, match="additions/deletions are malformed"):
+        _live_pr_files_probe(tmp_path / "bool", monkeypatch, pr_additions=True)  # type: ignore[arg-type]
+
+    def wrong_head(resources: dict[str, Any]) -> None:
+        resources["governed_prs"]["records"][0]["head_sha"] = "c" * 40
+
+    with pytest.raises(ValueError, match="contradicts capsule evidence"):
+        _live_pr_files_probe(tmp_path / "head", monkeypatch, mutate=wrong_head)
+    # The downstream governed-PR validator re-binds the same numbers and
+    # fails closed on every malformed or unreconciled shape.
+    start_sha, end_sha = "1" * 40, "2" * 40
+    resource = _governed_pr_resource(start_sha, end_sha)
+    validated = ratchet._validate_governed_prs(
+        resource,
+        authenticated_pr_changes={9999: {"additions": 123, "deletions": 45}},
+        repo_root=tmp_path,
+        operation_log=[],
+    )
+    assert (
+        validated[0]["authenticated_additions"],
+        validated[0]["authenticated_deletions"],
+        validated[0]["authenticated_pr_delta"],
+    ) == (123, 45, 168)
+    with pytest.raises(ValueError, match="exceeds the 800-line cap"):
+        ratchet._validate_governed_prs(
+            _governed_pr_resource(start_sha, end_sha),
+            authenticated_pr_changes={9999: {"additions": 500, "deletions": 301}},
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+    with pytest.raises(ValueError, match="lacks authenticated additions/deletions"):
+        ratchet._validate_governed_prs(
+            _governed_pr_resource(start_sha, end_sha),
+            authenticated_pr_changes={},
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+    with pytest.raises(ValueError, match="do not reconcile"):
+        ratchet._validate_governed_prs(
+            _governed_pr_resource(start_sha, end_sha),
+            authenticated_pr_changes={
+                9999: {"additions": 1, "deletions": 1},
+                10000: {"additions": 1, "deletions": 1},
+            },
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+    for additions, deletions in ((True, 0), (-1, 0), (0, None), ("4", 0)):
+        with pytest.raises(ValueError, match="additions/deletions are malformed"):
+            ratchet._validate_governed_prs(
+                _governed_pr_resource(start_sha, end_sha),
+                authenticated_pr_changes={9999: {"additions": additions, "deletions": deletions}},
+                repo_root=tmp_path,
+                operation_log=[],
+            )
+
+
+def test_pr_files_paginate_to_exhaustion_and_reconcile_changed_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    context, requested = _live_pr_files_probe(tmp_path, monkeypatch, files_count=237)
+    file_pages = [endpoint for endpoint in requested if "/pulls/9999/files" in endpoint]
+    assert file_pages == [
+        "repos/synaptent/aragora/pulls/9999/files?per_page=100&page=1",
+        "repos/synaptent/aragora/pulls/9999/files?per_page=100&page=2",
+        "repos/synaptent/aragora/pulls/9999/files?per_page=100&page=3",
+    ]
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 400, "deletions": 400}}
+    # An exact-boundary page count (multiple of 100) still fetches the final
+    # short page rather than assuming exhaustion.
+    _context, requested_200 = _live_pr_files_probe(tmp_path / "even", monkeypatch, files_count=200)
+    assert sum(1 for e in requested_200 if "/pulls/9999/files" in e) == 3
+    # File records that do not reconcile exactly to the PR response
+    # changed_files fail closed — both short and inflated counts.
+    for wrong in (236, 238):
+        with pytest.raises(ValueError, match="file discovery is incomplete"):
+            _live_pr_files_probe(
+                tmp_path / f"wrong-{wrong}",
+                monkeypatch,
+                files_count=237,
+                changed_files=wrong,
+            )
+    with pytest.raises(ValueError, match="duplicate record IDs"):
+        _live_pr_files_probe(
+            tmp_path / "dup", monkeypatch, files_count=150, duplicate_file_ids=True
+        )
+
+
+def test_files_api_incomplete_uses_exact_tree_diff_with_pinned_rename_policy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A capsule that cannot prove complete file discovery fails closed.
+    def denies_complete(resources: dict[str, Any]) -> None:
+        resources["governed_prs"]["records"][0]["changed_files_complete"] = False
+
+    with pytest.raises(ValueError, match="denies complete file discovery"):
+        _live_pr_files_probe(tmp_path / "denied", monkeypatch, mutate=denies_complete)
+    with pytest.raises(ValueError, match="file discovery is false or missing"):
+        ratchet._validate_governed_prs(
+            _governed_pr_resource("1" * 40, "2" * 40, changed_files_complete=False),
+            authenticated_pr_changes={9999: {"additions": 1, "deletions": 1}},
+            repo_root=tmp_path,
+            operation_log=[],
+        )
+
+    # The completeness backstop is the exact immutable BASE/HEAD tree binding:
+    # a governed record whose head tree disagrees with the authenticated
+    # first-parent receipt tree is rejected.
+    def wrong_tree(resources: dict[str, Any]) -> None:
+        resources["governed_prs"]["records"][0]["head_tree_sha"] = "d" * 40
+
+    with pytest.raises(ValueError, match="lacks first-parent or tree equality"):
+        _live_pr_files_probe(tmp_path / "tree", monkeypatch, mutate=wrong_tree)
+    # Pinned rename policy: baseline identity is the exact canonical path at
+    # the exact ref. A rename is a removal at the canonical path — it is never
+    # followed, so renamed content cannot masquerade as the governed baseline.
+    repo = tmp_path / "rename-repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    _write_docs(
+        repo,
+        {
+            "verify": {"python_sdk_drift": ["GET /a"], "typescript_sdk_drift": []},
+            "routes": {"missing_in_spec": [], "orphaned_in_spec": []},
+            "parity": {"missing_from_both_sdks": []},
+        },
+    )
+    base_sha = _commit(repo, "base")
+    verify_rel = gen.BASELINE_SPECS["verify"][0]
+    subprocess.run(
+        ["git", "-C", str(repo), "mv", str(verify_rel), "scripts/baselines/renamed.json"],
+        check=True,
+    )
+    head_sha = _commit(repo, "rename")
+    base_docs = gen.load_git_docs(repo, base_sha)
+    head_docs = gen.load_git_docs(repo, head_sha)
+    assert "python_sdk_drift:GET /a" in gen.collect_ids(base_docs)
+    assert head_docs["verify"] == {}
+    assert gen.collect_ids(head_docs) == {}
+    assert ratchet._git_doc(repo, head_sha, repo / verify_rel) == {}
+    # No rename-following flags exist anywhere in the analyzer sources.
+    for module in (ratchet, gen):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert "--follow" not in source
+        assert "find-renames" not in source
+        assert "-M100" not in source
+
+
+def test_compare_api_is_never_a_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Static: neither analyzer module constructs a GitHub compare endpoint.
+    for module in (ratchet, gen):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert "/compare" not in source
+        assert "compare/" not in source
+        assert "compare?" not in source
+    # Live evidence collection never requests a compare endpoint.
+    _context, requested = _live_pr_files_probe(tmp_path, monkeypatch, files_count=3)
+    assert requested and not any("compare" in endpoint for endpoint in requested)
+
+    # PR-mode CLI analysis is exact-ref local git only: no GitHub API surface
+    # (compare or otherwise) is ever consulted.
+    def forbidden(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("pr mode must not consult the GitHub API")
+
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", forbidden)
+    monkeypatch.setattr(ratchet, "_gh_api_paginated", forbidden)
+    monkeypatch.setattr(ratchet, "_gh_api_get_raw_stable", forbidden)
+    (tmp_path / "cli").mkdir()
+    paths, repo, base = _seed(tmp_path / "cli", program=RED_PROGRAM)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert result["passing"]
+
+
+def test_pr_mode_fails_total_growth(monkeypatch, tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].append("new")
+    _write_json(paths["verify"], verify)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not result["passing"]
+    deltas = result["pr_delta"]["counts"]
+    assert sum(d["head"] for d in deltas.values()) - sum(d["base"] for d in deltas.values()) == 1
+    assert result["pr_delta"]["increased"] == ["verify_python_sdk_drift"]
+    assert result["pr_delta"]["new_entries"] == ["python_sdk_drift:new"]
+    assert any("python_sdk_drift:new" in r for r in result["pr_delta"]["unexplained_increase"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        _argv(paths, repo, base, "--mode", "pr", "--base-ref", base, "--as-of", "2026-07-16"),
+    )
+    assert ratchet.main() == 1
+    # Accepted-authority layer: any head-live original ID beyond base fails
+    # with the exact added set named.
+    calls: list[str | None] = []
+
+    def fake_validate(
+        authority: dict[str, Any],
+        *,
+        repo_root: Path,
+        live_ref: str | None = None,
+        residue_ref: str | None = None,
+    ) -> dict[str, Any]:
+        del authority, repo_root, residue_ref
+        calls.append(live_ref)
+        live = ["cdg1:aa"] if live_ref == "base-sha" else ["cdg1:aa", "cdg1:xx"]
+        return {
+            "active_original_record_ids": ["cdg1:aa", "cdg1:bb"],
+            "analyzer_bundle_sha256": "0" * 64,
+            "live_original_record_ids": live,
+        }
+
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", fake_validate)
+    compared = ratchet.compare_accepted_authorities(
+        _accepted_authority(),
+        _accepted_authority(),
+        repo_root=tmp_path,
+        base_ref="base-sha",
+        head_ref="head-sha",
+    )
+    assert (compared["passing"], compared["status"]) == (False, "fail")
+    assert compared["added_original_record_ids"] == ["cdg1:xx"]
+    assert compared["removed_original_record_ids"] == []
+
+
+def test_pr_mode_fails_any_category_growth(tmp_path: Path):
+    paths, repo, base = _seed(
+        tmp_path,
+        program=RED_PROGRAM,
+        routes={"missing_in_spec": ["m1", "m2"], "orphaned_in_spec": []},
+        parity={"missing_from_both_sdks": []},
+    )
+    # Head shrinks typescript by two (legitimately resolved) but grows python
+    # by one: net total decreases, yet the single growing category fails.
+    verify = json.loads(paths["verify"].read_text())
+    verify["typescript_sdk_drift"] = ["x"]
+    verify["python_sdk_drift"].append("new")
+    _write_json(paths["verify"], verify)
+
+    def resolve(inv: dict) -> None:
+        for item in inv["items"]:
+            if item["id"] in {"typescript_sdk_drift:y", "typescript_sdk_drift:z"}:
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not result["passing"]
+    deltas = result["pr_delta"]["counts"]
+    assert sum(d["delta"] for d in deltas.values()) == -1
+    assert result["pr_delta"]["increased"] == ["verify_python_sdk_drift"]
+    assert deltas["verify_typescript_sdk_drift"]["delta"] == -2
+    reasons = result["pr_delta"]["unexplained_increase"]
+    assert any("python_sdk_drift:new" in reason for reason in reasons)
+    # The category-count key set is exactly the ratified five-count schema,
+    # including the zero-count categories.
+    assert sorted(deltas) == sorted(key for key, _alias, _list in ratchet.COUNT_KEYS)
+    assert (deltas["sdk_missing_from_both"]["base"], deltas["sdk_missing_from_both"]["head"]) == (0, 0)  # fmt: skip
+    assert (deltas["routes_orphaned_in_spec"]["base"], deltas["routes_orphaned_in_spec"]["head"]) == (0, 0)  # fmt: skip
+
+
+def test_pr_mode_reports_complete_exact_original_record_set_diagnostics(
+    monkeypatch,
+    tmp_path: Path,
+):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    added = [f"p{index:02d}" for index in range(12)]
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].extend(added)
+    _write_json(paths["verify"], verify)
+    result = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not result["passing"]
+    expected_ids = sorted(f"python_sdk_drift:{entry}" for entry in added)
+    # Every added unit is enumerated exactly — no truncation, no count-only
+    # summary, and one diagnostic naming each specific missing record.
+    assert result["pr_delta"]["new_entries"] == expected_ids
+    reasons = result["pr_delta"]["unexplained_increase"]
+    assert len(reasons) == 12
+    for item_id in expected_ids:
+        assert any(item_id in reason for reason in reasons)
+    assert result["pr_delta"]["counts"]["verify_python_sdk_drift"]["delta"] == 12
+
+    # Accepted-authority layer: every added original_record_id is listed,
+    # sorted, with no cap.
+    def fake_validate(
+        authority: dict[str, Any],
+        *,
+        repo_root: Path,
+        live_ref: str | None = None,
+        residue_ref: str | None = None,
+    ) -> dict[str, Any]:
+        del authority, repo_root, residue_ref
+        live = ["cdg1:aa"]
+        if live_ref == "head-sha":
+            live = ["cdg1:aa", "cdg1:zz", "cdg1:xx", "cdg1:yy"]
+        return {
+            "active_original_record_ids": ["cdg1:aa"],
+            "analyzer_bundle_sha256": "0" * 64,
+            "live_original_record_ids": live,
+        }
+
+    monkeypatch.setattr(ratchet, "validate_accepted_authority", fake_validate)
+    compared = ratchet.compare_accepted_authorities(
+        _accepted_authority(),
+        _accepted_authority(),
+        repo_root=tmp_path,
+        base_ref="base-sha",
+        head_ref="head-sha",
+    )
+    assert compared["added_original_record_ids"] == ["cdg1:xx", "cdg1:yy", "cdg1:zz"]
+    assert not compared["passing"]
+
+
+def test_pr_mode_passes_equal_or_subset_original_record_ids(tmp_path: Path):
+    # Equal head: identical baselines pass with empty deltas.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    equal = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert equal["passing"]
+    assert equal["pr_delta"]["increased"] == []
+    assert equal["pr_delta"]["new_entries"] == []
+    # Subset head: remove one unit per SDK list with matching resolution.
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].remove("b")
+    verify["typescript_sdk_drift"].remove("z")
+    _write_json(paths["verify"], verify)
+
+    def resolve(inv: dict) -> None:
+        for item in inv["items"]:
+            if item["id"] in {"python_sdk_drift:b", "typescript_sdk_drift:z"}:
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve)
+    subset = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert subset["passing"]
+    base_docs = {
+        "verify": ratchet._git_doc(repo, base, paths["verify"]),
+        "routes": ratchet._git_doc(repo, base, paths["routes"]),
+        "parity": ratchet._git_doc(repo, base, paths["parity"]),
+    }
+    head_docs = {
+        "verify": json.loads(paths["verify"].read_text()),
+        "routes": json.loads(paths["routes"].read_text()),
+        "parity": json.loads(paths["parity"].read_text()),
+    }
+    base_ids = gen.collect_ids(base_docs)
+    head_ids = gen.collect_ids(head_docs)
+    assert set(head_ids) < set(base_ids)
+    for list_key in {list_key for _c, _a, list_key in ratchet.COUNT_KEYS}:
+        assert {i for i, lk in head_ids.items() if lk == list_key} <= {
+            i for i, lk in base_ids.items() if lk == list_key
+        }
+    # Accepted-authority layer: an exact evidenced paydown subset passes with
+    # the complete sorted removed set and no added IDs.
+    root = Path(ratchet.__file__).parents[1]
+    authority = _accepted_authority()
+    summary = ratchet.validate_accepted_authority(authority, repo_root=root)
+    live = set(summary["live_original_record_ids"])
+    paydown = copy.deepcopy(authority)
+    live_digest = ratchet._sha256_bytes(ratchet._canonical_json_bytes(sorted(live)))
+    for item in paydown["active_inventory"]:
+        if item["original_record_id"] in live:
+            continue
+        fact = {"active_original_record_ids_sha256": live_digest, "as_of": "2026-07-27", "original_record_id": item["original_record_id"]}  # fmt: skip
+        item.update(status="resolved", disposition_history=[ratchet.GENESIS_DISPOSITION, {"as_of": fact["as_of"], "evidence": {"fact": fact, "sha256": ratchet._fact_digest(ratchet.PAYDOWN_SCHEMA, fact)}, "status": "resolved"}])  # fmt: skip
+    paydown["active_inventory_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes(paydown["active_inventory"]))  # fmt: skip
+    paydown["manifest_sha256"] = ratchet._sha256_bytes(ratchet._canonical_json_bytes({key: value for key, value in paydown.items() if key != "manifest_sha256"}))  # fmt: skip
+    compared = ratchet.compare_accepted_authorities(authority, paydown, repo_root=root)
+    assert (compared["passing"], compared["status"]) == (True, "pass")
+    assert compared["added_original_record_ids"] == []
+    removed = compared["removed_original_record_ids"]
+    assert removed == sorted(removed) and len(removed) == 255
+    assert set(removed).isdisjoint(live)
+
+
+# --------------------- VAL-CDG-003 (pr side): annotations are nonoperative
+
+
+_ANNOTATION_ZOO: dict[str, Any] = {
+    "accepted": True,
+    "annotations": {"nested": {"deep": [1, 2, {"three": None}]}},
+    "candidate_intentional_growth": True,
+    "generated_artifact": {"path": "generated/openapi.json"},
+    "handler_backed": False,
+    "public": False,
+    "resolved_note": "claims resolution without evidence",
+    "stale_sdk": ["python"],
+    "wildcard": "*",
+    "zz_unknown_future_key": [{"scalar": 1}, None, "text"],
+}
+
+
+def _governed_view(result: dict) -> tuple:
+    return (
+        result["passing"],
+        result["integrity"]["passing"],
+        tuple(sorted(result["integrity"]["issues"])),
+        result["current"],
+        {key: value for key, value in result["pr_delta"].items() if key != "base_ref"},
+    )
+
+
+def test_all_annotation_fields_are_nonoperative(tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    before = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+
+    def annotate(inv: dict) -> None:
+        inv["annotation_sidecar"] = {"version": 99, "labels": ["future"]}
+        for item in inv["items"]:
+            item.update(copy.deepcopy(_ANNOTATION_ZOO))
+
+    _edit_inventory(paths, annotate)
+    after = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert _governed_view(after) == _governed_view(before)
+    assert after["passing"]
+    program_after = _result(paths, "2026-07-16", repo=repo, cohort=base)
+    assert program_after["current"] == before["current"]
+    assert program_after["integrity"]["passing"]
+
+
+def test_known_classification_labels_cannot_exclude_live_units(tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    baseline = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+
+    # Known nonoperative labels on an open item change nothing.
+    def label(inv: dict) -> None:
+        for item in inv["items"]:
+            if item["id"] == "python_sdk_drift:a":
+                item.update(
+                    accepted=True,
+                    candidate_intentional_growth=True,
+                    generated_artifact={"path": "x"},
+                )
+
+    _edit_inventory(paths, label)
+    labeled = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert _governed_view(labeled) == _governed_view(baseline)
+
+    # A classification that tries to subtract a live unit (resolving an item
+    # whose baseline witness is still present) fails closed with the unit
+    # named — it is never silently excluded from the governed set.
+    def resolve_live(inv: dict) -> None:
+        for item in inv["items"]:
+            if item["id"] == "python_sdk_drift:a":
+                item["status"] = "resolved"
+                item["resolved_on"] = "2026-07-16"
+
+    _edit_inventory(paths, resolve_live)
+    excluded = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not excluded["passing"]
+    assert not excluded["integrity"]["passing"]
+    assert any(
+        "Baseline entry not open in inventory" in issue and "python_sdk_drift:a" in issue
+        for issue in excluded["integrity"]["issues"]
+    )
+    assert excluded["current"] == baseline["current"]  # counts still include the unit
+
+
+def test_unknown_annotation_keys_cannot_exclude_live_units(tmp_path: Path):
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    baseline = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+
+    # Unknown future annotation keys that "claim" exclusion are inert.
+    def annotate(inv: dict) -> None:
+        inv["excluded_ids"] = ["python_sdk_drift:a"]
+        for item in inv["items"]:
+            item.update(live=False, excluded=True, suppress={"reason": "future"})
+
+    _edit_inventory(paths, annotate)
+    annotated = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert _governed_view(annotated) == _governed_view(baseline)
+    assert annotated["current"]["total_items"] == baseline["current"]["total_items"]
+
+    # An unknown status value is not an exclusion channel either: it fails
+    # closed while the unit stays counted.
+    def unknown_status(inv: dict) -> None:
+        inv["items"][0]["status"] = "suppressed"
+
+    _edit_inventory(paths, unknown_status)
+    suppressed = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not suppressed["passing"]
+    assert any("Unknown status" in issue for issue in suppressed["integrity"]["issues"])
+    assert suppressed["current"] == baseline["current"]
+
+
+def test_accepted_inventory_annotation_tamper_does_not_change_enforcement():
+    root = Path(ratchet.__file__).parents[1]
+    # Untampered enforcement outcome (the invariant being defended).
+    summary = ratchet.validate_accepted_authority(_accepted_authority(), repo_root=root)
+    assert summary["original_record_total"] == 655
+    assert len(summary["live_original_record_ids"]) == 400
+    # Any annotation key added to an accepted-inventory row fails closed: the
+    # row schema is exactly {category, disposition_history, original_record_id,
+    # status}, so tamper can never ride along as metadata.
+    annotated = _accepted_authority()
+    annotated["active_inventory"][0]["annotation"] = {"accepted": True}
+    with pytest.raises(ValueError, match="disposition is malformed"):
+        ratchet.validate_accepted_authority(annotated, repo_root=root)
+    # Reclassifying a row's category label is identity tamper, not annotation.
+    relabeled = _accepted_authority()
+    row = relabeled["active_inventory"][0]
+    row["category"] = next(
+        category for category in ratchet.ACCEPTED_CATEGORIES if category != row["category"]
+    )
+    with pytest.raises(ValueError, match="identity or genesis is invalid"):
+        ratchet.validate_accepted_authority(relabeled, repo_root=root)
+    # Reordering rows (a pure presentation change) breaks the bound digest
+    # rather than silently changing enforcement order.
+    reordered = _accepted_authority()
+    reordered["active_inventory"] = list(reversed(reordered["active_inventory"]))
+    with pytest.raises(ValueError, match="differs from live witnesses or its digest"):
+        ratchet.validate_accepted_authority(reordered, repo_root=root)
+
+
+def test_annotations_cannot_change_pr_verdict_projection_or_exact_diagnostics(
+    tmp_path: Path,
+):
+    # Failing PR: annotations claiming the growth is intentional change
+    # neither the verdict nor one byte of the exact diagnostics.
+    paths, repo, base = _seed(tmp_path, program=RED_PROGRAM)
+    verify = json.loads(paths["verify"].read_text())
+    verify["python_sdk_drift"].append("new")
+    _write_json(paths["verify"], verify)
+    failing = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not failing["passing"]
+
+    def annotate(inv: dict) -> None:
+        inv["intentional_growth"] = ["python_sdk_drift:new"]
+        for item in inv["items"]:
+            item.update(copy.deepcopy(_ANNOTATION_ZOO))
+
+    _edit_inventory(paths, annotate)
+    annotated = _result(paths, "2026-07-16", repo=repo, cohort=base, mode="pr", base_ref=base)
+    assert not annotated["passing"]
+    assert _governed_view(annotated) == _governed_view(failing)
+    assert (
+        annotated["pr_delta"]["unexplained_increase"] == failing["pr_delta"]["unexplained_increase"]
+    )
+    # Passing PR: annotations cannot flip a pass to a fail either.
+    (tmp_path / "clean").mkdir()
+    clean_paths, clean_repo, clean_base = _seed(tmp_path / "clean", program=RED_PROGRAM)
+    clean_before = _result(clean_paths, "2026-07-16", repo=clean_repo, cohort=clean_base, mode="pr", base_ref=clean_base)  # fmt: skip
+    _edit_inventory(clean_paths, annotate)
+    clean_after = _result(clean_paths, "2026-07-16", repo=clean_repo, cohort=clean_base, mode="pr", base_ref=clean_base)  # fmt: skip
+    assert clean_before["passing"] and clean_after["passing"]
+    assert _governed_view(clean_after) == _governed_view(clean_before)
+    # Operation projection: an annotation smuggled onto a projection record
+    # breaks its digest binding — the projection is tamper-evident, never
+    # silently reshaped.
+    hostile = _accepted_authority()
+    hostile["canonical_artifacts"]["original_cohort"]["operation_projection"]["records"][0][
+        "annotations"
+    ] = {"collapse": True}
+    with pytest.raises(ValueError, match="projection"):
+        ratchet._validate_original_cohort(hostile["canonical_artifacts"]["original_cohort"])
