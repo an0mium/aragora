@@ -2,9 +2,11 @@
 
 Status: `historical_backfill` + `historical_nonconforming` (the only recorded dispositions).
 Recorded: 2026-08-01 (UTC) under accepted post-bootstrap Contract Drift Governance authority.
-Durable capsule: immutable full-SHA GitHub Release tag `0b28f68b9f4d204ae14814169093723ea84c1364`
-(assets `manifest.json`, `payload.json`, `checksums.txt`; exact bytes and digests bound in the
-release, which is the canonical durable artifact — this document is the in-repo pointer/record).
+Durable capsule: immutable GitHub Release `backfill-0b28f68b9f4d204ae14814169093723ea84c1364`
+(release API ID 363450207, published 2026-08-01T06:35:28Z, `immutable=true`, targeting merge commit
+`0b28f68b9f4d204ae14814169093723ea84c1364`; assets `manifest.json`, `payload.json`, `checksums.txt`;
+exact bytes and digests bound in the release, which is the canonical durable artifact — this
+document is the in-repo pointer/record).
 
 ## 1. Scope and non-authority (binding)
 
@@ -151,30 +153,51 @@ PR #9320". CDG advisory run at the head: Contract Drift Governance run 295243596
 success (attempt 1 cancelled) — the legacy advisory gate, not `contract-drift-pr-delta`.
 Non-required Metrics Drift run 29524359685 attempt 2 failed (pre-existing advisory, out of scope).
 
-## 8. Durable receipt capsule
+## 8. Durable receipt capsule (published)
 
-The canonical durable artifact is the immutable GitHub Release at exact full-SHA tag
-`0b28f68b9f4d204ae14814169093723ea84c1364` (the first-parent main commit this receipt is keyed
-by), with exactly three assets in canonical bytes (compact sorted-key UTF-8 JSON, no BOM, one
-terminal LF; `checksums.txt` = `"<sha256>  manifest.json"` and `"<sha256>  payload.json"` lines):
+The canonical durable artifact is the published immutable GitHub Release
+`backfill-0b28f68b9f4d204ae14814169093723ea84c1364` (release API ID 363450207, published
+2026-08-01T06:35:28Z, `draft=false`, `prerelease=false`, `immutable=true`), whose git tag points
+directly at merge commit `0b28f68b9f4d204ae14814169093723ea84c1364` (the first-parent main commit
+this receipt is keyed by). Tag-name note: GitHub's pre-receive rules reject branch/tag names
+consisting of exactly 40 (or 64) hex characters, so a bare-SHA tag is impossible on the platform;
+the capsule tag therefore embeds the full merge SHA behind the fixed `backfill-` prefix, the tag
+object resolves to that exact SHA, and `payload.json`/`manifest.json` bind the bare SHA in
+`merge_sha`/`first_parent_sha`.
 
-- `payload.json` — schema `contract-drift-historical-first-parent-backfill-v1`; binds every fact
-  in §§1-7 plus the publication-time passing `refs/heads/main` rule-suite record and the
-  successful `contract-drift-main-receipt` execution identity current at publication.
-- `manifest.json` — schema `contract-drift-historical-backfill-manifest-v1`; binds
-  `pr`, `first_parent_sha`, `merge_sha`, `payload_byte_length`, `payload_sha256`.
-- `checksums.txt` — canonical two-line digest list.
+Exactly three assets in canonical bytes (compact sorted-key UTF-8 JSON, no BOM, one terminal LF;
+`checksums.txt` = `"<sha256>  manifest.json"` and `"<sha256>  payload.json"` lines), all
+byte-verified after upload (download digest == local digest) and re-verified by
+`gh release verify` (per-asset sha256 match):
+
+- `payload.json` — 10,437 bytes, SHA-256
+  `9c238f0aa2a7c69547a78900c6aba95f4771bdd8df68105de6e9a61cc2a4523e`, asset API ID 497649474;
+  schema `contract-drift-historical-first-parent-backfill-v1`; binds every fact in §§1-7 plus the
+  publication-time passing `refs/heads/main` rule-suite record (ID 3525237532,
+  `after_sha=486b24fb...`, `result=pass`) and the successful `contract-drift-main-receipt`
+  execution identity current at publication (run 30687788027 attempt 1, job/check 91336914751).
+- `manifest.json` — 299 bytes, SHA-256
+  `b2c81cc56fba3749756690a39241153c90d17bc6b2ecfdc3c38c0bc1cdafa7b5`, asset API ID 497649469;
+  schema `contract-drift-historical-backfill-manifest-v1`; binds `pr`, `first_parent_sha`,
+  `merge_sha`, `payload_byte_length`, `payload_sha256`.
+- `checksums.txt` — 159 bytes, SHA-256
+  `0d3c7dc932f6860335edac2df08104107f63a78459341ff0fd4822bc19845d56`, asset API ID 497649488;
+  canonical two-line digest list.
 
 Future GitHub Release immutability was re-verified immediately before publication
-(`GET /repos/synaptent/aragora/immutable-releases` -> `{"enabled":true,...}`), so the published
-release is immutable: asset addition, replacement, deletion, and tag reuse fail at the platform.
-Exact asset byte lengths, digests, release/asset API IDs, and verification outcomes are recorded
-in the mission library checkpoint and inside the capsule itself. `actions/attest@v4` Sigstore
+(`GET /repos/synaptent/aragora/immutable-releases` -> `{"enabled":true,...}`), and enforcement was
+verified live on the published release: asset deletion is rejected with HTTP 422 "Cannot delete
+asset from an immutable release", and tag/target/asset mutation and tag reuse fail at the
+platform (release metadata like the display name remains editable; the capsule identity — tag,
+target SHA, and asset bytes — is immutable). `actions/attest@v4` Sigstore
 provenance for these exact asset bytes is produced by the Tier-4 CDG boundary workflow when it
 lands (attestation binds by digest and is additive; it never mutates the immutable capsule) —
-until then `gh release verify`/`gh attestation verify` truthfully report no attestation, and the
-`route_truth` boundary (sole VAL-CDG-017 owner) revalidates the complete
-backfill -> route-core -> OpenAPI-rearm sequence including capsule authentication.
+at publication `gh release verify backfill-0b28f68b9f4d204ae14814169093723ea84c1364` succeeded
+(release attestation loaded from the GitHub API; all three asset digests verified) while
+`gh attestation verify` reported no SLSA-provenance attestation for the asset digests (HTTP 404 —
+truthful: the boundary workflow does not exist yet), and the `route_truth` boundary (sole
+VAL-CDG-017 owner) revalidates the complete backfill -> route-core -> OpenAPI-rearm sequence
+including capsule authentication.
 
 ## 9. Reproduction
 
@@ -190,6 +213,9 @@ git diff --numstat e448b840dad0... 0b28f68b9f4d...          # +115/-3 across 3 f
 python3 scripts/check_contract_drift_ratchet.py --mode receipt \
   --ref 0b28f68b9f4d204ae14814169093723ea84c1364 --json
 # capsule verification
-gh release view 0b28f68b9f4d204ae14814169093723ea84c1364 -R synaptent/aragora
+gh release view backfill-0b28f68b9f4d204ae14814169093723ea84c1364 -R synaptent/aragora
+gh release verify backfill-0b28f68b9f4d204ae14814169093723ea84c1364 -R synaptent/aragora
+gh api repos/synaptent/aragora/git/ref/tags/backfill-0b28f68b9f4d204ae14814169093723ea84c1364 \
+  --jq .object.sha                           # == 0b28f68b9f4d204ae14814169093723ea84c1364
 shasum -a 256 manifest.json payload.json   # must match checksums.txt
 ```
