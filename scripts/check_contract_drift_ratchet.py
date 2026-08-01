@@ -2166,14 +2166,19 @@ def _collect_live_evidence(
         operation_log=operation_log,
     )
     endpoint_identities.update(release_page_identities)
+    # GitHub rejects bare 40/64-hex tag names (pre-receive HTTP 422), so the
+    # ratified capsule convention is the fixed-prefix tag `cdg-<boundary>-
+    # <end_sha>` whose tag ref must independently resolve to exactly the
+    # boundary end SHA (contract review-history entry 29).
+    expected_tag = f"cdg-{boundary}-{end_sha}"
     exact = [
         release
         for release in releases
-        if isinstance(release, dict) and release.get("tag_name") == end_sha
+        if isinstance(release, dict) and release.get("tag_name") == expected_tag
     ]
     if not exact:
         raise BoundaryBlocked(
-            f"immutable release capsule for {boundary} at exact tag {end_sha} "
+            f"immutable release capsule for {boundary} at exact tag {expected_tag} "
             "is authenticated and unavailable"
         )
     if len(exact) != 1:
@@ -2189,12 +2194,43 @@ def _collect_live_evidence(
     endpoint_identities[release_endpoint] = release_identity
     if (
         not isinstance(release, dict)
-        or release.get("tag_name") != end_sha
+        or release.get("tag_name") != expected_tag
         or release.get("draft") is not False
         or release.get("prerelease") is not False
         or release.get("immutable") is not True
     ):
         raise ValueError("exact-SHA release is not a published immutable capsule")
+    tag_ref_endpoint = f"repos/{github_repository}/git/ref/tags/{expected_tag}"
+    tag_ref, tag_ref_identity = _gh_api_get_stable(
+        tag_ref_endpoint,
+        operation_log=operation_log,
+    )
+    endpoint_identities[tag_ref_endpoint] = tag_ref_identity
+    if (
+        not isinstance(tag_ref, dict)
+        or tag_ref.get("ref") != f"refs/tags/{expected_tag}"
+        or not isinstance(tag_ref.get("object"), dict)
+    ):
+        raise ValueError("immutable release capsule tag ref is malformed")
+    tag_target = cast(dict[str, Any], tag_ref["object"])
+    if tag_target.get("type") == "tag":
+        annotated_sha = tag_target.get("sha")
+        if not isinstance(annotated_sha, str) or FULL_SHA_RE.fullmatch(annotated_sha) is None:
+            raise ValueError("immutable release capsule annotated tag SHA is malformed")
+        annotated_endpoint = f"repos/{github_repository}/git/tags/{annotated_sha}"
+        annotated, annotated_identity = _gh_api_get_stable(
+            annotated_endpoint,
+            operation_log=operation_log,
+        )
+        endpoint_identities[annotated_endpoint] = annotated_identity
+        if not isinstance(annotated, dict) or not isinstance(annotated.get("object"), dict):
+            raise ValueError("immutable release capsule annotated tag is malformed")
+        tag_target = cast(dict[str, Any], annotated["object"])
+    if tag_target.get("type") != "commit" or tag_target.get("sha") != end_sha:
+        raise ValueError(
+            f"immutable release capsule tag {expected_tag} does not resolve to the exact "
+            "boundary end SHA"
+        )
     assets = release.get("assets")
     if not isinstance(assets, list) or not all(isinstance(item, dict) for item in assets):
         raise ValueError("immutable release capsule asset list is malformed")
@@ -2362,7 +2398,7 @@ def _collect_live_evidence(
         )
 
     release_verification, release_verification_identity = _run_live_verification(
-        ["gh", "release", "verify", end_sha, "-R", github_repository, "--format", "json"],
+        ["gh", "release", "verify", expected_tag, "-R", github_repository, "--format", "json"],
         operation_log=operation_log,
         resource="release-attestation",
     )
@@ -2370,7 +2406,7 @@ def _collect_live_evidence(
         raise ValueError("GitHub release verification returned no attestations")
     verification_commands: list[tuple[list[str], dict[str, Any], str]] = [
         (
-            ["gh", "release", "verify", end_sha, "-R", github_repository, "--format", "json"],
+            ["gh", "release", "verify", expected_tag, "-R", github_repository, "--format", "json"],
             release_verification_identity,
             "release-attestation",
         )
@@ -2400,7 +2436,7 @@ def _collect_live_evidence(
                 "gh",
                 "release",
                 "verify-asset",
-                end_sha,
+                expected_tag,
                 str(local_path),
                 "-R",
                 github_repository,
@@ -2416,7 +2452,7 @@ def _collect_live_evidence(
                     "gh",
                     "release",
                     "verify-asset",
-                    end_sha,
+                    expected_tag,
                     str(local_path),
                     "-R",
                     github_repository,
@@ -2541,6 +2577,7 @@ def _collect_live_evidence(
         "exact_full_sha_tag": end_sha,
         "immutable": True,
         "release_api_id": release_id,
+        "tag_name": expected_tag,
         "verified": True,
     }
     attestation_digest = _sha256_bytes(
@@ -3393,6 +3430,7 @@ def _validate_external_prerequisites(
 def _validate_durable_capsule(
     resource: dict[str, Any],
     *,
+    boundary: str,
     end_sha: str,
 ) -> dict[str, Any]:
     _require_exact_fields(
@@ -3415,6 +3453,8 @@ def _validate_durable_capsule(
         _require_bool(release.get(field), label=f"durable release {field}")
     if release.get("exact_full_sha_tag") != end_sha:
         raise ValueError("durable release capsule tag is not the exact end SHA")
+    if release.get("tag_name") != f"cdg-{boundary}-{end_sha}":
+        raise ValueError("durable release capsule tag name is not the fixed-prefix capsule tag")
     release_id = release.get("release_api_id")
     asset_ids = release.get("asset_api_ids")
     asset_names = release.get("asset_names")
@@ -3688,6 +3728,7 @@ def _evaluate_boundary_evidence(
     )
     capsule = _validate_durable_capsule(
         resources["durable_capsule"],
+        boundary=boundary,
         end_sha=end_sha,
     )
     governed_prs = _validate_governed_prs(

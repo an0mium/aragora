@@ -1879,6 +1879,7 @@ def _boundary_payloads(
                 "exact_full_sha_tag": end_sha,
                 "immutable": release_immutability,
                 "release_api_id": 100,
+                "tag_name": f"cdg-{boundary}-{end_sha}",
                 "verified": release_immutability,
             },
             "schema": "contract-drift-durable-capsule-v1",
@@ -2201,12 +2202,14 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     attestation_digest = hashlib.sha256(
         ratchet._canonical_json_bytes([verification_identity] * 7)
     ).hexdigest()
+    capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
     resources["durable_capsule"]["release"] = {
         "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
         "release_api_id": 100,
+        "tag_name": capsule_tag,
         "verified": True,
     }
     resources["durable_capsule"]["attestation"] = {
@@ -2273,7 +2276,7 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         elif endpoint.endswith("/immutable-releases"):
             body = ratchet._canonical_json_bytes({"enabled": True})
         elif endpoint.endswith("/releases?per_page=100&page=1"):
-            body = ratchet._canonical_json_bytes([{"id": 100, "tag_name": end_sha}])
+            body = ratchet._canonical_json_bytes([{"id": 100, "tag_name": capsule_tag}])
         elif endpoint.endswith("/releases/100"):
             body = ratchet._canonical_json_bytes(
                 {
@@ -2286,7 +2289,14 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
                     "id": 100,
                     "immutable": True,
                     "prerelease": False,
-                    "tag_name": end_sha,
+                    "tag_name": capsule_tag,
+                }
+            )
+        elif endpoint.endswith(f"/git/ref/tags/{capsule_tag}"):
+            body = ratchet._canonical_json_bytes(
+                {
+                    "object": {"sha": end_sha, "type": "commit"},
+                    "ref": f"refs/tags/{capsule_tag}",
                 }
             )
         elif "/rulesets/rule-suites?ref=refs/heads/main&time_period=day" in endpoint:
@@ -3478,12 +3488,14 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
     attestation_digest = hashlib.sha256(
         ratchet._canonical_json_bytes(verification_identities)
     ).hexdigest()
+    capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
     resources["durable_capsule"]["release"] = {
         "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
         "release_api_id": 100,
+        "tag_name": capsule_tag,
         "verified": True,
     }
     resources["durable_capsule"]["attestation"] = {
@@ -3555,7 +3567,12 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
                 "id": 100,
                 "immutable": True,
                 "prerelease": False,
-                "tag_name": end_sha,
+                "tag_name": capsule_tag,
+            }, identity
+        if endpoint.endswith(f"/git/ref/tags/{capsule_tag}"):
+            return {
+                "object": {"sha": end_sha, "type": "commit"},
+                "ref": f"refs/tags/{capsule_tag}",
             }, identity
         if endpoint.endswith("/rulesets/rule-suites/987654"):
             payload = _rule_suite_record(end_sha)
@@ -3598,7 +3615,7 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
     ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
         del operation_log
         if endpoint.endswith("/releases"):
-            return [{"id": 100, "tag_name": end_sha}], {f"{endpoint}?page=1": identity}
+            return [{"id": 100, "tag_name": capsule_tag}], {f"{endpoint}?page=1": identity}
         if endpoint.endswith("/rulesets/rule-suites?ref=refs/heads/main&time_period=day"):
             return [_rule_suite_record(end_sha)], {f"{endpoint}&page=1": identity}
         if endpoint.endswith("/pulls/9999/files"):
@@ -4184,6 +4201,9 @@ def _live_pr_files_probe(
     pr_deletions: int = 400,
     duplicate_file_ids: bool = False,
     mutate: Any | None = None,
+    releases_payload: Any | None = None,
+    tag_ref_object: Any | None = None,
+    annotated_tag_object: Any | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Run _collect_live_evidence with real pagination over fake transport."""
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
@@ -4205,12 +4225,22 @@ def _live_pr_files_probe(
     attestation_digest = hashlib.sha256(
         ratchet._canonical_json_bytes([verification_identity] * 7)
     ).hexdigest()
+    capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
+    # Hostile-injection hooks receive the concrete (end_sha, capsule_tag)
+    # pair because boundary SHAs are minted per disposable repository.
+    if callable(releases_payload):
+        releases_payload = releases_payload(end_sha, capsule_tag)
+    if callable(tag_ref_object):
+        tag_ref_object = tag_ref_object(end_sha, capsule_tag)
+    if callable(annotated_tag_object):
+        annotated_tag_object = annotated_tag_object(end_sha, capsule_tag)
     resources["durable_capsule"]["release"] = {
         "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
         "release_api_id": 100,
+        "tag_name": capsule_tag,
         "verified": True,
     }
     resources["durable_capsule"]["attestation"] = {
@@ -4268,7 +4298,9 @@ def _live_pr_files_probe(
             if "/pulls/9999/files" in endpoint:
                 return files[(page - 1) * 100 : page * 100], identity
             if endpoint.startswith("repos/synaptent/aragora/releases?"):
-                return [{"id": 100, "tag_name": end_sha}], identity
+                if releases_payload is not None:
+                    return (releases_payload if page == 1 else []), identity
+                return [{"id": 100, "tag_name": capsule_tag}], identity
             if "rulesets/rule-suites?ref=" in endpoint:
                 return [_rule_suite_record(end_sha)], identity
             raise AssertionError(endpoint)
@@ -4291,7 +4323,22 @@ def _live_pr_files_probe(
                 "id": 100,
                 "immutable": True,
                 "prerelease": False,
-                "tag_name": end_sha,
+                "tag_name": capsule_tag,
+            }, identity
+        if endpoint.endswith(f"/git/ref/tags/{capsule_tag}"):
+            if tag_ref_object is not None:
+                return tag_ref_object, identity
+            return {
+                "object": {"sha": end_sha, "type": "commit"},
+                "ref": f"refs/tags/{capsule_tag}",
+            }, identity
+        if "/git/tags/" in endpoint:
+            if annotated_tag_object is not None:
+                return annotated_tag_object, identity
+            return {
+                "object": {"sha": end_sha, "type": "commit"},
+                "sha": endpoint.rsplit("/", 1)[1],
+                "tag": capsule_tag,
             }, identity
         if endpoint.endswith("/rulesets/rule-suites/987654"):
             record = _rule_suite_record(end_sha)
@@ -4436,6 +4483,96 @@ def test_pr_files_bind_changed_files_additions_and_deletions(
                 repo_root=tmp_path,
                 operation_log=[],
             )
+
+
+def test_capsule_discovery_requires_exactly_one_prefix_tag_release_resolving_to_end_sha(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Deterministic pass: exactly one `cdg-<boundary>-<end_sha>` release whose
+    # lightweight tag ref resolves to the exact end SHA, with the tag-ref
+    # retrieval recorded among the requested endpoints.
+    context, requested = _live_pr_files_probe(tmp_path, monkeypatch)
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 400, "deletions": 400}}
+    assert any("/git/ref/tags/cdg-corrective_bootstrap-" in endpoint for endpoint in requested)
+    # A bare-SHA legacy tag can never satisfy prefix discovery (GitHub's
+    # pre-receive hook rejects bare 40/64-hex tag names with HTTP 422, so the
+    # convention is the fixed-prefix tag; a bare-SHA claim is also hostile).
+    with pytest.raises(ratchet.BoundaryBlocked, match="authenticated and unavailable"):
+        _live_pr_files_probe(
+            tmp_path / "bare",
+            monkeypatch,
+            releases_payload=lambda end_sha, _tag: [{"id": 100, "tag_name": end_sha}],
+        )
+    # A wrong prefix and a wrong boundary name are equally invisible.
+    with pytest.raises(ratchet.BoundaryBlocked, match="authenticated and unavailable"):
+        _live_pr_files_probe(
+            tmp_path / "prefix",
+            monkeypatch,
+            releases_payload=lambda end_sha, _tag: [
+                {"id": 100, "tag_name": f"CDG-corrective_bootstrap-{end_sha}"}
+            ],  # fmt: skip
+        )
+    with pytest.raises(ratchet.BoundaryBlocked, match="authenticated and unavailable"):
+        _live_pr_files_probe(
+            tmp_path / "boundary",
+            monkeypatch,
+            releases_payload=lambda end_sha, _tag: [
+                {"id": 100, "tag_name": f"cdg-route_truth-{end_sha}"}
+            ],  # fmt: skip
+        )
+    # Duplicate prefixed releases are ambiguous and fail closed.
+    with pytest.raises(ValueError, match="identity is ambiguous"):
+        _live_pr_files_probe(
+            tmp_path / "dup",
+            monkeypatch,
+            releases_payload=lambda _end, tag: [
+                {"id": 100, "tag_name": tag},
+                {"id": 200, "tag_name": tag},
+            ],
+        )
+    # The tag ref must independently resolve to exactly the end SHA: a moved
+    # or reused tag pointing at any other commit fails closed.
+    with pytest.raises(ValueError, match="does not resolve to the exact boundary end SHA"):
+        _live_pr_files_probe(
+            tmp_path / "moved",
+            monkeypatch,
+            tag_ref_object=lambda _end, tag: {
+                "object": {"sha": "9" * 40, "type": "commit"},
+                "ref": f"refs/tags/{tag}",
+            },
+        )
+    # A malformed tag ref (wrong ref name) is rejected before resolution.
+    with pytest.raises(ValueError, match="tag ref is malformed"):
+        _live_pr_files_probe(
+            tmp_path / "ref",
+            monkeypatch,
+            tag_ref_object=lambda _end, _tag: {
+                "object": {"sha": "9" * 40, "type": "commit"},
+                "ref": "refs/tags/other",
+            },
+        )
+    # Annotated tags are dereferenced through the tag object: resolution to
+    # the exact end SHA passes, any other commit fails closed.
+    annotated_ref = lambda _end, tag: {  # noqa: E731
+        "object": {"sha": "b" * 40, "type": "tag"},
+        "ref": f"refs/tags/{tag}",
+    }
+    context, requested = _live_pr_files_probe(
+        tmp_path / "annotated-pass", monkeypatch, tag_ref_object=annotated_ref
+    )
+    assert any("/git/tags/" + "b" * 40 in endpoint for endpoint in requested)
+    with pytest.raises(ValueError, match="does not resolve to the exact boundary end SHA"):
+        _live_pr_files_probe(
+            tmp_path / "annotated-moved",
+            monkeypatch,
+            tag_ref_object=annotated_ref,
+            annotated_tag_object=lambda _end, tag: {
+                "object": {"sha": "9" * 40, "type": "commit"},
+                "sha": "b" * 40,
+                "tag": tag,
+            },
+        )
 
 
 def test_pr_files_paginate_to_exhaustion_and_reconcile_changed_files(
@@ -6794,12 +6931,15 @@ def test_corrective_guard_v2_sequence_is_h2_then_h3_repin_merge_then_empty_h4(tm
     ).strip()
     assert blob(h4, "guard.py") == blob(h3, "guard.py")
     # The checked-in policy pins the H3 product as the immutable analyzer
-    # source and the H3 analyzer digests as the accepted bundle bytes.
+    # source of the historical first transition; the live analyzer bytes are
+    # pinned by the accepted authority manifest (which later authorized
+    # rotations, e.g. the capsule tag-convention checker, rebind in place).
     assert bootstrap.ANALYZER_SOURCE_SHA == H3_SHA
     assert bootstrap.SHA_RE.fullmatch(bootstrap.ANALYZER_SOURCE_SHA)
     assert bootstrap.BootstrapPolicy().transition_base_sha == "d5c9df5cea5719404b54c34fdb62a89daf65a92f"  # fmt: skip
-    for path, digest in zip(bootstrap.ANALYZER_FILES, bootstrap.ANALYZER_DIGESTS, strict=True):
-        assert hashlib.sha256((_REPO_ROOT / path).read_bytes()).hexdigest() == digest
+    for binding in _real_authority()["analyzer_bundle"]["files"]:
+        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        assert live == binding["sha256"]
 
 
 def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response(tmp_path: Path):
@@ -6831,10 +6971,12 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
             repo_root=tmp_path,
             operation_log=[],
         )
-    # The guard-v2 patch product is pinned by digest: the live analyzer bytes
-    # are exactly the accepted H3 bundle bytes.
-    for path, digest in zip(bootstrap.ANALYZER_FILES, bootstrap.ANALYZER_DIGESTS, strict=True):
-        assert hashlib.sha256((_REPO_ROOT / path).read_bytes()).hexdigest() == digest
+    # The guard-v2 patch product is pinned by digest in the historical H3
+    # bootstrap policy; the live analyzer bytes are pinned by the accepted
+    # authority manifest, which authorized rotations rebind in place.
+    for binding in _real_authority()["analyzer_bundle"]["files"]:
+        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        assert live == binding["sha256"]
 
 
 def test_corrective_guard_v2_old_h2_and_017ce1d7_evidence_are_historical_only():
@@ -8551,17 +8693,43 @@ def test_post_merge_authority_capsule_is_full_merge_sha_bound():
             "exact_full_sha_tag": end_sha,
             "immutable": True,
             "release_api_id": 100,
+            "tag_name": f"cdg-corrective_bootstrap-{end_sha}",
             "verified": True,
         },
         "schema": "contract-drift-durable-capsule-v1",
         "start_sha": "1" * 40,
     }
-    validated = ratchet._validate_durable_capsule(capsule, end_sha=end_sha)
+    validated = ratchet._validate_durable_capsule(
+        capsule, boundary="corrective_bootstrap", end_sha=end_sha
+    )
     assert validated["release"]["exact_full_sha_tag"] == end_sha
+    assert validated["release"]["tag_name"] == f"cdg-corrective_bootstrap-{end_sha}"
     retagged = copy.deepcopy(capsule)
     retagged["release"]["exact_full_sha_tag"] = "4" * 40
     with pytest.raises(ValueError, match="not the exact end SHA"):
-        ratchet._validate_durable_capsule(retagged, end_sha=end_sha)
+        ratchet._validate_durable_capsule(
+            retagged, boundary="corrective_bootstrap", end_sha=end_sha
+        )
+    # GitHub rejects bare 40/64-hex tag names (HTTP 422), so the claimed
+    # tag_name must be exactly the fixed-prefix capsule form. A bare-SHA
+    # legacy tag_name, a wrong prefix, and a wrong boundary all fail closed.
+    for wrong_tag in (
+        end_sha,
+        f"CDG-corrective_bootstrap-{end_sha}",
+        f"cdg-route_truth-{end_sha}",
+        f"backfill-{end_sha}",
+    ):
+        hostile = copy.deepcopy(capsule)
+        hostile["release"]["tag_name"] = wrong_tag
+        with pytest.raises(ValueError, match="fixed-prefix capsule tag"):
+            ratchet._validate_durable_capsule(
+                hostile, boundary="corrective_bootstrap", end_sha=end_sha
+            )
+    # The prefixed tag must embed this boundary's end SHA, not another SHA.
+    moved = copy.deepcopy(capsule)
+    moved["release"]["tag_name"] = f"cdg-corrective_bootstrap-{'4' * 40}"
+    with pytest.raises(ValueError, match="fixed-prefix capsule tag"):
+        ratchet._validate_durable_capsule(moved, boundary="corrective_bootstrap", end_sha=end_sha)
 
 
 def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_attestation_rule_suite_sets_and_edges():  # noqa: E501
@@ -8580,6 +8748,7 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
             "exact_full_sha_tag": end_sha,
             "immutable": True,
             "release_api_id": 100,
+            "tag_name": f"cdg-corrective_bootstrap-{end_sha}",
             "verified": True,
         },
         "schema": "contract-drift-durable-capsule-v1",
@@ -8589,16 +8758,20 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
     partial = copy.deepcopy(capsule)
     partial["release"]["asset_names"] = ["manifest.json", "payload.json"]
     with pytest.raises(ValueError, match="asset names are incomplete or noncanonical"):
-        ratchet._validate_durable_capsule(partial, end_sha=end_sha)
+        ratchet._validate_durable_capsule(partial, boundary="corrective_bootstrap", end_sha=end_sha)
     duplicated = copy.deepcopy(capsule)
     duplicated["release"]["asset_api_ids"] = [101, 101, 102]
     with pytest.raises(ValueError, match="asset API IDs are incomplete"):
-        ratchet._validate_durable_capsule(duplicated, end_sha=end_sha)
+        ratchet._validate_durable_capsule(
+            duplicated, boundary="corrective_bootstrap", end_sha=end_sha
+        )
     # Attestation provenance is exactly actions/attest@v4 with a bound bundle.
     unattested = copy.deepcopy(capsule)
     unattested["attestation"]["workflow"] = "actions/attest@v3"
     with pytest.raises(ValueError, match="attestation workflow identity mismatch"):
-        ratchet._validate_durable_capsule(unattested, end_sha=end_sha)
+        ratchet._validate_durable_capsule(
+            unattested, boundary="corrective_bootstrap", end_sha=end_sha
+        )
     # Rule-suite pass results are part of the boundary prerequisites: a
     # bypassed evaluation can never authenticate.
     with pytest.raises(ValueError, match="bypassed evaluation"):
@@ -8633,6 +8806,7 @@ def test_release_replacement_deletion_or_tag_reuse_is_detected():
             "exact_full_sha_tag": end_sha,
             "immutable": True,
             "release_api_id": 100,
+            "tag_name": f"cdg-corrective_bootstrap-{end_sha}",
             "verified": True,
         },
         "schema": "contract-drift-durable-capsule-v1",
@@ -8643,12 +8817,14 @@ def test_release_replacement_deletion_or_tag_reuse_is_detected():
         mutable = copy.deepcopy(capsule)
         mutable["release"][field] = False
         with pytest.raises(ValueError, match="false or missing"):
-            ratchet._validate_durable_capsule(mutable, end_sha=end_sha)
+            ratchet._validate_durable_capsule(
+                mutable, boundary="corrective_bootstrap", end_sha=end_sha
+            )
     # Tag reuse from any other SHA is detected by exact-tag binding.
     reused = copy.deepcopy(capsule)
     reused["release"]["exact_full_sha_tag"] = "9" * 40
     with pytest.raises(ValueError, match="not the exact end SHA"):
-        ratchet._validate_durable_capsule(reused, end_sha=end_sha)
+        ratchet._validate_durable_capsule(reused, boundary="corrective_bootstrap", end_sha=end_sha)
     # Replacement/deletion of the remote resource surfaces as identity
     # movement, which blocks rather than silently passing.
     assert ratchet._remote_identity_moved({"etag": '"a"'}, {"etag": '"b"'}) is True
