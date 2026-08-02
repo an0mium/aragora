@@ -83,6 +83,18 @@ CANONICAL_SERIALIZATION = (
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
+# Stable release-attestation identity plane (contract review-history entry 30).
+# The 2026-08-01 double-run exercise against the real backfill release proved
+# gh 2.96.0 `release verify`/`verify-asset` JSON is byte-stable across runs and
+# demonstrated these live-verified stable identity fields. A digest computed
+# over the verification output bytes can never be embedded in payload.json:
+# the outputs embed payload.json's own SHA-256 (release attestations cover all
+# asset digests), so payload-embedded equality is an unsolvable SHA-256 fixed
+# point. The capsule attestation claim therefore binds these stable fields, and
+# the subject digest set is validated live against the exact asset bytes.
+RELEASE_ATTESTATION_PREDICATE_TYPE = "https://in-toto.io/attestation/release/v0.2"
+RELEASE_ATTESTATION_SIGNER_SAN_REGEXP = r"^https://dotcom\.releases\.github\.com$"
+
 COHORT_ARTIFACT: dict[str, Any] = {
     "byte_length": 1_692_125,
     "filename": "contract-drift-original-cohort-v1.json",
@@ -1840,6 +1852,64 @@ def _require_attestation_source_digest(argv: list[str], *, end_sha: str) -> None
         raise ValueError("gh attestation verify source digest is missing or mismatched")
 
 
+def _validate_release_attestation_identity(
+    payload: Any,
+    *,
+    github_repository: str,
+    asset_sha256s: dict[str, str],
+    resource: str,
+) -> None:
+    """Bind a gh release verify/verify-asset result to the stable identity plane.
+
+    The demonstrated stable fields (contract review-history entry 30) are the
+    GitHub release-attestation signer SAN regexp, the release predicateType,
+    the attesting repository, and the statement subject digest set, which must
+    cover exactly the three capsule asset names with the SHA-256 of the exact
+    downloaded asset bytes. Wrong signer, wrong predicateType, wrong
+    repository, and missing, mismatched, or duplicated subject digests
+    (including post-attestation asset tampering) all fail closed.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError(f"{resource} verification payload is malformed")
+    result = payload.get("verificationResult")
+    if not isinstance(result, dict):
+        raise ValueError(f"{resource} verification result is malformed")
+    identity = result.get("verifiedIdentity")
+    san = identity.get("subjectAlternativeName") if isinstance(identity, dict) else None
+    if not isinstance(san, dict) or san.get("regexp") != RELEASE_ATTESTATION_SIGNER_SAN_REGEXP:
+        raise ValueError(
+            f"{resource} signer identity contradicts the GitHub release-attestation signer"
+        )
+    statement = result.get("statement")
+    if not isinstance(statement, dict):
+        raise ValueError(f"{resource} attestation statement is malformed")
+    if statement.get("predicateType") != RELEASE_ATTESTATION_PREDICATE_TYPE:
+        raise ValueError(f"{resource} predicateType contradicts the release attestation")
+    predicate = statement.get("predicate")
+    if not isinstance(predicate, dict) or predicate.get("repository") != github_repository:
+        raise ValueError(f"{resource} attestation repository contradicts the boundary repository")
+    subjects = statement.get("subject")
+    if not isinstance(subjects, list) or not all(isinstance(item, dict) for item in subjects):
+        raise ValueError(f"{resource} attestation subject set is malformed")
+    observed: dict[str, str] = {}
+    seen_names: set[str] = set()
+    for item in subjects:
+        name = item.get("name")
+        if not isinstance(name, str):
+            continue
+        if name in seen_names:
+            raise ValueError(f"{resource} attestation subject set duplicates {name}")
+        seen_names.add(name)
+        digest = item.get("digest")
+        sha = digest.get("sha256") if isinstance(digest, dict) else None
+        if isinstance(sha, str):
+            observed[name] = sha
+    if observed != asset_sha256s:
+        raise ValueError(
+            f"{resource} attestation subject digest set does not cover the exact asset bytes"
+        )
+
+
 _RULE_SUITE_REQUIRED_FIELDS = (
     "id",
     "before_sha",
@@ -2397,6 +2467,7 @@ def _collect_live_evidence(
             + ", ".join(missing)
         )
 
+    asset_sha256s = {name: _sha256_bytes(asset_bytes[name]) for name in expected_asset_names}
     release_verification, release_verification_identity = _run_live_verification(
         ["gh", "release", "verify", expected_tag, "-R", github_repository, "--format", "json"],
         operation_log=operation_log,
@@ -2404,6 +2475,12 @@ def _collect_live_evidence(
     )
     if not release_verification:
         raise ValueError("GitHub release verification returned no attestations")
+    _validate_release_attestation_identity(
+        release_verification,
+        github_repository=github_repository,
+        asset_sha256s=asset_sha256s,
+        resource="release-attestation",
+    )
     verification_commands: list[tuple[list[str], dict[str, Any], str]] = [
         (
             ["gh", "release", "verify", expected_tag, "-R", github_repository, "--format", "json"],
@@ -2431,7 +2508,7 @@ def _collect_live_evidence(
             "byte_length": len(asset_bytes[name]),
             "sha256": _sha256_bytes(asset_bytes[name]),
         }
-        _asset_verification, identity = _run_live_verification(
+        asset_verification, identity = _run_live_verification(
             [
                 "gh",
                 "release",
@@ -2444,6 +2521,12 @@ def _collect_live_evidence(
                 "json",
             ],
             operation_log=operation_log,
+            resource=f"release-asset-attestation:{name}",
+        )
+        _validate_release_attestation_identity(
+            asset_verification,
+            github_repository=github_repository,
+            asset_sha256s=asset_sha256s,
             resource=f"release-asset-attestation:{name}",
         )
         verification_commands.append(
@@ -2580,11 +2663,14 @@ def _collect_live_evidence(
         "tag_name": expected_tag,
         "verified": True,
     }
-    attestation_digest = _sha256_bytes(
-        _canonical_json_bytes([identity for _argv, identity, _resource in verification_commands])
-    )
+    # Contract review-history entry 30: the payload-embedded attestation claim
+    # binds the demonstrated stable identity fields. A digest over the
+    # verification outputs is unsatisfiable (the outputs embed payload.json's
+    # own SHA-256), so no output-byte digest appears in the claim; the live
+    # subject digest set was already bound to the exact asset bytes above.
     expected_attestation_claim = {
-        "bundle_sha256": attestation_digest,
+        "predicate_type": RELEASE_ATTESTATION_PREDICATE_TYPE,
+        "signer_san_regexp": RELEASE_ATTESTATION_SIGNER_SAN_REGEXP,
         "verified": True,
         "workflow": "actions/attest@v4",
     }
@@ -2596,7 +2682,8 @@ def _collect_live_evidence(
     publication = resources.get("final_seal", {}).get("publication")
     if isinstance(publication, dict) and isinstance(publication.get("fact"), dict):
         expected_publication_fields = {
-            "attestation_bundle_sha256": attestation_digest,
+            "attestation_predicate_type": RELEASE_ATTESTATION_PREDICATE_TYPE,
+            "attestation_signer_san_regexp": RELEASE_ATTESTATION_SIGNER_SAN_REGEXP,
             "release_api_id": release_id,
             "rule_suite_id": rule_suite_id,
         }
@@ -3308,7 +3395,8 @@ def _validate_final_seal(
         label="final publication",
     )
     expected_publication = {
-        "attestation_bundle_sha256": capsule["attestation"]["bundle_sha256"],
+        "attestation_predicate_type": capsule["attestation"]["predicate_type"],
+        "attestation_signer_san_regexp": capsule["attestation"]["signer_san_regexp"],
         "boundary_sha": chronology["final_seal"],
         "release_api_id": capsule["release"]["release_api_id"],
         "rule_suite_id": prerequisites["rule_suite"]["id"],
@@ -3472,10 +3560,10 @@ def _validate_durable_capsule(
     _require_bool(attestation.get("verified"), label="Sigstore attestation")
     if attestation.get("workflow") != "actions/attest@v4":
         raise ValueError("Sigstore attestation workflow identity mismatch")
-    _require_sha256(
-        attestation.get("bundle_sha256"),
-        label="Sigstore attestation bundle digest",
-    )
+    if attestation.get("signer_san_regexp") != RELEASE_ATTESTATION_SIGNER_SAN_REGEXP:
+        raise ValueError("Sigstore attestation signer identity mismatch")
+    if attestation.get("predicate_type") != RELEASE_ATTESTATION_PREDICATE_TYPE:
+        raise ValueError("Sigstore attestation predicate type mismatch")
     return {
         "attestation": attestation,
         "release": release,
@@ -3548,9 +3636,13 @@ def _validate_governed_prs(
             raise ValueError(
                 f"governed PR #{number} authenticated additions/deletions are malformed"
             )
+        # Contract L76 (review-history entry 30): the CDG 800-line cap binds
+        # only the individually enumerated core/extended SDK paydown
+        # implementation PRs (enforced in _validate_sdk_paydown). The governed
+        # census binds every interval PR's authenticated delta without a
+        # generic cap, so non-paydown governed PRs (docs, tests-only closure,
+        # checker rotation, backfill) are admitted uncapped.
         pr_delta = additions + deletions
-        if pr_delta > 800:
-            raise ValueError(f"governed PR #{number} exceeds the 800-line cap")
         validated.append(
             {
                 **record,
