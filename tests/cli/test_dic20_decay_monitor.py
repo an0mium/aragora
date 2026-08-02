@@ -263,9 +263,7 @@ def test_transitive_impact_stale_claim_included(
     assert "test.unit.beta" in out["transitive_impact_set"]
 
 
-def test_transitive_impact_result_sorted(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
+def test_transitive_impact_result_sorted(monkeypatch, tmp_path: Path, capsys) -> None:
     """transitive_impact_set list is sorted for deterministic output."""
     monkeypatch.setenv(_FLAG, "1")
     # Two units sharing a claim — both end up in impact set.

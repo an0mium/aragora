@@ -127,9 +127,7 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
             try:
                 unit = load_proof_unit(data)
                 units.append(unit)
-                signals.append(
-                    evaluate_unit(unit, claim_results=claim_results or None)
-                )
+                signals.append(evaluate_unit(unit, claim_results=claim_results or None))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("unit %s skipped: %s", data.get("code_unit_id", "?"), exc)
 
@@ -149,9 +147,7 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
             if r.claim_id and r.kind in {"failed_claim", "stale_evidence", "verifier_error"}
         }
         graph = ProofUnitConstraintGraph(units)
-        transitive_impact_set = compute_decay_impact_set(
-            graph, failing_claim_ids, transitive=True
-        )
+        transitive_impact_set = compute_decay_impact_set(graph, failing_claim_ids, transitive=True)
 
     ts = datetime.now(timezone.utc).isoformat()
     if getattr(args, "json", False):
