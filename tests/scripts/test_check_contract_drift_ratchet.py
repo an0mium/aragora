@@ -1652,6 +1652,73 @@ def _boundary_git_repo(
     return repo, start_sha, shas
 
 
+def _stable_attestation_claim() -> dict[str, Any]:
+    # The payload-embedded attestation claim binds the demonstrated stable
+    # identity fields (entry 30) — never a digest over verification outputs,
+    # which embed payload.json's own SHA-256 (unsolvable fixed point).
+    return {
+        "predicate_type": ratchet.RELEASE_ATTESTATION_PREDICATE_TYPE,
+        "signer_san_regexp": ratchet.RELEASE_ATTESTATION_SIGNER_SAN_REGEXP,
+        "verified": True,
+        "workflow": "actions/attest@v4",
+    }
+
+
+def _real_shaped_verification_payload(
+    asset_sha256s: dict[str, str],
+    *,
+    tag: str,
+    repository: str = "synaptent/aragora",
+    signer_san_regexp: str | None = None,
+    predicate_type: str | None = None,
+) -> dict[str, Any]:
+    # Mirrors the live gh 2.96.0 `release verify`/`verify-asset --format json`
+    # shape recorded in the 2026-08-01 double-run exercise: verifiedIdentity
+    # SAN regexp, in-toto release/v0.2 statement, and a subject set covering
+    # the release pkg-URI plus one sha256 entry per asset.
+    subjects: list[dict[str, Any]] = [
+        {
+            "uri": f"pkg:github/{repository}@{tag}",
+            "digest": {"sha1": "0" * 40},
+        }
+    ]
+    for name in sorted(asset_sha256s):
+        subjects.append({"name": name, "digest": {"sha256": asset_sha256s[name]}})
+    return {
+        "attestation": {"bundle": {"mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json"}},
+        "verificationResult": {
+            "mediaType": "application/vnd.dev.sigstore.verificationresult+json;version=0.1",
+            "statement": {
+                "_type": "https://in-toto.io/Statement/v1",
+                "predicate": {"repository": repository, "tag": tag},
+                "predicateType": (
+                    ratchet.RELEASE_ATTESTATION_PREDICATE_TYPE
+                    if predicate_type is None
+                    else predicate_type
+                ),
+                "subject": subjects,
+            },
+            "verifiedIdentity": {
+                "subjectAlternativeName": {
+                    "regexp": (
+                        ratchet.RELEASE_ATTESTATION_SIGNER_SAN_REGEXP
+                        if signer_san_regexp is None
+                        else signer_san_regexp
+                    ),
+                    "subjectAlternativeName": "",
+                },
+            },
+            "verifiedTimestamps": [
+                {
+                    "timestamp": "2026-08-01T06:35:29Z",
+                    "type": "TimestampAuthority",
+                    "uri": "timestamp.githubapp.com",
+                }
+            ],
+        },
+    }
+
+
 def _boundary_payloads(
     boundary: str,
     start_sha: str,
@@ -1847,7 +1914,10 @@ def _boundary_payloads(
             "publication": fact(
                 "contract-drift-publication-fact-v1",
                 {
-                    "attestation_bundle_sha256": "6" * 64,
+                    "attestation_predicate_type": ratchet.RELEASE_ATTESTATION_PREDICATE_TYPE,
+                    "attestation_signer_san_regexp": (
+                        ratchet.RELEASE_ATTESTATION_SIGNER_SAN_REGEXP
+                    ),
                     "boundary_sha": boundary_shas["final_seal"],
                     "release_api_id": 100,
                     "rule_suite_id": 987654,
@@ -1868,11 +1938,7 @@ def _boundary_payloads(
         },
         "durable_capsule": {
             **common,
-            "attestation": {
-                "bundle_sha256": "6" * 64,
-                "verified": True,
-                "workflow": "actions/attest@v4",
-            },
+            "attestation": _stable_attestation_claim(),
             "release": {
                 "asset_api_ids": [101, 102, 103],
                 "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
@@ -2194,14 +2260,6 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     resources["boundary_chronology"]["boundaries"] = resources["boundary_chronology"]["boundaries"][
         :1
     ]
-    verification_raw = b'[{"verified":true}]'
-    verification_identity = {
-        "byte_length": len(verification_raw),
-        "sha256": hashlib.sha256(verification_raw).hexdigest(),
-    }
-    attestation_digest = hashlib.sha256(
-        ratchet._canonical_json_bytes([verification_identity] * 7)
-    ).hexdigest()
     capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
     resources["durable_capsule"]["release"] = {
         "asset_api_ids": [102, 103, 101],
@@ -2212,11 +2270,9 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         "tag_name": capsule_tag,
         "verified": True,
     }
-    resources["durable_capsule"]["attestation"] = {
-        "bundle_sha256": attestation_digest,
-        "verified": True,
-        "workflow": "actions/attest@v4",
-    }
+    # Stable identity claim: computable before any verification output exists,
+    # unlike the retired bundle_sha256 fixed point (entry 30).
+    resources["durable_capsule"]["attestation"] = _stable_attestation_claim()
     capsule_payload = {
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
@@ -2243,6 +2299,15 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         102: manifest_raw,
         103: payload_raw,
     }
+    asset_sha256s = {
+        "checksums.txt": hashlib.sha256(checksums_raw).hexdigest(),
+        "manifest.json": hashlib.sha256(manifest_raw).hexdigest(),
+        "payload.json": hashlib.sha256(payload_raw).hexdigest(),
+    }
+    release_verification_raw = ratchet._canonical_json_bytes(
+        _real_shaped_verification_payload(asset_sha256s, tag=capsule_tag)
+    )
+    sigstore_verification_raw = b'[{"verified":true}]'
     tree_sha = subprocess.check_output(
         ["git", "-C", str(repo_root), "rev-parse", f"{end_sha}^{{tree}}"],
         text=True,
@@ -2256,8 +2321,12 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
     ) -> subprocess.CompletedProcess[bytes]:
         if Path(argv[0]).name != "gh":
             return real_subprocess_run(argv, *args, **kwargs)
+        if argv[1] == "release":
+            return subprocess.CompletedProcess(argv, 0, stdout=release_verification_raw, stderr=b"")
         if argv[1] != "api":
-            return subprocess.CompletedProcess(argv, 0, stdout=verification_raw, stderr=b"")
+            return subprocess.CompletedProcess(
+                argv, 0, stdout=sigstore_verification_raw, stderr=b""
+            )
         endpoint = argv[-1]
         if "/releases/assets/" in endpoint:
             body = assets[int(endpoint.rsplit("/", 1)[1])]
@@ -3028,7 +3097,16 @@ def test_boundary_status_fail_covers_malformed_false_missing_bypass_and_mutation
 @pytest.mark.parametrize(
     ("pr_additions", "pr_deletions", "max_pr_delta", "expected_error"),
     (
-        pytest.param(401, 400, 800, "exceeds the 800-line cap", id="live-pr-over-cap"),
+        # Contract L76: the census admits the 801 authenticated delta, but the
+        # paydown fact (capped at 800) can never bind it — an over-cap
+        # core/extended paydown PR fails closed on the paydown plane.
+        pytest.param(
+            401,
+            400,
+            800,
+            "max_pr_delta does not match authenticated live PR data",
+            id="live-pr-over-cap",
+        ),
         pytest.param(400, 400, 799, "max_pr_delta", id="paydown-max-mismatch"),
     ),
 )
@@ -3484,10 +3562,6 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
     ]
 
     verification_identity = {"byte_length": 18, "sha256": "a" * 64}
-    verification_identities = [verification_identity] * 7
-    attestation_digest = hashlib.sha256(
-        ratchet._canonical_json_bytes(verification_identities)
-    ).hexdigest()
     capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
     resources["durable_capsule"]["release"] = {
         "asset_api_ids": [102, 103, 101],
@@ -3498,11 +3572,7 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         "tag_name": capsule_tag,
         "verified": True,
     }
-    resources["durable_capsule"]["attestation"] = {
-        "bundle_sha256": attestation_digest,
-        "verified": True,
-        "workflow": "actions/attest@v4",
-    }
+    resources["durable_capsule"]["attestation"] = _stable_attestation_claim()
     payload = {
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
@@ -3528,6 +3598,11 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         101: checksums_raw,
         102: manifest_raw,
         103: payload_raw,
+    }
+    asset_sha256s = {
+        "checksums.txt": hashlib.sha256(checksums_raw).hexdigest(),
+        "manifest.json": hashlib.sha256(manifest_raw).hexdigest(),
+        "payload.json": hashlib.sha256(payload_raw).hexdigest(),
     }
     identity = {
         "byte_length": 2,
@@ -3654,7 +3729,11 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         if argv[1:3] == ["attestation", "verify"]:
             source_index = argv.index("--source-digest")
             assert argv[source_index + 1] == end_sha
-        return {"resource": resource, "verified": bool(argv)}, verification_identity
+            return {"resource": resource, "verified": bool(argv)}, verification_identity
+        return (
+            _real_shaped_verification_payload(asset_sha256s, tag=capsule_tag),
+            verification_identity,
+        )
 
     monkeypatch.setattr(ratchet, "_run_live_verification", verify)
 
@@ -4204,6 +4283,7 @@ def _live_pr_files_probe(
     releases_payload: Any | None = None,
     tag_ref_object: Any | None = None,
     annotated_tag_object: Any | None = None,
+    verification_payload: Any | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Run _collect_live_evidence with real pagination over fake transport."""
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
@@ -4222,9 +4302,6 @@ def _live_pr_files_probe(
         :1
     ]
     verification_identity = {"byte_length": 18, "sha256": "a" * 64}
-    attestation_digest = hashlib.sha256(
-        ratchet._canonical_json_bytes([verification_identity] * 7)
-    ).hexdigest()
     capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
     # Hostile-injection hooks receive the concrete (end_sha, capsule_tag)
     # pair because boundary SHAs are minted per disposable repository.
@@ -4243,11 +4320,7 @@ def _live_pr_files_probe(
         "tag_name": capsule_tag,
         "verified": True,
     }
-    resources["durable_capsule"]["attestation"] = {
-        "bundle_sha256": attestation_digest,
-        "verified": True,
-        "workflow": "actions/attest@v4",
-    }
+    resources["durable_capsule"]["attestation"] = _stable_attestation_claim()
     if mutate is not None:
         mutate(resources)
     payload = {
@@ -4272,6 +4345,11 @@ def _live_pr_files_probe(
         f"{hashlib.sha256(payload_raw).hexdigest()}  payload.json\n"
     ).encode()
     assets = {101: checksums_raw, 102: manifest_raw, 103: payload_raw}
+    asset_sha256s = {
+        "checksums.txt": hashlib.sha256(checksums_raw).hexdigest(),
+        "manifest.json": hashlib.sha256(manifest_raw).hexdigest(),
+        "payload.json": hashlib.sha256(payload_raw).hexdigest(),
+    }
     identity = {
         "byte_length": 2,
         "etag": '"stable"',
@@ -4392,14 +4470,27 @@ def _live_pr_files_probe(
 
     monkeypatch.setattr(ratchet, "_gh_api_get_stable", stable_get)
     monkeypatch.setattr(ratchet, "_gh_api_get_raw_stable", raw_get)
-    monkeypatch.setattr(
-        ratchet,
-        "_run_live_verification",
-        lambda argv, *, operation_log, resource: (
-            {"resource": resource, "verified": bool(argv)},
-            verification_identity,
-        ),
-    )
+
+    def fake_verify(
+        argv: list[str],
+        *,
+        operation_log: list[dict[str, Any]],
+        resource: str,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        del operation_log
+        if argv[1] == "release":
+            if verification_payload is not None:
+                return (
+                    verification_payload(asset_sha256s, capsule_tag),
+                    verification_identity,
+                )
+            return (
+                _real_shaped_verification_payload(asset_sha256s, tag=capsule_tag),
+                verification_identity,
+            )
+        return {"resource": resource, "verified": bool(argv)}, verification_identity
+
+    monkeypatch.setattr(ratchet, "_run_live_verification", fake_verify)
     _discovered, _summary, context = ratchet._collect_live_evidence(
         github_repository="synaptent/aragora",
         github_branch="main",
@@ -4447,13 +4538,16 @@ def test_pr_files_bind_changed_files_additions_and_deletions(
         validated[0]["authenticated_deletions"],
         validated[0]["authenticated_pr_delta"],
     ) == (123, 45, 168)
-    with pytest.raises(ValueError, match="exceeds the 800-line cap"):
-        ratchet._validate_governed_prs(
-            _governed_pr_resource(start_sha, end_sha),
-            authenticated_pr_changes={9999: {"additions": 500, "deletions": 301}},
-            repo_root=tmp_path,
-            operation_log=[],
-        )
+    # Per contract L76 the census carries no generic cap: an over-800
+    # authenticated delta still binds exactly (the cap is enforced only on
+    # core/extended paydown facts in _validate_sdk_paydown).
+    over_800 = ratchet._validate_governed_prs(
+        _governed_pr_resource(start_sha, end_sha),
+        authenticated_pr_changes={9999: {"additions": 500, "deletions": 301}},
+        repo_root=tmp_path,
+        operation_log=[],
+    )
+    assert over_800[0]["authenticated_pr_delta"] == 801
     with pytest.raises(ValueError, match="lacks authenticated additions/deletions"):
         ratchet._validate_governed_prs(
             _governed_pr_resource(start_sha, end_sha),
@@ -5132,8 +5226,9 @@ def test_pr_changed_files_additions_deletions_mismatch_fails_closed(
     # Malformed additions/deletions in the authenticated PR response fail.
     with pytest.raises(ValueError, match="additions/deletions are malformed"):
         _live_pr_files_probe(tmp_path / "neg-del", monkeypatch, pr_deletions=-4)
-    # And the boundary evaluator rejects a capsule whose authenticated
-    # additions/deletions violate the 800-line paydown cap.
+    # Contract L76 (entry 30): a corrective-boundary governed PR is not a
+    # core/extended paydown PR, so an over-800 authenticated delta binds into
+    # the census and the boundary still evaluates on its own predicates.
     over_cap = _boundary_result(
         tmp_path / "cap",
         monkeypatch,
@@ -5141,9 +5236,85 @@ def test_pr_changed_files_additions_deletions_mismatch_fails_closed(
         pr_additions=500,
         pr_deletions=400,
     )
-    assert (over_cap["status"], over_cap["passing"]) == ("fail", False)
-    assert "exceeds the 800-line cap" in over_cap["error"]
-    assert over_cap["error_code"] == "boundary_validation_failed"
+    assert (over_cap["status"], over_cap["passing"]) == ("pass", True), over_cap.get("error")
+
+
+def test_release_attestation_stable_identity_hostile_shapes_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Entry 30 hostile plane: every stable-identity forgery fails closed
+    # before any capsule claim comparison. The happy path (real-shaped gh
+    # 2.96.0 payload) is exercised by every passing _live_pr_files_probe run.
+    def forged_signer(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        return _real_shaped_verification_payload(
+            asset_sha256s, tag=tag, signer_san_regexp=r"^https://evil\.example\.com$"
+        )
+
+    with pytest.raises(ValueError, match="signer identity contradicts"):
+        _live_pr_files_probe(tmp_path / "signer", monkeypatch, verification_payload=forged_signer)
+
+    def forged_predicate(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        return _real_shaped_verification_payload(
+            asset_sha256s, tag=tag, predicate_type="https://slsa.dev/provenance/v1"
+        )
+
+    with pytest.raises(ValueError, match="predicateType contradicts"):
+        _live_pr_files_probe(
+            tmp_path / "predicate", monkeypatch, verification_payload=forged_predicate
+        )
+
+    def wrong_repository(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        return _real_shaped_verification_payload(asset_sha256s, tag=tag, repository="evil/aragora")
+
+    with pytest.raises(ValueError, match="repository contradicts"):
+        _live_pr_files_probe(tmp_path / "repo", monkeypatch, verification_payload=wrong_repository)
+
+    def missing_subject(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        partial = {name: sha for name, sha in asset_sha256s.items() if name != "payload.json"}
+        return _real_shaped_verification_payload(partial, tag=tag)
+
+    with pytest.raises(ValueError, match="subject digest set does not cover"):
+        _live_pr_files_probe(
+            tmp_path / "missing", monkeypatch, verification_payload=missing_subject
+        )
+
+    def tampered_asset_digest(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        # Post-attestation asset tampering: the attested subject digest no
+        # longer equals the SHA-256 of the exact downloaded asset bytes.
+        tampered = dict(asset_sha256s, **{"payload.json": "f" * 64})
+        return _real_shaped_verification_payload(tampered, tag=tag)
+
+    with pytest.raises(ValueError, match="subject digest set does not cover"):
+        _live_pr_files_probe(
+            tmp_path / "tampered", monkeypatch, verification_payload=tampered_asset_digest
+        )
+
+    def duplicated_subject(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        payload = _real_shaped_verification_payload(asset_sha256s, tag=tag)
+        subjects = payload["verificationResult"]["statement"]["subject"]
+        subjects.append(dict(subjects[-1]))
+        return payload
+
+    with pytest.raises(ValueError, match="duplicates"):
+        _live_pr_files_probe(tmp_path / "dup", monkeypatch, verification_payload=duplicated_subject)
+
+    def malformed_result(asset_sha256s: dict[str, str], tag: str) -> dict[str, Any]:
+        del asset_sha256s, tag
+        return {"verificationResult": "trusted"}
+
+    with pytest.raises(ValueError, match="verification result is malformed"):
+        _live_pr_files_probe(
+            tmp_path / "malformed", monkeypatch, verification_payload=malformed_result
+        )
+    # And unit-level: a non-dict payload is malformed regardless of transport.
+    with pytest.raises(ValueError, match="verification payload is malformed"):
+        ratchet._validate_release_attestation_identity(
+            [{"verified": True}],
+            github_repository="synaptent/aragora",
+            asset_sha256s={},
+            resource="release-attestation",
+        )
 
 
 def test_files_api_cap_or_incomplete_tree_diff_fails_closed(
@@ -6949,18 +7120,19 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
     assert GUARD_V2_ADDITIONS + GUARD_V2_DELETIONS == GUARD_V2_DELTA
     assert GUARD_V2_FILES == 6
     assert GUARD_V2_DELTA > 800
-    # Because 865 exceeds the generic 800 cap, the guard-v2 atom can never be
-    # admitted as an ordinary governed paydown PR: governed-PR admission
-    # rejects the exact Decision-351 response.
-    with pytest.raises(ValueError, match="exceeds the 800-line cap"):
-        ratchet._validate_governed_prs(
-            _governed_pr_resource("1" * 40, "2" * 40),
-            authenticated_pr_changes={
-                9999: {"additions": GUARD_V2_ADDITIONS, "deletions": GUARD_V2_DELETIONS}
-            },
-            repo_root=tmp_path,
-            operation_log=[],
-        )
+    # The census (contract L76) admits the guard-v2 delta as authenticated
+    # governed evidence; because 865 exceeds the paydown cap, the atom can
+    # never be admitted as a core/extended paydown fact (max_pr_delta <= 800
+    # in _validate_sdk_paydown), only on the corrective proof plane.
+    census = ratchet._validate_governed_prs(
+        _governed_pr_resource("1" * 40, "2" * 40),
+        authenticated_pr_changes={
+            9999: {"additions": GUARD_V2_ADDITIONS, "deletions": GUARD_V2_DELETIONS}
+        },
+        repo_root=tmp_path,
+        operation_log=[],
+    )
+    assert census[0]["authenticated_pr_delta"] == GUARD_V2_DELTA
     # The corrective proof plane it rides instead carries no PR-delta field at
     # all: its exact closed field set is the bounded-transition proof.
     with pytest.raises(ValueError, match="corrective_bootstrap proof"):
@@ -7609,23 +7781,63 @@ def test_compare_api_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_cdg_800_cap_applies_only_to_core_extended_paydown_with_exact_corrective_guard_v2_exception(  # noqa: E501
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    # The cap binds every governed paydown PR (866 fails, 800 passes) ...
-    with pytest.raises(ValueError, match="exceeds the 800-line cap"):
-        ratchet._validate_governed_prs(
-            _governed_pr_resource("1" * 40, "2" * 40),
-            authenticated_pr_changes={9999: {"additions": 433, "deletions": 433}},
-            repo_root=tmp_path,
-            operation_log=[],
+    # Contract L76 (review-history entry 30): the 800 cap binds only the
+    # individually enumerated core/extended SDK paydown implementation PRs.
+    # The governed census admits authenticated non-paydown deltas uncapped:
+    # the real d3e45faf..559426b7 interval — whose tests-only contract-closure
+    # PR #9687 carries +7397/-12 = 7409 — validates as governed evidence.
+    real_interval_changes = {
+        9683: {"additions": 72, "deletions": 23},
+        9687: {"additions": 7397, "deletions": 12},
+        9691: {"additions": 195, "deletions": 0},
+        9692: {"additions": 50, "deletions": 24},
+        9693: {"additions": 245, "deletions": 28},
+    }
+    real_heads = {
+        9683: "e26935b6eeacf2ea83182c20aecd45b62b836e23",
+        9687: "492405a6c134745741709838caf56ee2a5d20ece",
+        9691: "486b24fbb131d27b90853c1d64dd949834427e1f",
+        9692: "4b36750a2ea3433e42a06927c79056b3bd5a9e3d",
+        9693: "559426b7d88fb748217b1008551c97bf426d0fcf",
+    }
+    base = "d3e45fafe6dd04508882935c813f6896abc859d7"
+    records = []
+    for number in sorted(real_interval_changes):
+        records.append(
+            {
+                "base_sha": base,
+                "changed_files_complete": True,
+                "head_sha": real_heads[number],
+                "head_tree_sha": "d" * 40,
+                "pr": number,
+            }
         )
+        base = real_heads[number]
+    interval_resource = {
+        "boundary": "corrective_bootstrap",
+        "end_sha": real_heads[9693],
+        "records": records,
+        "schema": "contract-drift-governed-prs-v1",
+        "start_sha": "d3e45fafe6dd04508882935c813f6896abc859d7",
+    }
     validated = ratchet._validate_governed_prs(
-        _governed_pr_resource("1" * 40, "2" * 40),
-        authenticated_pr_changes={9999: {"additions": 400, "deletions": 400}},
+        interval_resource,
+        authenticated_pr_changes=real_interval_changes,
         repo_root=tmp_path,
         operation_log=[],
     )
-    assert validated[0]["authenticated_pr_delta"] == 800
+    deltas = {record["pr"]: record["authenticated_pr_delta"] for record in validated}
+    assert deltas == {9683: 95, 9687: 7409, 9691: 195, 9692: 74, 9693: 273}
+    # An 866 single-PR census delta also binds uncapped.
+    validated = ratchet._validate_governed_prs(
+        _governed_pr_resource("1" * 40, "2" * 40),
+        authenticated_pr_changes={9999: {"additions": 433, "deletions": 433}},
+        repo_root=tmp_path,
+        operation_log=[],
+    )
+    assert validated[0]["authenticated_pr_delta"] == 866
 
-    # ... and the core/extended paydown facts themselves (801 fails closed).
+    # The cap binds the core/extended paydown facts (801 fails closed).
     def inflate_core_cap(payloads: dict) -> None:
         proof = payloads["core_sdk"]
         fact = dict(proof["qualifying_paydown"]["fact"], max_pr_delta=801)
@@ -8680,11 +8892,7 @@ def test_post_merge_authority_capsule_is_full_merge_sha_bound():
     # merge SHA: any other tag fails closed.
     end_sha = "5" * 40
     capsule = {
-        "attestation": {
-            "bundle_sha256": "6" * 64,
-            "verified": True,
-            "workflow": "actions/attest@v4",
-        },
+        "attestation": _stable_attestation_claim(),
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
@@ -8735,11 +8943,7 @@ def test_post_merge_authority_capsule_is_full_merge_sha_bound():
 def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_attestation_rule_suite_sets_and_edges():  # noqa: E501
     end_sha = "5" * 40
     capsule = {
-        "attestation": {
-            "bundle_sha256": "6" * 64,
-            "verified": True,
-            "workflow": "actions/attest@v4",
-        },
+        "attestation": _stable_attestation_claim(),
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
@@ -8765,12 +8969,37 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
         ratchet._validate_durable_capsule(
             duplicated, boundary="corrective_bootstrap", end_sha=end_sha
         )
-    # Attestation provenance is exactly actions/attest@v4 with a bound bundle.
+    # Attestation provenance is exactly actions/attest@v4 with the stable
+    # release-attestation identity plane (entry 30): signer SAN regexp and
+    # predicateType. A wrong workflow, signer, or predicate fails closed, as
+    # does the retired output-digest claim shape.
     unattested = copy.deepcopy(capsule)
     unattested["attestation"]["workflow"] = "actions/attest@v3"
     with pytest.raises(ValueError, match="attestation workflow identity mismatch"):
         ratchet._validate_durable_capsule(
             unattested, boundary="corrective_bootstrap", end_sha=end_sha
+        )
+    wrong_signer = copy.deepcopy(capsule)
+    wrong_signer["attestation"]["signer_san_regexp"] = r"^https://evil\.example\.com$"
+    with pytest.raises(ValueError, match="signer identity mismatch"):
+        ratchet._validate_durable_capsule(
+            wrong_signer, boundary="corrective_bootstrap", end_sha=end_sha
+        )
+    wrong_predicate = copy.deepcopy(capsule)
+    wrong_predicate["attestation"]["predicate_type"] = "https://slsa.dev/provenance/v1"
+    with pytest.raises(ValueError, match="predicate type mismatch"):
+        ratchet._validate_durable_capsule(
+            wrong_predicate, boundary="corrective_bootstrap", end_sha=end_sha
+        )
+    legacy_digest_claim = copy.deepcopy(capsule)
+    legacy_digest_claim["attestation"] = {
+        "bundle_sha256": "6" * 64,
+        "verified": True,
+        "workflow": "actions/attest@v4",
+    }
+    with pytest.raises(ValueError, match="signer identity mismatch"):
+        ratchet._validate_durable_capsule(
+            legacy_digest_claim, boundary="corrective_bootstrap", end_sha=end_sha
         )
     # Rule-suite pass results are part of the boundary prerequisites: a
     # bypassed evaluation can never authenticate.
@@ -8793,11 +9022,7 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
 def test_release_replacement_deletion_or_tag_reuse_is_detected():
     end_sha = "5" * 40
     capsule = {
-        "attestation": {
-            "bundle_sha256": "6" * 64,
-            "verified": True,
-            "workflow": "actions/attest@v4",
-        },
+        "attestation": _stable_attestation_claim(),
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
