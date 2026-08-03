@@ -2132,6 +2132,7 @@ def _collect_live_evidence(
     boundary: str,
     start_sha: str,
     end_sha: str,
+    repo_root: Path,
     scratch_root: Path,
     operation_log: list[dict[str, Any]],
 ) -> tuple[
@@ -2699,6 +2700,7 @@ def _collect_live_evidence(
         raise ValueError("capsule governed PR or receipt records are malformed")
     receipt_by_pr = {item.get("pr"): item for item in receipts if isinstance(item, dict)}
     authenticated_pr_changes: dict[int, dict[str, int]] = {}
+    authenticated_pr_files: dict[int, list[str]] = {}
     for record in governed:
         if not isinstance(record, dict) or not isinstance(record.get("pr"), int):
             raise ValueError("capsule governed PR record is malformed")
@@ -2745,6 +2747,20 @@ def _collect_live_evidence(
             raise ValueError(f"authenticated governed PR #{number} file discovery is incomplete")
         if record.get("changed_files_complete") is not True:
             raise ValueError(f"capsule governed PR #{number} denies complete file discovery")
+        owned_paths: set[str] = set()
+        for item in files:
+            filename = item.get("filename") if isinstance(item, dict) else None
+            if not isinstance(filename, str) or not filename:
+                raise ValueError(f"authenticated governed PR #{number} file record is malformed")
+            owned_paths.add(filename)
+            previous = item.get("previous_filename")
+            if previous is not None:
+                if not isinstance(previous, str) or not previous:
+                    raise ValueError(
+                        f"authenticated governed PR #{number} file record is malformed"
+                    )
+                owned_paths.add(previous)
+        authenticated_pr_files[number] = sorted(owned_paths)
         receipt = receipt_by_pr.get(number)
         if not isinstance(receipt, dict):
             raise ValueError(f"capsule governed PR #{number} lacks a first-parent receipt")
@@ -2774,7 +2790,6 @@ def _collect_live_evidence(
             record.get("head_tree_sha") != head_tree
             or receipt.get("head_tree_sha") != head_tree
             or receipt.get("merge_tree_sha") != merge_tree
-            or head_tree != merge_tree
             or not isinstance(merge_parents, list)
             or not merge_parents
             or not isinstance(merge_parents[0], dict)
@@ -2783,6 +2798,21 @@ def _collect_live_evidence(
             raise ValueError(
                 f"authenticated governed PR #{number} lacks first-parent or tree equality"
             )
+        # VAL-CDG-018 squash binding: tree equality is one sufficient witness;
+        # otherwise the semantic delta recomputed from the squash merge's
+        # first parent (immutable local git, pinned rename policy) must equal
+        # the authenticated PR disposition. Never require PR-head tree
+        # equality as the squash binding.
+        _require_squash_binding_witness(
+            repo_root=repo_root,
+            pr=number,
+            head_tree_sha=head_tree,
+            merge_tree_sha=merge_tree,
+            first_parent_sha=record["base_sha"],
+            merge_sha=receipt["merge_sha"],
+            owned_paths=authenticated_pr_files[number],
+            operation_log=operation_log,
+        )
 
     live_before_snapshot = {
         "assets": asset_identities,
@@ -2818,6 +2848,7 @@ def _collect_live_evidence(
         {
             "asset_identities": asset_identities,
             "authenticated_pr_changes": authenticated_pr_changes,
+            "authenticated_pr_files": authenticated_pr_files,
             "endpoint_identities": endpoint_identities,
             "expected_rule_suite_ref": expected_rule_suite_ref,
             "github_repository": github_repository,
@@ -3701,6 +3732,111 @@ def _validate_first_parent_receipts(
     return records
 
 
+def _first_parent_semantic_delta(
+    repo_root: Path,
+    *,
+    first_parent_sha: str,
+    merge_sha: str,
+    pr: int,
+    operation_log: list[dict[str, Any]],
+) -> set[str]:
+    """Recompute the exact squash semantic delta from immutable local git.
+
+    Pinned rename policy: rename detection is disabled (`--no-renames`), so a
+    rename is a removal at the old path plus an addition at the new path and
+    both must be inside the authenticated disposition. Renamed content can
+    never masquerade as an unchanged or foreign path.
+    """
+    diff = _run_read_only(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "diff",
+            "--no-renames",
+            "--name-only",
+            f"{first_parent_sha}^{{tree}}",
+            f"{merge_sha}^{{tree}}",
+        ],
+        operation_log=operation_log,
+        resource=f"squash-semantic-delta:{pr}",
+    )
+    return {line for line in diff.stdout.decode("utf-8").splitlines() if line}
+
+
+def _require_squash_binding_witness(
+    *,
+    repo_root: Path,
+    pr: int,
+    head_tree_sha: str,
+    merge_tree_sha: str,
+    first_parent_sha: str,
+    merge_sha: str,
+    owned_paths: list[str] | None,
+    operation_log: list[dict[str, Any]],
+) -> str:
+    """Bind a squash merge to its authenticated PR disposition (VAL-CDG-018).
+
+    Head-tree == merge-tree equality is ONE sufficient witness; otherwise the
+    exact semantic delta recomputed from the squash merge's first parent to
+    the squash merge (immutable local git trees, pinned rename policy) must
+    equal the authenticated PR disposition's owned-path delta under the
+    authority accepted at the first parent. PR-head tree equality is never
+    REQUIRED as the squash binding, and a delta reaching outside the
+    authenticated disposition fails closed even when equality holds.
+    """
+    delta = _first_parent_semantic_delta(
+        repo_root,
+        first_parent_sha=first_parent_sha,
+        merge_sha=merge_sha,
+        pr=pr,
+        operation_log=operation_log,
+    )
+    equality = head_tree_sha == merge_tree_sha
+    if owned_paths is None:
+        if not equality:
+            raise ValueError(
+                f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
+                "head tree differs from the squash merge tree and no authenticated "
+                "PR disposition delta is available"
+            )
+        witness = "head_tree_equality"
+    else:
+        owned = set(owned_paths)
+        if foreign := sorted(delta - owned):
+            raise ValueError(
+                f"squash semantic delta for PR #{pr} touches paths outside the "
+                f"authenticated disposition: {foreign}"
+            )
+        if equality:
+            witness = "head_tree_equality"
+        elif delta == owned:
+            witness = "first_parent_semantic_delta"
+        else:
+            raise ValueError(
+                f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
+                "head tree differs from the squash merge tree and the recomputed "
+                "first-parent semantic delta does not equal the authenticated "
+                "disposition"
+            )
+    _append_operation(
+        operation_log,
+        kind="squash_binding_witness",
+        resource=f"squash-binding:{pr}",
+        identifier=witness,
+        raw=_canonical_json_bytes(
+            {
+                "first_parent_sha": first_parent_sha,
+                "merge_sha": merge_sha,
+                "pr": pr,
+                "semantic_delta": sorted(delta),
+                "witness": witness,
+            }
+        ),
+    )
+    return witness
+
+
 def _reconcile_prs_and_receipts(
     governed_prs: list[dict[str, Any]],
     receipts: list[dict[str, Any]],
@@ -3708,6 +3844,7 @@ def _reconcile_prs_and_receipts(
     repo_root: Path,
     start_sha: str,
     end_sha: str,
+    authenticated_pr_files: dict[int, list[str]],
     operation_log: list[dict[str, Any]],
 ) -> None:
     prs_by_number = {record["pr"]: record for record in governed_prs}
@@ -3775,13 +3912,26 @@ def _reconcile_prs_and_receipts(
             .stdout.decode("ascii")
             .strip()
         )
-        if (
-            merge_tree != receipt["merge_tree_sha"]
-            or receipt["merge_tree_sha"] != receipt["head_tree_sha"]
-        ):
+        if merge_tree != receipt["merge_tree_sha"]:
             raise ValueError(
-                f"first-parent receipt for PR #{receipt['pr']} lacks squash tree equality"
+                f"first-parent receipt for PR #{receipt['pr']} misstates the squash merge "
+                "tree: local git recompute contradicts the claimed merge_tree_sha"
             )
+        # VAL-CDG-018 squash binding: the recomputed merge tree (not the
+        # record claim) is compared against the receipt head tree as ONE
+        # sufficient witness; a stale-base squash instead binds through the
+        # recomputed first-parent semantic delta equal to the authenticated
+        # PR disposition. Fail closed when neither witness holds.
+        _require_squash_binding_witness(
+            repo_root=repo_root,
+            pr=receipt["pr"],
+            head_tree_sha=receipt["head_tree_sha"],
+            merge_tree_sha=merge_tree,
+            first_parent_sha=receipt["base_sha"],
+            merge_sha=receipt["merge_sha"],
+            owned_paths=authenticated_pr_files.get(receipt["pr"]),
+            operation_log=operation_log,
+        )
         prior = receipt["merge_sha"]
     if prior != end_sha:
         raise ValueError("governed PR and receipt coverage does not reach the boundary end SHA")
@@ -3800,6 +3950,7 @@ def _evaluate_boundary_evidence(
     authority: dict[str, Any],
     canonical_artifacts: dict[str, Any],
     authenticated_pr_changes: dict[int, dict[str, int]],
+    authenticated_pr_files: dict[int, list[str]],
     operation_log: list[dict[str, Any]],
 ) -> dict[str, Any]:
     chronology = _validate_boundary_chronology(
@@ -3836,6 +3987,7 @@ def _evaluate_boundary_evidence(
         repo_root=repo_root,
         start_sha=start_sha,
         end_sha=end_sha,
+        authenticated_pr_files=authenticated_pr_files,
         operation_log=operation_log,
     )
     selected = BOUNDARY_NAMES[: BOUNDARY_NAMES.index(boundary) + 1]
@@ -4137,6 +4289,7 @@ def build_boundary_result(
             boundary=boundary,
             start_sha=start_sha,
             end_sha=end_sha,
+            repo_root=repo_root,
             scratch_root=resolved_scratch,
             operation_log=operation_log,
         )
@@ -4153,6 +4306,9 @@ def build_boundary_result(
         authenticated_pr_changes = live_context.get("authenticated_pr_changes")
         if not isinstance(authenticated_pr_changes, dict):
             raise ValueError("authenticated governed PR additions/deletions are unavailable")
+        authenticated_pr_files = live_context.get("authenticated_pr_files", {})
+        if not isinstance(authenticated_pr_files, dict):
+            raise ValueError("authenticated governed PR file dispositions are malformed")
         repository_id = live_context.get("repository_id")
         repository_name = live_context.get("repository_name")
         expected_rule_suite_ref = live_context.get("expected_rule_suite_ref")
@@ -4185,6 +4341,7 @@ def build_boundary_result(
             authority=authority,
             canonical_artifacts=artifacts,
             authenticated_pr_changes=authenticated_pr_changes,
+            authenticated_pr_files=authenticated_pr_files,
             operation_log=operation_log,
         )
         result.update(evaluation)
