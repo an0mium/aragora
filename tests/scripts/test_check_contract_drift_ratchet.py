@@ -2373,7 +2373,13 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         elif endpoint.endswith("/rulesets/rule-suites/987654"):
             body = ratchet._canonical_json_bytes(_rule_suite_record(end_sha))
         elif endpoint.endswith("/pulls/9999/files?per_page=100&page=1"):
-            body = ratchet._canonical_json_bytes([{"filename": "fixture.txt", "id": 1}])
+            # Truthful disposition: the synthetic authority commit changes
+            # exactly the accepted inventory, and the always-on VAL-CDG-018
+            # disposition check compares the recomputed first-parent semantic
+            # delta against this authenticated file set.
+            body = ratchet._canonical_json_bytes(
+                [{"filename": "scripts/baselines/contract_drift_inventory.json", "id": 1}]
+            )
         elif endpoint.endswith("/pulls/9999"):
             body = ratchet._canonical_json_bytes(
                 {
@@ -3745,6 +3751,7 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
                 boundary="corrective_bootstrap",
                 start_sha=start_sha,
                 end_sha=end_sha,
+                repo_root=_repo,
                 scratch_root=tmp_path,
                 operation_log=[],
             )
@@ -3756,6 +3763,7 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
         boundary="corrective_bootstrap",
         start_sha=start_sha,
         end_sha=end_sha,
+        repo_root=_repo,
         scratch_root=tmp_path,
         operation_log=[],
     )
@@ -4356,7 +4364,13 @@ def _live_pr_files_probe(
         "sha256": hashlib.sha256(b"{}").hexdigest(),
         "updated_at": "2026-07-20T00:00:00Z",
     }
-    files = [{"filename": f"file-{index}.txt", "id": index + 1} for index in range(files_count)]
+    # The first file record carries the real path changed by the disposable
+    # boundary commit so the recomputed first-parent semantic delta stays
+    # inside the authenticated disposition.
+    files = [
+        {"filename": "fixture.txt" if index == 0 else f"file-{index}.txt", "id": index + 1}
+        for index in range(files_count)
+    ]
     if duplicate_file_ids:
         files = [dict(item, id=1) for item in files]
     observed_changed_files = files_count if changed_files is None else changed_files
@@ -4497,6 +4511,7 @@ def _live_pr_files_probe(
         boundary="corrective_bootstrap",
         start_sha=start_sha,
         end_sha=end_sha,
+        repo_root=repo,
         scratch_root=tmp_path,
         operation_log=[],
     )
@@ -9408,3 +9423,340 @@ def test_post_transition_noop_pr_uses_only_accepted_authority(
     assert execution["base_sha"] == execution["head_sha"] == execution["analyzer_sha"] == base
     assert execution["dependencies"] == []
     assert execution["interpreter_flags"] == list(ratchet.ANALYZER_FLAGS)
+
+
+def _stale_base_squash_repo(tmp_path: Path) -> dict[str, Any]:
+    """Disposable repo reproducing the real PR #9696 stale-base squash shape.
+
+    START -> A (a prior squash adding sibling.txt) -> M (squash of the governed
+    PR, first parent A). The PR head H forked from START, so H's tree lacks
+    sibling.txt while M's tree has it: head tree != merge tree, yet the exact
+    first-parent semantic delta A -> M is the single owned path. This is the
+    interval geometry the checker must accept under VAL-CDG-018.
+    """
+    repo = tmp_path / "stale-base-squash"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    start = _commit(repo, "start")
+    # PR head H: forked from START, adds only the owned file.
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "pr-head", start], check=True)
+    (repo / "owned.txt").write_text("owned\n", encoding="utf-8")
+    head = _commit(repo, "pr head")
+    head_tree = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", f"{head}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    # Meanwhile a sibling PR merges first on main: A adds sibling.txt.
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-B", "main", start], check=True)
+    (repo / "sibling.txt").write_text("sibling\n", encoding="utf-8")
+    prior_merge = _commit(repo, "sibling squash")
+    # The stale-base squash M: first parent A, content = A + owned.txt only.
+    (repo / "owned.txt").write_text("owned\n", encoding="utf-8")
+    merge = _commit(repo, "stale-base squash of pr-head")
+    merge_tree = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", f"{merge}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert head_tree != merge_tree  # the defining B4 geometry
+    return {
+        "head": head,
+        "head_tree": head_tree,
+        "merge": merge,
+        "merge_tree": merge_tree,
+        "prior_merge": prior_merge,
+        "repo": repo,
+        "start": start,
+    }
+
+
+def _stale_base_receipt_resources(
+    shape: dict[str, Any],
+    *,
+    owned_paths: dict[int, list[str]] | None = None,
+    forge_merge_tree: bool = False,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[int, list[str]]]:
+    """Governed + receipt records for the two-PR stale-base interval."""
+    governed = [
+        {
+            "authenticated_additions": 1,
+            "authenticated_deletions": 0,
+            "authenticated_pr_delta": 1,
+            "base_sha": shape["start"],
+            "changed_files_complete": True,
+            "head_sha": shape["prior_merge"],
+            "head_tree_sha": subprocess.run(
+                ["git", "-C", str(shape["repo"]), "rev-parse", f"{shape['prior_merge']}^{{tree}}"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip(),
+            "pr": 9695,
+        },
+        {
+            "authenticated_additions": 1,
+            "authenticated_deletions": 0,
+            "authenticated_pr_delta": 1,
+            "base_sha": shape["prior_merge"],
+            "changed_files_complete": True,
+            "head_sha": shape["head"],
+            "head_tree_sha": shape["head_tree"],
+            "pr": 9696,
+        },
+    ]
+    receipts = [
+        {
+            "base_sha": shape["start"],
+            "first_parent_sha": shape["start"],
+            "head_sha": shape["prior_merge"],
+            "head_tree_sha": governed[0]["head_tree_sha"],
+            "merge_sha": shape["prior_merge"],
+            "merge_tree_sha": governed[0]["head_tree_sha"],
+            "pr": 9695,
+        },
+        {
+            "base_sha": shape["prior_merge"],
+            "first_parent_sha": shape["prior_merge"],
+            "head_sha": shape["head"],
+            "head_tree_sha": shape["head_tree"],
+            "merge_sha": shape["merge"],
+            "merge_tree_sha": shape["head_tree"] if forge_merge_tree else shape["merge_tree"],
+            "pr": 9696,
+        },
+    ]
+    files = owned_paths if owned_paths is not None else {9695: ["sibling.txt"], 9696: ["owned.txt"]}
+    return governed, receipts, files
+
+
+def test_real_shaped_stale_base_squash_passes_via_semantic_delta_witness(tmp_path: Path):
+    # The #9696 shape: head tree != merge tree, single owned file, and the
+    # recomputed first-parent semantic delta equals the authenticated PR
+    # disposition. VAL-CDG-018 requires acceptance via the semantic-delta
+    # witness; requiring PR-head tree equality here is forbidden.
+    shape = _stale_base_squash_repo(tmp_path)
+    governed, receipts, files = _stale_base_receipt_resources(shape)
+    operation_log: list[dict[str, Any]] = []
+    ratchet._reconcile_prs_and_receipts(
+        governed,
+        receipts,
+        repo_root=shape["repo"],
+        start_sha=shape["start"],
+        end_sha=shape["merge"],
+        authenticated_pr_files=files,
+        operation_log=operation_log,
+    )
+    witnesses = {
+        entry["resource"]: entry["identifier"]
+        for entry in operation_log
+        if entry["kind"] == "squash_binding_witness"
+    }
+    # The clean squash records tree equality; the stale-base squash records
+    # the recomputed first-parent semantic delta, never head-tree equality.
+    assert witnesses["squash-binding:9695"] == "head_tree_equality"
+    assert witnesses["squash-binding:9696"] == "first_parent_semantic_delta"
+
+
+def test_foreign_path_semantic_delta_fails_closed(tmp_path: Path):
+    # The recomputed first-parent delta reaches a path outside the
+    # authenticated PR disposition: fail closed on both shapes (stale-base
+    # and equality-present).
+    shape = _stale_base_squash_repo(tmp_path)
+    governed, receipts, _files = _stale_base_receipt_resources(shape)
+    with pytest.raises(ValueError, match="outside the authenticated disposition"):
+        ratchet._reconcile_prs_and_receipts(
+            governed,
+            receipts,
+            repo_root=shape["repo"],
+            start_sha=shape["start"],
+            end_sha=shape["merge"],
+            authenticated_pr_files={9695: ["sibling.txt"], 9696: ["something-else.txt"]},
+            operation_log=[],
+        )
+
+
+def test_head_tree_equality_with_disposition_mismatch_fails_closed(tmp_path: Path):
+    # Equality present but disposition mismatched: a squash merge whose tree
+    # literally equals the PR head tree still fails when its recomputed
+    # first-parent semantic delta touches paths outside the authenticated
+    # disposition (equality is one witness, never an override).
+    shape = _stale_base_squash_repo(tmp_path)
+    # Craft M2 on top of prior_merge whose tree IS the PR head tree: the
+    # first-parent delta then both adds owned.txt and REMOVES sibling.txt —
+    # the removal is outside the single-file disposition.
+    merge2 = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(shape["repo"]),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit-tree",
+            shape["head_tree"],
+            "-p",
+            shape["prior_merge"],
+            "-m",
+            "equality-shaped squash that reverts the sibling",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    governed, receipts, files = _stale_base_receipt_resources(shape)
+    receipts[1]["merge_sha"] = merge2
+    receipts[1]["merge_tree_sha"] = shape["head_tree"]
+    with pytest.raises(ValueError, match="outside the authenticated disposition"):
+        ratchet._reconcile_prs_and_receipts(
+            governed,
+            receipts,
+            repo_root=shape["repo"],
+            start_sha=shape["start"],
+            end_sha=merge2,
+            authenticated_pr_files=files,
+            operation_log=[],
+        )
+
+
+def test_forged_receipt_squash_tree_claim_fails_against_local_git(tmp_path: Path):
+    # A receipt forging merge_tree_sha == head_tree_sha cannot evade the
+    # local-git recompute: the checker derives the squash tree from the
+    # immutable merge commit, not from the claimed record value.
+    shape = _stale_base_squash_repo(tmp_path)
+    governed, receipts, files = _stale_base_receipt_resources(shape, forge_merge_tree=True)
+    with pytest.raises(ValueError, match="misstates the squash merge tree"):
+        ratchet._reconcile_prs_and_receipts(
+            governed,
+            receipts,
+            repo_root=shape["repo"],
+            start_sha=shape["start"],
+            end_sha=shape["merge"],
+            authenticated_pr_files=files,
+            operation_log=[],
+        )
+
+
+def test_squash_binding_requires_a_witness_and_pins_rename_policy(tmp_path: Path):
+    # Neither witness available: head tree != merge tree and no authenticated
+    # disposition file set for the PR — fail closed, never default open.
+    shape = _stale_base_squash_repo(tmp_path)
+    governed, receipts, _files = _stale_base_receipt_resources(shape)
+    with pytest.raises(ValueError, match="lacks a squash binding witness"):
+        ratchet._reconcile_prs_and_receipts(
+            governed,
+            receipts,
+            repo_root=shape["repo"],
+            start_sha=shape["start"],
+            end_sha=shape["merge"],
+            authenticated_pr_files={9695: ["sibling.txt"]},
+            operation_log=[],
+        )
+    # Pinned rename policy: the semantic-delta recompute never follows
+    # renames — a rename surfaces as removal@old + addition@new and both
+    # paths must be inside the authenticated disposition.
+    source = Path(ratchet.__file__).read_text(encoding="utf-8")
+    assert "--no-renames" in source
+    assert "--follow" not in source
+    assert "-M100" not in source
+    repo = shape["repo"]
+    subprocess.run(
+        ["git", "-C", str(repo), "mv", "owned.txt", "renamed.txt"],
+        check=True,
+    )
+    renamed_merge = _commit(repo, "rename squash")
+    governed_r, receipts_r, _unused = _stale_base_receipt_resources(shape)
+    governed_r[1]["head_sha"] = renamed_merge
+    governed_r[1]["head_tree_sha"] = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", f"{renamed_merge}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    receipts_r[1].update(
+        {
+            "base_sha": shape["merge"],
+            "first_parent_sha": shape["merge"],
+            "head_sha": renamed_merge,
+            "head_tree_sha": governed_r[1]["head_tree_sha"],
+            "merge_sha": renamed_merge,
+            "merge_tree_sha": governed_r[1]["head_tree_sha"],
+        }
+    )
+    governed_r[1]["base_sha"] = shape["merge"]
+    three_governed = [
+        governed_r[0],
+        {
+            "authenticated_additions": 1,
+            "authenticated_deletions": 0,
+            "authenticated_pr_delta": 1,
+            "base_sha": shape["prior_merge"],
+            "changed_files_complete": True,
+            "head_sha": shape["head"],
+            "head_tree_sha": shape["head_tree"],
+            "pr": 9696,
+        },
+        dict(governed_r[1], pr=9697),
+    ]
+    three_receipts = [
+        receipts_r[0],
+        {
+            "base_sha": shape["prior_merge"],
+            "first_parent_sha": shape["prior_merge"],
+            "head_sha": shape["head"],
+            "head_tree_sha": shape["head_tree"],
+            "merge_sha": shape["merge"],
+            "merge_tree_sha": shape["merge_tree"],
+            "pr": 9696,
+        },
+        dict(receipts_r[1], pr=9697),
+    ]
+    # Rename covered only when BOTH old and new paths are in the disposition.
+    ratchet._reconcile_prs_and_receipts(
+        three_governed,
+        three_receipts,
+        repo_root=repo,
+        start_sha=shape["start"],
+        end_sha=renamed_merge,
+        authenticated_pr_files={
+            9695: ["sibling.txt"],
+            9696: ["owned.txt"],
+            9697: ["owned.txt", "renamed.txt"],
+        },
+        operation_log=[],
+    )
+    with pytest.raises(ValueError, match="outside the authenticated disposition"):
+        ratchet._reconcile_prs_and_receipts(
+            three_governed,
+            three_receipts,
+            repo_root=repo,
+            start_sha=shape["start"],
+            end_sha=renamed_merge,
+            authenticated_pr_files={
+                9695: ["sibling.txt"],
+                9696: ["owned.txt"],
+                9697: ["renamed.txt"],
+            },
+            operation_log=[],
+        )
+
+
+def test_live_evidence_plane_accepts_stale_base_squash_and_rejects_foreign_delta(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Plane 1 (_collect_live_evidence) applies the same VAL-CDG-018 witness
+    # rule to the authenticated API trees: the probe's clean-squash fixture
+    # passes via tree equality, and a mismatched governed/receipt tree claim
+    # still fails the binding check.
+    context, _requested = _live_pr_files_probe(tmp_path, monkeypatch, files_count=1)
+    assert context["authenticated_pr_files"] == {9999: ["fixture.txt"]}
+
+    def wrong_receipt_tree(resources: dict[str, Any]) -> None:
+        resources["first_parent_receipts"]["records"][0]["merge_tree_sha"] = "b" * 40
+
+    with pytest.raises(ValueError, match="lacks first-parent or tree equality"):
+        _live_pr_files_probe(tmp_path / "claim", monkeypatch, mutate=wrong_receipt_tree)
