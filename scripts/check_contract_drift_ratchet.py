@@ -2652,11 +2652,21 @@ def _collect_live_evidence(
         raise ValueError("capsule immutable-release claim contradicts repository settings")
 
     capsule = resources["durable_capsule"]
+    # Contract review-history entry 32 (B5): the payload-embedded release
+    # claim binds only publication-time-knowable identity. GitHub allocates
+    # release-asset API IDs at upload from an unpredictable instance-global
+    # counter with no ID-preserving content update, and every asset's bytes
+    # transitively depend on any payload-embedded ID triple, so a claim over
+    # asset_api_ids is unsatisfiable by construction. Instance identity is
+    # carried by release_api_id (assigned at draft creation, before any asset
+    # bytes are final), the fixed-prefix tag_name plus the independent
+    # tag-ref->END_SHA resolution proof (entry 29), exact_full_sha_tag, the
+    # exact asset names with live byte digests, the checksums.txt
+    # cross-binding, and the live attestation subject-digest gate (entry 30).
+    # Live asset IDs remain observed download-routing values in the operation
+    # log; they are never payload claims. The exact dict equality below
+    # rejects a stale-schema payload still carrying asset_api_ids.
     expected_release_claim = {
-        "asset_api_ids": [
-            assets_by_name[name]["id"]
-            for name in ("manifest.json", "payload.json", "checksums.txt")
-        ],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
@@ -3568,6 +3578,23 @@ def _validate_durable_capsule(
     attestation = resource.get("attestation")
     if not isinstance(release, dict) or not isinstance(attestation, dict):
         raise ValueError("durable release capsule evidence is malformed")
+    # Contract review-history entry 32 (B5): the release claim embeds only
+    # publication-time-knowable identity fields. asset_api_ids is expressly
+    # not part of the claim shape (GitHub assigns asset IDs unpredictably at
+    # upload, after the payload bytes must already be final), so a
+    # stale-schema payload still carrying it fails closed here.
+    _require_exact_fields(
+        release,
+        {
+            "asset_names",
+            "exact_full_sha_tag",
+            "immutable",
+            "release_api_id",
+            "tag_name",
+            "verified",
+        },
+        label="durable release claim",
+    )
     for field in ("immutable", "verified"):
         _require_bool(release.get(field), label=f"durable release {field}")
     if release.get("exact_full_sha_tag") != end_sha:
@@ -3575,17 +3602,9 @@ def _validate_durable_capsule(
     if release.get("tag_name") != f"cdg-{boundary}-{end_sha}":
         raise ValueError("durable release capsule tag name is not the fixed-prefix capsule tag")
     release_id = release.get("release_api_id")
-    asset_ids = release.get("asset_api_ids")
     asset_names = release.get("asset_names")
     if not isinstance(release_id, int) or release_id <= 0:
         raise ValueError("durable release API ID is malformed")
-    if (
-        not isinstance(asset_ids, list)
-        or len(asset_ids) != 3
-        or len(set(asset_ids)) != 3
-        or not all(isinstance(item, int) and item > 0 for item in asset_ids)
-    ):
-        raise ValueError("durable release asset API IDs are incomplete")
     if asset_names != ["manifest.json", "payload.json", "checksums.txt"]:
         raise ValueError("durable release asset names are incomplete or noncanonical")
     _require_bool(attestation.get("verified"), label="Sigstore attestation")

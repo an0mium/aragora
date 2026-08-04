@@ -1939,8 +1939,10 @@ def _boundary_payloads(
         "durable_capsule": {
             **common,
             "attestation": _stable_attestation_claim(),
+            # Entry 32: the release claim carries only publication-time
+            # pre-known identity (release_api_id is assigned at draft
+            # creation); asset_api_ids is expressly absent.
             "release": {
-                "asset_api_ids": [101, 102, 103],
                 "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
                 "exact_full_sha_tag": end_sha,
                 "immutable": release_immutability,
@@ -2261,8 +2263,9 @@ def test_boundary_pass_fixture_uses_production_artifact_and_authority_authentica
         :1
     ]
     capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
+    # Entry 32: the claim omits asset_api_ids — the payload bytes must be
+    # final before GitHub assigns any asset ID at upload.
     resources["durable_capsule"]["release"] = {
-        "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
@@ -3569,8 +3572,8 @@ def test_live_evidence_authenticates_base_from_merge_first_parent(
 
     verification_identity = {"byte_length": 18, "sha256": "a" * 64}
     capsule_tag = f"cdg-corrective_bootstrap-{end_sha}"
+    # Entry 32: claim shape omits asset_api_ids (pre-known fields only).
     resources["durable_capsule"]["release"] = {
-        "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
@@ -4292,8 +4295,16 @@ def _live_pr_files_probe(
     tag_ref_object: Any | None = None,
     annotated_tag_object: Any | None = None,
     verification_payload: Any | None = None,
+    tamper_assets: Any | None = None,
+    asset_ids: tuple[int, int, int] = (101, 102, 103),
 ) -> tuple[dict[str, Any], list[str]]:
-    """Run _collect_live_evidence with real pagination over fake transport."""
+    """Run _collect_live_evidence with real pagination over fake transport.
+
+    ``asset_ids`` maps (checksums.txt, manifest.json, payload.json) to the
+    live-listing asset IDs. Entry 32: these are observed transport routing
+    values only — the capsule payload bytes never embed them, so any triple
+    (including the real allocator's unpredictable large IDs) must validate.
+    """
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas["corrective_bootstrap"]
     resources = _boundary_payloads("corrective_bootstrap", start_sha, end_sha, boundary_shas, repo=repo)  # fmt: skip
@@ -4319,8 +4330,8 @@ def _live_pr_files_probe(
         tag_ref_object = tag_ref_object(end_sha, capsule_tag)
     if callable(annotated_tag_object):
         annotated_tag_object = annotated_tag_object(end_sha, capsule_tag)
+    # Entry 32: claim shape omits asset_api_ids (pre-known fields only).
     resources["durable_capsule"]["release"] = {
-        "asset_api_ids": [102, 103, 101],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
@@ -4352,7 +4363,10 @@ def _live_pr_files_probe(
         f"{hashlib.sha256(manifest_raw).hexdigest()}  manifest.json\n"
         f"{hashlib.sha256(payload_raw).hexdigest()}  payload.json\n"
     ).encode()
-    assets = {101: checksums_raw, 102: manifest_raw, 103: payload_raw}
+    checksums_id, manifest_id, payload_id = asset_ids
+    assets = {checksums_id: checksums_raw, manifest_id: manifest_raw, payload_id: payload_raw}
+    if tamper_assets is not None:
+        tamper_assets(assets)
     asset_sha256s = {
         "checksums.txt": hashlib.sha256(checksums_raw).hexdigest(),
         "manifest.json": hashlib.sha256(manifest_raw).hexdigest(),
@@ -4407,9 +4421,9 @@ def _live_pr_files_probe(
         if endpoint.endswith("/releases/100"):
             return {
                 "assets": [
-                    {"id": 101, "name": "checksums.txt"},
-                    {"id": 102, "name": "manifest.json"},
-                    {"id": 103, "name": "payload.json"},
+                    {"id": checksums_id, "name": "checksums.txt"},
+                    {"id": manifest_id, "name": "manifest.json"},
+                    {"id": payload_id, "name": "payload.json"},
                 ],
                 "draft": False,
                 "id": 100,
@@ -4682,6 +4696,58 @@ def test_capsule_discovery_requires_exactly_one_prefix_tag_release_resolving_to_
                 "tag": tag,
             },
         )
+
+
+def test_release_claim_omits_asset_api_ids_and_binds_only_pre_known_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Entry 32 (B5): GitHub allocates release-asset API IDs at upload time
+    # from an unpredictable instance-global counter, AFTER the payload bytes
+    # must already be final, so the payload-embedded release claim binds only
+    # publication-time-knowable identity. The live plane must accept a capsule
+    # whose payload omits asset_api_ids regardless of which IDs the allocator
+    # actually assigned: real-shaped unpredictable IDs (empirical B5 probe
+    # values) validate identically to the small fixture IDs because the IDs
+    # are observed transport routing, never claims.
+    context, _requested = _live_pr_files_probe(
+        tmp_path,
+        monkeypatch,
+        asset_ids=(500447298, 500447355, 500447391),
+    )
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 400, "deletions": 400}}
+
+    # A stale-schema payload still carrying asset_api_ids fails closed in the
+    # live plane: the exact claim equality rejects the extra field even when
+    # the embedded triple happens to match the live listing.
+    def stale_schema_claim(resources: dict[str, Any]) -> None:
+        resources["durable_capsule"]["release"]["asset_api_ids"] = [101, 102, 103]
+
+    with pytest.raises(ValueError, match="contradicts live verification"):
+        _live_pr_files_probe(tmp_path / "stale", monkeypatch, mutate=stale_schema_claim)
+
+    # Retained binding regressions: every pre-known identity field still
+    # rejects a wrong-release capsule.
+    def wrong_release_id(resources: dict[str, Any]) -> None:
+        resources["durable_capsule"]["release"]["release_api_id"] = 999
+
+    with pytest.raises(ValueError, match="contradicts live verification"):
+        _live_pr_files_probe(tmp_path / "relid", monkeypatch, mutate=wrong_release_id)
+
+    def wrong_claimed_tag(resources: dict[str, Any]) -> None:
+        resources["durable_capsule"]["release"]["tag_name"] = "cdg-corrective_bootstrap-" + "9" * 40
+
+    with pytest.raises(ValueError, match="contradicts live verification"):
+        _live_pr_files_probe(tmp_path / "tag", monkeypatch, mutate=wrong_claimed_tag)
+
+    # Wrong-bytes capsules still fail closed through the checksums.txt
+    # cross-binding over the exact downloaded asset bytes.
+    def tampered_manifest(assets: dict[int, bytes]) -> None:
+        manifest_id = sorted(assets)[1]
+        assets[manifest_id] = assets[manifest_id].replace(b"payload_sha256", b"payload_sha25X")
+
+    with pytest.raises(ValueError, match="checksum asset is incomplete or noncanonical"):
+        _live_pr_files_probe(tmp_path / "bytes", monkeypatch, tamper_assets=tampered_manifest)
 
 
 def test_pr_files_paginate_to_exhaustion_and_reconcile_changed_files(
@@ -8911,7 +8977,6 @@ def test_post_merge_authority_capsule_is_full_merge_sha_bound():
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
-            "asset_api_ids": [101, 102, 103],
             "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
             "exact_full_sha_tag": end_sha,
             "immutable": True,
@@ -8962,7 +9027,6 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
-            "asset_api_ids": [101, 102, 103],
             "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
             "exact_full_sha_tag": end_sha,
             "immutable": True,
@@ -8978,11 +9042,21 @@ def test_accepted_authority_capsule_pins_artifact_manifest_payload_checksums_att
     partial["release"]["asset_names"] = ["manifest.json", "payload.json"]
     with pytest.raises(ValueError, match="asset names are incomplete or noncanonical"):
         ratchet._validate_durable_capsule(partial, boundary="corrective_bootstrap", end_sha=end_sha)
-    duplicated = copy.deepcopy(capsule)
-    duplicated["release"]["asset_api_ids"] = [101, 101, 102]
-    with pytest.raises(ValueError, match="asset API IDs are incomplete"):
+    # Entry 32: a stale-schema payload still carrying asset_api_ids fails
+    # closed — the release claim binds only publication-time-knowable fields.
+    stale_schema = copy.deepcopy(capsule)
+    stale_schema["release"]["asset_api_ids"] = [101, 102, 103]
+    with pytest.raises(ValueError, match="durable release claim fields"):
         ratchet._validate_durable_capsule(
-            duplicated, boundary="corrective_bootstrap", end_sha=end_sha
+            stale_schema, boundary="corrective_bootstrap", end_sha=end_sha
+        )
+    # A claim that DROPS a required pre-known field fails the same exact-shape
+    # check: the retained binding set is mandatory, not optional.
+    missing_release_id = copy.deepcopy(capsule)
+    del missing_release_id["release"]["release_api_id"]
+    with pytest.raises(ValueError, match="durable release claim fields"):
+        ratchet._validate_durable_capsule(
+            missing_release_id, boundary="corrective_bootstrap", end_sha=end_sha
         )
     # Attestation provenance is exactly actions/attest@v4 with the stable
     # release-attestation identity plane (entry 30): signer SAN regexp and
@@ -9041,7 +9115,6 @@ def test_release_replacement_deletion_or_tag_reuse_is_detected():
         "boundary": "corrective_bootstrap",
         "end_sha": end_sha,
         "release": {
-            "asset_api_ids": [101, 102, 103],
             "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
             "exact_full_sha_tag": end_sha,
             "immutable": True,
