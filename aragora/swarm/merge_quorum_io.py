@@ -347,6 +347,52 @@ def fetch_quorum_run_packet_classification(
     return parse_ci_packet_classification(proc.stdout, pr_number=pr, head_sha=head_sha)
 
 
+# Hard identity problems that stop one reviewer-signal item from counting.
+# Mirrors ``review_queue.IDENTITY_COUNT_BLOCKERS`` — the swarm layer cannot
+# import the CLI module (upward layer edge, and a circular import via
+# quorum_evidence), so the four blocker strings are duplicated here and pinned
+# against the CLI set by
+# tests/swarm/test_merge_quorum_reconcile.py::TestSignalFamiliesFromLint.
+_SIGNAL_IDENTITY_BLOCKERS: frozenset[str] = frozenset(
+    (
+        "missing_model_family_disclosure",
+        "unknown_model_family",
+        "heading_model_family_conflict",
+        "unknown_surface_reviewer",
+    )
+)
+
+
+def _signal_families_from_lint(lint: dict[str, Any]) -> tuple[str, ...]:
+    """Counted families backed by GENUINE model-review signal items.
+
+    Derives ``EvidenceComment.reviewer_signals`` provenance from the lint's
+    ``reviewer_signals`` list ONLY — never ``dogfood_evidence`` — mirroring the
+    live gate's signal-only western-frontier derivation (review_queue computes
+    ``has_western_frontier_signal`` from reviewer signals with an EMPTY dogfood
+    list). Families are intersected with ``counted_reviewer_ids`` so the result
+    is always a subset of the counted families (advisory-only exclusions carry
+    over), and items with hard identity blockers never contribute, keeping this
+    at-most-as-permissive as the gate.
+    """
+    counted = {
+        str(rid).strip().lower()
+        for rid in (lint.get("counted_reviewer_ids") or [])
+        if str(rid).strip()
+    }
+    families: set[str] = set()
+    for item in lint.get("reviewer_signals") or []:
+        if not isinstance(item, dict):
+            continue
+        problems = {str(problem) for problem in (item.get("identity_problems") or [])}
+        if problems & _SIGNAL_IDENTITY_BLOCKERS:
+            continue
+        family = str(item.get("model_family") or "").strip().lower()
+        if family and family in counted:
+            families.add(family)
+    return tuple(sorted(families))
+
+
 def fetch_evidence_comments(
     repo: str, pr: int, head_sha: str, head_committed_at: str
 ) -> list[EvidenceComment]:
@@ -371,6 +417,7 @@ def fetch_evidence_comments(
                 would_count=bool(lint.get("would_count")),
                 reviewer_id=str(counted[0]) if counted else "",
                 is_dogfood=bool(lint.get("dogfood_evidence")),
+                reviewer_signals=_signal_families_from_lint(lint),
             )
         )
     return results
