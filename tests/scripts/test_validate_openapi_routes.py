@@ -1014,6 +1014,47 @@ def test_unrecognized_route_metadata_shape_fails_closed(monkeypatch):
         validate_openapi_routes.get_handler_metadata_operations()
 
 
+def test_literal_witnesses_are_scoped_to_active_handler_source_files(tmp_path: Path):
+    active_src = tmp_path / "active_handler.py"
+    active_src.write_text('KEY = "GET /api/v1/active/literal"\n', encoding="utf-8")
+    inactive_src = tmp_path / "inactive_handler.py"
+    inactive_src.write_text('KEY = "POST /api/v1/inactive/literal"\n', encoding="utf-8")
+
+    # unscoped: both literals witness (legacy behavior when no census given)
+    unscoped = validate_openapi_routes.get_handler_source_literal_operations(tmp_path)
+    assert {(w["method"], w["raw_path_literal"]) for w in unscoped} == {
+        ("GET", "/api/v1/active/literal"),
+        ("POST", "/api/v1/inactive/literal"),
+    }
+    # scoped to the active-tier handler file census: literals in files that
+    # host no active handler are never served evidence (round 3: optional
+    # AP/AR dispatch literals must not count under a core-only tier filter)
+    allowed = frozenset({validate_openapi_routes._relative_source_path(str(active_src.resolve()))})
+    scoped = validate_openapi_routes.get_handler_source_literal_operations(
+        tmp_path, allowed_files=allowed
+    )
+    assert [(w["method"], w["raw_path_literal"]) for w in scoped] == [
+        ("GET", "/api/v1/active/literal")
+    ]
+
+
+def test_active_handler_source_files_cover_reexported_method_code(monkeypatch):
+    class ActiveHandler:
+        GET_ROUTES = ["/api/v1/active/route"]
+
+        def handle(self):
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_active", ActiveHandler)]),
+    )
+    files = validate_openapi_routes._active_handler_source_files()
+    # the census includes the file defining the class's method code
+    assert any(path.endswith("test_validate_openapi_routes.py") for path in files)
+
+
 def test_served_census_mirrors_server_active_tier_filter(monkeypatch):
     class ActiveHandler:
         GET_ROUTES = ["/api/v1/active/route"]

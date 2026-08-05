@@ -895,8 +895,35 @@ def _iter_executable_string_constants(tree: ast.Module) -> Iterator[tuple[str, i
             yield node.value, node.lineno
 
 
+def _active_handler_source_files() -> frozenset[str]:
+    """Repo-relative source files hosting the ACTIVE-TIER handler classes.
+
+    The set covers each active class's defining file plus every method's
+    ``__code__.co_filename`` (re-exported classes such as ``WebhookHandler``
+    define methods in a different file than the class's import location).
+    Literal witnesses outside this set describe code the server never
+    dispatches — inactive tiers or unregistered modules — and therefore prove
+    nothing about serving (review round 3 on this packet).
+    """
+    files: set[str] = set()
+    for handler_class in _iter_registry_handler_classes():
+        try:
+            source_file = inspect.getsourcefile(handler_class)
+        except (TypeError, OSError):
+            source_file = None
+        if source_file:
+            files.add(_relative_source_path(str(Path(source_file).resolve())))
+        for value in vars(handler_class).values():
+            function = getattr(value, "__func__", value)
+            code = getattr(function, "__code__", None)
+            if code is not None:
+                files.add(_relative_source_path(str(Path(code.co_filename).resolve())))
+    return frozenset(files)
+
+
 def get_handler_source_literal_operations(
     server_root: Path | None = None,
+    allowed_files: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Exact whole-string ``METHOD /api/...`` literals in executable server source.
 
@@ -906,11 +933,19 @@ def get_handler_source_literal_operations(
     *contains* an operation substring (log lines, error messages, usage text)
     never counts (review rounds 1-2 on this packet: raw text scanning let
     documentation prose and truncated f-string fragments fabricate served
-    operations).
+    operations). When ``allowed_files`` is provided, only literals in those
+    repo-relative files count: the method-aware plane passes the active-tier
+    handler file census so literals in unserved modules are never evidence
+    (review round 3).
     """
     root = server_root if server_root is not None else _REPO_ROOT / "aragora" / "server"
     witnesses: list[dict[str, Any]] = []
     for source_file in sorted(root.rglob("*.py")):
+        if (
+            allowed_files is not None
+            and _relative_source_path(str(source_file.resolve())) not in allowed_files
+        ):
+            continue
         try:
             tree = _parse_python_source(source_file)
         except RouteRegistrationScanError:
@@ -1711,7 +1746,9 @@ def validate_method_aware_plane(
             }
         )
     metadata_witnesses, path_only_routes = get_handler_metadata_operations()
-    literal_witnesses = get_handler_source_literal_operations()
+    literal_witnesses = get_handler_source_literal_operations(
+        allowed_files=_active_handler_source_files()
+    )
 
     served = _build_operations(
         [*wired_witnesses, *metadata_witnesses, *literal_witnesses],
