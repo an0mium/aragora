@@ -1330,18 +1330,82 @@ class WrappedHandler:
     assert operations == []
 
 
-def test_unresolvable_class_registrar_fails_closed(tmp_path: Path):
+def test_unreachable_attribute_registrars_stay_unverified_without_aborting(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     handler = tmp_path / "aragora" / "server" / "handlers" / "auto.py"
     registration.parent.mkdir(parents=True)
     handler.parent.mkdir(parents=True)
+    # round 9: attribute registrars outside static reach (missing class,
+    # non-local base, TYPE_CHECKING-guarded dead code) must SKIP — leaving
+    # their registrations unverified surfaces more drift, while aborting
+    # would hard-fail the validator on dead or third-party code. The
+    # name-called registrar alongside them still counts.
     registration.write_text(
-        "from aragora.server.handlers.auto import GhostHandler\nGhostHandler.register_routes(app)\n",
+        """
+from typing import TYPE_CHECKING
+from aragora.server.handlers.auto import GhostHandler, ExternalChild, register_real
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.auto import DeadHandler
+    DeadHandler.register_routes(app)
+
+def install(app):
+    GhostHandler.register_routes(app)
+    ExternalChild.register_routes(app)
+    register_real(app)
+""".lstrip(),
         encoding="utf-8",
     )
-    handler.write_text("class OtherHandler:\n    pass\n", encoding="utf-8")
-    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError, match="GhostHandler"):
-        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+    handler.write_text(
+        """
+from aiohttp.web import View
+
+class ExternalChild(View):
+    pass
+
+def register_real(app):
+    app.router.add_get("/api/v1/real", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert [(op["method"], op["path"]) for op in operations] == [("GET", "/api/v1/real")]
+
+
+def test_inherited_class_registrar_resolves_through_local_bases(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "auto.py"
+    base = tmp_path / "aragora" / "server" / "handlers" / "base.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.auto import ChildHandler\nChildHandler.register_routes(app)\n",
+        encoding="utf-8",
+    )
+    handler.write_text(
+        """
+from aragora.server.handlers.base import BaseReg
+
+class ChildHandler(BaseReg):
+    pass
+""".lstrip(),
+        encoding="utf-8",
+    )
+    base.write_text(
+        """
+class BaseReg:
+    @staticmethod
+    def register_routes(app, prefix="/api/v1/child"):
+        app.router.add_get(f"{prefix}/inherited", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert [(op["method"], op["path"]) for op in operations] == [("GET", "/api/v1/child/inherited")]
 
 
 def test_direct_router_receiver_requires_router_parameter_name(tmp_path: Path):

@@ -363,10 +363,13 @@ def _resolve_class_registration_method(
     protocol at a ``Class.method(app)`` call site: 0 for ``@staticmethod``
     and undecorated functions (accessing through the class yields the plain
     function), 1 for ``@classmethod`` (``cls`` is bound). A method carrying
-    any other decorator resolves to ``(None, module_path, 0)``: its runtime
-    call semantics are unproven, so its registrations stay unverified rather
-    than fabricated. Class reexports are followed like function reexports;
-    ``None`` means the class or method cannot be found at all.
+    any other decorator, or a method that may only exist on an unresolvable
+    base class, resolves to ``(None, module_path, 0)``: its runtime call
+    semantics are unproven, so its registrations stay unverified rather than
+    fabricated. Methods inherited from RESOLVABLE local bases are followed
+    through the class hierarchy (review round 9), and class reexports are
+    followed like function reexports; ``None`` means the class itself cannot
+    be found.
     """
     seen = set() if visited is None else visited
     key = (module_name, f"{class_name}.{method_name}")
@@ -387,14 +390,51 @@ def _resolve_class_registration_method(
         if isinstance(node, ast.ClassDef) and node.name == class_name
     ]
     if class_definitions:
+        class_definition = class_definitions[-1]
         methods = [
             node
-            for node in class_definitions[-1].body
+            for node in class_definition.body
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
             and node.name == method_name
         ]
         if not methods:
-            return None
+            # The method may be inherited. Follow bases that resolve to
+            # local classes (same module or a local ``from`` import); any
+            # base outside that reach leaves the method unproven — skip,
+            # never fabricate and never abort the scan (review round 9).
+            local_classes = {
+                node.name for node in module_tree.body if isinstance(node, ast.ClassDef)
+            }
+            module_imports: dict[str, tuple[str, str]] = {}
+            for node in module_tree.body:
+                if isinstance(node, ast.ImportFrom):
+                    imported_module = _resolve_import_module(module_name, module_path, node)
+                    if imported_module is None:
+                        continue
+                    for imported in node.names:
+                        module_imports[imported.asname or imported.name] = (
+                            imported_module,
+                            imported.name,
+                        )
+            for base in class_definition.bases:
+                if not isinstance(base, ast.Name):
+                    return None, module_path, 0
+                if base.id in local_classes:
+                    resolved_base = _resolve_class_registration_method(
+                        repo_root, module_name, base.id, method_name, seen
+                    )
+                elif base.id in module_imports:
+                    base_module, base_name = module_imports[base.id]
+                    resolved_base = _resolve_class_registration_method(
+                        repo_root, base_module, base_name, method_name, seen
+                    )
+                else:
+                    return None, module_path, 0
+                if resolved_base is None:
+                    return None, module_path, 0
+                if resolved_base[0] is not None:
+                    return resolved_base
+            return None, module_path, 0
         method = methods[-1]
         decorators = {
             decorator.id for decorator in method.decorator_list if isinstance(decorator, ast.Name)
@@ -492,6 +532,37 @@ def _registrar_parameter_bindings(
 _TRY_NODE_TYPES: tuple[type[ast.AST], ...] = (
     (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
 )
+
+
+def _is_type_checking_test(test: ast.expr) -> bool:
+    """Whether an ``if`` test is the ``TYPE_CHECKING`` guard (or ``typing.``-qualified)."""
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "typing"
+    )
+
+
+def _walk_excluding_type_checking(tree: ast.AST) -> Iterator[ast.AST]:
+    """``ast.walk`` that never descends into ``if TYPE_CHECKING:`` bodies.
+
+    Those blocks are guaranteed not to execute at runtime, so a
+    ``register_*`` call inside one is not wiring evidence (review round 9:
+    counting it could fabricate served operations from dead code). Function
+    bodies stay included — the wiring module's registrars run at startup,
+    which is the same executability assumption the name-called scan makes.
+    """
+    stack: list[ast.AST] = [tree]
+    while stack:
+        node = stack.pop()
+        yield node
+        if isinstance(node, ast.If) and _is_type_checking_test(node.test):
+            stack.extend(node.orelse)
+            continue
+        stack.extend(ast.iter_child_nodes(node))
 
 
 def _contains_loop_flow_escape(nodes: Iterable[ast.AST]) -> bool:
@@ -714,9 +785,15 @@ def get_wired_function_operations(
             local_name = imported.asname or imported.name
             imports[local_name] = (node.module, imported.name)
 
+    # Extended mode never counts calls inside ``if TYPE_CHECKING:`` blocks
+    # (guaranteed dead at runtime); the legacy plane keeps its historical
+    # whole-tree walk so the pinned baseline's input set is untouched.
+    wiring_nodes: Iterable[ast.AST] = (
+        _walk_excluding_type_checking(wiring_tree) if extended else ast.walk(wiring_tree)
+    )
     called_names = {
         node.func.id
-        for node in ast.walk(wiring_tree)
+        for node in wiring_nodes
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
 
@@ -755,7 +832,7 @@ def get_wired_function_operations(
         )
 
     if extended:
-        for node in ast.walk(wiring_tree):
+        for node in _walk_excluding_type_checking(wiring_tree):
             if not (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
@@ -771,15 +848,20 @@ def get_wired_function_operations(
             if resolved_method is None:
                 # Not a local class: the imported name may be a MODULE
                 # (``from aragora.server import routes; routes.register_all(app)``),
-                # whose attribute is then a plain function registrar.
+                # whose attribute is then a plain function registrar. If that
+                # fails too, the receiver is outside static reach (non-local
+                # class, dynamic object): SKIP, leaving its registrations
+                # unverified. Attribute registrars are additive extended
+                # evidence — pre-PR they were entirely invisible — and a miss
+                # only surfaces MORE visible drift (unserved-spec /
+                # method-unresolved debt); it can never fabricate a served
+                # claim. Raising here made dead or non-local attribute calls
+                # hard-fail the whole validator (review round 9).
                 resolved_module_function = _resolve_registration_function(
                     root, f"{module_name}.{imported_name}", node.func.attr
                 )
                 if resolved_module_function is None:
-                    raise RouteRegistrationScanError(
-                        "cannot resolve wired registrar "
-                        f"{module_name}:{imported_name}.{node.func.attr}"
-                    )
+                    continue
                 module_function, function_module_path = resolved_module_function
                 if not module_function.args.args:
                     continue
@@ -795,8 +877,9 @@ def get_wired_function_operations(
                 continue
             method_function, method_module_path, implicit_params = resolved_method
             if method_function is None:
-                # Unrecognized decorator: runtime call semantics unproven,
-                # registrations stay unverified rather than fabricated.
+                # Unrecognized decorator or unprovable inheritance: runtime
+                # call semantics unproven, registrations stay unverified
+                # rather than fabricated.
                 continue
             if len(method_function.args.args) <= implicit_params:
                 continue
