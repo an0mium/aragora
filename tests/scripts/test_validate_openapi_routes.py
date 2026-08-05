@@ -12,6 +12,15 @@ import pytest
 import scripts.validate_openapi_routes as validate_openapi_routes
 
 
+def _fake_registry(entries):
+    """Fake handler_registry module mirroring the real tier-filter surface."""
+    return types.SimpleNamespace(
+        HANDLER_REGISTRY=entries,
+        get_active_tiers=lambda: {"core", "extended", "optional"},
+        filter_registry_by_tier=lambda registry, active_tiers=None: list(registry),
+    )
+
+
 def test_fail_on_missing_passes_when_only_baseline_drift(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         validate_openapi_routes, "get_handler_routes", lambda: {"/api/v1/a", "/api/v1/b"}
@@ -100,7 +109,7 @@ def test_get_handler_routes_resolves_deferred_imports(monkeypatch):
         def resolve(self):
             return DummyHandler
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyDeferred())])
+    fake_registry = _fake_registry([("_dummy", DummyDeferred())])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     routes = validate_openapi_routes.get_handler_routes()
@@ -117,7 +126,7 @@ def test_get_handler_routes_includes_api_endpoint_metadata(monkeypatch):
 
     setattr(DummyHandler.handle, "_openapi", endpoint)
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     routes = validate_openapi_routes.get_handler_routes()
@@ -370,7 +379,7 @@ def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, t
 
     setattr(DummyHandler.handle, "_openapi", endpoint)
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
     monkeypatch.setattr(
         validate_openapi_routes,
@@ -422,7 +431,7 @@ def test_filter_served_orphans_drops_can_handle_routes(monkeypatch):
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path in ("/api/v1/served/route", "/api/served/route")
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    fake_registry = _fake_registry([("_serving", ServingHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     orphaned, served = validate_openapi_routes.filter_served_orphans(
@@ -446,7 +455,7 @@ def test_filter_served_orphans_does_not_credit_v1_matcher_for_legacy_candidate(m
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path == "/api/v1/served/versioned-only"
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", VersionedOnlyHandler)])
+    fake_registry = _fake_registry([("_serving", VersionedOnlyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/served/versioned-only"})
@@ -460,7 +469,7 @@ def test_filter_served_orphans_survives_broken_can_handle(monkeypatch):
         def can_handle(self, path: str, method: str = "GET") -> bool:
             raise AttributeError("uninitialized state")
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_broken", BrokenHandler)])
+    fake_registry = _fake_registry([("_broken", BrokenHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/x"})
@@ -507,7 +516,7 @@ def test_filter_served_orphans_rejects_prefix_matching_can_handle(monkeypatch):
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path.startswith("/api/v1/broad") or path.startswith("/api/broad")
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_broad", BroadHandler)])
+    fake_registry = _fake_registry([("_broad", BroadHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/broad/route"})
@@ -523,7 +532,7 @@ def test_filter_served_orphans_logs_suppressions(monkeypatch, capsys):
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path in ("/api/v1/served/route", "/api/served/route")
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    fake_registry = _fake_registry([("_serving", ServingHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     orphaned, served = validate_openapi_routes.filter_served_orphans({"/api/v1/served/route"})
@@ -542,7 +551,7 @@ def test_validate_coverage_excludes_served_orphans(monkeypatch, tmp_path: Path):
         def can_handle(self, path: str, method: str = "GET") -> bool:
             return path == "/api/v1/served-only"
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_serving", ServingHandler)])
+    fake_registry = _fake_registry([("_serving", ServingHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
     monkeypatch.setattr(
         validate_openapi_routes,
@@ -856,7 +865,7 @@ def test_method_specific_route_maps_and_decorators_are_evidence(monkeypatch):
 
     DummyHandler.deco._openapi = endpoint
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()
@@ -872,7 +881,7 @@ def test_handler_path_presence_is_not_method_evidence(monkeypatch):
     class DummyHandler:
         ROUTES = ["/api/v1/pathonly/route"]
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()
@@ -888,7 +897,7 @@ def test_wildcard_prefix_is_not_operation_evidence(monkeypatch, tmp_path: Path):
     class DummyHandler:
         GET_ROUTES = ["/api/v1/files/*"]
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
     witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()
     assert witnesses == []
@@ -902,6 +911,140 @@ def test_wildcard_prefix_is_not_operation_evidence(monkeypatch, tmp_path: Path):
     src.write_text('X = "GET /api/v1/files/list"\n', encoding="utf-8")
     lits = validate_openapi_routes.get_handler_source_literal_operations(tmp_path)
     assert [(w["method"], w["raw_path_literal"]) for w in lits] == [("GET", "/api/v1/files/list")]
+
+
+def test_fstring_fragments_and_prose_substrings_are_never_witnesses(tmp_path: Path):
+    src = tmp_path / "handler.py"
+    src.write_text(
+        "def h(debate_id):\n"
+        '    usage = "  - GET /api/debates - List recent debates"\n'
+        '    raise ValueError("POST /api/v1/x denied for this role")\n'
+        '    return f"GET /api/v1/debates/{debate_id}/messages"\n',
+        encoding="utf-8",
+    )
+    lits = validate_openapi_routes.get_handler_source_literal_operations(tmp_path)
+    # prose containing an operation substring and truncated f-string fragments
+    # never fabricate served operations
+    assert lits == []
+    # the exact whole-string dispatch-key form still witnesses
+    src.write_text('KEY = "GET /api/v1/debates"\n', encoding="utf-8")
+    lits = validate_openapi_routes.get_handler_source_literal_operations(tmp_path)
+    assert [(w["method"], w["raw_path_literal"]) for w in lits] == [("GET", "/api/v1/debates")]
+    # and no fragment of any f-string is ever yielded as a constant
+    import ast as ast_module
+
+    tree = ast_module.parse('def h(x):\n    return f"GET /api/v1/debates/{x}/messages"\n')
+    assert list(validate_openapi_routes._iter_executable_string_constants(tree)) == []
+
+
+def test_dict_route_metadata_is_explicit_method_evidence(monkeypatch):
+    class DictHandler:
+        ROUTES = {
+            "/api/v1/accounting/expenses": ["GET", "POST"],
+            "/api/v1/accounting/expenses/upload": ["POST"],
+        }
+        DYNAMIC_ROUTES = {
+            "/api/v1/accounting/expenses/{expense_id}": ["GET", "PUT", "DELETE"],
+        }
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_dict", DictHandler)]),
+    )
+    witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()
+    seen = {(w["method"], w["raw_path_literal"]) for w in witnesses}
+    assert ("GET", "/api/v1/accounting/expenses") in seen
+    assert ("POST", "/api/v1/accounting/expenses") in seen
+    assert ("POST", "/api/v1/accounting/expenses/upload") in seen
+    assert ("GET", "/api/v1/accounting/expenses/{expense_id}") in seen
+    assert ("PUT", "/api/v1/accounting/expenses/{expense_id}") in seen
+    assert ("DELETE", "/api/v1/accounting/expenses/{expense_id}") in seen
+    assert path_only == set()
+
+    # a lowercase verb in the method list stays method-unresolved, not guessed
+    class SloppyHandler:
+        ROUTES = {"/api/v1/sloppy": ["get"]}
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_sloppy", SloppyHandler)]),
+    )
+    witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()
+    assert witnesses == []
+    assert "/api/v1/sloppy" in path_only
+
+
+def test_unrecognized_route_metadata_shape_fails_closed(monkeypatch):
+    # a dict value that is not a method list is unproven served surface
+    class BadValueHandler:
+        ROUTES = {"/api/v1/bad": "GET"}
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_bad", BadValueHandler)]),
+    )
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="explicit"):
+        validate_openapi_routes.get_handler_metadata_operations()
+
+    # an alien entry shape inside list ROUTES is rejected, never dropped
+    class AlienEntryHandler:
+        ROUTES = [{"path": "/api/v1/alien"}]
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_alien", AlienEntryHandler)]),
+    )
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="unrecognized"):
+        validate_openapi_routes.get_handler_metadata_operations()
+
+    # an alien ROUTES container type is rejected
+    class AlienContainerHandler:
+        ROUTES = 42
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_container", AlienContainerHandler)]),
+    )
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="container"):
+        validate_openapi_routes.get_handler_metadata_operations()
+
+
+def test_served_census_mirrors_server_active_tier_filter(monkeypatch):
+    class ActiveHandler:
+        GET_ROUTES = ["/api/v1/active/route"]
+
+    class InactiveHandler:
+        GET_ROUTES = ["/api/v1/inactive/route"]
+
+    tiers = {"_active": "core", "_inactive": "enterprise"}
+
+    def filter_registry_by_tier(registry, active_tiers=None):
+        return [(name, ref) for name, ref in registry if tiers[name] in active_tiers]
+
+    fake = types.SimpleNamespace(
+        HANDLER_REGISTRY=[("_active", ActiveHandler), ("_inactive", InactiveHandler)],
+        get_active_tiers=lambda: {"core", "extended", "optional"},
+        filter_registry_by_tier=filter_registry_by_tier,
+    )
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake)
+    witnesses, _path_only = validate_openapi_routes.get_handler_metadata_operations()
+    paths = {w["raw_path_literal"] for w in witnesses}
+    # the inactive-tier handler is genuinely not served, so it never enters
+    # the served census; the active-tier handler does
+    assert "/api/v1/active/route" in paths
+    assert "/api/v1/inactive/route" not in paths
+    # if the registry stops exposing the tier surface, the census fails closed
+    broken = types.SimpleNamespace(
+        HANDLER_REGISTRY=[("_active", ActiveHandler)],
+    )
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", broken)
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="mirror"):
+        validate_openapi_routes.get_handler_metadata_operations()
 
 
 def test_internal_prefix_matching_is_segment_bounded():
@@ -994,7 +1137,7 @@ def test_incomplete_or_conflicting_operation_metadata_is_retained_as_drift(monke
     DummyHandler.bad._openapi = bad_endpoint
     DummyHandler.missing._openapi = missing_endpoint
 
-    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    fake_registry = _fake_registry([("_dummy", DummyHandler)])
     monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
 
     witnesses, path_only = validate_openapi_routes.get_handler_metadata_operations()

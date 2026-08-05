@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib
 import inspect
 import json
 import os
@@ -363,8 +364,9 @@ def _iter_executable_calls(
     for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
             continue
-        if isinstance(node, ast.For):
+        if isinstance(node, (ast.For, ast.AsyncFor)):
             loop_bound = dict(bound)
+            orelse_bound = dict(bound)
             if isinstance(node.target, ast.Name) and isinstance(node.iter, (ast.Tuple, ast.List)):
                 literal_values = [
                     element.value
@@ -373,8 +375,12 @@ def _iter_executable_calls(
                 ]
                 if literal_values and len(literal_values) == len(node.iter.elts):
                     loop_bound[node.target.id] = tuple(literal_values)
+                    # After exhaustion the loop variable holds only the LAST
+                    # element, so the else-block binding is exactly that value.
+                    orelse_bound[node.target.id] = (literal_values[-1],)
             yield from _iter_executable_calls([node.iter], bound)
-            yield from _iter_executable_calls([*node.body, *node.orelse], loop_bound)
+            yield from _iter_executable_calls(node.body, loop_bound)
+            yield from _iter_executable_calls(node.orelse, orelse_bound)
             continue
         if isinstance(node, ast.Call):
             yield node, bound
@@ -813,9 +819,10 @@ def path_normalization_binding() -> dict[str, Any]:
 
 
 def _require_exact_ref(ref: str) -> str:
-    if not re.fullmatch(r"[0-9a-f]{40}", ref or ""):
+    # 40 hex is a SHA-1 object name; 64 hex supports SHA-256 object-format repos.
+    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", ref or ""):
         raise MethodAwareError(
-            f"--ref must be an exact 40-hex commit SHA, got {ref!r}; "
+            f"--ref must be an exact 40- or 64-hex commit SHA, got {ref!r}; "
             'run with --ref "$(git rev-parse HEAD)"'
         )
     return ref
@@ -856,14 +863,15 @@ def _evidence_sort_key(witness: dict[str, Any]) -> tuple[str, str, int, str, str
 
 
 def _iter_executable_string_constants(tree: ast.Module) -> Iterator[tuple[str, int]]:
-    """Yield ``(value, lineno)`` for string constants outside docstrings.
+    """Yield ``(value, lineno)`` for whole string constants outside docstrings.
 
     Comments never reach the AST, and module/class/function docstrings are
-    excluded positionally, so only executable string literals (dispatch keys,
-    route tables, comparisons) remain. Prose can therefore never become served
-    method evidence.
+    excluded positionally. Constants nested inside f-strings are excluded
+    structurally: an ``ast.JoinedStr`` fragment such as ``"GET /api/debates/"``
+    from ``f"GET /api/debates/{id}"`` is a truncated piece of a computed
+    string, never an exact witness.
     """
-    docstrings: set[int] = set()
+    excluded: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             body = node.body
@@ -873,12 +881,16 @@ def _iter_executable_string_constants(tree: ast.Module) -> Iterator[tuple[str, i
                 and isinstance(body[0].value, ast.Constant)
                 and isinstance(body[0].value.value, str)
             ):
-                docstrings.add(id(body[0].value))
+                excluded.add(id(body[0].value))
+        elif isinstance(node, ast.JoinedStr):
+            for part in node.values:
+                if isinstance(part, ast.Constant):
+                    excluded.add(id(part))
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.Constant)
             and isinstance(node.value, str)
-            and id(node) not in docstrings
+            and id(node) not in excluded
         ):
             yield node.value, node.lineno
 
@@ -886,11 +898,15 @@ def _iter_executable_string_constants(tree: ast.Module) -> Iterator[tuple[str, i
 def get_handler_source_literal_operations(
     server_root: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Explicit ``METHOD /api/...`` literals in executable server source.
+    """Exact whole-string ``METHOD /api/...`` literals in executable server source.
 
-    Only string constants in executable positions count: comments and
-    docstrings are structurally excluded (review round 1 on this packet: raw
-    text scanning let documentation prose fabricate served operations).
+    A witness must be an entire executable string constant of exactly
+    ``METHOD /api/...`` (the dispatch-key form). Comments, docstrings, and
+    f-string fragments are structurally excluded, and prose that merely
+    *contains* an operation substring (log lines, error messages, usage text)
+    never counts (review rounds 1-2 on this packet: raw text scanning let
+    documentation prose and truncated f-string fragments fabricate served
+    operations).
     """
     root = server_root if server_root is not None else _REPO_ROOT / "aragora" / "server"
     witnesses: list[dict[str, Any]] = []
@@ -900,40 +916,59 @@ def get_handler_source_literal_operations(
         except RouteRegistrationScanError:
             continue
         for value, lineno in _iter_executable_string_constants(tree):
-            for match in _HANDLER_METHOD_PATH_LITERAL_RE.finditer(value):
-                path = _clean_literal_path(match.group(2))
-                if path is None:
-                    continue
-                witnesses.append(
-                    {
-                        "evidence_type": "handler_source_method_path_literal",
-                        "method": match.group(1),
-                        "raw_path_literal": path,
-                        "source_path": _relative_source_path(source_file),
-                        "source_line": lineno,
-                        "match_text": match.group(0),
-                    }
-                )
+            match = _HANDLER_METHOD_PATH_LITERAL_RE.fullmatch(value.strip())
+            if match is None:
+                continue
+            path = _clean_literal_path(match.group(2))
+            if path is None:
+                continue
+            witnesses.append(
+                {
+                    "evidence_type": "handler_source_method_path_literal",
+                    "method": match.group(1),
+                    "raw_path_literal": path,
+                    "source_path": _relative_source_path(source_file),
+                    "source_line": lineno,
+                    "match_text": match.group(0),
+                }
+            )
     return witnesses
 
 
 def _iter_registry_handler_classes() -> Iterator[Any]:
-    """Resolve every registry handler, failing CLOSED on resolution failure.
+    """Resolve the ACTIVE-TIER registry census, failing CLOSED on resolution.
 
-    A handler that cannot resolve is unproven served surface: silently
-    dropping it would retire served-but-undeclared drift and manufacture
-    unserved-spec orphans (review round 1 on this packet). The legacy
-    path-level plane keeps its historical skip behavior; the method-aware
-    plane refuses to publish a partial census.
+    Serving truth mirrors the server exactly: startup filters
+    ``HANDLER_REGISTRY`` through ``filter_registry_by_tier(get_active_tiers())``
+    before resolving anything, so handlers outside the active tiers are
+    genuinely not served and are excluded here for the same reason (review
+    round 2: censusing inactive tiers made validation depend on unserved
+    handlers). Within the active set, a handler that cannot resolve is
+    unproven served surface: silently dropping it would retire
+    served-but-undeclared drift and manufacture unserved-spec orphans (review
+    round 1), so the method-aware plane refuses to publish a partial census.
+    The legacy path-level plane keeps its historical skip behavior.
     """
     try:
-        from aragora.server.handler_registry import HANDLER_REGISTRY
+        # import_module resolves through sys.modules, honoring test isolation;
+        # ``import a.b.c as name`` would bypass a monkeypatched module entry.
+        handler_registry = importlib.import_module("aragora.server.handler_registry")
     except ImportError as exc:  # pragma: no cover - environment failure
         raise MethodAwareError(f"cannot import handler_registry: {exc}") from exc
 
+    registry = handler_registry.HANDLER_REGISTRY
+    filter_by_tier = getattr(handler_registry, "filter_registry_by_tier", None)
+    get_active_tiers = getattr(handler_registry, "get_active_tiers", None)
+    if not callable(filter_by_tier) or not callable(get_active_tiers):
+        raise MethodAwareError(
+            "handler_registry no longer exposes filter_registry_by_tier/"
+            "get_active_tiers; the served census cannot mirror server startup"
+        )
+    active_registry = filter_by_tier(registry, get_active_tiers())
+
     failures: list[str] = []
     resolved_classes: list[Any] = []
-    for attr_name, handler_ref in HANDLER_REGISTRY:
+    for attr_name, handler_ref in active_registry:
         handler_class = handler_ref
         resolve = getattr(handler_ref, "resolve", None)
         if callable(resolve):
@@ -949,7 +984,8 @@ def _iter_registry_handler_classes() -> Iterator[Any]:
     if failures:
         raise MethodAwareError(
             "handler registry resolution failed for "
-            f"{len(failures)} entries; refusing a partial served census: " + "; ".join(failures[:5])
+            f"{len(failures)} active-tier entries; refusing a partial served census: "
+            + "; ".join(failures[:5])
         )
     yield from resolved_classes
 
@@ -992,16 +1028,56 @@ def get_handler_metadata_operations() -> tuple[list[dict[str, Any]], set[str]]:
             }
         )
 
+    def _witness_route_map(handler_class: Any, symbol: str, route_map: dict[Any, Any]) -> None:
+        """Dict metadata: ``{path: [methods]}`` or ``{"METHOD path": handler}``.
+
+        Both live shapes carry explicit methods and are served method
+        evidence. Any other value shape is unproven served surface and fails
+        closed rather than being silently dropped.
+        """
+        for key, value in route_map.items():
+            if not isinstance(key, str):
+                raise MethodAwareError(
+                    f"{symbol} maps a non-string key {key!r}; route metadata must be explicit"
+                )
+            head, _, tail = key.partition(" ")
+            if head in _RUNTIME_METHODS and tail.startswith("/api/"):
+                # "METHOD /api/..." dispatch key mapping to a handler callable.
+                _witness(handler_class, symbol, head, tail)
+                continue
+            if isinstance(value, (list, tuple)):
+                for method in value:
+                    if isinstance(method, str) and method in _RUNTIME_METHODS:
+                        _witness(handler_class, symbol, method, key)
+                    else:
+                        # Alien or lowercase verbs are never accepted; the path
+                        # is retained as method-unresolved drift, not guessed.
+                        path_only.add(key)
+                continue
+            raise MethodAwareError(
+                f"{symbol}[{key!r}] must map to an explicit method list or use "
+                f"a 'METHOD /api/...' dispatch key, got {type(value).__name__}"
+            )
+
     for handler_class in _iter_registry_handler_classes():
         class_name = getattr(handler_class, "__name__", repr(handler_class))
 
         plain_routes = getattr(handler_class, "ROUTES", None)
-        if isinstance(plain_routes, (list, tuple)):
+        if isinstance(plain_routes, dict):
+            # Dict-shaped metadata ({path: [methods]}) is explicit method
+            # evidence (review round 2: real optional handlers such as
+            # expenses/invoices/rlm declare this shape and were silently
+            # omitted from the served census).
+            _witness_route_map(handler_class, f"{class_name}.ROUTES", plain_routes)
+        elif isinstance(plain_routes, (list, tuple)):
             for entry in plain_routes:
-                if isinstance(entry, tuple) and len(entry) >= 2:
+                if isinstance(entry, (tuple, list)) and len(entry) >= 2:
                     method, path = entry[0], entry[1]
                     if not isinstance(path, str):
-                        continue
+                        raise MethodAwareError(
+                            f"{class_name}.ROUTES pair {entry!r} carries a "
+                            "non-string path; route metadata must be explicit"
+                        )
                     if isinstance(method, str) and method in _RUNTIME_METHODS:
                         _witness(handler_class, f"{class_name}.ROUTES", method, path)
                     else:
@@ -1010,7 +1086,12 @@ def get_handler_metadata_operations() -> tuple[list[dict[str, Any]], set[str]]:
                         path_only.add(path)
                     continue
                 if not isinstance(entry, str):
-                    continue
+                    # An unrecognized metadata shape is unproven served
+                    # surface; dropping it silently would erase operations.
+                    raise MethodAwareError(
+                        f"{class_name}.ROUTES entry {entry!r} has an "
+                        "unrecognized shape; route metadata must be explicit"
+                    )
                 head, _, tail = entry.partition(" ")
                 if head in _RUNTIME_METHODS and tail.startswith("/api/"):
                     _witness(handler_class, f"{class_name}.ROUTES", head, tail)
@@ -1020,6 +1101,28 @@ def get_handler_metadata_operations() -> tuple[list[dict[str, Any]], set[str]]:
                     path_only.add(tail)
                 else:
                     path_only.add(entry)
+        elif plain_routes is not None:
+            raise MethodAwareError(
+                f"{class_name}.ROUTES has unrecognized container type "
+                f"{type(plain_routes).__name__}; route metadata must be explicit"
+            )
+
+        dynamic_routes = getattr(handler_class, "DYNAMIC_ROUTES", None)
+        if isinstance(dynamic_routes, dict):
+            # Parametrized dispatch metadata is served surface with explicit
+            # methods, exactly like dict-shaped ROUTES.
+            _witness_route_map(handler_class, f"{class_name}.DYNAMIC_ROUTES", dynamic_routes)
+        elif isinstance(dynamic_routes, (list, tuple)):
+            # Bare parametrized paths prove served surface but no method:
+            # method-unresolved drift, never guessed.
+            for entry in dynamic_routes:
+                if isinstance(entry, str) and entry.startswith("/api/"):
+                    path_only.add(entry)
+        elif dynamic_routes is not None:
+            raise MethodAwareError(
+                f"{class_name}.DYNAMIC_ROUTES has unrecognized container type "
+                f"{type(dynamic_routes).__name__}; route metadata must be explicit"
+            )
 
         for method_attr in _METHOD_ROUTES_ATTRS:
             method_routes = getattr(handler_class, method_attr, None)
