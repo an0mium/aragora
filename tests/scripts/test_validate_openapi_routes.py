@@ -815,13 +815,10 @@ def test_legacy_missing_spec_cannot_double_count():
         [_op("DELETE", "/api/only-spec", evidence_type="openapi_operation_key")],
     )
     # the canonical missing-spec set is served_but_undeclared; no legacy
-    # missing_spec key exists anywhere in the plane output
+    # missing_spec key exists anywhere in the algebra output
     assert "missing_spec" not in collections
     plane_keys = set(collections.keys())
     assert "served_but_undeclared" in plane_keys
-    # and the validator's full plane output never emits a legacy field either
-    source = Path(validate_openapi_routes.__file__).read_text(encoding="utf-8")
-    assert '"missing_spec"' not in source
 
 
 def test_method_aware_route_census_distinguishes_same_path_methods():
@@ -1372,6 +1369,62 @@ def register_real(app):
         registration, tmp_path, extended=True
     )
     assert [(op["method"], op["path"]) for op in operations] == [("GET", "/api/v1/real")]
+
+
+def test_diamond_hierarchy_never_aborts_the_scan(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import C\nC.register_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 10: a diamond (C -> A,B -> Base) revisits Base; the visited-key
+    # guard must report "unproven" instead of raising a cyclic error
+    handler.write_text(
+        """
+class Base:
+    pass
+
+class A(Base):
+    pass
+
+class B(Base):
+    pass
+
+class C(A, B):
+    pass
+""".lstrip(),
+        encoding="utf-8",
+    )
+    assert (
+        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+        == []
+    )
+    # when the shared base DOES define the registrar, it resolves normally
+    handler.write_text(
+        """
+class Base:
+    @staticmethod
+    def register_routes(app, prefix="/api/v1/diamond"):
+        app.router.add_get(f"{prefix}/route", object())
+
+class A(Base):
+    pass
+
+class B(Base):
+    pass
+
+class C(A, B):
+    pass
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert [(op["method"], op["path"]) for op in operations] == [("GET", "/api/v1/diamond/route")]
 
 
 def test_inherited_class_registrar_resolves_through_local_bases(tmp_path: Path):

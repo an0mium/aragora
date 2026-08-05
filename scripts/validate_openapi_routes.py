@@ -42,11 +42,15 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    # Direct script execution (python scripts/validate_openapi_routes.py)
-    from sdk_path_normalize import normalize_sdk_path
-except ModuleNotFoundError:
-    # Module import context (pytest importing scripts.validate_openapi_routes)
+    # Qualified form first: with _REPO_ROOT pinned to the front of sys.path
+    # this can only resolve to scripts/sdk_path_normalize.py, so a same-named
+    # module elsewhere on sys.path is never silently preferred as the
+    # normalization authority (review round 10).
     from scripts.sdk_path_normalize import normalize_sdk_path
+except ModuleNotFoundError:
+    # Direct script execution (python scripts/validate_openapi_routes.py)
+    # when "scripts" is not importable as a package.
+    from sdk_path_normalize import normalize_sdk_path  # type: ignore[import-not-found, no-redef]
 
 _SERVER_ROUTE_REGISTRATION = (
     _REPO_ROOT / "aragora" / "server" / "stream" / "servers_route_registration.py"
@@ -374,10 +378,16 @@ def _resolve_class_registration_method(
     seen = set() if visited is None else visited
     key = (module_name, f"{class_name}.{method_name}")
     if key in seen:
-        raise RouteRegistrationScanError(
-            f"cyclic route-registration reexport while resolving "
-            f"{module_name}:{class_name}.{method_name}"
-        )
+        # Already-visited covers BOTH a genuine reexport cycle and a diamond
+        # hierarchy converging on a shared base (review round 10). Either
+        # way this branch has nothing new to prove: report "found the class,
+        # method unproven" so the caller skips rather than aborts — a
+        # legitimate diamond must not hard-fail the scan, and for a true
+        # cycle every path returns unproven, never a fabricated witness.
+        module_path = _resolve_local_module(repo_root, module_name)
+        if module_path is None:
+            return None
+        return None, module_path, 0
     seen.add(key)
 
     module_path = _resolve_local_module(repo_root, module_name)
