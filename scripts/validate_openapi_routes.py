@@ -422,20 +422,30 @@ def _literal_path_candidates(
 def get_wired_function_operations(
     registration_path: Path | None = None,
     repo_root: Path | None = None,
+    extended: bool = False,
 ) -> list[dict[str, Any]]:
     """Statically extract literal wired operations with exact method evidence.
 
     The server registration module is the authority for which free functions
     participate in startup. Only imported ``register_*`` callables that are
     actually called there are considered. Within those exact function bodies,
-    literal ``add_<method>('/api/...')`` calls count with the router method
-    name as the exact HTTP method witness, and literal
-    ``add_route("METHOD", '/api/...')`` calls count with the explicit
-    uppercase method constant as the witness. The receiver must be the wired
-    app's router (``app.router.add_*``) or a router passed directly as the
-    registrar's first argument (``router.add_*``). Local package reexports are
-    followed to their function definition. Computed paths and methods and
-    unrelated route-registration helpers remain unverified.
+    literal ``add_<method>('/api/...')`` calls on the wired app's router
+    (``app.router.add_*``) with plain constant paths count, and the router
+    method name is the exact HTTP method witness.
+
+    With ``extended=True`` (the method-aware plane), three additional exact
+    evidence forms count: literal ``add_route("METHOD", '/api/...')`` calls
+    with the explicit uppercase method constant as the witness; a receiver
+    that is the registrar's first argument itself when that parameter is
+    literally named ``router`` (``def register(router): router.add_*``); and
+    f-string paths whose only interpolations are for-loop variables bound to
+    literal string tuples, folded to their exact registered values. The
+    legacy path-level plane keeps the original narrower semantics so its
+    pinned baseline is not silently re-scoped (review round 4).
+
+    Local package reexports are followed to their function definition.
+    Computed paths and methods and unrelated route-registration helpers
+    remain unverified.
     """
     root = repo_root or _REPO_ROOT
     wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
@@ -482,15 +492,22 @@ def get_wired_function_operations(
                 and isinstance(receiver.value, ast.Name)
                 and receiver.value.id == app_argument
             )
+            # Extended only: the registrar's first argument IS the router,
+            # required to be literally named "router" so an arbitrary
+            # first-parameter object with unrelated add_* helpers never
+            # counts (review round 4).
             receiver_is_direct_router = (
-                isinstance(receiver, ast.Name) and receiver.id == app_argument
+                extended
+                and isinstance(receiver, ast.Name)
+                and receiver.id == app_argument
+                and app_argument == "router"
             )
             if not (receiver_is_app_router or receiver_is_direct_router):
                 continue
             if call.func.attr in _LITERAL_ROUTER_METHODS:
                 method = call.func.attr.removeprefix("add_").upper()
                 path_argument = call.args[0]
-            elif call.func.attr == "add_route" and len(call.args) >= 2:
+            elif extended and call.func.attr == "add_route" and len(call.args) >= 2:
                 method_argument = call.args[0]
                 if not (
                     isinstance(method_argument, ast.Constant)
@@ -504,7 +521,13 @@ def get_wired_function_operations(
                 path_argument = call.args[1]
             else:
                 continue
-            for path in _literal_path_candidates(path_argument, bindings):
+            if extended:
+                path_candidates = _literal_path_candidates(path_argument, bindings)
+            elif isinstance(path_argument, ast.Constant) and isinstance(path_argument.value, str):
+                path_candidates = (path_argument.value,)
+            else:
+                path_candidates = ()
+            for path in path_candidates:
                 if not path.startswith("/api/"):
                     continue
                 operations.append(
@@ -525,7 +548,13 @@ def get_wired_function_routes(
     registration_path: Path | None = None,
     repo_root: Path | None = None,
 ) -> set[str]:
-    """Path-level view of :func:`get_wired_function_operations`."""
+    """Path-level view with the ORIGINAL narrow semantics.
+
+    The legacy missing/orphan report and its pinned baseline consume this
+    set; it deliberately excludes the extended evidence forms so the
+    method-aware plane's wider extraction can never silently re-scope the
+    baseline (review round 4).
+    """
     return {
         operation["path"]
         for operation in get_wired_function_operations(registration_path, repo_root)
@@ -810,9 +839,15 @@ def path_normalization_binding() -> dict[str, Any]:
     across outputs for schema/version/digest equality.
     """
     authority = _REPO_ROOT / _PATH_NORMALIZE_AUTHORITY
+    try:
+        authority_bytes = authority.read_bytes()
+    except OSError as exc:
+        raise MethodAwareError(
+            f"cannot read normalization authority {_PATH_NORMALIZE_AUTHORITY}: {exc}"
+        ) from exc
     return {
         "authority_path": _PATH_NORMALIZE_AUTHORITY,
-        "authority_sha256": _sha256_hex(authority.read_bytes()),
+        "authority_sha256": _sha256_hex(authority_bytes),
         "schema": "sdk-path-normalize-v1",
         "version": 1,
     }
@@ -907,17 +942,24 @@ def _active_handler_source_files() -> frozenset[str]:
     """
     files: set[str] = set()
     for handler_class in _iter_registry_handler_classes():
-        try:
-            source_file = inspect.getsourcefile(handler_class)
-        except (TypeError, OSError):
-            source_file = None
-        if source_file:
-            files.add(_relative_source_path(str(Path(source_file).resolve())))
-        for value in vars(handler_class).values():
-            function = getattr(value, "__func__", value)
-            code = getattr(function, "__code__", None)
-            if code is not None:
-                files.add(_relative_source_path(str(Path(code.co_filename).resolve())))
+        # Walk the full MRO: inherited base/mixin methods dispatch for this
+        # handler too, so their defining modules are served surface (review
+        # round 4: censusing only the class's own __dict__ excluded base
+        # modules and dropped their literals).
+        for klass in getattr(handler_class, "__mro__", (handler_class,)):
+            if klass is object:
+                continue
+            try:
+                source_file = inspect.getsourcefile(klass)
+            except (TypeError, OSError):
+                source_file = None
+            if source_file:
+                files.add(_relative_source_path(str(Path(source_file).resolve())))
+            for value in vars(klass).values():
+                function = getattr(value, "__func__", value)
+                code = getattr(function, "__code__", None)
+                if code is not None:
+                    files.add(_relative_source_path(str(Path(code.co_filename).resolve())))
     return frozenset(files)
 
 
@@ -948,8 +990,10 @@ def get_handler_source_literal_operations(
             continue
         try:
             tree = _parse_python_source(source_file)
-        except RouteRegistrationScanError:
-            continue
+        except RouteRegistrationScanError as exc:
+            # An unparseable server file is unproven served surface; skipping
+            # it would fail open in a plane that fails closed everywhere else.
+            raise MethodAwareError(f"cannot parse server source {source_file}: {exc}") from exc
         for value, lineno in _iter_executable_string_constants(tree):
             match = _HANDLER_METHOD_PATH_LITERAL_RE.fullmatch(value.strip())
             if match is None:
@@ -1728,7 +1772,7 @@ def validate_method_aware_plane(
 
     wired_witnesses: list[dict[str, Any]] = []
     wildcard_registrations: set[str] = set()
-    for operation in get_wired_function_operations():
+    for operation in get_wired_function_operations(extended=True):
         path = _clean_literal_path(operation["path"])
         if path is None:
             # Wildcard registrations are prefix claims; they never witness a
@@ -1763,16 +1807,16 @@ def validate_method_aware_plane(
     collections = build_route_set_algebra(served, spec, internal_prefixes)
 
     served_paths = {operation["path"] for operation in served.values()}
+    # Method-unresolved debt comes only from the ACTIVE-TIER census
+    # (path_only_routes) plus wildcard wired registrations. The legacy
+    # unfiltered get_handler_routes() is deliberately NOT merged: it scans
+    # the raw registry without the tier filter, which would report
+    # inactive-tier handlers as live governed debt (review round 4).
     method_unresolved = {
         normalize_sdk_path(route)
         for route in (*path_only_routes, *wildcard_registrations)
         if isinstance(route, str) and route.startswith("/api/")
     }
-    method_unresolved.update(
-        normalize_sdk_path(route)
-        for route in get_handler_routes()
-        if isinstance(route, str) and route.startswith("/api/")
-    )
     method_unresolved -= served_paths
 
     projection = load_operation_projection(inventory_path)

@@ -1055,6 +1055,102 @@ def test_active_handler_source_files_cover_reexported_method_code(monkeypatch):
     assert any(path.endswith("test_validate_openapi_routes.py") for path in files)
 
 
+def test_active_handler_file_census_walks_the_full_mro(monkeypatch):
+    # inherited base/mixin methods dispatch for the handler, so base-class
+    # modules are served surface (round 4: own-__dict__-only census dropped
+    # base modules and their literals)
+    import inspect as inspect_module
+
+    base = type("SecureBase", (), {"authorize": lambda self: None})
+    handler = type("ChildHandler", (base,), {"GET_ROUTES": ["/api/v1/child/route"]})
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_child", handler)]),
+    )
+    files = validate_openapi_routes._active_handler_source_files()
+    base_file = validate_openapi_routes._relative_source_path(
+        str(Path(base.authorize.__code__.co_filename).resolve())
+    )
+    assert base_file in files
+    # the real repo census covers SecureHandler/BaseHandler base modules
+    assert inspect_module is not None
+
+
+def test_unparseable_server_file_fails_closed_in_scoped_literal_scan(tmp_path: Path):
+    good = tmp_path / "good.py"
+    good.write_text('KEY = "GET /api/v1/good"\n', encoding="utf-8")
+    broken = tmp_path / "broken.py"
+    broken.write_text("def broken(:\n", encoding="utf-8")
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="cannot parse"):
+        validate_openapi_routes.get_handler_source_literal_operations(tmp_path)
+
+
+def test_legacy_wired_routes_keep_original_narrow_semantics(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    handler.write_text(
+        """
+def register_routes(router):
+    router.add_route("POST", "/api/v1/direct/pause", object())
+    router.add_get("/api/v1/direct/state", object())
+    for base in ("/api/a", "/api/v1/a"):
+        router.add_route("GET", f"{base}/log", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    # legacy narrow semantics: no add_route, no direct-router receiver, no
+    # f-string folding -> the pinned baseline's input set cannot re-scope
+    legacy = validate_openapi_routes.get_wired_function_routes(registration, tmp_path)
+    assert legacy == set()
+    # extended method-aware semantics: all three exact evidence forms count
+    extended_ops = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert {(op["method"], op["path"]) for op in extended_ops} == {
+        ("POST", "/api/v1/direct/pause"),
+        ("GET", "/api/v1/direct/state"),
+        ("GET", "/api/a/log"),
+        ("GET", "/api/v1/a/log"),
+    }
+
+
+def test_direct_router_receiver_requires_router_parameter_name(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # first parameter is NOT named "router": a bare <first-arg>.add_get(...)
+    # on an arbitrary object with unrelated add_* helpers is never evidence
+    handler.write_text(
+        'def register_routes(collector):\n    collector.add_get("/api/v1/collected", object())\n',
+        encoding="utf-8",
+    )
+    extended_ops = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert extended_ops == []
+    # app.router.add_* still counts regardless of the first parameter's name
+    handler.write_text(
+        'def register_routes(app):\n    app.router.add_get("/api/v1/approuted", object())\n',
+        encoding="utf-8",
+    )
+    extended_ops = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert [(op["method"], op["path"]) for op in extended_ops] == [("GET", "/api/v1/approuted")]
+
+
 def test_served_census_mirrors_server_active_tier_filter(monkeypatch):
     class ActiveHandler:
         GET_ROUTES = ["/api/v1/active/route"]
