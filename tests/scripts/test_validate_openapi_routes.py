@@ -1186,6 +1186,103 @@ def register_routes(router):
     }
 
 
+def test_attribute_called_class_registrars_count_with_literal_default_prefix(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "auto.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    # round 7: the autonomous handlers register via Handler.register_routes(app)
+    registration.write_text(
+        """
+from aragora.server.handlers.auto import AlertHandler, OverriddenHandler, ComputedHandler
+
+def install(app):
+    AlertHandler.register_routes(app)
+    OverriddenHandler.register_routes(app, "/api/v1/custom")
+    ComputedHandler.register_routes(app, compute_prefix())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    handler.write_text(
+        """
+class AlertHandler:
+    @staticmethod
+    def register_routes(app, prefix="/api/v1/auto"):
+        app.router.add_get(f"{prefix}/alerts/active", AlertHandler.list_active)
+        app.router.add_post(f"{prefix}/alerts/{alert_id}/ack", AlertHandler.ack)
+
+class OverriddenHandler:
+    @classmethod
+    def register_routes(cls, app, prefix="/api/v1/never"):
+        app.router.add_get(f"{prefix}/overridden", cls.get)
+
+class ComputedHandler:
+    @staticmethod
+    def register_routes(app, prefix="/api/v1/unused"):
+        app.router.add_get(f"{prefix}/computed", ComputedHandler.get)
+        app.router.add_get("/api/v1/computed/constant", ComputedHandler.get_const)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert {(op["method"], op["path"]) for op in operations} == {
+        # literal default folds; the {alert_id} interpolation is NOT a bound
+        # name so that path stays unverified
+        ("GET", "/api/v1/auto/alerts/active"),
+        # explicit literal call-site argument overrides the default
+        ("GET", "/api/v1/custom/overridden"),
+        # computed prefix: f-string stays unverified, constant still counts
+        ("GET", "/api/v1/computed/constant"),
+    }
+    symbols = {op["symbol"] for op in operations}
+    assert "aragora.server.handlers.auto:AlertHandler.register_routes" in symbols
+    # class registrars are extended-plane evidence only: the legacy pinned
+    # baseline never re-scopes
+    assert validate_openapi_routes.get_wired_function_routes(registration, tmp_path) == set()
+
+
+def test_class_registrar_with_unknown_decorator_stays_unverified(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "auto.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.auto import WrappedHandler\nWrappedHandler.register_routes(app)\n",
+        encoding="utf-8",
+    )
+    # an unrecognized decorator changes call semantics unprovably; the
+    # registrations must stay unverified rather than fabricated
+    handler.write_text(
+        """
+class WrappedHandler:
+    @some_wrapper
+    def register_routes(app):
+        app.router.add_get("/api/v1/wrapped", WrappedHandler.get)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert operations == []
+
+
+def test_unresolvable_class_registrar_fails_closed(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "auto.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.auto import GhostHandler\nGhostHandler.register_routes(app)\n",
+        encoding="utf-8",
+    )
+    handler.write_text("class OtherHandler:\n    pass\n", encoding="utf-8")
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError, match="GhostHandler"):
+        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+
+
 def test_direct_router_receiver_requires_router_parameter_name(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"

@@ -349,6 +349,145 @@ def _resolve_registration_function(
     return None
 
 
+def _resolve_class_registration_method(
+    repo_root: Path,
+    module_name: str,
+    class_name: str,
+    method_name: str,
+    visited: set[tuple[str, str]] | None = None,
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef | None, Path, int] | None:
+    """Resolve ``Class.method`` for an attribute-called wired registrar.
+
+    Returns ``(method, module_path, implicit_params)`` where
+    ``implicit_params`` counts leading parameters bound by the descriptor
+    protocol at a ``Class.method(app)`` call site: 0 for ``@staticmethod``
+    and undecorated functions (accessing through the class yields the plain
+    function), 1 for ``@classmethod`` (``cls`` is bound). A method carrying
+    any other decorator resolves to ``(None, module_path, 0)``: its runtime
+    call semantics are unproven, so its registrations stay unverified rather
+    than fabricated. Class reexports are followed like function reexports;
+    ``None`` means the class or method cannot be found at all.
+    """
+    seen = set() if visited is None else visited
+    key = (module_name, f"{class_name}.{method_name}")
+    if key in seen:
+        raise RouteRegistrationScanError(
+            f"cyclic route-registration reexport while resolving "
+            f"{module_name}:{class_name}.{method_name}"
+        )
+    seen.add(key)
+
+    module_path = _resolve_local_module(repo_root, module_name)
+    if module_path is None:
+        return None
+    module_tree = _parse_python_source(module_path)
+    class_definitions = [
+        node
+        for node in module_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == class_name
+    ]
+    if class_definitions:
+        methods = [
+            node
+            for node in class_definitions[-1].body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == method_name
+        ]
+        if not methods:
+            return None
+        method = methods[-1]
+        decorators = {
+            decorator.id for decorator in method.decorator_list if isinstance(decorator, ast.Name)
+        }
+        if len(decorators) != len(method.decorator_list) or decorators - {
+            "staticmethod",
+            "classmethod",
+        }:
+            return None, module_path, 0
+        return method, module_path, (1 if "classmethod" in decorators else 0)
+
+    for node in module_tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for imported in node.names:
+            if (imported.asname or imported.name) != class_name:
+                continue
+            imported_module = _resolve_import_module(module_name, module_path, node)
+            if imported_module is None:
+                return None
+            return _resolve_class_registration_method(
+                repo_root,
+                imported_module,
+                imported.name,
+                method_name,
+                seen,
+            )
+    return None
+
+
+def _registrar_parameter_bindings(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    implicit_params: int,
+    call: ast.Call,
+) -> dict[str, tuple[str, ...]]:
+    """Exact literal string bindings for registrar parameters at ONE call site.
+
+    A parameter binds only when its value at this specific call is provably a
+    single literal string: an explicit literal argument (positional or
+    keyword), or the parameter's literal default when this call cannot
+    override it. A call using ``*args``/``**kwargs``, a signature using
+    positional-only parameters, and any parameter rebound in the registrar
+    body all disable binding — the affected paths stay unverified rather
+    than folded from a guessed value.
+    """
+    if function.args.posonlyargs:
+        return {}
+    if any(isinstance(argument, ast.Starred) for argument in call.args) or any(
+        keyword.arg is None for keyword in call.keywords
+    ):
+        return {}
+    rebound = _names_rebound_in(function.body)
+    keyword_values = {
+        keyword.arg: keyword.value for keyword in call.keywords if keyword.arg is not None
+    }
+
+    def _literal(value: ast.expr | None, name: str) -> tuple[str, ...] | None:
+        if (
+            value is not None
+            and isinstance(value, ast.Constant)
+            and isinstance(value.value, str)
+            and name not in rebound
+        ):
+            return (value.value,)
+        return None
+
+    bindings: dict[str, tuple[str, ...]] = {}
+    positional = function.args.args
+    defaults_offset = len(positional) - len(function.args.defaults)
+    for index, param in enumerate(positional):
+        # skip descriptor-bound leading params and the app/router param itself
+        if index <= implicit_params:
+            continue
+        call_index = index - implicit_params
+        value: ast.expr | None
+        if call_index < len(call.args):
+            value = call.args[call_index]
+        elif param.arg in keyword_values:
+            value = keyword_values[param.arg]
+        elif index >= defaults_offset:
+            value = function.args.defaults[index - defaults_offset]
+        else:
+            value = None
+        bound = _literal(value, param.arg)
+        if bound is not None:
+            bindings[param.arg] = bound
+    for param, default in zip(function.args.kwonlyargs, function.args.kw_defaults):
+        bound = _literal(keyword_values.get(param.arg, default), param.arg)
+        if bound is not None:
+            bindings[param.arg] = bound
+    return bindings
+
+
 # ast.TryStar arrived in 3.11; the repo floor is 3.10.
 _TRY_NODE_TYPES: tuple[type[ast.AST], ...] = (
     (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
@@ -517,19 +656,24 @@ def get_wired_function_operations(
     (``app.router.add_*``) with plain constant paths count, and the router
     method name is the exact HTTP method witness.
 
-    With ``extended=True`` (the method-aware plane), three additional exact
+    With ``extended=True`` (the method-aware plane), additional exact
     evidence forms count: literal ``add_route("METHOD", '/api/...')`` calls
     with the explicit uppercase method constant as the witness; a receiver
     that is the registrar's first argument itself when that parameter is
-    literally named ``router`` (``def register(router): router.add_*``); and
+    literally named ``router`` (``def register(router): router.add_*``);
     f-string paths whose only interpolations are for-loop variables bound to
-    literal string tuples, folded to their exact registered values. The
-    legacy path-level plane keeps the original narrower semantics so its
-    pinned baseline is not silently re-scoped (review round 4).
+    literal string tuples or registrar parameters provably bound to a single
+    literal string at the specific call site (explicit literal argument or
+    an unoverridden literal default), folded to their exact registered
+    values; and attribute-called class registrars
+    (``Handler.register_routes(app)`` on a class imported by the wiring
+    module, review round 7 — the autonomous handlers register exactly this
+    way). The legacy path-level plane keeps the original narrower semantics
+    so its pinned baseline is not silently re-scoped (review round 4).
 
-    Local package reexports are followed to their function definition.
-    Computed paths and methods and unrelated route-registration helpers
-    remain unverified.
+    Local package reexports are followed to their definition. Computed
+    paths and methods and unrelated route-registration helpers remain
+    unverified.
     """
     root = repo_root or _REPO_ROOT
     wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
@@ -551,7 +695,17 @@ def get_wired_function_operations(
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
 
-    operations: list[dict[str, Any]] = []
+    # (registrar function, defining module path, witness symbol, app/router
+    # parameter name, call-site parameter bindings)
+    extraction_jobs: list[
+        tuple[
+            ast.FunctionDef | ast.AsyncFunctionDef,
+            Path,
+            str,
+            str,
+            dict[str, tuple[str, ...]],
+        ]
+    ] = []
     for local_name in sorted(called_names & imports.keys()):
         module_name, function_name = imports[local_name]
         if not (local_name.startswith("register_") or function_name.startswith("register_")):
@@ -565,8 +719,55 @@ def get_wired_function_operations(
         function, module_path = resolved
         if not function.args.args:
             continue
-        app_argument = function.args.args[0].arg
-        for call, bindings in _iter_executable_calls(function.body):
+        extraction_jobs.append(
+            (
+                function,
+                module_path,
+                f"{module_name}:{function_name}",
+                function.args.args[0].arg,
+                {},
+            )
+        )
+
+    if extended:
+        for node in ast.walk(wiring_tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr.startswith("register_")
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in imports
+            ):
+                continue
+            module_name, class_name = imports[node.func.value.id]
+            resolved_method = _resolve_class_registration_method(
+                root, module_name, class_name, node.func.attr
+            )
+            if resolved_method is None:
+                raise RouteRegistrationScanError(
+                    f"cannot resolve wired registrar {module_name}:{class_name}.{node.func.attr}"
+                )
+            method_function, method_module_path, implicit_params = resolved_method
+            if method_function is None:
+                # Unrecognized decorator: runtime call semantics unproven,
+                # registrations stay unverified rather than fabricated.
+                continue
+            if len(method_function.args.args) <= implicit_params:
+                continue
+            extraction_jobs.append(
+                (
+                    method_function,
+                    method_module_path,
+                    f"{module_name}:{class_name}.{node.func.attr}",
+                    method_function.args.args[implicit_params].arg,
+                    _registrar_parameter_bindings(method_function, implicit_params, node),
+                )
+            )
+
+    operations: list[dict[str, Any]] = []
+    seen_operations: set[tuple[str, str, str, int]] = set()
+    for function, module_path, symbol, app_argument, seed_bindings in extraction_jobs:
+        for call, bindings in _iter_executable_calls(function.body, seed_bindings):
             if not isinstance(call.func, ast.Attribute) or not call.args:
                 continue
             receiver = call.func.value
@@ -614,6 +815,12 @@ def get_wired_function_operations(
             for path in path_candidates:
                 if not path.startswith("/api/"):
                     continue
+                # The same class registrar may be attribute-called more than
+                # once in the wiring module; identical witnesses dedupe.
+                witness_key = (method, path, symbol, call.lineno)
+                if witness_key in seen_operations:
+                    continue
+                seen_operations.add(witness_key)
                 operations.append(
                     {
                         "method": method,
@@ -621,7 +828,7 @@ def get_wired_function_operations(
                         "source_path": str(module_path.relative_to(root))
                         if module_path.is_relative_to(root)
                         else str(module_path),
-                        "symbol": f"{module_name}:{function_name}",
+                        "symbol": symbol,
                         "line": call.lineno,
                     }
                 )
