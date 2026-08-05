@@ -1280,6 +1280,83 @@ def register_routes(router):
     assert {(op["method"], op["path"]) for op in operations} == {("GET", "/api/g/kept")}
 
 
+def test_add_routes_route_tables_count_with_exact_literals(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 12: aiohttp route tables (threat-intel registers exactly this way)
+    handler.write_text(
+        """
+from aiohttp import web
+
+def register_routes(app):
+    handler = object()
+    routes = [
+        web.post("/api/v1/threat/url", handler),
+        web.get("/api/v1/threat/status", handler),
+        web.route("DELETE", "/api/v1/threat/cache", handler),
+        web.route(compute_method(), "/api/v1/threat/computed", handler),
+    ]
+    app.router.add_routes(routes)
+    logger.info("Registered %s routes", len(routes))
+    app.router.add_routes([web.get("/api/v1/inline", handler)])
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    # the computed-method entry stays unverified; everything literal counts,
+    # and a len(...) logging read does not disqualify the table
+    assert {(op["method"], op["path"]) for op in operations} == {
+        ("POST", "/api/v1/threat/url"),
+        ("GET", "/api/v1/threat/status"),
+        ("DELETE", "/api/v1/threat/cache"),
+        ("GET", "/api/v1/inline"),
+    }
+    # add_routes tables are extended evidence only
+    assert validate_openapi_routes.get_wired_function_routes(registration, tmp_path) == set()
+
+
+def test_mutated_route_tables_stay_unverified(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # a table that is appended to, reassigned, or passed to an arbitrary
+    # callee could register different entries than its literal — unverified
+    handler.write_text(
+        """
+from aiohttp import web
+
+def register_routes(app):
+    appended = [web.get("/api/v1/base", object())]
+    appended.append(web.get("/api/v1/appended", object()))
+    app.router.add_routes(appended)
+    reassigned = [web.get("/api/v1/first", object())]
+    reassigned = [web.get("/api/v1/second", object())]
+    app.router.add_routes(reassigned)
+    escaped = [web.get("/api/v1/mut", object())]
+    mutate(escaped)
+    app.router.add_routes(escaped)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    assert (
+        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+        == []
+    )
+
+
 def test_match_capture_rebinding_invalidates_fstring_folding(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"

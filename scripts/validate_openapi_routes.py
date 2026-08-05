@@ -475,6 +475,103 @@ def _resolve_class_registration_method(
     return None
 
 
+_WEB_ROUTEDEF_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
+
+
+def _iter_statements_excluding_nested_defs(nodes: Iterable[ast.AST]) -> Iterator[ast.AST]:
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        yield node
+        yield from _iter_statements_excluding_nested_defs(ast.iter_child_nodes(node))
+
+
+def _resolve_route_table(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, argument: ast.expr
+) -> list[ast.expr] | None:
+    """Elements of an ``add_routes`` route-table argument, or None.
+
+    An inline list/tuple literal resolves directly. A Name resolves only when
+    it is provably the literal bound by the registrar's single ``name = [...]``
+    assignment: exactly one Store may exist (outside nested defs), and every
+    Load must be either this ``add_routes`` argument or the sole argument of a
+    ``len(...)`` call (which cannot mutate). Any other use — ``routes.append``,
+    reassignment, aliasing, passing to an arbitrary callee — leaves the table
+    unverified, because a mutated or rebound table could register different
+    entries than the literal (review round 12).
+    """
+    if isinstance(argument, (ast.List, ast.Tuple)):
+        return list(argument.elts)
+    if not isinstance(argument, ast.Name):
+        return None
+    module = ast.Module(body=list(function.body), type_ignores=[])
+    stores = 0
+    loads = 0
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and node.id == argument.id:
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                stores += 1
+            else:
+                loads += 1
+    if stores != 1:
+        return None
+    benign_loads = 1  # the add_routes argument itself
+    for node in ast.walk(module):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "len"
+            and len(node.args) == 1
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == argument.id
+            and not node.keywords
+        ):
+            benign_loads += 1
+    if loads != benign_loads:
+        return None
+    for statement in _iter_statements_excluding_nested_defs(function.body):
+        if (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id == argument.id
+            and isinstance(statement.value, (ast.List, ast.Tuple))
+        ):
+            return list(statement.value.elts)
+    return None
+
+
+def _route_def_operation(element: ast.expr) -> tuple[str, str, int] | None:
+    """Exact ``(method, path, line)`` for a ``web.<method>('/path', ...)`` RouteDef."""
+    if not (
+        isinstance(element, ast.Call)
+        and isinstance(element.func, ast.Attribute)
+        and isinstance(element.func.value, ast.Name)
+        and element.func.value.id == "web"
+        and element.args
+    ):
+        return None
+    attr = element.func.attr
+    if attr in _WEB_ROUTEDEF_METHODS:
+        method = attr.upper()
+        path_argument = element.args[0]
+    elif attr == "route" and len(element.args) >= 2:
+        method_argument = element.args[0]
+        if not (
+            isinstance(method_argument, ast.Constant)
+            and isinstance(method_argument.value, str)
+            and method_argument.value in _RUNTIME_METHODS
+        ):
+            return None
+        method = method_argument.value
+        path_argument = element.args[1]
+    else:
+        return None
+    if isinstance(path_argument, ast.Constant) and isinstance(path_argument.value, str):
+        return method, path_argument.value, element.lineno
+    return None
+
+
 def _registrar_parameter_bindings(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     implicit_params: int,
@@ -933,6 +1030,34 @@ def get_wired_function_operations(
                 and app_argument == "router"
             )
             if not (receiver_is_app_router or receiver_is_direct_router):
+                continue
+            if extended and call.func.attr == "add_routes":
+                # aiohttp route tables: app.router.add_routes([web.get(...)])
+                # with an inline literal or a provably-single-assignment local
+                # list (review round 12: threat-intel registers this way).
+                table = _resolve_route_table(function, call.args[0])
+                for element in table or ():
+                    resolved_def = _route_def_operation(element)
+                    if resolved_def is None:
+                        continue
+                    def_method, def_path, def_line = resolved_def
+                    if not def_path.startswith("/api/"):
+                        continue
+                    witness_key = (def_method, def_path, symbol, def_line)
+                    if witness_key in seen_operations:
+                        continue
+                    seen_operations.add(witness_key)
+                    operations.append(
+                        {
+                            "method": def_method,
+                            "path": def_path,
+                            "source_path": str(module_path.relative_to(root))
+                            if module_path.is_relative_to(root)
+                            else str(module_path),
+                            "symbol": symbol,
+                            "line": def_line,
+                        }
+                    )
                 continue
             if call.func.attr in _LITERAL_ROUTER_METHODS:
                 method = call.func.attr.removeprefix("add_").upper()
