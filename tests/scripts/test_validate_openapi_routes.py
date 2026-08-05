@@ -1059,8 +1059,6 @@ def test_active_handler_file_census_walks_the_full_mro(monkeypatch):
     # inherited base/mixin methods dispatch for the handler, so base-class
     # modules are served surface (round 4: own-__dict__-only census dropped
     # base modules and their literals)
-    import inspect as inspect_module
-
     base = type("SecureBase", (), {"authorize": lambda self: None})
     handler = type("ChildHandler", (base,), {"GET_ROUTES": ["/api/v1/child/route"]})
     monkeypatch.setitem(
@@ -1073,8 +1071,75 @@ def test_active_handler_file_census_walks_the_full_mro(monkeypatch):
         str(Path(base.authorize.__code__.co_filename).resolve())
     )
     assert base_file in files
-    # the real repo census covers SecureHandler/BaseHandler base modules
-    assert inspect_module is not None
+
+
+def test_handler_class_defining_resolve_method_is_not_invoked_as_deferred_ref(monkeypatch):
+    # a handler CLASS with a `resolve` instance method is not a deferred-import
+    # handle; invoking it unbound would raise TypeError and kill the plane
+    class ResolverHandler:
+        GET_ROUTES = ["/api/v1/resolver/route"]
+
+        def resolve(self):
+            return "not a handler class"
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aragora.server.handler_registry",
+        _fake_registry([("_resolver", ResolverHandler)]),
+    )
+    classes = list(validate_openapi_routes._iter_registry_handler_classes())
+    assert classes == [ResolverHandler]
+
+
+def test_fstring_folding_drops_unsound_bindings(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 6: each shape below over-claimed operations that never register
+    handler.write_text(
+        """
+def register_routes(router):
+    # (a) rebinding in the body invalidates the fold
+    for base in ("/api/a", "/api/b"):
+        base = base + "/v1"
+        router.add_get(f"{base}/rebound", object())
+    # (b) a nested NON-literal loop shadows the outer binding
+    for base in ("/api/c", "/api/d"):
+        for base in compute():
+            router.add_get(f"{base}/shadowed", object())
+    # (c) conditional registration may filter values
+    for base in ("/api/e", "/api/f"):
+        if base == "/api/e":
+            router.add_get(f"{base}/guarded", object())
+    # constant paths inside conditionals still count individually
+    for base in ("/api/g",):
+        if flag:
+            router.add_get("/api/v1/const-in-if", object())
+    # a nested LITERAL loop rebinds to its own exact values
+    for base in ("/api/outer",):
+        for base in ("/api/x", "/api/y"):
+            router.add_get(f"{base}/inner", object())
+    # straight-line folding remains exact
+    for base in ("/api/h", "/api/v1/h"):
+        router.add_route("GET", f"{base}/log", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert {(op["method"], op["path"]) for op in operations} == {
+        ("GET", "/api/v1/const-in-if"),
+        ("GET", "/api/x/inner"),
+        ("GET", "/api/y/inner"),
+        ("GET", "/api/h/log"),
+        ("GET", "/api/v1/h/log"),
+    }
 
 
 def test_unparseable_server_file_fails_closed_in_scoped_literal_scan(tmp_path: Path):

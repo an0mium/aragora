@@ -34,7 +34,7 @@ import re
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # Ensure local checkout modules take precedence over any globally installed package.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -349,16 +349,58 @@ def _resolve_registration_function(
     return None
 
 
+# ast.TryStar arrived in 3.11; the repo floor is 3.10.
+_TRY_NODE_TYPES: tuple[type[ast.AST], ...] = (
+    (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
+)
+
+
+def _names_rebound_in(nodes: Iterable[ast.AST]) -> set[str]:
+    """Names that may be (re)bound anywhere under ``nodes``.
+
+    Conservative superset: assignment/loop/with/walrus targets, ``del``
+    statements, except aliases, import aliases, nested def/class names, and
+    ``global``/``nonlocal`` declarations all count — including occurrences
+    inside nested definitions that would not actually rebind the enclosing
+    scope. A false positive only skips folding (the path stays unverified);
+    it can never widen the served claim.
+    """
+    rebound: set[str] = set()
+    for node in nodes:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, (ast.Store, ast.Del)):
+                rebound.add(child.id)
+            elif isinstance(child, ast.ExceptHandler) and child.name:
+                rebound.add(child.name)
+            elif isinstance(child, ast.alias):
+                rebound.add((child.asname or child.name).partition(".")[0])
+            elif isinstance(child, (ast.Global, ast.Nonlocal)):
+                rebound.update(child.names)
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                rebound.add(child.name)
+    return rebound
+
+
 def _iter_executable_calls(
     nodes: Iterable[ast.AST],
     bindings: dict[str, tuple[str, ...]] | None = None,
 ) -> Iterator[tuple[ast.Call, dict[str, tuple[str, ...]]]]:
-    """Yield executable calls with literal for-loop string bindings in scope.
+    """Yield executable calls with SOUND literal for-loop string bindings.
 
     Nested definitions that may never execute are excluded. A ``for`` target
     iterating a tuple/list of string constants binds its exact literal values,
     enabling deterministic folding of f-string paths built from those values
-    (no evaluation, no heuristics).
+    (no evaluation, no heuristics). A folded witness claims that EVERY bound
+    value reaches the call, so the binding is dropped wherever that can no
+    longer be proven: when the loop body (or, for the ``else`` binding, the
+    else block) may rebind the variable; when any nested loop target shadows
+    the name — literal nested loops rebind their own exact values, non-literal
+    ones invalidate the fold; and inside every conditionally-executed
+    construct (``if``/``while`` bodies, ``try`` blocks, ``match`` cases,
+    ternaries, boolean short-circuit operands, comprehensions), where a
+    value-dependent guard could filter which loop values actually register.
+    Constant paths in those positions still count individually, exactly as in
+    straight-line code.
     """
     bound = dict(bindings or {})
     for node in nodes:
@@ -367,20 +409,62 @@ def _iter_executable_calls(
         if isinstance(node, (ast.For, ast.AsyncFor)):
             loop_bound = dict(bound)
             orelse_bound = dict(bound)
+            # Whatever the target binds shadows any inherited binding, even
+            # when this loop's own values are not literal.
+            for name in _names_rebound_in([node.target]):
+                loop_bound.pop(name, None)
+                orelse_bound.pop(name, None)
             if isinstance(node.target, ast.Name) and isinstance(node.iter, (ast.Tuple, ast.List)):
                 literal_values = [
                     element.value
                     for element in node.iter.elts
                     if isinstance(element, ast.Constant) and isinstance(element.value, str)
                 ]
-                if literal_values and len(literal_values) == len(node.iter.elts):
+                if (
+                    literal_values
+                    and len(literal_values) == len(node.iter.elts)
+                    and node.target.id not in _names_rebound_in(node.body)
+                ):
                     loop_bound[node.target.id] = tuple(literal_values)
-                    # After exhaustion the loop variable holds only the LAST
-                    # element, so the else-block binding is exactly that value.
-                    orelse_bound[node.target.id] = (literal_values[-1],)
+                    if node.target.id not in _names_rebound_in(node.orelse):
+                        # After exhaustion the loop variable holds only the
+                        # LAST element, so the else-block binding is exactly
+                        # that value.
+                        orelse_bound[node.target.id] = (literal_values[-1],)
             yield from _iter_executable_calls([node.iter], bound)
             yield from _iter_executable_calls(node.body, loop_bound)
             yield from _iter_executable_calls(node.orelse, orelse_bound)
+            continue
+        if isinstance(node, (ast.If, ast.While)):
+            yield from _iter_executable_calls([node.test], bound)
+            yield from _iter_executable_calls(node.body, {})
+            yield from _iter_executable_calls(node.orelse, {})
+            continue
+        if isinstance(node, _TRY_NODE_TYPES):
+            # ast.TryStar mirrors ast.Try's block attributes exactly.
+            try_node = cast(ast.Try, node)
+            conditional_parts: list[ast.AST] = [
+                *try_node.body,
+                *try_node.handlers,
+                *try_node.orelse,
+                *try_node.finalbody,
+            ]
+            yield from _iter_executable_calls(conditional_parts, {})
+            continue
+        if isinstance(node, ast.Match):
+            yield from _iter_executable_calls([node.subject], bound)
+            yield from _iter_executable_calls(node.cases, {})
+            continue
+        if isinstance(node, ast.IfExp):
+            yield from _iter_executable_calls([node.test], bound)
+            yield from _iter_executable_calls([node.body, node.orelse], {})
+            continue
+        if isinstance(node, ast.BoolOp):
+            yield from _iter_executable_calls(node.values[:1], bound)
+            yield from _iter_executable_calls(node.values[1:], {})
+            continue
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            yield from _iter_executable_calls(ast.iter_child_nodes(node), {})
             continue
         if isinstance(node, ast.Call):
             yield node, bound
@@ -941,6 +1025,14 @@ def _active_handler_source_files() -> frozenset[str]:
     nothing about serving (review round 3 on this packet).
     """
     files: set[str] = set()
+
+    def _add(source_file: str) -> None:
+        # Key the census on BOTH the raw and resolved spellings so the
+        # membership check in get_handler_source_literal_operations (which
+        # resolves the scanned file) agrees under symlinked checkouts.
+        files.add(_relative_source_path(source_file))
+        files.add(_relative_source_path(str(Path(source_file).resolve())))
+
     for handler_class in _iter_registry_handler_classes():
         # Walk the full MRO: inherited base/mixin methods dispatch for this
         # handler too, so their defining modules are served surface (review
@@ -954,12 +1046,12 @@ def _active_handler_source_files() -> frozenset[str]:
             except (TypeError, OSError):
                 source_file = None
             if source_file:
-                files.add(_relative_source_path(str(Path(source_file).resolve())))
+                _add(source_file)
             for value in vars(klass).values():
                 function = getattr(value, "__func__", value)
                 code = getattr(function, "__code__", None)
                 if code is not None:
-                    files.add(_relative_source_path(str(Path(code.co_filename).resolve())))
+                    _add(code.co_filename)
     return frozenset(files)
 
 
@@ -983,8 +1075,8 @@ def get_handler_source_literal_operations(
     root = server_root if server_root is not None else _REPO_ROOT / "aragora" / "server"
     witnesses: list[dict[str, Any]] = []
     for source_file in sorted(root.rglob("*.py")):
-        if (
-            allowed_files is not None
+        if allowed_files is not None and (
+            _relative_source_path(source_file) not in allowed_files
             and _relative_source_path(str(source_file.resolve())) not in allowed_files
         ):
             continue
@@ -1050,7 +1142,10 @@ def _iter_registry_handler_classes() -> Iterator[Any]:
     for attr_name, handler_ref in active_registry:
         handler_class = handler_ref
         resolve = getattr(handler_ref, "resolve", None)
-        if callable(resolve):
+        # Only non-class refs are deferred-import handles. A handler CLASS
+        # that happens to define a `resolve` instance method must not be
+        # invoked unbound (it would raise TypeError and fail the plane).
+        if not inspect.isclass(handler_ref) and callable(resolve):
             try:
                 handler_class = resolve()
             except Exception as exc:  # noqa: BLE001 - collected, then failed closed
