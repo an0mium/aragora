@@ -13,14 +13,23 @@ Usage:
     python scripts/validate_openapi_routes.py --fail-on-missing  # Exit 1 if routes missing
     python scripts/validate_openapi_routes.py --fail-on-missing --baseline scripts/baselines/validate_openapi_routes.json
     python scripts/validate_openapi_routes.py --json  # Output as JSON
+    python scripts/validate_openapi_routes.py --ref "$(git rev-parse HEAD)" --json  # Method-aware plane
+
+The method-aware plane (VAL-CDG-011) additionally emits exact
+``(method, normalized_path)`` operation sets with complete route-set algebra,
+explicit CONNECT debt, and the ratified one-to-many operation projection bound
+to the immutable original-cohort identities.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
+import inspect
 import json
 import os
+import re
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -31,12 +40,155 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+try:
+    # Direct script execution (python scripts/validate_openapi_routes.py)
+    from sdk_path_normalize import normalize_sdk_path
+except ModuleNotFoundError:
+    # Module import context (pytest importing scripts.validate_openapi_routes)
+    from scripts.sdk_path_normalize import normalize_sdk_path
+
 _SERVER_ROUTE_REGISTRATION = (
     _REPO_ROOT / "aragora" / "server" / "stream" / "servers_route_registration.py"
 )
 _LITERAL_ROUTER_METHODS = frozenset(
     {"add_get", "add_post", "add_put", "add_patch", "add_delete", "add_head", "add_options"}
 )
+
+# ---------------------------------------------------------------------------
+# Method-aware operation plane (VAL-CDG-011)
+# ---------------------------------------------------------------------------
+
+# Exact accepted method sets. No extra verb, lowercase alias, extension key,
+# or implicit method is accepted anywhere in the method-aware plane.
+RUNTIME_METHOD_SET: tuple[str, ...] = (
+    "CONNECT",
+    "DELETE",
+    "GET",
+    "HEAD",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+    "TRACE",
+)
+OPENAPI_METHOD_SET: tuple[str, ...] = (
+    "DELETE",
+    "GET",
+    "HEAD",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+    "TRACE",
+)
+_RUNTIME_METHODS = frozenset(RUNTIME_METHOD_SET)
+_OPENAPI_OPERATION_KEYS = frozenset(method.lower() for method in OPENAPI_METHOD_SET)
+_METHOD_ROUTES_ATTRS = tuple(f"{method}_ROUTES" for method in RUNTIME_METHOD_SET)
+
+# Explicit runtime-method token followed by an /api/ path literal in server
+# source. Mirrors the ratified HANDLER_METHOD_PATH_LITERAL_RE_V1 witness rule.
+_HANDLER_METHOD_PATH_LITERAL_RE = re.compile(
+    r"\b(CONNECT|DELETE|GET|HEAD|OPTIONS|PATCH|POST|PUT|TRACE)"
+    r"[ \t]+(/api/[^\s\"'`\\)\]>,;]+)"
+)
+
+_DEFAULT_INVENTORY_PATH = _REPO_ROOT / "scripts" / "baselines" / "contract_drift_inventory.json"
+_PATH_NORMALIZE_AUTHORITY = "scripts/sdk_path_normalize.py"
+
+# Immutable ratified pins (Contract Drift Governance, VAL-CDG-011).
+ORIGINAL_RECORD_ID_SET_SHA256 = "c1235670c183b1887ba3fe4280fa0320f9fd6f4a85b8f346d4332ac2aebbe269"
+PROJECTION_RECORD_DIGEST_SET_SHA256 = (
+    "2d6790a6f825c53047639d9433f40e3e10b5bfc9e357bcd161f6b341134775e5"
+)
+OPERATION_PROJECTION_SCHEMA = "cdg-operation-projection-v1"
+OPERATION_PROJECTION_SCHEMA_VERSION = 1
+ORIGINAL_COHORT_TOTAL = 655
+ROUTE_PARITY_RECORD_TOTAL = 57
+ROUTE_EDGE_TOTAL = 68
+ROUTE_MULTI_EDGE_ORIGINALS = 9
+ROUTE_MAX_EDGES = 4
+ROUTE_EDGE_DISTRIBUTION = {1: 48, 2: 8, 4: 1}
+ROUTE_CATEGORY_COUNTS = {
+    "routes_missing_in_spec": 11,
+    "routes_orphaned_in_spec": 17,
+    "sdk_missing_from_both": 29,
+}
+# For each route category: the one exclusive source-operation set and its
+# deterministic selection rule (exact literal membership of the named baseline
+# manifest key at the ratified membership commit).
+ROUTE_CATEGORY_SELECTION = {
+    "routes_missing_in_spec": {
+        "source_manifest": "scripts/baselines/validate_openapi_routes.json",
+        "source_json_key": "missing_in_spec",
+        "selection_rule": (
+            "exact literal membership of missing_in_spec in "
+            "scripts/baselines/validate_openapi_routes.json at the ratified membership commit"
+        ),
+    },
+    "routes_orphaned_in_spec": {
+        "source_manifest": "scripts/baselines/validate_openapi_routes.json",
+        "source_json_key": "orphaned_in_spec",
+        "selection_rule": (
+            "exact literal membership of orphaned_in_spec in "
+            "scripts/baselines/validate_openapi_routes.json at the ratified membership commit"
+        ),
+    },
+    "sdk_missing_from_both": {
+        "source_manifest": "scripts/baselines/check_sdk_parity.json",
+        "source_json_key": "missing_from_both_sdks",
+        "selection_rule": (
+            "exact literal membership of missing_from_both_sdks in "
+            "scripts/baselines/check_sdk_parity.json at the ratified membership commit"
+        ),
+    },
+}
+# The nine ratified multi-edge originals and their exact operation IDs.
+MULTI_EDGE_OPERATION_PINS = {
+    "cdg1:38bad91cd0b0acf27f9d2e200c4ca52857f09733dbf3d8b42bcd62ffaec12f05": (
+        "GET /api/coordination/federation",
+        "POST /api/coordination/federation",
+    ),
+    "cdg1:3c78ca805bba20f77932798c52c2854266b84b08ec0d4d903a21833ca5f94b68": (
+        "DELETE /api/debates/active",
+        "GET /api/debates/active",
+        "PATCH /api/debates/active",
+        "POST /api/debates/active",
+    ),
+    "cdg1:640c7ed5a00c72464a8eedb8c4586b4299e59a1717c7711160d1c86195aa57b1": (
+        "GET /api/prompt-engine/runs",
+        "POST /api/prompt-engine/runs",
+    ),
+    "cdg1:67dcccb31c0048218421fdcb01fa3c9ca6706288c54c45448d3d5a5511ef8825": (
+        "GET /api/coordination/consent",
+        "POST /api/coordination/consent",
+    ),
+    "cdg1:862f836a6d69ee82839d07627d5fec3f97c03a694d08d00435bd66aba139d27a": (
+        "GET /api/prompt-engine/runs/{param}",
+        "POST /api/prompt-engine/runs/{param}",
+    ),
+    "cdg1:90f5e8f23f15046585b6cd415d09b010f4d35320136e87d03d071a7c88ee73e6": (
+        "GET /api/api-keys",
+        "POST /api/api-keys",
+    ),
+    "cdg1:a18795756e8d40739f6edf2eca3e83c8010c0d83461eba8d41ef97626badb8cd": (
+        "GET /api/costs/debates/{param}/performance",
+        "POST /api/costs/debates/{param}/performance",
+    ),
+    "cdg1:ad1cc27167523e46d27d608c664e8722ca051b0dfd7689e9f4ba8c5b01372fd9": (
+        "GET /api/coordination/workspaces",
+        "POST /api/coordination/workspaces",
+    ),
+    "cdg1:d17440376695c88fbaad291032536c6da58ca65274aa02ad23edca27bbcc3b69": (
+        "GET /api/costs/debates/{param}/line-items",
+        "POST /api/costs/debates/{param}/line-items",
+    ),
+}
+# Expected sdk_language provenance per route category (category-derived).
+_ROUTE_CATEGORY_SDK_LANGUAGE = {
+    "routes_missing_in_spec": [],
+    "routes_orphaned_in_spec": [],
+    "sdk_missing_from_both": ["python", "typescript"],
+}
 
 # Route validation is an offline contract check. Disable AWS Secrets Manager
 # lookups so importing handlers does not stall or fail on network-restricted dev/CI
@@ -156,7 +308,7 @@ def _resolve_registration_function(
     module_name: str,
     function_name: str,
     visited: set[tuple[str, str]] | None = None,
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, Path] | None:
     """Resolve a registrar definition through local package reexports."""
     seen = set() if visited is None else visited
     key = (module_name, function_name)
@@ -176,7 +328,7 @@ def _resolve_registration_function(
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name
     ]
     if definitions:
-        return definitions[-1]
+        return definitions[-1], module_path
 
     for node in module_tree.body:
         if not isinstance(node, ast.ImportFrom):
@@ -206,16 +358,17 @@ def _iter_executable_calls(nodes: Iterable[ast.AST]) -> Iterator[ast.Call]:
         yield from _iter_executable_calls(ast.iter_child_nodes(node))
 
 
-def get_wired_function_routes(
+def get_wired_function_operations(
     registration_path: Path | None = None,
     repo_root: Path | None = None,
-) -> set[str]:
-    """Statically extract literal routes from wired aiohttp registration functions.
+) -> list[dict[str, Any]]:
+    """Statically extract literal wired operations with exact method evidence.
 
     The server registration module is the authority for which free functions
     participate in startup. Only imported ``register_*`` callables that are
     actually called there are considered. Within those exact function bodies,
-    only literal ``<first-argument>.router.add_*('/api/...')`` calls count.
+    only literal ``<first-argument>.router.add_<method>('/api/...')`` calls
+    count, and the router method name is the exact HTTP method witness.
     Local package reexports are followed to their function definition. Computed
     paths and unrelated route-registration helpers remain unverified.
     """
@@ -239,17 +392,18 @@ def get_wired_function_routes(
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
 
-    routes: set[str] = set()
+    operations: list[dict[str, Any]] = []
     for local_name in sorted(called_names & imports.keys()):
         module_name, function_name = imports[local_name]
         if not (local_name.startswith("register_") or function_name.startswith("register_")):
             continue
 
-        function = _resolve_registration_function(root, module_name, function_name)
-        if function is None:
+        resolved = _resolve_registration_function(root, module_name, function_name)
+        if resolved is None:
             raise RouteRegistrationScanError(
                 f"cannot resolve wired registrar {module_name}:{function_name}"
             )
+        function, module_path = resolved
         if not function.args.args:
             continue
         app_argument = function.args.args[0].arg
@@ -272,8 +426,29 @@ def get_wired_function_routes(
                 and isinstance(path_argument.value, str)
                 and path_argument.value.startswith("/api/")
             ):
-                routes.add(path_argument.value)
-    return routes
+                operations.append(
+                    {
+                        "method": call.func.attr.removeprefix("add_").upper(),
+                        "path": path_argument.value,
+                        "source_path": str(module_path.relative_to(root))
+                        if module_path.is_relative_to(root)
+                        else str(module_path),
+                        "symbol": f"{module_name}:{function_name}",
+                        "line": call.lineno,
+                    }
+                )
+    return operations
+
+
+def get_wired_function_routes(
+    registration_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> set[str]:
+    """Path-level view of :func:`get_wired_function_operations`."""
+    return {
+        operation["path"]
+        for operation in get_wired_function_operations(registration_path, repo_root)
+    }
 
 
 def get_handler_routes() -> set[str]:
@@ -527,6 +702,842 @@ def normalize_route(route: str | tuple, *, normalize_version: bool = True) -> st
     return route
 
 
+class MethodAwareError(ValueError):
+    """The method-aware operation plane could not be proved truthfully."""
+
+
+def _sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    """Compact sorted-key UTF-8 JSON; no BOM; no trailing LF (CDG canonical)."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
+
+
+def _operation_id(method: str, path: str) -> str:
+    return f"{method} {path}"
+
+
+def _require_exact_ref(ref: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{40}", ref or ""):
+        raise MethodAwareError(
+            f"--ref must be an exact 40-hex commit SHA, got {ref!r}; "
+            'run with --ref "$(git rev-parse HEAD)"'
+        )
+    return ref
+
+
+def _clean_literal_path(raw: str) -> str | None:
+    """Sanitize one explicit method-path literal; None when not operation evidence.
+
+    Wildcard literals are prefix claims, not exact operations: a ``*`` segment
+    never witnesses a method-specific operation (VAL-CDG-011 forbids wildcard
+    and prefix shortcuts).
+    """
+    path = raw.rstrip(":.,;")
+    if not path.startswith("/api/"):
+        return None
+    if "*" in path:
+        return None
+    return path
+
+
+def _relative_source_path(path: Path | str) -> str:
+    candidate = Path(path)
+    try:
+        return str(candidate.relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(candidate)
+
+
+def _evidence_sort_key(witness: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(witness.get("evidence_type", "")),
+        str(witness.get("source_path", "")),
+        str(witness.get("source_line", witness.get("symbol", ""))),
+        str(witness.get("raw_path_literal", "")),
+    )
+
+
+def get_handler_source_literal_operations(
+    server_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Explicit ``METHOD /api/...`` literals in server source are method witnesses."""
+    root = server_root if server_root is not None else _REPO_ROOT / "aragora" / "server"
+    witnesses: list[dict[str, Any]] = []
+    for source_file in sorted(root.rglob("*.py")):
+        try:
+            text = source_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in _HANDLER_METHOD_PATH_LITERAL_RE.finditer(text):
+            path = _clean_literal_path(match.group(2))
+            if path is None:
+                continue
+            witnesses.append(
+                {
+                    "evidence_type": "handler_source_method_path_literal",
+                    "method": match.group(1),
+                    "raw_path_literal": path,
+                    "source_path": _relative_source_path(source_file),
+                    "source_line": text.count("\n", 0, match.start()) + 1,
+                    "match_text": match.group(0),
+                }
+            )
+    return witnesses
+
+
+def _iter_registry_handler_classes() -> Iterator[Any]:
+    try:
+        from aragora.server.handler_registry import HANDLER_REGISTRY
+    except ImportError as exc:  # pragma: no cover - environment failure
+        raise MethodAwareError(f"cannot import handler_registry: {exc}") from exc
+
+    for _attr_name, handler_ref in HANDLER_REGISTRY:
+        handler_class = handler_ref
+        resolve = getattr(handler_ref, "resolve", None)
+        if callable(resolve):
+            try:
+                handler_class = resolve()
+            except Exception:  # noqa: BLE001 - import failures are non-fatal here
+                handler_class = None
+        if handler_class is not None:
+            yield handler_class
+
+
+def _handler_source_path(handler_class: Any) -> str:
+    try:
+        return _relative_source_path(inspect.getsourcefile(handler_class) or "")
+    except (TypeError, OSError):
+        return str(getattr(handler_class, "__module__", handler_class))
+
+
+def get_handler_metadata_operations() -> tuple[list[dict[str, Any]], set[str]]:
+    """Method witnesses from handler class metadata, plus path-only routes.
+
+    Method evidence comes only from explicit metadata: method-specific
+    ``<METHOD>_ROUTES`` attributes, explicit ``("METHOD", path)`` /
+    ``"METHOD /api/..."`` ROUTES entries, and ``@api_endpoint`` decorator
+    metadata. A bare path in ``ROUTES`` proves the path is served but never
+    proves any method: those paths are returned separately as method-unresolved
+    drift (handler path presence is not method evidence).
+    """
+    witnesses: list[dict[str, Any]] = []
+    path_only: set[str] = set()
+
+    def _witness(handler_class: Any, symbol: str, method: str, raw_path: str) -> None:
+        path = _clean_literal_path(raw_path)
+        if path is None:
+            # Wildcard/prefix declarations are never operation evidence; the
+            # path stays visible as method-unresolved drift instead.
+            if raw_path.startswith("/api/"):
+                path_only.add(raw_path)
+            return
+        witnesses.append(
+            {
+                "evidence_type": "handler_route_metadata",
+                "method": method,
+                "raw_path_literal": path,
+                "source_path": _handler_source_path(handler_class),
+                "symbol": symbol,
+            }
+        )
+
+    for handler_class in _iter_registry_handler_classes():
+        class_name = getattr(handler_class, "__name__", repr(handler_class))
+
+        plain_routes = getattr(handler_class, "ROUTES", None)
+        if isinstance(plain_routes, (list, tuple)):
+            for entry in plain_routes:
+                if isinstance(entry, tuple) and len(entry) >= 2:
+                    method, path = entry[0], entry[1]
+                    if not isinstance(path, str):
+                        continue
+                    if isinstance(method, str) and method in _RUNTIME_METHODS:
+                        _witness(handler_class, f"{class_name}.ROUTES", method, path)
+                    else:
+                        # Alien or lowercase verbs are never accepted; the path
+                        # is retained as method-unresolved drift, not guessed.
+                        path_only.add(path)
+                    continue
+                if not isinstance(entry, str):
+                    continue
+                head, _, tail = entry.partition(" ")
+                if head in _RUNTIME_METHODS and tail.startswith("/api/"):
+                    _witness(handler_class, f"{class_name}.ROUTES", head, tail)
+                elif tail.startswith("/api/"):
+                    # Unacceptable method token before a real path: incomplete
+                    # metadata retained as method-unresolved drift.
+                    path_only.add(tail)
+                else:
+                    path_only.add(entry)
+
+        for method_attr in _METHOD_ROUTES_ATTRS:
+            method_routes = getattr(handler_class, method_attr, None)
+            if not isinstance(method_routes, (list, tuple)):
+                continue
+            method = method_attr.removesuffix("_ROUTES")
+            for entry in method_routes:
+                if isinstance(entry, str):
+                    _witness(handler_class, f"{class_name}.{method_attr}", method, entry)
+
+        for attr_name in dir(handler_class):
+            try:
+                attr = getattr(handler_class, attr_name)
+            except Exception:  # noqa: BLE001 - discovery stays best-effort
+                continue
+            endpoint = getattr(attr, "_openapi", None)
+            path = getattr(endpoint, "path", None)
+            if not (isinstance(path, str) and path):
+                continue
+            method = getattr(endpoint, "method", None)
+            if isinstance(method, str) and method in _RUNTIME_METHODS:
+                _witness(
+                    handler_class,
+                    f"{class_name}.{attr_name}",
+                    method,
+                    path,
+                )
+            else:
+                # Missing, lowercase, or alien decorator methods are incomplete
+                # metadata: retained as method-unresolved drift, never guessed.
+                path_only.add(path)
+
+    return witnesses, path_only
+
+
+def get_openapi_operation_witnesses(spec_path: str) -> list[dict[str, Any]]:
+    """Exact lowercase OpenAPI operation keys on ``/api/``-rooted paths.
+
+    Non-method path-item keys (``parameters``, ``summary``, ``x-*`` extensions,
+    uppercase aliases, ``connect``, or any other key outside the exact OpenAPI
+    method-key set) are ignored and never become operations.
+    """
+    witnesses: list[dict[str, Any]] = []
+    for candidate in _iter_spec_paths(spec_path):
+        if not candidate.exists():
+            continue
+        with open(candidate) as handle:
+            spec = json.load(handle)
+        autogenerated = "_generated" in candidate.stem
+        paths = spec.get("paths", {})
+        if not isinstance(paths, dict):
+            continue
+        for raw_path, path_item in paths.items():
+            if not (isinstance(raw_path, str) and raw_path.startswith("/api/")):
+                continue
+            if not isinstance(path_item, dict):
+                continue
+            for key in path_item:
+                if key not in _OPENAPI_OPERATION_KEYS:
+                    continue
+                witnesses.append(
+                    {
+                        "evidence_type": "openapi_operation_key",
+                        "method": key.upper(),
+                        "operation_key": key,
+                        "raw_path_literal": raw_path,
+                        "source_path": _relative_source_path(candidate),
+                        "autogenerated": autogenerated,
+                    }
+                )
+    return witnesses
+
+
+def _build_operations(
+    witnesses: Iterable[dict[str, Any]],
+    ref: str,
+    *,
+    method_universe: frozenset[str],
+) -> dict[str, dict[str, Any]]:
+    """Merge witnesses into ``operation_id -> operation`` records."""
+    operations: dict[str, dict[str, Any]] = {}
+    for witness in witnesses:
+        method = witness.get("method")
+        if not (isinstance(method, str) and method in method_universe):
+            raise MethodAwareError(f"witness carries unacceptable method {method!r}: {witness!r}")
+        raw_path = witness["raw_path_literal"]
+        path = normalize_sdk_path(raw_path)
+        if not path.startswith("/api/"):
+            continue
+        operation_id = _operation_id(method, path)
+        record = operations.setdefault(
+            operation_id,
+            {
+                "operation_id": operation_id,
+                "method": method,
+                "path": path,
+                "source_sha": ref,
+                "evidence": [],
+            },
+        )
+        record["evidence"].append(dict(witness))
+    for record in operations.values():
+        record["evidence"].sort(key=_evidence_sort_key)
+    return operations
+
+
+def _admit_spec_operations(
+    spec_all: dict[str, dict[str, Any]],
+    served: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Admit spec operations, gating autogenerated-only placeholders.
+
+    Autogenerated snapshot operations count only when exact served-operation
+    evidence independently supports the method/path; a placeholder alone can
+    neither declare nor retire anything.
+    """
+    spec: dict[str, dict[str, Any]] = {}
+    for operation_id, operation in spec_all.items():
+        if any(not witness.get("autogenerated") for witness in operation["evidence"]):
+            spec[operation_id] = operation
+        elif operation_id in served:
+            spec[operation_id] = operation
+    return spec
+
+
+def _v1_alias(path: str) -> str:
+    if path.startswith("/api/") and not path.startswith("/api/v"):
+        return path.replace("/api/", "/api/v1/", 1)
+    return path
+
+
+def _classify_exposure(operation: dict[str, Any], prefixes: tuple[str, ...]) -> str:
+    """Resolve public/internal exposure from exact witness literals.
+
+    Every witness literal and the v1 alias of the canonical path are classified
+    against the internal-route policy. Unanimous verdicts resolve exposure;
+    disagreeing witnesses leave the operation unresolved governed debt rather
+    than guessing.
+    """
+    probes = {_v1_alias(operation["path"])}
+    for witness in operation["evidence"]:
+        raw = witness.get("raw_path_literal")
+        if isinstance(raw, str):
+            probes.add(raw.split("?", 1)[0].rstrip("/") or raw)
+    verdicts = {is_internal_route(probe, prefixes) for probe in probes}
+    if verdicts == {True}:
+        return "internal"
+    if verdicts == {False}:
+        return "public"
+    return "unresolved"
+
+
+def _sorted_operations(operations: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    ordered = sorted(operations, key=lambda op: op["operation_id"])
+    ids = [op["operation_id"] for op in ordered]
+    if len(ids) != len(set(ids)):
+        raise MethodAwareError("duplicate operation IDs in a collection")
+    return ordered
+
+
+def _assert_disjoint(collections: dict[str, list[dict[str, Any]]]) -> None:
+    names = sorted(collections)
+    for index, left in enumerate(names):
+        left_ids = {op["operation_id"] for op in collections[left]}
+        for right in names[index + 1 :]:
+            overlap = left_ids & {op["operation_id"] for op in collections[right]}
+            if overlap:
+                raise MethodAwareError(
+                    f"{left} and {right} must be disjoint; shared: {sorted(overlap)[:5]}"
+                )
+
+
+def build_route_set_algebra(
+    served: dict[str, dict[str, Any]],
+    spec: dict[str, dict[str, Any]],
+    internal_prefixes: tuple[str, ...],
+) -> dict[str, Any]:
+    """Compute the complete exclusive/exhaustive VAL-CDG-011 operation algebra."""
+    served_ids = set(served)
+    spec_ids = set(spec)
+
+    for operation_id, operation in spec.items():
+        method = operation["method"]
+        if method not in set(OPENAPI_METHOD_SET):
+            raise MethodAwareError(
+                f"spec operation {operation_id} carries non-OpenAPI method {method}"
+            )
+
+    served_but_undeclared_ids = served_ids - spec_ids
+    declared_and_served_ids = served_ids & spec_ids
+    unserved_spec_ids = spec_ids - served_ids
+
+    for operation_id, operation in served.items():
+        if operation["method"] == "CONNECT":
+            # Standard OpenAPI cannot declare CONNECT: it must remain explicit
+            # served-but-undeclared, non-representable debt. Declared CONNECT
+            # would mean the spec-side extractor accepted an alien key.
+            if operation_id not in served_but_undeclared_ids:
+                raise MethodAwareError(
+                    f"served CONNECT operation {operation_id} may never be declared_and_served"
+                )
+            operation["non_representable_in_standard_openapi"] = True
+
+    exposure: dict[str, list[dict[str, Any]]] = {
+        "public": [],
+        "internal": [],
+        "unresolved": [],
+    }
+    for operation_id in sorted(served_ids):
+        operation = served[operation_id]
+        verdict = _classify_exposure(operation, internal_prefixes)
+        entry = dict(operation)
+        entry["exposure"] = verdict
+        exposure[verdict].append(entry)
+
+    def _merge_declared(operation_id: str) -> dict[str, Any]:
+        merged = dict(served[operation_id])
+        merged["evidence"] = sorted(
+            merged["evidence"] + spec[operation_id]["evidence"], key=_evidence_sort_key
+        )
+        return merged
+
+    collections = {
+        "served_operations": _sorted_operations(served.values()),
+        "spec_operations": _sorted_operations(spec.values()),
+        "public_operations": _sorted_operations(exposure["public"]),
+        "internal_operations": _sorted_operations(exposure["internal"]),
+        "unresolved_exposure": _sorted_operations(exposure["unresolved"]),
+        "served_but_undeclared": _sorted_operations(
+            served[operation_id] for operation_id in served_but_undeclared_ids
+        ),
+        "declared_and_served": _sorted_operations(
+            _merge_declared(operation_id) for operation_id in declared_and_served_ids
+        ),
+        "unserved_spec": _sorted_operations(
+            spec[operation_id] for operation_id in unserved_spec_ids
+        ),
+    }
+
+    # Independently re-prove every union, intersection, difference, and
+    # disjointness equation from the reconstructed ID sets (never counts).
+    def _ids(name: str) -> set[str]:
+        return {op["operation_id"] for op in collections[name]}
+
+    _assert_disjoint(
+        {
+            name: collections[name]
+            for name in ("public_operations", "internal_operations", "unresolved_exposure")
+        }
+    )
+    _assert_disjoint(
+        {name: collections[name] for name in ("served_but_undeclared", "declared_and_served")}
+    )
+    _assert_disjoint({name: collections[name] for name in ("unserved_spec", "declared_and_served")})
+    checks = (
+        (
+            "served = public ⊎ internal ⊎ unresolved",
+            _ids("served_operations"),
+            _ids("public_operations") | _ids("internal_operations") | _ids("unresolved_exposure"),
+        ),
+        (
+            "served_but_undeclared = served - spec",
+            _ids("served_but_undeclared"),
+            _ids("served_operations") - _ids("spec_operations"),
+        ),
+        (
+            "declared_and_served = served ∩ spec",
+            _ids("declared_and_served"),
+            _ids("served_operations") & _ids("spec_operations"),
+        ),
+        (
+            "unserved_spec = spec - served",
+            _ids("unserved_spec"),
+            _ids("spec_operations") - _ids("served_operations"),
+        ),
+        (
+            "served = served_but_undeclared ⊎ declared_and_served",
+            _ids("served_operations"),
+            _ids("served_but_undeclared") | _ids("declared_and_served"),
+        ),
+        (
+            "spec = unserved_spec ⊎ declared_and_served",
+            _ids("spec_operations"),
+            _ids("unserved_spec") | _ids("declared_and_served"),
+        ),
+    )
+    for label, left, right in checks:
+        if left != right:
+            raise MethodAwareError(
+                f"route-set algebra violated: {label}; "
+                f"only-left={sorted(left - right)[:5]} only-right={sorted(right - left)[:5]}"
+            )
+    return collections
+
+
+def load_operation_projection(inventory_path: str | Path | None = None) -> dict[str, Any]:
+    """Load, authenticate, and prune the ratified operation projection.
+
+    Every layer is independently reconstructed from the artifact bytes: the
+    immutable 655 original-ID set, per-record canonical digests, the projection
+    digest set, the 57 route/parity memberships, and the exact 68 method edges
+    with their 48/8/1 distribution and the nine ratified multi-edge originals.
+    Count-only reconciliation is rejected: identities, digests, and edge
+    operation IDs are compared, never bare counts.
+    """
+    path = Path(inventory_path) if inventory_path is not None else _DEFAULT_INVENTORY_PATH
+    try:
+        inventory = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise MethodAwareError(f"cannot load contract-drift inventory {path}: {exc}") from exc
+
+    try:
+        cohort = inventory["accepted_authority"]["canonical_artifacts"]["original_cohort"]
+        originals = cohort["original_records"]
+        projection = cohort["operation_projection"]
+        records = projection["records"]
+    except (KeyError, TypeError) as exc:
+        raise MethodAwareError(f"inventory {path} lacks the canonical original cohort: {exc}")
+
+    if len(originals) != ORIGINAL_COHORT_TOTAL:
+        raise MethodAwareError(
+            f"original cohort must contain exactly {ORIGINAL_COHORT_TOTAL} records, "
+            f"found {len(originals)}"
+        )
+
+    def _recomputed_id(record: dict[str, Any]) -> str:
+        payload = _canonical_json_bytes(
+            {
+                "category": record["category"],
+                "exact_historical_literal_record": record["exact_historical_literal_record"],
+                "schema": "cdg-original-record-id-v1",
+            }
+        )
+        return f"cdg1:{_sha256_hex(payload)}"
+
+    original_ids: set[str] = set()
+    original_by_id: dict[str, dict[str, Any]] = {}
+    for record in originals:
+        recomputed = _recomputed_id(record)
+        if recomputed != record["original_record_id"]:
+            raise MethodAwareError(
+                f"original record ID mismatch for {record['original_record_id']}"
+            )
+        original_ids.add(recomputed)
+        original_by_id[recomputed] = record
+    if len(original_ids) != ORIGINAL_COHORT_TOTAL:
+        raise MethodAwareError("duplicate original_record_id in cohort")
+
+    id_set_digest = _sha256_hex(
+        _canonical_json_bytes(
+            {
+                "original_record_ids": sorted(original_ids),
+                "schema": "cdg-original-record-id-set-v1",
+            }
+        )
+    )
+    if id_set_digest != ORIGINAL_RECORD_ID_SET_SHA256:
+        raise MethodAwareError(
+            "immutable original-record-ID set digest mismatch: "
+            f"{id_set_digest} != {ORIGINAL_RECORD_ID_SET_SHA256}"
+        )
+
+    if len(records) != ORIGINAL_COHORT_TOTAL:
+        raise MethodAwareError(
+            f"operation projection must contain exactly {ORIGINAL_COHORT_TOTAL} membership "
+            f"records, found {len(records)}"
+        )
+    digests: list[str] = []
+    projection_ids: set[str] = set()
+    per_category_ids: dict[str, set[str]] = {}
+    for record in records:
+        body = {key: value for key, value in record.items() if key != "record_sha256"}
+        digest = _sha256_hex(_canonical_json_bytes(body))
+        if digest != record["record_sha256"]:
+            raise MethodAwareError(
+                f"projection record digest mismatch for {record['original_record_id']}"
+            )
+        digests.append(digest)
+        if _recomputed_id(record) != record["original_record_id"]:
+            raise MethodAwareError(
+                f"projection membership identity rewrite for {record['original_record_id']}"
+            )
+        if record["original_record_id"] in projection_ids:
+            raise MethodAwareError(
+                f"duplicate projection membership for {record['original_record_id']}"
+            )
+        projection_ids.add(record["original_record_id"])
+        per_category_ids.setdefault(record["category"], set()).add(record["original_record_id"])
+
+    digest_set = _sha256_hex(
+        _canonical_json_bytes(
+            {
+                "record_sha256_values": sorted(digests),
+                "schema": "cdg-operation-projection-record-digest-set-v1",
+            }
+        )
+    )
+    if digest_set != PROJECTION_RECORD_DIGEST_SET_SHA256:
+        raise MethodAwareError(
+            "projection record-digest-set mismatch: "
+            f"{digest_set} != {PROJECTION_RECORD_DIGEST_SET_SHA256}"
+        )
+
+    if projection_ids != original_ids:
+        raise MethodAwareError(
+            "projection membership IDs must equal the immutable original cohort IDs"
+        )
+    for category, ids in per_category_ids.items():
+        expected = {
+            record["original_record_id"] for record in originals if record["category"] == category
+        }
+        if ids != expected:
+            raise MethodAwareError(f"per-category original-ID set changed for {category}")
+
+    route_records = [record for record in records if record["category"] in ROUTE_CATEGORY_SELECTION]
+    route_category_counts = dict.fromkeys(ROUTE_CATEGORY_SELECTION, 0)
+    for record in route_records:
+        route_category_counts[record["category"]] += 1
+    if route_category_counts != ROUTE_CATEGORY_COUNTS:
+        raise MethodAwareError(
+            f"route category counts {route_category_counts} != ratified {ROUTE_CATEGORY_COUNTS}"
+        )
+    if len(route_records) != ROUTE_PARITY_RECORD_TOTAL:
+        raise MethodAwareError(
+            f"route/parity membership count {len(route_records)} != {ROUTE_PARITY_RECORD_TOTAL}"
+        )
+
+    edge_total = 0
+    multi_edge = 0
+    distribution: dict[int, int] = {}
+    seen_paths: set[str] = set()
+    for record in sorted(route_records, key=lambda r: r["original_record_id"]):
+        original = original_by_id[record["original_record_id"]]
+        if original.get("method") is not None:
+            raise MethodAwareError(
+                f"path-level original {record['original_record_id']} must keep method=null"
+            )
+        expected_language = _ROUTE_CATEGORY_SDK_LANGUAGE[record["category"]]
+        if record.get("sdk_language") != expected_language:
+            raise MethodAwareError(
+                f"category-derived sdk_language mismatch for {record['original_record_id']}"
+            )
+        if record.get("projection_status") != "resolved":
+            raise MethodAwareError(
+                f"unresolved projection membership {record['original_record_id']}"
+            )
+        edges = record.get("operation_edges")
+        if not isinstance(edges, list) or not edges:
+            raise MethodAwareError(f"zero-edge route membership {record['original_record_id']}")
+        edge_ids: set[str] = set()
+        edge_paths: set[str] = set()
+        for edge in edges:
+            method = edge.get("method")
+            if not (isinstance(method, str) and method in _RUNTIME_METHODS):
+                raise MethodAwareError(
+                    f"projected edge carries invalid method {method!r} on "
+                    f"{record['original_record_id']}"
+                )
+            normalized_path = edge.get("normalized_path")
+            if not (isinstance(normalized_path, str) and normalized_path.startswith("/api/")):
+                raise MethodAwareError(
+                    f"projected edge lacks normalized path on {record['original_record_id']}"
+                )
+            operation_id = _operation_id(method, normalized_path)
+            if edge.get("normalized_operation") != operation_id:
+                raise MethodAwareError(
+                    f"edge operation ID mismatch on {record['original_record_id']}"
+                )
+            if operation_id in edge_ids:
+                raise MethodAwareError(
+                    f"duplicate edge {operation_id} on {record['original_record_id']}"
+                )
+            edge_ids.add(operation_id)
+            edge_paths.add(normalized_path)
+            evidence = edge.get("evidence")
+            if not (isinstance(evidence, list) and evidence):
+                raise MethodAwareError(
+                    f"edge {operation_id} lacks witness provenance on "
+                    f"{record['original_record_id']}"
+                )
+            if not any(witness.get("method") == method for witness in evidence):
+                raise MethodAwareError(
+                    f"edge {operation_id} lacks an exact-method witness on "
+                    f"{record['original_record_id']}"
+                )
+        if len(edge_paths) != 1:
+            raise MethodAwareError(
+                f"route membership {record['original_record_id']} fans out across paths "
+                f"{sorted(edge_paths)}"
+            )
+        path_key = next(iter(edge_paths))
+        if path_key in seen_paths:
+            raise MethodAwareError(
+                f"exclusive source-operation sets violated: path {path_key} appears in "
+                "two route memberships"
+            )
+        seen_paths.add(path_key)
+        edge_total += len(edges)
+        distribution[len(edges)] = distribution.get(len(edges), 0) + 1
+        if len(edges) > 1:
+            multi_edge += 1
+            pinned = MULTI_EDGE_OPERATION_PINS.get(record["original_record_id"])
+            if pinned is None or tuple(sorted(edge_ids)) != pinned:
+                raise MethodAwareError(
+                    f"multi-edge original {record['original_record_id']} deviates from the "
+                    f"ratified edges {pinned}"
+                )
+
+    if edge_total != ROUTE_EDGE_TOTAL:
+        raise MethodAwareError(f"route edge total {edge_total} != {ROUTE_EDGE_TOTAL}")
+    if multi_edge != ROUTE_MULTI_EDGE_ORIGINALS:
+        raise MethodAwareError(
+            f"multi-edge original count {multi_edge} != {ROUTE_MULTI_EDGE_ORIGINALS}"
+        )
+    if distribution != ROUTE_EDGE_DISTRIBUTION:
+        raise MethodAwareError(
+            f"edge distribution {distribution} != ratified {ROUTE_EDGE_DISTRIBUTION}"
+        )
+    if max(distribution) != ROUTE_MAX_EDGES:
+        raise MethodAwareError(f"maximum edges {max(distribution)} != {ROUTE_MAX_EDGES}")
+
+    schema_descriptor = {
+        "one_to_many_rule": projection["one_to_many_rule"],
+        "record_digest_encoding": projection["record_digest_encoding"],
+        "schema": projection["schema"],
+        "schema_version": OPERATION_PROJECTION_SCHEMA_VERSION,
+    }
+    if projection["schema"] != OPERATION_PROJECTION_SCHEMA:
+        raise MethodAwareError(
+            f"projection schema {projection['schema']!r} != {OPERATION_PROJECTION_SCHEMA!r}"
+        )
+
+    return {
+        "schema": OPERATION_PROJECTION_SCHEMA,
+        "schema_version": OPERATION_PROJECTION_SCHEMA_VERSION,
+        "schema_sha256": _sha256_hex(_canonical_json_bytes(schema_descriptor)),
+        "original_record_id_set_sha256": id_set_digest,
+        "record_digest_set_sha256": digest_set,
+        "original_cohort_total": len(originals),
+        "route_records": sorted(route_records, key=lambda r: r["original_record_id"]),
+        "route_category_counts": route_category_counts,
+        "route_edge_total": edge_total,
+        "route_multi_edge_originals": multi_edge,
+        "route_max_edges": max(distribution),
+        "route_edge_distribution": {str(k): v for k, v in sorted(distribution.items())},
+    }
+
+
+def validate_method_aware_plane(
+    spec_path: str,
+    ref: str,
+    internal_prefixes_path: str | None = None,
+    inventory_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Compute the complete VAL-CDG-011 method-aware operation plane."""
+    ref = _require_exact_ref(ref)
+    internal_prefixes = load_internal_prefixes(internal_prefixes_path)
+
+    wired_witnesses: list[dict[str, Any]] = []
+    wildcard_registrations: set[str] = set()
+    for operation in get_wired_function_operations():
+        path = _clean_literal_path(operation["path"])
+        if path is None:
+            # Wildcard registrations are prefix claims; they never witness a
+            # method-specific operation and stay method-unresolved drift.
+            wildcard_registrations.add(operation["path"])
+            continue
+        wired_witnesses.append(
+            {
+                "evidence_type": "wired_router_registration",
+                "method": operation["method"],
+                "raw_path_literal": path,
+                "source_path": operation["source_path"],
+                "symbol": operation["symbol"],
+                "source_line": operation["line"],
+            }
+        )
+    metadata_witnesses, path_only_routes = get_handler_metadata_operations()
+    literal_witnesses = get_handler_source_literal_operations()
+
+    served = _build_operations(
+        [*wired_witnesses, *metadata_witnesses, *literal_witnesses],
+        ref,
+        method_universe=_RUNTIME_METHODS,
+    )
+
+    spec_witnesses = get_openapi_operation_witnesses(spec_path)
+    spec_all = _build_operations(spec_witnesses, ref, method_universe=frozenset(OPENAPI_METHOD_SET))
+    spec = _admit_spec_operations(spec_all, served)
+
+    collections = build_route_set_algebra(served, spec, internal_prefixes)
+
+    served_paths = {operation["path"] for operation in served.values()}
+    method_unresolved = {
+        normalize_sdk_path(route)
+        for route in (*path_only_routes, *wildcard_registrations)
+        if isinstance(route, str) and route.startswith("/api/")
+    }
+    method_unresolved.update(
+        normalize_sdk_path(route)
+        for route in get_handler_routes()
+        if isinstance(route, str) and route.startswith("/api/")
+    )
+    method_unresolved -= served_paths
+
+    projection = load_operation_projection(inventory_path)
+
+    served_ids = {operation["operation_id"] for operation in collections["served_operations"]}
+    spec_ids = {operation["operation_id"] for operation in collections["spec_operations"]}
+    reconciliation = {
+        "in_served_and_spec": 0,
+        "served_only": 0,
+        "spec_only": 0,
+        "historical_only": 0,
+    }
+    for record in projection["route_records"]:
+        for edge in record["operation_edges"]:
+            live_id = _operation_id(edge["method"], normalize_sdk_path(edge["normalized_path"]))
+            in_served = live_id in served_ids
+            in_spec = live_id in spec_ids
+            if in_served and in_spec:
+                reconciliation["in_served_and_spec"] += 1
+            elif in_served:
+                reconciliation["served_only"] += 1
+            elif in_spec:
+                reconciliation["spec_only"] += 1
+            else:
+                reconciliation["historical_only"] += 1
+
+    normalizer_path = _REPO_ROOT / _PATH_NORMALIZE_AUTHORITY
+    plane: dict[str, Any] = {
+        "ref": ref,
+        "runtime_method_set": sorted(RUNTIME_METHOD_SET),
+        "openapi_method_set": sorted(OPENAPI_METHOD_SET),
+        "path_normalization": {
+            "authority_path": _PATH_NORMALIZE_AUTHORITY,
+            "authority_sha256": _sha256_hex(normalizer_path.read_bytes()),
+            "schema": "sdk-path-normalize-v1",
+            "version": 1,
+        },
+        "method_unresolved_paths": sorted(method_unresolved),
+        "method_unresolved_paths_count": len(method_unresolved),
+        "operation_projection_schema": projection["schema"],
+        "operation_projection_schema_version": projection["schema_version"],
+        "operation_projection_schema_sha256": projection["schema_sha256"],
+        "original_record_id_set_sha256": projection["original_record_id_set_sha256"],
+        "operation_projection_record_digest_set_sha256": projection["record_digest_set_sha256"],
+        "original_cohort_total": projection["original_cohort_total"],
+        "route_category_keys": sorted(ROUTE_CATEGORY_SELECTION),
+        "route_category_counts": projection["route_category_counts"],
+        "route_category_selection": ROUTE_CATEGORY_SELECTION,
+        "operation_projection": projection["route_records"],
+        "operation_projection_route_edge_total": projection["route_edge_total"],
+        "operation_projection_multi_edge_originals": projection["route_multi_edge_originals"],
+        "operation_projection_max_edges": projection["route_max_edges"],
+        "operation_projection_edge_distribution": projection["route_edge_distribution"],
+        "operation_projection_live_reconciliation": reconciliation,
+    }
+    for name, operations in collections.items():
+        plane[name] = operations
+        plane[f"{name}_count"] = len(operations)
+    return plane
+
+
 def load_wired_routes_for_validation() -> set[str]:
     """Load literal wired routes with exact API-version semantics."""
     try:
@@ -740,6 +1751,14 @@ def main():
         help="Path to OpenAPI spec (default: docs/api/openapi.json)",
     )
     parser.add_argument(
+        "--ref",
+        default=None,
+        help=(
+            "Exact 40-hex commit SHA to bind operation evidence to; enables the "
+            "method-aware VAL-CDG-011 operation plane"
+        ),
+    )
+    parser.add_argument(
         "--fail-on-missing",
         action="store_true",
         help="Exit with error code 1 if routes are missing from spec",
@@ -769,6 +1788,40 @@ def main():
     )
 
     args = parser.parse_args()
+    if args.ref is not None:
+        try:
+            plane = validate_method_aware_plane(
+                args.spec,
+                args.ref,
+                internal_prefixes_path=args.internal_prefixes,
+            )
+        except MethodAwareError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if args.json:
+            print(json.dumps(plane, indent=2))
+        else:
+            print("=" * 60)
+            print("Method-Aware Route Operation Plane (VAL-CDG-011)")
+            print("=" * 60)
+            for name in (
+                "served_operations",
+                "spec_operations",
+                "public_operations",
+                "internal_operations",
+                "unresolved_exposure",
+                "served_but_undeclared",
+                "declared_and_served",
+                "unserved_spec",
+            ):
+                print(f"{name}: {plane[f'{name}_count']}")
+            print(f"method_unresolved_paths: {plane['method_unresolved_paths_count']}")
+            print(
+                "operation_projection: "
+                f"{len(plane['operation_projection'])} memberships, "
+                f"{plane['operation_projection_route_edge_total']} edges"
+            )
+        return
     validate_coverage(
         args.spec,
         args.fail_on_missing,
