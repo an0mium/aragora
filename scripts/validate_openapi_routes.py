@@ -1242,8 +1242,14 @@ def get_openapi_operation_witnesses(spec_path: str) -> list[dict[str, Any]]:
 
     Non-method path-item keys (``parameters``, ``summary``, ``x-*`` extensions,
     uppercase aliases, ``connect``, or any other key outside the exact OpenAPI
-    method-key set) are ignored and never become operations.
+    method-key set) are ignored and never become operations. A missing PRIMARY
+    spec fails closed: an unreadable ``--spec`` path must never masquerade as
+    an empty declared surface (review round 5). Only the optional
+    ``*_generated`` sibling snapshot may be legitimately absent.
     """
+    primary = Path(spec_path)
+    if not primary.exists():
+        raise MethodAwareError(f"OpenAPI spec not found: {primary}")
     witnesses: list[dict[str, Any]] = []
     for candidate in _iter_spec_paths(spec_path):
         if not candidate.exists():
