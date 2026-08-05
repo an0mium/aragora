@@ -52,8 +52,8 @@ repos:
   # This hook runs in an isolated `language: python` env, so pre-commit installs
   # mypy and the same type-stub packages as CI — the gate does not depend on the
   # developer's active environment having mypy (no "No module named mypy"
-  # surprises). The hook pins mypy to Aragora's current known-good local version
-  # so pre-commit env rebuilds are deterministic; CI remains authoritative.
+  # surprises). The hook pins mypy to the version recorded in uv.lock; focused
+  # contract coverage prevents the isolated hook and locked CI runtime drifting.
   #
   # Run the full baseline check manually when you want it:
   #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
@@ -105,7 +105,7 @@ repos:
           fi' --
         language: python
         additional_dependencies:
-          - mypy==1.19.1
+          - mypy==2.1.0
           - types-requests
           - types-redis
           - types-python-dateutil
@@ -118,7 +118,7 @@ repos:
         # list alone.
         pass_filenames: true
         always_run: true
-        files: ^(aragora/.*\.py|pyproject\.toml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|(.*/)?requirements[^/]*\.txt|\.github/actions/pr-scope-classifier/.*)$
+        files: ^(aragora/.*\.py|pyproject\.toml|uv\.lock|\.pre-commit-config\.yaml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|(.*/)?requirements[^/]*\.txt|\.github/actions/pr-scope-classifier/.*)$
         # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 

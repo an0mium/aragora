@@ -1,0 +1,61 @@
+name: Contract Drift Boundary
+
+# Operator-authorized Tier-4 signer workflow (validation-contract review-history
+# entry 30; operator ledger decision 2026-08-01; seal blocker B1). Produces the
+# actions/attest@v4 Sigstore provenance over the three immutable boundary
+# capsule assets (manifest.json, payload.json, checksums.txt) so that the
+# pinned verification argv in scripts/check_contract_drift_ratchet.py
+# (_attestation_verify_argv) succeeds:
+#
+#   gh attestation verify <asset> -R <owner>/<repo>
+#     --signer-workflow <owner>/<repo>/.github/workflows/contract-drift-boundary.yml
+#     --source-digest <end_sha> --format json
+#
+# Dispatch this workflow AT the boundary capsule tag
+# (cdg-<boundary>-<end_sha>) so the certificate's source digest equals the
+# boundary end SHA the checker binds with --source-digest. No other trigger
+# surface, no other jobs, and no repository mutations are authorized.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Boundary capsule tag (cdg-<boundary>-<end_sha>). Must equal the tag
+          ref this run is dispatched on.
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  attestations: write
+  contents: read
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download and authenticate the capsule assets at the boundary tag
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^cdg-(corrective_bootstrap|route_truth|core_sdk|extended_sdk|final_seal)-[0-9a-f]{40}$ ]]
+          test "refs/tags/$TAG" = "$GITHUB_REF"
+          test "${TAG##*-}" = "$GITHUB_SHA"
+          mkdir assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+          test "$(find assets -mindepth 1 | wc -l)" -eq 3
+          test -s assets/manifest.json
+          test -s assets/payload.json
+          test -s assets/checksums.txt
+          (cd assets && sha256sum --check --strict checksums.txt)
+      - name: Attest the capsule assets
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: |
+            assets/manifest.json
+            assets/payload.json
+            assets/checksums.txt

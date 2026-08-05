@@ -115,9 +115,13 @@ PYTHON_EXECUTABLE_ARGUMENT_BINDINGS = frozenset(
     }
 )
 NON_REPOSITORY_COMMAND_ARGUMENT_BINDINGS = {
+    (
+        "scripts/check_contract_drift_ratchet.py",
+        "launcher",
+    ): "__contract_drift_hermetic_launcher.py",
     ("scripts/generate_contract_drift_inventory.py", "runner_path"): (
         "__contract_drift_exact_ref_runner.py"
-    )
+    ),
 }
 DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES = frozenset(
     {
@@ -1622,6 +1626,73 @@ def _exact_ref_inventory_facts(
     *,
     external_artifacts: Iterable[Path] = (),
 ) -> dict[str, Any]:
+    inventory_path = extraction_root / DEFAULT_INVENTORY
+    if inventory_path.is_file():
+        inventory_doc = json.loads(inventory_path.read_bytes())
+        accepted = inventory_doc.get("accepted_authority")
+        if isinstance(accepted, dict):
+            artifacts = [_canonical_external_artifact(path) for path in external_artifacts]
+            external_docs = {
+                json.loads(path.read_bytes())["schema"]: json.loads(path.read_bytes())
+                for path in external_artifacts
+            }
+            cohort = accepted.get("canonical_artifacts", {}).get("original_cohort")
+            provenance = accepted.get("canonical_artifacts", {}).get("sdk_provenance")
+            if external_docs and (
+                cohort != external_docs.get("contract-drift-original-cohort-v1")
+                or provenance != external_docs.get("contract-drift-sdk-provenance-v1")
+            ):
+                raise AuthorityClosureError(
+                    "accepted authority differs from authenticated canonical artifacts"
+                )
+            if not artifacts:
+                artifacts = [
+                    {
+                        "byte_length": len(_canonical_json_bytes(document)),
+                        "canonical_bytes": True,
+                        "path": logical_path,
+                        "sha256": _sha256(_canonical_json_bytes(document)),
+                    }
+                    for logical_path, document in (
+                        ("contract-drift-original-cohort-v1.json", cohort),
+                        ("contract-drift-sdk-provenance-v1.json", provenance),
+                    )
+                ]
+            records = cohort["original_records"]
+            original_ids = sorted(record["original_record_id"] for record in records)
+            projection = cohort["operation_projection"]
+            partition = provenance["partition"]
+            return {
+                "accepted_authority": {
+                    "active_inventory": accepted["active_inventory"],
+                    "category_counts": cohort["counts"]["by_category"],
+                    "core_unit_ids": sorted(
+                        record["original_record_id"]
+                        for record in provenance["records"]
+                        if record["partition"] == "core"
+                    ),
+                    "extended_unit_ids": sorted(
+                        record["original_record_id"]
+                        for record in provenance["records"]
+                        if record["partition"] == "extended"
+                    ),
+                    "operation_projection": projection["records"],
+                    "operation_projection_record_digest_set_sha256": projection[
+                        "record_digest_set_sha256"
+                    ],
+                    "original_record_id_set_sha256": cohort["original_record_id_set"]["sha256"],
+                    "original_record_ids": original_ids,
+                    "original_record_total": len(original_ids),
+                    "original_records": records,
+                    "partition_rule_version": partition["rule_schema"],
+                    "sdk_provenance_record_total": len(provenance["records"]),
+                },
+                "external_artifacts": sorted(artifacts, key=lambda item: item["path"]),
+                "inventory_binding": {
+                    "path": DEFAULT_INVENTORY,
+                    **_git_blob_binding(repo_root, sha, extraction_root, DEFAULT_INVENTORY),
+                },
+            }
     docs: dict[str, dict[str, Any]] = {}
     baseline_bindings: list[dict[str, Any]] = []
     for alias, (path, _keys) in BASELINE_SPECS.items():
@@ -1645,7 +1716,6 @@ def _exact_ref_inventory_facts(
     for category in ids.values():
         category_counts[category] += 1
 
-    inventory_path = extraction_root / DEFAULT_INVENTORY
     inventory_binding: dict[str, Any] | None = None
     inventory_counts: dict[str, int] = {}
     if inventory_path.is_file():
@@ -1989,12 +2059,17 @@ def exact_ref_inventory(
         interpreter=interpreter,
         external_artifacts=external_artifacts,
     )
-    return {
+    result = {
         "authority_manifest_sha256": manifest["authority_manifest_sha256"],
         "inventory": manifest["inventory"],
         "ref": manifest["ref"],
         "schema": EXACT_REF_INVENTORY_SCHEMA,
     }
+    accepted = manifest["inventory"].get("accepted_authority")
+    if isinstance(accepted, dict):
+        result.update(accepted)
+        result["canonical_artifacts"] = manifest["inventory"]["external_artifacts"]
+    return result
 
 
 def normalize_key(entry: Any) -> str:
