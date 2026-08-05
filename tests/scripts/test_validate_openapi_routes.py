@@ -1280,6 +1280,34 @@ def register_routes(router):
     assert {(op["method"], op["path"]) for op in operations} == {("GET", "/api/g/kept")}
 
 
+def test_match_capture_rebinding_invalidates_fstring_folding(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 11: match-statement captures (MatchAs/MatchStar/MatchMapping.rest)
+    # store plain-str names; the rebound-name census must see them
+    handler.write_text(
+        """
+def register_routes(router):
+    for base in ("/api/a", "/api/b"):
+        match compute():
+            case str() as base:
+                pass
+        router.add_get(f"{base}/x", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    assert (
+        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+        == []
+    )
+
+
 def test_module_attribute_registrar_resolves_to_module_function(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     package = tmp_path / "aragora" / "server" / "handlers" / "grouped"

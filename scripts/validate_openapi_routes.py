@@ -620,6 +620,12 @@ def _names_rebound_in(nodes: Iterable[ast.AST]) -> set[str]:
                 rebound.update(child.names)
             elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 rebound.add(child.name)
+            elif isinstance(child, (ast.MatchAs, ast.MatchStar)) and child.name:
+                # match-statement captures store plain-str names, not
+                # ast.Name/Store (review round 11).
+                rebound.add(child.name)
+            elif isinstance(child, ast.MatchMapping) and child.rest:
+                rebound.add(child.rest)
     return rebound
 
 
