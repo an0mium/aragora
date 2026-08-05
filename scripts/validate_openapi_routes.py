@@ -348,14 +348,69 @@ def _resolve_registration_function(
     return None
 
 
-def _iter_executable_calls(nodes: Iterable[ast.AST]) -> Iterator[ast.Call]:
-    """Yield calls while excluding nested definitions that may never execute."""
+def _iter_executable_calls(
+    nodes: Iterable[ast.AST],
+    bindings: dict[str, tuple[str, ...]] | None = None,
+) -> Iterator[tuple[ast.Call, dict[str, tuple[str, ...]]]]:
+    """Yield executable calls with literal for-loop string bindings in scope.
+
+    Nested definitions that may never execute are excluded. A ``for`` target
+    iterating a tuple/list of string constants binds its exact literal values,
+    enabling deterministic folding of f-string paths built from those values
+    (no evaluation, no heuristics).
+    """
+    bound = dict(bindings or {})
     for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
             continue
+        if isinstance(node, ast.For):
+            loop_bound = dict(bound)
+            if isinstance(node.target, ast.Name) and isinstance(node.iter, (ast.Tuple, ast.List)):
+                literal_values = [
+                    element.value
+                    for element in node.iter.elts
+                    if isinstance(element, ast.Constant) and isinstance(element.value, str)
+                ]
+                if literal_values and len(literal_values) == len(node.iter.elts):
+                    loop_bound[node.target.id] = tuple(literal_values)
+            yield from _iter_executable_calls([node.iter], bound)
+            yield from _iter_executable_calls([*node.body, *node.orelse], loop_bound)
+            continue
         if isinstance(node, ast.Call):
-            yield node
-        yield from _iter_executable_calls(ast.iter_child_nodes(node))
+            yield node, bound
+        yield from _iter_executable_calls(ast.iter_child_nodes(node), bound)
+
+
+def _literal_path_candidates(
+    path_argument: ast.expr, bindings: dict[str, tuple[str, ...]]
+) -> tuple[str, ...]:
+    """Exact literal path values for a route argument, or empty when computed.
+
+    Accepts plain string constants and f-strings whose only interpolations are
+    for-loop variables bound to literal string tuples: the fold enumerates the
+    exact registered paths deterministically. Anything else stays unverified.
+    """
+    if isinstance(path_argument, ast.Constant) and isinstance(path_argument.value, str):
+        return (path_argument.value,)
+    if isinstance(path_argument, ast.JoinedStr):
+        candidates = [""]
+        for part in path_argument.values:
+            if isinstance(part, ast.Constant) and isinstance(part.value, str):
+                candidates = [prefix + part.value for prefix in candidates]
+            elif (
+                isinstance(part, ast.FormattedValue)
+                and isinstance(part.value, ast.Name)
+                and part.conversion == -1
+                and part.format_spec is None
+                and part.value.id in bindings
+            ):
+                candidates = [
+                    prefix + value for prefix in candidates for value in bindings[part.value.id]
+                ]
+            else:
+                return ()
+        return tuple(candidates)
+    return ()
 
 
 def get_wired_function_operations(
@@ -367,10 +422,14 @@ def get_wired_function_operations(
     The server registration module is the authority for which free functions
     participate in startup. Only imported ``register_*`` callables that are
     actually called there are considered. Within those exact function bodies,
-    only literal ``<first-argument>.router.add_<method>('/api/...')`` calls
-    count, and the router method name is the exact HTTP method witness.
-    Local package reexports are followed to their function definition. Computed
-    paths and unrelated route-registration helpers remain unverified.
+    literal ``add_<method>('/api/...')`` calls count with the router method
+    name as the exact HTTP method witness, and literal
+    ``add_route("METHOD", '/api/...')`` calls count with the explicit
+    uppercase method constant as the witness. The receiver must be the wired
+    app's router (``app.router.add_*``) or a router passed directly as the
+    registrar's first argument (``router.add_*``). Local package reexports are
+    followed to their function definition. Computed paths and methods and
+    unrelated route-registration helpers remain unverified.
     """
     root = repo_root or _REPO_ROOT
     wiring_path = registration_path or _SERVER_ROUTE_REGISTRATION
@@ -407,29 +466,45 @@ def get_wired_function_operations(
         if not function.args.args:
             continue
         app_argument = function.args.args[0].arg
-        for call in _iter_executable_calls(function.body):
-            if not isinstance(call.func, ast.Attribute):
-                continue
-            if call.func.attr not in _LITERAL_ROUTER_METHODS or not call.args:
+        for call, bindings in _iter_executable_calls(function.body):
+            if not isinstance(call.func, ast.Attribute) or not call.args:
                 continue
             receiver = call.func.value
-            if not (
+            receiver_is_app_router = (
                 isinstance(receiver, ast.Attribute)
                 and receiver.attr == "router"
                 and isinstance(receiver.value, ast.Name)
                 and receiver.value.id == app_argument
-            ):
+            )
+            receiver_is_direct_router = (
+                isinstance(receiver, ast.Name) and receiver.id == app_argument
+            )
+            if not (receiver_is_app_router or receiver_is_direct_router):
                 continue
-            path_argument = call.args[0]
-            if (
-                isinstance(path_argument, ast.Constant)
-                and isinstance(path_argument.value, str)
-                and path_argument.value.startswith("/api/")
-            ):
+            if call.func.attr in _LITERAL_ROUTER_METHODS:
+                method = call.func.attr.removeprefix("add_").upper()
+                path_argument = call.args[0]
+            elif call.func.attr == "add_route" and len(call.args) >= 2:
+                method_argument = call.args[0]
+                if not (
+                    isinstance(method_argument, ast.Constant)
+                    and isinstance(method_argument.value, str)
+                    and method_argument.value in _RUNTIME_METHODS
+                ):
+                    # Computed or non-canonical method constants stay
+                    # unverified: a method witness must be an exact literal.
+                    continue
+                method = method_argument.value
+                path_argument = call.args[1]
+            else:
+                continue
+            for path in _literal_path_candidates(path_argument, bindings):
+                if not path.startswith("/api/"):
+                    continue
                 operations.append(
                     {
-                        "method": call.func.attr.removeprefix("add_").upper(),
-                        "path": path_argument.value,
+                        "method": method,
+                        "path": path,
                         "source_path": str(module_path.relative_to(root))
                         if module_path.is_relative_to(root)
                         else str(module_path),
@@ -721,6 +796,22 @@ def _operation_id(method: str, path: str) -> str:
     return f"{method} {path}"
 
 
+def path_normalization_binding() -> dict[str, Any]:
+    """Digest binding of the single normalization authority.
+
+    The same ``scripts/sdk_path_normalize.py`` bytes back the route plane, the
+    SDK-parity checker, and the inventory; consumers compare this binding
+    across outputs for schema/version/digest equality.
+    """
+    authority = _REPO_ROOT / _PATH_NORMALIZE_AUTHORITY
+    return {
+        "authority_path": _PATH_NORMALIZE_AUTHORITY,
+        "authority_sha256": _sha256_hex(authority.read_bytes()),
+        "schema": "sdk-path-normalize-v1",
+        "version": 1,
+    }
+
+
 def _require_exact_ref(ref: str) -> str:
     if not re.fullmatch(r"[0-9a-f]{40}", ref or ""):
         raise MethodAwareError(
@@ -753,59 +844,114 @@ def _relative_source_path(path: Path | str) -> str:
         return str(candidate)
 
 
-def _evidence_sort_key(witness: dict[str, Any]) -> tuple[str, str, str, str]:
+def _evidence_sort_key(witness: dict[str, Any]) -> tuple[str, str, int, str, str]:
+    source_line = witness.get("source_line")
     return (
         str(witness.get("evidence_type", "")),
         str(witness.get("source_path", "")),
-        str(witness.get("source_line", witness.get("symbol", ""))),
+        source_line if isinstance(source_line, int) else 0,
+        str(witness.get("symbol", "")),
         str(witness.get("raw_path_literal", "")),
     )
+
+
+def _iter_executable_string_constants(tree: ast.Module) -> Iterator[tuple[str, int]]:
+    """Yield ``(value, lineno)`` for string constants outside docstrings.
+
+    Comments never reach the AST, and module/class/function docstrings are
+    excluded positionally, so only executable string literals (dispatch keys,
+    route tables, comparisons) remain. Prose can therefore never become served
+    method evidence.
+    """
+    docstrings: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = node.body
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                docstrings.add(id(body[0].value))
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+        ):
+            yield node.value, node.lineno
 
 
 def get_handler_source_literal_operations(
     server_root: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Explicit ``METHOD /api/...`` literals in server source are method witnesses."""
+    """Explicit ``METHOD /api/...`` literals in executable server source.
+
+    Only string constants in executable positions count: comments and
+    docstrings are structurally excluded (review round 1 on this packet: raw
+    text scanning let documentation prose fabricate served operations).
+    """
     root = server_root if server_root is not None else _REPO_ROOT / "aragora" / "server"
     witnesses: list[dict[str, Any]] = []
     for source_file in sorted(root.rglob("*.py")):
         try:
-            text = source_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            tree = _parse_python_source(source_file)
+        except RouteRegistrationScanError:
             continue
-        for match in _HANDLER_METHOD_PATH_LITERAL_RE.finditer(text):
-            path = _clean_literal_path(match.group(2))
-            if path is None:
-                continue
-            witnesses.append(
-                {
-                    "evidence_type": "handler_source_method_path_literal",
-                    "method": match.group(1),
-                    "raw_path_literal": path,
-                    "source_path": _relative_source_path(source_file),
-                    "source_line": text.count("\n", 0, match.start()) + 1,
-                    "match_text": match.group(0),
-                }
-            )
+        for value, lineno in _iter_executable_string_constants(tree):
+            for match in _HANDLER_METHOD_PATH_LITERAL_RE.finditer(value):
+                path = _clean_literal_path(match.group(2))
+                if path is None:
+                    continue
+                witnesses.append(
+                    {
+                        "evidence_type": "handler_source_method_path_literal",
+                        "method": match.group(1),
+                        "raw_path_literal": path,
+                        "source_path": _relative_source_path(source_file),
+                        "source_line": lineno,
+                        "match_text": match.group(0),
+                    }
+                )
     return witnesses
 
 
 def _iter_registry_handler_classes() -> Iterator[Any]:
+    """Resolve every registry handler, failing CLOSED on resolution failure.
+
+    A handler that cannot resolve is unproven served surface: silently
+    dropping it would retire served-but-undeclared drift and manufacture
+    unserved-spec orphans (review round 1 on this packet). The legacy
+    path-level plane keeps its historical skip behavior; the method-aware
+    plane refuses to publish a partial census.
+    """
     try:
         from aragora.server.handler_registry import HANDLER_REGISTRY
     except ImportError as exc:  # pragma: no cover - environment failure
         raise MethodAwareError(f"cannot import handler_registry: {exc}") from exc
 
-    for _attr_name, handler_ref in HANDLER_REGISTRY:
+    failures: list[str] = []
+    resolved_classes: list[Any] = []
+    for attr_name, handler_ref in HANDLER_REGISTRY:
         handler_class = handler_ref
         resolve = getattr(handler_ref, "resolve", None)
         if callable(resolve):
             try:
                 handler_class = resolve()
-            except Exception:  # noqa: BLE001 - import failures are non-fatal here
-                handler_class = None
-        if handler_class is not None:
-            yield handler_class
+            except Exception as exc:  # noqa: BLE001 - collected, then failed closed
+                failures.append(f"{attr_name}: {type(exc).__name__}: {exc}")
+                continue
+        if handler_class is None:
+            failures.append(f"{attr_name}: resolved to None")
+            continue
+        resolved_classes.append(handler_class)
+    if failures:
+        raise MethodAwareError(
+            "handler registry resolution failed for "
+            f"{len(failures)} entries; refusing a partial served census: " + "; ".join(failures[:5])
+        )
+    yield from resolved_classes
 
 
 def _handler_source_path(handler_class: Any) -> str:
@@ -920,8 +1066,10 @@ def get_openapi_operation_witnesses(spec_path: str) -> list[dict[str, Any]]:
     for candidate in _iter_spec_paths(spec_path):
         if not candidate.exists():
             continue
-        with open(candidate) as handle:
-            spec = json.load(handle)
+        try:
+            spec = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise MethodAwareError(f"cannot load OpenAPI spec {candidate}: {exc}") from exc
         autogenerated = "_generated" in candidate.stem
         paths = spec.get("paths", {})
         if not isinstance(paths, dict):
@@ -1008,16 +1156,20 @@ def _v1_alias(path: str) -> str:
 def _classify_exposure(operation: dict[str, Any], prefixes: tuple[str, ...]) -> str:
     """Resolve public/internal exposure from exact witness literals.
 
-    Every witness literal and the v1 alias of the canonical path are classified
-    against the internal-route policy. Unanimous verdicts resolve exposure;
-    disagreeing witnesses leave the operation unresolved governed debt rather
-    than guessing.
+    The canonical path and every witness literal are classified against the
+    internal-route policy in the policy's own ``/api/v1/`` space (unversioned
+    literals alias to v1 exactly as the path-level plane normalizes them, so a
+    version-form difference alone never manufactures ambiguity). Unanimous
+    verdicts resolve exposure; genuinely disagreeing witnesses — e.g. a
+    non-v1-versioned serving of a v1-internal family — leave the operation
+    unresolved governed debt rather than guessing.
     """
     probes = {_v1_alias(operation["path"])}
     for witness in operation["evidence"]:
         raw = witness.get("raw_path_literal")
         if isinstance(raw, str):
-            probes.add(raw.split("?", 1)[0].rstrip("/") or raw)
+            stripped = raw.split("?", 1)[0].rstrip("/") or raw
+            probes.add(_v1_alias(stripped))
     verdicts = {is_internal_route(probe, prefixes) for probe in probes}
     if verdicts == {True}:
         return "internal"
@@ -1052,6 +1204,10 @@ def build_route_set_algebra(
     internal_prefixes: tuple[str, ...],
 ) -> dict[str, Any]:
     """Compute the complete exclusive/exhaustive VAL-CDG-011 operation algebra."""
+    # Never mutate caller inputs: annotate copies so repeated calls and shared
+    # dicts stay stable.
+    served = {operation_id: dict(op) for operation_id, op in served.items()}
+    spec = {operation_id: dict(op) for operation_id, op in spec.items()}
     served_ids = set(served)
     spec_ids = set(spec)
 
@@ -1503,17 +1659,11 @@ def validate_method_aware_plane(
             else:
                 reconciliation["historical_only"] += 1
 
-    normalizer_path = _REPO_ROOT / _PATH_NORMALIZE_AUTHORITY
     plane: dict[str, Any] = {
         "ref": ref,
         "runtime_method_set": sorted(RUNTIME_METHOD_SET),
         "openapi_method_set": sorted(OPENAPI_METHOD_SET),
-        "path_normalization": {
-            "authority_path": _PATH_NORMALIZE_AUTHORITY,
-            "authority_sha256": _sha256_hex(normalizer_path.read_bytes()),
-            "schema": "sdk-path-normalize-v1",
-            "version": 1,
-        },
+        "path_normalization": path_normalization_binding(),
         "method_unresolved_paths": sorted(method_unresolved),
         "method_unresolved_paths_count": len(method_unresolved),
         "operation_projection_schema": projection["schema"],

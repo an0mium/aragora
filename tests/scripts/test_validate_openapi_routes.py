@@ -663,31 +663,35 @@ def test_route_set_algebra_is_exact_disjoint_and_complete():
         ids = _ids(collections, name)
         assert ids == sorted(ids)
         assert len(ids) == len(set(ids))
-    # completeness violation fails closed
-    served_ops = _build([_op("GET", "/api/a")])
-    spec_ops = {}
-    broken = dict(served_ops)
-    broken["GET /api/b"] = {
-        "operation_id": "GET /api/b",
+    # disjointness violations fail closed: two distinct collections sharing an
+    # operation ID are rejected by the algebra's own disjointness prover
+    shared = {
+        "operation_id": "GET /api/a",
         "method": "GET",
-        "path": "/api/b",
+        "path": "/api/a",
         "source_sha": REF,
         "evidence": [],
     }
-    with pytest.raises(validate_openapi_routes.MethodAwareError):
-        # spec claims an operation that served-side reconstruction rejects:
-        # feed an inconsistent declared collection through the algebra by
-        # mutating served after construction.
-        collections = validate_openapi_routes.build_route_set_algebra(
-            served_ops, spec_ops, ("/api/v1/sme/",)
-        )
-        collections["served_operations"].append(broken["GET /api/b"])
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="disjoint"):
         validate_openapi_routes._assert_disjoint(
-            {
-                "served_operations": collections["served_operations"],
-                "served_operations_dup": collections["served_operations"],
-            }
+            {"public_operations": [shared], "internal_operations": [dict(shared)]}
         )
+    # a spec-side operation carrying a non-OpenAPI method fails inside the
+    # algebra even if it bypassed witness construction
+    hostile_spec = {
+        "CONNECT /api/a": {
+            "operation_id": "CONNECT /api/a",
+            "method": "CONNECT",
+            "path": "/api/a",
+            "source_sha": REF,
+            "evidence": [],
+        }
+    }
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="non-OpenAPI"):
+        validate_openapi_routes.build_route_set_algebra({}, hostile_spec, ("/api/v1/sme/",))
+    # duplicate operation IDs inside one collection are rejected at sort time
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="duplicate"):
+        validate_openapi_routes._sorted_operations([shared, dict(shared)])
 
 
 def test_runtime_method_set_is_exact_including_connect_and_trace():
@@ -769,7 +773,9 @@ def test_connect_is_explicit_nonrepresentable_served_but_undeclared_debt(tmp_pat
 
 
 def test_unresolved_exposure_remains_governed_debt():
-    # witnesses disagree about internal/public -> unresolved, not guessed
+    # version-form differences alone never manufacture ambiguity: the
+    # unversioned wired literal aliases into the policy's /api/v1/ space and
+    # both witnesses agree -> internal
     collections = _algebra(
         [
             _op("GET", "/api/v1/sme/dashboard"),
@@ -777,16 +783,22 @@ def test_unresolved_exposure_remains_governed_debt():
         ],
         [],
     )
-    # one witness literal (/api/v1/sme/dashboard) is internal; the normalized
-    # canonical alias probes internal while the raw wired literal
-    # /api/sme/dashboard is NOT under /api/v1/sme/ -> conflicting verdicts.
-    ops = {op["operation_id"]: op for op in collections["served_operations"]}
-    target = ops["GET /api/sme/dashboard"]
-    assert target["operation_id"] in set(_ids(collections, "unresolved_exposure"))
-    assert target["operation_id"] not in set(_ids(collections, "public_operations"))
-    assert target["operation_id"] not in set(_ids(collections, "internal_operations"))
+    assert "GET /api/sme/dashboard" in set(_ids(collections, "internal_operations"))
+    # genuinely disagreeing witnesses (a v2 serving of a v1-internal family)
+    # stay unresolved governed debt, never guessed either way
+    collections = _algebra(
+        [
+            _op("GET", "/api/v1/sme/dashboard"),
+            _op("GET", "/api/v2/sme/dashboard", evidence_type="wired_router_registration"),
+        ],
+        [],
+    )
+    target_id = "GET /api/sme/dashboard"
+    assert target_id in set(_ids(collections, "unresolved_exposure"))
+    assert target_id not in set(_ids(collections, "public_operations"))
+    assert target_id not in set(_ids(collections, "internal_operations"))
     # unresolved operations still participate in served-side algebra
-    assert target["operation_id"] in set(_ids(collections, "served_operations"))
+    assert target_id in set(_ids(collections, "served_operations"))
 
 
 def test_legacy_missing_spec_cannot_double_count():
@@ -1010,11 +1022,26 @@ def test_canonical_normalization_alignment_across_routes_sdk_and_inventory():
         # the method-aware plane uses the same authority for operation paths
         ops = _build([_op("GET", sample)])
         assert set(ops) == {f"GET {canonical}"}
-    # the plane binds the authority file hash
-    live = (Path(validate_openapi_routes.__file__).parent / "sdk_path_normalize.py").read_bytes()
-    expected = hashlib.sha256(live).hexdigest()
-    plane_stub = validate_openapi_routes._sha256_hex(live)
-    assert plane_stub == expected
+    # every ratified projection edge binds its operation ID exactly as the
+    # plane constructs IDs, and live reconciliation maps historical edge paths
+    # through the same single authority (the ratified /api/api-keys edges
+    # alias to /api/auth/api-keys under the evolved live normalizer — the
+    # projection identity is immutable while comparison stays canonical)
+    projection = validate_openapi_routes.load_operation_projection()
+    for record in projection["route_records"]:
+        for edge in record["operation_edges"]:
+            assert edge["normalized_operation"] == validate_openapi_routes._operation_id(
+                edge["method"], edge["normalized_path"]
+            )
+            live_path = normalize_sdk_path(edge["normalized_path"])
+            assert normalize_sdk_path(live_path) == live_path
+    # the plane's output binding carries the exact live authority bytes' digest
+    binding = validate_openapi_routes.path_normalization_binding()
+    authority = Path(validate_openapi_routes.__file__).parent / "sdk_path_normalize.py"
+    assert binding["authority_path"] == "scripts/sdk_path_normalize.py"
+    assert binding["authority_sha256"] == hashlib.sha256(authority.read_bytes()).hexdigest()
+    assert binding["schema"] == "sdk-path-normalize-v1"
+    assert binding["version"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1398,7 +1425,7 @@ def test_projection_revision_preserves_global_and_per_category_original_id_sets(
         projection["original_record_id_set_sha256"]
         == "c1235670c183b1887ba3fe4280fa0320f9fd6f4a85b8f346d4332ac2aebbe269"
     )
-    per_category = {}
+    per_category: dict[str, set[str]] = {}
     for record in _route_records(ratified_cohort):
         per_category.setdefault(record["category"], set()).add(record["original_record_id"])
     assert {k: len(v) for k, v in per_category.items()} == {
