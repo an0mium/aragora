@@ -1357,6 +1357,44 @@ def register_routes(app):
     )
 
 
+def test_non_dominating_route_table_assignments_stay_unverified(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 13: a conditionally-executed or post-call assignment does not
+    # prove what add_routes registers — only a straight-line top-level
+    # assignment preceding the call dominates it
+    handler.write_text(
+        """
+from aiohttp import web
+
+def register_routes(app):
+    if enabled:
+        conditional = [web.get("/api/v1/conditional", object())]
+    app.router.add_routes(conditional)
+    try:
+        tried = [web.get("/api/v1/tried", object())]
+    except Exception:
+        pass
+    app.router.add_routes(tried)
+
+def register_late(app):
+    app.router.add_routes(late)
+    late = [web.get("/api/v1/late", object())]
+""".lstrip(),
+        encoding="utf-8",
+    )
+    assert (
+        validate_openapi_routes.get_wired_function_operations(registration, tmp_path, extended=True)
+        == []
+    )
+
+
 def test_match_capture_rebinding_invalidates_fstring_folding(tmp_path: Path):
     registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
     handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"

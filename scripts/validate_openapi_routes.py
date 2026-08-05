@@ -478,14 +478,6 @@ def _resolve_class_registration_method(
 _WEB_ROUTEDEF_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 
 
-def _iter_statements_excluding_nested_defs(nodes: Iterable[ast.AST]) -> Iterator[ast.AST]:
-    for node in nodes:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
-            continue
-        yield node
-        yield from _iter_statements_excluding_nested_defs(ast.iter_child_nodes(node))
-
-
 def _resolve_route_table(
     function: ast.FunctionDef | ast.AsyncFunctionDef, argument: ast.expr
 ) -> list[ast.expr] | None:
@@ -493,12 +485,16 @@ def _resolve_route_table(
 
     An inline list/tuple literal resolves directly. A Name resolves only when
     it is provably the literal bound by the registrar's single ``name = [...]``
-    assignment: exactly one Store may exist (outside nested defs), and every
-    Load must be either this ``add_routes`` argument or the sole argument of a
-    ``len(...)`` call (which cannot mutate). Any other use — ``routes.append``,
-    reassignment, aliasing, passing to an arbitrary callee — leaves the table
-    unverified, because a mutated or rebound table could register different
-    entries than the literal (review round 12).
+    assignment AND that assignment dominates the call: it must be a direct
+    top-level statement of the registrar body preceding the ``add_routes``
+    line — a conditionally-executed assignment (inside ``if``/``try``/loop)
+    does not prove what the call registers (review round 13). Exactly one
+    Store may exist (outside nested defs), and every Load must be either this
+    ``add_routes`` argument or the sole argument of a ``len(...)`` call
+    (which cannot mutate). Any other use — ``routes.append``, reassignment,
+    aliasing, passing to an arbitrary callee — leaves the table unverified,
+    because a mutated or rebound table could register different entries than
+    the literal (review round 12).
     """
     if isinstance(argument, (ast.List, ast.Tuple)):
         return list(argument.elts)
@@ -529,13 +525,14 @@ def _resolve_route_table(
             benign_loads += 1
     if loads != benign_loads:
         return None
-    for statement in _iter_statements_excluding_nested_defs(function.body):
+    for statement in function.body:
         if (
             isinstance(statement, ast.Assign)
             and len(statement.targets) == 1
             and isinstance(statement.targets[0], ast.Name)
             and statement.targets[0].id == argument.id
             and isinstance(statement.value, (ast.List, ast.Tuple))
+            and statement.lineno < argument.lineno
         ):
             return list(statement.value.elts)
     return None
