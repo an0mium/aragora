@@ -494,6 +494,28 @@ _TRY_NODE_TYPES: tuple[type[ast.AST], ...] = (
 )
 
 
+def _contains_loop_flow_escape(nodes: Iterable[ast.AST]) -> bool:
+    """Whether ``nodes`` contain a statement that can skip loop iterations.
+
+    ``break``, ``continue``, ``return``, and ``raise`` all mean some bound
+    values may never reach a fold site in the loop body, so a folded witness
+    could claim registrations that never execute (review round 8:
+    ``if not enabled(name): continue`` filtered iterations while the fold
+    kept every value). Nested definitions are excluded (they do not execute
+    during the loop); everything else counts, including escapes belonging to
+    nested loops — conservative, since an outer-loop fold cannot distinguish
+    which loop an escape cuts short.
+    """
+    for node in nodes:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(node, (ast.Break, ast.Continue, ast.Return, ast.Raise)):
+            return True
+        if _contains_loop_flow_escape(ast.iter_child_nodes(node)):
+            return True
+    return False
+
+
 def _names_rebound_in(nodes: Iterable[ast.AST]) -> set[str]:
     """Names that may be (re)bound anywhere under ``nodes``.
 
@@ -534,12 +556,14 @@ def _iter_executable_calls(
     longer be proven: when the loop body (or, for the ``else`` binding, the
     else block) may rebind the variable; when any nested loop target shadows
     the name — literal nested loops rebind their own exact values, non-literal
-    ones invalidate the fold; and inside every conditionally-executed
-    construct (``if``/``while`` bodies, ``try`` blocks, ``match`` cases,
-    ternaries, boolean short-circuit operands, comprehensions), where a
-    value-dependent guard could filter which loop values actually register.
-    Constant paths in those positions still count individually, exactly as in
-    straight-line code.
+    ones invalidate the fold; when the loop body contains any flow escape
+    (``break``/``continue``/``return``/``raise``) that could skip iterations
+    (review round 8); and inside every conditionally-executed construct
+    (``if``/``while`` bodies, ``try`` blocks, ``match`` cases, ternaries,
+    boolean short-circuit operands, comprehensions), where a value-dependent
+    guard could filter which loop values actually register. Constant paths in
+    those positions still count individually, exactly as in straight-line
+    code.
     """
     bound = dict(bindings or {})
     for node in nodes:
@@ -563,6 +587,7 @@ def _iter_executable_calls(
                     literal_values
                     and len(literal_values) == len(node.iter.elts)
                     and node.target.id not in _names_rebound_in(node.body)
+                    and not _contains_loop_flow_escape(node.body)
                 ):
                     loop_bound[node.target.id] = tuple(literal_values)
                     if node.target.id not in _names_rebound_in(node.orelse):
@@ -739,14 +764,35 @@ def get_wired_function_operations(
                 and node.func.value.id in imports
             ):
                 continue
-            module_name, class_name = imports[node.func.value.id]
+            module_name, imported_name = imports[node.func.value.id]
             resolved_method = _resolve_class_registration_method(
-                root, module_name, class_name, node.func.attr
+                root, module_name, imported_name, node.func.attr
             )
             if resolved_method is None:
-                raise RouteRegistrationScanError(
-                    f"cannot resolve wired registrar {module_name}:{class_name}.{node.func.attr}"
+                # Not a local class: the imported name may be a MODULE
+                # (``from aragora.server import routes; routes.register_all(app)``),
+                # whose attribute is then a plain function registrar.
+                resolved_module_function = _resolve_registration_function(
+                    root, f"{module_name}.{imported_name}", node.func.attr
                 )
+                if resolved_module_function is None:
+                    raise RouteRegistrationScanError(
+                        "cannot resolve wired registrar "
+                        f"{module_name}:{imported_name}.{node.func.attr}"
+                    )
+                module_function, function_module_path = resolved_module_function
+                if not module_function.args.args:
+                    continue
+                extraction_jobs.append(
+                    (
+                        module_function,
+                        function_module_path,
+                        f"{module_name}.{imported_name}:{node.func.attr}",
+                        module_function.args.args[0].arg,
+                        _registrar_parameter_bindings(module_function, 0, node),
+                    )
+                )
+                continue
             method_function, method_module_path, implicit_params = resolved_method
             if method_function is None:
                 # Unrecognized decorator: runtime call semantics unproven,
@@ -758,7 +804,7 @@ def get_wired_function_operations(
                 (
                     method_function,
                     method_module_path,
-                    f"{module_name}:{class_name}.{node.func.attr}",
+                    f"{module_name}:{imported_name}.{node.func.attr}",
                     method_function.args.args[implicit_params].arg,
                     _registrar_parameter_bindings(method_function, implicit_params, node),
                 )

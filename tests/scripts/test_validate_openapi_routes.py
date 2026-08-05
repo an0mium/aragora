@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import sys
 import types
@@ -589,9 +591,6 @@ def test_is_internal_route_matches_exact_family_not_sibling_names():
 # ---------------------------------------------------------------------------
 # VAL-CDG-011: method-aware operation plane
 # ---------------------------------------------------------------------------
-
-import copy
-import hashlib
 
 REF = "a" * 40
 
@@ -1241,6 +1240,68 @@ class ComputedHandler:
     # class registrars are extended-plane evidence only: the legacy pinned
     # baseline never re-scopes
     assert validate_openapi_routes.get_wired_function_routes(registration, tmp_path) == set()
+
+
+def test_loop_flow_escapes_invalidate_fstring_folding(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    handler = tmp_path / "aragora" / "server" / "handlers" / "wired.py"
+    registration.parent.mkdir(parents=True)
+    handler.parent.mkdir(parents=True)
+    registration.write_text(
+        "from aragora.server.handlers.wired import register_routes\nregister_routes(app)\n",
+        encoding="utf-8",
+    )
+    # round 8: continue/break/return/raise can skip iterations, so a fold
+    # would claim registrations that never execute
+    handler.write_text(
+        """
+def register_routes(router):
+    for name in ("/api/a", "/api/b"):
+        if not enabled(name):
+            continue
+        router.add_get(f"{name}/filtered", object())
+    for name in ("/api/c", "/api/d"):
+        router.add_get(f"{name}/broken", object())
+        break
+    for name in ("/api/e", "/api/f"):
+        try:
+            check(name)
+        except ValueError:
+            raise
+        router.add_get(f"{name}/raised", object())
+    # a nested def containing return does NOT invalidate the fold
+    for name in ("/api/g",):
+        def helper():
+            return None
+        router.add_get(f"{name}/kept", object())
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert {(op["method"], op["path"]) for op in operations} == {("GET", "/api/g/kept")}
+
+
+def test_module_attribute_registrar_resolves_to_module_function(tmp_path: Path):
+    registration = tmp_path / "aragora" / "server" / "stream" / "registration.py"
+    package = tmp_path / "aragora" / "server" / "handlers" / "grouped"
+    registration.parent.mkdir(parents=True)
+    package.mkdir(parents=True)
+    # round 8 P3: ``from ... import module; module.register_all(app)`` is an
+    # attribute call whose receiver is a MODULE, not a class
+    registration.write_text(
+        "from aragora.server.handlers import grouped\ngrouped.register_all(app)\n",
+        encoding="utf-8",
+    )
+    (package / "__init__.py").write_text(
+        'def register_all(app):\n    app.router.add_get("/api/v1/grouped", object())\n',
+        encoding="utf-8",
+    )
+    operations = validate_openapi_routes.get_wired_function_operations(
+        registration, tmp_path, extended=True
+    )
+    assert [(op["method"], op["path"]) for op in operations] == [("GET", "/api/v1/grouped")]
 
 
 def test_class_registrar_with_unknown_decorator_stays_unverified(tmp_path: Path):
