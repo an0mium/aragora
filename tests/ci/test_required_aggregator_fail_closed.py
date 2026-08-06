@@ -44,6 +44,20 @@ execute. It is deliberately agnostic about *how* the fix is written: it resolves
 `${{ }}` expressions whether they appear inline in `run:` or in the step's `env:`
 block, so a rewrite that moves interpolation into `env:` (which is also the safer
 quoting posture) stays covered.
+
+## Detection scope of the coverage sweep
+
+The sweep at the bottom detects the required-context aggregator shape exactly: a
+literal `if: always()` guard and exactly two `needs` (worker + classifier). That
+is the shape every required context uses. Aggregator-shaped jobs OUTSIDE that
+shape — compound `if:` expressions that embed `always()` (e.g.
+security-gate.yml::security-summary), or `needs` counts other than two (e.g.
+backup-verification.yml::summary) — are not detected here. At least one such job
+repeats the #9084 pattern today: security-summary's `validate_gate_result` maps
+`cancelled` to OK, a pre-existing fail-open in a non-required context that
+predates this guard (2026-02-25). That hole, and generalizing the sweep to
+compound-`if`/arbitrary-`needs` aggregators, are owned by the follow-up feature
+misc-security-gate-cancelled-tolerance-fix — deliberately not fixed in this PR.
 """
 
 from __future__ import annotations
@@ -328,6 +342,50 @@ def test_broken_classifier_fails_closed(spec: Aggregator, classifier_result: str
     )
 
 
+# The five non-quorum required contexts on branch protection. The sixth required
+# context, `aragora-merge-quorum`, judges the merge packet rather than `needs`
+# results, so it is not an aggregator in this file's sense.
+REQUIRED_CONTEXT_NAMES = frozenset(
+    {"lint", "typecheck", "sdk-parity", "Generate & Validate", "TypeScript SDK Type Check"}
+)
+
+
+def _context_name(spec: Aggregator) -> str:
+    """The status-context string branch protection sees: `name:` if set, else the job key."""
+    job = _load_job(spec)
+    return str(job.get("name") or spec.job)
+
+
+def test_required_context_flags_match_branch_protection_names() -> None:
+    """`required_context` must agree with the branch-protection context list.
+
+    This pins two things: every spec marked required really produces one of the five
+    protected non-quorum context names (so the executed guard above is exercising the
+    actual gate), and the required specs collectively cover all five (so deleting a
+    spec cannot silently drop a required gate from coverage).
+    """
+    for spec in AGGREGATORS:
+        name = _context_name(spec)
+        if spec.required_context:
+            assert name in REQUIRED_CONTEXT_NAMES, (
+                f"{spec.workflow}::{spec.job} is marked required_context=True but its "
+                f"context name '{name}' is not on the branch-protection list "
+                f"{sorted(REQUIRED_CONTEXT_NAMES)}. Fix the spec or the workflow name."
+            )
+        else:
+            assert name not in REQUIRED_CONTEXT_NAMES, (
+                f"{spec.workflow}::{spec.job} is marked required_context=False but "
+                f"'{name}' IS a protected context — mark it required so a regression "
+                "in this gate is treated as a regression in a required gate."
+            )
+    produced = {_context_name(s) for s in AGGREGATORS if s.required_context}
+    assert produced == REQUIRED_CONTEXT_NAMES, (
+        "The required aggregators no longer cover the protected context list exactly: "
+        f"missing={sorted(REQUIRED_CONTEXT_NAMES - produced)}, "
+        f"unexpected={sorted(produced - REQUIRED_CONTEXT_NAMES)}."
+    )
+
+
 # `aragora-review` is fail-open *on purpose*: it downgrades a non-success worker to a
 # `::warning::` and exits 0, and it is not a required context. Excluding it keeps this
 # guard focused on gates that claim to block. The exclusion is not free — the companion
@@ -356,11 +414,19 @@ def test_advisory_exemption_still_declares_itself_advisory(
     )
 
 
-def test_every_required_aggregator_is_covered() -> None:
-    """Catch a *new* fail-open aggregator being added without a guard entry.
+def test_new_required_shape_aggregator_is_covered() -> None:
+    """Catch a new aggregator in the *required-context shape* being added unguarded.
 
     Without this, someone copies the three-job shape into a sixth required check and
     the guard above stays green purely because the new job is not in AGGREGATORS.
+
+    Detection is bounded to the shape every required context uses: a literal
+    `if: always()` and exactly two `needs`. Aggregator-shaped jobs outside that
+    shape (compound `if:` such as security-gate.yml::security-summary, or other
+    `needs` counts such as backup-verification.yml::summary) are NOT detected —
+    see the module docstring; generalizing the sweep is owned by
+    misc-security-gate-cancelled-tolerance-fix, together with the known
+    pre-existing cancelled-tolerant fail-open it must close.
     """
     covered = {(s.workflow, s.job) for s in AGGREGATORS} | set(ADVISORY_AGGREGATORS)
     suspects: list[tuple[str, str]] = []
@@ -381,6 +447,43 @@ def test_every_required_aggregator_is_covered() -> None:
                 suspects.append((path.name, name))
 
     assert not suspects, (
-        "Un-guarded always() aggregator(s) that judge a dependency's result: "
+        "Un-guarded always()/two-needs aggregator(s) that judge a dependency's result: "
         f"{suspects}. Add them to AGGREGATORS so their fail-closed behavior is proven."
+    )
+
+
+def test_known_out_of_shape_fail_open_debt_is_still_present() -> None:
+    """Pin the known blind spot so it cannot silently rot in either direction.
+
+    security-gate.yml::security-summary is an aggregator OUTSIDE the sweep's
+    detection shape (compound `if:` embedding `always()`), and its
+    `validate_gate_result` maps `cancelled` to OK — the same #9084 class this file
+    exists to kill, pre-existing since 2026-02-25 in a non-required context. This
+    PR documents it instead of fixing it; the fix belongs to
+    misc-security-gate-cancelled-tolerance-fix.
+
+    Two assertions, both load-bearing. First, the job still sits outside the
+    sweep's shape (compound `if:` — if it migrates into the literal-always()/
+    two-needs shape, the coverage sweep takes over and this pin is stale). Second,
+    the cancelled-tolerant mapping is still present — when the follow-up closes
+    the hole, this test fails and must be removed with it, so the debt record
+    cannot outlive the debt.
+    """
+    workflow = yaml.safe_load((WORKFLOWS_DIR / "security-gate.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"]["security-summary"]
+
+    if_expression = str(job.get("if", "")).strip()
+    assert "always()" in if_expression and if_expression != "always()", (
+        "security-gate.yml::security-summary no longer uses a compound always() "
+        "guard. It now matches (or nearly matches) the sweep's detection shape — "
+        "add it to AGGREGATORS/ADVISORY_AGGREGATORS as appropriate and delete this "
+        "debt pin."
+    )
+
+    body = "\n".join(str(step.get("run", "")) for step in job.get("steps", []))
+    assert re.search(r"success\|cancelled\|skipped\)\s*return 0", body), (
+        "security-gate.yml::security-summary no longer maps cancelled to OK — the "
+        "known fail-open debt this test documents has been fixed (thank you, "
+        "misc-security-gate-cancelled-tolerance-fix). Delete this test and extend "
+        "AGGREGATORS coverage to the fixed job instead."
     )
