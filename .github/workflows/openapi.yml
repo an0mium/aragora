@@ -121,6 +121,9 @@ jobs:
 
       - name: Set up Python 3.11
         id: setup-python
+        # Runner-resilience seam only (VAL-CDG-012 adjudicated): the next step
+        # re-verifies the python toolchain fail-closed (set -euo pipefail +
+        # exit 1), so a masked setup failure cannot reach any validation step.
         continue-on-error: true
         uses: ./.github/actions/setup-python-safe
         with:
@@ -326,6 +329,9 @@ jobs:
 
       - name: Generate Live API types (best-effort on PR)
         if: github.event_name == 'pull_request'
+        # PR-lane frontend-types seam only (VAL-CDG-012 adjudicated): not a
+        # route/SDK authority. The strict twin above enforces this generation
+        # fail-closed on every push/schedule/dispatch execution.
         continue-on-error: true
         run: |
           set -o pipefail
@@ -373,6 +379,27 @@ jobs:
           # pipefail: without it, `| tee` masks the validator's exit code and
           # the gate silently passes on drift (that happened Jan-Jul 2026).
           set -o pipefail
+          # Method-aware operation plane (VAL-CDG-011/012): bind the route
+          # authority to this execution's exact resolved commit SHA and
+          # require the plane to echo the same binding back.
+          EXEC_SHA="$(git rev-parse HEAD)"
+          python scripts/validate_openapi_routes.py \
+            --spec docs/api/openapi.json \
+            --ref "${EXEC_SHA}" \
+            --internal-prefixes scripts/baselines/internal_route_prefixes.json \
+            --json > /tmp/route-plane.json
+          python - "${EXEC_SHA}" <<'PY'
+          import json, sys
+          plane = json.load(open("/tmp/route-plane.json"))
+          if plane.get("ref") != sys.argv[1]:
+              raise SystemExit(
+                  f"method-aware plane ref {plane.get('ref')!r} is not this "
+                  f"execution's exact SHA {sys.argv[1]!r}"
+              )
+          print(f"Method-aware plane bound to {sys.argv[1]}")
+          print(f"Served operations: {plane['served_operations_count']}")
+          PY
+          # Baseline-gated coverage: the fail-closed drift ratchet.
           python scripts/validate_openapi_routes.py \
             --spec docs/api/openapi.json \
             --fail-on-missing \
@@ -391,6 +418,9 @@ jobs:
 
       - name: Check for missing operationIds (warning only)
         run: |
+          # pipefail: the operationId count is advisory, but a crash of the
+          # audit producer must fail the step, not vanish into the pipe.
+          set -o pipefail
           python scripts/audit_openapi_docs.py --spec docs/api/openapi_generated.json --json | python -c "
           import json, sys
           data = json.load(sys.stdin)
@@ -416,6 +446,15 @@ jobs:
       - name: Generate contract drift summary
         if: always()
         run: |
+          # Present no verdict without parseable CURRENT-run inputs: the
+          # summary must reflect this execution's route-coverage output and
+          # generated spec. Missing or truncated inputs fail here instead of
+          # summarizing stale state.
+          python - <<'PY'
+          import json
+          json.load(open("/tmp/route-coverage.json"))
+          json.load(open("docs/api/openapi_generated.json"))
+          PY
           python scripts/contract_drift_report.py \
             --json-out /tmp/contract-drift-summary.json \
             --md-out /tmp/contract-drift-summary.md
@@ -423,14 +462,23 @@ jobs:
       - name: Generate contract drift backlog seeds
         if: always()
         run: |
+          # Backlog seeds derive from the CURRENT run's drift summary; never
+          # seed from a prior run's artifacts.
+          python - <<'PY'
+          import json
+          json.load(open("/tmp/contract-drift-summary.json"))
+          PY
           python scripts/generate_contract_drift_backlog.py \
             --markdown-out /tmp/CONTRACT_DRIFT_BACKLOG.md \
             --json-out /tmp/CONTRACT_DRIFT_BACKLOG.json
 
       - name: Run contract matrix tests
         run: |
+          # Authoritative: the pytest exit code IS the verdict. An
+          # unconditional-success guard here masked contract-matrix
+          # failures until the VAL-CDG-012 rearm.
           python -m pip install pytest pytest-asyncio
-          pytest tests/server/openapi/test_contract_matrix.py -v --timeout=60 || true
+          pytest tests/server/openapi/test_contract_matrix.py -v --timeout=60
 
       - name: Upload generated spec and SDK types
         uses: actions/upload-artifact@v4
