@@ -173,12 +173,29 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate lint result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.changes.result }}
+          WORKER_RESULT: ${{ needs.lint-run.result }}
+          IN_SCOPE: ${{ needs.changes.outputs.python }}
         run: |
-          if [[ "${{ needs.lint-run.result }}" == "failure" ]]; then
-            echo "::error::Lint checks failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "Lint passed (or skipped — no Python-relevant changes)"
+          if [[ "$IN_SCOPE" == "true" ]]; then
+            if [[ "$WORKER_RESULT" != "success" ]]; then
+              echo "::error::Lint concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+              exit 1
+            fi
+            echo "Lint passed."
+            exit 0
+          fi
+          if [[ "$WORKER_RESULT" != "skipped" ]]; then
+            echo "::error::Lint was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+            exit 1
+          fi
+          echo "Lint not required — no Python-relevant changes."
 
   connector-exception-hygiene:
     runs-on: ubuntu-latest
@@ -456,12 +473,29 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate typecheck result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.changes.result }}
+          WORKER_RESULT: ${{ needs.typecheck-run.result }}
+          IN_SCOPE: ${{ needs.changes.outputs.python }}
         run: |
-          if [[ "${{ needs.typecheck-run.result }}" == "failure" ]]; then
-            echo "::error::Type check failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "Type check passed (or skipped — no Python-relevant changes)"
+          if [[ "$IN_SCOPE" == "true" ]]; then
+            if [[ "$WORKER_RESULT" != "success" ]]; then
+              echo "::error::Type check concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+              exit 1
+            fi
+            echo "Type check passed."
+            exit 0
+          fi
+          if [[ "$WORKER_RESULT" != "skipped" ]]; then
+            echo "::error::Type check was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+            exit 1
+          fi
+          echo "Type check not required — no Python-relevant changes."
 
   typecheck-core:
     runs-on: ubuntu-latest

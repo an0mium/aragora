@@ -581,9 +581,26 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate OpenAPI result
+        env:
+          CLASSIFIER_RESULT: ${{ needs.scope.result }}
+          WORKER_RESULT: ${{ needs.generate-run.result }}
+          IN_SCOPE: ${{ needs.scope.outputs.run_openapi }}
         run: |
-          if [[ "${{ needs.generate-run.result }}" == "failure" ]]; then
-            echo "::error::OpenAPI generate & validate failed"
+          set -euo pipefail
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "::error::OpenAPI scope classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          echo "OpenAPI passed (or skipped — no relevant changes)"
+          if [[ "$IN_SCOPE" == "true" ]]; then
+            if [[ "$WORKER_RESULT" != "success" ]]; then
+              echo "::error::OpenAPI generate & validate concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+              exit 1
+            fi
+            echo "OpenAPI generate & validate passed."
+            exit 0
+          fi
+          if [[ "$WORKER_RESULT" != "skipped" ]]; then
+            echo "::error::OpenAPI was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+            exit 1
+          fi
+          echo "OpenAPI not required — no relevant changes."
