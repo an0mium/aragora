@@ -139,7 +139,10 @@ def cmd_coherence_scan(args: argparse.Namespace) -> int:
 
     if emit_followup:
         followup_enabled = str(os.environ.get(_FOLLOWUP_FLAG) or "").strip().lower() in {
-            "1", "true", "yes", "on"
+            "1",
+            "true",
+            "yes",
+            "on",
         }
         _render_proposals(report.proposals, followup_enabled=followup_enabled)
 
