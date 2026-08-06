@@ -658,7 +658,6 @@ def _add_proof_units_parser(subparsers) -> None:
         "--json",
         dest="json",
         action="store_true",
-        default=False,
         help="Emit JSON output",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.dic19_proof_units", "cmd_proof_units"))
@@ -728,16 +727,8 @@ def _add_coherence_scan_parser(subparsers) -> None:
         help="Minimum confidence threshold for rot detection (default: 0.3)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    p.add_argument(
-        "--emit-followup",
-        dest="emit_followup",
-        action="store_true",
-        default=False,
-        help=(
-            "Emit DIC-17 follow-up proposals for error-severity issues. "
-            "Requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1 to generate proposals."
-        ),
-    )
+    p.add_argument("--emit-followup", dest="emit_followup", action="store_true",
+                   help="DIC-17 proposals for errors (requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1).")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
 
 
