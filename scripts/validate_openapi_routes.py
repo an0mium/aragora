@@ -5,7 +5,14 @@ This script ensures the OpenAPI specification stays in sync with actual
 handler implementations by comparing:
 1. Routes defined in handler ROUTES attributes
 2. Literal routes in server-wired aiohttp registration functions
-3. Routes in the OpenAPI spec paths
+3. Literal routes on APIRouters mounted in the opt-in FastAPI app factory
+4. Routes in the OpenAPI spec paths
+
+"Served" means reachable on the default ``aragora serve`` dispatcher plane
+(handler ROUTES / wired registrations / can_handle probes) OR on the mounted
+opt-in FastAPI plane (``ARAGORA_USE_FASTAPI``) — routers mounted in
+``aragora/server/fastapi/factory.py`` back shipped SDK operations, so their
+spec entries are not orphans.
 
 Usage:
     python scripts/validate_openapi_routes.py
@@ -58,6 +65,8 @@ _SERVER_ROUTE_REGISTRATION = (
 _LITERAL_ROUTER_METHODS = frozenset(
     {"add_get", "add_post", "add_put", "add_patch", "add_delete", "add_head", "add_options"}
 )
+_FASTAPI_FACTORY = _REPO_ROOT / "aragora" / "server" / "fastapi" / "factory.py"
+_FASTAPI_DECORATOR_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 
 # ---------------------------------------------------------------------------
 # Method-aware operation plane (VAL-CDG-011)
@@ -1117,6 +1126,176 @@ def get_wired_function_routes(
         operation["path"]
         for operation in get_wired_function_operations(registration_path, repo_root)
     }
+
+
+def _fastapi_route_module_imports(
+    factory_tree: ast.Module,
+    factory_path: Path,
+    repo_root: Path,
+) -> dict[str, Path]:
+    """Map local names of locally-imported modules in the factory to source paths.
+
+    Only imports that resolve to an existing local package directory are
+    recorded. A recognized package whose submodule source file is missing is
+    still recorded (pointing at the nonexistent path) so a mounted-but-
+    uninspectable module fails closed downstream instead of silently dropping
+    its serve evidence.
+    """
+    modules: dict[str, Path] = {}
+    for node in ast.walk(factory_tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            base_dir = factory_path.parent
+            for _ in range(node.level - 1):
+                base_dir = base_dir.parent
+            if node.module:
+                base_dir = base_dir.joinpath(*node.module.split("."))
+        elif node.module:
+            base_dir = repo_root.joinpath(*node.module.split("."))
+        else:
+            continue
+        for imported in node.names:
+            local_name = imported.asname or imported.name
+            candidates = (
+                base_dir / f"{imported.name}.py",
+                base_dir / imported.name / "__init__.py",
+            )
+            module_path = next((c for c in candidates if c.is_file()), None)
+            if module_path is not None:
+                modules[local_name] = module_path
+            elif base_dir.is_dir():
+                modules[local_name] = candidates[0]
+    return modules
+
+
+def _fastapi_router_prefix(
+    module_tree: ast.Module, router_name: str, module_path: Path
+) -> str | None:
+    """Return the mounted router's literal prefix.
+
+    Returns ``None`` when the prefix is present but not a literal string
+    (unverifiable — the whole module contributes nothing). Raises
+    ``RouteRegistrationScanError`` when the mounted name has no module-level
+    ``APIRouter(...)`` assignment at all: a recognized mount we cannot inspect
+    is a scan-integrity failure, not silent under-crediting.
+    """
+    assignment: ast.Call | None = None
+    for node in module_tree.body:
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign):
+            if any(isinstance(t, ast.Name) and t.id == router_name for t in node.targets):
+                value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name) and node.target.id == router_name:
+                value = node.value
+        if value is None or not isinstance(value, ast.Call):
+            continue
+        func = value.func
+        func_name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+        if func_name == "APIRouter":
+            assignment = value
+    if assignment is None:
+        raise RouteRegistrationScanError(
+            f"mounted router {router_name!r} has no module-level APIRouter "
+            f"assignment in {module_path}"
+        )
+    for keyword in assignment.keywords:
+        if keyword.arg != "prefix":
+            continue
+        if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+            return keyword.value.value
+        return None
+    return ""
+
+
+def _iter_fastapi_decorator_paths(module_tree: ast.Module, router_name: str) -> Iterator[str]:
+    """Yield literal paths from ``@<router>.<method>("/path")`` decorators."""
+    for node in module_tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            func = decorator.func
+            if not (
+                isinstance(func, ast.Attribute)
+                and func.attr in _FASTAPI_DECORATOR_METHODS
+                and isinstance(func.value, ast.Name)
+                and func.value.id == router_name
+            ):
+                continue
+            if not decorator.args:
+                continue
+            path_argument = decorator.args[0]
+            if isinstance(path_argument, ast.Constant) and isinstance(path_argument.value, str):
+                yield path_argument.value
+
+
+def get_fastapi_mounted_routes(
+    factory_path: Path | None = None,
+    repo_root: Path | None = None,
+) -> set[str]:
+    """Statically extract literal routes from APIRouters mounted in the FastAPI factory.
+
+    The opt-in FastAPI surface (``ARAGORA_USE_FASTAPI`` / standalone uvicorn)
+    mounts routers in ``aragora/server/fastapi/factory.py``. Every
+    ``<x>.include_router(<module>.<router>[, prefix=...])`` call whose module
+    was imported from a local package is mounted serve evidence: the module's
+    module-level ``<router> = APIRouter(prefix=...)`` definition plus its
+    literal ``@<router>.<method>("/path")`` decorators yield full paths
+    (include prefix + router prefix + decorator path), kept when they start
+    with ``/api/``. A recognized mount whose module source or router
+    definition cannot be inspected fails closed. Computed include/router
+    prefixes, computed decorator paths, and unrecognized mount forms remain
+    unverified and contribute nothing — the plane can under-credit but never
+    over-credit.
+    """
+    root = repo_root or _REPO_ROOT
+    path = factory_path or _FASTAPI_FACTORY
+    factory_tree = _parse_python_source(path)
+    modules = _fastapi_route_module_imports(factory_tree, path, root)
+
+    mounts: list[tuple[str, str, str]] = []
+    for call in ast.walk(factory_tree):
+        if not isinstance(call, ast.Call):
+            continue
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "include_router"):
+            continue
+        if not call.args:
+            continue
+        target = call.args[0]
+        if not (
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id in modules
+        ):
+            continue
+        include_prefix = ""
+        unverifiable = False
+        for keyword in call.keywords:
+            if keyword.arg != "prefix":
+                continue
+            if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                include_prefix = keyword.value.value
+            else:
+                unverifiable = True
+        if unverifiable:
+            continue
+        mounts.append((target.value.id, target.attr, include_prefix))
+
+    routes: set[str] = set()
+    for module_name, router_attr, include_prefix in mounts:
+        module_tree = _parse_python_source(modules[module_name])
+        router_prefix = _fastapi_router_prefix(module_tree, router_attr, modules[module_name])
+        if router_prefix is None:
+            continue
+        for path_suffix in _iter_fastapi_decorator_paths(module_tree, router_attr):
+            route = f"{include_prefix}{router_prefix}{path_suffix}"
+            if route.startswith("/api/"):
+                routes.add(route)
+    return routes
 
 
 def get_handler_routes() -> set[str]:
@@ -2458,6 +2637,36 @@ def load_wired_routes_for_validation() -> set[str]:
         sys.exit(1)
 
 
+def load_fastapi_routes_for_validation() -> set[str]:
+    """Load literal mounted-FastAPI routes with exact API-version semantics."""
+    try:
+        return {
+            normalize_route(route, normalize_version=False)
+            for route in get_fastapi_mounted_routes()
+        }
+    except RouteRegistrationScanError as exc:
+        print(f"Error: {exc}. Refusing to validate partial FastAPI mounting.", file=sys.stderr)
+        sys.exit(1)
+
+
+def filter_fastapi_orphans(
+    candidates: set[str], fastapi_routes: set[str] | None = None
+) -> tuple[set[str], set[str]]:
+    """Split orphan candidates by literal evidence from mounted FastAPI routers."""
+    if fastapi_routes is None:
+        fastapi_routes = load_fastapi_routes_for_validation()
+
+    served = candidates & fastapi_routes
+    if served:
+        print(
+            f"Spec-orphan suppressions via mounted FastAPI routers ({len(served)}):",
+            file=sys.stderr,
+        )
+        for path in sorted(served):
+            print(f"  - {path}", file=sys.stderr)
+    return candidates - served, served
+
+
 def filter_wired_orphans(
     candidates: set[str], wired_routes: set[str] | None = None
 ) -> tuple[set[str], set[str]]:
@@ -2497,6 +2706,7 @@ def validate_coverage(
     handler_routes = get_handler_routes()
     openapi_routes = get_openapi_routes(spec_path)
     wired_routes = load_wired_routes_for_validation()
+    fastapi_routes = load_fastapi_routes_for_validation()
 
     # Normalize routes for comparison
     normalized_handler = {normalize_route(r) for r in handler_routes}
@@ -2519,6 +2729,12 @@ def validate_coverage(
         wired_routes = {
             r
             for r in wired_routes
+            if not is_internal_route(r, internal_prefixes)
+            and not is_internal_route(normalize_route(r), internal_prefixes)
+        }
+        fastapi_routes = {
+            r
+            for r in fastapi_routes
             if not is_internal_route(r, internal_prefixes)
             and not is_internal_route(normalize_route(r), internal_prefixes)
         }
@@ -2566,8 +2782,11 @@ def validate_coverage(
     orphan_candidates, served_wired_registration = filter_wired_orphans(
         orphan_candidates, wired_routes
     )
+    orphan_candidates, served_fastapi_mounted = filter_fastapi_orphans(
+        orphan_candidates, fastapi_routes
+    )
     orphaned_in_spec, served_can_handle = filter_served_orphans(orphan_candidates)
-    served_undeclared = served_wired_registration | served_can_handle
+    served_undeclared = served_wired_registration | served_fastapi_mounted | served_can_handle
 
     baseline_missing: set[str] = set()
     baseline_orphaned: set[str] = set()
@@ -2596,6 +2815,9 @@ def validate_coverage(
         "served_undeclared_count": len(served_undeclared),
         "served_wired_registration": sorted(served_wired_registration),
         "served_wired_registration_count": len(served_wired_registration),
+        "served_fastapi_mounted": sorted(served_fastapi_mounted),
+        "served_fastapi_mounted_count": len(served_fastapi_mounted),
+        "fastapi_mounted_routes_count": len(fastapi_routes),
         "new_orphaned_in_spec": new_orphaned_in_spec,
         "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),
@@ -2612,6 +2834,7 @@ def validate_coverage(
         print("=" * 60)
         print(f"Handler metadata routes: {results['handler_routes_count']}")
         print(f"Wired function routes:   {results['wired_function_routes_count']}")
+        print(f"FastAPI mounted routes:  {results['fastapi_mounted_routes_count']}")
         print(f"Effective handler routes: {results['effective_handler_routes_count']}")
         print(f"OpenAPI routes:          {results['openapi_routes_count']}")
         print(f"Coverage:                {results['coverage_percentage']}%")
