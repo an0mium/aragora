@@ -52,6 +52,13 @@ class RalphDashboardHandler(BaseHandler):
     # Campaign-specific routes are matched by prefix
     _CAMPAIGN_PREFIX = "/api/ralph/campaigns/"
 
+    # Registered with the dispatch route index so campaign-detail paths
+    # (/api/ralph/campaigns/{id}/...) resolve without an exact-route hit.
+    ROUTE_PREFIXES = [
+        "/api/ralph/",
+        "/api/v1/ralph/",
+    ]
+
     def __init__(self, ctx: dict | None = None):
         self.ctx = ctx or {}
 
