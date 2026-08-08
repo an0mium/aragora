@@ -3970,48 +3970,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/calibration/curve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration curve
-         * @deprecated
-         * @description Fetch calibration-curve data used to evaluate model or agent confidence quality.
-         */
-        get: operations["listCalibrationCurve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/calibration/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration history
-         * @deprecated
-         * @description List historical calibration measurements and snapshots for supported agents or systems.
-         */
-        get: operations["listCalibrationHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/calibration/leaderboard": {
         parameters: {
             query?: never;
@@ -6445,33 +6403,6 @@ export interface paths {
          *     **Signature:** Alexa includes signature headers for request verification.
          */
         post: operations["createDevicesAlexaWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/devices/apple/shortcuts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Handle Apple Shortcuts request
-         * @deprecated
-         * @description API endpoint for Apple Shortcuts integration.
-         *
-         *     Allows Apple Shortcuts to:
-         *     - Start debates
-         *     - Get debate status
-         *     - Submit votes
-         *     - Get summaries
-         */
-        post: operations["createDevicesAppleShortcuts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10675,90 +10606,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pattern templates
-         * @deprecated
-         * @description Get list of available workflow pattern templates.
-         */
-        get: operations["listPatterns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/hive-mind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Hive Mind workflow
-         * @deprecated
-         * @description Create a workflow from the Hive Mind pattern template.
-         */
-        post: operations["createPatternsHiveMind"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/map-reduce": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create MapReduce workflow
-         * @deprecated
-         * @description Create a workflow from the MapReduce pattern template.
-         */
-        post: operations["createPatternsMapReduce"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/review-cycle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Review Cycle workflow
-         * @deprecated
-         * @description Create a workflow from the Review Cycle pattern template.
-         */
-        post: operations["createPatternsReviewCycle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/patterns/{pattern_id}": {
         parameters: {
             query?: never;
@@ -11602,27 +11449,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/quotas/request-increase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request quota increase
-         * @deprecated
-         * @description Submit a quota increase request for review.
-         */
-        post: operations["createQuotasRequestIncrease"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/ralph/blockers": {
         parameters: {
             query?: never;
@@ -11804,6 +11630,27 @@ export interface paths {
          * @description Return aggregate status, progress, and throughput metrics for Ralph campaign supervisor runs.
          */
         get: operations["listRalphOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/{param}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         * @description Autogenerated placeholder (spec pending)
+         */
+        get: operations["getRalphByparam"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12176,27 +12023,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/review-queue": {
+    "/api/review-queue/triage-metrics": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Rolling-window triage metrics
+         * @deprecated
+         * @description Returns rolling 7-day and 30-day aggregates for the four Commitment-5 metrics named in docs/THESIS.md: escalation rate, auto-handle override rate, human-override-outcome correlation, and time-per-settlement (median + p95). The response also includes advisory drift detection between the two windows. Metrics that cannot be computed from the current receipt schema are returned as null with an explanation in the window's ``notes`` block. Supports ETag / If-None-Match conditional GETs.
+         */
+        get: operations["listReviewQueueTriageMetrics"];
         put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createReviewQueue"];
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         * @description Autogenerated placeholder (spec pending)
-         */
-        delete: operations["deleteReviewQueue"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -13286,27 +13128,6 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         get: operations["listSloStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/slos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         * @description Autogenerated placeholder (spec pending)
-         */
-        get: operations["listSlos"];
         put?: never;
         post?: never;
         delete?: never;
@@ -23463,46 +23284,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/calibration/curve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration curve
-         * @description Fetch calibration-curve data used to evaluate model or agent confidence quality.
-         */
-        get: operations["getCalibrationCurve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/calibration/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration history
-         * @description List historical calibration measurements and snapshots for supported agents or systems.
-         */
-        get: operations["getCalibrationHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/calibration/leaderboard": {
         parameters: {
             query?: never;
@@ -24183,26 +23964,6 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         post: operations["createChatGoogleChatWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/chat/knowledge/channel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createChatKnowledgeChannel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30487,26 +30248,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/debates/public": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        get: operations["listDebatesPublic"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/debates/public/{param}/og": {
         parameters: {
             query?: never;
@@ -32746,32 +32487,6 @@ export interface paths {
          *     **Signature:** Alexa includes signature headers for request verification.
          */
         post: operations["handleAlexaWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/devices/apple/shortcuts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Handle Apple Shortcuts request
-         * @description API endpoint for Apple Shortcuts integration.
-         *
-         *     Allows Apple Shortcuts to:
-         *     - Start debates
-         *     - Get debate status
-         *     - Submit votes
-         *     - Get summaries
-         */
-        post: operations["handleAppleShortcuts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42371,26 +42086,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/knowledge/mound/graph": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        get: operations["listKnowledgeMoundGraph"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/knowledge/mound/graph/{graph_id}": {
         parameters: {
             query?: never;
@@ -44264,26 +43959,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/memory": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createMemory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/memory/analytics": {
         parameters: {
             query?: never;
@@ -44914,26 +44589,6 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         post: operations["createMemorySync"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/memory/tier": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createMemoryTier"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48306,86 +47961,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pattern templates
-         * @description Get list of available workflow pattern templates.
-         */
-        get: operations["listPatterns1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/hive-mind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Hive Mind workflow
-         * @description Create a workflow from the Hive Mind pattern template.
-         */
-        post: operations["createPatternsHiveMind1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/map-reduce": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create MapReduce workflow
-         * @description Create a workflow from the MapReduce pattern template.
-         */
-        post: operations["createPatternsMapReduce1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/review-cycle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Review Cycle workflow
-         * @description Create a workflow from the Review Cycle pattern template.
-         */
-        post: operations["createPatternsReviewCycle1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/patterns/{pattern_id}": {
         parameters: {
             query?: never;
@@ -50719,26 +50294,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/quotas/request-increase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request quota increase
-         * @description Submit a quota increase request for review.
-         */
-        post: operations["createQuotaIncreaseRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/quotas/usage": {
         parameters: {
             query?: never;
@@ -50951,6 +50506,26 @@ export interface paths {
          * @description Return aggregate status, progress, and throughput metrics for Ralph campaign supervisor runs.
          */
         get: operations["getRalphOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/{param}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @description Autogenerated placeholder (spec pending)
+         */
+        get: operations["getRalphByparam1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -52021,30 +51596,6 @@ export interface paths {
          */
         post: operations["executeRetentionPolicy"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/review-queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createReviewQueue1"];
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        delete: operations["deleteReviewQueue1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -53522,26 +53073,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/shared": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        post: operations["createShared"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/shared/{shared_id}": {
         parameters: {
             query?: never;
@@ -53774,26 +53305,6 @@ export interface paths {
          * @description Autogenerated placeholder (spec pending)
          */
         get: operations["listSloStatus1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/slos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @description Autogenerated placeholder (spec pending)
-         */
-        get: operations["listSlos1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -56357,13 +55868,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List verification proofs
-         * @description Return stored verification proofs and associated metadata for prior verification runs.
-         */
-        get: operations["listVerificationProofs"];
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @description Autogenerated placeholder (spec pending)
+         */
+        post: operations["createVerificationProofs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -56400,8 +55911,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Validate claims
-         * @description Validate supplied claims or evidence and return a verification result payload.
+         * Autogenerated placeholder (spec pending)
+         * @description Autogenerated placeholder (spec pending)
          */
         post: operations["createVerificationValidate"];
         delete?: never;
@@ -59813,27 +59324,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/verification/proofs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List verification proofs
-         * @deprecated
-         * @description Return stored verification proofs and associated metadata for prior verification runs.
-         */
-        get: operations["listVerificationProofs1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/verification/status": {
         parameters: {
             query?: never;
@@ -59849,27 +59339,6 @@ export interface paths {
         get: operations["listVerificationStatus1"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/verification/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate claims
-         * @deprecated
-         * @description Validate supplied claims or evidence and return a verification result payload.
-         */
-        post: operations["createVerificationValidate1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -71609,54 +71078,6 @@ export interface operations {
             };
         };
     };
-    listCalibrationCurve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration curve data */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    listCalibrationHistory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-        };
-    };
     listCalibrationLeaderboard: {
         parameters: {
             query?: {
@@ -76739,54 +76160,6 @@ export interface operations {
                         response?: Record<string, never>;
                         sessionAttributes?: Record<string, never>;
                     };
-                };
-            };
-        };
-    };
-    createDevicesAppleShortcuts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    action: "start_debate" | "get_status" | "vote" | "summarize";
-                    params?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Shortcuts response */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        result?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -83886,209 +83259,6 @@ export interface operations {
             };
         };
     };
-    listPatterns: {
-        parameters: {
-            query?: {
-                /** @description Filter by pattern category */
-                category?: string;
-                /** @description Filter by tags (comma-separated) */
-                tags?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of pattern templates */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternTemplateList"];
-                };
-            };
-        };
-    };
-    createPatternsHiveMind: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to analyze */
-                    task?: string;
-                    /** @description Agent names to include */
-                    agents?: string[];
-                    /**
-                     * @default majority
-                     * @enum {string}
-                     */
-                    consensus_mode?: "majority" | "weighted" | "unanimous";
-                    /** @default 0.7 */
-                    consensus_threshold?: number;
-                    /** @default true */
-                    include_dissent?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Hive Mind pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsMapReduce: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /**
-                     * @default chunks
-                     * @enum {string}
-                     */
-                    split_strategy?: "chunks" | "lines" | "sentences" | "paragraphs";
-                    /** @default 4000 */
-                    chunk_size?: number;
-                    /** @description Agent for map phase */
-                    map_agent?: string;
-                    /** @description Agent for reduce phase */
-                    reduce_agent?: string;
-                    /** @description Custom map prompt template */
-                    map_prompt?: string;
-                    /** @description Custom reduce prompt template */
-                    reduce_prompt?: string;
-                    /** @default 5 */
-                    parallel_limit?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from MapReduce pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsReviewCycle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to accomplish */
-                    task?: string;
-                    /** @description Agent for drafting phase */
-                    draft_agent?: string;
-                    /** @description Agent for review phase */
-                    review_agent?: string;
-                    /** @default 3 */
-                    max_iterations?: number;
-                    /** @default 0.85 */
-                    convergence_threshold?: number;
-                    /** @description Criteria for review */
-                    review_criteria?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Review Cycle pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getPatternsBypatternid: {
         parameters: {
             query?: never;
@@ -85931,30 +85101,6 @@ export interface operations {
             };
         };
     };
-    createQuotasRequestIncrease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Request submitted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
     listRalphBlockers: {
         parameters: {
             query?: never;
@@ -86655,6 +85801,33 @@ export interface operations {
             };
         };
     };
+    getRalphByparam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response data */
+                        data?: Record<string, never>;
+                        success?: boolean;
+                    };
+                };
+            };
+        };
+    };
     listRankingStats: {
         parameters: {
             query?: never;
@@ -87266,7 +86439,7 @@ export interface operations {
             };
         };
     };
-    createReviewQueue: {
+    listReviewQueueTriageMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -87275,39 +86448,156 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description Rolling-window triage metrics */
             200: {
                 headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
+                        windows?: {
+                            "7d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                            "30d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                        };
+                        /** @description Advisory drift between the latest and previous window, keyed by metric name. */
+                        drift?: {
+                            [key: string]: {
+                                current: number | null;
+                                previous: number | null;
+                                delta: number | null;
+                                exceeded_threshold: boolean;
+                            };
+                        };
+                        /** Format: date-time */
+                        generated_at?: string;
+                        /** @description Source of authority (docs/THESIS.md Commitment 5). */
+                        commitment?: string;
                     };
                 };
             };
-        };
-    };
-    deleteReviewQueue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
+            /** @description Not Modified — ETag matched If-None-Match. */
+            304: {
                 headers: {
                     [name: string]: unknown;
                 };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": {
-                        deleted?: boolean;
-                    };
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -88997,30 +88287,6 @@ export interface operations {
         };
     };
     listSloStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Response data */
-                        data?: Record<string, never>;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    listSlos: {
         parameters: {
             query?: never;
             header?: never;
@@ -107882,54 +107148,6 @@ export interface operations {
             };
         };
     };
-    getCalibrationCurve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration curve data */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    getCalibrationHistory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-        };
-    };
     getCalibrationLeaderboard: {
         parameters: {
             query?: {
@@ -109400,30 +108618,6 @@ export interface operations {
         };
     };
     createChatGoogleChatWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    createChatKnowledgeChannel: {
         parameters: {
             query?: never;
             header?: never;
@@ -123456,30 +122650,6 @@ export interface operations {
             };
         };
     };
-    listDebatesPublic: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Response data */
-                        data?: Record<string, never>;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     listDebatesPublicByparamOg: {
         parameters: {
             query?: never;
@@ -128126,54 +127296,6 @@ export interface operations {
                         response?: Record<string, never>;
                         sessionAttributes?: Record<string, never>;
                     };
-                };
-            };
-        };
-    };
-    handleAppleShortcuts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    action: "start_debate" | "get_status" | "vote" | "summarize";
-                    params?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Shortcuts response */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        result?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -147903,30 +147025,6 @@ export interface operations {
             };
         };
     };
-    listKnowledgeMoundGraph: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Response data */
-                        data?: Record<string, never>;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     getKnowledgeMoundGraphBygraphid: {
         parameters: {
             query?: never;
@@ -151448,30 +150546,6 @@ export interface operations {
             };
         };
     };
-    createMemory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     createMemoryAnalytics: {
         parameters: {
             query?: never;
@@ -152272,30 +151346,6 @@ export interface operations {
         };
     };
     createMemorySync: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    createMemoryTier: {
         parameters: {
             query?: never;
             header?: never;
@@ -159883,209 +158933,6 @@ export interface operations {
             };
         };
     };
-    listPatterns1: {
-        parameters: {
-            query?: {
-                /** @description Filter by pattern category */
-                category?: string;
-                /** @description Filter by tags (comma-separated) */
-                tags?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of pattern templates */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternTemplateList"];
-                };
-            };
-        };
-    };
-    createPatternsHiveMind1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to analyze */
-                    task?: string;
-                    /** @description Agent names to include */
-                    agents?: string[];
-                    /**
-                     * @default majority
-                     * @enum {string}
-                     */
-                    consensus_mode?: "majority" | "weighted" | "unanimous";
-                    /** @default 0.7 */
-                    consensus_threshold?: number;
-                    /** @default true */
-                    include_dissent?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Hive Mind pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsMapReduce1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /**
-                     * @default chunks
-                     * @enum {string}
-                     */
-                    split_strategy?: "chunks" | "lines" | "sentences" | "paragraphs";
-                    /** @default 4000 */
-                    chunk_size?: number;
-                    /** @description Agent for map phase */
-                    map_agent?: string;
-                    /** @description Agent for reduce phase */
-                    reduce_agent?: string;
-                    /** @description Custom map prompt template */
-                    map_prompt?: string;
-                    /** @description Custom reduce prompt template */
-                    reduce_prompt?: string;
-                    /** @default 5 */
-                    parallel_limit?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from MapReduce pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsReviewCycle1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to accomplish */
-                    task?: string;
-                    /** @description Agent for drafting phase */
-                    draft_agent?: string;
-                    /** @description Agent for review phase */
-                    review_agent?: string;
-                    /** @default 3 */
-                    max_iterations?: number;
-                    /** @default 0.85 */
-                    convergence_threshold?: number;
-                    /** @description Criteria for review */
-                    review_criteria?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Review Cycle pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getPattern: {
         parameters: {
             query?: never;
@@ -164576,30 +163423,6 @@ export interface operations {
             };
         };
     };
-    createQuotaIncreaseRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Request submitted */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
     listQuotasUsage: {
         parameters: {
             query?: never;
@@ -165347,6 +164170,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphByparam1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Path parameter: param */
+                param: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Response data */
+                        data?: Record<string, never>;
+                        success?: boolean;
+                    };
                 };
             };
         };
@@ -167279,52 +166129,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createReviewQueue1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    deleteReviewQueue1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        deleted?: boolean;
-                    };
                 };
             };
         };
@@ -169884,30 +168688,6 @@ export interface operations {
             };
         };
     };
-    createShared: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
     getSharedBysharedid: {
         parameters: {
             query?: never;
@@ -170177,30 +168957,6 @@ export interface operations {
         };
     };
     listSloStatus1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description Response data */
-                        data?: Record<string, never>;
-                        success?: boolean;
-                    };
-                };
-            };
-        };
-    };
-    listSlos1: {
         parameters: {
             query?: never;
             header?: never;
@@ -174494,7 +173250,7 @@ export interface operations {
             };
         };
     };
-    listVerificationProofs: {
+    createVerificationProofs: {
         parameters: {
             query?: never;
             header?: never;
@@ -174503,17 +173259,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Proofs list */
+            /** @description OK */
             200: {
                 headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": {
+                        /** @description Created resource ID */
+                        id?: string;
+                        success?: boolean;
+                    };
                 };
             };
         };
@@ -174555,17 +173311,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Validation result */
+            /** @description OK */
             200: {
                 headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        /** @description Created resource ID */
+                        id?: string;
+                        success?: boolean;
+                    };
                 };
             };
         };
@@ -183310,30 +182066,6 @@ export interface operations {
             };
         };
     };
-    listVerificationProofs1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Proofs list */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-        };
-    };
     listVerificationStatus1: {
         parameters: {
             query?: never;
@@ -183358,30 +182090,6 @@ export interface operations {
                         backends?: string[];
                         z3_version?: string;
                     };
-                };
-            };
-        };
-    };
-    createVerificationValidate1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Validation result */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
                 };
             };
         };

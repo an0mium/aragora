@@ -49,6 +49,11 @@ AgentRecommendationHandler = _safe_import(
 )
 FeedbackHandler = _safe_import("aragora.server.handlers.agents.feedback", "FeedbackHandler")
 
+# Match statistics (ELO aggregate stats)
+MatchesStatsHandler = _safe_import(
+    "aragora.server.handlers.agents.matches_stats", "MatchesStatsHandler"
+)
+
 # =============================================================================
 # Agent Handler Registry Entries
 # =============================================================================
@@ -66,6 +71,8 @@ AGENT_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Agent recommendations and feedback
     ("_agent_recommendation_handler", AgentRecommendationHandler),
     ("_feedback_handler", FeedbackHandler),
+    # Match statistics
+    ("_matches_stats_handler", MatchesStatsHandler),
 ]
 
 __all__ = [
@@ -79,6 +86,7 @@ __all__ = [
     "ExternalAgentsHandler",
     "GatewayAgentsHandler",
     "SelectionHandler",
+    "MatchesStatsHandler",
     # Registry
     "AGENT_HANDLER_REGISTRY",
 ]

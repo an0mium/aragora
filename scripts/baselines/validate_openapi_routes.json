@@ -1,18 +1,6 @@
 {
   "missing_in_spec": [],
   "orphaned_in_spec": [
-    "/api/km/checkpoints/compare",
-    "/api/matches/stats",
-    "/api/ralph/blockers",
-    "/api/ralph/campaigns",
-    "/api/ralph/overview",
-    "/api/v1/inbox/mentions",
-    "/api/v1/km/checkpoints/compare",
-    "/api/v1/matches/stats",
-    "/api/v1/ralph/blockers",
-    "/api/v1/ralph/campaigns",
-    "/api/v1/ralph/overview",
-    "/api/v1/review-queue/triage-metrics",
     "/api/v2/marketplace/categories",
     "/api/v2/marketplace/status",
     "/api/v2/marketplace/templates",

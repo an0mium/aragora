@@ -34,6 +34,7 @@ from aragora.server.handlers.utils.rate_limit import (
     RateLimiter,
     rate_limit,
 )
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.observability.metrics import (
     record_checkpoint_operation,
     track_checkpoint_operation,
@@ -109,7 +110,10 @@ _checkpoint_write_limiter = RateLimiter(requests_per_minute=5)
 class KMCheckpointHandler(BaseHandler):
     """Handler for Knowledge Mound checkpoint management endpoints."""
 
-    routes = [
+    # Uppercase ROUTES is required: BaseHandler.can_handle() and the registry
+    # route index only read the ROUTES attribute, so the previous lowercase
+    # ``routes`` left this entire handler unreachable through dispatch.
+    ROUTES = [
         "/api/v1/km/checkpoints",
         "/api/v1/km/checkpoints/compare",
     ]
@@ -141,6 +145,19 @@ class KMCheckpointHandler(BaseHandler):
             except ImportError:
                 raise RuntimeError("KM checkpoint module not available")
         return self._checkpoint_store
+
+    def _request_path(self, path: str, handler: Any) -> str:
+        """Resolve the canonical /api/v1 request path for dispatch matching.
+
+        Prefers the dispatch-provided ``path`` argument, falling back to the
+        raw ``handler.path``. Legacy unversioned forms (``/api/km/...``) are
+        normalized to the ``/api/v1/km/...`` form the dispatch tables use.
+        """
+        raw = (path or getattr(handler, "path", "") or "").split("?")[0]
+        stripped = strip_version_prefix(raw)
+        if stripped.startswith("/api/km/"):
+            return "/api/v1" + stripped[len("/api") :]
+        return raw
 
     def _check_auth(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Check authentication for checkpoint operations.
@@ -628,6 +645,17 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("Checkpoint comparison failed: %s", e)
             return error_response("Failed to compare checkpoints", status=500)
 
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
+        """Route GET requests through handle_get for registry dispatch.
+
+        The handler registry dispatches GET via ``handle()``; without this
+        alias the GET surface (list/get/compare) was unreachable.
+        """
+        method = (getattr(handler, "command", None) or "GET").upper()
+        if method != "GET":
+            return None
+        return self.handle_get(path, query_params, handler)
+
     @require_permission("knowledge:read")
     async def handle_get(
         self,
@@ -643,7 +671,7 @@ class KMCheckpointHandler(BaseHandler):
         if handler is None:
             return error_response("Missing handler", status=500)
 
-        request_path = handler.path.split("?")[0]
+        request_path = self._request_path(path, handler)
 
         if request_path == "/api/v1/km/checkpoints":
             return await self._list_checkpoints(handler)
@@ -676,7 +704,7 @@ class KMCheckpointHandler(BaseHandler):
         if handler is None:
             return error_response("Missing handler", status=500)
 
-        request_path = handler.path.split("?")[0]
+        request_path = self._request_path(path, handler)
 
         if request_path == "/api/v1/km/checkpoints":
             return await self._create_checkpoint(handler)
@@ -707,7 +735,7 @@ class KMCheckpointHandler(BaseHandler):
         if handler is None:
             return error_response("Missing handler", status=500)
 
-        request_path = handler.path.split("?")[0]
+        request_path = self._request_path(path, handler)
 
         # Handle /api/km/checkpoints/{name}
         if request_path.startswith("/api/v1/km/checkpoints/"):
