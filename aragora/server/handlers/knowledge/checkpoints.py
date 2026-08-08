@@ -257,7 +257,7 @@ class KMCheckpointHandler(BaseHandler):
             store = self._get_checkpoint_store()
 
             # Get limit parameter
-            limit = int(self.get_query_param(handler, "limit", "20"))
+            limit = int(self.get_query_param(handler, "limit", "20") or "20")
             limit = min(max(1, limit), 100)
 
             all_checkpoints = await store.list_checkpoints()

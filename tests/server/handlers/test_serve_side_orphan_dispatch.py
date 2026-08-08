@@ -162,13 +162,15 @@ class TestValidatorCoverage:
 def _make_dispatch_instance(
     handlers: dict[str, Any],
     method: str = "GET",
-) -> tuple[HandlerRegistryMixin, RouteIndex]:
+) -> tuple[Any, RouteIndex]:
     """Build a mixin instance + REAL RouteIndex over the given handlers."""
 
     class _TestMixin(HandlerRegistryMixin):
         _handlers_initialized = True
 
-    instance = _TestMixin()
+    # Typed as Any: the mixin is exercised with dynamically attached
+    # BaseHTTPRequestHandler attributes (command, headers, wfile, ...).
+    instance: Any = _TestMixin()
     instance.command = method
     instance.headers = {}
     instance.wfile = io.BytesIO()
@@ -192,7 +194,7 @@ def _make_dispatch_instance(
 
 
 def _dispatch(
-    instance: HandlerRegistryMixin,
+    instance: Any,
     index: RouteIndex,
     path: str,
     query: dict[str, Any] | None = None,
