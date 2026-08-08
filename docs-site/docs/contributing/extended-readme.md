@@ -689,7 +689,7 @@ aragora serve --api-port 8080 --ws-port 8765
 ## API Endpoints
 
 <!-- metrics:begin extended-readme-api-surface -->
-The server exposes 3,134 API operations across 2,915 paths. Key categories:
+The server exposes 3,097 API operations across 2,881 paths. Key categories:
 <!-- metrics:end -->
 
 | Category | Description |

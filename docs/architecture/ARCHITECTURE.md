@@ -763,6 +763,6 @@ Critical operations use explicit transactions:
 <!-- metrics:begin architecture-scale -->
 - **Test coverage**: 225,356 tests across 5,523 test files
 - **Source files**: 4,303 Python files under `aragora/`
-- **API surface**: 3,134 API operations across 2,915 paths
+- **API surface**: 3,097 API operations across 2,881 paths
 - **KM adapters**: 41 registered adapters (see `aragora/knowledge/mound/adapters/`)
 <!-- metrics:end -->

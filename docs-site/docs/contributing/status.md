@@ -161,7 +161,7 @@ For the full current-status narrative, use the canonical doc:
 - **Python files (`aragora/`)**: 4,303
 - **Tests**: 225,356 across 5,523 test files
 - **KM adapters**: 41 registered adapter specs
-- **API operations**: 3,134 across 2,915 paths
+- **API operations**: 3,097 across 2,881 paths
 <!-- metrics:end -->
 
 Manually maintained:
