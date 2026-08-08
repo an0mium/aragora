@@ -98,7 +98,9 @@ class TestRegistryMembership:
     def test_km_checkpoint_handler_has_uppercase_routes(self) -> None:
         assert hasattr(KMCheckpointHandler, "ROUTES")
         assert "/api/v1/km/checkpoints/compare" in KMCheckpointHandler.ROUTES
-        assert "/api/v1/km/checkpoints" in KMCheckpointHandler.ROUTES
+        # The bare list path is owned first-wins by KnowledgeMoundHandler
+        # (pre-existing collision); this handler must not re-claim it.
+        assert "/api/v1/km/checkpoints" not in KMCheckpointHandler.ROUTES
 
     def test_review_queue_declares_triage_metrics_literal(self) -> None:
         assert "/api/review-queue/triage-metrics" in ReviewQueueHandler.ROUTES
@@ -333,21 +335,14 @@ class TestKMCheckpointDispatch:
         assert status == 200
 
     @pytest.mark.parametrize("path", ["/api/km/checkpoints", "/api/v1/km/checkpoints"])
-    def test_list_get_dispatches_both_forms(self, path: str) -> None:
+    def test_bare_list_path_not_claimed(self, path: str) -> None:
+        """The bare checkpoints list path stays owned first-wins by
+        KnowledgeMoundHandler (pre-existing collision); in isolation this
+        handler must NOT claim it — only the compare operation."""
         handler = KMCheckpointHandler()
-        store = MagicMock()
-        store.list_checkpoints = AsyncMock(return_value=[])
         instance, index = _make_dispatch_instance({"_km_checkpoint_handler": handler})
-        with (
-            patch.object(KMCheckpointHandler, "_get_checkpoint_store", return_value=store),
-            patch(
-                "aragora.billing.jwt_auth.extract_user_from_request",
-                return_value=_auth_user("admin"),
-            ),
-        ):
-            handled, status = _dispatch(instance, index, path)
-        assert handled is True
-        assert status == 200
+        handled, _status = _dispatch(instance, index, path)
+        assert handled is False
 
 
 class TestMatchesStatsDispatch:

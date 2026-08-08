@@ -37,9 +37,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
-from aragora.server.handlers.utils.decorators import (
-    require_permission as require_request_permission,
-)
+from aragora.server.handlers.utils import decorators as handler_decorators
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.versioning.compat import strip_version_prefix
@@ -839,7 +837,7 @@ class TeamInboxMentionsHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return strip_version_prefix(path.split("?")[0]) == "/api/inbox/mentions"
 
-    @require_request_permission("inbox:read")
+    @handler_decorators.require_permission("inbox:read")
     async def handle(  # type: ignore[override]
         self,
         path: str,

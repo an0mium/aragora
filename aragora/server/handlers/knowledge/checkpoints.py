@@ -113,8 +113,10 @@ class KMCheckpointHandler(BaseHandler):
     # Uppercase ROUTES is required: BaseHandler.can_handle() and the registry
     # route index only read the ROUTES attribute, so the previous lowercase
     # ``routes`` left this entire handler unreachable through dispatch.
+    # NOTE: the bare /api/v1/km/checkpoints path is claimed (first-wins) by
+    # KnowledgeMoundHandler's ROUTES — a pre-existing collision this handler
+    # must not fight. Only the compare operation is routed here.
     ROUTES = [
-        "/api/v1/km/checkpoints",
         "/api/v1/km/checkpoints/compare",
     ]
 
