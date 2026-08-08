@@ -176392,6 +176392,879 @@
         "x-aragora-stability": "deprecated"
       }
     },
+    "/api/v2/marketplace/templates": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List marketplace templates",
+        "operationId": "listMarketplaceTemplatesV2",
+        "description": "List/search marketplace templates with optional filters (query, category, type, tags, pagination).",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by category.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by template type.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Comma-separated tag list.",
+            "schema": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of records.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marketplace templates.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      },
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Create marketplace template",
+        "operationId": "createMarketplaceTemplateV2",
+        "description": "Create/import a marketplace template. Requires `marketplace:write`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "template_type": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "config": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template created.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v2/marketplace/categories": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "List marketplace categories",
+        "operationId": "listMarketplaceCategoriesV2",
+        "description": "List available marketplace categories.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Marketplace categories.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v2/marketplace/status": {
+      "get": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Get marketplace status",
+        "operationId": "getMarketplaceStatusV2",
+        "description": "Get marketplace health/circuit-breaker status.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Marketplace status.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "circuit_breaker": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v2/marketplace/templates/import": {
+      "post": {
+        "tags": [
+          "Marketplace"
+        ],
+        "summary": "Import marketplace template",
+        "operationId": "importMarketplaceTemplateV2",
+        "description": "Import a marketplace template. Requires `marketplace:write`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "template_type": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "config": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template imported.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
     "/api/v2/marketplace/templates/{template_id}/ratings": {
       "get": {
         "tags": [
@@ -178354,6 +179227,815 @@
         "x-aragora-stability": "stable"
       }
     },
+    "/api/v2/orchestration/deliberate": {
+      "post": {
+        "tags": [
+          "Orchestration"
+        ],
+        "summary": "Start asynchronous deliberation",
+        "operationId": "startOrchestrationDeliberationV2",
+        "description": "Start an asynchronous orchestration deliberation. Requires `orchestration:execute`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "knowledge_sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "lookback_minutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10080
+                        },
+                        "max_items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 500
+                        }
+                      }
+                    }
+                  },
+                  "workspaces": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "team_strategy": {
+                    "type": "string"
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "output_channels": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "thread_id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "output_format": {
+                    "type": "string"
+                  },
+                  "require_consensus": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "type": "string"
+                  },
+                  "max_rounds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  },
+                  "timeout_seconds": {
+                    "type": "number",
+                    "minimum": 10,
+                    "maximum": 3600
+                  },
+                  "template": {
+                    "type": "string"
+                  },
+                  "notify": {
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queued response, dry-run estimate, or immediate result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "request_id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "estimated_cost_usd": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "request_id": {
+                          "type": "string"
+                        },
+                        "dry_run": {
+                          "type": "boolean"
+                        },
+                        "estimated_cost": {
+                          "type": "object"
+                        },
+                        "agents": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "max_rounds": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "request_id": {
+                          "type": "string"
+                        },
+                        "success": {
+                          "type": "boolean"
+                        },
+                        "consensus_reached": {
+                          "type": "boolean"
+                        },
+                        "final_answer": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "number"
+                        },
+                        "agents_participated": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "rounds_completed": {
+                          "type": "integer"
+                        },
+                        "duration_seconds": {
+                          "type": "number"
+                        },
+                        "knowledge_context_used": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "channels_notified": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "receipt_id": {
+                          "type": "string"
+                        },
+                        "error": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "estimated_cost_usd": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v2/orchestration/deliberate/sync": {
+      "post": {
+        "tags": [
+          "Orchestration"
+        ],
+        "summary": "Start synchronous deliberation",
+        "operationId": "startOrchestrationDeliberationSyncV2",
+        "description": "Run a synchronous deliberation and return completion payload. Requires `orchestration:execute`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "knowledge_sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "lookback_minutes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10080
+                        },
+                        "max_items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 500
+                        }
+                      }
+                    }
+                  },
+                  "workspaces": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "team_strategy": {
+                    "type": "string"
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "output_channels": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "thread_id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "output_format": {
+                    "type": "string"
+                  },
+                  "require_consensus": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "type": "string"
+                  },
+                  "max_rounds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  },
+                  "timeout_seconds": {
+                    "type": "number",
+                    "minimum": 10,
+                    "maximum": 3600
+                  },
+                  "template": {
+                    "type": "string"
+                  },
+                  "notify": {
+                    "type": "boolean"
+                  },
+                  "dry_run": {
+                    "type": "boolean"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous result or dry-run estimate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "request_id": {
+                          "type": "string"
+                        },
+                        "success": {
+                          "type": "boolean"
+                        },
+                        "consensus_reached": {
+                          "type": "boolean"
+                        },
+                        "final_answer": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "number"
+                        },
+                        "agents_participated": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "rounds_completed": {
+                          "type": "integer"
+                        },
+                        "duration_seconds": {
+                          "type": "number"
+                        },
+                        "knowledge_context_used": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "channels_notified": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "receipt_id": {
+                          "type": "string"
+                        },
+                        "error": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "estimated_cost_usd": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "request_id": {
+                          "type": "string"
+                        },
+                        "dry_run": {
+                          "type": "boolean"
+                        },
+                        "estimated_cost": {
+                          "type": "object"
+                        },
+                        "agents": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "max_rounds": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
     "/api/v2/orchestration/status/{request_id}": {
       "get": {
         "tags": [
@@ -178587,6 +180269,266 @@
                       "code": "NOT_FOUND",
                       "resource_type": "debate",
                       "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v2/orchestration/templates": {
+      "get": {
+        "tags": [
+          "Orchestration"
+        ],
+        "summary": "List orchestration templates",
+        "operationId": "listOrchestrationTemplatesV2",
+        "description": "List orchestration templates with optional filters.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by template category.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search term for name/description.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Comma-separated tags.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum rows to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orchestration template list.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "default_agents": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "default_knowledge_sources": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "output_format": {
+                            "type": "string"
+                          },
+                          "consensus_threshold": {
+                            "type": "number"
+                          },
+                          "max_rounds": {
+                            "type": "integer"
+                          },
+                          "personas": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
                       "trace_id": "req_abc123xyz"
                     }
                   }

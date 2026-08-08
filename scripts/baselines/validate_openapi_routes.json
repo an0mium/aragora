@@ -12,6 +12,13 @@
     "/api/v1/ralph/blockers",
     "/api/v1/ralph/campaigns",
     "/api/v1/ralph/overview",
-    "/api/v1/review-queue/triage-metrics"
+    "/api/v1/review-queue/triage-metrics",
+    "/api/v2/marketplace/categories",
+    "/api/v2/marketplace/status",
+    "/api/v2/marketplace/templates",
+    "/api/v2/marketplace/templates/import",
+    "/api/v2/orchestration/deliberate",
+    "/api/v2/orchestration/deliberate/sync",
+    "/api/v2/orchestration/templates"
   ]
 }
