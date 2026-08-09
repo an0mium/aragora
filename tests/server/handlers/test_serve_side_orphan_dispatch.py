@@ -52,17 +52,10 @@ SERVED_ORPHANS = [
     "/api/v1/review-queue/triage-metrics",
 ]
 
-# The only paths that may remain orphaned after this PR: the 7 re-added
-# v2 FastAPI-plane paths owned by cdg-route-validator-fastapi-plane.
-V2_REMAINDER = [
-    "/api/v2/marketplace/categories",
-    "/api/v2/marketplace/status",
-    "/api/v2/marketplace/templates",
-    "/api/v2/marketplace/templates/import",
-    "/api/v2/orchestration/deliberate",
-    "/api/v2/orchestration/deliberate/sync",
-    "/api/v2/orchestration/templates",
-]
+# After cdg-route-validator-fastapi-plane landed the mounted-FastAPI evidence
+# plane, the 7 re-added v2 marketplace/orchestration paths count as served and
+# the orphan baseline is terminal-empty.
+V2_REMAINDER: list[str] = []
 
 
 def _load_validator_module():

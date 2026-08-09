@@ -1,12 +1,4 @@
 {
   "missing_in_spec": [],
-  "orphaned_in_spec": [
-    "/api/v2/marketplace/categories",
-    "/api/v2/marketplace/status",
-    "/api/v2/marketplace/templates",
-    "/api/v2/marketplace/templates/import",
-    "/api/v2/orchestration/deliberate",
-    "/api/v2/orchestration/deliberate/sync",
-    "/api/v2/orchestration/templates"
-  ]
+  "orphaned_in_spec": []
 }

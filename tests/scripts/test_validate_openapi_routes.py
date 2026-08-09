@@ -589,6 +589,348 @@ def test_is_internal_route_matches_exact_family_not_sibling_names():
 
 
 # ---------------------------------------------------------------------------
+# Mounted-FastAPI-router evidence plane (additive; ledger 397 point 3)
+# ---------------------------------------------------------------------------
+
+
+def _write_fastapi_tree(
+    tmp_path: Path,
+    factory_source: str,
+    route_modules: dict[str, str],
+) -> Path:
+    """Lay out a synthetic aragora/server/fastapi tree and return factory path."""
+    fastapi_dir = tmp_path / "aragora" / "server" / "fastapi"
+    routes_dir = fastapi_dir / "routes"
+    routes_dir.mkdir(parents=True)
+    (routes_dir / "__init__.py").write_text("", encoding="utf-8")
+    factory = fastapi_dir / "factory.py"
+    factory.write_text(factory_source, encoding="utf-8")
+    for name, source in route_modules.items():
+        (routes_dir / f"{name}.py").write_text(source, encoding="utf-8")
+    return factory
+
+
+def test_get_fastapi_mounted_routes_extracts_mounted_router_paths(tmp_path: Path):
+    factory = _write_fastapi_tree(
+        tmp_path,
+        """
+from .routes import shop, ghost
+
+def create_app():
+    app = object()
+    app.include_router(shop.router)
+    return app
+""".lstrip(),
+        {
+            "shop": """
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/v2/shop", tags=["Shop"])
+
+@router.get("/items")
+async def list_items():
+    return []
+
+@router.post("/items")
+async def create_item():
+    return {}
+
+@router.get("/items/{item_id}")
+async def get_item(item_id: str):
+    return {}
+""".lstrip(),
+            # Imported in the factory but never mounted: contributes nothing.
+            "ghost": """
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/v2/ghost")
+
+@router.get("/status")
+async def ghost_status():
+    return {}
+""".lstrip(),
+        },
+    )
+
+    routes = validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+    assert routes == {
+        "/api/v2/shop/items",
+        "/api/v2/shop/items/{item_id}",
+    }
+
+
+def test_get_fastapi_mounted_routes_combines_include_router_prefix(tmp_path: Path):
+    factory = _write_fastapi_tree(
+        tmp_path,
+        """
+from .routes import things
+
+def create_app(app):
+    app.include_router(things.router, prefix="/api/v2")
+""".lstrip(),
+        {
+            "things": """
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/things")
+async def list_things():
+    return []
+""".lstrip(),
+        },
+    )
+
+    routes = validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+    assert routes == {"/api/v2/things"}
+
+
+def test_get_fastapi_mounted_routes_skips_non_literal_paths(tmp_path: Path):
+    factory = _write_fastapi_tree(
+        tmp_path,
+        """
+from .routes import mixed, computed_prefix
+
+PREFIX = "/api/v2"
+
+def create_app(app):
+    app.include_router(mixed.router)
+    app.include_router(computed_prefix.router, prefix=PREFIX)
+""".lstrip(),
+        {
+            "mixed": """
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/v2/mixed")
+_computed = "/computed"
+
+@router.get("/literal")
+async def literal():
+    return {}
+
+@router.get(_computed)
+async def computed():
+    return {}
+""".lstrip(),
+            # Mount uses a computed prefix: unverifiable, contributes nothing.
+            "computed_prefix": """
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/whatever")
+async def whatever():
+    return {}
+""".lstrip(),
+        },
+    )
+
+    routes = validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+    assert routes == {"/api/v2/mixed/literal"}
+
+
+def test_get_fastapi_mounted_routes_fails_closed_on_unparseable_factory(tmp_path: Path):
+    factory = tmp_path / "aragora" / "server" / "fastapi" / "factory.py"
+    factory.parent.mkdir(parents=True)
+    factory.write_text("def broken(:\n", encoding="utf-8")
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+
+def test_get_fastapi_mounted_routes_fails_closed_on_missing_mounted_module(tmp_path: Path):
+    factory = _write_fastapi_tree(
+        tmp_path,
+        """
+from .routes import shop
+
+def create_app(app):
+    app.include_router(shop.router)
+""".lstrip(),
+        {
+            "shop": """
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/v2/shop")
+
+@router.get("/items")
+async def list_items():
+    return []
+""".lstrip(),
+        },
+    )
+    (tmp_path / "aragora" / "server" / "fastapi" / "routes" / "shop.py").unlink()
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+
+def test_get_fastapi_mounted_routes_fails_closed_on_missing_router_definition(tmp_path: Path):
+    factory = _write_fastapi_tree(
+        tmp_path,
+        """
+from .routes import broken
+
+def create_app(app):
+    app.include_router(broken.router)
+""".lstrip(),
+        {
+            # Mounted, but no module-level `router = APIRouter(...)` to inspect.
+            "broken": """
+def make_router():
+    from fastapi import APIRouter
+
+    router = APIRouter(prefix="/api/v2/broken")
+    return router
+""".lstrip(),
+        },
+    )
+
+    with pytest.raises(validate_openapi_routes.RouteRegistrationScanError):
+        validate_openapi_routes.get_fastapi_mounted_routes(factory, tmp_path)
+
+
+def test_validate_coverage_credits_fastapi_mounted_routes(monkeypatch, tmp_path: Path):
+    """Positive + negative: a mounted path is served, an unmounted one stays orphaned."""
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v2/shop/items", "/api/v2/zz-truly-unmounted"},
+    )
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_fastapi_mounted_routes",
+        lambda: {"/api/v2/shop/items"},
+    )
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["orphaned_in_spec"] == ["/api/v2/zz-truly-unmounted"]
+    assert results["served_fastapi_mounted"] == ["/api/v2/shop/items"]
+    assert "/api/v2/shop/items" in results["served_undeclared"]
+
+
+def test_validate_coverage_fastapi_plane_does_not_feed_missing_in_spec(monkeypatch, tmp_path: Path):
+    """The FastAPI plane is serve evidence only: a mounted route absent from the
+    spec must NOT become missing_in_spec (the mounted surface is opt-in, so it
+    carries no declaration obligation), and the existing planes' missing_in_spec
+    arithmetic stays untouched."""
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v2/shop/items"},
+    )
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_fastapi_mounted_routes",
+        lambda: {"/api/v2/shop/items", "/api/v2/shop/absent-from-spec"},
+    )
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert results["missing_in_spec"] == []
+    assert results["orphaned_in_spec"] == []
+    assert results["served_fastapi_mounted"] == ["/api/v2/shop/items"]
+
+
+def test_validate_coverage_excludes_internal_fastapi_routes(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(validate_openapi_routes, "get_handler_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/control-plane/private"},
+    )
+    monkeypatch.setattr(validate_openapi_routes, "get_wired_function_routes", lambda: set())
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_fastapi_mounted_routes",
+        lambda: {"/api/v1/control-plane/private"},
+    )
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        baseline_path=str(baseline),
+    )
+
+    # Internal families are excluded from BOTH the candidates and the plane, so
+    # nothing is orphaned and nothing is credited to the FastAPI plane.
+    assert results["orphaned_in_spec"] == []
+    assert results["served_fastapi_mounted"] == []
+
+
+def test_filter_fastapi_orphans_logs_suppressions(monkeypatch, capsys):
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "load_fastapi_routes_for_validation",
+        lambda: {"/api/v2/shop/items"},
+    )
+
+    orphaned, served = validate_openapi_routes.filter_fastapi_orphans(
+        {"/api/v2/shop/items", "/api/v2/dark"}
+    )
+
+    assert served == {"/api/v2/shop/items"}
+    assert orphaned == {"/api/v2/dark"}
+    err = capsys.readouterr().err
+    assert "mounted FastAPI routers" in err
+    assert "/api/v2/shop/items" in err
+
+
+def test_real_factory_mounts_v2_marketplace_and_orchestration_paths():
+    """The real factory mounts the v2 marketplace/orchestration routers whose
+    spec entries were re-added by PR #9724 (ledger 397 point 1)."""
+    routes = validate_openapi_routes.get_fastapi_mounted_routes()
+
+    assert {
+        "/api/v2/marketplace/categories",
+        "/api/v2/marketplace/status",
+        "/api/v2/marketplace/templates",
+        "/api/v2/marketplace/templates/import",
+        "/api/v2/orchestration/deliberate",
+        "/api/v2/orchestration/deliberate/sync",
+        "/api/v2/orchestration/templates",
+    } <= routes
+
+
+def test_real_factory_does_not_credit_unmounted_swarm_status_router():
+    """swarm_status.py defines an APIRouter but is not imported/mounted by the
+    factory, so its paths must never enter the evidence plane."""
+    routes = validate_openapi_routes.get_fastapi_mounted_routes()
+
+    assert not any(route.startswith("/api/v1/swarm") for route in routes)
+
+
+# ---------------------------------------------------------------------------
 # VAL-CDG-011: method-aware operation plane
 # ---------------------------------------------------------------------------
 
