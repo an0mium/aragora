@@ -561,7 +561,7 @@ def _invoke_exact_ref_policy(
 
 def _module_parts_for_source(source_path: str) -> tuple[str, ...]:
     path = Path(source_path)
-    if path.suffix != ".py":
+    if not _is_python_script(path):
         return ()
     parts = list(path.with_suffix("").parts)
     if parts[-1] == "__init__":
@@ -749,7 +749,7 @@ def _python_import_edges(
     include_function_bodies: bool = False,
 ) -> list[tuple[str, str]]:
     path = extraction_root / source_path
-    if path.suffix != ".py":
+    if not _is_python_script(path):
         return []
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
@@ -844,6 +844,23 @@ def _static_path_parts(
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str":
         if len(node.args) == 1:
             return _static_path_parts(node.args[0], bindings)
+    if (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "parents"
+        and isinstance(node.slice, ast.Constant)
+        and node.slice.value == 1
+        and isinstance(node.value.value, ast.Call)
+        and isinstance(node.value.value.func, ast.Attribute)
+        and node.value.value.func.attr == "resolve"
+        and isinstance(node.value.value.func.value, ast.Call)
+        and isinstance(node.value.value.func.value.func, ast.Name)
+        and node.value.value.func.value.func.id == "Path"
+        and len(node.value.value.func.value.args) == 1
+        and isinstance(node.value.value.func.value.args[0], ast.Name)
+        and node.value.value.func.value.args[0].id == "__file__"
+    ):
+        return []
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
         left = _static_path_parts(node.left, bindings)
         right = _static_path_parts(node.right, bindings)
@@ -1296,100 +1313,595 @@ def _subprocess_helper_edges(
     return [(helper, "literal_subprocess_helper") for helper in sorted(helpers)]
 
 
-def _strip_yaml_scalar(raw: str) -> str:
-    value = raw.strip()
-    if not value:
-        return ""
-    quote = value[0] if value[0] in {"'", '"'} else ""
-    if quote:
-        escaped = False
-        for index in range(1, len(value)):
-            character = value[index]
-            if quote == '"' and character == "\\" and not escaped:
-                escaped = True
+def _workflow_yaml_error(path: Path, line: int, message: str) -> AuthorityClosureError:
+    return AuthorityClosureError(f"{message}: {path}:{line}")
+
+
+def _strip_workflow_yaml_comment(value: str) -> str:
+    single_quoted = False
+    double_quoted = False
+    expression_depth = 0
+    index = 0
+    while index < len(value):
+        if expression_depth:
+            if value.startswith("}}", index):
+                expression_depth -= 1
+                index += 2
                 continue
-            if character == quote and not escaped:
-                return value[1:index]
-            escaped = False
-        raise AuthorityClosureError(f"unterminated YAML scalar: {raw!r}")
-    return value.split(" #", 1)[0].strip()
+            index += 1
+            continue
+        if not single_quoted and not double_quoted and value.startswith("${{", index):
+            expression_depth += 1
+            index += 3
+            continue
+        character = value[index]
+        if single_quoted:
+            if character == "'" and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            if character == "'":
+                single_quoted = False
+        elif double_quoted:
+            if character == "\\":
+                index += 2
+                continue
+            if character == '"':
+                double_quoted = False
+        elif character == "'":
+            single_quoted = True
+        elif character == '"':
+            double_quoted = True
+        elif character == "#" and (index == 0 or value[index - 1].isspace()):
+            return value[:index].rstrip()
+        index += 1
+    return value.rstrip()
+
+
+def _reject_unsupported_workflow_scalar(path: Path, line: int, value: str) -> None:
+    stripped = value.lstrip()
+    if stripped.startswith(("&", "*")):
+        raise _workflow_yaml_error(path, line, "unsupported workflow YAML anchor or alias")
+    if stripped.startswith("!"):
+        raise _workflow_yaml_error(path, line, "unsupported workflow YAML tag")
+
+
+class _WorkflowFlowParser:
+    def __init__(self, path: Path, line: int, text: str) -> None:
+        self.path = path
+        self.line = line
+        self.text = text
+        self.index = 0
+
+    def parse(self) -> Any:
+        value = self._value(frozenset())
+        self._space()
+        if self.index != len(self.text):
+            self._fail("invalid workflow YAML flow collection")
+        return value
+
+    def _fail(self, message: str) -> None:
+        raise _workflow_yaml_error(self.path, self.line, message)
+
+    def _space(self) -> None:
+        while self.index < len(self.text) and self.text[self.index].isspace():
+            self.index += 1
+
+    def _value(self, stop: frozenset[str]) -> Any:
+        self._space()
+        if self.index >= len(self.text) or self.text[self.index] in stop:
+            return None
+        character = self.text[self.index]
+        if character == "{":
+            return self._mapping()
+        if character == "[":
+            return self._sequence()
+        if character in {"'", '"'}:
+            return self._quoted()
+        return self._plain(stop)
+
+    def _mapping(self) -> dict[str, Any]:
+        self.index += 1
+        result: dict[str, Any] = {}
+        self._space()
+        if self.index < len(self.text) and self.text[self.index] == "}":
+            self.index += 1
+            return result
+        while True:
+            key = self._value(frozenset({":", ",", "}"}))
+            if not isinstance(key, str) or not key:
+                self._fail("invalid workflow YAML mapping key")
+            if "${{" in key:
+                self._fail("dynamic workflow YAML mapping key")
+            if key == "<<":
+                self._fail("unsupported workflow YAML merge key")
+            self._space()
+            if self.index >= len(self.text) or self.text[self.index] != ":":
+                self._fail("invalid workflow YAML flow mapping")
+            self.index += 1
+            value = self._value(frozenset({",", "}"}))
+            if key in result:
+                self._fail("duplicate workflow YAML mapping key")
+            result[key] = value
+            self._space()
+            if self.index >= len(self.text):
+                self._fail("invalid workflow YAML flow collection")
+            separator = self.text[self.index]
+            self.index += 1
+            if separator == "}":
+                return result
+            if separator != ",":
+                self._fail("invalid workflow YAML flow mapping")
+            self._space()
+            if self.index < len(self.text) and self.text[self.index] == "}":
+                self._fail("invalid workflow YAML flow mapping")
+
+    def _sequence(self) -> list[Any]:
+        self.index += 1
+        result: list[Any] = []
+        self._space()
+        if self.index < len(self.text) and self.text[self.index] == "]":
+            self.index += 1
+            return result
+        while True:
+            result.append(self._value(frozenset({",", "]"})))
+            self._space()
+            if self.index >= len(self.text):
+                self._fail("invalid workflow YAML flow collection")
+            separator = self.text[self.index]
+            self.index += 1
+            if separator == "]":
+                return result
+            if separator != ",":
+                self._fail("invalid workflow YAML flow sequence")
+            self._space()
+            if self.index < len(self.text) and self.text[self.index] == "]":
+                self._fail("invalid workflow YAML flow sequence")
+
+    def _quoted(self) -> str:
+        quote = self.text[self.index]
+        self.index += 1
+        result: list[str] = []
+        while self.index < len(self.text):
+            character = self.text[self.index]
+            self.index += 1
+            if quote == "'" and character == "'":
+                if self.index < len(self.text) and self.text[self.index] == "'":
+                    result.append("'")
+                    self.index += 1
+                    continue
+                return "".join(result)
+            if quote == '"' and character == '"':
+                return "".join(result)
+            if quote == '"' and character == "\\":
+                if self.index >= len(self.text):
+                    self._fail("invalid workflow YAML quoted scalar")
+                escaped = self.text[self.index]
+                self.index += 1
+                escapes = {
+                    "0": "\0",
+                    "a": "\a",
+                    "b": "\b",
+                    "t": "\t",
+                    "n": "\n",
+                    "v": "\v",
+                    "f": "\f",
+                    "r": "\r",
+                    "e": "\x1b",
+                    " ": " ",
+                    '"': '"',
+                    "/": "/",
+                    "\\": "\\",
+                }
+                if escaped not in escapes:
+                    self._fail("unsupported workflow YAML escape")
+                result.append(escapes[escaped])
+                continue
+            result.append(character)
+        self._fail("invalid workflow YAML quoted scalar")
+        raise AssertionError("unreachable")
+
+    def _plain(self, stop: frozenset[str]) -> str:
+        start = self.index
+        while self.index < len(self.text):
+            if self.text.startswith("${{", self.index):
+                end = self.text.find("}}", self.index + 3)
+                if end < 0:
+                    self._fail("unterminated GitHub expression in workflow YAML")
+                self.index = end + 2
+                continue
+            if self.text[self.index] in stop:
+                break
+            self.index += 1
+        value = self.text[start : self.index].strip()
+        if not value:
+            self._fail("invalid workflow YAML scalar")
+        _reject_unsupported_workflow_scalar(self.path, self.line, value)
+        if ": " in value:
+            self._fail("ambiguous workflow YAML plain scalar")
+        return value
+
+
+def _workflow_flow_complete(path: Path, line: int, value: str) -> bool:
+    opening = {"{": "}", "[": "]"}
+    stack: list[str] = []
+    single_quoted = False
+    double_quoted = False
+    index = 0
+    while index < len(value):
+        if not single_quoted and not double_quoted and value.startswith("${{", index):
+            end = value.find("}}", index + 3)
+            if end < 0:
+                return False
+            index = end + 2
+            continue
+        character = value[index]
+        if single_quoted:
+            if character == "'" and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            if character == "'":
+                single_quoted = False
+        elif double_quoted:
+            if character == "\\":
+                index += 2
+                continue
+            if character == '"':
+                double_quoted = False
+        elif character == "'":
+            single_quoted = True
+        elif character == '"':
+            double_quoted = True
+        elif character in opening:
+            stack.append(opening[character])
+        elif character in {"}", "]"}:
+            if not stack or stack.pop() != character:
+                raise _workflow_yaml_error(path, line, "invalid workflow YAML flow collection")
+        index += 1
+    return not stack and not single_quoted and not double_quoted
+
+
+def _split_workflow_mapping(path: Path, line: int, value: str) -> tuple[str, str] | None:
+    single_quoted = False
+    double_quoted = False
+    flow_stack: list[str] = []
+    index = 0
+    while index < len(value):
+        if not single_quoted and not double_quoted and value.startswith("${{", index):
+            end = value.find("}}", index + 3)
+            if end < 0:
+                raise _workflow_yaml_error(
+                    path, line, "unterminated GitHub expression in workflow YAML"
+                )
+            index = end + 2
+            continue
+        character = value[index]
+        if single_quoted:
+            if character == "'" and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            if character == "'":
+                single_quoted = False
+        elif double_quoted:
+            if character == "\\":
+                index += 2
+                continue
+            if character == '"':
+                double_quoted = False
+        elif character == "'":
+            single_quoted = True
+        elif character == '"':
+            double_quoted = True
+        elif character in {"{", "["}:
+            flow_stack.append("}" if character == "{" else "]")
+        elif character in {"}", "]"}:
+            if not flow_stack or flow_stack.pop() != character:
+                raise _workflow_yaml_error(path, line, "invalid workflow YAML flow collection")
+        elif (
+            character == ":"
+            and not flow_stack
+            and (index + 1 == len(value) or value[index + 1].isspace())
+        ):
+            return value[:index], value[index + 1 :]
+        index += 1
+    return None
+
+
+def _parse_workflow_scalar(path: Path, line: int, value: str) -> Any:
+    value = value.strip()
+    if not value:
+        return None
+    _reject_unsupported_workflow_scalar(path, line, value)
+    if value[0] in {"{", "["}:
+        if not _workflow_flow_complete(path, line, value):
+            raise _workflow_yaml_error(path, line, "invalid workflow YAML flow collection")
+        return _WorkflowFlowParser(path, line, value).parse()
+    if value[0] in {"'", '"'}:
+        return _WorkflowFlowParser(path, line, value).parse()
+    if value.startswith(("%", "---", "...")):
+        raise _workflow_yaml_error(path, line, "unsupported workflow YAML document syntax")
+    return value
+
+
+def _fold_workflow_yaml_block(lines: list[str]) -> str:
+    folded = ""
+    for line in lines:
+        if not line:
+            folded += "\n"
+        elif not folded or folded.endswith("\n"):
+            folded += line
+        else:
+            folded += f" {line}"
+    return folded
+
+
+class _WorkflowYamlParser:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.lines = path.read_text(encoding="utf-8").splitlines()
+        self.line_info: list[tuple[int, str]] = []
+        for index, raw in enumerate(self.lines):
+            indent = len(raw) - len(raw.lstrip(" "))
+            if "\t" in raw[: len(raw) - len(raw.lstrip())]:
+                raise _workflow_yaml_error(
+                    self.path, index + 1, "workflow YAML uses tab indentation"
+                )
+            self.line_info.append((indent, _strip_workflow_yaml_comment(raw[indent:])))
+
+    def parse(self) -> dict[str, Any]:
+        first = self._next(0)
+        if first >= len(self.lines):
+            raise _workflow_yaml_error(self.path, 1, "workflow YAML document is empty")
+        indent, _content = self._line(first)
+        document, end = self._block(first, indent)
+        end = self._next(end)
+        if end != len(self.lines):
+            raise _workflow_yaml_error(
+                self.path, end + 1, "invalid workflow YAML document structure"
+            )
+        if not isinstance(document, dict):
+            raise _workflow_yaml_error(self.path, first + 1, "workflow YAML root must be a mapping")
+        return document
+
+    def _line(self, index: int) -> tuple[int, str]:
+        return self.line_info[index]
+
+    def _next(self, index: int) -> int:
+        while index < len(self.lines):
+            _indent, content = self._line(index)
+            if content:
+                return index
+            index += 1
+        return index
+
+    def _flow(self, index: int, value: str) -> tuple[Any, int]:
+        line = index + 1
+        parts = [value]
+        while not _workflow_flow_complete(self.path, line, "\n".join(parts)):
+            index += 1
+            if index >= len(self.lines):
+                raise _workflow_yaml_error(self.path, line, "invalid workflow YAML flow collection")
+            _indent, content = self._line(index)
+            parts.append(content)
+        return _parse_workflow_scalar(self.path, line, "\n".join(parts)), index + 1
+
+    def _entry(self, index: int, text: str, key_indent: int) -> tuple[str, Any, int, bool]:
+        split = _split_workflow_mapping(self.path, index + 1, text)
+        if split is None:
+            raise _workflow_yaml_error(self.path, index + 1, "invalid workflow YAML mapping")
+        raw_key, raw_value = split
+        key = _parse_workflow_scalar(self.path, index + 1, raw_key)
+        if not isinstance(key, str) or not key:
+            raise _workflow_yaml_error(self.path, index + 1, "invalid workflow YAML mapping key")
+        if "${{" in key:
+            raise _workflow_yaml_error(self.path, index + 1, "dynamic workflow YAML mapping key")
+        if key == "<<":
+            raise _workflow_yaml_error(self.path, index + 1, "unsupported workflow YAML merge key")
+        raw_value = raw_value.strip()
+        if raw_value in {"|", "|-", "|+", ">", ">-", ">+"}:
+            raw_block: list[str] = []
+            content_indents: list[int] = []
+            next_index = index + 1
+            while next_index < len(self.lines):
+                raw = self.lines[next_index]
+                if raw.strip():
+                    child_indent = len(raw) - len(raw.lstrip(" "))
+                    if child_indent <= key_indent:
+                        break
+                    content_indents.append(child_indent)
+                raw_block.append(raw)
+                next_index += 1
+            content_indent = min(content_indents, default=key_indent + 1)
+            block = [raw[content_indent:] if raw.strip() else "" for raw in raw_block]
+            value = (
+                _fold_workflow_yaml_block(block) if raw_value.startswith(">") else "\n".join(block)
+            )
+            return key, value, next_index, True
+        if raw_value.startswith(("{", "[")):
+            parsed, next_index = self._flow(index, raw_value)
+            return key, parsed, next_index, True
+        if raw_value:
+            value = _parse_workflow_scalar(self.path, index + 1, raw_value)
+            return key, value, index + 1, True
+        return key, None, index + 1, False
+
+    def _block(self, index: int, indent: int) -> tuple[Any, int]:
+        index = self._next(index)
+        if index >= len(self.lines) or self._line(index)[0] != indent:
+            line = min(index + 1, len(self.lines))
+            raise _workflow_yaml_error(self.path, line, "invalid workflow YAML indentation")
+        is_sequence = self._line(index)[1] == "-" or self._line(index)[1].startswith("- ")
+        if is_sequence:
+            return self._sequence(index, indent)
+        return self._mapping(index, indent)
+
+    def _sequence(self, index: int, indent: int) -> tuple[list[Any], int]:
+        result: list[Any] = []
+        while index < len(self.lines):
+            index = self._next(index)
+            if index >= len(self.lines):
+                break
+            line_indent, content = self._line(index)
+            if line_indent != indent or (content != "-" and not content.startswith("- ")):
+                break
+            rest = content[1:].lstrip()
+            if not rest:
+                index = self._next(index + 1)
+                if index >= len(self.lines) or self._line(index)[0] <= indent:
+                    result.append(None)
+                    continue
+                item, index = self._block(index, self._line(index)[0])
+                result.append(item)
+                continue
+            if rest.startswith(("{", "[")):
+                item, index = self._flow(index, rest)
+                next_index = self._next(index)
+                if next_index < len(self.lines) and self._line(next_index)[0] > indent:
+                    raise _workflow_yaml_error(
+                        self.path,
+                        next_index + 1,
+                        "invalid workflow YAML indentation after flow value",
+                    )
+                result.append(item)
+                index = next_index
+                continue
+            split = _split_workflow_mapping(self.path, index + 1, rest)
+            if split is None:
+                result.append(_parse_workflow_scalar(self.path, index + 1, rest))
+                index = self._next(index + 1)
+                if index < len(self.lines) and self._line(index)[0] > indent:
+                    raise _workflow_yaml_error(
+                        self.path, index + 1, "invalid workflow YAML sequence item"
+                    )
+                continue
+            item_map: dict[str, Any] = {}
+            key, value, index, has_value = self._entry(index, rest, indent + 2)
+            index = self._next(index)
+            if not has_value and index < len(self.lines) and self._line(index)[0] > indent + 2:
+                value, index = self._block(index, self._line(index)[0])
+                index = self._next(index)
+            item_map[key] = value
+            if index < len(self.lines) and self._line(index)[0] > indent:
+                continuation, index = self._block(index, self._line(index)[0])
+                if not isinstance(continuation, dict):
+                    raise _workflow_yaml_error(
+                        self.path,
+                        index,
+                        "invalid workflow YAML sequence mapping continuation",
+                    )
+                if set(item_map).intersection(continuation):
+                    raise _workflow_yaml_error(
+                        self.path, index, "duplicate workflow YAML mapping key"
+                    )
+                item_map.update(continuation)
+            result.append(item_map)
+        return result, index
+
+    def _mapping(self, index: int, indent: int) -> tuple[dict[str, Any], int]:
+        result: dict[str, Any] = {}
+        while index < len(self.lines):
+            index = self._next(index)
+            if index >= len(self.lines):
+                break
+            line_indent, content = self._line(index)
+            if line_indent != indent or content == "-" or content.startswith("- "):
+                break
+            key, value, index, has_value = self._entry(index, content, indent)
+            if key in result:
+                raise _workflow_yaml_error(self.path, index, "duplicate workflow YAML mapping key")
+            index = self._next(index)
+            if not has_value and index < len(self.lines) and self._line(index)[0] > indent:
+                value, index = self._block(index, self._line(index)[0])
+            result[key] = value
+            index = self._next(index)
+            if index < len(self.lines) and self._line(index)[0] > indent:
+                raise _workflow_yaml_error(
+                    self.path, index + 1, "invalid workflow YAML indentation"
+                )
+        return result, index
 
 
 def _workflow_structure(path: Path) -> dict[str, list[str]]:
-    """Read only structural workflow/action keys needed by the closure."""
-    lines = path.read_text(encoding="utf-8").splitlines()
+    """Read structural workflow/action keys needed by the closure."""
+    root = _WorkflowYamlParser(path).parse()
     uses: list[str] = []
     runs: list[str] = []
     path_filters: list[str] = []
     path_ignores: list[str] = []
-    key_stack: list[tuple[int, str]] = []
-    index = 0
-    while index < len(lines):
-        raw = lines[index]
-        stripped = raw.lstrip()
-        if not stripped or stripped.startswith("#"):
-            index += 1
-            continue
-        indent = len(raw) - len(stripped)
-        while key_stack and key_stack[-1][0] >= indent:
-            key_stack.pop()
-        ancestor_keys = [key for _key_indent, key in key_stack]
-        uses_match = re.match(r"(?:-\s*)?uses:\s*(.*)$", stripped)
-        run_match = re.match(r"(?:-\s*)?run:\s*(.*)$", stripped)
-        paths_match = re.match(r"(paths|paths-ignore):\s*(.*)$", stripped)
-        paths_is_trigger_filter = (
-            len(ancestor_keys) >= 2
-            and ancestor_keys[0] in {"on", "'on'", '"on"'}
-            and ancestor_keys[1] in {"push", "pull_request", "pull_request_target"}
+
+    def _string_list(key: str, value: Any) -> list[str]:
+        if isinstance(value, str) and value:
+            return [value]
+        if isinstance(value, list) and all(isinstance(item, str) and item for item in value):
+            return value
+        raise AuthorityClosureError(
+            f"workflow {key} must be a string or non-empty string list: {path}"
         )
-        if uses_match:
-            uses.append(_strip_yaml_scalar(uses_match.group(1)))
-        elif run_match:
-            marker = run_match.group(1).strip()
-            if marker in {"|", "|-", "|+", ">", ">-", ">+"}:
-                block: list[str] = []
-                index += 1
-                while index < len(lines):
-                    block_raw = lines[index]
-                    block_stripped = block_raw.lstrip()
-                    block_indent = len(block_raw) - len(block_stripped)
-                    if block_stripped and block_indent <= indent:
-                        index -= 1
-                        break
-                    block.append(block_raw[indent + 1 :] if len(block_raw) > indent else "")
-                    index += 1
-                runs.append("\n".join(block))
-            else:
-                runs.append(_strip_yaml_scalar(marker))
-        elif paths_match and paths_is_trigger_filter:
-            destination = path_filters if paths_match.group(1) == "paths" else path_ignores
-            inline = paths_match.group(2).strip()
-            if inline.startswith("[") and inline.endswith("]"):
-                for item in inline[1:-1].split(","):
-                    if item.strip():
-                        destination.append(_strip_yaml_scalar(item))
-            elif not inline:
-                index += 1
-                while index < len(lines):
-                    item_raw = lines[index]
-                    item_stripped = item_raw.lstrip()
-                    item_indent = len(item_raw) - len(item_stripped)
-                    if item_stripped and item_indent <= indent:
-                        index -= 1
-                        break
-                    item_match = re.match(r"-\s*(.*)$", item_stripped)
-                    if item_match:
-                        destination.append(_strip_yaml_scalar(item_match.group(1)))
-                    index += 1
-        key_match = re.match(r"(?:-\s*)?([A-Za-z0-9_\"'-]+):\s*$", stripped)
-        if key_match:
-            key_stack.append((indent, key_match.group(1)))
-        index += 1
+
+    triggers = root.get("on", {})
+    if isinstance(triggers, dict):
+        for trigger_name in ("push", "pull_request", "pull_request_target"):
+            trigger = triggers.get(trigger_name)
+            if not isinstance(trigger, dict):
+                continue
+            if "paths" in trigger:
+                path_filters.extend(_string_list("paths", trigger["paths"]))
+            if "paths-ignore" in trigger:
+                path_ignores.extend(_string_list("paths-ignore", trigger["paths-ignore"]))
+
+    def _executable_value(mapping: dict[str, Any], key: str) -> str | None:
+        if key not in mapping:
+            return None
+        value = mapping[key]
+        if not isinstance(value, str) or not value:
+            raise AuthorityClosureError(f"workflow {key} must be a non-empty string: {path}")
+        return value
+
+    def _collect_steps(value: Any) -> None:
+        if value is None:
+            return
+        if not isinstance(value, list):
+            raise AuthorityClosureError(f"workflow steps must be a list: {path}")
+        for step in value:
+            if not isinstance(step, dict):
+                raise AuthorityClosureError(f"workflow step must be a mapping: {path}")
+            run = _executable_value(step, "run")
+            use = _executable_value(step, "uses")
+            if run is not None and use is not None:
+                raise AuthorityClosureError(
+                    f"workflow mapping cannot contain both run and uses: {path}"
+                )
+            if run is not None:
+                runs.append(run)
+            if use is not None:
+                uses.append(use)
+
+    jobs = root.get("jobs")
+    if jobs is not None:
+        if not isinstance(jobs, dict):
+            raise AuthorityClosureError(f"workflow jobs must be a mapping: {path}")
+        for job in jobs.values():
+            if not isinstance(job, dict):
+                raise AuthorityClosureError(f"workflow job must be a mapping: {path}")
+            job_use = _executable_value(job, "uses")
+            if job_use is not None:
+                if "steps" in job:
+                    raise AuthorityClosureError(
+                        f"reusable workflow job cannot also define steps: {path}"
+                    )
+                uses.append(job_use)
+            _collect_steps(job.get("steps"))
+
+    action_runs = root.get("runs")
+    if action_runs is not None:
+        if not isinstance(action_runs, dict):
+            raise AuthorityClosureError(f"composite action runs must be a mapping: {path}")
+        if action_runs.get("using") == "composite":
+            _collect_steps(action_runs.get("steps"))
     return {
-        "path_filters": [value for value in path_filters if value],
-        "path_ignores": [value for value in path_ignores if value],
-        "runs": [value for value in runs if value],
-        "uses": [value for value in uses if value],
+        "path_filters": path_filters,
+        "path_ignores": path_ignores,
+        "runs": runs,
+        "uses": uses,
     }
 
 
@@ -1460,8 +1972,56 @@ def _repository_module_runner_path(extraction_root: Path, module: str) -> str:
     return candidates[0]
 
 
+def _mask_github_expressions(value: str) -> str:
+    return re.sub(
+        r"\$\{\{.*?\}\}",
+        lambda match: " " * len(match.group(0)),
+        value,
+        flags=re.DOTALL,
+    )
+
+
+def _is_extensionless_executable(path: Path) -> bool:
+    executable_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    return path.is_file() and not path.suffix and bool(path.stat().st_mode & executable_bits)
+
+
+def _is_shell_script(path: Path) -> bool:
+    if path.suffix == ".sh":
+        return True
+    if path.suffix or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8") as source:
+            first_line = source.readline()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return first_line.startswith("#!") and Path(first_line.strip().split()[-1]).name in {
+        "bash",
+        "sh",
+    }
+
+
+def _is_python_script(path: Path) -> bool:
+    if path.suffix == ".py":
+        return True
+    if path.suffix or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8") as source:
+            first_line = source.readline()
+    except (OSError, UnicodeDecodeError):
+        return False
+    interpreter = Path(first_line.strip().split()[-1]).name
+    return (
+        first_line.startswith("#!")
+        and re.fullmatch(r"python(?:3(?:\.\d+)?)?", interpreter) is not None
+    )
+
+
 def _run_script_references(extraction_root: Path, source_path: str, run: str) -> list[str]:
     normalized = run.replace("\\\n", " ")
+    command_text = _mask_github_expressions(normalized)
     dynamic_local_reference = re.compile(
         r"(?<![A-Za-z0-9_./-])"
         r"((?:\./)?(?:scripts|aragora|\.github)/[^\s;&|]*[$`*][^\s;&|]*)"
@@ -1478,7 +2038,7 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
         r"([^\s;&|]+)",
         re.MULTILINE,
     )
-    for match in command_invocation.finditer(normalized):
+    for match in command_invocation.finditer(command_text):
         target = match.group(1).strip("\"'")
         local_target = _strip_optional_dot_slash(target).startswith(
             ("scripts/", "aragora/", ".github/")
@@ -1497,14 +2057,14 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
         r"python(?:3(?:\.\d+)?)?\s+(?:-[A-Za-z]+\s+)*-m\s+([^\s;&|)]+)",
         re.MULTILINE,
     )
-    for match in module_invocation.finditer(normalized):
+    for match in module_invocation.finditer(command_text):
         module = match.group(1).strip("\"'")
         if any(marker in module for marker in ("$", "`", "*")):
             raise AuthorityClosureError(
                 f"dynamic repository python -m target is forbidden: {source_path} -> {module}"
             )
-    references = set(_literal_run_script_references(normalized))
-    for match in module_invocation.finditer(normalized):
+    references = set(_literal_run_script_references(extraction_root, source_path, normalized))
+    for match in module_invocation.finditer(command_text):
         module = match.group(1).strip("\"'")
         if any(
             module == prefix or module.startswith(f"{prefix}.")
@@ -1514,13 +2074,215 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
     return sorted(references)
 
 
-def _literal_run_script_references(run: str) -> list[str]:
+def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> list[str]:
+    tokens: list[str] = []
+    token: list[str] = []
+    quote = ""
+    index = 0
+    executable_prefixes = ("./scripts/", "./aragora/", "./.github/")
+    active_heredoc = ""
+    shell_lines: list[str] = []
+    for line in run.splitlines():
+        if active_heredoc:
+            if line.strip() == active_heredoc:
+                active_heredoc = ""
+            elif line.lstrip().startswith(executable_prefixes):
+                raise AuthorityClosureError(
+                    f"unsupported extensionless heredoc executable syntax: {source_path}"
+                )
+            shell_lines.append("")
+            continue
+        shell_lines.append(line)
+        heredoc_match = re.search(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1(?:\s|$)", line)
+        if heredoc_match:
+            active_heredoc = heredoc_match.group(2)
+    if active_heredoc:
+        raise AuthorityClosureError(f"unterminated workflow run heredoc: {source_path}")
+    normalized = "\n".join(shell_lines).replace("\\\n", " ")
+    while index < len(normalized):
+        character = normalized[index]
+        if quote:
+            if quote == "'" and character == "'":
+                quote = ""
+                index += 1
+                continue
+            if quote == '"' and character == '"':
+                quote = ""
+                index += 1
+                continue
+            if quote == '"' and character == "\\" and index + 1 < len(normalized):
+                token.append(normalized[index + 1])
+                index += 2
+                continue
+            token.append(character)
+            index += 1
+            continue
+        if normalized.startswith("${{", index):
+            end = normalized.find("}}", index + 3)
+            if end < 0:
+                raise AuthorityClosureError(
+                    f"unterminated GitHub expression in workflow run command: {source_path}"
+                )
+            token.append(normalized[index : end + 2])
+            index = end + 2
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            index += 1
+            continue
+        if character == "\\" and index + 1 < len(normalized):
+            token.append(normalized[index + 1])
+            index += 2
+            continue
+        if character == "#" and not token:
+            end = normalized.find("\n", index)
+            if end < 0:
+                break
+            tokens.append("\n")
+            index = end + 1
+            continue
+        if character.isspace():
+            if token:
+                tokens.append("".join(token))
+                token = []
+            if character == "\n":
+                tokens.append("\n")
+            index += 1
+            continue
+        if character in ";&|()":
+            if token:
+                tokens.append("".join(token))
+                token = []
+            end = index + 1
+            while end < len(normalized) and normalized[end] == character:
+                end += 1
+            tokens.append(normalized[index:end])
+            index = end
+            continue
+        token.append(character)
+        index += 1
+    if quote:
+        raise AuthorityClosureError(f"invalid quoted workflow run command: {source_path}")
+    if token:
+        tokens.append("".join(token))
+
+    starts: list[str] = []
+    separators = {";", ";;", "&", "&&", "|", "||", "("}
+    reserved = {"!", "do", "elif", "else", "if", "then", "until", "while"}
+    command_start = True
+    dynamic_command = False
+    dynamic_supported = False
+    dynamic_module_pending = False
+
+    def finish_dynamic_command() -> None:
+        if dynamic_module_pending:
+            raise AuthorityClosureError(
+                f"dynamic workflow Python module is unavailable: {source_path}"
+            )
+        if dynamic_command and not dynamic_supported:
+            raise AuthorityClosureError(f"unsupported dynamic workflow run command: {source_path}")
+
+    for item in tokens:
+        if item == "\n" or item in separators:
+            finish_dynamic_command()
+            command_start = True
+            dynamic_command = False
+            dynamic_supported = False
+            dynamic_module_pending = False
+            continue
+        if item == ")":
+            finish_dynamic_command()
+            command_start = False
+            dynamic_command = False
+            dynamic_supported = False
+            dynamic_module_pending = False
+            continue
+        if not command_start:
+            if dynamic_module_pending:
+                if item.startswith("${{"):
+                    raise AuthorityClosureError(
+                        f"dynamic workflow Python module is forbidden: {source_path}"
+                    )
+                if any(
+                    item == prefix or item.startswith(f"{prefix}.")
+                    for prefix in REPOSITORY_MODULE_PREFIXES
+                ):
+                    starts.append(_repository_module_runner_path(extraction_root, item))
+                dynamic_module_pending = False
+                dynamic_supported = True
+                continue
+            if dynamic_command and item == "-m":
+                dynamic_module_pending = True
+                continue
+            if dynamic_command and _strip_optional_dot_slash(item).startswith(
+                ("scripts/", "aragora/", ".github/")
+            ):
+                relative = _strip_optional_dot_slash(item)
+                target = extraction_root / relative
+                if target.is_file() or item.endswith(EXECUTABLE_SUFFIXES):
+                    starts.append(item)
+                    dynamic_supported = True
+            continue
+        if item.startswith("${{"):
+            command_start = False
+            dynamic_command = True
+            continue
+        if item in reserved or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
+            continue
+        starts.append(item)
+        command_start = False
+    finish_dynamic_command()
+    return starts
+
+
+def _literal_run_script_references(
+    extraction_root: Path,
+    source_path: str,
+    run: str,
+    *,
+    strict_executable: bool = True,
+) -> list[str]:
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"
         r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+\.(?:py|sh))"
         r"(?![A-Za-z0-9_.-])"
     )
-    return sorted({_strip_optional_dot_slash(match.group(1)) for match in pattern.finditer(run)})
+    references = {_strip_optional_dot_slash(match.group(1)) for match in pattern.finditer(run)}
+    if not strict_executable:
+        return sorted(references)
+    command_invocation = re.compile(
+        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
+        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
+        r"(?:(?:-[A-Za-z]+\s+)*)"
+        r"([^\s;&|]+)",
+        re.MULTILINE,
+    )
+    command_text = _mask_github_expressions(run)
+    candidates = [
+        (candidate, True) for candidate in _shell_command_starts(extraction_root, source_path, run)
+    ]
+    candidates.extend(
+        (match.group(1).strip("\"'"), False) for match in command_invocation.finditer(command_text)
+    )
+    for candidate, requires_executable_bit in candidates:
+        relative = _strip_optional_dot_slash(candidate)
+        if not relative.startswith(("scripts/", "aragora/", ".github/")):
+            continue
+        target = extraction_root / relative
+        if target.is_file() and (
+            target.suffix in EXECUTABLE_SUFFIXES
+            or not target.suffix
+            and (not requires_executable_bit or _is_extensionless_executable(target))
+        ):
+            references.add(relative)
+        elif not target.suffix and not _is_measurement_subject(relative):
+            detail = (
+                "is unavailable or not executable" if requires_executable_bit else "is unavailable"
+            )
+            raise AuthorityClosureError(
+                f"extensionless local executable {detail}: {source_path} -> {candidate}"
+            )
+    return sorted(references)
 
 
 def _shell_helper_edges(extraction_root: Path, source_path: str) -> list[tuple[str, str]]:
@@ -1550,7 +2312,14 @@ def _workflow_direct_matches(
 ) -> list[tuple[str, str]]:
     structure = _workflow_structure(extraction_root / workflow_path)
     matches: set[tuple[str, str]] = set()
-    literal_run_references = set(_literal_run_script_references("\n".join(structure["runs"])))
+    literal_run_references = set(
+        _literal_run_script_references(
+            extraction_root,
+            workflow_path,
+            "\n".join(structure["runs"]),
+            strict_executable=False,
+        )
+    )
     for root in authority_roots:
         selected_by_path = False
         for pattern in structure["path_filters"]:
@@ -1856,7 +2625,9 @@ def build_authority_manifest(
 
         queue = deque(sorted(members))
         executable_members = {
-            path for path in (*authority_roots, MERGE_TRAIN_PATH) if Path(path).suffix == ".py"
+            path
+            for path in (*authority_roots, MERGE_TRAIN_PATH)
+            if _is_python_script(extraction_root / path)
         }
         scanned_with_function_bodies: dict[str, bool] = {}
 
@@ -1870,7 +2641,7 @@ def build_authority_manifest(
                 scanned_with_function_bodies[source_path] = include_function_bodies
                 path = extraction_root / source_path
                 edges: list[tuple[str, str]] = []
-                if path.suffix == ".py":
+                if _is_python_script(path):
                     edges.extend(
                         _python_import_edges(
                             extraction_root,
@@ -1885,7 +2656,7 @@ def build_authority_manifest(
                             include_function_bodies=True,
                         )
                     )
-                if path.suffix == ".sh":
+                if _is_shell_script(path):
                     edges.extend(_shell_helper_edges(extraction_root, source_path))
                 if path.suffix in WORKFLOW_SUFFIXES:
                     edges.extend(_workflow_member_edges(extraction_root, source_path))
@@ -1894,7 +2665,7 @@ def build_authority_manifest(
                         continue
                     incoming[target].add((source_path, kind))
                     became_executable = (
-                        Path(target).suffix == ".py"
+                        _is_python_script(extraction_root / target)
                         and kind in EXECUTABLE_EDGE_KINDS
                         and target not in executable_members
                     )
