@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import copy
 import functools
 import json
@@ -682,6 +683,113 @@ def test_flow_mappings_mixed_yaml_quoted_commands_and_extensionless_helpers_join
     } in files["aragora/helper.py"]["incoming_edges"]
 
 
+def test_sequence_mapping_extra_dash_spacing_preserves_executable_keys(tmp_path: Path):
+    repo, _sha = _authority_fixture(tmp_path)
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      -   name: |\n"
+        "            authority step\n"
+        "          uses: './.github/actions/root'\n",
+    )
+    sha = _commit_fixture(repo, "extra sequence spacing fixture")
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert ".github/actions/root/action.yaml" in files
+
+
+def test_working_directory_resolves_authority_root_and_extensionless_helper(
+    tmp_path: Path,
+):
+    repo, _sha = _authority_fixture(tmp_path)
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on: workflow_dispatch\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    defaults:\n"
+        "      run:\n"
+        "        working-directory: scripts\n"
+        "    steps:\n"
+        "      - run: python generate_contract_drift_inventory.py\n"
+        "      - run: ./authority-helper\n",
+    )
+    sha = _commit_fixture(repo, "working directory fixture")
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert ".github/workflows/authority.yml" in files
+    assert "scripts/authority-helper" in files
+    assert {
+        "from": FIXTURE_ROOT,
+        "kind": "workflow_run",
+    } in files[".github/workflows/authority.yml"]["incoming_edges"]
+
+
+def test_reachable_dynamic_working_directory_fails_closed(tmp_path: Path):
+    repo, _sha = _authority_fixture(tmp_path)
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: ./authority-helper\n"
+        "        working-directory: ${{ matrix.directory }}\n",
+    )
+    sha = _commit_fixture(repo, "dynamic working directory fixture")
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow working-directory"):
+        _manifest(repo, sha)
+
+
+def test_dynamic_working_directory_with_local_command_cannot_vanish(tmp_path: Path):
+    workflow = tmp_path / ".github/workflows/authority.yml"
+    _write_text(
+        workflow,
+        "on: workflow_dispatch\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: ./authority-helper\n"
+        "        working-directory: ${{ matrix.directory }}\n",
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow working-directory"):
+        gen._workflow_direct_matches(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            [FIXTURE_ROOT],
+        )
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "cd scripts && ./authority-helper",
+        "(cd scripts; ./authority-helper)",
+    ],
+)
+def test_inline_working_directory_changes_fail_closed(tmp_path: Path, run: str):
+    helper = tmp_path / "scripts/authority-helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    with pytest.raises(gen.AuthorityClosureError, match="working-directory change"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+
+
 @pytest.mark.parametrize(
     ("steps", "error"),
     [
@@ -709,6 +817,10 @@ def test_flow_mappings_mixed_yaml_quoted_commands_and_extensionless_helpers_join
             "      - {run: ['./scripts/authority-helper']}\n",
             "workflow run must be a non-empty string",
         ),
+        (
+            "      - run: |2\n          python scripts/authority-helper --mode: strict\n",
+            "block scalar indentation indicator",
+        ),
     ],
 )
 def test_ambiguous_or_unsupported_executable_yaml_fails_closed(
@@ -732,6 +844,23 @@ def test_ambiguous_or_unsupported_executable_yaml_fails_closed(
         _manifest(repo, sha)
 
 
+def test_workflow_yaml_size_and_flow_line_bounds_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    path = tmp_path / "workflow.yml"
+    _write_text(path, "jobs: {authority: {steps: []}}\n")
+    monkeypatch.setattr(gen, "MAX_WORKFLOW_YAML_BYTES", 8)
+    with pytest.raises(gen.AuthorityClosureError, match="exceeds size bound"):
+        gen._workflow_structure(path)
+
+    monkeypatch.setattr(gen, "MAX_WORKFLOW_YAML_BYTES", 1_000_000)
+    monkeypatch.setattr(gen, "MAX_WORKFLOW_FLOW_LINES", 1)
+    _write_text(path, "jobs: {\n  authority: {steps: []}\n}\n")
+    with pytest.raises(gen.AuthorityClosureError, match="exceeds line bound"):
+        gen._workflow_structure(path)
+
+
 def test_reachable_dynamic_workflow_command_fails_closed(tmp_path: Path):
     repo, _sha = _authority_fixture(tmp_path)
     _write_text(
@@ -749,6 +878,27 @@ def test_reachable_dynamic_workflow_command_fails_closed(tmp_path: Path):
     sha = _commit_fixture(repo, "dynamic workflow command fixture")
     with pytest.raises(gen.AuthorityClosureError, match="unsupported dynamic workflow run"):
         _manifest(repo, sha)
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "python ${{ matrix.script }}",
+        'python "${{ matrix.script }}.py"',
+        "bash ${{ inputs.script }}",
+        "python -m ${{ matrix.module }}",
+        "${{ matrix.command }} scripts/helper.py",
+        "${{ matrix.command }}-wrapper scripts/helper.py",
+    ],
+)
+def test_dynamic_workflow_executable_forms_fail_closed(tmp_path: Path, run: str):
+    _write_text(tmp_path / "scripts/helper.py", "# helper\n")
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
 
 
 def test_extensionless_local_helper_must_be_executable(tmp_path: Path):
@@ -818,6 +968,148 @@ def test_env_wrapper_unsupported_option_fails_closed(tmp_path: Path):
         )
 
 
+@pytest.mark.parametrize(
+    "run",
+    [
+        "time ./scripts/helper",
+        "nohup ./scripts/helper",
+        "exec ./scripts/helper",
+        "source scripts/helper",
+    ],
+)
+def test_unsupported_extensionless_command_wrappers_fail_closed(tmp_path: Path, run: str):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    with pytest.raises(gen.AuthorityClosureError, match="unsupported workflow command wrapper"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+
+
+def test_bare_extensionless_heredoc_command_fails_closed(tmp_path: Path):
+    with pytest.raises(
+        gen.AuthorityClosureError,
+        match="unsupported extensionless heredoc executable syntax",
+    ):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            "sh <<EOF\nscripts/helper\nEOF",
+        )
+
+
+def test_here_string_does_not_hide_following_extensionless_helper(tmp_path: Path):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        "grep -q x <<< word\n./scripts/helper",
+    ) == ["scripts/helper"]
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "{ ./scripts/helper; }",
+        "case check in check) ./scripts/helper ;; esac",
+    ],
+)
+def test_compound_shell_syntax_includes_existing_extensionless_helper(tmp_path: Path, run: str):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        run,
+    ) == ["scripts/helper"]
+
+
+@pytest.mark.parametrize(
+    ("helper_path", "shebang", "body", "expected"),
+    [
+        (
+            "scripts/authority-helper",
+            "#!/bin/bash -e",
+            "python scripts/transitive.py\n",
+            "scripts/transitive.py",
+        ),
+        (
+            "scripts/python-helper",
+            "#!/usr/bin/env -S python3 -I",
+            'import subprocess\nsubprocess.run(["python", "scripts/transitive.py"])\n',
+            "scripts/transitive.py",
+        ),
+    ],
+)
+def test_extensionless_shebang_arguments_preserve_transitive_closure(
+    tmp_path: Path,
+    helper_path: str,
+    shebang: str,
+    body: str,
+    expected: str,
+):
+    repo, _sha = _authority_fixture(tmp_path)
+    helper = repo / helper_path
+    _write_text(helper, f"{shebang}\n{body}")
+    helper.chmod(0o755)
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        f"      - run: ./{helper_path}\n",
+    )
+    sha = _commit_fixture(repo, "extensionless shebang argument fixture")
+    files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}
+    assert expected in files
+
+
+def test_unsupported_extensionless_shebang_fails_closed(tmp_path: Path):
+    repo, _sha = _authority_fixture(tmp_path)
+    helper = repo / "scripts/authority-helper"
+    _write_text(helper, "#!/usr/bin/env node\nconsole.log('unsafe')\n")
+    helper.chmod(0o755)
+    _write_text(
+        repo / ".github/workflows/authority.yml",
+        "on:\n"
+        "  push:\n"
+        "    paths:\n"
+        f"      - '{FIXTURE_ROOT}'\n"
+        "jobs:\n"
+        "  authority:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: ./scripts/authority-helper\n",
+    )
+    sha = _commit_fixture(repo, "unsupported extensionless shebang fixture")
+    with pytest.raises(gen.AuthorityClosureError, match="unsupported extensionless executable"):
+        _manifest(repo, sha)
+
+
+def test_extensionless_python_relative_import_uses_extracted_source_path(tmp_path: Path):
+    _write_text(tmp_path / "aragora/__init__.py", "")
+    _write_text(tmp_path / "aragora/pkg/__init__.py", "")
+    _write_text(tmp_path / "aragora/pkg/helper.py", "VALUE = 1\n")
+    runner = tmp_path / "aragora/pkg/runner"
+    _write_text(runner, "#!/usr/bin/env python3\nfrom . import helper\n")
+    runner.chmod(0o755)
+    assert (
+        "aragora/pkg/helper.py",
+        "python_repository_import",
+    ) in gen._python_import_edges(tmp_path, "aragora/pkg/runner")
+
+
 def test_non_executable_run_and_uses_data_is_ignored(tmp_path: Path):
     path = tmp_path / "workflow.yml"
     _write_text(
@@ -841,6 +1133,7 @@ def test_non_executable_run_and_uses_data_is_ignored(tmp_path: Path):
         "path_filters": [],
         "path_ignores": [],
         "runs": ["echo safe"],
+        "run_working_directories": [""],
         "uses": [],
     }
 
@@ -859,6 +1152,26 @@ def test_folded_run_scalar_preserves_one_shell_command(tmp_path: Path):
         "          scripts/helper.py\n",
     )
     assert gen._workflow_structure(path)["runs"] == ["python scripts/helper.py"]
+
+
+def test_tab_inside_run_block_scalar_is_content_not_yaml_indentation(tmp_path: Path):
+    path = tmp_path / "workflow.yml"
+    _write_text(
+        path,
+        "jobs:\n"
+        "  authority:\n"
+        "    steps:\n"
+        "      - run: |\n"
+        "          \tpython scripts/helper.py --mode strict\n",
+    )
+    assert gen._workflow_structure(path)["runs"] == ["\tpython scripts/helper.py --mode strict"]
+
+
+def test_tab_in_structural_yaml_indentation_fails_closed(tmp_path: Path):
+    path = tmp_path / "workflow.yml"
+    _write_text(path, "jobs:\n\tbad: value\n")
+    with pytest.raises(gen.AuthorityClosureError, match="tab indentation"):
+        gen._workflow_structure(path)
 
 
 def test_unresolved_or_dynamic_local_workflow_reference_fails_closed(tmp_path: Path):
@@ -994,18 +1307,32 @@ def test_bound_route_validator_self_invocation_is_static(tmp_path: Path):
         )
 
 
-def test_dynamic_python_executable_requires_static_module(tmp_path: Path):
+def test_source_relative_static_path_binding_uses_source_depth():
+    tree = ast.parse("from pathlib import Path\nROOT = Path(__file__).resolve().parents[1]\n")
+    assert gen._static_path_bindings(tree, "aragora/pkg/runner.py")["ROOT"] == ["aragora"]
+
+
+def test_dynamic_conventional_root_binding_fails_closed(tmp_path: Path):
     _write_text(tmp_path / "scripts/helper.py", "# helper\n")
-    assert gen._run_script_references(
-        tmp_path,
-        ".github/workflows/authority.yml",
-        "${{ steps.python.outputs.python_bin }} -m scripts.helper",
-    ) == ["scripts/helper.py"]
-    with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow Python module"):
+    _write_text(
+        tmp_path / "scripts/runner.py",
+        "import subprocess\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "ROOT = Path(input())\n"
+        "subprocess.run([sys.executable, str(ROOT / 'scripts/helper.py')])\n",
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic Python subprocess target"):
+        gen._subprocess_helper_edges(tmp_path, "scripts/runner.py")
+
+
+def test_dynamic_python_executable_fails_closed_even_with_static_module(tmp_path: Path):
+    _write_text(tmp_path / "scripts/helper.py", "# helper\n")
+    with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow run command"):
         gen._run_script_references(
             tmp_path,
             ".github/workflows/authority.yml",
-            "${{ steps.python.outputs.python_bin }} -m ${{ matrix.module }}",
+            "${{ steps.python.outputs.python_bin }} -m scripts.helper",
         )
 
 

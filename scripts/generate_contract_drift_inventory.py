@@ -28,6 +28,7 @@ import io
 import json
 import os
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -55,6 +56,8 @@ MERGE_TRAIN_PATH = "scripts/tier4_merge_train.py"
 PYTHON_FLAGS = ("-I", "-S")
 EXACT_REF_POLICY_TIMEOUT_SECONDS = 30
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
+MAX_WORKFLOW_YAML_BYTES = 1_000_000
+MAX_WORKFLOW_FLOW_LINES = 1_024
 EXECUTABLE_SUFFIXES = (".py", ".sh")
 EXECUTABLE_EDGE_KINDS = frozenset(
     {
@@ -559,9 +562,9 @@ def _invoke_exact_ref_policy(
     return result
 
 
-def _module_parts_for_source(source_path: str) -> tuple[str, ...]:
+def _module_parts_for_source(extraction_root: Path, source_path: str) -> tuple[str, ...]:
     path = Path(source_path)
-    if not _is_python_script(path):
+    if not _is_python_script(extraction_root / path):
         return ()
     parts = list(path.with_suffix("").parts)
     if parts[-1] == "__init__":
@@ -728,10 +731,10 @@ def _required_parent_packages(extraction_root: Path, module: str) -> list[str]:
     return parents
 
 
-def _absolute_import_module(source_path: str, node: ast.ImportFrom) -> str:
+def _absolute_import_module(extraction_root: Path, source_path: str, node: ast.ImportFrom) -> str:
     if node.level == 0:
         return node.module or ""
-    source_parts = list(_module_parts_for_source(source_path))
+    source_parts = list(_module_parts_for_source(extraction_root, source_path))
     package_parts = source_parts if Path(source_path).name == "__init__.py" else source_parts[:-1]
     remove = node.level - 1
     if remove > len(package_parts):
@@ -758,7 +761,7 @@ def _python_import_edges(
             f"cannot parse authority Python member {source_path}: {exc}"
         ) from exc
 
-    static_bindings = _static_path_bindings(tree)
+    static_bindings = _static_path_bindings(tree, source_path)
     modules: set[str] = set()
     executable_function_ids = (
         _executable_function_ids(tree)
@@ -772,7 +775,7 @@ def _python_import_edges(
         if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            base = _absolute_import_module(source_path, node)
+            base = _absolute_import_module(extraction_root, source_path, node)
             if base:
                 modules.add(base)
             for alias in node.names:
@@ -830,7 +833,9 @@ def _python_import_edges(
 
 
 def _static_path_parts(
-    node: ast.AST, bindings: dict[str, list[str]] | None = None
+    node: ast.AST,
+    bindings: dict[str, list[str]] | None = None,
+    source_path: str | None = None,
 ) -> list[str] | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
@@ -843,7 +848,7 @@ def _static_path_parts(
         return ["{sys.executable}"]
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str":
         if len(node.args) == 1:
-            return _static_path_parts(node.args[0], bindings)
+            return _static_path_parts(node.args[0], bindings, source_path)
     if (
         isinstance(node, ast.Subscript)
         and isinstance(node.value, ast.Attribute)
@@ -860,27 +865,27 @@ def _static_path_parts(
         and isinstance(node.value.value.func.value.args[0], ast.Name)
         and node.value.value.func.value.args[0].id == "__file__"
     ):
-        return []
+        if source_path is None:
+            return None
+        parents = Path(source_path).parents
+        if len(parents) <= 1:
+            return None
+        parent = parents[1]
+        return list(parent.parts)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        left = _static_path_parts(node.left, bindings)
-        right = _static_path_parts(node.right, bindings)
+        left = _static_path_parts(node.left, bindings, source_path)
+        right = _static_path_parts(node.right, bindings, source_path)
         if left is None or right is None:
             return None
         return [*left, *right]
     if isinstance(node, ast.Name):
         if bindings is not None and node.id in bindings:
             return bindings[node.id]
-        if node.id in {"REPO_ROOT", "ROOT", "repo_root"}:
-            return []
     return None
 
 
-def _static_path_bindings(tree: ast.Module) -> dict[str, list[str]]:
-    bindings: dict[str, list[str]] = {
-        "REPO_ROOT": [],
-        "ROOT": [],
-        "repo_root": [],
-    }
+def _static_path_bindings(tree: ast.Module, source_path: str) -> dict[str, list[str]]:
+    bindings: dict[str, list[str]] = {}
     assignments: list[tuple[str, ast.AST]] = []
     for node in tree.body:
         if (
@@ -898,7 +903,7 @@ def _static_path_bindings(tree: ast.Module) -> dict[str, list[str]]:
     for _ in range(len(assignments) + 1):
         changed = False
         for name, value in assignments:
-            parts = _static_path_parts(value, bindings)
+            parts = _static_path_parts(value, bindings, source_path)
             if parts is not None and bindings.get(name) != parts:
                 bindings[name] = parts
                 changed = True
@@ -1076,10 +1081,10 @@ def _subprocess_helper_edges(
     include_function_bodies: bool = False,
 ) -> list[tuple[str, str]]:
     path = extraction_root / source_path
-    if path.suffix != ".py":
+    if not _is_python_script(path):
         return []
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=source_path)
-    static_bindings = _static_path_bindings(tree)
+    static_bindings = _static_path_bindings(tree, source_path)
     sequence_bindings = _static_sequence_bindings(tree)
     for binding_source, name in PYTHON_EXECUTABLE_ARGUMENT_BINDINGS:
         if binding_source == source_path:
@@ -1637,15 +1642,20 @@ def _fold_workflow_yaml_block(lines: list[str]) -> str:
 class _WorkflowYamlParser:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.lines = path.read_text(encoding="utf-8").splitlines()
+        payload = path.read_bytes()
+        if len(payload) > MAX_WORKFLOW_YAML_BYTES:
+            raise _workflow_yaml_error(path, 1, "workflow YAML exceeds size bound")
+        try:
+            self.lines = payload.decode("utf-8").splitlines()
+        except UnicodeDecodeError as exc:
+            raise _workflow_yaml_error(path, 1, "workflow YAML is not UTF-8") from exc
         self.line_info: list[tuple[int, str]] = []
-        for index, raw in enumerate(self.lines):
-            indent = len(raw) - len(raw.lstrip(" "))
-            if "\t" in raw[: len(raw) - len(raw.lstrip())]:
-                raise _workflow_yaml_error(
-                    self.path, index + 1, "workflow YAML uses tab indentation"
-                )
-            self.line_info.append((indent, _strip_workflow_yaml_comment(raw[indent:])))
+        self.tab_indented_lines: set[int] = set()
+        for index, line in enumerate(self.lines):
+            indent = len(line) - len(line.lstrip(" "))
+            if "\t" in line[: len(line) - len(line.lstrip())]:
+                self.tab_indented_lines.add(index)
+            self.line_info.append((indent, _strip_workflow_yaml_comment(line[indent:])))
 
     def parse(self) -> dict[str, Any]:
         first = self._next(0)
@@ -1663,6 +1673,12 @@ class _WorkflowYamlParser:
         return document
 
     def _line(self, index: int) -> tuple[int, str]:
+        if index in self.tab_indented_lines:
+            raise _workflow_yaml_error(
+                self.path,
+                index + 1,
+                "workflow YAML uses tab indentation",
+            )
         return self.line_info[index]
 
     def _next(self, index: int) -> int:
@@ -1678,6 +1694,12 @@ class _WorkflowYamlParser:
         parts = [value]
         while not _workflow_flow_complete(self.path, line, "\n".join(parts)):
             index += 1
+            if len(parts) >= MAX_WORKFLOW_FLOW_LINES:
+                raise _workflow_yaml_error(
+                    self.path,
+                    line,
+                    "workflow YAML flow collection exceeds line bound",
+                )
             if index >= len(self.lines):
                 raise _workflow_yaml_error(self.path, line, "invalid workflow YAML flow collection")
             _indent, content = self._line(index)
@@ -1697,6 +1719,12 @@ class _WorkflowYamlParser:
         if key == "<<":
             raise _workflow_yaml_error(self.path, index + 1, "unsupported workflow YAML merge key")
         raw_value = raw_value.strip()
+        if re.fullmatch(r"[|>](?:[+-]?[1-9]|[1-9][+-]?)", raw_value):
+            raise _workflow_yaml_error(
+                self.path,
+                index + 1,
+                "unsupported workflow YAML block scalar indentation indicator",
+            )
         if raw_value in {"|", "|-", "|+", ">", ">-", ">+"}:
             raw_block: list[str] = []
             content_indents: list[int] = []
@@ -1774,9 +1802,11 @@ class _WorkflowYamlParser:
                     )
                 continue
             item_map: dict[str, Any] = {}
-            key, value, index, has_value = self._entry(index, rest, indent + 2)
+            dash_spacing = len(content[1:]) - len(content[1:].lstrip())
+            key_indent = indent + 1 + dash_spacing
+            key, value, index, has_value = self._entry(index, rest, key_indent)
             index = self._next(index)
-            if not has_value and index < len(self.lines) and self._line(index)[0] > indent + 2:
+            if not has_value and index < len(self.lines) and self._line(index)[0] > key_indent:
                 value, index = self._block(index, self._line(index)[0])
                 index = self._next(index)
             item_map[key] = value
@@ -1825,6 +1855,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
     root = _WorkflowYamlParser(path).parse()
     uses: list[str] = []
     runs: list[str] = []
+    run_working_directories: list[str] = []
     path_filters: list[str] = []
     path_ignores: list[str] = []
 
@@ -1856,7 +1887,22 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
             raise AuthorityClosureError(f"workflow {key} must be a non-empty string: {path}")
         return value
 
-    def _collect_steps(value: Any) -> None:
+    def _working_directory(mapping: Any) -> str:
+        if mapping is None:
+            return ""
+        if not isinstance(mapping, dict):
+            raise AuthorityClosureError(f"workflow defaults must be a mapping: {path}")
+        run_defaults = mapping.get("run")
+        if run_defaults is None:
+            return ""
+        if not isinstance(run_defaults, dict):
+            raise AuthorityClosureError(f"workflow run defaults must be a mapping: {path}")
+        value = run_defaults.get("working-directory", "")
+        if not isinstance(value, str):
+            raise AuthorityClosureError(f"workflow working-directory must be a string: {path}")
+        return value
+
+    def _collect_steps(value: Any, default_working_directory: str = "") -> None:
         if value is None:
             return
         if not isinstance(value, list):
@@ -1871,10 +1917,17 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
                     f"workflow mapping cannot contain both run and uses: {path}"
                 )
             if run is not None:
+                working_directory = _executable_value(step, "working-directory")
                 runs.append(run)
+                run_working_directories.append(
+                    working_directory
+                    if working_directory is not None
+                    else default_working_directory
+                )
             if use is not None:
                 uses.append(use)
 
+    root_working_directory = _working_directory(root.get("defaults"))
     jobs = root.get("jobs")
     if jobs is not None:
         if not isinstance(jobs, dict):
@@ -1889,7 +1942,10 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
                         f"reusable workflow job cannot also define steps: {path}"
                     )
                 uses.append(job_use)
-            _collect_steps(job.get("steps"))
+            job_working_directory = (
+                _working_directory(job.get("defaults")) or root_working_directory
+            )
+            _collect_steps(job.get("steps"), job_working_directory)
 
     action_runs = root.get("runs")
     if action_runs is not None:
@@ -1901,6 +1957,7 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
         "path_filters": path_filters,
         "path_ignores": path_ignores,
         "runs": runs,
+        "run_working_directories": run_working_directories,
         "uses": uses,
     }
 
@@ -1956,6 +2013,80 @@ def _strip_optional_dot_slash(value: str) -> str:
     return value[2:] if value.startswith("./") else value
 
 
+def _working_directory_run_references(
+    extraction_root: Path,
+    source_path: str,
+    run: str,
+    working_directory: str,
+    *,
+    strict_executable: bool,
+) -> list[str]:
+    if not working_directory:
+        return []
+    if "${{" in working_directory or "}}" in working_directory:
+        dynamic_local_command = re.search(
+            r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
+            r"(?:\./[^\s;&|]+|"
+            r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
+            r"(?:(?:-[A-Za-z]+\s+)*)[^\s;&|]+)",
+            _mask_github_expressions(run),
+            re.MULTILINE,
+        )
+        if strict_executable or dynamic_local_command:
+            raise AuthorityClosureError(
+                f"dynamic workflow working-directory is forbidden: {source_path}"
+            )
+        return []
+    directory = Path(_strip_optional_dot_slash(working_directory))
+    if directory.is_absolute() or ".." in directory.parts:
+        raise AuthorityClosureError(
+            f"path-traversing workflow working-directory is forbidden: {source_path}"
+        )
+    token_pattern = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        r"((?:\./)?[A-Za-z0-9_./-]+)"
+        r"(?![A-Za-z0-9_.-])"
+    )
+    references: set[str] = set()
+    for match in token_pattern.finditer(_mask_github_expressions(run)):
+        token = Path(_strip_optional_dot_slash(match.group(1)))
+        if token.is_absolute():
+            continue
+        resolved_parts: list[str] = []
+        escaped = False
+        for part in (*directory.parts, *token.parts):
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                if not resolved_parts:
+                    escaped = True
+                    break
+                resolved_parts.pop()
+                continue
+            resolved_parts.append(part)
+        if escaped:
+            continue
+        relative = Path(*resolved_parts).as_posix()
+        if not relative.startswith(("scripts/", "aragora/", ".github/")):
+            continue
+        if not strict_executable:
+            references.add(relative)
+            continue
+        target = extraction_root / relative
+        if target.is_file() and (
+            target.suffix in EXECUTABLE_SUFFIXES
+            or not target.suffix
+            and _is_extensionless_executable(target)
+        ):
+            references.add(relative)
+        elif match.group(1).startswith("./") and not target.suffix:
+            raise AuthorityClosureError(
+                f"extensionless working-directory executable is unavailable or not executable: "
+                f"{source_path} -> {match.group(1)}"
+            )
+    return sorted(references)
+
+
 def _repository_module_runner_path(extraction_root: Path, module: str) -> str:
     module_path = Path(*module.split("."))
     file_candidate = extraction_root / module_path.with_suffix(".py")
@@ -1986,36 +2117,63 @@ def _is_extensionless_executable(path: Path) -> bool:
     return path.is_file() and not path.suffix and bool(path.stat().st_mode & executable_bits)
 
 
-def _is_shell_script(path: Path) -> bool:
-    if path.suffix == ".sh":
-        return True
+def _extensionless_shebang_interpreter(path: Path) -> str | None:
     if path.suffix or not path.is_file():
-        return False
+        return None
     try:
         with path.open(encoding="utf-8") as source:
             first_line = source.readline()
     except (OSError, UnicodeDecodeError):
-        return False
-    return first_line.startswith("#!") and Path(first_line.strip().split()[-1]).name in {
-        "bash",
-        "sh",
-    }
+        return None
+    if not first_line.startswith("#!"):
+        return None
+    try:
+        tokens = shlex.split(first_line[2:].strip())
+    except ValueError:
+        return None
+    if not tokens:
+        return None
+    interpreter = Path(tokens[0]).name
+    if interpreter != "env":
+        return interpreter
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in {"-i", "--ignore-environment"}:
+            index += 1
+            continue
+        if token in {"-u", "--unset"}:
+            index += 2
+            continue
+        if token == "-S":
+            index += 1
+            break
+        if token.startswith("--unset=") or token.startswith("-u") and len(token) > 2:
+            index += 1
+            continue
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", token):
+            index += 1
+            continue
+        if token.startswith("-"):
+            return None
+        break
+    if index >= len(tokens):
+        return None
+    return Path(tokens[index]).name
+
+
+def _is_shell_script(path: Path) -> bool:
+    if path.suffix == ".sh":
+        return True
+    return _extensionless_shebang_interpreter(path) in {"bash", "sh"}
 
 
 def _is_python_script(path: Path) -> bool:
     if path.suffix == ".py":
         return True
-    if path.suffix or not path.is_file():
-        return False
-    try:
-        with path.open(encoding="utf-8") as source:
-            first_line = source.readline()
-    except (OSError, UnicodeDecodeError):
-        return False
-    interpreter = Path(first_line.strip().split()[-1]).name
+    interpreter = _extensionless_shebang_interpreter(path)
     return (
-        first_line.startswith("#!")
-        and re.fullmatch(r"python(?:3(?:\.\d+)?)?", interpreter) is not None
+        interpreter is not None and re.fullmatch(r"python(?:3(?:\.\d+)?)?", interpreter) is not None
     )
 
 
@@ -2079,7 +2237,14 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
     token: list[str] = []
     quote = ""
     index = 0
-    executable_prefixes = ("./scripts/", "./aragora/", "./.github/")
+    executable_prefixes = (
+        "./scripts/",
+        "./aragora/",
+        "./.github/",
+        "scripts/",
+        "aragora/",
+        ".github/",
+    )
     active_heredoc = ""
     shell_lines: list[str] = []
     for line in run.splitlines():
@@ -2093,7 +2258,10 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             shell_lines.append("")
             continue
         shell_lines.append(line)
-        heredoc_match = re.search(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1(?:\s|$)", line)
+        heredoc_match = re.search(
+            r"(?<!<)<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1(?:\s|$)",
+            line,
+        )
         if heredoc_match:
             active_heredoc = heredoc_match.group(2)
     if active_heredoc:
@@ -2169,77 +2337,50 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
     starts: list[str] = []
     separators = {";", ";;", "&", "&&", "|", "||", "("}
     reserved = {"!", "do", "elif", "else", "if", "then", "until", "while"}
+    unsupported_wrappers = {"exec", "nohup", "source", "time", "."}
     command_start = True
-    dynamic_command = False
-    dynamic_supported = False
-    dynamic_module_pending = False
+    active_command = ""
     env_wrapper = False
     env_option_operand = ""
 
-    def finish_dynamic_command() -> None:
+    def finish_command() -> None:
         if env_option_operand:
             raise AuthorityClosureError(f"incomplete workflow env wrapper option: {source_path}")
-        if dynamic_module_pending:
-            raise AuthorityClosureError(
-                f"dynamic workflow Python module is unavailable: {source_path}"
-            )
-        if dynamic_command and not dynamic_supported:
-            raise AuthorityClosureError(f"unsupported dynamic workflow run command: {source_path}")
 
     for item in tokens:
         if item == "\n" or item in separators:
-            finish_dynamic_command()
+            finish_command()
             command_start = True
-            dynamic_command = False
-            dynamic_supported = False
-            dynamic_module_pending = False
+            active_command = ""
             env_wrapper = False
             env_option_operand = ""
             continue
         if item == ")":
-            finish_dynamic_command()
+            finish_command()
             command_start = False
-            dynamic_command = False
-            dynamic_supported = False
-            dynamic_module_pending = False
+            active_command = ""
             env_wrapper = False
             env_option_operand = ""
             continue
         if not command_start:
-            if dynamic_module_pending:
-                if item.startswith("${{"):
-                    raise AuthorityClosureError(
-                        f"dynamic workflow Python module is forbidden: {source_path}"
-                    )
-                if any(
-                    item == prefix or item.startswith(f"{prefix}.")
-                    for prefix in REPOSITORY_MODULE_PREFIXES
-                ):
-                    starts.append(_repository_module_runner_path(extraction_root, item))
-                dynamic_module_pending = False
-                dynamic_supported = True
-                continue
-            if dynamic_command and item == "-m":
-                dynamic_module_pending = True
-                continue
-            if dynamic_command and _strip_optional_dot_slash(item).startswith(
-                ("scripts/", "aragora/", ".github/")
+            if "${{" in item and (
+                _is_python_command(active_command) or Path(active_command).name in {"bash", "sh"}
             ):
-                relative = _strip_optional_dot_slash(item)
-                target = extraction_root / relative
-                if target.is_file() or item.endswith(EXECUTABLE_SUFFIXES):
-                    starts.append(item)
-                    dynamic_supported = True
+                raise AuthorityClosureError(
+                    f"dynamic workflow interpreter target is forbidden: {source_path}"
+                )
             continue
         if env_wrapper:
             if env_option_operand:
-                if item.startswith("${{"):
+                if "${{" in item:
                     raise AuthorityClosureError(
                         f"dynamic workflow env wrapper option is forbidden: {source_path}"
                     )
                 env_option_operand = ""
                 continue
-            if item.startswith("${{"):
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
+                continue
+            if "${{" in item:
                 raise AuthorityClosureError(
                     f"dynamic workflow env wrapper command is forbidden: {source_path}"
                 )
@@ -2253,25 +2394,26 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             if item == "--":
                 env_wrapper = False
                 continue
-            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
-                continue
             if item.startswith("-"):
                 raise AuthorityClosureError(
                     f"unsupported workflow env wrapper option: {source_path}"
                 )
             env_wrapper = False
-        if item.startswith("${{"):
-            command_start = False
-            dynamic_command = True
-            continue
         if item in reserved or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
             continue
+        if "${{" in item:
+            raise AuthorityClosureError(f"unsupported dynamic workflow run command: {source_path}")
         if item == "env":
             env_wrapper = True
             continue
+        if item in unsupported_wrappers:
+            raise AuthorityClosureError(
+                f"unsupported workflow command wrapper: {source_path} -> {item}"
+            )
         starts.append(item)
+        active_command = item
         command_start = False
-    finish_dynamic_command()
+    finish_command()
     return starts
 
 
@@ -2288,6 +2430,16 @@ def _literal_run_script_references(
         r"(?![A-Za-z0-9_.-])"
     )
     references = {_strip_optional_dot_slash(match.group(1)) for match in pattern.finditer(run)}
+    extensionless_literal = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+)"
+        r"(?![A-Za-z0-9_.-])"
+    )
+    for match in extensionless_literal.finditer(_mask_github_expressions(run)):
+        relative = _strip_optional_dot_slash(match.group(1))
+        target = extraction_root / relative
+        if _is_extensionless_executable(target):
+            references.add(relative)
     if not strict_executable:
         return sorted(references)
     command_invocation = re.compile(
@@ -2298,6 +2450,11 @@ def _literal_run_script_references(
         re.MULTILINE,
     )
     command_text = _mask_github_expressions(run)
+    if re.search(
+        r"(?:^|[;&|(\n])\s*cd(?:\s|$)[^\n]*?(?:&&|;)\s*\./[A-Za-z0-9_./-]+",
+        command_text,
+    ):
+        raise AuthorityClosureError(f"unsupported workflow working-directory change: {source_path}")
     candidates = [
         (candidate, True) for candidate in _shell_command_starts(extraction_root, source_path, run)
     ]
@@ -2360,6 +2517,20 @@ def _workflow_direct_matches(
             strict_executable=False,
         )
     )
+    for run, working_directory in zip(
+        structure["runs"],
+        structure["run_working_directories"],
+        strict=True,
+    ):
+        literal_run_references.update(
+            _working_directory_run_references(
+                extraction_root,
+                workflow_path,
+                run,
+                working_directory,
+                strict_executable=False,
+            )
+        )
     for root in authority_roots:
         selected_by_path = False
         for pattern in structure["path_filters"]:
@@ -2385,8 +2556,22 @@ def _workflow_member_edges(extraction_root: Path, source_path: str) -> list[tupl
         resolved = _resolve_local_uses(extraction_root, source_path, reference)
         if resolved is not None:
             edges.add(resolved)
-    for run in structure["runs"]:
-        for reference in _run_script_references(extraction_root, source_path, run):
+    for run, working_directory in zip(
+        structure["runs"],
+        structure["run_working_directories"],
+        strict=True,
+    ):
+        references = set(_run_script_references(extraction_root, source_path, run))
+        references.update(
+            _working_directory_run_references(
+                extraction_root,
+                source_path,
+                run,
+                working_directory,
+                strict_executable=True,
+            )
+        )
+        for reference in references:
             target = extraction_root / reference
             if not target.is_file():
                 raise AuthorityClosureError(
@@ -2681,7 +2866,13 @@ def build_authority_manifest(
                 scanned_with_function_bodies[source_path] = include_function_bodies
                 path = extraction_root / source_path
                 edges: list[tuple[str, str]] = []
-                if _is_python_script(path):
+                is_python = _is_python_script(path)
+                is_shell = _is_shell_script(path)
+                if path.is_file() and not path.suffix and not is_python and not is_shell:
+                    raise AuthorityClosureError(
+                        f"unsupported extensionless executable shebang: {source_path}"
+                    )
+                if is_python:
                     edges.extend(
                         _python_import_edges(
                             extraction_root,
@@ -2696,7 +2887,7 @@ def build_authority_manifest(
                             include_function_bodies=True,
                         )
                     )
-                if _is_shell_script(path):
+                if is_shell:
                     edges.extend(_shell_helper_edges(extraction_root, source_path))
                 if path.suffix in WORKFLOW_SUFFIXES:
                     edges.extend(_workflow_member_edges(extraction_root, source_path))
