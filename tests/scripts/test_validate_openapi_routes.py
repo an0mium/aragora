@@ -5,13 +5,290 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 import types
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 import scripts.validate_openapi_routes as validate_openapi_routes
+
+
+def _git(repo: Path, *args: str, input_bytes: bytes | None = None) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        input=input_bytes,
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout.decode("utf-8").strip()
+
+
+@dataclass(frozen=True)
+class ExactRefRepo:
+    repo: Path
+    handler_registry: Path
+    spec: Path
+    ref_a: str
+    ref_b: str
+
+
+@pytest.fixture
+def git_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    return repo
+
+
+@pytest.fixture
+def exact_ref_repo(git_repo: Path) -> ExactRefRepo:
+    repo = git_repo
+    source_root = Path(validate_openapi_routes.__file__).resolve().parents[1]
+
+    for relative in (
+        "scripts/sdk_path_normalize.py",
+        "scripts/baselines/contract_drift_inventory.json",
+    ):
+        destination = repo / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_root / relative, destination)
+
+    (repo / "scripts/baselines/internal_route_prefixes.json").write_text(
+        '{"prefixes":["/api/v1/internal/"]}\n',
+        encoding="utf-8",
+    )
+    for relative in (
+        "aragora/__init__.py",
+        "aragora/server/__init__.py",
+        "aragora/server/stream/__init__.py",
+    ):
+        destination = repo / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text("", encoding="utf-8")
+    registration = repo / "aragora/server/stream/servers_route_registration.py"
+    registration.write_text("# no literal wired registrations\n", encoding="utf-8")
+
+    handler_registry = repo / "aragora/server/handler_registry.py"
+    handler_registry.write_text(
+        """
+class ExactRefHandler:
+    GET_ROUTES = ["/api/v1/ref-a"]
+
+HANDLER_REGISTRY = [("_exact_ref", ExactRefHandler)]
+
+def get_active_tiers():
+    return {"core"}
+
+def filter_registry_by_tier(registry, active_tiers=None):
+    return list(registry)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    spec = repo / "docs/api/openapi.json"
+    spec.parent.mkdir(parents=True)
+    spec.write_text(
+        json.dumps({"paths": {"/api/v1/ref-a": {"get": {}}}}) + "\n",
+        encoding="utf-8",
+    )
+
+    _git(repo, "config", "user.name", "Exact Ref Test")
+    _git(repo, "config", "user.email", "exact-ref@example.invalid")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "fixture ref a")
+    ref_a = _git(repo, "rev-parse", "HEAD")
+
+    handler_registry.write_text(
+        handler_registry.read_text(encoding="utf-8").replace("/api/v1/ref-a", "/api/v1/ref-b"),
+        encoding="utf-8",
+    )
+    spec.write_text(
+        json.dumps({"paths": {"/api/v1/ref-b": {"post": {}}}}) + "\n",
+        encoding="utf-8",
+    )
+    registration.write_text(
+        'router.add_post("/api/v1/ref-b-wired", handler)\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/sdk_path_normalize.py").write_text(
+        'def normalize_sdk_path(path): return "/api/ref-b-normalized"\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/baselines/internal_route_prefixes.json").write_text(
+        '{"prefixes":["/api/"]}\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/baselines/contract_drift_inventory.json").write_text(
+        '{"ref_b":"not valid projection authority"}\n',
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "fixture ref b")
+    ref_b = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "branch", "moving-ref", ref_a)
+
+    return ExactRefRepo(
+        repo=repo,
+        handler_registry=handler_registry,
+        spec=spec,
+        ref_a=ref_a,
+        ref_b=ref_b,
+    )
+
+
+def _run_exact_ref_fixture(fixture: ExactRefRepo, resolved_ref: str) -> dict:
+    return validate_openapi_routes._run_method_aware_plane_at_commit(
+        spec_path="docs/api/openapi.json",
+        resolved_ref=resolved_ref,
+        internal_prefixes_path="scripts/baselines/internal_route_prefixes.json",
+        source_repo_root=fixture.repo,
+    )
+
+
+def test_zero_sha_ref_fails_closed(git_repo: Path):
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="cannot resolve"):
+        validate_openapi_routes._require_exact_ref(
+            "0" * 40,
+            source_repo_root=git_repo,
+        )
+
+
+def test_nonexistent_and_noncommit_refs_fail_closed(git_repo: Path):
+    repo = git_repo
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="cannot resolve"):
+        validate_openapi_routes._require_exact_ref(
+            "refs/heads/does-not-exist",
+            source_repo_root=repo,
+        )
+
+    blob = _git(repo, "hash-object", "-w", "--stdin", input_bytes=b"not a commit\n")
+    _git(repo, "tag", "blob-ref", blob)
+    with pytest.raises(validate_openapi_routes.MethodAwareError, match="commit"):
+        validate_openapi_routes._require_exact_ref("blob-ref", source_repo_root=repo)
+
+
+def test_valid_non_head_ref_reads_only_that_commit(exact_ref_repo: ExactRefRepo):
+    ref_a = exact_ref_repo.ref_a
+    assert _git(exact_ref_repo.repo, "rev-parse", "HEAD") == exact_ref_repo.ref_b
+
+    plane = _run_exact_ref_fixture(exact_ref_repo, ref_a)
+
+    assert plane["ref"] == ref_a
+    assert {entry["operation_id"] for entry in plane["declared_and_served"]} == {"GET /api/ref-a"}
+    assert all(entry["source_sha"] == ref_a for entry in plane["served_operations"])
+    assert all(entry["source_sha"] == ref_a for entry in plane["spec_operations"])
+    assert "POST /api/ref-b" not in {entry["operation_id"] for entry in plane["spec_operations"]}
+
+
+def test_dirty_caller_state_cannot_change_same_sha_output(exact_ref_repo: ExactRefRepo):
+    ref_a = exact_ref_repo.ref_a
+    clean = _run_exact_ref_fixture(exact_ref_repo, ref_a)
+
+    exact_ref_repo.handler_registry.write_text(
+        """
+class DirtyHandler:
+    DELETE_ROUTES = ["/api/v1/dirty-only"]
+HANDLER_REGISTRY = [("_dirty", DirtyHandler)]
+def get_active_tiers():
+    return {"core"}
+def filter_registry_by_tier(registry, active_tiers=None):
+    return list(registry)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    exact_ref_repo.spec.write_text(
+        json.dumps({"paths": {"/api/v1/dirty-only": {"delete": {}}}}) + "\n",
+        encoding="utf-8",
+    )
+    repo = exact_ref_repo.repo
+    (repo / "aragora/server/stream/servers_route_registration.py").write_text(
+        'router.add_delete("/api/v1/dirty-wired", handler)\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/sdk_path_normalize.py").write_text(
+        'def normalize_sdk_path(path): return "/api/dirty-normalized"\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/baselines/internal_route_prefixes.json").write_text(
+        '{"prefixes":["/api/"]}\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/baselines/contract_drift_inventory.json").write_text(
+        '{"dirty":"ambient inventory must not be read"}\n',
+        encoding="utf-8",
+    )
+    (repo / "untracked-dirty.txt").write_text(
+        "ambient caller state\n",
+        encoding="utf-8",
+    )
+
+    dirty = _run_exact_ref_fixture(exact_ref_repo, ref_a)
+
+    assert dirty == clean
+    assert all("/dirty-only" not in entry["operation_id"] for entry in dirty["served_operations"])
+
+
+def test_moving_symbolic_ref_is_resolved_once(
+    exact_ref_repo: ExactRefRepo,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo = exact_ref_repo.repo
+    with monkeypatch.context() as isolated_env:
+        isolated_env.setenv("GIT_DIR", str(repo / "ambient-wrong.git"))
+        resolved = validate_openapi_routes._require_exact_ref(
+            "moving-ref",
+            source_repo_root=repo,
+        )
+    assert resolved == exact_ref_repo.ref_a
+
+    _git(repo, "branch", "-f", "moving-ref", exact_ref_repo.ref_b)
+    plane = _run_exact_ref_fixture(exact_ref_repo, resolved)
+
+    assert plane["ref"] == exact_ref_repo.ref_a
+    assert {entry["operation_id"] for entry in plane["declared_and_served"]} == {"GET /api/ref-a"}
+
+
+def test_direct_method_aware_entrypoint_delegates_to_exact_tree(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    resolved = "a" * 40
+    expected = {"ref": resolved}
+    captured: dict[str, object] = {}
+
+    def fake_resolve(ref, *, source_repo_root):
+        captured["ref"] = ref
+        captured["source_repo_root"] = source_repo_root
+        return resolved
+
+    def fake_run(**kwargs):
+        captured.update(kwargs)
+        return expected
+
+    monkeypatch.setattr(validate_openapi_routes, "_require_exact_ref", fake_resolve)
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "_run_method_aware_plane_at_commit",
+        fake_run,
+    )
+
+    result = validate_openapi_routes.validate_method_aware_plane(
+        "docs/api/openapi.json",
+        "moving-ref",
+        internal_prefixes_path="scripts/baselines/internal_route_prefixes.json",
+    )
+
+    assert result is expected
+    assert captured == {
+        "ref": "moving-ref",
+        "source_repo_root": validate_openapi_routes._SOURCE_REPO_ROOT,
+        "spec_path": "docs/api/openapi.json",
+        "resolved_ref": resolved,
+        "internal_prefixes_path": "scripts/baselines/internal_route_prefixes.json",
+        "inventory_path": None,
+    }
 
 
 def _fake_registry(entries):
