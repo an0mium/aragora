@@ -2173,8 +2173,12 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
     dynamic_command = False
     dynamic_supported = False
     dynamic_module_pending = False
+    env_wrapper = False
+    env_option_operand = ""
 
     def finish_dynamic_command() -> None:
+        if env_option_operand:
+            raise AuthorityClosureError(f"incomplete workflow env wrapper option: {source_path}")
         if dynamic_module_pending:
             raise AuthorityClosureError(
                 f"dynamic workflow Python module is unavailable: {source_path}"
@@ -2189,6 +2193,8 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             dynamic_command = False
             dynamic_supported = False
             dynamic_module_pending = False
+            env_wrapper = False
+            env_option_operand = ""
             continue
         if item == ")":
             finish_dynamic_command()
@@ -2196,6 +2202,8 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             dynamic_command = False
             dynamic_supported = False
             dynamic_module_pending = False
+            env_wrapper = False
+            env_option_operand = ""
             continue
         if not command_start:
             if dynamic_module_pending:
@@ -2223,11 +2231,43 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
                     starts.append(item)
                     dynamic_supported = True
             continue
+        if env_wrapper:
+            if env_option_operand:
+                if item.startswith("${{"):
+                    raise AuthorityClosureError(
+                        f"dynamic workflow env wrapper option is forbidden: {source_path}"
+                    )
+                env_option_operand = ""
+                continue
+            if item.startswith("${{"):
+                raise AuthorityClosureError(
+                    f"dynamic workflow env wrapper command is forbidden: {source_path}"
+                )
+            if item in {"-i", "--ignore-environment", "-0", "--null"}:
+                continue
+            if item in {"-u", "--unset"}:
+                env_option_operand = item
+                continue
+            if item.startswith("--unset=") or item.startswith("-u") and len(item) > 2:
+                continue
+            if item == "--":
+                env_wrapper = False
+                continue
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
+                continue
+            if item.startswith("-"):
+                raise AuthorityClosureError(
+                    f"unsupported workflow env wrapper option: {source_path}"
+                )
+            env_wrapper = False
         if item.startswith("${{"):
             command_start = False
             dynamic_command = True
             continue
         if item in reserved or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", item):
+            continue
+        if item == "env":
+            env_wrapper = True
             continue
         starts.append(item)
         command_start = False

@@ -783,6 +783,41 @@ def test_shell_interpreter_accepts_nonexecutable_extensionless_script(tmp_path: 
     ) == ["scripts/helper"]
 
 
+def test_env_wrapper_includes_extensionless_local_helper(tmp_path: Path):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        "env -i -u OLD MODE=check -- ./scripts/helper --strict",
+    ) == ["scripts/helper"]
+
+
+def test_env_wrapper_dynamic_command_fails_closed(tmp_path: Path):
+    with pytest.raises(
+        gen.AuthorityClosureError,
+        match="dynamic workflow env wrapper command is forbidden",
+    ):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            "env MODE=check ${{ matrix.command }} --strict",
+        )
+
+
+def test_env_wrapper_unsupported_option_fails_closed(tmp_path: Path):
+    with pytest.raises(
+        gen.AuthorityClosureError,
+        match="unsupported workflow env wrapper option",
+    ):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            "env --chdir scripts ./helper --strict",
+        )
+
+
 def test_non_executable_run_and_uses_data_is_ignored(tmp_path: Path):
     path = tmp_path / "workflow.yml"
     _write_text(
