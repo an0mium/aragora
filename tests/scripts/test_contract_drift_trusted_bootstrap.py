@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -44,7 +45,13 @@ def _canonical(value: Any) -> bytes:
     return (rendered + "\n").encode()
 
 
-def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
+def _build_fixture(
+    tmp_path: Path,
+    mutation: str = "",
+    *,
+    checker_source: str | None = None,
+    inventory_source: str = "VALUE = 1\n",
+) -> SimpleNamespace:
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q")
@@ -65,7 +72,9 @@ def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
     base = _git(repo, "rev-parse", "HEAD")
 
     _git(repo, "checkout", "-qb", "candidate", base)
-    if mutation == "analyzer-rejected":
+    if checker_source is not None:
+        checker = checker_source
+    elif mutation == "analyzer-rejected":
         checker = (
             "import json,os,sys\n"
             "print(json.dumps({'comparison':"
@@ -82,7 +91,7 @@ def _build_fixture(tmp_path: Path, mutation: str = "") -> SimpleNamespace:
             "'launcher':os.environ['CDG_EXECUTED_LAUNCHER_SHA256'],'status':'pass'}))\n"
         )
     _write(repo, bootstrap.ANALYZER_FILES[0], checker)
-    _write(repo, bootstrap.ANALYZER_FILES[1], "VALUE = 1\n")
+    _write(repo, bootstrap.ANALYZER_FILES[1], inventory_source)
     _write(repo, bootstrap.ANALYZER_FILES[2], _canonical({"schema": "test-program"}))
     original_digests = tuple(
         hashlib.sha256((repo / path).read_bytes()).hexdigest() for path in bootstrap.ANALYZER_FILES
@@ -248,6 +257,188 @@ def _run(fixture: SimpleNamespace, tmp_path: Path) -> dict[str, Any]:
             ),
         ),
     )
+
+
+ISOLATION_CHECKER = (
+    "import json,os,sys\n"
+    "from scripts import generate_contract_drift_inventory as inventory\n"
+    "try:\n"
+    " from scripts import namespace_payload\n"
+    "except ImportError:\n"
+    " namespace_payload = None\n"
+    "try:\n"
+    " import pth_payload\n"
+    "except ImportError:\n"
+    " pth_payload = None\n"
+    "print(json.dumps({"
+    "'authority_root':os.environ['CDG_AUTHORITY_ROOT'],"
+    "'checker_file':__file__,"
+    "'cwd':os.getcwd(),"
+    "'cwd_entries':sorted(os.listdir()),"
+    "'inventory_file':inventory.__file__,"
+    "'inventory_marker':inventory.AUTHORITY_MARKER,"
+    "'inventory_version':inventory.__version__,"
+    "'launcher':os.environ['CDG_EXECUTED_LAUNCHER_SHA256'],"
+    "'namespace_payload':getattr(namespace_payload,'AUTHORITY_MARKER',None),"
+    "'pth_payload':getattr(pth_payload,'AUTHORITY_MARKER',None),"
+    "'status':'pass',"
+    "'sys_path':sys.path"
+    "}))\n"
+)
+BASE_INVENTORY = "__version__ = '1.0.0'\nAUTHORITY_MARKER = 'base-owned-bundle'\n"
+
+
+def _build_isolation_fixture(tmp_path: Path) -> SimpleNamespace:
+    return _build_fixture(
+        tmp_path,
+        checker_source=ISOLATION_CHECKER,
+        inventory_source=BASE_INVENTORY,
+    )
+
+
+def _user_site(user_base: Path) -> Path:
+    version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    return user_base / "lib" / version / "site-packages"
+
+
+def _run_launcher_without_isolation(
+    fixture: SimpleNamespace,
+    tmp_path: Path,
+    user_base: Path,
+) -> dict[str, Any]:
+    bundle_root = tmp_path / "unsafe-control-bundle"
+    bootstrap._materialize_bundle(fixture.repo, fixture.head, bundle_root)
+    empty_cwd = tmp_path / "unsafe-control-cwd"
+    empty_cwd.mkdir()
+    env = {
+        "CDG_AUTHORITY_ROOT": str(bundle_root),
+        "CDG_EXECUTED_LAUNCHER_SHA256": hashlib.sha256(LAUNCHER_PATH.read_bytes()).hexdigest(),
+        "CDG_FIRST_TRANSITION_COMPARISON_SHA256": "a" * 64,
+        "CDG_TRUSTED_BUNDLE": "unsafe-control",
+        "HOME": str(tmp_path / "unsafe-home"),
+        "PATH": "/usr/bin:/bin",
+        "PYTHONUSERBASE": str(user_base),
+    }
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(LAUNCHER_PATH),
+            str(bundle_root),
+            str(bundle_root / bootstrap.ANALYZER_FILES[0]),
+        ],
+        cwd=empty_cwd,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    result = json.loads(proc.stdout)
+    assert isinstance(result, dict)
+    return result
+
+
+def _assert_production_isolation(
+    result: dict[str, Any],
+    *hostile_roots: Path,
+) -> None:
+    assert result["status"] == "pass"
+    analysis = result["analysis"]
+    authority_root = Path(analysis["authority_root"]).resolve()
+    assert analysis["inventory_marker"] == "base-owned-bundle"
+    assert analysis["inventory_version"] == "1.0.0"
+    assert analysis["namespace_payload"] is None
+    assert analysis["pth_payload"] is None
+    assert analysis["launcher"] == hashlib.sha256(LAUNCHER_PATH.read_bytes()).hexdigest()
+    assert bootstrap.ANALYZER_FLAGS == ("-I", "-S", "-B")
+    assert Path(analysis["cwd"]).resolve() == authority_root
+    assert analysis["cwd_entries"] == [".github", "scripts"]
+    checker_path = Path(analysis["checker_file"])
+    if not checker_path.is_absolute():
+        checker_path = Path(analysis["cwd"]) / checker_path
+    assert checker_path.resolve() == authority_root / bootstrap.ANALYZER_FILES[0]
+    assert Path(analysis["inventory_file"]).resolve() == (
+        authority_root / bootstrap.ANALYZER_FILES[1]
+    )
+
+    sys_path = analysis["sys_path"]
+    assert "" not in sys_path
+    resolved_sys_path = [Path(entry).resolve() for entry in sys_path]
+    assert resolved_sys_path[0] == authority_root
+    assert resolved_sys_path.count(authority_root) == 1
+    stdlib_roots = (Path(sys.base_prefix).resolve(), Path(sys.exec_prefix).resolve())
+    for entry in resolved_sys_path[1:]:
+        assert any(entry.is_relative_to(root) for root in stdlib_roots)
+    for hostile_root in hostile_roots:
+        resolved_hostile_root = hostile_root.resolve()
+        assert all(not entry.is_relative_to(resolved_hostile_root) for entry in resolved_sys_path)
+
+
+def test_same_version_global_package_shadow_isolated(tmp_path, monkeypatch):
+    fixture = _build_isolation_fixture(tmp_path)
+    user_base = tmp_path / "hostile-global"
+    user_site = _user_site(user_base)
+    _write(user_site, "scripts/__init__.py", "__version__ = '1.0.0'\n")
+    _write(
+        user_site,
+        "scripts/generate_contract_drift_inventory.py",
+        "__version__ = '1.0.0'\nAUTHORITY_MARKER = 'hostile-global-shadow'\n",
+    )
+
+    control = _run_launcher_without_isolation(fixture, tmp_path, user_base)
+    assert control["inventory_version"] == "1.0.0"
+    assert control["inventory_marker"] == "hostile-global-shadow"
+
+    monkeypatch.setenv("PYTHONUSERBASE", str(user_base))
+    result = _run(fixture, tmp_path)
+    _assert_production_isolation(result, user_base)
+
+
+def test_namespace_package_contribution_isolated(tmp_path, monkeypatch):
+    fixture = _build_isolation_fixture(tmp_path)
+    user_base = tmp_path / "hostile-namespace"
+    user_site = _user_site(user_base)
+    _write(
+        user_site,
+        "scripts/namespace_payload.py",
+        "AUTHORITY_MARKER = 'hostile-namespace-contribution'\n",
+    )
+
+    control = _run_launcher_without_isolation(fixture, tmp_path, user_base)
+    assert control["namespace_payload"] == "hostile-namespace-contribution"
+
+    monkeypatch.setenv("PYTHONUSERBASE", str(user_base))
+    result = _run(fixture, tmp_path)
+    _assert_production_isolation(result, user_base)
+
+
+def test_pth_injector_isolated(tmp_path, monkeypatch):
+    fixture = _build_isolation_fixture(tmp_path)
+    user_base = tmp_path / "hostile-pth"
+    user_site = _user_site(user_base)
+    injected = tmp_path / "pth-injected"
+    marker = tmp_path / "pth-executed"
+    _write(
+        injected,
+        "pth_payload.py",
+        "AUTHORITY_MARKER = 'hostile-pth-injector'\n",
+    )
+    _write(
+        user_site,
+        "hostile-bootstrap.pth",
+        f"import sys;sys.path.insert(0,{str(injected)!r});"
+        f"open({str(marker)!r},'w').write('executed')\n",
+    )
+
+    control = _run_launcher_without_isolation(fixture, tmp_path, user_base)
+    assert control["pth_payload"] == "hostile-pth-injector"
+    assert marker.read_text() == "executed"
+    marker.unlink()
+
+    monkeypatch.setenv("PYTHONUSERBASE", str(user_base))
+    result = _run(fixture, tmp_path)
+    assert not marker.exists()
+    _assert_production_isolation(result, user_base, injected)
 
 
 def test_workflow_uses_base_owned_python_without_merge_checkout():
