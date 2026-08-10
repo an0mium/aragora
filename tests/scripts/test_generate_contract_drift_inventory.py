@@ -367,6 +367,7 @@ def _authority_fixture(
         "module": "      - run: python -m scripts.helper\n",
         "module_block": "      - run: |\n          python -m scripts.helper\n",
         "module_substitution": '      - run: echo "$(python -m scripts.helper)"\n',
+        "module_assignment": '      - run: VALUE="$(python -m scripts.helper)"\n',
         "package_module": "      - run: python -m scripts.pkg\n",
         "github_literal": "      - run: python .github/scripts/tool.py\n",
         "github_dynamic": "      - run: python .github/scripts/$HELPER.py\n",
@@ -923,14 +924,121 @@ def test_extensionless_local_helper_must_be_executable(tmp_path: Path):
         _manifest(repo, sha)
 
 
-def test_shell_interpreter_accepts_nonexecutable_extensionless_script(tmp_path: Path):
+@pytest.mark.parametrize(
+    "run",
+    [
+        "bash scripts/helper",
+        "bash -eo pipefail scripts/helper",
+        "sh -eu scripts/helper",
+        "bash -c 'bash -eo pipefail scripts/helper'",
+    ],
+)
+def test_shell_interpreter_accepts_nonexecutable_extensionless_script(
+    tmp_path: Path,
+    run: str,
+):
     helper = tmp_path / "scripts/helper"
     _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
     helper.chmod(0o644)
     assert gen._run_script_references(
         tmp_path,
         ".github/workflows/authority.yml",
-        "bash scripts/helper",
+        run,
+    ) == ["scripts/helper"]
+
+
+def test_quoted_assignment_command_substitution_preserves_extensionless_script(
+    tmp_path: Path,
+):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o644)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        'VALUE="$(bash scripts/helper)"',
+    ) == ["scripts/helper"]
+
+
+def test_deep_command_substitution_nesting_fails_closed(tmp_path: Path):
+    depth = gen.MAX_WORKFLOW_COMMAND_DEPTH + 2
+    run = f'echo "{"$(" * depth}true{")" * depth}"'
+    with pytest.raises(gen.AuthorityClosureError, match="command nesting exceeds limit"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "# $(printf '(')\necho safe",
+        "cat <<'EOF'\n$(printf '(')\nEOF",
+    ],
+)
+def test_inert_command_substitution_text_is_not_executed(tmp_path: Path, run: str):
+    assert (
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("run", ["python -W error scripts/helper", "python -X dev scripts/helper"])
+def test_python_option_operand_preserves_extensionless_script_target(tmp_path: Path, run: str):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env python3\nprint('safe')\n")
+    helper.chmod(0o644)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        run,
+    ) == ["scripts/helper"]
+
+
+def test_python_inline_code_includes_nonexecutable_extensionless_script(tmp_path: Path):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "#!/usr/bin/env python3\nprint('safe')\n")
+    helper.chmod(0o644)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        """python -c "exec(open('scripts/helper').read())" """,
+    ) == ["scripts/helper"]
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "bash --check scripts/helper",
+        "bash --rcfile=custom scripts/helper",
+        "bash --unknown scripts/helper",
+        "python --unknown scripts/helper",
+    ],
+)
+def test_unknown_interpreter_options_fail_closed(tmp_path: Path, run: str):
+    with pytest.raises(gen.AuthorityClosureError, match="unsupported workflow"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+
+
+def test_non_strict_literal_matching_preserves_opaque_executable_helper(tmp_path: Path):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "opaque executable\n")
+    helper.chmod(0o755)
+    assert gen._literal_run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        "./scripts/helper",
+        strict_executable=False,
     ) == ["scripts/helper"]
 
 
@@ -1190,7 +1298,10 @@ def test_dynamic_local_run_reference_fails_closed(tmp_path: Path, variant: str):
         _manifest(repo, sha)
 
 
-@pytest.mark.parametrize("variant", ["module", "module_block", "module_substitution"])
+@pytest.mark.parametrize(
+    "variant",
+    ["module", "module_block", "module_substitution", "module_assignment"],
+)
 def test_repository_python_module_run_target_joins_closure(tmp_path: Path, variant: str):
     repo, sha = _authority_fixture(tmp_path, dynamic_run_reference=variant)
     files = {entry["path"]: entry for entry in _manifest(repo, sha)["repo_files"]}

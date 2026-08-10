@@ -58,6 +58,7 @@ EXACT_REF_POLICY_TIMEOUT_SECONDS = 30
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 MAX_WORKFLOW_YAML_BYTES = 1_000_000
 MAX_WORKFLOW_FLOW_LINES = 1_024
+MAX_WORKFLOW_COMMAND_DEPTH = 64
 EXECUTABLE_SUFFIXES = (".py", ".sh")
 EXECUTABLE_EDGE_KINDS = frozenset(
     {
@@ -2177,9 +2178,16 @@ def _is_python_script(path: Path) -> bool:
     )
 
 
-def _run_script_references(extraction_root: Path, source_path: str, run: str) -> list[str]:
+def _run_script_references(
+    extraction_root: Path,
+    source_path: str,
+    run: str,
+    *,
+    _depth: int = 0,
+) -> list[str]:
+    if _depth > MAX_WORKFLOW_COMMAND_DEPTH:
+        raise AuthorityClosureError(f"workflow command nesting exceeds limit: {source_path}")
     normalized = run.replace("\\\n", " ")
-    command_text = _mask_github_expressions(normalized)
     dynamic_local_reference = re.compile(
         r"(?<![A-Za-z0-9_./-])"
         r"((?:\./)?(?:scripts|aragora|\.github)/[^\s;&|]*[$`*][^\s;&|]*)"
@@ -2189,15 +2197,14 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
         raise AuthorityClosureError(
             f"dynamic local run target is forbidden: {source_path} -> {dynamic_match.group(1)}"
         )
-    command_invocation = re.compile(
-        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
-        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
-        r"(?:(?:-[A-Za-z]+\s+)*)"
-        r"([^\s;&|]+)",
-        re.MULTILINE,
-    )
-    for match in command_invocation.finditer(command_text):
-        target = match.group(1).strip("\"'")
+    commands = _shell_commands(extraction_root, source_path, normalized, _depth=_depth)
+    interpreter_targets: list[tuple[str, str]] = []
+    for command in commands:
+        target_info = _interpreter_command_target(command, source_path)
+        if target_info is None:
+            continue
+        kind, target = target_info
+        interpreter_targets.append(target_info)
         local_target = _strip_optional_dot_slash(target).startswith(
             ("scripts/", "aragora/", ".github/")
         )
@@ -2210,20 +2217,41 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
             raise AuthorityClosureError(
                 f"dynamic local run target is forbidden: {source_path} -> {target}"
             )
-    module_invocation = re.compile(
-        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
-        r"python(?:3(?:\.\d+)?)?\s+(?:-[A-Za-z]+\s+)*-m\s+([^\s;&|)]+)",
-        re.MULTILINE,
-    )
-    for match in module_invocation.finditer(command_text):
-        module = match.group(1).strip("\"'")
-        if any(marker in module for marker in ("$", "`", "*")):
+        if kind == "module" and any(marker in target for marker in ("$", "`", "*")):
             raise AuthorityClosureError(
-                f"dynamic repository python -m target is forbidden: {source_path} -> {module}"
+                f"dynamic repository python -m target is forbidden: {source_path} -> {target}"
             )
-    references = set(_literal_run_script_references(extraction_root, source_path, normalized))
-    for match in module_invocation.finditer(command_text):
-        module = match.group(1).strip("\"'")
+    references = set(
+        _literal_run_script_references(
+            extraction_root,
+            source_path,
+            normalized,
+            commands=commands,
+        )
+    )
+    for kind, module in interpreter_targets:
+        if kind == "shell_inline":
+            references.update(
+                _run_script_references(
+                    extraction_root,
+                    source_path,
+                    module,
+                    _depth=_depth + 1,
+                )
+            )
+            continue
+        if kind == "python_inline":
+            references.update(
+                _literal_run_script_references(
+                    extraction_root,
+                    source_path,
+                    module,
+                    strict_executable=False,
+                )
+            )
+            continue
+        if kind != "module":
+            continue
         if any(
             module == prefix or module.startswith(f"{prefix}.")
             for prefix in REPOSITORY_MODULE_PREFIXES
@@ -2232,7 +2260,15 @@ def _run_script_references(extraction_root: Path, source_path: str, run: str) ->
     return sorted(references)
 
 
-def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> list[str]:
+def _shell_commands(
+    extraction_root: Path,
+    source_path: str,
+    run: str,
+    *,
+    _depth: int = 0,
+) -> list[list[str]]:
+    if _depth > MAX_WORKFLOW_COMMAND_DEPTH:
+        raise AuthorityClosureError(f"workflow command nesting exceeds limit: {source_path}")
     tokens: list[str] = []
     token: list[str] = []
     quote = ""
@@ -2251,11 +2287,13 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
         if active_heredoc:
             if line.strip() == active_heredoc:
                 active_heredoc = ""
+                shell_lines.append(line)
             elif line.lstrip().startswith(executable_prefixes):
                 raise AuthorityClosureError(
                     f"unsupported extensionless heredoc executable syntax: {source_path}"
                 )
-            shell_lines.append("")
+            else:
+                shell_lines.append("")
             continue
         shell_lines.append(line)
         heredoc_match = re.search(
@@ -2334,12 +2372,13 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
     if token:
         tokens.append("".join(token))
 
-    starts: list[str] = []
+    commands: list[list[str]] = []
     separators = {";", ";;", "&", "&&", "|", "||", "("}
     reserved = {"!", "do", "elif", "else", "if", "then", "until", "while"}
     unsupported_wrappers = {"exec", "nohup", "source", "time", "."}
     command_start = True
     active_command = ""
+    active_items: list[str] = []
     env_wrapper = False
     env_option_operand = ""
 
@@ -2352,6 +2391,7 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             finish_command()
             command_start = True
             active_command = ""
+            active_items = []
             env_wrapper = False
             env_option_operand = ""
             continue
@@ -2359,6 +2399,7 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             finish_command()
             command_start = False
             active_command = ""
+            active_items = []
             env_wrapper = False
             env_option_operand = ""
             continue
@@ -2369,6 +2410,7 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
                 raise AuthorityClosureError(
                     f"dynamic workflow interpreter target is forbidden: {source_path}"
                 )
+            active_items.append(item)
             continue
         if env_wrapper:
             if env_option_operand:
@@ -2410,11 +2452,234 @@ def _shell_command_starts(extraction_root: Path, source_path: str, run: str) -> 
             raise AuthorityClosureError(
                 f"unsupported workflow command wrapper: {source_path} -> {item}"
             )
-        starts.append(item)
         active_command = item
+        active_items = [item]
+        commands.append(active_items)
         command_start = False
     finish_command()
-    return starts
+    nested_commands: list[list[str]] = []
+    for body in _command_substitution_bodies(normalized, source_path):
+        nested_commands.extend(
+            _shell_commands(
+                extraction_root,
+                source_path,
+                body,
+                _depth=_depth + 1,
+            )
+        )
+    return [*commands, *nested_commands]
+
+
+def _command_substitution_bodies(command: str, source_path: str) -> list[str]:
+    bodies: list[str] = []
+    index = 0
+    quote = ""
+    while index < len(command):
+        character = command[index]
+        if quote:
+            if quote == "'" and character == "'":
+                quote = ""
+            elif quote == '"':
+                if character == "\\":
+                    index += 2
+                    continue
+                if character == '"':
+                    quote = ""
+                elif command.startswith("$(", index) and not command.startswith("$((", index):
+                    end = _command_substitution_end(command, index, source_path)
+                    bodies.append(command[index + 2 : end - 1])
+                    index = end
+                    continue
+            index += 1
+            continue
+        if character == "\\":
+            index += 2
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            index += 1
+            continue
+        if character == "#" and (index == 0 or command[index - 1].isspace()):
+            newline = command.find("\n", index)
+            if newline < 0:
+                break
+            index = newline + 1
+            continue
+        if command.startswith("$(", index) and not command.startswith("$((", index):
+            end = _command_substitution_end(command, index, source_path)
+            bodies.append(command[index + 2 : end - 1])
+            index = end
+            continue
+        index += 1
+    return bodies
+
+
+def _command_substitution_end(command: str, start: int, source_path: str) -> int:
+    return _command_substitution_end_at_depth(command, start, source_path, 0)
+
+
+def _command_substitution_end_at_depth(
+    command: str,
+    start: int,
+    source_path: str,
+    nesting: int,
+) -> int:
+    if nesting > MAX_WORKFLOW_COMMAND_DEPTH:
+        raise AuthorityClosureError(f"workflow command nesting exceeds limit: {source_path}")
+    paren_depth = 1
+    cursor = start + 2
+    quote = ""
+    while cursor < len(command) and paren_depth:
+        if command.startswith("$(", cursor) and not command.startswith("$((", cursor):
+            cursor = _command_substitution_end_at_depth(
+                command,
+                cursor,
+                source_path,
+                nesting + 1,
+            )
+            continue
+        character = command[cursor]
+        if quote:
+            if quote == "'" and character == "'":
+                quote = ""
+            elif quote == '"':
+                if character == "\\":
+                    cursor += 2
+                    continue
+                if character == '"':
+                    quote = ""
+            cursor += 1
+            continue
+        if character == "\\":
+            cursor += 2
+            continue
+        if character in {"'", '"'}:
+            quote = character
+        elif character == "#" and (cursor == 0 or command[cursor - 1].isspace()):
+            newline = command.find("\n", cursor)
+            if newline < 0:
+                cursor = len(command)
+                break
+            cursor = newline + 1
+            continue
+        elif character == "(":
+            paren_depth += 1
+        elif character == ")":
+            paren_depth -= 1
+        cursor += 1
+    if paren_depth:
+        raise AuthorityClosureError(f"unterminated workflow command substitution: {source_path}")
+    return cursor
+
+
+def _interpreter_command_target(
+    command: list[str],
+    source_path: str,
+) -> tuple[str, str] | None:
+    if len(command) < 2:
+        return None
+    interpreter = Path(command[0]).name
+    if _is_python_command(interpreter):
+        index = 1
+        while index < len(command):
+            argument = command[index]
+            if argument == "-m":
+                if index + 1 >= len(command):
+                    raise AuthorityClosureError(
+                        f"incomplete workflow Python module invocation: {source_path}"
+                    )
+                return ("module", command[index + 1])
+            if argument == "-c":
+                if index + 1 >= len(command):
+                    raise AuthorityClosureError(
+                        f"incomplete workflow Python -c invocation: {source_path}"
+                    )
+                return ("python_inline", command[index + 1])
+            if argument == "-":
+                return None
+            if argument in {
+                "--help",
+                "--help-all",
+                "--help-env",
+                "--help-xoptions",
+                "--version",
+            }:
+                return None
+            if (
+                argument in PYTHON_OPTIONS_WITHOUT_VALUES
+                or argument.startswith(("-W", "-X"))
+                and argument not in PYTHON_OPTIONS_WITH_VALUES
+            ):
+                index += 1
+                continue
+            if argument in PYTHON_OPTIONS_WITH_VALUES:
+                if index + 1 >= len(command):
+                    raise AuthorityClosureError(
+                        f"incomplete workflow Python option: {source_path} -> {argument}"
+                    )
+                index += 2
+                continue
+            if argument.startswith("-"):
+                raise AuthorityClosureError(
+                    f"unsupported workflow Python option: {source_path} -> {argument}"
+                )
+            return ("script", argument)
+        return None
+    if interpreter not in {"bash", "sh"}:
+        return None
+    index = 1
+    shell_flags_without_values = frozenset("abefhknprtuvx")
+    shell_long_options_without_values = frozenset(
+        {
+            "--debugger",
+            "--login",
+            "--noediting",
+            "--noprofile",
+            "--norc",
+            "--posix",
+            "--restricted",
+            "--verbose",
+        }
+    )
+    while index < len(command):
+        argument = command[index]
+        if argument == "--":
+            index += 1
+            break
+        if argument in shell_long_options_without_values:
+            index += 1
+            continue
+        if argument in {"--init-file", "--rcfile", "-o", "+o"}:
+            if index + 1 >= len(command):
+                raise AuthorityClosureError(
+                    f"incomplete workflow shell option: {source_path} -> {argument}"
+                )
+            index += 2
+            continue
+        if argument.startswith("--"):
+            raise AuthorityClosureError(
+                f"unsupported workflow shell option: {source_path} -> {argument}"
+            )
+        if argument.startswith(("-", "+")) and len(argument) > 1:
+            flags = argument[1:]
+            if "c" in flags:
+                if index + 1 >= len(command):
+                    raise AuthorityClosureError(
+                        f"incomplete workflow shell -c invocation: {source_path}"
+                    )
+                return ("shell_inline", command[index + 1])
+            if any(flag not in shell_flags_without_values | {"o"} for flag in flags):
+                raise AuthorityClosureError(
+                    f"unsupported workflow shell option: {source_path} -> {argument}"
+                )
+            index += 2 if "o" in flags else 1
+            if index > len(command):
+                raise AuthorityClosureError(
+                    f"incomplete workflow shell option: {source_path} -> {argument}"
+                )
+            continue
+        break
+    return ("script", command[index]) if index < len(command) else None
 
 
 def _literal_run_script_references(
@@ -2423,6 +2688,7 @@ def _literal_run_script_references(
     run: str,
     *,
     strict_executable: bool = True,
+    commands: list[list[str]] | None = None,
 ) -> list[str]:
     pattern = re.compile(
         r"(?<![A-Za-z0-9_./-])"
@@ -2435,20 +2701,23 @@ def _literal_run_script_references(
         r"((?:\./)?(?:scripts|aragora|\.github)/[A-Za-z0-9_./-]+)"
         r"(?![A-Za-z0-9_.-])"
     )
-    for match in extensionless_literal.finditer(_mask_github_expressions(run)):
-        relative = _strip_optional_dot_slash(match.group(1))
+    extensionless_candidates = {
+        _strip_optional_dot_slash(match.group(1))
+        for match in extensionless_literal.finditer(_mask_github_expressions(run))
+    }
+    for relative in sorted(extensionless_candidates):
         target = extraction_root / relative
-        if _is_extensionless_executable(target):
+        eligible = _is_extensionless_executable(target)
+        if not eligible and not strict_executable:
+            interpreter = _extensionless_shebang_interpreter(target)
+            eligible = interpreter in {"bash", "sh"} or (
+                interpreter is not None
+                and re.fullmatch(r"python(?:3(?:\.\d+)?)?", interpreter) is not None
+            )
+        if eligible:
             references.add(relative)
     if not strict_executable:
         return sorted(references)
-    command_invocation = re.compile(
-        r"(?:^[ \t]*|[;&|]\s*|\$\(\s*)"
-        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
-        r"(?:(?:-[A-Za-z]+\s+)*)"
-        r"([^\s;&|]+)",
-        re.MULTILINE,
-    )
     command_text = _mask_github_expressions(run)
     if re.search(
         r"(?:^|[;&|(\n])\s*cd(?:\s|$)[^\n]*?(?:&&|;)\s*"
@@ -2458,12 +2727,14 @@ def _literal_run_script_references(
         command_text,
     ):
         raise AuthorityClosureError(f"unsupported workflow working-directory change: {source_path}")
-    candidates = [
-        (candidate, True) for candidate in _shell_command_starts(extraction_root, source_path, run)
-    ]
-    candidates.extend(
-        (match.group(1).strip("\"'"), False) for match in command_invocation.finditer(command_text)
+    shell_commands = (
+        commands if commands is not None else _shell_commands(extraction_root, source_path, run)
     )
+    candidates = [(command[0], True) for command in shell_commands]
+    for command in shell_commands:
+        target_info = _interpreter_command_target(command, source_path)
+        if target_info is not None and target_info[0] == "script":
+            candidates.append((target_info[1], False))
     for candidate, requires_executable_bit in candidates:
         relative = _strip_optional_dot_slash(candidate)
         if not relative.startswith(("scripts/", "aragora/", ".github/")):
