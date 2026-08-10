@@ -778,6 +778,11 @@ def test_dynamic_working_directory_with_local_command_cannot_vanish(tmp_path: Pa
         "cd scripts && ./authority-helper",
         "(cd scripts; ./authority-helper)",
         "cd scripts && python authority-helper.py",
+        "cd scripts && env ./authority-helper",
+        "cd scripts && env -i ./authority-helper",
+        "cd scripts && env MODE=strict ./authority-helper",
+        "cd scripts && env MODE= ./authority-helper",
+        'cd scripts && env MODE="strict mode" ./authority-helper',
     ],
 )
 def test_inline_working_directory_changes_fail_closed(tmp_path: Path, run: str):

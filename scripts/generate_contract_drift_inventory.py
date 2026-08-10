@@ -2802,19 +2802,32 @@ def _literal_run_script_references(
             references.add(relative)
     if not strict_executable:
         return sorted(references)
-    command_text = _mask_github_expressions(run)
-    if re.search(
-        r"(?:^|[;&|(\n])\s*(?:cd|pushd)(?:\s|$)[^\n]*?"
-        r"(?:(?:&&|;)[ \t]*|\n(?:[ \t]*(?:#.*)?\n)*[ \t]*)"
-        r"(?:\./[A-Za-z0-9_./-]+|"
-        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
-        r"(?:(?:-[A-Za-z]+\s+)*)[A-Za-z0-9_./-]+)",
-        command_text,
-    ):
-        raise AuthorityClosureError(f"unsupported workflow working-directory change: {source_path}")
     shell_commands = (
         commands if commands is not None else _shell_commands(extraction_root, source_path, run)
     )
+    working_directory_changed = False
+    for command in shell_commands:
+        if not command:
+            continue
+        if Path(command[0]).name in {"cd", "pushd"}:
+            working_directory_changed = True
+            continue
+        if not working_directory_changed:
+            continue
+        target_info = _interpreter_command_target(command, source_path)
+        command_target = command[0]
+        has_cwd_relative_target = command_target.startswith(
+            ("./", "scripts/", "aragora/", ".github/")
+        )
+        if target_info is not None and target_info[0] == "script":
+            interpreter_target = target_info[1]
+            has_cwd_relative_target = (
+                has_cwd_relative_target or not Path(interpreter_target).is_absolute()
+            )
+        if has_cwd_relative_target:
+            raise AuthorityClosureError(
+                f"unsupported workflow working-directory change: {source_path}"
+            )
     candidates = [(command[0], True) for command in shell_commands]
     for command in shell_commands:
         target_info = _interpreter_command_target(command, source_path)
