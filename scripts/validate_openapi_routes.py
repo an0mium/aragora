@@ -38,13 +38,18 @@ import inspect
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any, cast
 
 # Ensure local checkout modules take precedence over any globally installed package.
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SOURCE_REPO_ROOT = Path(__file__).resolve().parents[1]
+_BOUND_TREE_ROOT = os.environ.get("_ARAGORA_OPENAPI_ROUTE_TREE_ROOT")
+_BOUND_TREE_REF = os.environ.get("_ARAGORA_OPENAPI_ROUTE_RESOLVED_REF")
+_REPO_ROOT = Path(_BOUND_TREE_ROOT).resolve() if _BOUND_TREE_ROOT else _SOURCE_REPO_ROOT
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
@@ -1576,6 +1581,15 @@ def path_normalization_binding() -> dict[str, Any]:
     across outputs for schema/version/digest equality.
     """
     authority = _REPO_ROOT / _PATH_NORMALIZE_AUTHORITY
+    if _BOUND_TREE_ROOT:
+        imported_authority = inspect.getsourcefile(normalize_sdk_path)
+        if not imported_authority:
+            raise MethodAwareError("cannot locate imported path-normalization authority")
+        imported_relative = _relative_source_path(imported_authority)
+        if imported_relative != _PATH_NORMALIZE_AUTHORITY:
+            raise MethodAwareError(
+                "imported path-normalization authority does not come from the bound route tree"
+            )
     try:
         authority_bytes = authority.read_bytes()
     except OSError as exc:
@@ -1590,14 +1604,137 @@ def path_normalization_binding() -> dict[str, Any]:
     }
 
 
-def _require_exact_ref(ref: str) -> str:
-    # 40 hex is a SHA-1 object name; 64 hex supports SHA-256 object-format repos.
-    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", ref or ""):
-        raise MethodAwareError(
-            f"--ref must be an exact 40- or 64-hex commit SHA, got {ref!r}; "
-            'run with --ref "$(git rev-parse HEAD)"'
+def _git(
+    source_repo_root: Path,
+    *args: str,
+) -> subprocess.CompletedProcess[str]:
+    git_env = {
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "HOME": os.environ.get("HOME", ""),
+        "LC_ALL": "C",
+        "PATH": os.environ.get("PATH", ""),
+        "TMPDIR": os.environ.get("TMPDIR", tempfile.gettempdir()),
+    }
+    try:
+        return subprocess.run(
+            [
+                "git",
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-C",
+                str(source_repo_root),
+                *args,
+            ],
+            check=False,
+            capture_output=True,
+            env=git_env,
+            text=True,
         )
-    return ref
+    except OSError as exc:
+        raise MethodAwareError(f"cannot execute git: {exc}") from exc
+
+
+def _require_exact_ref(
+    ref: str | None,
+    *,
+    source_repo_root: Path = _SOURCE_REPO_ROOT,
+) -> str:
+    if not ref or "\x00" in ref or ref.startswith("-"):
+        raise MethodAwareError("--ref cannot resolve to a commit")
+
+    source_repo_root = source_repo_root.resolve()
+    result = _git(source_repo_root, "rev-parse", "--verify", f"{ref}^{{commit}}")
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        suffix = f": {detail}" if detail else ""
+        raise MethodAwareError(f"--ref {ref!r} cannot resolve to a commit{suffix}")
+
+    return _require_resolved_commit_id(result.stdout.strip().lower(), label=f"--ref {ref!r}")
+
+
+def _require_resolved_commit_id(value: str, *, label: str = "resolved ref") -> str:
+    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", value) or set(value) == {"0"}:
+        raise MethodAwareError(f"{label} is not a valid resolved commit object ID")
+    return value
+
+
+def _repo_relative_input(path: str | Path, *, source_repo_root: Path, label: str) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            candidate = candidate.relative_to(source_repo_root)
+        except ValueError as exc:
+            raise MethodAwareError(f"{label} must be inside the source repository") from exc
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise MethodAwareError(f"{label} must be a repository-relative path")
+    return candidate
+
+
+def _create_detached_checkout(
+    *,
+    source_repo_root: Path,
+    resolved_ref: str,
+    target_root: Path,
+) -> None:
+    template_root = target_root.parent / "git-template"
+    template_root.mkdir()
+    clone = _git(
+        source_repo_root,
+        "clone",
+        "--no-checkout",
+        "--shared",
+        f"--template={template_root}",
+        str(source_repo_root),
+        str(target_root),
+    )
+    if clone.returncode != 0:
+        detail = clone.stderr.strip() or clone.stdout.strip()
+        raise MethodAwareError(
+            f"cannot create isolated checkout for resolved commit {resolved_ref}: {detail}"
+        )
+
+    checkout = _git(
+        target_root,
+        "checkout",
+        "--detach",
+        resolved_ref,
+    )
+    if checkout.returncode != 0:
+        detail = checkout.stderr.strip() or checkout.stdout.strip()
+        raise MethodAwareError(
+            f"cannot detach isolated checkout at resolved commit {resolved_ref}: {detail}"
+        )
+
+
+def _prove_bound_tree(ref: str) -> str:
+    resolved = _require_resolved_commit_id(ref)
+    head_result = _git(_REPO_ROOT, "rev-parse", "--verify", "HEAD^{commit}")
+    if head_result.returncode != 0:
+        detail = head_result.stderr.strip() or head_result.stdout.strip()
+        raise MethodAwareError(f"cannot resolve bound route tree HEAD: {detail}")
+    head = _require_resolved_commit_id(
+        head_result.stdout.strip().lower(),
+        label="bound route tree HEAD",
+    )
+    if resolved != head:
+        raise MethodAwareError(
+            f"bound route tree HEAD {head} does not equal resolved commit {resolved}"
+        )
+    status = _git(_REPO_ROOT, "status", "--porcelain", "--untracked-files=all")
+    if status.returncode != 0:
+        detail = status.stderr.strip() or status.stdout.strip()
+        raise MethodAwareError(f"cannot prove bound route tree cleanliness: {detail}")
+    if status.stdout:
+        raise MethodAwareError("bound route tree is dirty; refusing to bind operation evidence")
+    if _BOUND_TREE_REF != resolved:
+        raise MethodAwareError(
+            "bound route tree environment does not name its exact resolved commit"
+        )
+    return resolved
 
 
 def _clean_literal_path(raw: str) -> str | None:
@@ -1617,6 +1754,16 @@ def _clean_literal_path(raw: str) -> str | None:
 
 def _relative_source_path(path: Path | str) -> str:
     candidate = Path(path)
+    if _BOUND_TREE_ROOT:
+        resolved = (
+            candidate.resolve() if candidate.is_absolute() else (_REPO_ROOT / candidate).resolve()
+        )
+        try:
+            return str(resolved.relative_to(_REPO_ROOT))
+        except ValueError as exc:
+            raise MethodAwareError(
+                f"authority source path escapes the bound route tree: {candidate}"
+            ) from exc
     try:
         return str(candidate.relative_to(_REPO_ROOT))
     except ValueError:
@@ -1680,6 +1827,15 @@ def _active_handler_source_files() -> frozenset[str]:
     files: set[str] = set()
 
     def _add(source_file: str) -> None:
+        if _BOUND_TREE_ROOT:
+            resolved = Path(source_file).resolve()
+            try:
+                files.add(str(resolved.relative_to(_REPO_ROOT)))
+            except ValueError:
+                # Standard-library and dependency MRO methods are not handler
+                # source authority and cannot be scanned under the repository.
+                pass
+            return
         # Key the census on BOTH the raw and resolved spellings so the
         # membership check in get_handler_source_literal_operations (which
         # resolves the scanned file) agrees under symlinked checkouts.
@@ -1779,6 +1935,12 @@ def _iter_registry_handler_classes() -> Iterator[Any]:
         handler_registry = importlib.import_module("aragora.server.handler_registry")
     except ImportError as exc:  # pragma: no cover - environment failure
         raise MethodAwareError(f"cannot import handler_registry: {exc}") from exc
+
+    if _BOUND_TREE_ROOT:
+        registry_source = getattr(handler_registry, "__file__", None)
+        if not registry_source:
+            raise MethodAwareError("cannot locate imported handler_registry authority")
+        _relative_source_path(registry_source)
 
     registry = handler_registry.HANDLER_REGISTRY
     filter_by_tier = getattr(handler_registry, "filter_registry_by_tier", None)
@@ -2514,6 +2676,87 @@ def load_operation_projection(inventory_path: str | Path | None = None) -> dict[
     }
 
 
+def _run_method_aware_plane_at_commit(
+    *,
+    spec_path: str | Path,
+    resolved_ref: str,
+    internal_prefixes_path: str | Path,
+    inventory_path: str | Path | None = None,
+    source_repo_root: Path = _SOURCE_REPO_ROOT,
+) -> dict[str, Any]:
+    source_repo_root = source_repo_root.resolve()
+    resolved_ref = _require_resolved_commit_id(resolved_ref)
+    spec_relative = _repo_relative_input(
+        spec_path,
+        source_repo_root=source_repo_root,
+        label="--spec",
+    )
+    internal_prefixes_relative = _repo_relative_input(
+        internal_prefixes_path,
+        source_repo_root=source_repo_root,
+        label="--internal-prefixes",
+    )
+    inventory_relative = _repo_relative_input(
+        inventory_path or Path("scripts/baselines/contract_drift_inventory.json"),
+        source_repo_root=source_repo_root,
+        label="--inventory",
+    )
+
+    with tempfile.TemporaryDirectory(prefix="aragora-openapi-route-tree-") as temp_dir:
+        temporary_root = Path(temp_dir)
+        target_root = temporary_root / "tree"
+        _create_detached_checkout(
+            source_repo_root=source_repo_root,
+            resolved_ref=resolved_ref,
+            target_root=target_root,
+        )
+
+        command = [
+            sys.executable,
+            "-I",
+            "-B",
+            str(_SOURCE_REPO_ROOT / "scripts/validate_openapi_routes.py"),
+            "--ref",
+            resolved_ref,
+            "--spec",
+            str(spec_relative),
+            "--internal-prefixes",
+            str(internal_prefixes_relative),
+            "--inventory",
+            str(inventory_relative),
+            "--json",
+        ]
+        child_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "_ARAGORA_OPENAPI_ROUTE_TREE_ROOT": str(target_root),
+            "_ARAGORA_OPENAPI_ROUTE_RESOLVED_REF": resolved_ref,
+        }
+        result = subprocess.run(
+            command,
+            cwd=target_root,
+            env=child_env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            raise MethodAwareError(
+                f"method-aware validation failed at resolved commit {resolved_ref}: {detail}"
+            )
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise MethodAwareError(
+                f"method-aware validation returned invalid JSON at {resolved_ref}"
+            ) from exc
+        if not isinstance(payload, dict) or payload.get("ref") != resolved_ref:
+            raise MethodAwareError(
+                f"method-aware validation did not bind output to resolved commit {resolved_ref}"
+            )
+        return cast(dict[str, Any], payload)
+
+
 def validate_method_aware_plane(
     spec_path: str,
     ref: str,
@@ -2521,7 +2764,7 @@ def validate_method_aware_plane(
     inventory_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Compute the complete VAL-CDG-011 method-aware operation plane."""
-    ref = _require_exact_ref(ref)
+    ref = _prove_bound_tree(ref) if _BOUND_TREE_ROOT else _require_exact_ref(ref)
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
 
     wired_witnesses: list[dict[str, Any]] = []
@@ -2623,6 +2866,8 @@ def validate_method_aware_plane(
     for name, operations in collections.items():
         plane[name] = operations
         plane[f"{name}_count"] = len(operations)
+    if _BOUND_TREE_ROOT:
+        _prove_bound_tree(ref)
     return plane
 
 
@@ -2886,9 +3131,14 @@ def main():
         "--ref",
         default=None,
         help=(
-            "Exact 40-hex commit SHA to bind operation evidence to; enables the "
-            "method-aware VAL-CDG-011 operation plane"
+            "Git ref resolved exactly once as <ref>^{commit}; enables the "
+            "method-aware VAL-CDG-011 operation plane bound to that immutable tree"
         ),
+    )
+    parser.add_argument(
+        "--inventory",
+        default="scripts/baselines/contract_drift_inventory.json",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--fail-on-missing",
@@ -2922,11 +3172,36 @@ def main():
     args = parser.parse_args()
     if args.ref is not None:
         try:
-            plane = validate_method_aware_plane(
-                args.spec,
-                args.ref,
-                internal_prefixes_path=args.internal_prefixes,
-            )
+            if _BOUND_TREE_ROOT:
+                spec_relative = _repo_relative_input(
+                    args.spec,
+                    source_repo_root=_REPO_ROOT,
+                    label="--spec",
+                )
+                internal_prefixes_relative = _repo_relative_input(
+                    args.internal_prefixes,
+                    source_repo_root=_REPO_ROOT,
+                    label="--internal-prefixes",
+                )
+                inventory_relative = _repo_relative_input(
+                    args.inventory,
+                    source_repo_root=_REPO_ROOT,
+                    label="--inventory",
+                )
+                plane = validate_method_aware_plane(
+                    str(_REPO_ROOT / spec_relative),
+                    args.ref,
+                    internal_prefixes_path=str(_REPO_ROOT / internal_prefixes_relative),
+                    inventory_path=_REPO_ROOT / inventory_relative,
+                )
+            else:
+                resolved_ref = _require_exact_ref(args.ref)
+                plane = _run_method_aware_plane_at_commit(
+                    spec_path=args.spec,
+                    resolved_ref=resolved_ref,
+                    internal_prefixes_path=args.internal_prefixes,
+                    inventory_path=args.inventory,
+                )
         except MethodAwareError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
