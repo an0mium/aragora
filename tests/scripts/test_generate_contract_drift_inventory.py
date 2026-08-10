@@ -783,6 +783,9 @@ def test_dynamic_working_directory_with_local_command_cannot_vanish(tmp_path: Pa
         "cd scripts && env MODE=strict ./authority-helper",
         "cd scripts && env MODE= ./authority-helper",
         'cd scripts && env MODE="strict mode" ./authority-helper',
+        "cd scripts && python -m generate_contract_drift_inventory",
+        "cd scripts && bash -c ./generate_contract_drift_inventory.py",
+        ("cd scripts && python -c \"exec(open('generate_contract_drift_inventory.py').read())\""),
     ],
 )
 def test_inline_working_directory_changes_fail_closed(tmp_path: Path, run: str):

@@ -2819,11 +2819,14 @@ def _literal_run_script_references(
         has_cwd_relative_target = command_target.startswith(
             ("./", "scripts/", "aragora/", ".github/")
         )
-        if target_info is not None and target_info[0] == "script":
-            interpreter_target = target_info[1]
-            has_cwd_relative_target = (
-                has_cwd_relative_target or not Path(interpreter_target).is_absolute()
-            )
+        if target_info is not None:
+            target_kind, interpreter_target = target_info
+            if target_kind == "script":
+                has_cwd_relative_target = (
+                    has_cwd_relative_target or not Path(interpreter_target).is_absolute()
+                )
+            else:
+                has_cwd_relative_target = True
         if has_cwd_relative_target:
             raise AuthorityClosureError(
                 f"unsupported workflow working-directory change: {source_path}"
