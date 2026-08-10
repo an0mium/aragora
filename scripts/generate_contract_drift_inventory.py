@@ -2451,7 +2451,10 @@ def _literal_run_script_references(
     )
     command_text = _mask_github_expressions(run)
     if re.search(
-        r"(?:^|[;&|(\n])\s*cd(?:\s|$)[^\n]*?(?:&&|;)\s*\./[A-Za-z0-9_./-]+",
+        r"(?:^|[;&|(\n])\s*cd(?:\s|$)[^\n]*?(?:&&|;)\s*"
+        r"(?:\./[A-Za-z0-9_./-]+|"
+        r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
+        r"(?:(?:-[A-Za-z]+\s+)*)[A-Za-z0-9_./-]+)",
         command_text,
     ):
         raise AuthorityClosureError(f"unsupported workflow working-directory change: {source_path}")
