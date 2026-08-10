@@ -2764,7 +2764,19 @@ def validate_method_aware_plane(
     inventory_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Compute the complete VAL-CDG-011 method-aware operation plane."""
-    ref = _prove_bound_tree(ref) if _BOUND_TREE_ROOT else _require_exact_ref(ref)
+    if not _BOUND_TREE_ROOT:
+        resolved_ref = _require_exact_ref(ref, source_repo_root=_SOURCE_REPO_ROOT)
+        return _run_method_aware_plane_at_commit(
+            spec_path=spec_path,
+            resolved_ref=resolved_ref,
+            internal_prefixes_path=(
+                internal_prefixes_path or "scripts/baselines/internal_route_prefixes.json"
+            ),
+            inventory_path=inventory_path,
+            source_repo_root=_SOURCE_REPO_ROOT,
+        )
+
+    ref = _prove_bound_tree(ref)
     internal_prefixes = load_internal_prefixes(internal_prefixes_path)
 
     wired_witnesses: list[dict[str, Any]] = []

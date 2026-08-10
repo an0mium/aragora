@@ -251,6 +251,46 @@ def test_moving_symbolic_ref_is_resolved_once(
     assert {entry["operation_id"] for entry in plane["declared_and_served"]} == {"GET /api/ref-a"}
 
 
+def test_direct_method_aware_entrypoint_delegates_to_exact_tree(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    resolved = "a" * 40
+    expected = {"ref": resolved}
+    captured: dict[str, object] = {}
+
+    def fake_resolve(ref, *, source_repo_root):
+        captured["ref"] = ref
+        captured["source_repo_root"] = source_repo_root
+        return resolved
+
+    def fake_run(**kwargs):
+        captured.update(kwargs)
+        return expected
+
+    monkeypatch.setattr(validate_openapi_routes, "_require_exact_ref", fake_resolve)
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "_run_method_aware_plane_at_commit",
+        fake_run,
+    )
+
+    result = validate_openapi_routes.validate_method_aware_plane(
+        "docs/api/openapi.json",
+        "moving-ref",
+        internal_prefixes_path="scripts/baselines/internal_route_prefixes.json",
+    )
+
+    assert result is expected
+    assert captured == {
+        "ref": "moving-ref",
+        "source_repo_root": validate_openapi_routes._SOURCE_REPO_ROOT,
+        "spec_path": "docs/api/openapi.json",
+        "resolved_ref": resolved,
+        "internal_prefixes_path": "scripts/baselines/internal_route_prefixes.json",
+        "inventory_path": None,
+    }
+
+
 def _fake_registry(entries):
     """Fake handler_registry module mirroring the real tier-filter surface."""
     return types.SimpleNamespace(
