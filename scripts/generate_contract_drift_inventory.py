@@ -1740,6 +1740,19 @@ class _WorkflowYamlParser:
                 raw_block.append(raw)
                 next_index += 1
             content_indent = min(content_indents, default=key_indent + 1)
+            if (
+                key == "run"
+                and raw_value.startswith(">")
+                and any(
+                    raw.strip() and len(raw) - len(raw.lstrip(" ")) > content_indent
+                    for raw in raw_block
+                )
+            ):
+                raise _workflow_yaml_error(
+                    self.path,
+                    index + 1,
+                    "unsupported more-indented folded block scalar",
+                )
             block = [raw[content_indent:] if raw.strip() else "" for raw in raw_block]
             value = (
                 _fold_workflow_yaml_block(block) if raw_value.startswith(">") else "\n".join(block)
@@ -2282,18 +2295,24 @@ def _shell_commands(
         ".github/",
     )
     active_heredoc = ""
+    active_heredoc_expands = False
     shell_lines: list[str] = []
     for line in run.splitlines():
         if active_heredoc:
             if line.strip() == active_heredoc:
                 active_heredoc = ""
+                active_heredoc_expands = False
                 shell_lines.append(line)
             elif line.lstrip().startswith(executable_prefixes):
                 raise AuthorityClosureError(
                     f"unsupported extensionless heredoc executable syntax: {source_path}"
                 )
+            elif active_heredoc_expands and "`" in line:
+                raise AuthorityClosureError(
+                    f"unsupported heredoc command substitution syntax: {source_path}"
+                )
             else:
-                shell_lines.append("")
+                shell_lines.append(line if active_heredoc_expands and "$(" in line else "")
             continue
         shell_lines.append(line)
         heredoc_match = re.search(
@@ -2302,6 +2321,7 @@ def _shell_commands(
         )
         if heredoc_match:
             active_heredoc = heredoc_match.group(2)
+            active_heredoc_expands = not bool(heredoc_match.group(1))
     if active_heredoc:
         raise AuthorityClosureError(f"unterminated workflow run heredoc: {source_path}")
     normalized = "\n".join(shell_lines).replace("\\\n", " ")
@@ -2583,6 +2603,16 @@ def _interpreter_command_target(
         index = 1
         while index < len(command):
             argument = command[index]
+            redirected_target, next_index = _stdin_redirection_target(
+                command,
+                index,
+                source_path,
+            )
+            if redirected_target is not None:
+                return ("script", redirected_target)
+            if next_index != index:
+                index = next_index
+                continue
             if argument == "-m":
                 if index + 1 >= len(command):
                     raise AuthorityClosureError(
@@ -2643,6 +2673,16 @@ def _interpreter_command_target(
     )
     while index < len(command):
         argument = command[index]
+        redirected_target, next_index = _stdin_redirection_target(
+            command,
+            index,
+            source_path,
+        )
+        if redirected_target is not None:
+            return ("script", redirected_target)
+        if next_index != index:
+            index = next_index
+            continue
         if argument == "--":
             index += 1
             break
@@ -2680,6 +2720,23 @@ def _interpreter_command_target(
             continue
         break
     return ("script", command[index]) if index < len(command) else None
+
+
+def _stdin_redirection_target(
+    command: list[str],
+    index: int,
+    source_path: str,
+) -> tuple[str | None, int]:
+    argument = command[index]
+    if argument == "<":
+        if index + 1 >= len(command):
+            raise AuthorityClosureError(
+                f"incomplete workflow interpreter stdin redirection: {source_path}"
+            )
+        return command[index + 1], index + 2
+    if argument.startswith("<") and not argument.startswith(("<<", "<<<")):
+        return argument[1:], index + 1
+    return None, index
 
 
 def _literal_run_script_references(
@@ -2720,7 +2777,8 @@ def _literal_run_script_references(
         return sorted(references)
     command_text = _mask_github_expressions(run)
     if re.search(
-        r"(?:^|[;&|(\n])\s*cd(?:\s|$)[^\n]*?(?:&&|;)\s*"
+        r"(?:^|[;&|(\n])\s*(?:cd|pushd)(?:\s|$)[^\n]*?"
+        r"(?:(?:&&|;)[ \t]*|\n(?:[ \t]*(?:#.*)?\n)*[ \t]*)"
         r"(?:\./[A-Za-z0-9_./-]+|"
         r"(?:python(?:3(?:\.\d+)?)?|bash|sh)\s+"
         r"(?:(?:-[A-Za-z]+\s+)*)[A-Za-z0-9_./-]+)",

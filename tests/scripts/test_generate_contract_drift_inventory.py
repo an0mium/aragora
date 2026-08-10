@@ -792,6 +792,18 @@ def test_inline_working_directory_changes_fail_closed(tmp_path: Path, run: str):
         )
 
 
+def test_multiline_working_directory_change_before_helper_fails_closed(tmp_path: Path):
+    helper = tmp_path / "scripts/authority-helper"
+    _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
+    helper.chmod(0o755)
+    with pytest.raises(gen.AuthorityClosureError, match="working-directory change"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            "cd scripts\n# execute from the new cwd\n./authority-helper",
+        )
+
+
 @pytest.mark.parametrize(
     ("steps", "error"),
     [
@@ -1012,6 +1024,21 @@ def test_python_inline_code_includes_nonexecutable_extensionless_script(tmp_path
     ) == ["scripts/helper"]
 
 
+@pytest.mark.parametrize("run", ["bash < scripts/helper", "python <scripts/helper"])
+def test_interpreter_stdin_redirection_includes_extensionless_script(
+    tmp_path: Path,
+    run: str,
+):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "echo safe\n")
+    helper.chmod(0o644)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        run,
+    ) == ["scripts/helper"]
+
+
 @pytest.mark.parametrize(
     "run",
     [
@@ -1108,6 +1135,17 @@ def test_bare_extensionless_heredoc_command_fails_closed(tmp_path: Path):
             ".github/workflows/authority.yml",
             "sh <<EOF\nscripts/helper\nEOF",
         )
+
+
+def test_unquoted_heredoc_substitution_includes_extensionless_helper(tmp_path: Path):
+    helper = tmp_path / "scripts/helper"
+    _write_text(helper, "echo safe\n")
+    helper.chmod(0o644)
+    assert gen._run_script_references(
+        tmp_path,
+        ".github/workflows/authority.yml",
+        "cat <<EOF\n$(bash scripts/helper)\nEOF",
+    ) == ["scripts/helper"]
 
 
 def test_here_string_does_not_hide_following_extensionless_helper(tmp_path: Path):
@@ -1261,6 +1299,21 @@ def test_folded_run_scalar_preserves_one_shell_command(tmp_path: Path):
         "          scripts/helper.py\n",
     )
     assert gen._workflow_structure(path)["runs"] == ["python scripts/helper.py"]
+
+
+def test_more_indented_folded_run_scalar_fails_closed(tmp_path: Path):
+    path = tmp_path / "workflow.yml"
+    _write_text(
+        path,
+        "jobs:\n"
+        "  authority:\n"
+        "    steps:\n"
+        "      - run: >\n"
+        "          echo safe\n"
+        "            ./scripts/helper\n",
+    )
+    with pytest.raises(gen.AuthorityClosureError, match="more-indented folded block"):
+        gen._workflow_structure(path)
 
 
 def test_tab_inside_run_block_scalar_is_content_not_yaml_indentation(tmp_path: Path):
