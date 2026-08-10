@@ -2395,7 +2395,16 @@ def _shell_commands(
     commands: list[list[str]] = []
     separators = {";", ";;", "&", "&&", "|", "||", "("}
     reserved = {"!", "do", "elif", "else", "if", "then", "until", "while"}
-    unsupported_wrappers = {"exec", "nohup", "source", "time", "."}
+    unsupported_wrappers = {
+        ".",
+        "builtin",
+        "eval",
+        "exec",
+        "nohup",
+        "source",
+        "time",
+        "xargs",
+    }
     command_start = True
     active_command = ""
     active_items: list[str] = []
@@ -2406,7 +2415,7 @@ def _shell_commands(
         if env_option_operand:
             raise AuthorityClosureError(f"incomplete workflow env wrapper option: {source_path}")
 
-    for item in tokens:
+    for token_index, item in enumerate(tokens):
         if item == "\n" or item in separators:
             finish_command()
             command_start = True
@@ -2468,6 +2477,16 @@ def _shell_commands(
         if item == "env":
             env_wrapper = True
             continue
+        if item == "command":
+            next_item = tokens[token_index + 1] if token_index + 1 < len(tokens) else ""
+            if next_item in {"-v", "-V"}:
+                active_command = item
+                active_items = []
+                command_start = False
+                continue
+            raise AuthorityClosureError(
+                f"unsupported workflow command wrapper: {source_path} -> {item}"
+            )
         if item in unsupported_wrappers:
             raise AuthorityClosureError(
                 f"unsupported workflow command wrapper: {source_path} -> {item}"
@@ -2503,6 +2522,10 @@ def _command_substitution_bodies(command: str, source_path: str) -> list[str]:
                 if character == "\\":
                     index += 2
                     continue
+                if character == "`":
+                    raise AuthorityClosureError(
+                        f"unsupported workflow command substitution syntax: {source_path}"
+                    )
                 if character == '"':
                     quote = ""
                 elif command.startswith("$(", index) and not command.startswith("$((", index):
@@ -2519,6 +2542,10 @@ def _command_substitution_bodies(command: str, source_path: str) -> list[str]:
             quote = character
             index += 1
             continue
+        if character == "`":
+            raise AuthorityClosureError(
+                f"unsupported workflow command substitution syntax: {source_path}"
+            )
         if character == "#" and (index == 0 or command[index - 1].isspace()):
             newline = command.find("\n", index)
             if newline < 0:

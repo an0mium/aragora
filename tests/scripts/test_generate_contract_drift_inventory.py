@@ -1111,6 +1111,10 @@ def test_env_wrapper_unsupported_option_fails_closed(tmp_path: Path):
         "nohup ./scripts/helper",
         "exec ./scripts/helper",
         "source scripts/helper",
+        "builtin bash scripts/helper",
+        "eval bash scripts/helper",
+        "command bash scripts/helper",
+        "xargs bash scripts/helper",
     ],
 )
 def test_unsupported_extensionless_command_wrappers_fail_closed(tmp_path: Path, run: str):
@@ -1118,6 +1122,34 @@ def test_unsupported_extensionless_command_wrappers_fail_closed(tmp_path: Path, 
     _write_text(helper, "#!/usr/bin/env bash\necho safe\n")
     helper.chmod(0o755)
     with pytest.raises(gen.AuthorityClosureError, match="unsupported workflow command wrapper"):
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            run,
+        )
+
+
+def test_command_lookup_predicate_remains_supported(tmp_path: Path):
+    assert (
+        gen._run_script_references(
+            tmp_path,
+            ".github/workflows/authority.yml",
+            "if command -v python >/dev/null; then python --version; fi",
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "echo `bash scripts/helper`",
+        "echo `bash scripts/helper --flag`",
+        'echo "`bash scripts/helper --flag`"',
+    ],
+)
+def test_backtick_command_substitution_fails_closed(tmp_path: Path, run: str):
+    with pytest.raises(gen.AuthorityClosureError):
         gen._run_script_references(
             tmp_path,
             ".github/workflows/authority.yml",
