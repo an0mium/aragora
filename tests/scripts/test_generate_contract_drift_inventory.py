@@ -3682,14 +3682,25 @@ def test_unresolved_or_abbreviated_sha_fails_closed(tmp_path: Path):
 
 
 def test_source_sha_mismatch_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    repo, sha = _init_repo(tmp_path)
+    repo, parent = _init_repo(tmp_path)
+    inventory_path = Path("scripts/baselines/contract_drift_inventory.json")
+    destination = repo / inventory_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text('{"accepted_authority": {}}\n', encoding="utf-8")
+    sha = _commit_fixture(repo, "accepted authority source")
     proc = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     )
     assert proc.stdout.strip() == sha
+    assert (
+        subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", f"{sha}^"],
+            text=True,
+        ).strip()
+        == parent
+    )
     # A receipt whose source SHA is not the exact first-parent tip fails.
     monkeypatch.setattr(ratchet, "validate_accepted_authority", lambda *a, **k: {"active_original_record_ids": [], "analyzer_bundle_sha256": "", "live_original_record_ids": []})  # fmt: skip
-    inventory_path = Path(ratchet.__file__).parents[1] / "scripts/baselines/contract_drift_inventory.json"  # fmt: skip
     mismatched = ratchet.build_accepted_result(
         mode="receipt",
         repo_root=repo,

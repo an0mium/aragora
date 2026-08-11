@@ -4221,6 +4221,13 @@ def _accepted_authority() -> dict[str, Any]:
     return json.loads(path.read_text())["accepted_authority"]
 
 
+def _accepted_authority_at_ref(ref: str) -> dict[str, Any]:
+    document = ratchet._git_json(_REPO_ROOT, ref, gen.DEFAULT_INVENTORY)
+    authority = document.get("accepted_authority")
+    assert isinstance(authority, dict)
+    return authority
+
+
 def _genesis_authority(authority: dict[str, Any]) -> dict[str, Any]:
     """Reconstruct the all-active genesis form of the accepted authority.
 
@@ -4337,8 +4344,201 @@ def test_residue_tolerance_refs_bind_event_base_and_first_parent(monkeypatch):
     root = Path(ratchet.__file__).parents[1]
     ratchet.compare_accepted_authorities(_accepted_authority(), _accepted_authority(), repo_root=root, base_ref="base-sha", head_ref="head-sha")  # fmt: skip
     source = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()  # fmt: skip
+    parent = subprocess.run(["git", "-C", str(root), "rev-parse", f"{source}^"], capture_output=True, text=True, check=True).stdout.strip()  # fmt: skip
     ratchet.build_accepted_result(mode="receipt", repo_root=root, inventory_path=root / "scripts/baselines/contract_drift_inventory.json", source_sha=source)  # fmt: skip
-    assert calls == [("base-sha", "base-sha"), ("head-sha", "base-sha"), (source, f"{source}^")]
+    assert calls == [("base-sha", "base-sha"), ("head-sha", "base-sha"), (source, parent)]
+
+
+def test_real_h2_h3_pair_tolerates_all_483_inherited_residue_keys():
+    root = Path(ratchet.__file__).parents[1]
+    authority = _accepted_authority_at_ref(H3_SHA)
+    records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
+    original_keys = {
+        f"{record['source_json_key']}:{gen.normalize_key(record['exact_historical_literal_record'])}"
+        for record in records
+    }
+    h2_residue = ratchet._outside_cohort_residue(root, H2_SHA, original_keys)
+    h3_residue = ratchet._outside_cohort_residue(root, H3_SHA, original_keys)
+    assert h2_residue == h3_residue
+    assert len(h3_residue) == 483
+    live = ratchet._live_witnesses(
+        authority,
+        repo_root=root,
+        live_ref=H3_SHA,
+        residue_ref=H2_SHA,
+    )
+    assert len(live) == 400
+
+
+def test_real_h2_residue_fixture_rejects_new_and_rekeyed_keys_but_allows_removal(
+    tmp_path: Path,
+):
+    root = Path(ratchet.__file__).parents[1]
+    authority = _accepted_authority_at_ref(H3_SHA)
+    records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
+    original_keys = {
+        f"{record['source_json_key']}:{gen.normalize_key(record['exact_historical_literal_record'])}"
+        for record in records
+    }
+    h2_docs = gen.load_git_docs(root, H2_SHA)
+    h2_ids = set(gen.collect_ids(h2_docs))
+    repo = tmp_path / "real-h2-residue"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    _write_docs(repo, h2_docs)
+    base = _commit(repo, "real H2 baseline bytes")
+
+    removed_docs = copy.deepcopy(h2_docs)
+    residue_entry = next(
+        entry
+        for entry in removed_docs["routes"]["missing_in_spec"]
+        if f"missing_in_spec:{gen.normalize_key(entry)}" not in original_keys
+        and f"orphaned_in_spec:{gen.normalize_key(entry)}" not in h2_ids
+    )
+    removed_docs["routes"]["missing_in_spec"].remove(residue_entry)
+    _write_docs(repo, removed_docs)
+    removal = _commit(repo, "remove inherited residue")
+    removal_live = ratchet._live_witnesses(
+        authority,
+        repo_root=repo,
+        live_ref=removal,
+        residue_ref=base,
+    )
+    assert len(removal_live) == 400
+
+    new_docs = copy.deepcopy(h2_docs)
+    new_entry = "/api/v1/__guard-v2-reference-closure-new__"
+    new_docs["routes"]["missing_in_spec"].append(new_entry)
+    _write_docs(repo, new_docs)
+    new_ref = _commit(repo, "add new residue")
+    with pytest.raises(
+        ValueError,
+        match="new live baseline keys outside immutable original cohort",
+    ) as added:
+        ratchet._live_witnesses(
+            authority,
+            repo_root=repo,
+            live_ref=new_ref,
+            residue_ref=base,
+        )
+    assert (
+        str(added.value) == "new live baseline keys outside immutable original cohort versus "
+        f"{base}: ['missing_in_spec:{new_entry}']"
+    )
+
+    rekeyed_docs = copy.deepcopy(h2_docs)
+    rekeyed_docs["routes"]["missing_in_spec"].remove(residue_entry)
+    rekeyed_docs["routes"]["orphaned_in_spec"].append(residue_entry)
+    _write_docs(repo, rekeyed_docs)
+    rekeyed_ref = _commit(repo, "re-key inherited residue")
+    with pytest.raises(
+        ValueError,
+        match="new live baseline keys outside immutable original cohort",
+    ) as rekeyed:
+        ratchet._live_witnesses(
+            authority,
+            repo_root=repo,
+            live_ref=rekeyed_ref,
+            residue_ref=base,
+        )
+    assert (
+        str(rekeyed.value) == "new live baseline keys outside immutable original cohort versus "
+        f"{base}: ['orphaned_in_spec:{gen.normalize_key(residue_entry)}']"
+    )
+
+
+def _run_accepted_cli(
+    repo: Path,
+    *,
+    mode: str,
+    source_ref: str | None,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+    command = [
+        sys.executable,
+        str(Path(ratchet.__file__)),
+        "--mode",
+        mode,
+        "--repo-root",
+        str(repo),
+        "--inventory",
+        gen.DEFAULT_INVENTORY,
+        "--json",
+    ]
+    if mode == "program":
+        command.extend(["--as-of", "2026-04-17", "--strict"])
+    if source_ref is not None:
+        command.extend(["--ref", source_ref])
+    proc = subprocess.run(
+        command,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    return proc, json.loads(proc.stdout)
+
+
+@pytest.mark.parametrize("mode", ["program", "receipt"])
+def test_accepted_main_modes_require_explicit_immutable_ref(
+    tmp_path: Path,
+    mode: str,
+):
+    repo, _base, _head = _hermetic_repo(tmp_path)
+    proc, result = _run_accepted_cli(repo, mode=mode, source_ref=None)
+    assert proc.returncode == 1
+    assert result["status"] == "fail" and result["passing"] is False
+    assert result["error_code"] == "accepted_authority_ref_required"
+    assert "--ref" in result["error"]
+
+
+@pytest.mark.parametrize("mode", ["program", "receipt"])
+def test_accepted_main_modes_reject_malformed_unresolvable_and_noncommit_refs(
+    tmp_path: Path,
+    mode: str,
+):
+    repo, base, head = _hermetic_repo(tmp_path)
+    tree = subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", f"{head}^{{tree}}"],
+        text=True,
+    ).strip()
+    hostile_refs = ("HEAD", head[:12], head.upper(), "0" * 40, tree, base)
+    for source_ref in hostile_refs:
+        proc, result = _run_accepted_cli(repo, mode=mode, source_ref=source_ref)
+        assert proc.returncode == 1, source_ref
+        assert result["status"] == "fail" and result["passing"] is False
+        assert result["error_code"] == "accepted_authority_ref_invalid"
+        assert "--ref" in result["error"] or "first parent" in result["error"]
+
+
+@pytest.mark.parametrize("mode", ["program", "receipt"])
+def test_accepted_main_modes_bind_non_head_ref_and_ignore_dirty_worktree_authority(
+    tmp_path: Path,
+    mode: str,
+):
+    repo, _base, source = _hermetic_repo(tmp_path)
+    (repo / "later.txt").write_text("later commit\n", encoding="utf-8")
+    later = _commit(repo, "later")
+    assert source != later
+    (repo / gen.DEFAULT_INVENTORY).write_text(
+        '{"accepted_authority":"ambient-hostile"}\n',
+        encoding="utf-8",
+    )
+    (repo / "scripts/baselines/contract_drift_program.json").write_text(
+        '{"start_date":"2099-01-01","start_total_items":0,'
+        '"weekly_reduction":0.5,"grace_weeks":0}\n',
+        encoding="utf-8",
+    )
+    for _alias, (rel_path, _keys) in gen.BASELINE_SPECS.items():
+        (repo / rel_path).write_text("{}\n", encoding="utf-8")
+    proc, result = _run_accepted_cli(repo, mode=mode, source_ref=source)
+    assert proc.returncode == 0, proc.stderr
+    assert result["status"] == "pass" and result["passing"] is True
+    if mode == "program":
+        assert result["program"]["source_sha"] == source
+        assert result["program"]["start_date"] == "2026-04-17"
+        assert result["current"]["total_items"] == 398
+    else:
+        assert result["source_sha"] == source
+        assert result["authority"]["first_parent_chain"][0] == source
 
 
 # ------------------------- VAL-CDG-005 (pr side): file evidence and growth
@@ -6868,6 +7068,10 @@ def test_before_start_and_partial_week_do_not_decay(tmp_path: Path):
 def test_local_timezone_cannot_change_default_as_of(monkeypatch: pytest.MonkeyPatch):
     root = Path(ratchet.__file__).parents[1]
     inventory = root / "scripts/baselines/contract_drift_inventory.json"
+    source = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
     utc_today = datetime.now(UTC).date().isoformat()
     observed: dict[str, str] = {}
     for timezone_name in ("Pacific/Kiritimati", "Etc/GMT+11", "UTC"):
@@ -6875,7 +7079,10 @@ def test_local_timezone_cannot_change_default_as_of(monkeypatch: pytest.MonkeyPa
         time.tzset()
         try:
             result = ratchet.build_accepted_result(
-                mode="program", repo_root=root, inventory_path=inventory
+                mode="program",
+                repo_root=root,
+                inventory_path=inventory,
+                source_sha=source,
             )
         finally:
             monkeypatch.setenv("TZ", "UTC")
@@ -6890,15 +7097,27 @@ def test_local_timezone_cannot_change_default_as_of(monkeypatch: pytest.MonkeyPa
 def test_malformed_or_future_live_as_of_fails_closed():
     root = Path(ratchet.__file__).parents[1]
     inventory = root / "scripts/baselines/contract_drift_inventory.json"
+    source = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
     future = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
     result = ratchet.build_accepted_result(
-        mode="program", repo_root=root, inventory_path=inventory, as_of=future
+        mode="program",
+        repo_root=root,
+        inventory_path=inventory,
+        as_of=future,
+        source_sha=source,
     )
     assert (result["status"], result["passing"]) == ("fail", False)
     assert result["error_code"] == "future_as_of"
     for malformed in ("07/31/2026", "2026-7-1x", "yesterday", "2026-13-40"):
         malformed_result = ratchet.build_accepted_result(
-            mode="program", repo_root=root, inventory_path=inventory, as_of=malformed
+            mode="program",
+            repo_root=root,
+            inventory_path=inventory,
+            as_of=malformed,
+            source_sha=source,
         )
         assert (malformed_result["status"], malformed_result["passing"]) == ("fail", False)
         assert malformed_result["error_code"] == "invalid_as_of"
@@ -7322,6 +7541,23 @@ def test_corrective_guard_v2_old_h2_and_017ce1d7_evidence_are_historical_only():
     # The accepted analyzer source is the H3 product, not the old H2 pin.
     assert bootstrap.ANALYZER_SOURCE_SHA != OLD_H2_PIN_SHA
     assert bootstrap.ANALYZER_SOURCE_SHA == H3_SHA
+    h2_source = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(_REPO_ROOT),
+            "show",
+            f"{H2_SHA}:scripts/check_contract_drift_ratchet.py",
+        ],
+        text=True,
+    )
+    current_source = Path(ratchet.__file__).read_text(encoding="utf-8")
+    zero_residue_rule = (
+        'raise ValueError(f"live baseline keys outside immutable original cohort: {residue}")'
+    )
+    assert zero_residue_rule in h2_source
+    assert zero_residue_rule not in current_source
+    assert "residue - tolerated" in current_source
     # Settlement identity is head-exact: evidence bound to the old head can
     # never authorize the live head (exact-head token mismatch).
     stale = _settlement_comment(9645, OLD_H2_PIN_SHA)
@@ -8589,26 +8825,46 @@ def test_normal_protected_exact_head_merge_is_last_and_never_admin(
 def test_base_without_accepted_authority_requires_transition(tmp_path: Path):
     # An inventory without the accepted-authority manifest yields the
     # dedicated transition error, never head-authority execution.
+    repo = tmp_path / "transition-repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / "parent.txt").write_text("parent\n", encoding="utf-8")
+    _commit(repo, "parent")
     inventory = _real_inventory()
     del inventory["accepted_authority"]
-    bare = tmp_path / "inventory.json"
+    bare = repo / gen.DEFAULT_INVENTORY
+    bare.parent.mkdir(parents=True)
     bare.write_text(json.dumps(inventory), encoding="utf-8")
+    source = _commit(repo, "inventory without authority")
     result = ratchet.build_accepted_result(
-        mode="program", repo_root=_REPO_ROOT, inventory_path=bare
+        mode="program",
+        repo_root=repo,
+        inventory_path=Path(gen.DEFAULT_INVENTORY),
+        source_sha=source,
     )
     assert result["status"] == "fail" and result["passing"] is False
     assert result["error_code"] == "authority_transition_required"
-    # A missing/unreadable inventory is the same closed transition failure.
+    # A source commit without the canonical inventory is the same closed
+    # transition failure.
+    bare.unlink()
+    missing_source = _commit(repo, "inventory absent")
     missing = ratchet.build_accepted_result(
-        mode="program", repo_root=_REPO_ROOT, inventory_path=tmp_path / "absent.json"
+        mode="program",
+        repo_root=repo,
+        inventory_path=Path(gen.DEFAULT_INVENTORY),
+        source_sha=missing_source,
     )
     assert missing["error_code"] == "authority_transition_required"
     # Degraded-schema bases (manifest present but not an object) fail the
     # same way rather than executing whatever the head proposes.
     inventory["accepted_authority"] = "not-a-manifest"
     bare.write_text(json.dumps(inventory), encoding="utf-8")
+    degraded_source = _commit(repo, "malformed authority")
     degraded = ratchet.build_accepted_result(
-        mode="program", repo_root=_REPO_ROOT, inventory_path=bare
+        mode="program",
+        repo_root=repo,
+        inventory_path=Path(gen.DEFAULT_INVENTORY),
+        source_sha=degraded_source,
     )
     assert degraded["error_code"] == "authority_transition_required"
 
@@ -8629,11 +8885,13 @@ def test_corrective_merge_parent_requires_transition(tmp_path: Path):
         )
     )
     assert not isinstance(parent_doc.get("accepted_authority"), dict)
-    # PR mode under PARENT's inventory fails authority_transition_required.
-    parent_inventory = tmp_path / "parent-inventory.json"
-    parent_inventory.write_text(json.dumps(parent_doc), encoding="utf-8")
+    # Program mode at PARENT's immutable inventory fails
+    # authority_transition_required.
     result = ratchet.build_accepted_result(
-        mode="program", repo_root=_REPO_ROOT, inventory_path=parent_inventory
+        mode="program",
+        repo_root=_REPO_ROOT,
+        inventory_path=Path(gen.DEFAULT_INVENTORY),
+        source_sha=parent,
     )
     assert result["error_code"] == "authority_transition_required"
     assert result["passing"] is False
@@ -9527,13 +9785,19 @@ def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.
         text=True,
         check=True,
     ).stdout.strip()
+    parent = subprocess.run(
+        ["git", "-C", str(_REPO_ROOT), "rev-parse", f"{source}^"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     result = ratchet.build_accepted_result(
         mode="receipt",
         repo_root=_REPO_ROOT,
         inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
         source_sha=source,
     )
-    assert calls == [(source, f"{source}^")]
+    assert calls == [(source, parent)]
     assert result["authority"]["source"] == "accepted_authority"
     # Live-witness reconciliation delegates to the canonical inventory
     # loaders rather than reading baselines through a private copy.
@@ -9559,6 +9823,10 @@ def test_no_reachable_classification_filtered_or_raw_baseline_fallback():
         mode="program",
         repo_root=_REPO_ROOT,
         inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
     )
     assert result["authority"]["source"] == "accepted_authority"
 

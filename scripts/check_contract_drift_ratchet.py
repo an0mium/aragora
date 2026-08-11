@@ -4498,6 +4498,62 @@ def _git_json(repo_root: Path, sha: str, path: str) -> dict[str, Any]:
     return _git_json_at_ref(repo_root, sha, path, operation_log=[])
 
 
+def _repository_relative_path(repo_root: Path, path: Path, *, label: str) -> str:
+    if path.is_absolute():
+        try:
+            relative = path.resolve().relative_to(repo_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"{label} must be inside the repository") from exc
+    else:
+        if not path.parts or ".." in path.parts:
+            raise ValueError(f"{label} must be a safe repository-relative path")
+        relative = path
+    value = relative.as_posix()
+    if value in {"", "."}:
+        raise ValueError(f"{label} must name a repository file")
+    return value
+
+
+def _resolve_accepted_source(repo_root: Path, source_sha: str) -> tuple[str, str]:
+    operation_log: list[dict[str, Any]] = []
+    try:
+        source = _resolve_full_sha(
+            repo_root,
+            source_sha,
+            label="accepted-authority --ref",
+            operation_log=operation_log,
+        )
+    except ValueError as exc:
+        if FULL_SHA_RE.fullmatch(source_sha):
+            raise ValueError(
+                f"accepted-authority --ref is unavailable or is not an exact commit: {source_sha}"
+            ) from exc
+        raise
+    try:
+        proc = _run_read_only(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-parse",
+                "--verify",
+                f"{source}^1^{{commit}}",
+            ],
+            operation_log=operation_log,
+            resource="accepted-authority-tolerance-parent",
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"accepted-authority --ref first parent is unavailable: {source}"
+        ) from exc
+    parent = proc.stdout.decode("ascii").strip()
+    if not FULL_SHA_RE.fullmatch(parent):
+        raise ValueError(
+            f"accepted-authority --ref first parent is malformed: {source}"
+        )
+    return source, parent
+
+
 def _bundle_metadata(authority: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
     bundle = authority.get("analyzer_bundle")
     if not isinstance(bundle, dict) or set(bundle) != {"dependencies", "files", "interpreter_flags", "launcher_sha256", "schema"} or bundle["schema"] != "contract-drift-analyzer-bundle-v1" or bundle["dependencies"] != [] or bundle["interpreter_flags"] != list(ANALYZER_FLAGS) or bundle["launcher_sha256"] != _sha256_bytes(HERMETIC_LAUNCHER):
@@ -4685,8 +4741,22 @@ def build_accepted_result(
     as_of: str | None = None,
     source_sha: str | None = None,
 ) -> dict[str, Any]:
+    if source_sha is None:
+        return _accepted_failure(
+            "accepted-authority program/receipt modes require an explicit immutable --ref",
+            "accepted_authority_ref_required",
+        )
     try:
-        inventory = _strict_json_bytes(inventory_path.read_bytes(), "accepted inventory")
+        source, residue_ref = _resolve_accepted_source(repo_root, source_sha)
+        inventory_rel = _repository_relative_path(
+            repo_root,
+            inventory_path,
+            label="accepted inventory path",
+        )
+    except ValueError as exc:
+        return _accepted_failure(str(exc), "accepted_authority_ref_invalid")
+    try:
+        inventory = _git_json(repo_root, source, inventory_rel)
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "authority_transition_required")
     authority = inventory.get("accepted_authority")
@@ -4695,19 +4765,32 @@ def build_accepted_result(
             "resolved base has no accepted authority manifest", "authority_transition_required"
         )
     try:
-        summary = validate_accepted_authority(authority, repo_root=repo_root, live_ref=source_sha, residue_ref=f"{source_sha}^" if source_sha else None)  # fmt: skip
+        summary = validate_accepted_authority(
+            authority,
+            repo_root=repo_root,
+            live_ref=source,
+            residue_ref=residue_ref,
+        )
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
-        source = source_sha or ""
-        valid = FULL_SHA_RE.fullmatch(source)
-        proc = subprocess.run(["git", "-C", str(repo_root), "rev-list", "--first-parent", source], capture_output=True, text=True) if valid else None  # fmt: skip
-        chain = proc.stdout.splitlines() if proc and proc.returncode == 0 else []
-        passing = bool(chain and chain[0] == source_sha)
+        try:
+            proc = _run_read_only(
+                ["git", "-C", str(repo_root), "rev-list", "--first-parent", source],
+                operation_log=[],
+                resource="accepted-authority-first-parent-chain",
+            )
+        except ValueError as exc:
+            return _accepted_failure(
+                str(exc),
+                "accepted_authority_receipt_failed",
+            )
+        chain = proc.stdout.decode("ascii").splitlines()
+        passing = bool(chain and chain[0] == source)
         return {
             "authority": {"first_parent_chain": chain, "source": "accepted_authority"},
             "passing": passing,
-            "source_sha": source_sha,
+            "source_sha": source,
             "status": "pass" if passing else "fail",
         }
     as_of_value = as_of or datetime.now(UTC).date().isoformat()
@@ -4718,7 +4801,14 @@ def build_accepted_result(
     if as_of_date > datetime.now(UTC).date():
         return _accepted_failure("live as-of may not be future-dated", "future_as_of")
     try:
-        program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
+        program = _parse_program(
+            _git_json(
+                repo_root,
+                source,
+                "scripts/baselines/contract_drift_program.json",
+            ),
+            label="Program baseline",
+        )
         weeks = max(0, (as_of_date - program["start_date"]).days // 7)
         target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)  # fmt: skip
     except (OSError, ValueError) as exc:
@@ -4728,7 +4818,7 @@ def build_accepted_result(
     program_result = {
         "as_of": as_of_value,
         "effective_weeks": weeks,
-        "source_sha": source_sha,
+        "source_sha": source,
         "start_date": program["start_date"].isoformat(),
         "start_total_items": program["start_total_items"],
         "weekly_reduction": program["weekly_reduction"],
@@ -4789,24 +4879,30 @@ def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -
     return target
 
 
-def _load_program(program_baseline: Path) -> dict[str, Any]:
-    program = _load_json_strict(program_baseline, "Program baseline")
+def _parse_program(program: dict[str, Any], *, label: str) -> dict[str, Any]:
     start_date_raw = program.get("start_date")
     start_total = int(program.get("start_total_items", -1))
     weekly_reduction = float(program.get("weekly_reduction", -1.0))
     grace_weeks = int(program.get("grace_weeks", 0))
     if not start_date_raw:
-        raise ValueError("Program baseline must include 'start_date'")
+        raise ValueError(f"{label} must include 'start_date'")
     if start_total < 0:
-        raise ValueError("Program baseline has invalid 'start_total_items'")
+        raise ValueError(f"{label} has invalid 'start_total_items'")
     if not (0.0 < weekly_reduction < 1.0):
-        raise ValueError("Program baseline 'weekly_reduction' must be between 0 and 1")
+        raise ValueError(f"{label} 'weekly_reduction' must be between 0 and 1")
     return {
         "start_date": date.fromisoformat(start_date_raw),
         "start_total_items": start_total,
         "weekly_reduction": weekly_reduction,
         "grace_weeks": grace_weeks,
     }
+
+
+def _load_program(program_baseline: Path) -> dict[str, Any]:
+    return _parse_program(
+        _load_json_strict(program_baseline, "Program baseline"),
+        label="Program baseline",
+    )
 
 
 def _evaluate_classes(
@@ -5445,19 +5541,32 @@ def main() -> int:
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1
 
-    accepted_default = args.inventory.exists() and isinstance(
-        _strict_json_bytes(args.inventory.read_bytes(), "accepted inventory").get(
-            "accepted_authority"
-        ),
-        dict,
-    )
-    if args.mode == "receipt" or accepted_default:
+    requested_inventory = (
+        args.inventory if args.inventory.is_absolute() else args.repo_root / args.inventory
+    ).resolve()
+    canonical_inventory = (args.repo_root / inventory_mod.DEFAULT_INVENTORY).resolve()
+    head_has_accepted_authority = False
+    if args.ref is None and args.mode != "receipt" and requested_inventory == canonical_inventory:
+        try:
+            head_inventory = _git_json(
+                args.repo_root,
+                "HEAD",
+                inventory_mod.DEFAULT_INVENTORY,
+            )
+            head_has_accepted_authority = isinstance(
+                head_inventory.get("accepted_authority"),
+                dict,
+            )
+        except (OSError, ValueError):
+            pass
+    accepted_default = args.mode == "receipt" or args.ref is not None or head_has_accepted_authority
+    if accepted_default:
         result = build_accepted_result(
             mode=args.mode,
             repo_root=args.repo_root,
             inventory_path=args.inventory,
             as_of=args.as_of,
-            source_sha=args.ref or args.head_ref or args.base_ref,
+            source_sha=args.ref,
         )
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1
