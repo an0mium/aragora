@@ -2808,11 +2808,10 @@ def _collect_live_evidence(
             raise ValueError(
                 f"authenticated governed PR #{number} lacks first-parent or tree equality"
             )
-        # VAL-CDG-018 squash binding: tree equality is one sufficient witness;
-        # otherwise the semantic delta recomputed from the squash merge's
-        # first parent (immutable local git, pinned rename policy) must equal
-        # the authenticated PR disposition. Never require PR-head tree
-        # equality as the squash binding.
+        # VAL-CDG-018 squash binding: the semantic delta recomputed from the
+        # squash merge's first parent (immutable local git, pinned rename and
+        # path-byte policies) must exactly equal the authenticated PR
+        # disposition. PR-head tree equality is corroboration only.
         _require_squash_binding_witness(
             repo_root=repo_root,
             pr=number,
@@ -3765,6 +3764,11 @@ def _first_parent_semantic_delta(
     rename is a removal at the old path plus an addition at the new path and
     both must be inside the authenticated disposition. Renamed content can
     never masquerade as an unchanged or foreign path.
+
+    Git emits raw NUL-delimited path bytes. GitHub file dispositions expose
+    filenames as JSON strings transported in UTF-8, so only exact UTF-8 paths
+    can be compared reversibly across both authorities. Non-UTF-8 Git paths
+    fail closed rather than being quoted, normalized, or replacement-decoded.
     """
     diff = _run_read_only(
         [
@@ -3774,13 +3778,36 @@ def _first_parent_semantic_delta(
             "diff",
             "--no-renames",
             "--name-only",
+            "-z",
             f"{first_parent_sha}^{{tree}}",
             f"{merge_sha}^{{tree}}",
         ],
         operation_log=operation_log,
         resource=f"squash-semantic-delta:{pr}",
     )
-    return {line for line in diff.stdout.decode("utf-8").splitlines() if line}
+    if not diff.stdout:
+        return set()
+    if not diff.stdout.endswith(b"\0"):
+        raise ValueError(
+            f"squash semantic delta for PR #{pr} has unterminated NUL-delimited path output"
+        )
+    raw_paths = diff.stdout[:-1].split(b"\0")
+    if any(not raw_path for raw_path in raw_paths):
+        raise ValueError(f"squash semantic delta for PR #{pr} has an empty path record")
+    paths: list[str] = []
+    for raw_path in raw_paths:
+        try:
+            path = raw_path.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"squash semantic delta for PR #{pr} contains a Git path that cannot "
+                "round-trip through a GitHub UTF-8 filename"
+            ) from exc
+        paths.append(path)
+    delta = set(paths)
+    if len(delta) != len(paths):
+        raise ValueError(f"squash semantic delta for PR #{pr} contains duplicate paths")
+    return delta
 
 
 def _require_squash_binding_witness(
@@ -3796,13 +3823,11 @@ def _require_squash_binding_witness(
 ) -> str:
     """Bind a squash merge to its authenticated PR disposition (VAL-CDG-018).
 
-    Head-tree == merge-tree equality is ONE sufficient witness; otherwise the
-    exact semantic delta recomputed from the squash merge's first parent to
-    the squash merge (immutable local git trees, pinned rename policy) must
-    equal the authenticated PR disposition's owned-path delta under the
-    authority accepted at the first parent. PR-head tree equality is never
-    REQUIRED as the squash binding, and a delta reaching outside the
-    authenticated disposition fails closed even when equality holds.
+    The exact semantic delta recomputed from the squash merge's first parent
+    to the squash merge (immutable local git trees, pinned rename policy) must
+    equal the authenticated PR disposition's owned-path delta. Head-tree ==
+    merge-tree equality remains a corroborating witness when present, but it
+    is never sufficient and never replaces exact semantic set equality.
     """
     delta = _first_parent_semantic_delta(
         repo_root,
@@ -3813,43 +3838,44 @@ def _require_squash_binding_witness(
     )
     equality = head_tree_sha == merge_tree_sha
     if owned_paths is None:
-        if not equality:
-            raise ValueError(
-                f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
-                "head tree differs from the squash merge tree and no authenticated "
-                "PR disposition delta is available"
-            )
-        witness = "head_tree_equality"
-    else:
-        owned = set(owned_paths)
-        if foreign := sorted(delta - owned):
-            raise ValueError(
-                f"squash semantic delta for PR #{pr} touches paths outside the "
-                f"authenticated disposition: {foreign}"
-            )
-        if equality:
-            witness = "head_tree_equality"
-        elif delta == owned:
-            witness = "first_parent_semantic_delta"
-        else:
-            raise ValueError(
-                f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
-                "head tree differs from the squash merge tree and the recomputed "
-                "first-parent semantic delta does not equal the authenticated "
-                "disposition"
-            )
+        raise ValueError(
+            f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
+            "no authenticated PR disposition paths are available for exact "
+            "semantic-delta comparison"
+        )
+    owned = set(owned_paths)
+    foreign = sorted(delta - owned)
+    missing = sorted(owned - delta)
+    if foreign or missing:
+        differences = []
+        if foreign:
+            differences.append(f"paths outside the authenticated disposition: {foreign}")
+        if missing:
+            differences.append(f"authenticated paths missing from semantic delta: {missing}")
+        raise ValueError(
+            f"squash semantic delta for PR #{pr} does not equal the authenticated "
+            f"disposition: {'; '.join(differences)}"
+        )
+    witness = "first_parent_semantic_delta"
+    corroborating_witnesses = ["head_tree_equality"] if equality else []
     _append_operation(
         operation_log,
         kind="squash_binding_witness",
         resource=f"squash-binding:{pr}",
         identifier=witness,
+        response_identity={
+            "binding_witness": witness,
+            "corroborating_witnesses": corroborating_witnesses,
+        },
         raw=_canonical_json_bytes(
             {
+                "corroborating_witnesses": corroborating_witnesses,
                 "first_parent_sha": first_parent_sha,
                 "merge_sha": merge_sha,
+                "owned_paths": sorted(owned),
                 "pr": pr,
                 "semantic_delta": sorted(delta),
-                "witness": witness,
+                "binding_witness": witness,
             }
         ),
     )
@@ -3936,11 +3962,10 @@ def _reconcile_prs_and_receipts(
                 f"first-parent receipt for PR #{receipt['pr']} misstates the squash merge "
                 "tree: local git recompute contradicts the claimed merge_tree_sha"
             )
-        # VAL-CDG-018 squash binding: the recomputed merge tree (not the
-        # record claim) is compared against the receipt head tree as ONE
-        # sufficient witness; a stale-base squash instead binds through the
-        # recomputed first-parent semantic delta equal to the authenticated
-        # PR disposition. Fail closed when neither witness holds.
+        # VAL-CDG-018 squash binding: the recomputed first-parent semantic
+        # delta must exactly equal the authenticated PR disposition. The
+        # independently recomputed merge tree may corroborate PR-head tree
+        # equality, but equality alone never binds the squash.
         _require_squash_binding_witness(
             repo_root=repo_root,
             pr=receipt["pr"],

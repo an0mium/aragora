@@ -1712,6 +1712,24 @@ def _boundary_git_repo(
     return repo, start_sha, shas
 
 
+def _fixture_git_changed_paths(repo: Path, base_sha: str, head_sha: str) -> list[str]:
+    raw = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff",
+            "--no-renames",
+            "--name-only",
+            "-z",
+            f"{base_sha}^{{tree}}",
+            f"{head_sha}^{{tree}}",
+        ]
+    )
+    assert not raw or raw.endswith(b"\0")
+    return sorted(path.decode("utf-8") for path in raw[:-1].split(b"\0") if path)
+
+
 def _stable_attestation_claim() -> dict[str, Any]:
     # The payload-embedded attestation claim binds the demonstrated stable
     # identity fields (entry 30) — never a digest over verification outputs,
@@ -2135,6 +2153,7 @@ def _stub_boundary_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
 def _stub_boundary_evidence_index(
     monkeypatch: pytest.MonkeyPatch,
     *,
+    repo: Path,
     index_path: Path,
     index_length: int,
     index_sha256: str,
@@ -2168,11 +2187,20 @@ def _stub_boundary_evidence_index(
             }
             for record in governed
         }
+        authenticated_pr_files = {
+            record["pr"]: _fixture_git_changed_paths(
+                repo,
+                record["base_sha"],
+                record["head_sha"],
+            )
+            for record in governed
+        }
         return (
             resources,
             summary,
             {
                 "authenticated_pr_changes": authenticated_pr_changes,
+                "authenticated_pr_files": authenticated_pr_files,
                 "expected_rule_suite_ref": "refs/heads/main",
                 "fixture_evidence_index": True,
                 "repository_id": 1126097105,
@@ -2222,6 +2250,7 @@ def _boundary_result(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -2997,6 +3026,7 @@ def test_caller_summaries_and_parse_reserialize_are_not_proof(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=len(raw),
         index_sha256=hashlib.sha256(raw).hexdigest(),
@@ -3017,6 +3047,7 @@ def test_caller_summaries_and_parse_reserialize_are_not_proof(
     index_path.write_bytes(pretty)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=len(pretty),
         index_sha256=hashlib.sha256(pretty).hexdigest(),
@@ -3220,6 +3251,7 @@ def test_canonical_route_fact_fails_when_exact_ref_baseline_contradicts(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -3318,6 +3350,7 @@ def test_later_boundary_fails_when_route_debt_is_reintroduced(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -3362,6 +3395,7 @@ def test_sdk_zero_debt_fails_when_exact_ref_baseline_contradicts(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -3400,6 +3434,7 @@ def test_core_sdk_allows_remaining_extended_exact_ref_baseline_debt(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -3450,6 +3485,7 @@ def test_evidence_reauthentication_blocks_toctou_movement(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -3517,6 +3553,7 @@ def test_boundary_uses_private_scratch_child_and_removes_it(
     _stub_boundary_dependencies(monkeypatch)
     _stub_boundary_evidence_index(
         monkeypatch,
+        repo=repo,
         index_path=index_path,
         index_length=index_length,
         index_sha256=index_sha256,
@@ -4586,6 +4623,9 @@ def _live_pr_files_probe(
     values only — the capsule payload bytes never embed them, so any triple
     (including the real allocator's unpredictable large IDs) must validate.
     """
+    file_names = [
+        "fixture.txt" if index == 0 else f"file-{index}.txt" for index in range(files_count)
+    ]
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path)
     end_sha = boundary_shas["corrective_bootstrap"]
     resources = _boundary_payloads("corrective_bootstrap", start_sha, end_sha, boundary_shas, repo=repo)  # fmt: skip
@@ -4662,10 +4702,7 @@ def _live_pr_files_probe(
     # The first file record carries the real path changed by the disposable
     # boundary commit so the recomputed first-parent semantic delta stays
     # inside the authenticated disposition.
-    files = [
-        {"filename": "fixture.txt" if index == 0 else f"file-{index}.txt", "id": index + 1}
-        for index in range(files_count)
-    ]
+    files = [{"filename": filename, "id": index + 1} for index, filename in enumerate(file_names)]
     if duplicate_file_ids:
         files = [dict(item, id=1) for item in files]
     observed_changed_files = files_count if changed_files is None else changed_files
@@ -4800,16 +4837,27 @@ def _live_pr_files_probe(
         return {"resource": resource, "verified": bool(argv)}, verification_identity
 
     monkeypatch.setattr(ratchet, "_run_live_verification", fake_verify)
-    _discovered, _summary, context = ratchet._collect_live_evidence(
-        github_repository="synaptent/aragora",
-        github_branch="main",
-        boundary="corrective_bootstrap",
-        start_sha=start_sha,
-        end_sha=end_sha,
-        repo_root=repo,
-        scratch_root=tmp_path,
-        operation_log=[],
-    )
+    original_semantic_delta = ratchet._first_parent_semantic_delta
+    if files_count != 1:
+        expected_paths = set(file_names)
+        setattr(
+            ratchet,
+            "_first_parent_semantic_delta",
+            lambda *_args, **_kwargs: set(expected_paths),
+        )
+    try:
+        _discovered, _summary, context = ratchet._collect_live_evidence(
+            github_repository="synaptent/aragora",
+            github_branch="main",
+            boundary="corrective_bootstrap",
+            start_sha=start_sha,
+            end_sha=end_sha,
+            repo_root=repo,
+            scratch_root=tmp_path,
+            operation_log=[],
+        )
+    finally:
+        setattr(ratchet, "_first_parent_semantic_delta", original_semantic_delta)
     return context, requested
 
 
@@ -6006,6 +6054,7 @@ def test_deterministic_boundary_status_pass_is_reachable(
         _stub_boundary_dependencies(monkeypatch)
         _stub_boundary_evidence_index(
             monkeypatch,
+            repo=repo,
             index_path=index_path,
             index_length=index_length,
             index_sha256=index_sha256,
@@ -9977,10 +10026,108 @@ def test_real_shaped_stale_base_squash_passes_via_semantic_delta_witness(tmp_pat
         for entry in operation_log
         if entry["kind"] == "squash_binding_witness"
     }
-    # The clean squash records tree equality; the stale-base squash records
-    # the recomputed first-parent semantic delta, never head-tree equality.
-    assert witnesses["squash-binding:9695"] == "head_tree_equality"
+    corroborations = {
+        entry["resource"]: entry["response_identity"]["corroborating_witnesses"]
+        for entry in operation_log
+        if entry["kind"] == "squash_binding_witness"
+    }
+    # Both squashes bind through exact semantic equality. Tree equality is
+    # structured corroboration only, never the binding witness identity.
+    assert witnesses["squash-binding:9695"] == "first_parent_semantic_delta"
     assert witnesses["squash-binding:9696"] == "first_parent_semantic_delta"
+    assert corroborations == {
+        "squash-binding:9695": ["head_tree_equality"],
+        "squash-binding:9696": [],
+    }
+
+
+def test_squash_semantic_delta_round_trips_hostile_github_filenames(tmp_path: Path):
+    repo = tmp_path / "hostile-semantic-delta"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    base = _commit(repo, "base")
+    paths = {
+        "hostile/back\\slash.txt",
+        'hostile/double"quote.txt',
+        "hostile/line\nbreak.txt",
+        "hostile/tab\tname.txt",
+        "hostile/路径-雪.txt",
+    }
+    for relative in paths:
+        path = repo / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(relative, encoding="utf-8")
+    merge = _commit(repo, "hostile paths")
+    operation_log: list[dict[str, Any]] = []
+
+    assert (
+        ratchet._first_parent_semantic_delta(
+            repo,
+            first_parent_sha=base,
+            merge_sha=merge,
+            pr=9707,
+            operation_log=operation_log,
+        )
+        == paths
+    )
+    semantic_diff = next(
+        entry for entry in operation_log if entry["resource"] == "squash-semantic-delta:9707"
+    )
+    assert "-z" in semantic_diff["identifier"].split()
+    merge_tree = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", f"{merge}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert (
+        ratchet._require_squash_binding_witness(
+            repo_root=repo,
+            pr=9707,
+            head_tree_sha=merge_tree,
+            merge_tree_sha=merge_tree,
+            first_parent_sha=base,
+            merge_sha=merge,
+            owned_paths=sorted(paths),
+            operation_log=[],
+        )
+        == "first_parent_semantic_delta"
+    )
+
+
+@pytest.mark.parametrize(
+    ("stdout", "message"),
+    (
+        (b"unterminated", "unterminated NUL-delimited path output"),
+        (b"valid.txt\0\0", "empty path record"),
+        (b"\xff\0", "cannot round-trip through a GitHub UTF-8 filename"),
+        (b"duplicate.txt\0duplicate.txt\0", "duplicate paths"),
+    ),
+)
+def test_squash_semantic_delta_rejects_malformed_raw_git_paths(
+    monkeypatch: pytest.MonkeyPatch,
+    stdout: bytes,
+    message: str,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "_run_read_only",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            argv,
+            0,
+            stdout=stdout,
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        ratchet._first_parent_semantic_delta(
+            Path("."),
+            first_parent_sha="1" * 40,
+            merge_sha="2" * 40,
+            pr=9707,
+            operation_log=[],
+        )
 
 
 def test_foreign_path_semantic_delta_fails_closed(tmp_path: Path):
@@ -9997,6 +10144,30 @@ def test_foreign_path_semantic_delta_fails_closed(tmp_path: Path):
             start_sha=shape["start"],
             end_sha=shape["merge"],
             authenticated_pr_files={9695: ["sibling.txt"], 9696: ["something-else.txt"]},
+            operation_log=[],
+        )
+
+
+def test_head_tree_equality_rejects_strict_subset_of_owned_paths(tmp_path: Path):
+    # Tree equality is corroboration only: an authenticated disposition with
+    # an extra owned path must fail even when the PR-head and squash trees are
+    # identical and every actual delta path is owned.
+    shape = _stale_base_squash_repo(tmp_path)
+    clean_tree = subprocess.run(
+        ["git", "-C", str(shape["repo"]), "rev-parse", f"{shape['prior_merge']}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    with pytest.raises(ValueError, match="authenticated paths missing from semantic delta"):
+        ratchet._require_squash_binding_witness(
+            repo_root=shape["repo"],
+            pr=9695,
+            head_tree_sha=clean_tree,
+            merge_tree_sha=clean_tree,
+            first_parent_sha=shape["start"],
+            merge_sha=shape["prior_merge"],
+            owned_paths=["declared-but-missing.txt", "sibling.txt"],
             operation_log=[],
         )
 
