@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import hashlib
 import inspect
@@ -9,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -18,8 +20,26 @@ import pytest
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
 
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+
 PROGRAM_REL = "scripts/baselines/contract_drift_program.json"
 _DISCOVER_CANONICAL_ARTIFACT = ratchet._discover_canonical_artifact
+_CDG_TEST_ROOT = Path(__file__).resolve().parents[2]
+_DECISION_351_PACK = (
+    _CDG_TEST_ROOT / "tests/fixtures/contract_drift_decision_351_immutable_evidence.pack"
+)
+_REAL_NEXT_EVENT_PACK = (
+    _CDG_TEST_ROOT / "tests/fixtures/contract_drift_trusted_bootstrap_real_next_event.pack"
+)
+_EXPECTED_DECISION_351_PACK_SHA256 = (
+    "df888b46a3f94d784dd005773ac70b45d98140d955c5252e6b555a3d4b9e83ea"
+)
+_EXPECTED_REAL_NEXT_EVENT_PACK_SHA256 = (
+    "2e5436cd6d0fbbb692cd4a1fd289ae7e8d80b6594f49cc612f09c493c2414bb8"
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -4026,6 +4046,31 @@ def test_live_release_pagination_runs_to_exhaustion(monkeypatch: pytest.MonkeyPa
     assert set(identities) == set(requests)
 
 
+def test_stage2_inner_rerun_uses_process_lock():
+    assert "_stage1_rerun_lock" in inspect.getsource(test_stage2_reruns_full_stage1_matrix)
+
+
+@contextlib.contextmanager
+def _stage1_rerun_lock():
+    lock_path = Path(tempfile.gettempdir()) / "aragora-cdg-stage1-rerun.lock"
+    with lock_path.open("a+b") as lock:
+        if sys.platform == "win32":
+            lock.write(b"\0")
+            lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if sys.platform == "win32":
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 def test_stage2_reruns_full_stage1_matrix():
     stage1_names = {
         "test_all_loaded_repository_modules_are_under_exact_ref_extraction_root",
@@ -4041,13 +4086,14 @@ def test_stage2_reruns_full_stage1_matrix():
     }
     assert ratchet.STAGE1_REQUIRED_TESTS == tuple(sorted(stage1_names))
     repo = Path(ratchet.__file__).resolve().parents[1]
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", *ratchet.STAGE1_TEST_MATRIX, "-q"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    with _stage1_rerun_lock():
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", *ratchet.STAGE1_TEST_MATRIX, "-q"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
@@ -4258,11 +4304,143 @@ def _accepted_authority() -> dict[str, Any]:
     return json.loads(path.read_text())["accepted_authority"]
 
 
-def _accepted_authority_at_ref(ref: str) -> dict[str, Any]:
-    document = ratchet._git_json(_REPO_ROOT, ref, gen.DEFAULT_INVENTORY)
+def _accepted_authority_at_ref(
+    ref: str,
+    *,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    if repo_root is None:
+        repo_root = Path(ratchet.__file__).resolve().parents[1]
+    document = ratchet._git_json(repo_root, ref, gen.DEFAULT_INVENTORY)
     authority = document.get("accepted_authority")
     assert isinstance(authority, dict)
     return authority
+
+
+def _git_text(repo: Path, *args: str) -> str:
+    return subprocess.check_output(
+        ["git", "-C", str(repo), *args],
+        text=True,
+    ).strip()
+
+
+def _git_bytes(repo: Path, *args: str) -> bytes:
+    return subprocess.check_output(["git", "-C", str(repo), *args])
+
+
+def _commit_record(repo: Path, oid: str) -> dict[str, Any]:
+    body = _git_text(repo, "cat-file", "commit", oid)
+    headers, _, message = body.partition("\n\n")
+    tree = ""
+    parents: list[str] = []
+    committed_at = -1
+    for line in headers.splitlines():
+        key, _, value = line.partition(" ")
+        if key == "tree":
+            tree = value
+        elif key == "parent":
+            parents.append(value)
+        elif key == "committer":
+            committed_at = int(value.rsplit(" ", 2)[-2])
+    assert tree and committed_at >= 0
+    return {
+        "oid": oid,
+        "tree": tree,
+        "parents": tuple(parents),
+        "committed_at": committed_at,
+        "subject": message.splitlines()[0],
+    }
+
+
+def _object_ids(repo: Path, kind: str) -> tuple[str, ...]:
+    records = _git_text(
+        repo,
+        "cat-file",
+        "--batch-all-objects",
+        "--batch-check=%(objectname) %(objecttype)",
+    ).splitlines()
+    return tuple(sorted(line.split()[0] for line in records if line.split()[1] == kind))
+
+
+def _decision_351_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "decision-351-evidence"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    for pack_path, expected_sha256 in (
+        (_DECISION_351_PACK, _EXPECTED_DECISION_351_PACK_SHA256),
+        (_REAL_NEXT_EVENT_PACK, _EXPECTED_REAL_NEXT_EVENT_PACK_SHA256),
+    ):
+        pack = pack_path.read_bytes()
+        assert hashlib.sha256(pack).hexdigest() == expected_sha256
+        subprocess.run(
+            ["git", "-C", str(repo), "index-pack", "--stdin"],
+            input=pack,
+            check=True,
+            capture_output=True,
+        )
+    return repo
+
+
+def _decision_351_facts(repo: Path) -> dict[str, dict[str, Any]]:
+    commits = {oid: _commit_record(repo, oid) for oid in _object_ids(repo, "commit")}
+    missing_parents = {
+        parent
+        for record in commits.values()
+        for parent in record["parents"]
+        if parent not in commits
+    }
+    h3_candidates = [
+        record
+        for record in commits.values()
+        if len(record["parents"]) == 1
+        and record["parents"][0] in commits
+        and len(commits[record["parents"][0]]["parents"]) == 1
+        and commits[record["parents"][0]]["parents"][0] in commits
+        and len(commits[commits[record["parents"][0]]["parents"][0]]["parents"]) == 2
+    ]
+    assert len(h3_candidates) == 1
+    h3 = h3_candidates[0]
+    assert len(h3["parents"]) == 1
+    h2 = commits[h3["parents"][0]]
+    assert len(h2["parents"]) == 1
+    h1 = commits[h2["parents"][0]]
+    assert len(h1["parents"]) == 2
+    base = commits[h1["parents"][1]]
+
+    h4_candidates = [
+        record
+        for record in commits.values()
+        if record["parents"] == (h3["oid"],) and record["tree"] == h3["tree"]
+    ]
+    assert len(h4_candidates) == 1
+    h4 = h4_candidates[0]
+
+    absorption_candidates = [
+        record
+        for record in commits.values()
+        if len(record["parents"]) == 2 and record["parents"][0] == h4["oid"]
+    ]
+    assert len(absorption_candidates) == 1
+    absorption = absorption_candidates[0]
+    repin = commits[absorption["parents"][1]]
+    assert set(repin["parents"]) <= missing_parents
+
+    merge_candidates = [
+        record
+        for record in commits.values()
+        if record["parents"] == (repin["oid"],) and record["tree"] == absorption["tree"]
+    ]
+    assert len(merge_candidates) == 1
+    return {
+        "base": base,
+        "h1": h1,
+        "h2": h2,
+        "h3": h3,
+        "repin": repin,
+        "h4": h4,
+        "absorption": absorption,
+        "merge": merge_candidates[0],
+    }
 
 
 def _genesis_authority(authority: dict[str, Any]) -> dict[str, Any]:
@@ -4386,23 +4564,24 @@ def test_residue_tolerance_refs_bind_event_base_and_first_parent(monkeypatch):
     assert calls == [("base-sha", "base-sha"), ("head-sha", "base-sha"), (source, parent)]
 
 
-def test_real_h2_h3_pair_tolerates_all_483_inherited_residue_keys():
-    root = Path(ratchet.__file__).parents[1]
-    authority = _accepted_authority_at_ref(H3_SHA)
+def test_real_h2_h3_pair_tolerates_all_483_inherited_residue_keys(tmp_path: Path):
+    root = _decision_351_repo(tmp_path)
+    facts = _decision_351_facts(root)
+    authority = _accepted_authority_at_ref(facts["h3"]["oid"], repo_root=root)
     records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
     original_keys = {
         f"{record['source_json_key']}:{gen.normalize_key(record['exact_historical_literal_record'])}"
         for record in records
     }
-    h2_residue = ratchet._outside_cohort_residue(root, H2_SHA, original_keys)
-    h3_residue = ratchet._outside_cohort_residue(root, H3_SHA, original_keys)
+    h2_residue = ratchet._outside_cohort_residue(root, facts["h2"]["oid"], original_keys)
+    h3_residue = ratchet._outside_cohort_residue(root, facts["h3"]["oid"], original_keys)
     assert h2_residue == h3_residue
     assert len(h3_residue) == 483
     live = ratchet._live_witnesses(
         authority,
         repo_root=root,
-        live_ref=H3_SHA,
-        residue_ref=H2_SHA,
+        live_ref=facts["h3"]["oid"],
+        residue_ref=facts["h2"]["oid"],
     )
     assert len(live) == 400
 
@@ -4410,14 +4589,15 @@ def test_real_h2_h3_pair_tolerates_all_483_inherited_residue_keys():
 def test_real_h2_residue_fixture_rejects_new_and_rekeyed_keys_but_allows_removal(
     tmp_path: Path,
 ):
-    root = Path(ratchet.__file__).parents[1]
-    authority = _accepted_authority_at_ref(H3_SHA)
+    root = _decision_351_repo(tmp_path)
+    facts = _decision_351_facts(root)
+    authority = _accepted_authority_at_ref(facts["h3"]["oid"], repo_root=root)
     records = authority["canonical_artifacts"]["original_cohort"]["original_records"]
     original_keys = {
         f"{record['source_json_key']}:{gen.normalize_key(record['exact_historical_literal_record'])}"
         for record in records
     }
-    h2_docs = gen.load_git_docs(root, H2_SHA)
+    h2_docs = gen.load_git_docs(root, facts["h2"]["oid"])
     h2_ids = set(gen.collect_ids(h2_docs))
     repo = tmp_path / "real-h2-residue"
     repo.mkdir()
@@ -7274,16 +7454,43 @@ def _load_bootstrap():
 
 bootstrap = _load_bootstrap()
 
-# Decision-351 corrective guard-v2 atom constants (validated against the
-# checked-in trusted-bootstrap policy and the live analyzer bytes below).
-GUARD_V2_PATCH_SHA256 = "3f4d656bc4678997899508f92c649b845655145351dc36d8a47e5112d84a004b"
-GUARD_V2_FILES = 6
-GUARD_V2_ADDITIONS = 687
-GUARD_V2_DELETIONS = 178
-GUARD_V2_DELTA = 865
-H2_SHA = "d4ab26e4b30b7f65956b4cdd9d738837b78ca4a3"
-H3_SHA = "1722a6145c0c23a2c1c0d20be5ed1329bb01d666"
-H4_SHA = "f50902a19bdc6cce7049da87212dc27759f727a0"
+_EXPECTED_GUARD_V2_PATCH_SHA256 = "3f4d656bc4678997899508f92c649b845655145351dc36d8a47e5112d84a004b"
+_EXPECTED_GUARD_V2_PATCH_PATHS = (
+    ".github/workflows/contract-drift-governance.yml",
+    "scripts/baselines/contract_drift_inventory.json",
+    "scripts/check_contract_drift_ratchet.py",
+    "tests/scripts/test_check_contract_drift_ratchet.py",
+)
+_EXPECTED_GUARD_V2_RESPONSE = (
+    (55, 166, ".github/workflows/contract-drift-governance.yml"),
+    (1, 0, "scripts/baselines/contract_drift_inventory.json"),
+    (428, 9, "scripts/check_contract_drift_ratchet.py"),
+    (78, 3, "scripts/generate_contract_drift_inventory.py"),
+    (99, 0, "tests/scripts/test_check_contract_drift_ratchet.py"),
+    (26, 0, "tests/scripts/test_contract_drift_workflow.py"),
+)
+_EXPECTED_GUARD_V2_DELTA = 865
+
+
+def _decision_351_patch_blob(repo: Path) -> bytes:
+    candidates = [
+        _git_bytes(repo, "cat-file", "blob", oid)
+        for oid in _object_ids(repo, "blob")
+        if int(_git_text(repo, "cat-file", "-s", oid)) > 5_000_000
+    ]
+    patches = [blob for blob in candidates if blob.startswith(b"diff --git ")]
+    assert len(patches) == 1
+    return patches[0]
+
+
+def _mission_guard_v2_patch() -> Path | None:
+    runtime_settings = os.environ.get("FACTORY_RUNTIME_SETTINGS_PATH")
+    if runtime_settings is None:
+        return None
+    patch = Path(runtime_settings).resolve().parent / "library/guard-v2.patch"
+    return patch if patch.is_file() else None
+
+
 OLD_H2_PIN_SHA = "017ce1d7a4024f3001858d2385cd153c1ffc8bb2"
 CORRECTIVE_BASE_SHA = "d5c9df5cea5719404b54c34fdb62a89daf65a92f"
 PR_9346_FACT = {
@@ -7484,77 +7691,113 @@ def test_corrective_bootstrap_is_bounded_and_descends_from_current_main(
 
 
 def test_corrective_guard_v2_sequence_is_h2_then_h3_repin_merge_then_empty_h4(tmp_path: Path):
-    # Replay the Decision-351 additive sequence on a disposable repository and
-    # bind the exact git semantics the contract requires: H2 -> H3 (guard-v2
-    # patch product) -> trusted re-pin -> empty additive H4 preserving the H3
-    # tree and all PR-owned blobs.
-    repo = tmp_path / "sequence"
-    repo.mkdir()
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    (repo / "guard.py").write_text("STATE = 'base'\n", encoding="utf-8")
-    (repo / "manifest.json").write_text('{"pin": "old"}\n', encoding="utf-8")
-    base = _commit(repo, "base")
-    (repo / "guard.py").write_text("STATE = 'h2'\n", encoding="utf-8")
-    h2 = _commit(repo, "h2")
-    (repo / "guard.py").write_text("STATE = 'h3-guard-v2'\n", encoding="utf-8")
-    h3 = _commit(repo, "h3 guard-v2")
-    (repo / "manifest.json").write_text('{"pin": "h3"}\n', encoding="utf-8")
-    repin = _commit(repo, "repin")
-    subprocess.run(
-        ["git", "commit", "-q", "--allow-empty", "-m", "h4 empty additive"],
-        cwd=repo,
-        check=True,
+    repo = _decision_351_repo(tmp_path)
+    facts = _decision_351_facts(repo)
+    base = facts["base"]
+    h1 = facts["h1"]
+    h2 = facts["h2"]
+    h3 = facts["h3"]
+    repin = facts["repin"]
+    h4 = facts["h4"]
+    absorption = facts["absorption"]
+    merge = facts["merge"]
+
+    assert base["oid"] == "8f1dd9684a3bf311e65b40de2ab35415612cc051"
+    assert h2["oid"] == "d4ab26e4b30b7f65956b4cdd9d738837b78ca4a3"
+    assert h3["oid"] == "1722a6145c0c23a2c1c0d20be5ed1329bb01d666"
+    assert repin["oid"] == "5080b125d3c9595efdca020db5e60266e01ac9c5"
+    assert h4["oid"] == "f50902a19bdc6cce7049da87212dc27759f727a0"
+    assert absorption["oid"] == "967b1c82a285affbd191b57bdaf08512d6e6e3f7"
+    assert merge["oid"] == "d3e45fafe6dd04508882935c813f6896abc859d7"
+
+    assert h1["parents"][1] == base["oid"]
+    assert h2["parents"] == (h1["oid"],)
+    assert h3["parents"] == (h2["oid"],)
+    assert h4["parents"] == (h3["oid"],)
+    assert h4["tree"] == h3["tree"]
+    assert absorption["parents"] == (h4["oid"], repin["oid"])
+    assert merge["parents"] == (repin["oid"],)
+    assert merge["tree"] == absorption["tree"]
+    ordered = (base, h1, h2, h3, repin, h4, absorption, merge)
+    assert [record["committed_at"] for record in ordered] == sorted(
+        record["committed_at"] for record in ordered
     )
-    h4 = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
-    order = subprocess.check_output(
-        ["git", "-C", str(repo), "rev-list", "--reverse", f"{base}..{h4}"], text=True
-    ).split()
-    assert order == [h2, h3, repin, h4]
-    tree = lambda ref: subprocess.check_output(  # noqa: E731
-        ["git", "-C", str(repo), "rev-parse", f"{ref}^{{tree}}"], text=True
-    ).strip()
-    assert tree(h4) == tree(repin) and h4 != repin
-    blob = lambda ref, path: subprocess.check_output(  # noqa: E731
-        ["git", "-C", str(repo), "rev-parse", f"{ref}:{path}"], text=True
-    ).strip()
-    assert blob(h4, "guard.py") == blob(h3, "guard.py")
-    # The checked-in policy pins the H3 product as the immutable analyzer
-    # source of the historical first transition; the live analyzer bytes are
-    # pinned by the accepted authority manifest (which later authorized
-    # rotations, e.g. the capsule tag-convention checker, rebind in place).
-    assert bootstrap.ANALYZER_SOURCE_SHA == H3_SHA
-    assert bootstrap.SHA_RE.fullmatch(bootstrap.ANALYZER_SOURCE_SHA)
-    assert bootstrap.BootstrapPolicy().transition_base_sha == "d5c9df5cea5719404b54c34fdb62a89daf65a92f"  # fmt: skip
+    assert "#9679" in repin["subject"]
+    assert "Decision-351 absorption" in absorption["subject"]
+    assert "#9645" in merge["subject"]
+    assert bootstrap.ANALYZER_SOURCE_SHA == h3["oid"]
+    assert bootstrap.BootstrapPolicy().transition_base_sha == CORRECTIVE_BASE_SHA
     for binding in _real_authority()["analyzer_bundle"]["files"]:
         live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
         assert live == binding["sha256"]
 
 
 def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response(tmp_path: Path):
-    # The Decision-351 atom: exact guard-v2 patch digest, exactly six files,
-    # additions=687, deletions=178, implementation_delta=865.
-    assert len(GUARD_V2_PATCH_SHA256) == 64 and int(GUARD_V2_PATCH_SHA256, 16)
-    assert GUARD_V2_ADDITIONS + GUARD_V2_DELETIONS == GUARD_V2_DELTA
-    assert GUARD_V2_FILES == 6
-    assert GUARD_V2_DELTA > 800
+    repo = _decision_351_repo(tmp_path)
+    facts = _decision_351_facts(repo)
+    patch_blob = _decision_351_patch_blob(repo)
+    immutable_diff = _git_bytes(
+        repo,
+        "diff",
+        "--no-ext-diff",
+        "--binary",
+        "--full-index",
+        facts["h2"]["oid"],
+        facts["h3"]["oid"],
+    )
+    assert patch_blob == immutable_diff
+    assert hashlib.sha256(patch_blob).hexdigest() == _EXPECTED_GUARD_V2_PATCH_SHA256
+
+    mission_patch = _mission_guard_v2_patch()
+    if mission_patch is not None:
+        assert mission_patch.read_bytes() == patch_blob
+
+    patch_paths = tuple(
+        _git_text(
+            repo,
+            "diff",
+            "--name-only",
+            facts["h2"]["oid"],
+            facts["h3"]["oid"],
+        ).splitlines()
+    )
+    assert patch_paths == _EXPECTED_GUARD_V2_PATCH_PATHS
+
+    response = tuple(
+        (int(additions), int(deletions), path)
+        for additions, deletions, path in (
+            line.split("\t", 2)
+            for line in _git_text(
+                repo,
+                "diff",
+                "--numstat",
+                facts["base"]["oid"],
+                facts["h3"]["oid"],
+            ).splitlines()
+        )
+    )
+    assert response == _EXPECTED_GUARD_V2_RESPONSE
+    additions = sum(record[0] for record in response)
+    deletions = sum(record[1] for record in response)
+    delta = additions + deletions
+    assert (len(response), additions, deletions, delta) == (6, 687, 178, 865)
+    assert delta == _EXPECTED_GUARD_V2_DELTA and delta > 800
     # The census (contract L76) admits the guard-v2 delta as authenticated
     # governed evidence; because 865 exceeds the paydown cap, the atom can
     # never be admitted as a core/extended paydown fact (max_pr_delta <= 800
     # in _validate_sdk_paydown), only on the corrective proof plane.
     census = ratchet._validate_governed_prs(
         _governed_pr_resource("1" * 40, "2" * 40),
-        authenticated_pr_changes={
-            9999: {"additions": GUARD_V2_ADDITIONS, "deletions": GUARD_V2_DELETIONS}
-        },
+        authenticated_pr_changes={9999: {"additions": additions, "deletions": deletions}},
         repo_root=tmp_path,
         operation_log=[],
     )
-    assert census[0]["authenticated_pr_delta"] == GUARD_V2_DELTA
+    assert census[0]["authenticated_pr_delta"] == delta
     # The corrective proof plane it rides instead carries no PR-delta field at
     # all: its exact closed field set is the bounded-transition proof.
     with pytest.raises(ValueError, match="corrective_bootstrap proof"):
         ratchet._validate_corrective_bootstrap(
-            {"max_pr_delta": GUARD_V2_DELTA},
+            {"max_pr_delta": delta},
             {},
             authority={},
             repo_root=tmp_path,
@@ -7568,7 +7811,9 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
         assert live == binding["sha256"]
 
 
-def test_corrective_guard_v2_old_h2_and_017ce1d7_evidence_are_historical_only():
+def test_corrective_guard_v2_old_h2_and_017ce1d7_evidence_are_historical_only(
+    tmp_path: Path,
+):
     # The superseded H2 pin head and its evidence cannot be posted, settled,
     # or reused: no live enforcement surface references it.
     live_surfaces = [
@@ -7588,15 +7833,17 @@ def test_corrective_guard_v2_old_h2_and_017ce1d7_evidence_are_historical_only():
         assert OLD_H2_PIN_SHA not in text, surface
         assert OLD_H2_PIN_SHA[:12] not in text, surface
     # The accepted analyzer source is the H3 product, not the old H2 pin.
+    repo = _decision_351_repo(tmp_path)
+    facts = _decision_351_facts(repo)
     assert bootstrap.ANALYZER_SOURCE_SHA != OLD_H2_PIN_SHA
-    assert bootstrap.ANALYZER_SOURCE_SHA == H3_SHA
+    assert bootstrap.ANALYZER_SOURCE_SHA == facts["h3"]["oid"]
     h2_source = subprocess.check_output(
         [
             "git",
             "-C",
-            str(_REPO_ROOT),
+            str(repo),
             "show",
-            f"{H2_SHA}:scripts/check_contract_drift_ratchet.py",
+            f"{facts['h2']['oid']}:scripts/check_contract_drift_ratchet.py",
         ],
         text=True,
     )
@@ -8289,7 +8536,7 @@ def test_cdg_800_cap_applies_only_to_core_extended_paydown_with_exact_corrective
     assert "per-PR size cap" in broken["error"]
     # The exact corrective guard-v2 atom (+687/-178 = 865 across six files)
     # rides the corrective proof plane, which carries no PR-delta cap field.
-    assert GUARD_V2_DELTA == 865 and GUARD_V2_DELTA > 800
+    assert _EXPECTED_GUARD_V2_DELTA == 865 and _EXPECTED_GUARD_V2_DELTA > 800
     repo, start_sha, boundary_shas = _boundary_git_repo(tmp_path / "corrective")
     corrective = _boundary_payloads(
         "corrective_bootstrap",
