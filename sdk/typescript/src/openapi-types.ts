@@ -143039,7 +143039,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        integration?: Record<string, never>;
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
@@ -143050,7 +143070,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        integration?: Record<string, never>;
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };

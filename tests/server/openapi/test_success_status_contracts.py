@@ -4,9 +4,11 @@ import inspect
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from aragora.server.handlers.admin.credits import CreditsAdminHandler
 from aragora.server.handlers.features.integrations import IntegrationsHandler
@@ -19,8 +21,21 @@ OPENAPI_PATH = ROOT / "docs/api/openapi.json"
 GENERATED_OPENAPI_PATH = ROOT / "docs/api/openapi_generated.json"
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _load_spec(spec_path: Path) -> dict[str, Any]:
+    return json.loads(spec_path.read_text(), object_pairs_hook=_reject_duplicate_keys)
+
+
 def _documented_success_statuses(spec_path: Path, path: str, method: str) -> set[int]:
-    spec = json.loads(spec_path.read_text())
+    spec = _load_spec(spec_path)
     responses = spec["paths"][path][method]["responses"]
     return {int(status) for status in responses if status.isdigit() and 200 <= int(status) < 300}
 
@@ -70,7 +85,8 @@ async def test_integration_put_success_statuses_match_create_and_update_runtime(
             user_id="user-1",
         )
 
-    runtime_statuses = {created.status_code, updated.status_code}
+    runtime_results = (created, updated)
+    runtime_statuses = {result.status_code for result in runtime_results}
     assert runtime_statuses == {200, 201}
     for path in (
         "/api/integrations/{type}",
@@ -96,3 +112,16 @@ async def test_integration_put_success_statuses_match_create_and_update_runtime(
         )
         == runtime_statuses
     )
+
+    for spec in (
+        _load_spec(GENERATED_OPENAPI_PATH),
+        generated_runtime_schema,
+    ):
+        responses = spec["paths"]["/api/v1/integrations/{type}"]["put"]["responses"]
+        for result in runtime_results:
+            payload = json.loads(result.body)
+            schema = responses[str(result.status_code)]["content"]["application/json"]["schema"]
+            Draft202012Validator(schema).validate(payload)
+            integration = payload["integration"]
+            assert integration["type"] == "email"
+            assert integration["enabled"] is (result.status_code == 201)

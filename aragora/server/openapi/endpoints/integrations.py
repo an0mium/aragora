@@ -14,6 +14,36 @@ def _response(description: str, schema: dict[str, Any] | None = None) -> dict[st
     return resp
 
 
+_INTEGRATION_CONFIG_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": True,
+    "properties": {
+        "type": {"type": "string"},
+        "enabled": {"type": "boolean"},
+        "created_at": {"type": "number"},
+        "updated_at": {"type": "number"},
+        "notify_on_consensus": {"type": "boolean"},
+        "notify_on_debate_end": {"type": "boolean"},
+        "notify_on_error": {"type": "boolean"},
+        "notify_on_leaderboard": {"type": "boolean"},
+        "settings": {"type": "object", "additionalProperties": True},
+        "messages_sent": {"type": "integer"},
+        "errors_24h": {"type": "integer"},
+        "last_activity": {"type": ["number", "null"]},
+        "last_error": {"type": ["string", "null"]},
+        "user_id": {"type": ["string", "null"]},
+        "workspace_id": {"type": ["string", "null"]},
+    },
+    "required": ["type", "enabled"],
+}
+
+_INTEGRATION_CONFIG_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"integration": _INTEGRATION_CONFIG_SCHEMA},
+    "required": ["integration"],
+}
+
+
 INTEGRATION_ENDPOINTS = {
     "/api/v1/integrations/status": {
         "get": {
@@ -108,21 +138,11 @@ INTEGRATION_ENDPOINTS = {
             "responses": {
                 "200": _response(
                     "Integration configuration updated",
-                    {
-                        "type": "object",
-                        "properties": {
-                            "integration": {"type": "object"},
-                        },
-                    },
+                    _INTEGRATION_CONFIG_RESPONSE_SCHEMA,
                 ),
                 "201": _response(
                     "Integration configuration created",
-                    {
-                        "type": "object",
-                        "properties": {
-                            "integration": {"type": "object"},
-                        },
-                    },
+                    _INTEGRATION_CONFIG_RESPONSE_SCHEMA,
                 ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
