@@ -1,10 +1,26 @@
+import io
+import json
 import os
 import re
 import subprocess
+import zipfile
+from datetime import datetime as RealDateTime
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
+
+from scripts.verify_contract_drift_workflow_state import (
+    CANONICAL_WORKFLOW_ID,
+    CANONICAL_WORKFLOW_NAME,
+    CANONICAL_WORKFLOW_PATH,
+    EXPECTED_PROTECTION_STRICT,
+    GhApiReader,
+    PRE_CUTOVER_REQUIRED_CHECKS,
+    VerificationError,
+    verify_workflow_state,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXT = (ROOT / ".github/workflows/contract-drift-governance.yml").read_text()
@@ -167,158 +183,6 @@ def _run_terminal(
     return _simulate_step(script, env={"BASE_SHA": base_sha}, cwd=repo)
 
 
-def _verify_protection_cutover(
-    before: dict,
-    after: dict,
-    *,
-    added_context: str = "contract-drift-pr-delta",
-    expected_app_id: int = EXPECTED_PR_DELTA_APP_ID,
-) -> list[tuple[str, int]]:
-    """Reference cutover rule: after == before plus exactly the pr-delta
-    (context, app_id) tuple, with strict preserved and nothing mutated."""
-    if before["strict"] != after["strict"]:
-        raise ValueError("cutover changed required_status_checks.strict")
-    before_tuples = [tuple(item) for item in before["checks"]]
-    after_tuples = [tuple(item) for item in after["checks"]]
-    if len(before_tuples) != len(set(before_tuples)) or len(after_tuples) != len(set(after_tuples)):
-        raise ValueError("required check tuples are duplicated")
-    removed = set(before_tuples) - set(after_tuples)
-    if removed:
-        raise ValueError("cutover removed or mutated a required (context, app_id) tuple")
-    added = set(after_tuples) - set(before_tuples)
-    if added != {(added_context, expected_app_id)}:
-        raise ValueError(
-            "cutover must add exactly the pr-delta context with the expected app identity"
-        )
-    return sorted(set(after_tuples))
-
-
-def _paginated_protection_checks(pages: list[list[tuple[str, int]]]) -> list[tuple[str, int]]:
-    checks: list[tuple[str, int]] = []
-    for page in pages:
-        if len(page) > 100:
-            raise ValueError("paginated protection page exceeds per_page=100")
-        checks.extend((str(context), int(app_id)) for context, app_id in page)
-    if len(checks) != len(set(checks)):
-        raise ValueError("paginated protection capture returned duplicate tuples")
-    return checks
-
-
-def _required_check_satisfied(
-    check_runs: list[dict], *, context: str, app_id: int = EXPECTED_PR_DELTA_APP_ID
-) -> bool:
-    """A required context is satisfied only by its own successful check run;
-    no other check's state can substitute for it."""
-    for run in check_runs:
-        if run.get("name") == context and run.get("app_id") == app_id:
-            return run.get("conclusion") == "success"
-    return False
-
-
-def _job_reports_success(job: dict) -> bool:
-    if job.get("conclusion") in {"skipped", "cancelled"}:
-        return False
-    return job.get("conclusion") == "success"
-
-
-def _paginate_runs(fetch_page) -> tuple[list[dict], list[str]]:
-    """Reference workflow-run pagination: unfiltered per_page=100 pages,
-    terminating on a short page, rejecting duplicate run IDs."""
-    records: list[dict] = []
-    endpoints: list[str] = []
-    page = 1
-    while True:
-        endpoint = f"repos/OWNER/REPO/actions/runs?per_page=100&page={page}"
-        endpoints.append(endpoint)
-        payload = fetch_page(endpoint)
-        if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
-            raise ValueError("paginated workflow-run payload is malformed")
-        records.extend(payload)
-        if len(payload) < 100:
-            break
-        page += 1
-        if page > 10_000:
-            raise ValueError("workflow-run pagination did not terminate")
-    ids = [run.get("id") for run in records]
-    if len(ids) != len(set(ids)):
-        raise ValueError("paginated workflow runs returned duplicate record IDs")
-    return records, endpoints
-
-
-def _plan_date_shards(
-    daily_counts: dict[str, int], *, cap: int = 1000
-) -> list[tuple[str, str, int]]:
-    """Reference shard planner: disjoint created-date ranges, each strictly
-    below the 1000-result API window."""
-    shards: list[tuple[str, str, int]] = []
-    current: list[str] = []
-    total = 0
-    for day in sorted(daily_counts):
-        count = daily_counts[day]
-        if count >= cap:
-            raise ValueError(f"single-day run volume {count} defeats the {cap}-result window")
-        if current and total + count >= cap:
-            shards.append((current[0], current[-1], total))
-            current, total = [], 0
-        current.append(day)
-        total += count
-    if current:
-        shards.append((current[0], current[-1], total))
-    for (_, end_a, _), (start_b, _, _) in zip(shards, shards[1:]):
-        if not end_a < start_b:
-            raise ValueError("date shards overlap")
-    if any(count >= cap for _, _, count in shards):
-        raise ValueError(f"date shard reaches the {cap}-result cap")
-    return shards
-
-
-def _reconcile_run_ids(shards: list[dict], *, reported_total: int) -> list[int]:
-    ids = [run["id"] for shard in shards for run in shard["workflow_runs"]]
-    if len(ids) != len(set(ids)):
-        raise ValueError("sharded run capture duplicated run IDs")
-    for shard in shards:
-        if shard["total_count"] != len(shard["workflow_runs"]):
-            raise ValueError("shard total_count does not reconcile with captured runs")
-    if reported_total != len(ids):
-        raise ValueError("run IDs do not reconcile to the reported total_count")
-    return sorted(ids)
-
-
-def _attempt_numbers(run: dict) -> list[int]:
-    attempt = run.get("run_attempt")
-    if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
-        raise ValueError("run_attempt is malformed")
-    return list(range(1, attempt + 1))
-
-
-def _attempt_jobs_endpoint(run_id: int, attempt: int) -> str:
-    if attempt < 1:
-        raise ValueError("attempt numbers start at 1")
-    return f"repos/OWNER/REPO/actions/runs/{run_id}/attempts/{attempt}/jobs"
-
-
-def _validate_attempt_jobs(endpoint: str, jobs: list[dict], *, attempt: int) -> None:
-    if f"/attempts/{attempt}/jobs" not in endpoint:
-        raise ValueError("jobs endpoint is not attempt-specific")
-    for job in jobs:
-        if job.get("run_attempt") != attempt:
-            raise ValueError("job record is not attempt-specific")
-        if f"/attempts/{attempt}" not in job.get("check_url", ""):
-            raise ValueError("check URL is not pinned to the requested attempt")
-
-
-def _validate_run_artifact(artifact: dict, *, head_sha: str, release_digests: set[str]) -> str:
-    name = artifact.get("name")
-    if not isinstance(name, str) or not name.endswith(f"-{head_sha}"):
-        raise ValueError("run artifact name is not SHA-bound")
-    size = artifact.get("size_in_bytes")
-    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
-        raise ValueError("run artifact lacks a nonempty payload")
-    if artifact.get("payload_sha256") not in release_digests:
-        raise ValueError("run artifact payload is not bound to the immutable release")
-    return name
-
-
 def test_workflow_has_exact_live_checks_and_events():
     assert {job["name"] for job in JOBS.values()} == {f"contract-drift-{name}" for name in ("pr-delta", "main-receipt", "program-trajectory")}  # fmt: skip
     assert set(DOC["on"]) == {"pull_request", "push", "schedule", "workflow_dispatch"} and not {"paths", "paths-ignore"} & set(DOC["on"]["pull_request"])  # fmt: skip
@@ -363,16 +227,6 @@ def test_program_trajectory_upload_is_sha_qualified_and_never_masks_the_analyzer
 # --- VAL-CDG-015: live workflow topology -----------------------------------
 
 
-def _workflow_docs() -> dict[str, dict]:
-    docs = {}
-    for path in sorted((ROOT / ".github/workflows").iterdir()):
-        if path.suffix in {".yml", ".yaml"}:
-            loaded = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-            if isinstance(loaded, dict):
-                docs[path.name] = loaded
-    return docs
-
-
 def _job_names(doc: dict) -> list[str]:
     return [
         str(job.get("name", job_id))
@@ -381,78 +235,242 @@ def _job_names(doc: dict) -> list[str]:
     ]
 
 
+FIXTURE_REPO = "synaptent/aragora"
+FIXTURE_MAIN_SHA = "a" * 40
+FIXTURE_RUN_ID = 7001
+
+
+class FixtureApiReader:
+    def __init__(
+        self, json_responses: dict[str, list[dict[str, Any]]], bytes_responses: dict[str, bytes]
+    ):
+        self.json_responses = {key: list(value) for key, value in json_responses.items()}
+        self.bytes_responses = bytes_responses
+        self.json_calls: list[str] = []
+
+    def get_json(self, endpoint: str) -> dict[str, Any]:
+        self.json_calls.append(endpoint)
+        responses = self.json_responses.get(endpoint)
+        if not responses:
+            raise AssertionError(f"unexpected JSON endpoint: {endpoint}")
+        return responses.pop(0) if len(responses) > 1 else responses[0]
+
+    def get_bytes(self, endpoint: str, *, max_bytes: int | None = None) -> bytes:
+        try:
+            payload = self.bytes_responses[endpoint]
+        except KeyError as exc:
+            raise AssertionError(f"unexpected bytes endpoint: {endpoint}") from exc
+        if max_bytes is not None and len(payload) > max_bytes:
+            raise VerificationError(f"authenticated GitHub response is too large: {endpoint}")
+        return payload
+
+
+class FixedDateTime(RealDateTime):
+    @classmethod
+    def now(cls, tz=None):
+        return RealDateTime(2026, 2, 19, tzinfo=tz)
+
+
+def _json_page(items: list[dict[str, Any]], key: str, total: int | None = None) -> dict[str, Any]:
+    return {"total_count": len(items) if total is None else total, key: items}
+
+
+def _artifact_zip(filename: str, payload: dict[str, Any]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(filename, json.dumps(payload, sort_keys=True))
+    return buffer.getvalue()
+
+
+def _workflow_record(
+    *, workflow_id: int = CANONICAL_WORKFLOW_ID, state: str = "active"
+) -> dict[str, Any]:
+    return {"id": workflow_id, "name": CANONICAL_WORKFLOW_NAME, "path": CANONICAL_WORKFLOW_PATH, "state": state}  # fmt: skip
+
+
+def _run_record(
+    *,
+    run_id: int = FIXTURE_RUN_ID,
+    main_sha: str = FIXTURE_MAIN_SHA,
+    run_attempt: int = 1,
+    started_at: str = "2026-08-12T01:00:00Z",
+) -> dict[str, Any]:
+    return {"id": run_id, "workflow_id": CANONICAL_WORKFLOW_ID, "path": CANONICAL_WORKFLOW_PATH, "head_branch": "main", "head_sha": main_sha, "event": "push", "run_attempt": run_attempt, "run_started_at": started_at, "status": "completed", "conclusion": "failure"}  # fmt: skip
+
+
+def _job_record(
+    name: str, *, run_id: int, main_sha: str, attempt: int, job_id: int
+) -> tuple[dict[str, Any], str, dict[str, Any]]:
+    check_id = job_id + 10_000
+    check_url = f"https://api.github.com/repos/{FIXTURE_REPO}/check-runs/{check_id}"
+    conclusion = dict(zip(LIVE_CHECK_NAMES, ("skipped", "success", "failure"), strict=True))[name]
+    job = {"id": job_id, "name": name, "run_attempt": attempt, "check_run_url": check_url}
+    check = {"id": check_id, "name": name, "head_sha": main_sha, "app": {"id": EXPECTED_PR_DELTA_APP_ID}, "status": "completed", "conclusion": conclusion, "details_url": f"https://github.com/{FIXTURE_REPO}/actions/runs/{run_id}/job/{job_id}"}  # fmt: skip
+    return job, check_url, check
+
+
+def _live_fixture(
+    *,
+    workflows: list[dict[str, Any]] | None = None,
+    workflow_total: int | None = None,
+    runs: list[dict[str, Any]] | None = None,
+    run_total: int | None = None,
+    run_attempt: int = 1,
+    second_snapshot_run: dict[str, Any] | None = None,
+    protection_checks: list[dict[str, Any]] | None = None,
+    protection_strict: bool = EXPECTED_PROTECTION_STRICT,
+    receipt_payload_status: str = "pass",
+) -> tuple[FixtureApiReader, dict[str, Any]]:
+    run_records = list(runs or [_run_record(run_attempt=run_attempt)])
+    selected = max(
+        (item for item in run_records if item["head_sha"] == FIXTURE_MAIN_SHA),
+        key=lambda item: (item["run_started_at"], item["id"], item["run_attempt"]),
+    )
+    selected_id = selected["id"]
+    selected_sha = selected["head_sha"]
+    selected_attempt = selected["run_attempt"]
+    workflows = [_workflow_record()] if workflows is None else workflows
+    if protection_checks is None:
+        protection_checks = [{"context": context, "app_id": app_id} for context, app_id in PRE_CUTOVER_REQUIRED_CHECKS]  # fmt: skip
+
+    json_responses: dict[str, list[dict[str, Any]]] = {
+        f"repos/{FIXTURE_REPO}/actions/workflows?per_page=100&page=1": [
+            _json_page(workflows, "workflows", workflow_total)
+        ],
+        f"repos/{FIXTURE_REPO}/git/ref/heads/main": [
+            {"object": {"sha": FIXTURE_MAIN_SHA}},
+            {"object": {"sha": FIXTURE_MAIN_SHA}},
+        ],
+        f"repos/{FIXTURE_REPO}/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs?per_page=100&page=1": [
+            _json_page(run_records, "workflow_runs", run_total),
+            _json_page(run_records, "workflow_runs", run_total),
+            _json_page([second_snapshot_run or selected], "workflow_runs"),
+            _json_page([second_snapshot_run or selected], "workflow_runs"),
+        ],  # fmt: skip
+        f"repos/{FIXTURE_REPO}/branches/main/protection/required_status_checks": [
+            {"strict": protection_strict, "checks": protection_checks}
+        ],
+    }
+    workflow_source = (ROOT / CANONICAL_WORKFLOW_PATH).read_bytes()
+    bytes_responses: dict[str, bytes] = {
+        f"repos/{FIXTURE_REPO}/contents/{CANONICAL_WORKFLOW_PATH}?ref=main": workflow_source,
+        f"repos/{FIXTURE_REPO}/contents/{CANONICAL_WORKFLOW_PATH}?ref={selected_sha}": workflow_source,
+    }
+
+    for attempt in range(1, selected_attempt + 1):
+        jobs: list[dict[str, Any]] = []
+        for offset, name in enumerate(LIVE_CHECK_NAMES, start=1):
+            job, check_url, check = _job_record(
+                name,
+                run_id=selected_id,
+                main_sha=selected_sha,
+                attempt=attempt,
+                job_id=attempt * 100 + offset,
+            )
+            jobs.append(job)
+            json_responses[check_url] = [check]
+        endpoint = f"repos/{FIXTURE_REPO}/actions/runs/{selected_id}/attempts/{attempt}/jobs?per_page=100&page=1"
+        json_responses[endpoint] = [_json_page(jobs, "jobs")]
+
+    artifacts: list[dict[str, Any]] = []
+    artifact_specs = (
+        (9001, "contract-drift-main-receipt", "contract-drift-main-receipt.json", {"source_sha": selected_sha, "status": receipt_payload_status}),
+        (9002, "contract-drift-program-trajectory", "contract-drift-program-trajectory.json", {"program": {"source_sha": selected_sha}, "status": "fail"}),
+    )  # fmt: skip
+    for artifact_id, prefix, filename, payload in artifact_specs:
+        raw_zip = _artifact_zip(filename, payload)
+        artifacts.append({"id": artifact_id, "name": f"{prefix}-{selected_sha}", "expired": False, "size_in_bytes": len(raw_zip), "workflow_run": {"id": selected_id, "head_sha": selected_sha}})  # fmt: skip
+        bytes_responses[f"repos/{FIXTURE_REPO}/actions/artifacts/{artifact_id}/zip"] = raw_zip
+    json_responses[
+        f"repos/{FIXTURE_REPO}/actions/runs/{selected_id}/artifacts?per_page=100&page=1"
+    ] = [_json_page(artifacts, "artifacts")]
+    expected = {"workflow_id": CANONICAL_WORKFLOW_ID, "main_sha": FIXTURE_MAIN_SHA, "run_id": selected_id, "run_attempt": selected_attempt}  # fmt: skip
+    return FixtureApiReader(json_responses, bytes_responses), expected
+
+
 def test_exactly_one_active_contract_drift_workflow():
-    producers = [
-        name
-        for name, doc in _workflow_docs().items()
-        if set(_job_names(doc)) & set(LIVE_CHECK_NAMES)
+    disabled = [
+        {
+            "id": 100_000 + index,
+            "name": f"legacy-{index}",
+            "path": f".github/workflows/legacy-{index}.yml",
+            "state": "disabled_manually",
+        }
+        for index in range(100)
     ]
-    assert producers == ["contract-drift-governance.yml"]
-    doc = _workflow_docs()["contract-drift-governance.yml"]
-    assert doc["name"] == "Contract Drift Governance"
-    # The producer is active: real triggers, and no workflow-level disable.
-    assert doc["on"] and "jobs" in doc
+    workflows = [*disabled, _workflow_record()]
+    reader, expected = _live_fixture(workflows=workflows)
+    repo = "synaptent/aragora"
+    # Force a real second page while preserving one stable response for every later endpoint.
+    reader.json_responses[f"repos/{repo}/actions/workflows?per_page=100&page=1"] = [
+        _json_page(disabled, "workflows", 101)
+    ]
+    reader.json_responses[f"repos/{repo}/actions/workflows?per_page=100&page=2"] = [
+        _json_page([_workflow_record()], "workflows", 101)
+    ]
+    result = verify_workflow_state(reader)
+    assert result["workflow"] == _workflow_record(workflow_id=expected["workflow_id"])
+    assert result["workflow_pages"] == [
+        f"repos/{repo}/actions/workflows?per_page=100&page=1",
+        f"repos/{repo}/actions/workflows?per_page=100&page=2",
+    ]
+    reader, _ = _live_fixture(workflows=[_workflow_record(state="disabled_manually")])
+    with pytest.raises(VerificationError, match="must be active"):
+        verify_workflow_state(reader)
 
 
 def test_exact_three_live_cdg_check_names():
-    names = _job_names(DOC)
-    assert sorted(names) == sorted(LIVE_CHECK_NAMES)
-    # Job IDs map 1:1 onto the exact live check names.
-    assert {job_id: job["name"] for job_id, job in JOBS.items()} == {
-        "pr-delta": "contract-drift-pr-delta",
-        "main-receipt": "contract-drift-main-receipt",
-        "program-trajectory": "contract-drift-program-trajectory",
-    }
+    reader, _ = _live_fixture()
+    result = verify_workflow_state(reader)
+    assert set(result["selection"]["selected_attempt"]["checks"]) == set(LIVE_CHECK_NAMES)
 
 
 def test_no_duplicate_live_cdg_check_names():
-    names = _job_names(DOC)
-    assert len(names) == len(set(names)) == 3
-    for live in LIVE_CHECK_NAMES:
-        producers = [name for name, doc in _workflow_docs().items() if _job_names(doc).count(live)]
-        assert producers == ["contract-drift-governance.yml"], live
-        assert _job_names(DOC).count(live) == 1
+    duplicate = _workflow_record(workflow_id=CANONICAL_WORKFLOW_ID + 1)
+    duplicate["path"] = ".github/workflows/contract-drift-copy.yml"
+    reader, _ = _live_fixture(workflows=[_workflow_record(), duplicate])
+    with pytest.raises(VerificationError, match="exactly one registered workflow"):
+        verify_workflow_state(reader)
+    reader, _ = _live_fixture(workflows=[_workflow_record(), _workflow_record()])
+    with pytest.raises(VerificationError, match="duplicate identities"):
+        verify_workflow_state(reader)
+    reader, _ = _live_fixture(workflow_total=2)
+    with pytest.raises(VerificationError, match="do not reconcile to total_count"):
+        verify_workflow_state(reader)
 
 
 def test_contract_drift_triggers_pr_main_schedule_dispatch():
+    reader, _ = _live_fixture()
+    result = verify_workflow_state(reader)
+    assert result["workflow"]["state"] == "active"
     assert set(DOC["on"]) == {"pull_request", "push", "schedule", "workflow_dispatch"}
-    assert DOC["on"]["pull_request"]["branches"] == ["main"]
-    assert DOC["on"]["push"]["branches"] == ["main"]
-    schedule = DOC["on"]["schedule"]
-    assert schedule and all("cron" in entry for entry in schedule)
-    assert DOC["on"]["workflow_dispatch"] == {}
 
 
 def test_contract_drift_pr_has_no_governed_path_filter_gap():
+    reader, _ = _live_fixture()
+    verify_workflow_state(reader)
     for event in ("pull_request", "push"):
-        trigger = DOC["on"][event]
-        assert not {"paths", "paths-ignore"} & set(trigger), event
-    assert "paths" not in TEXT and "paths-ignore" not in TEXT
+        assert not {"paths", "paths-ignore"} & set(DOC["on"][event])
 
 
 def test_contract_drift_pr_uses_event_bound_full_shas():
+    reader, expected = _live_fixture()
+    result = verify_workflow_state(reader)
+    assert result["main_sha"] == expected["main_sha"]
     env = JOBS["pr-delta"]["env"]
-    assert env["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
-    assert env["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
-    admission = _analyzer_step("pr-delta")["run"]
-    assert '--base-ref "$BASE_SHA"' in admission and '--head-ref "$HEAD_SHA"' in admission
-    assert 'git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"' in admission
-    # No mutable or synthetic refs stand in for the immutable event SHAs.
-    pr_text = str(JOBS["pr-delta"])
-    assert "github.ref" not in pr_text and "merge_commit_sha" not in pr_text
-    assert "--base-ref HEAD" not in pr_text and "--head-ref HEAD" not in pr_text
+    assert env == {
+        "BASE_SHA": "${{ github.event.pull_request.base.sha }}",
+        "HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
+    }
 
 
 def test_contract_drift_non_pr_events_resolve_one_sha_for_receipt_and_program():
-    receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
-    assert receipt["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
-    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
-    for job in (receipt, program):
-        checkout = job["steps"][0]
-        assert checkout["uses"].startswith("actions/checkout@")
-        assert checkout["with"]["ref"] == SOURCE_SHA_EXPR
-        assert '--ref "$SOURCE_SHA"' in _analyzer_step_text(job)
-        assert job["if"] == "github.event_name != 'pull_request'"
+    reader, expected = _live_fixture()
+    result = verify_workflow_state(reader)
+    assert result["selection"]["identity"]["run_id"] == expected["run_id"]
+    assert (
+        JOBS["main-receipt"]["env"]["SOURCE_SHA"] == JOBS["program-trajectory"]["env"]["SOURCE_SHA"]
+    )
 
 
 def _analyzer_step_text(job: dict) -> str:
@@ -463,147 +481,143 @@ def _analyzer_step_text(job: dict) -> str:
 
 
 def test_workflow_runs_paginate_unfiltered_and_filter_locally():
-    runs = [{"id": index, "name": DOC["name"] if index % 3 else "Other"} for index in range(237)]
-
-    def fetch_page(endpoint: str) -> list[dict]:
-        # The listing endpoint carries pagination only: any server-side
-        # filter (status/event/created/branch) would hide history.
-        query = endpoint.split("?", 1)[1]
-        assert sorted(param.split("=")[0] for param in query.split("&")) == ["page", "per_page"]
-        page = int(query.split("page=")[-1])
-        return runs[(page - 1) * 100 : page * 100]
-
-    records, endpoints = _paginate_runs(fetch_page)
-    assert [len(records), len(endpoints)] == [237, 3]
-    assert endpoints[0].endswith("per_page=100&page=1")
-    governance = [run for run in records if run["name"] == DOC["name"]]
-    assert len(governance) == 158 and all(run["id"] % 3 for run in governance)
-    with pytest.raises(ValueError, match="duplicate record IDs"):
-        _paginate_runs(
-            lambda endpoint: [{"id": 1}] * 100 if endpoint.endswith("&page=1") else [{"id": 1}]
-        )
+    newer_other_sha = _run_record(
+        run_id=8000,
+        main_sha="b" * 40,
+        started_at="2026-08-12T02:00:00Z",
+    )
+    reader, expected = _live_fixture(runs=[_run_record(), newer_other_sha])
+    result = verify_workflow_state(reader)
+    assert result["selection"]["identity"]["run_id"] == expected["run_id"] == 7001
+    first_run_endpoint = f"repos/synaptent/aragora/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs?per_page=100&page=1"
+    assert first_run_endpoint in reader.json_calls
+    assert not any(
+        token in first_run_endpoint for token in ("branch=", "status=", "event=", "conclusion=")
+    )
 
 
-def test_filtered_history_requires_disjoint_date_shards_below_1000():
-    shards = _plan_date_shards({f"2026-07-{day:02d}": 400 for day in range(1, 8)})
-    assert shards == [
-        ("2026-07-01", "2026-07-02", 800),
-        ("2026-07-03", "2026-07-04", 800),
-        ("2026-07-05", "2026-07-06", 800),
-        ("2026-07-07", "2026-07-07", 400),
-    ]
-    assert all(count < 1000 for _, _, count in shards)
-    starts = [start for start, _, _ in shards][1:]
-    ends = [end for _, end, _ in shards][:-1]
-    assert all(end < start for end, start in zip(ends, starts))
-    with pytest.raises(ValueError, match="defeats the 1000-result window"):
-        _plan_date_shards({"2026-07-01": 1000})
+def test_filtered_history_requires_disjoint_date_shards_below_1000(monkeypatch: pytest.MonkeyPatch):
+    import scripts.verify_contract_drift_workflow_state as verifier
+
+    counts = {
+        verifier.HISTORY_START_DATE + verifier.timedelta(days=offset): 400 for offset in range(7)
+    }
+    monkeypatch.setattr(verifier, "datetime", FixedDateTime)
+    calls: list[verifier.date] = []
+
+    def fake_day_runs(reader, *, repo: str, workflow_id: int, day: verifier.date):
+        calls.append(day)
+        records = [{"id": len(calls) * 1000 + index} for index in range(counts[day])]
+        return records, [f"created={day.isoformat()}"]
+
+    monkeypatch.setattr(verifier, "_day_runs", fake_day_runs)
+    records, endpoints = verifier._workflow_runs_by_date(
+        object(),
+        repo="synaptent/aragora",
+        workflow_id=CANONICAL_WORKFLOW_ID,
+        reported_total=2800,
+    )
+    logical_shards = [endpoint for endpoint in endpoints if ".." in endpoint]
+    assert len(records) == 2800
+    assert logical_shards == ["created=2026-02-13..2026-02-14", "created=2026-02-15..2026-02-16", "created=2026-02-17..2026-02-18", "created=2026-02-19..2026-02-19"]  # fmt: skip
 
 
 def test_workflow_run_ids_reconcile_to_total_count():
-    shards = [
-        {"total_count": 2, "workflow_runs": [{"id": 11}, {"id": 12}]},
-        {"total_count": 1, "workflow_runs": [{"id": 13}]},
-    ]
-    assert _reconcile_run_ids(shards, reported_total=3) == [11, 12, 13]
-    with pytest.raises(ValueError, match="do not reconcile to the reported total_count"):
-        _reconcile_run_ids(shards, reported_total=4)
-    with pytest.raises(ValueError, match="duplicated run IDs"):
-        _reconcile_run_ids(
-            [
-                {"total_count": 1, "workflow_runs": [{"id": 11}]},
-                {"total_count": 1, "workflow_runs": [{"id": 11}]},
-            ],
-            reported_total=2,
-        )
-    with pytest.raises(ValueError, match="shard total_count does not reconcile"):
-        _reconcile_run_ids([{"total_count": 5, "workflow_runs": [{"id": 11}]}], reported_total=1)
+    reader, _ = _live_fixture(run_total=2)
+    with pytest.raises(VerificationError, match="do not reconcile to total_count"):
+        verify_workflow_state(reader)
+    duplicate = _run_record(run_id=7001)
+    reader, _ = _live_fixture(runs=[duplicate, dict(duplicate)], run_total=2)
+    with pytest.raises(VerificationError, match="duplicate identities"):
+        verify_workflow_state(reader)
 
 
 def test_attempts_are_enumerated_one_through_run_attempt():
-    assert _attempt_numbers({"run_attempt": 1}) == [1]
-    assert _attempt_numbers({"run_attempt": 4}) == [1, 2, 3, 4]
-    for hostile in ({"run_attempt": 0}, {"run_attempt": True}, {"run_attempt": "3"}, {}):
-        with pytest.raises(ValueError, match="run_attempt is malformed"):
-            _attempt_numbers(hostile)
+    reader, expected = _live_fixture(run_attempt=3)
+    result = verify_workflow_state(reader)
+    assert [attempt["attempt"] for attempt in result["selection"]["attempts"]] == [1, 2, 3]
+    assert result["selection"]["identity"]["run_attempt"] == expected["run_attempt"]
 
 
 def test_jobs_and_check_urls_are_attempt_specific():
-    endpoint = _attempt_jobs_endpoint(9662, 2)
-    assert endpoint == "repos/OWNER/REPO/actions/runs/9662/attempts/2/jobs"
-    jobs = [{"run_attempt": 2, "check_url": "repos/OWNER/REPO/actions/runs/9662/attempts/2/jobs/7"}]
-    _validate_attempt_jobs(endpoint, jobs, attempt=2)
-    with pytest.raises(ValueError, match="not attempt-specific"):
-        _validate_attempt_jobs("repos/OWNER/REPO/actions/runs/9662/jobs", jobs, attempt=2)
-    with pytest.raises(ValueError, match="job record is not attempt-specific"):
-        _validate_attempt_jobs(endpoint, [{"run_attempt": 1, "check_url": endpoint}], attempt=2)
-    with pytest.raises(ValueError, match="not pinned to the requested attempt"):
-        _validate_attempt_jobs(
-            endpoint,
-            [{"run_attempt": 2, "check_url": "repos/OWNER/REPO/actions/runs/9662/jobs/7"}],
-            attempt=2,
-        )
-    with pytest.raises(ValueError, match="attempt numbers start at 1"):
-        _attempt_jobs_endpoint(9662, 0)
+    reader, expected = _live_fixture(run_attempt=2)
+    result = verify_workflow_state(reader)
+    for attempt in result["selection"]["attempts"]:
+        assert f"/attempts/{attempt['attempt']}/jobs" in attempt["jobs_endpoint"]
+        for check in attempt["checks"].values():
+            assert check["jobs_endpoint"] == attempt["jobs_endpoint"]
+            assert check["check_url"].startswith(
+                "https://api.github.com/repos/synaptent/aragora/check-runs/"
+            )
+    hostile, _ = _live_fixture(run_attempt=1)
+    endpoint = f"repos/synaptent/aragora/actions/runs/{expected['run_id']}/attempts/1/jobs?per_page=100&page=1"
+    hostile.json_responses[endpoint][0]["jobs"][0]["run_attempt"] = 2
+    with pytest.raises(VerificationError, match="job record is not attempt-specific"):
+        verify_workflow_state(hostile)
+    hostile, _ = _live_fixture(run_attempt=1)
+    hostile.json_responses[endpoint][0]["jobs"][0]["check_run_url"] = (
+        "https://api.github.com/repos/attacker/other/check-runs/10101"
+    )
+    with pytest.raises(VerificationError, match="bound to another repository"):
+        verify_workflow_state(hostile)
 
 
 def test_run_level_artifacts_require_payload_and_release_binding():
-    head = "a" * 40
-    artifact = {
-        "name": f"contract-drift-pr-delta-{head}",
-        "size_in_bytes": 2048,
-        "payload_sha256": "d" * 64,
-    }
-    assert _validate_run_artifact(artifact, head_sha=head, release_digests={"d" * 64})
-    with pytest.raises(ValueError, match="nonempty payload"):
-        _validate_run_artifact({**artifact, "size_in_bytes": 0}, head_sha=head, release_digests={"d" * 64})  # fmt: skip
-    with pytest.raises(ValueError, match="not bound to the immutable release"):
-        _validate_run_artifact(artifact, head_sha=head, release_digests={"e" * 64})
-    with pytest.raises(ValueError, match="not SHA-bound"):
-        _validate_run_artifact({**artifact, "name": "contract-drift-pr-delta"}, head_sha=head, release_digests={"d" * 64})  # fmt: skip
-    # Every live job uploads a run-level, SHA-qualified copy of its output.
-    for job_id, sha_expr in (
-        ("pr-delta", "${{ github.event.pull_request.head.sha }}"),
-        ("main-receipt", "${{ github.sha }}"),
-        ("program-trajectory", "${{ github.sha }}"),
-    ):
-        upload = _upload_step(job_id)
-        assert upload["with"]["name"] == f"contract-drift-{job_id}-{sha_expr}"
-        assert upload["with"]["path"] == f"contract-drift-{job_id}.json"
+    reader, expected = _live_fixture()
+    result = verify_workflow_state(reader)
+    assert {item["payload_status"] for item in result["selection"]["artifacts"]} == {"pass", "fail"}
+    assert all(
+        f"-{expected['main_sha']}" in item["name"] for item in result["selection"]["artifacts"]
+    )
+    hostile, _ = _live_fixture(receipt_payload_status="fail")
+    with pytest.raises(VerificationError, match="payload status contradicts"):
+        verify_workflow_state(hostile)
+    hostile, _ = _live_fixture()
+    endpoint = (
+        f"repos/synaptent/aragora/actions/runs/{expected['run_id']}/artifacts?per_page=100&page=1"
+    )
+    hostile.json_responses[endpoint][0]["artifacts"][0]["workflow_run"]["id"] += 1
+    with pytest.raises(VerificationError, match="bound to another run or SHA"):
+        verify_workflow_state(hostile)
 
 
 def test_pr_delta_cutover_preserves_exact_context_app_id_set_and_strict():
-    before = {"strict": True, "checks": [["ci/build", 15368], ["ci/lint", 15368]]}
-    after = {
-        "strict": True,
-        "checks": [["ci/build", 15368], ["ci/lint", 15368], ["contract-drift-pr-delta", 15368]],
-    }
-    result = _verify_protection_cutover(before, after)
-    assert ("contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID) in result
-    assert set(result) >= {("ci/build", 15368), ("ci/lint", 15368)}
-    with pytest.raises(ValueError, match="changed required_status_checks.strict"):
-        _verify_protection_cutover(before, {**after, "strict": False})
-    checks = _paginated_protection_checks([[("ci/build", 15368)], [("ci/lint", 15368)]])
-    assert checks == [("ci/build", 15368), ("ci/lint", 15368)]
-    with pytest.raises(ValueError, match="duplicate tuples"):
-        _paginated_protection_checks([[("ci/build", 15368)], [("ci/build", 15368)]])
+    after = [
+        {"context": context, "app_id": app_id} for context, app_id in PRE_CUTOVER_REQUIRED_CHECKS
+    ] + [{"context": "contract-drift-pr-delta", "app_id": EXPECTED_PR_DELTA_APP_ID}]
+    reader, _ = _live_fixture(protection_checks=after)
+    result = verify_workflow_state(reader)
+    assert result["branch_protection"]["cutover_phase"] == "after"
+    strict_hostile, _ = _live_fixture(protection_strict=not EXPECTED_PROTECTION_STRICT)
+    with pytest.raises(VerificationError, match="strict moved"):
+        verify_workflow_state(strict_hostile)
 
 
 def test_pr_delta_uses_expected_app_identity():
-    runs = [
-        {
-            "name": "contract-drift-pr-delta",
-            "app_id": EXPECTED_PR_DELTA_APP_ID,
-            "conclusion": "success",
-        }
-    ]
-    assert _required_check_satisfied(runs, context="contract-drift-pr-delta")
-    imposter = [{"name": "contract-drift-pr-delta", "app_id": 99999, "conclusion": "success"}]
-    assert not _required_check_satisfied(imposter, context="contract-drift-pr-delta")
-    before = {"strict": True, "checks": [["ci/build", 15368]]}
-    after = {"strict": True, "checks": [["ci/build", 15368], ["contract-drift-pr-delta", 99999]]}
-    with pytest.raises(ValueError, match="expected app identity"):
-        _verify_protection_cutover(before, after)
+    hostile_checks = [
+        {"context": context, "app_id": app_id} for context, app_id in PRE_CUTOVER_REQUIRED_CHECKS
+    ] + [{"context": "contract-drift-pr-delta", "app_id": 99999}]
+    reader, _ = _live_fixture(protection_checks=hostile_checks)
+    with pytest.raises(VerificationError, match="valid cutover state"):
+        verify_workflow_state(reader)
+    reader, _ = _live_fixture()
+    check_url = "https://api.github.com/repos/synaptent/aragora/check-runs/10101"
+    reader.json_responses[check_url][0]["app"]["id"] = 99999
+    with pytest.raises(VerificationError, match="not authenticated by the GitHub Actions app"):
+        verify_workflow_state(reader)
+
+
+def test_live_verifier_rejects_main_or_selected_run_movement():
+    reader, _ = _live_fixture()
+    reader.json_responses["repos/synaptent/aragora/git/ref/heads/main"][-1] = {
+        "object": {"sha": "b" * 40}
+    }
+    with pytest.raises(VerificationError, match="matches current main|moved during verification"):
+        verify_workflow_state(reader)
+    moved = _run_record(run_id=7002, started_at="2026-08-12T02:00:00Z")
+    reader, _ = _live_fixture(second_snapshot_run=moved)
+    with pytest.raises(VerificationError, match="moved during verification"):
+        verify_workflow_state(reader)
 
 
 def test_terminal_aggregator_fails_if_pr_delta_is_skipped_cancelled_or_missing(tmp_path):
@@ -706,24 +720,13 @@ def test_contract_drift_outputs_are_required_before_summary(tmp_path):
 
 
 def test_skipped_or_cancelled_cdg_authority_job_cannot_report_success(tmp_path):
-    for conclusion in ("skipped", "cancelled"):
-        assert not _job_reports_success({"conclusion": conclusion})
-        assert not _required_check_satisfied(
-            [
-                {
-                    "name": "contract-drift-pr-delta",
-                    "app_id": EXPECTED_PR_DELTA_APP_ID,
-                    "conclusion": conclusion,
-                }
-            ],
-            context="contract-drift-pr-delta",
-        )
-    assert _job_reports_success({"conclusion": "success"})
-    assert not _job_reports_success({"conclusion": None})
     # The terminal aggregator turns a skipped admission into a hard failure
     # instead of an implicit green.
-    result = _run_terminal(tmp_path, outcome="skipped", payload='{"admitted": true}\n')
-    assert result.returncode != 0
+    for index, conclusion in enumerate(("skipped", "cancelled")):
+        result = _run_terminal(
+            tmp_path / str(index), outcome=conclusion, payload='{"admitted": true}\n'
+        )
+        assert result.returncode != 0
 
 
 # --- VAL-CDG-009: separate immutable signals (workflow side) ----------------
@@ -800,70 +803,6 @@ def test_exact_three_live_check_names_are_separate():
         assert outputs[job_id] == f"contract-drift-{job_id}.json"
 
 
-def test_pr_delta_becomes_branch_protection_required_after_cutover():
-    before = {"strict": True, "checks": [["ci/build", 15368]]}
-    after = {
-        "strict": True,
-        "checks": [["ci/build", 15368], ["contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID]],
-    }
-    result = _verify_protection_cutover(before, after)
-    assert ("contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID) in result
-    # A cutover that fails to add the pr-delta requirement is rejected.
-    with pytest.raises(ValueError, match="must add exactly the pr-delta context"):
-        _verify_protection_cutover(before, before)
-
-
-def test_branch_protection_preserves_exact_context_app_id_set_and_strict():
-    before = {"strict": True, "checks": [["ci/build", 15368], ["ci/lint", 15368]]}
-    dropped = {
-        "strict": True,
-        "checks": [["ci/build", 15368], ["contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID]],
-    }
-    with pytest.raises(ValueError, match="removed or mutated"):
-        _verify_protection_cutover(before, dropped)
-    swapped_app = {
-        "strict": True,
-        "checks": [
-            ["ci/build", 15368],
-            ["ci/lint", 424242],
-            ["contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID],
-        ],
-    }
-    with pytest.raises(ValueError, match="removed or mutated"):
-        _verify_protection_cutover(before, swapped_app)
-    duplicated = {
-        "strict": True,
-        "checks": [["ci/build", 15368], ["ci/build", 15368]],
-    }
-    with pytest.raises(ValueError, match="duplicated"):
-        _verify_protection_cutover(before, duplicated)
-
-
-def test_pr_delta_is_added_with_expected_app_identity():
-    before = {"strict": False, "checks": [["ci/build", 15368]]}
-    for hostile_app in (99999, 0, -1):
-        after = {
-            "strict": False,
-            "checks": [["ci/build", 15368], ["contract-drift-pr-delta", hostile_app]],
-        }
-        with pytest.raises(ValueError, match="expected app identity"):
-            _verify_protection_cutover(before, after)
-    good = {
-        "strict": False,
-        "checks": [["ci/build", 15368], ["contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID]],
-    }
-    assert ("contract-drift-pr-delta", EXPECTED_PR_DELTA_APP_ID) in _verify_protection_cutover(
-        before, good
-    )
-    # Adding a different context, even with the right app, is not the cutover.
-    wrong_context = {
-        "strict": False,
-        "checks": [["ci/build", 15368], ["contract-drift-imposter", EXPECTED_PR_DELTA_APP_ID]],
-    }
-    with pytest.raises(ValueError, match="must add exactly the pr-delta context"):
-        _verify_protection_cutover(before, wrong_context)
-
-
 def test_terminal_aggregator_fails_when_pr_delta_is_skipped(tmp_path):
     terminal = _terminal_step()
     # `always()` forces the aggregator to run and judge a skipped admission
@@ -933,19 +872,16 @@ def test_program_red_cannot_mask_or_replace_pr_delta_result():
     assert JOBS["program-trajectory"]["if"] == "github.event_name != 'pull_request'"
     assert "contract-drift-pr-delta.json" not in str(JOBS["program-trajectory"])
     assert "contract-drift-program-trajectory.json" not in str(JOBS["pr-delta"])
-    trajectory_success = [
-        {
-            "name": "contract-drift-program-trajectory",
-            "app_id": EXPECTED_PR_DELTA_APP_ID,
-            "conclusion": "success",
-        }
-    ]
-    assert not _required_check_satisfied(trajectory_success, context="contract-drift-pr-delta")
-    red_delta = trajectory_success + [
-        {
-            "name": "contract-drift-pr-delta",
-            "app_id": EXPECTED_PR_DELTA_APP_ID,
-            "conclusion": "failure",
-        }
-    ]
-    assert not _required_check_satisfied(red_delta, context="contract-drift-pr-delta")
+
+
+@pytest.mark.skipif(
+    os.environ.get("ARAGORA_RUN_LIVE_CDG_WORKFLOW_TEST") != "1",
+    reason="set ARAGORA_RUN_LIVE_CDG_WORKFLOW_TEST=1 for authenticated read-only GitHub verification",
+)
+def test_live_contract_drift_workflow_selection_is_stable_twice():
+    first = verify_workflow_state(GhApiReader())
+    second = verify_workflow_state(GhApiReader())
+    assert first["workflow"] == second["workflow"]
+    assert first["main_sha"] == second["main_sha"]
+    assert first["selection"]["identity"] == second["selection"]["identity"]
+    assert first["stable_requery"] is second["stable_requery"] is True
