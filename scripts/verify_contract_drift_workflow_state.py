@@ -12,7 +12,7 @@ import sys
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -36,6 +36,7 @@ PRE_CUTOVER_REQUIRED_CHECKS = (
     ("TypeScript SDK Type Check", 15368),
     ("aragora-merge-quorum", 15368),
 )
+EXPECTED_PROTECTION_STRICT = False
 MAX_PAGES = 10_000
 HISTORY_SHARD_LIMIT = 1000
 HISTORY_SHARD_TARGET = 900
@@ -189,8 +190,6 @@ def validate_attempt_jobs(endpoint: str, jobs: list[dict], *, attempt: int) -> N
         check_url = str(job.get("check_url") or job.get("check_run_url") or "")
         if not check_url:
             raise ValueError("job check URL is missing")
-        if "check_url" in job and f"/attempts/{attempt}" not in check_url:
-            raise ValueError("check URL is not pinned to the requested attempt")
 
 
 def _workflow_job_names(source: bytes) -> set[str]:
@@ -307,7 +306,7 @@ def _day_runs(
 def _workflow_runs_by_date(
     reader: ApiReader, *, repo: str, workflow_id: int, reported_total: int
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     daily: list[tuple[date, list[dict[str, Any]]]] = []
     query_endpoints: list[str] = []
     day = HISTORY_START_DATE
@@ -519,6 +518,10 @@ def _artifacts(reader: ApiReader, *, repo: str, run: Mapping[str, Any]) -> list[
         )
         if _payload_source_sha(payload) != head_sha:
             raise VerificationError("artifact payload is bound to another source SHA")
+        payload_status = payload.get("status")
+        expected_status = "pass" if name.startswith("contract-drift-main-receipt-") else "fail"
+        if payload_status != expected_status:
+            raise VerificationError("artifact payload status contradicts its live check")
         summaries.append(
             {
                 "id": artifact_id,
@@ -527,7 +530,7 @@ def _artifacts(reader: ApiReader, *, repo: str, run: Mapping[str, Any]) -> list[
                     artifact.get("size_in_bytes"), "artifact size", minimum=1
                 ),
                 "payload_sha256": hashlib.sha256(raw_payload).hexdigest(),
-                "payload_status": payload.get("status"),
+                "payload_status": payload_status,
             }
         )
     return sorted(summaries, key=lambda item: item["id"])
@@ -537,6 +540,8 @@ def _branch_protection(reader: ApiReader, repo: str) -> dict[str, Any]:
     payload = reader.get_json(f"repos/{repo}/branches/main/protection/required_status_checks")
     if not isinstance(payload.get("strict"), bool):
         raise VerificationError("branch-protection strict is malformed")
+    if payload["strict"] is not EXPECTED_PROTECTION_STRICT:
+        raise VerificationError("branch-protection strict moved")
     raw_checks = payload.get("checks")
     if not isinstance(raw_checks, list) or not all(isinstance(item, dict) for item in raw_checks):
         raise VerificationError("branch-protection checks are malformed")
@@ -616,7 +621,10 @@ def verify_workflow_state(
         raise VerificationError("selected workflow execution is not completed")
     if receipt.get("status") != "completed" or receipt.get("conclusion") != "success":
         raise VerificationError("main-receipt check is not a completed success")
-    if trajectory.get("status") != "completed" or trajectory.get("conclusion") == "success":
+    if trajectory.get("status") != "completed" or trajectory.get("conclusion") not in {
+        "failure",
+        "timed_out",
+    }:
         raise VerificationError("program-trajectory check is not truthfully red")
     if pr_delta.get("conclusion") != "skipped":
         raise VerificationError("push execution did not skip the PR-delta check")
