@@ -143032,16 +143032,65 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Integration configured */
+            /** @description Integration configuration updated */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        type?: string;
-                        configured?: boolean;
-                        message?: string;
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Integration configuration created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };

@@ -103270,22 +103270,84 @@
         },
         "responses": {
           "200": {
-            "description": "Integration configured",
+            "description": "Integration configuration updated",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "configured": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
                     }
-                  }
+                  },
+                  "required": [
+                    "integration"
+                  ]
                 }
               }
             }
@@ -103418,6 +103480,89 @@
                       "support_url": "https://github.com/synaptent/aragora/issues"
                     }
                   }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Integration configuration created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
                 }
               }
             }
@@ -253706,8 +253851,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Success",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
@@ -254175,11 +254320,167 @@
         },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Integration configuration updated",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Integration configuration created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
                 }
               }
             }
@@ -255127,8 +255428,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Success",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
