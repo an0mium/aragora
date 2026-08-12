@@ -94483,18 +94483,23 @@ paths:
                   description: Authentication credentials
       responses:
         '200':
-          description: Integration configured
+          description: Integration configuration updated
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  type:
-                    type: string
-                  configured:
-                    type: boolean
-                  message:
-                    type: string
+                  integration:
+                    type: object
+        '201':
+          description: Integration configuration created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  integration:
+                    type: object
         '400': &id740
           description: Bad request - Invalid input or malformed JSON
           headers: *id737

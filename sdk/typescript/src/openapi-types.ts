@@ -143032,16 +143032,25 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Integration configured */
+            /** @description Integration configuration updated */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        type?: string;
-                        configured?: boolean;
-                        message?: string;
+                        integration?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Integration configuration created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        integration?: Record<string, never>;
                     };
                 };
             };

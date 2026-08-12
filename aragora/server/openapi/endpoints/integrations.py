@@ -107,13 +107,20 @@ INTEGRATION_ENDPOINTS = {
             },
             "responses": {
                 "200": _response(
-                    "Integration configured",
+                    "Integration configuration updated",
                     {
                         "type": "object",
                         "properties": {
-                            "type": {"type": "string"},
-                            "configured": {"type": "boolean"},
-                            "message": {"type": "string"},
+                            "integration": {"type": "object"},
+                        },
+                    },
+                ),
+                "201": _response(
+                    "Integration configuration created",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "integration": {"type": "object"},
                         },
                     },
                 ),
