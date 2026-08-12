@@ -425,6 +425,10 @@ def test_exact_three_live_cdg_check_names():
 
 
 def test_no_duplicate_live_cdg_check_names():
+    workflow_paths = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
+    for live in LIVE_CHECK_NAMES:
+        assert [path.name for path in workflow_paths if live in _job_names(yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader))] == ["contract-drift-governance.yml"], live  # fmt: skip
+        assert _job_names(DOC).count(live) == 1
     duplicate = _workflow_record(workflow_id=CANONICAL_WORKFLOW_ID + 1)
     duplicate["path"] = ".github/workflows/contract-drift-copy.yml"
     reader, _ = _live_fixture(workflows=[_workflow_record(), duplicate])
