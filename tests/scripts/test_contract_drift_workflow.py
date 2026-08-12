@@ -466,10 +466,15 @@ def test_contract_drift_pr_uses_event_bound_full_shas():
     result = verify_workflow_state(reader)
     assert result["main_sha"] == expected["main_sha"]
     env = JOBS["pr-delta"]["env"]
-    assert env == {
-        "BASE_SHA": "${{ github.event.pull_request.base.sha }}",
-        "HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
-    }
+    assert env["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+    assert env["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
+    admission = _analyzer_step("pr-delta")["run"]
+    assert '--base-ref "$BASE_SHA"' in admission and '--head-ref "$HEAD_SHA"' in admission
+    assert 'git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"' in admission
+    # No mutable or synthetic refs stand in for the immutable event SHAs.
+    pr_text = str(JOBS["pr-delta"])
+    assert "github.ref" not in pr_text and "merge_commit_sha" not in pr_text
+    assert "--base-ref HEAD" not in pr_text and "--head-ref HEAD" not in pr_text
 
 
 def test_contract_drift_non_pr_events_resolve_one_sha_for_receipt_and_program():
