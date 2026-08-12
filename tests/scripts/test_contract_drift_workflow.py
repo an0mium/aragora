@@ -398,8 +398,7 @@ def test_exactly_one_active_contract_drift_workflow():
         }
         for index in range(100)
     ]
-    workflows = [*disabled, _workflow_record()]
-    reader, expected = _live_fixture(workflows=workflows)
+    reader, expected = _live_fixture(workflows=[*disabled, _workflow_record()])
     repo = "synaptent/aragora"
     # Force a real second page while preserving one stable response for every later endpoint.
     reader.json_responses[f"repos/{repo}/actions/workflows?per_page=100&page=1"] = [
@@ -444,6 +443,11 @@ def test_contract_drift_triggers_pr_main_schedule_dispatch():
     result = verify_workflow_state(reader)
     assert result["workflow"]["state"] == "active"
     assert set(DOC["on"]) == {"pull_request", "push", "schedule", "workflow_dispatch"}
+    assert DOC["on"]["pull_request"]["branches"] == ["main"]
+    assert DOC["on"]["push"]["branches"] == ["main"]
+    schedule = DOC["on"]["schedule"]
+    assert schedule and all("cron" in entry for entry in schedule)
+    assert DOC["on"]["workflow_dispatch"] == {}
 
 
 def test_contract_drift_pr_has_no_governed_path_filter_gap():
@@ -481,45 +485,62 @@ def _analyzer_step_text(job: dict) -> str:
 
 
 def test_workflow_runs_paginate_unfiltered_and_filter_locally():
+    same_sha = [_run_record(run_id=6000 + index, started_at="2026-08-11T01:00:00Z") for index in range(100)]  # fmt: skip
+    expected_run = _run_record(run_id=7002, run_attempt=2, started_at="2026-08-12T01:00:00Z")
     newer_other_sha = _run_record(
         run_id=8000,
         main_sha="b" * 40,
         started_at="2026-08-12T02:00:00Z",
     )
-    reader, expected = _live_fixture(runs=[_run_record(), newer_other_sha])
+    tie = _run_record(run_id=7001, run_attempt=5, started_at=expected_run["run_started_at"])
+    reader, _ = _live_fixture(runs=[*same_sha, tie, expected_run, newer_other_sha])
+    endpoint = f"repos/{FIXTURE_REPO}/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs"
+    reader.json_responses[f"{endpoint}?per_page=100&page=1"] = [_json_page(same_sha, "workflow_runs", 103)] * 4  # fmt: skip
+    reader.json_responses[f"{endpoint}?per_page=100&page=2"] = [_json_page([tie, expected_run, newer_other_sha], "workflow_runs", 103)] * 2 + [_json_page([expected_run], "workflow_runs")] * 2  # fmt: skip
     result = verify_workflow_state(reader)
-    assert result["selection"]["identity"]["run_id"] == expected["run_id"] == 7001
-    first_run_endpoint = f"repos/synaptent/aragora/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs?per_page=100&page=1"
-    assert first_run_endpoint in reader.json_calls
-    assert not any(
-        token in first_run_endpoint for token in ("branch=", "status=", "event=", "conclusion=")
-    )
+    assert result["selection"]["identity"] == {"run_started_at": expected_run["run_started_at"], "run_id": 7002, "run_attempt": 2}  # fmt: skip
+    run_calls = [call for call in reader.json_calls if call.startswith(endpoint)]
+    assert f"{endpoint}?per_page=100&page=2" in run_calls and all(not any(token in call for token in ("branch=", "status=", "event=", "conclusion=")) for call in run_calls)  # fmt: skip
+    duplicate, _ = _live_fixture(runs=[*same_sha, expected_run])
+    duplicate.json_responses[f"{endpoint}?per_page=100&page=1"] = [_json_page(same_sha, "workflow_runs", 101)]  # fmt: skip
+    duplicate.json_responses[f"{endpoint}?per_page=100&page=2"] = [_json_page([same_sha[0]], "workflow_runs", 101)]  # fmt: skip
+    with pytest.raises(VerificationError, match="duplicate identities"):
+        verify_workflow_state(duplicate)
 
 
 def test_filtered_history_requires_disjoint_date_shards_below_1000(monkeypatch: pytest.MonkeyPatch):
     import scripts.verify_contract_drift_workflow_state as verifier
 
-    counts = {
-        verifier.HISTORY_START_DATE + verifier.timedelta(days=offset): 400 for offset in range(7)
-    }
+    days = [verifier.HISTORY_START_DATE + verifier.timedelta(days=offset) for offset in range(7)]
     monkeypatch.setattr(verifier, "datetime", FixedDateTime)
-    calls: list[verifier.date] = []
-
-    def fake_day_runs(reader, *, repo: str, workflow_id: int, day: verifier.date):
-        calls.append(day)
-        records = [{"id": len(calls) * 1000 + index} for index in range(counts[day])]
-        return records, [f"created={day.isoformat()}"]
-
-    monkeypatch.setattr(verifier, "_day_runs", fake_day_runs)
+    responses: dict[str, list[dict[str, Any]]] = {}
+    for day_index, day in enumerate(days):
+        base = f"repos/{FIXTURE_REPO}/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs?created={day.isoformat()}T00%3A00%3A00Z..{day.isoformat()}T23%3A59%3A59Z"
+        records = [{"id": day_index * 1000 + index + 1} for index in range(400)]
+        for page in range(1, 5):
+            responses[f"{base}&per_page=100&page={page}"] = [_json_page(records[(page - 1) * 100 : page * 100], "workflow_runs", 400)]  # fmt: skip
+        responses[f"{base}&per_page=100&page=5"] = [_json_page([], "workflow_runs", 400)]
+    reader = FixtureApiReader(responses, {})
     records, endpoints = verifier._workflow_runs_by_date(
-        object(),
-        repo="synaptent/aragora",
+        reader,
+        repo=FIXTURE_REPO,
         workflow_id=CANONICAL_WORKFLOW_ID,
         reported_total=2800,
     )
-    logical_shards = [endpoint for endpoint in endpoints if ".." in endpoint]
+    logical_shards = [endpoint for endpoint in endpoints if endpoint.startswith("created=")]
     assert len(records) == 2800
     assert logical_shards == ["created=2026-02-13..2026-02-14", "created=2026-02-15..2026-02-16", "created=2026-02-17..2026-02-18", "created=2026-02-19..2026-02-19"]  # fmt: skip
+    assert all("created=" in call and "per_page=100&page=" in call for call in reader.json_calls)
+    hostile = FixtureApiReader(json.loads(json.dumps(responses)), {})
+    for key in [key for key in hostile.json_responses if f"created={days[0].isoformat()}" in key]:
+        hostile.json_responses[key][0]["total_count"] = 401
+    with pytest.raises(VerificationError, match="do not reconcile to total_count"):
+        verifier._workflow_runs_by_date(hostile, repo=FIXTURE_REPO, workflow_id=CANONICAL_WORKFLOW_ID, reported_total=2800)  # fmt: skip
+    hostile = FixtureApiReader(json.loads(json.dumps(responses)), {})
+    first, second = [key for key in hostile.json_responses if key.endswith("page=1")][:2]
+    hostile.json_responses[second][0]["workflow_runs"][0]["id"] = hostile.json_responses[first][0]["workflow_runs"][0]["id"]  # fmt: skip
+    with pytest.raises(VerificationError, match="date-sharded workflow history returned duplicate identities"):  # fmt: skip
+        verifier._workflow_runs_by_date(hostile, repo=FIXTURE_REPO, workflow_id=CANONICAL_WORKFLOW_ID, reported_total=2800)  # fmt: skip
 
 
 def test_workflow_run_ids_reconcile_to_total_count():
