@@ -242,7 +242,9 @@ FIXTURE_RUN_ID = 7001
 
 class FixtureApiReader:
     def __init__(
-        self, json_responses: dict[str, list[dict[str, Any]]], bytes_responses: dict[str, bytes]
+        self,
+        json_responses: dict[str, list[Any]],
+        bytes_responses: dict[str, bytes],
     ):
         self.json_responses = {key: list(value) for key, value in json_responses.items()}
         self.bytes_responses = bytes_responses
@@ -253,7 +255,10 @@ class FixtureApiReader:
         responses = self.json_responses.get(endpoint)
         if not responses:
             raise AssertionError(f"unexpected JSON endpoint: {endpoint}")
-        return responses.pop(0) if len(responses) > 1 else responses[0]
+        payload = responses.pop(0) if len(responses) > 1 else responses[0]
+        if not isinstance(payload, dict):
+            raise AssertionError(f"unexpected non-object JSON endpoint: {endpoint}")
+        return payload
 
     def get_bytes(self, endpoint: str, *, max_bytes: int | None = None) -> bytes:
         try:
@@ -282,9 +287,7 @@ def _artifact_zip(filename: str, payload: dict[str, Any]) -> bytes:
     return buffer.getvalue()
 
 
-def _workflow_record(
-    *, workflow_id: int = CANONICAL_WORKFLOW_ID, state: str = "active"
-) -> dict[str, Any]:
+def _workflow_record(*, workflow_id: int = CANONICAL_WORKFLOW_ID, state: str = "active") -> dict[str, Any]:  # fmt: skip
     return {"id": workflow_id, "name": CANONICAL_WORKFLOW_NAME, "path": CANONICAL_WORKFLOW_PATH, "state": state}  # fmt: skip
 
 
@@ -298,9 +301,7 @@ def _run_record(
     return {"id": run_id, "workflow_id": CANONICAL_WORKFLOW_ID, "path": CANONICAL_WORKFLOW_PATH, "head_branch": "main", "head_sha": main_sha, "event": "push", "run_attempt": run_attempt, "run_started_at": started_at, "status": "completed", "conclusion": "failure"}  # fmt: skip
 
 
-def _job_record(
-    name: str, *, run_id: int, main_sha: str, attempt: int, job_id: int
-) -> tuple[dict[str, Any], str, dict[str, Any]]:
+def _job_record(name: str, *, run_id: int, main_sha: str, attempt: int, job_id: int) -> tuple[dict[str, Any], str, dict[str, Any]]:  # fmt: skip
     check_id = job_id + 10_000
     check_url = f"https://api.github.com/repos/{FIXTURE_REPO}/check-runs/{check_id}"
     conclusion = dict(zip(LIVE_CHECK_NAMES, ("skipped", "success", "failure"), strict=True))[name]
@@ -333,7 +334,7 @@ def _live_fixture(
     if protection_checks is None:
         protection_checks = [{"context": context, "app_id": app_id} for context, app_id in PRE_CUTOVER_REQUIRED_CHECKS]  # fmt: skip
 
-    json_responses: dict[str, list[dict[str, Any]]] = {
+    json_responses: dict[str, list[Any]] = {
         f"repos/{FIXTURE_REPO}/actions/workflows?per_page=100&page=1": [
             _json_page(workflows, "workflows", workflow_total)
         ],
@@ -596,6 +597,7 @@ def test_run_level_artifacts_require_payload_and_release_binding():
     reader, expected = _live_fixture()
     result = verify_workflow_state(reader)
     assert {item["payload_status"] for item in result["selection"]["artifacts"]} == {"pass", "fail"}
+    assert {(item["release_binding"]["status"], item["release_binding"]["reason"]) for item in result["selection"]["artifacts"]} == {("corroborative", "no_recognized_capsule_descriptor")}  # fmt: skip
     assert all(
         f"-{expected['main_sha']}" in item["name"] for item in result["selection"]["artifacts"]
     )

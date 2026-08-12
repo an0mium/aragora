@@ -496,6 +496,7 @@ def _artifacts(reader: ApiReader, *, repo: str, run: Mapping[str, Any]) -> list[
     selected = [artifact for artifact in artifacts if artifact.get("name") in expected]
     if {artifact.get("name") for artifact in selected} != set(expected):
         raise VerificationError("run-level receipt/trajectory artifacts are incomplete")
+    release_binding = dict(status="corroborative", reason="no_recognized_capsule_descriptor")
     summaries: list[dict[str, Any]] = []
     for artifact in selected:
         if artifact.get("expired") is not False:
@@ -530,6 +531,7 @@ def _artifacts(reader: ApiReader, *, repo: str, run: Mapping[str, Any]) -> list[
                     artifact.get("size_in_bytes"), "artifact size", minimum=1
                 ),
                 "payload_sha256": hashlib.sha256(raw_payload).hexdigest(),
+                "release_binding": release_binding.copy(),
                 "payload_status": payload_status,
             }
         )
