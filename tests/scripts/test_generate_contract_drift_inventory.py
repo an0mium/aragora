@@ -2284,11 +2284,24 @@ CATEGORY_LANGUAGES = {
 
 
 @functools.cache
+def _accepted_authority_bytes() -> bytes:
+    return (REPO_ROOT / gen.DEFAULT_INVENTORY).read_bytes()
+
+
 def _accepted_authority() -> dict:
-    inventory = json.loads((REPO_ROOT / gen.DEFAULT_INVENTORY).read_bytes())
+    inventory = json.loads(_accepted_authority_bytes())
     authority = inventory["accepted_authority"]
     assert authority["schema"] == "contract-drift-accepted-authority-v1"
     return authority
+
+
+def test_accepted_authority_returns_defensive_data():
+    first = _accepted_authority()
+    original_schema = first["schema"]
+    first["schema"] = "mutated-by-caller"
+    second = _accepted_authority()
+    assert second is not first
+    assert second["schema"] == original_schema
 
 
 def _cohort() -> dict:

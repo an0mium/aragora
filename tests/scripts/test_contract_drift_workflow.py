@@ -20,6 +20,31 @@ SOURCE_SHA_EXPR = "${{ github.event_name == 'push' && github.event.after || gith
 # GitHub Actions app installation id: required-check tuples produced by
 # workflow jobs must carry this app identity, never a third-party app.
 EXPECTED_PR_DELTA_APP_ID = 15368
+GITHUB_RUNNER_ENV_ALLOWLIST = frozenset(
+    {
+        "CI",
+        "COMSPEC",
+        "GITHUB_ACTIONS",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "LOGNAME",
+        "PATH",
+        "PATHEXT",
+        "RUNNER_ARCH",
+        "RUNNER_OS",
+        "RUNNER_TEMP",
+        "RUNNER_TOOL_CACHE",
+        "SHELL",
+        "SYSTEMROOT",
+        "TMPDIR",
+        "TZ",
+        "USER",
+        "XDG_CACHE_HOME",
+        "XDG_CONFIG_HOME",
+    }
+)
 
 
 def _analyzer_step(job_id: str) -> dict:
@@ -37,7 +62,13 @@ def _upload_step(job_id: str) -> dict:
 
 
 def _terminal_step() -> dict:
-    return JOBS["pr-delta"]["steps"][-1]
+    matches = [
+        step
+        for step in JOBS["pr-delta"]["steps"]
+        if step.get("if") == "always()" and "steps.admission.outcome" in step.get("run", "")
+    ]
+    assert len(matches) == 1, f"expected one terminal pr-delta step, found {len(matches)}"
+    return matches[0]
 
 
 def _simulate_step(
@@ -52,13 +83,41 @@ def _simulate_step(
     prelude = "".join(
         f"{name}() {{ echo stub-{name}; return {code}; }}\n" for name, code in (stubs or {}).items()
     )
+    runner_env = {
+        name: value
+        for name in GITHUB_RUNNER_ENV_ALLOWLIST
+        if (value := os.environ.get(name)) is not None
+    }
     return subprocess.run(
         ["bash", "-e", "-c", prelude + run_block],
         capture_output=True,
         text=True,
-        env={**os.environ, **env},
+        env={**runner_env, **env},
         cwd=str(cwd),
     )
+
+
+def test_terminal_step_is_selected_by_identity(monkeypatch: pytest.MonkeyPatch):
+    terminal = _terminal_step()
+    sentinel = {"name": "unrelated trailing cleanup", "run": "exit 99"}
+    monkeypatch.setitem(
+        JOBS,
+        "pr-delta",
+        {**JOBS["pr-delta"], "steps": [*JOBS["pr-delta"]["steps"], sentinel]},
+    )
+    assert _terminal_step() == terminal
+
+
+def test_simulate_step_scrubs_non_runner_parent_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("CDG_UNTRUSTED_PARENT_VALUE", "must-not-leak")
+    result = _simulate_step(
+        'test -z "${CDG_UNTRUSTED_PARENT_VALUE+x}"',
+        env={},
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _terminal_repo(tmp_path: Path, *, baseline_text: str) -> tuple[Path, str]:
@@ -810,7 +869,7 @@ def test_terminal_aggregator_fails_when_pr_delta_is_skipped(tmp_path):
     # `always()` forces the aggregator to run and judge a skipped admission
     # rather than letting the job end green with the step silently absent.
     assert terminal["if"] == "always()"
-    assert terminal is JOBS["pr-delta"]["steps"][-1]
+    assert "steps.admission.outcome" in terminal["run"]
     result = _run_terminal(tmp_path, outcome="skipped", payload='{"admitted": true}\n')
     assert result.returncode == 1
     assert 'test "skipped" = "success"' in terminal["run"].replace(
