@@ -37,7 +37,11 @@ PRE_CUTOVER_REQUIRED_CHECKS = (
     ("aragora-merge-quorum", 15368),
 )
 MAX_PAGES = 10_000
-DATE_SHARD_CAP = 1000
+HISTORY_SHARD_LIMIT = 1000
+HISTORY_SHARD_TARGET = 900
+HISTORY_START_DATE = date(2026, 2, 13)
+MAX_ARTIFACT_ZIP_BYTES = 20 * 1024 * 1024
+MAX_ARTIFACT_PAYLOAD_BYTES = 10 * 1024 * 1024
 
 
 class VerificationError(ValueError):
@@ -47,7 +51,7 @@ class VerificationError(ValueError):
 class ApiReader(Protocol):
     def get_json(self, endpoint: str) -> dict[str, Any]: ...
 
-    def get_bytes(self, endpoint: str) -> bytes: ...
+    def get_bytes(self, endpoint: str, *, max_bytes: int | None = None) -> bytes: ...
 
 
 class GhApiReader:
@@ -81,13 +85,16 @@ class GhApiReader:
             raise VerificationError(f"GitHub response is not an object: {endpoint}")
         return payload
 
-    def get_bytes(self, endpoint: str) -> bytes:
+    def get_bytes(self, endpoint: str, *, max_bytes: int | None = None) -> bytes:
         accept = (
             "application/vnd.github.raw+json"
             if "/contents/" in urlparse(endpoint).path
             else "application/vnd.github+json"
         )
-        return self._run(endpoint, accept=accept)
+        raw = self._run(endpoint, accept=accept)
+        if max_bytes is not None and len(raw) > max_bytes:
+            raise VerificationError(f"authenticated GitHub response is too large: {endpoint}")
+        return raw
 
 
 def _require_int(value: Any, label: str, *, minimum: int = 0) -> int:
@@ -166,115 +173,11 @@ def _paginate_collection(
     return records, endpoints
 
 
-def paginate_runs(
-    fetch_page: Callable[[str], list[dict[str, Any]]],
-) -> tuple[list[dict], list[str]]:
-    """Compatibility helper used by contract tests for unfiltered run pagination."""
-    records: list[dict[str, Any]] = []
-    endpoints: list[str] = []
-    page = 1
-    while True:
-        endpoint = f"repos/OWNER/REPO/actions/runs?per_page=100&page={page}"
-        endpoints.append(endpoint)
-        payload = fetch_page(endpoint)
-        if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
-            raise ValueError("paginated workflow-run payload is malformed")
-        records.extend(payload)
-        if len(payload) < 100:
-            break
-        page += 1
-        if page > MAX_PAGES:
-            raise ValueError("workflow-run pagination did not terminate")
-    ids = [run.get("id") for run in records]
-    if len(ids) != len(set(ids)):
-        raise ValueError("paginated workflow runs returned duplicate record IDs")
-    return records, endpoints
-
-
-def plan_date_shards(
-    daily_counts: Mapping[str, int], *, cap: int = DATE_SHARD_CAP
-) -> list[tuple[str, str, int]]:
-    """Plan disjoint inclusive date shards, each strictly below the API cap."""
-    shards: list[tuple[str, str, int]] = []
-    current: list[str] = []
-    total = 0
-    for day in sorted(daily_counts):
-        count = _require_int(daily_counts[day], f"daily count for {day}")
-        if count >= cap:
-            raise ValueError(f"single-day run volume {count} defeats the {cap}-result window")
-        if current and total + count >= cap:
-            shards.append((current[0], current[-1], total))
-            current, total = [], 0
-        current.append(day)
-        total += count
-    if current:
-        shards.append((current[0], current[-1], total))
-    for (_, end_a, _), (start_b, _, _) in zip(shards, shards[1:]):
-        if not end_a < start_b:
-            raise ValueError("date shards overlap")
-    if any(count >= cap for _, _, count in shards):
-        raise ValueError(f"date shard reaches the {cap}-result cap")
-    return shards
-
-
-def reconcile_run_ids(shards: list[dict], *, reported_total: int) -> list[int]:
-    ids = [run["id"] for shard in shards for run in shard["workflow_runs"]]
-    if len(ids) != len(set(ids)):
-        raise ValueError("sharded run capture duplicated run IDs")
-    for shard in shards:
-        if shard["total_count"] != len(shard["workflow_runs"]):
-            raise ValueError("shard total_count does not reconcile with captured runs")
-    if reported_total != len(ids):
-        raise ValueError("run IDs do not reconcile to the reported total_count")
-    return sorted(ids)
-
-
-def reconcile_date_shards(
-    shards: list[dict[str, Any]], *, start_date: str, end_date: str
-) -> list[int]:
-    """Validate externally queried filtered-history shards and reconcile their IDs."""
-    previous_end: str | None = None
-    reported_total = 0
-    for shard in shards:
-        start = _require_string(shard.get("start"), "date shard start")
-        end = _require_string(shard.get("end"), "date shard end")
-        total = _require_int(shard.get("total_count"), "date shard total_count")
-        if total >= DATE_SHARD_CAP:
-            raise VerificationError("date shard reaches the 1000-result cap")
-        if start > end or (previous_end is not None and not previous_end < start):
-            raise VerificationError("date shards overlap or are out of order")
-        if previous_end is None and start != start_date:
-            raise VerificationError("date shards leave a leading gap")
-        if previous_end is not None:
-            try:
-                expected_start = (date.fromisoformat(previous_end) + timedelta(days=1)).isoformat()
-            except ValueError as exc:
-                raise VerificationError("date shard boundary is malformed") from exc
-            if start != expected_start:
-                raise VerificationError("date shards leave an internal gap")
-        records = shard.get("workflow_runs")
-        if not isinstance(records, list) or not all(isinstance(run, dict) for run in records):
-            raise VerificationError("date shard workflow_runs are malformed")
-        if len(records) != total:
-            raise VerificationError("date shard total_count does not reconcile")
-        reported_total += total
-        previous_end = end
-    if not shards or previous_end != end_date:
-        raise VerificationError("date shards leave a trailing gap")
-    return reconcile_run_ids(shards, reported_total=reported_total)
-
-
 def attempt_numbers(run: Mapping[str, Any]) -> list[int]:
     attempt = run.get("run_attempt")
     if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
         raise ValueError("run_attempt is malformed")
     return list(range(1, attempt + 1))
-
-
-def attempt_jobs_endpoint(run_id: int, attempt: int) -> str:
-    if attempt < 1:
-        raise ValueError("attempt numbers start at 1")
-    return f"repos/OWNER/REPO/actions/runs/{run_id}/attempts/{attempt}/jobs"
 
 
 def validate_attempt_jobs(endpoint: str, jobs: list[dict], *, attempt: int) -> None:
@@ -288,71 +191,6 @@ def validate_attempt_jobs(endpoint: str, jobs: list[dict], *, attempt: int) -> N
             raise ValueError("job check URL is missing")
         if "check_url" in job and f"/attempts/{attempt}" not in check_url:
             raise ValueError("check URL is not pinned to the requested attempt")
-
-
-def validate_run_artifact(
-    artifact: Mapping[str, Any], *, head_sha: str, release_digests: set[str]
-) -> str:
-    name = artifact.get("name")
-    if not isinstance(name, str) or not name.endswith(f"-{head_sha}"):
-        raise ValueError("run artifact name is not SHA-bound")
-    size = artifact.get("size_in_bytes")
-    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
-        raise ValueError("run artifact lacks a nonempty payload")
-    if artifact.get("payload_sha256") not in release_digests:
-        raise ValueError("run artifact payload is not bound to the immutable release")
-    return name
-
-
-def verify_protection_cutover(
-    before: dict,
-    after: dict,
-    *,
-    added_context: str = "contract-drift-pr-delta",
-    expected_app_id: int = EXPECTED_PR_DELTA_APP_ID,
-) -> list[tuple[str, int]]:
-    """Validate a historical before/after branch-protection cutover capture."""
-    if before["strict"] != after["strict"]:
-        raise ValueError("cutover changed required_status_checks.strict")
-    before_tuples = [tuple(item) for item in before["checks"]]
-    after_tuples = [tuple(item) for item in after["checks"]]
-    if len(before_tuples) != len(set(before_tuples)) or len(after_tuples) != len(set(after_tuples)):
-        raise ValueError("required check tuples are duplicated")
-    removed = set(before_tuples) - set(after_tuples)
-    if removed:
-        raise ValueError("cutover removed or mutated a required (context, app_id) tuple")
-    added = set(after_tuples) - set(before_tuples)
-    if added != {(added_context, expected_app_id)}:
-        if any(context == added_context and app_id != expected_app_id for context, app_id in added):
-            raise ValueError("pr-delta was added with the wrong expected app identity")
-        raise ValueError(
-            "cutover must add exactly the pr-delta context with the expected app identity"
-        )
-    return sorted(set(after_tuples))
-
-
-def paginated_protection_checks(
-    pages: list[list[tuple[str, int]]],
-) -> list[tuple[str, int]]:
-    checks: list[tuple[str, int]] = []
-    for page in pages:
-        if len(page) > 100:
-            raise ValueError("paginated protection page exceeds per_page=100")
-        checks.extend((str(context), int(app_id)) for context, app_id in page)
-    if len(checks) != len(set(checks)):
-        raise ValueError("paginated protection capture returned duplicate tuples")
-    return checks
-
-
-def required_check_satisfied(
-    check_runs: list[dict], *, context: str, app_id: int = EXPECTED_PR_DELTA_APP_ID
-) -> bool:
-    return any(
-        run.get("name") == context
-        and run.get("app_id") == app_id
-        and run.get("conclusion") == "success"
-        for run in check_runs
-    )
 
 
 def _workflow_job_names(source: bytes) -> set[str]:
@@ -425,13 +263,83 @@ def _main_sha(reader: ApiReader, repo: str) -> str:
 def _workflow_runs(
     reader: ApiReader, *, repo: str, workflow_id: int
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    return _paginate_collection(
+    endpoint = f"repos/{repo}/actions/workflows/{workflow_id}/runs"
+    first = reader.get_json(_with_page(endpoint, 1))
+    total = _require_int(first.get("total_count"), "workflow-run total_count")
+    if total <= HISTORY_SHARD_LIMIT:
+        return _paginate_collection(
+            reader,
+            endpoint,
+            collection_key="workflow_runs",
+            identity=lambda run: run.get("id"),
+            label="workflow-run discovery",
+        )
+    return _workflow_runs_by_date(
         reader,
-        f"repos/{repo}/actions/workflows/{workflow_id}/runs",
+        repo=repo,
+        workflow_id=workflow_id,
+        reported_total=total,
+    )
+
+
+def _day_runs(
+    reader: ApiReader, *, repo: str, workflow_id: int, day: date
+) -> tuple[list[dict[str, Any]], list[str]]:
+    day_text = day.isoformat()
+    endpoint = (
+        f"repos/{repo}/actions/workflows/{workflow_id}/runs?"
+        f"created={day_text}T00:00:00Z..{day_text}T23:59:59Z"
+    )
+    records, endpoints = _paginate_collection(
+        reader,
+        endpoint,
         collection_key="workflow_runs",
         identity=lambda run: run.get("id"),
-        label="workflow-run discovery",
+        label=f"workflow-run date shard {day_text}",
     )
+    if len(records) >= HISTORY_SHARD_LIMIT:
+        raise VerificationError(
+            f"single-day workflow history reaches the 1000-result cap: {day_text}"
+        )
+    return records, endpoints
+
+
+def _workflow_runs_by_date(
+    reader: ApiReader, *, repo: str, workflow_id: int, reported_total: int
+) -> tuple[list[dict[str, Any]], list[str]]:
+    today = date.today()
+    daily: list[tuple[date, list[dict[str, Any]]]] = []
+    query_endpoints: list[str] = []
+    day = HISTORY_START_DATE
+    while day <= today:
+        day_records, day_endpoints = _day_runs(reader, repo=repo, workflow_id=workflow_id, day=day)
+        daily.append((day, day_records))
+        query_endpoints.extend(day_endpoints)
+        day += timedelta(days=1)
+
+    records: list[dict[str, Any]] = []
+    shards: list[str] = []
+    shard: list[tuple[date, list[dict[str, Any]]]] = []
+    shard_count = 0
+    for day, day_records in daily:
+        if shard and shard_count + len(day_records) > HISTORY_SHARD_TARGET:
+            shards.append(f"created={shard[0][0].isoformat()}..{shard[-1][0].isoformat()}")
+            records.extend(run for _, runs in shard for run in runs)
+            shard, shard_count = [], 0
+        shard.append((day, day_records))
+        shard_count += len(day_records)
+    if shard:
+        shards.append(f"created={shard[0][0].isoformat()}..{shard[-1][0].isoformat()}")
+        records.extend(run for _, runs in shard for run in runs)
+
+    ids = [_require_int(run.get("id"), "workflow-run ID", minimum=1) for run in records]
+    if len(ids) != len(set(ids)):
+        raise VerificationError("date-sharded workflow history returned duplicate identities")
+    if len(records) != reported_total:
+        raise VerificationError(
+            "date-sharded workflow history does not reconcile to the unfiltered total_count"
+        )
+    return records, [*shards, *query_endpoints]
 
 
 def _run_key(run: Mapping[str, Any]) -> tuple[str, int, int]:
@@ -462,6 +370,7 @@ def _selected_main_run(
 def _check_summary(
     reader: ApiReader,
     *,
+    repo: str,
     endpoint: str,
     job: Mapping[str, Any],
     run: Mapping[str, Any],
@@ -470,6 +379,12 @@ def _check_summary(
     if job.get("run_attempt") != attempt:
         raise VerificationError("job record is not attempt-specific")
     check_url = _require_string(job.get("check_run_url"), "attempt-specific check URL")
+    parsed_check_url = urlparse(check_url)
+    if parsed_check_url.scheme != "https" or parsed_check_url.netloc != "api.github.com":
+        raise VerificationError("attempt check URL is not an authenticated GitHub API URL")
+    expected_prefix = f"/repos/{repo}/check-runs/"
+    if not parsed_check_url.path.startswith(expected_prefix):
+        raise VerificationError("attempt check URL is bound to another repository")
     check = reader.get_json(check_url)
     if check.get("id") is None or check.get("name") != job.get("name"):
         raise VerificationError("attempt job/check identity mismatch")
@@ -518,6 +433,7 @@ def _attempts(reader: ApiReader, *, repo: str, run: dict[str, Any]) -> list[dict
         checks = {
             str(job["name"]): _check_summary(
                 reader,
+                repo=repo,
                 endpoint=endpoint,
                 job=job,
                 run=run,
@@ -530,6 +446,8 @@ def _attempts(reader: ApiReader, *, repo: str, run: dict[str, Any]) -> list[dict
 
 
 def _artifact_payload(raw_zip: bytes, *, expected_name: str) -> tuple[bytes, dict[str, Any]]:
+    if len(raw_zip) > MAX_ARTIFACT_ZIP_BYTES:
+        raise VerificationError("run artifact zip exceeds the verifier size limit")
     try:
         with zipfile.ZipFile(io.BytesIO(raw_zip)) as archive:
             names = [name for name in archive.namelist() if not name.endswith("/")]
@@ -537,6 +455,9 @@ def _artifact_payload(raw_zip: bytes, *, expected_name: str) -> tuple[bytes, dic
                 raise VerificationError(
                     "run artifact zip does not contain exactly the expected file"
                 )
+            info = archive.getinfo(names[0])
+            if info.file_size > MAX_ARTIFACT_PAYLOAD_BYTES:
+                raise VerificationError("run artifact payload exceeds the verifier size limit")
             raw_payload = archive.read(names[0])
     except (zipfile.BadZipFile, KeyError) as exc:
         raise VerificationError(f"run artifact zip is malformed: {exc}") from exc
@@ -590,7 +511,10 @@ def _artifacts(reader: ApiReader, *, repo: str, run: Mapping[str, Any]) -> list[
         artifact_id = _require_int(artifact.get("id"), "artifact ID", minimum=1)
         name = str(artifact["name"])
         raw_payload, payload = _artifact_payload(
-            reader.get_bytes(f"repos/{repo}/actions/artifacts/{artifact_id}/zip"),
+            reader.get_bytes(
+                f"repos/{repo}/actions/artifacts/{artifact_id}/zip",
+                max_bytes=MAX_ARTIFACT_ZIP_BYTES,
+            ),
             expected_name=expected[name],
         )
         if _payload_source_sha(payload) != head_sha:
@@ -683,13 +607,25 @@ def verify_workflow_state(
     attempts = _attempts(reader, repo=repo, run=before.run)
     artifacts = _artifacts(reader, repo=repo, run=before.run)
     protection = _branch_protection(reader, repo)
+    selected_attempt = attempts[-1]
+    checks = selected_attempt["checks"]
+    receipt = checks["contract-drift-main-receipt"]
+    trajectory = checks["contract-drift-program-trajectory"]
+    pr_delta = checks["contract-drift-pr-delta"]
+    if before.run.get("status") != "completed":
+        raise VerificationError("selected workflow execution is not completed")
+    if receipt.get("status") != "completed" or receipt.get("conclusion") != "success":
+        raise VerificationError("main-receipt check is not a completed success")
+    if trajectory.get("status") != "completed" or trajectory.get("conclusion") == "success":
+        raise VerificationError("program-trajectory check is not truthfully red")
+    if pr_delta.get("conclusion") != "skipped":
+        raise VerificationError("push execution did not skip the PR-delta check")
     after, _ = _snapshot(reader, repo=repo, workflow_id=canonical_workflow_id)
     if not _same_snapshot(before, after):
         raise VerificationError(
             "current main or newest workflow execution moved during verification"
         )
 
-    selected_attempt = attempts[-1]
     return {
         "repository": repo,
         "workflow": {key: workflow[key] for key in ("id", "name", "path", "state")},
@@ -729,6 +665,9 @@ def main(argv: list[str] | None = None) -> int:
             canonical_workflow_id=args.workflow_id,
         )
     except VerificationError as exc:
+        print(f"contract drift workflow verification failed: {exc}", file=sys.stderr)
+        return 1
+    except (OSError, ValueError) as exc:
         print(f"contract drift workflow verification failed: {exc}", file=sys.stderr)
         return 1
     if args.json:
