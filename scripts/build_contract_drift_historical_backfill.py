@@ -522,6 +522,7 @@ def _validate_contexts(value: Any) -> list[dict[str, Any]]:
 def _validate_receipt(
     value: Any,
     *,
+    authority_source_sha: str,
     base_sha: str,
     head_sha: str,
     merge_sha: str,
@@ -538,8 +539,10 @@ def _validate_receipt(
         _fail("historical backfill receipt artifact name mismatch")
     if receipt.get("conclusion") != "success":
         _fail("historical backfill receipt did not succeed")
-    if receipt.get("source_sha") != merge_sha or receipt.get("merge_sha") != merge_sha:
-        _fail("historical backfill receipt source or merge SHA mismatch")
+    if receipt.get("source_sha") != authority_source_sha:
+        _fail("historical backfill receipt source SHA mismatch")
+    if receipt.get("merge_sha") != merge_sha:
+        _fail("historical backfill receipt merge SHA mismatch")
     if receipt.get("base_sha") != base_sha:
         _fail("historical backfill receipt base SHA mismatch")
     if receipt.get("head_sha") != head_sha:
@@ -782,13 +785,12 @@ def validate_payload(payload: Any) -> dict[str, Any]:
 
     receipt = _validate_receipt(
         document.get("receipt"),
+        authority_source_sha=authority["source_sha"],
         base_sha=base_sha,
         head_sha=head_sha,
         merge_sha=merge_sha,
         first_parent_sha=first_parent_sha,
     )
-    if receipt.get("source_sha") != merge_sha:
-        _fail("historical receipt does not bind the exact merge SHA")
 
     disposition = document.get("disposition")
     if disposition != {

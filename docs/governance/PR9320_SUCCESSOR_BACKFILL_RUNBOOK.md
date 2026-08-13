@@ -88,6 +88,8 @@ bind:
 - workflow run ID and run attempt;
 - attempt-specific job ID and check-run ID;
 - `contract-drift-main-receipt-0b28f68b9f4d204ae14814169093723ea84c1364`;
+- the receipt `source_sha`, which is the exact merged implementation/checker ref dispatched for
+  the successful run and is intentionally distinct from the historical `merge_sha`;
 - exact base/head/merge/first-parent tuple, both tree identities, byte-identical
   base-to-head and first-parent-to-merge patch digest/length, and semantic delta paths;
 - all six successful historical required-context run/attempt/job/check/app identities.
@@ -102,7 +104,8 @@ distinct successor tag, then freeze its API ID. Never publish the draft in this 
 
 Build the final input document with:
 
-- the successful P2 receipt identity;
+- the successful P2 receipt identity, including `receipt.source_sha == authority_source_sha` and
+  `receipt.merge_sha == 0b28f68b9f4d204ae14814169093723ea84c1364`;
 - current exact-ref authority, dependency, inventory, public-symbol, route-boundary, category,
   original-ID, projection-schema, SDK-provenance, and SDK/core/extended partition digests;
 - all `655` projection memberships and all `666` method-specific edges;

@@ -204,7 +204,11 @@
         "required_contexts": {"items": {"type": "object"}, "minItems": 6, "type": "array"},
         "run_attempt": {"minimum": 1, "type": "integer"},
         "schema": {"const": "contract-drift-historical-backfill-receipt-v1"},
-        "source_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "source_sha": {
+          "description": "Exact implementation/checker ref at which the historical receipt workflow succeeded; distinct from the historical squash merge SHA.",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
         "workflow_name": {"const": "Contract Drift Governance"},
         "workflow_path": {"const": ".github/workflows/contract-drift-governance.yml"},
         "workflow_run_id": {"minimum": 1, "type": "integer"}

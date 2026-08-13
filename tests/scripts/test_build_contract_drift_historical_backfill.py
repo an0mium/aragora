@@ -187,7 +187,7 @@ def _input_document() -> dict[str, Any]:
             "required_contexts": _contexts(),
             "run_attempt": 1,
             "schema": backfill.RECEIPT_SCHEMA,
-            "source_sha": MERGE_SHA,
+            "source_sha": SOURCE_SHA,
             "workflow_name": "Contract Drift Governance",
             "workflow_path": backfill.WORKFLOW_PATH,
             "workflow_run_id": SYNTHETIC_RECEIPT_RUN_ID,
@@ -283,6 +283,8 @@ def test_fixture_binds_all_semantic_planes(payload: dict[str, Any]) -> None:
     )
     assert payload["receipt"]["base_sha"] == PR_BASE_SHA
     assert payload["receipt"]["head_sha"] == HEAD_SHA
+    assert payload["receipt"]["source_sha"] == SOURCE_SHA
+    assert payload["receipt"]["merge_sha"] == MERGE_SHA
     assert (
         payload["historical_pull_request"]["changed_files"]
         == _input_document()["historical_pull_request"]["changed_files"]
@@ -353,6 +355,43 @@ def test_failed_receipt_and_missing_attestation_fail_closed(payload: dict[str, A
     wrong_head["receipt"]["head_sha"] = MERGE_SHA
     with pytest.raises(ValueError, match="receipt head SHA mismatch"):
         backfill.validate_payload(wrong_head)
+
+    wrong_source = copy.deepcopy(payload)
+    wrong_source["receipt"]["source_sha"] = MERGE_SHA
+    with pytest.raises(ValueError, match="receipt source SHA mismatch"):
+        backfill.validate_payload(wrong_source)
+
+    wrong_merge = copy.deepcopy(payload)
+    wrong_merge["receipt"]["merge_sha"] = SOURCE_SHA
+    with pytest.raises(ValueError, match="receipt merge SHA mismatch"):
+        backfill.validate_payload(wrong_merge)
+
+
+def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
+    result = backfill.ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=ROOT,
+        inventory_path=ROOT / backfill.inventory_mod.DEFAULT_INVENTORY,
+        source_sha=SOURCE_SHA,
+        historical_base_sha=PR_BASE_SHA,
+        historical_head_sha=HEAD_SHA,
+        historical_merge_sha=MERGE_SHA,
+        historical_first_parent_sha=FIRST_PARENT_SHA,
+    )
+    assert result["status"] == "pass"
+    assert result["source_sha"] == SOURCE_SHA
+    assert result["execution"]["source_sha"] == SOURCE_SHA
+    assert result["execution"]["merge_sha"] == MERGE_SHA
+
+    input_document = _input_document()
+    input_document["receipt"]["source_sha"] = result["source_sha"]
+    built = backfill.build_payload(
+        repo_root=ROOT,
+        input_document=input_document,
+        authority_manifest=_authority_manifest(),
+    )
+    assert built["receipt"]["source_sha"] == SOURCE_SHA
+    assert built["receipt"]["merge_sha"] == MERGE_SHA
 
 
 def test_tampered_assets_fail_closed(
