@@ -34,10 +34,12 @@ The repository provides:
 - an exact-pair `workflow_dispatch` path in `Contract Drift Governance` that fetches only
   `refs/pull/9320/head`, verifies it equals the supplied immutable head SHA, and uploads the
   successful raw analyzer result;
-- a completion-triggered `Contract Drift Historical Backfill Finalizer` that runs only after the
-  producer workflow is a successful completed `workflow_dispatch`, downloads that exact run's
-  analyzer artifact, authenticates the completed producer run/attempt/job/check plus the six
-  historical contexts, and uploads the complete canonical receipt envelope;
+- a completion-dispatched `Contract Drift Historical Backfill Finalizer`: after the producer's
+  analyzer upload, its last step submits only the run-level analyzer artifact ID plus producer
+  run/attempt/job IDs to a second workflow. Because `workflow_dispatch` queues asynchronously, the
+  second workflow can authenticate that the producer run/job/check genuinely reached completed
+  success, re-authenticate the six historical contexts, and upload the complete canonical receipt
+  envelope;
 - `backfill-v2-<merge_sha>` support in the manual `actions/attest@v4` signer workflow.
 
 The builder emits exactly `manifest.json`, `payload.json`, and `checksums.txt`. Canonical JSON is
@@ -87,11 +89,12 @@ historical_merge_sha=0b28f68b9f4d204ae14814169093723ea84c1364
 historical_first_parent_sha=e448b840dad03ee28accd218c14a27fa8b87c7b4
 ```
 
-This preparation feature must not run that dispatch. The completion-triggered finalizer must then
-run only after the producer is complete and successful. It must not attempt to authenticate its own
-in-progress job as already successful. The publication finalizer must discover workflow runs without
-conclusion filters, reconcile pagination, enumerate attempts, select the intended producer run, and
-bind:
+This preparation feature must not run that dispatch. The producer schedules the completion finalizer
+as its last successful step, after the analyzer artifact exists. The finalizer must authenticate the
+submitted artifact/run/attempt/job tuple against GitHub and require the producer to have reached
+completed success; it must never authenticate its own in-progress job as already successful. The
+publication finalizer must discover workflow runs without conclusion filters, reconcile pagination,
+enumerate attempts, select the intended producer run, and bind:
 
 - workflow run ID and run attempt;
 - attempt-specific job ID and check-run ID;

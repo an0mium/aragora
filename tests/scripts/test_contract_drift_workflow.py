@@ -898,43 +898,61 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert "build_contract_drift_historical_backfill.py" not in str(receipt)
 
     upload = _upload_step("main-receipt")
+    assert upload["id"] == "receipt-upload"
     assert (
         "format('contract-drift-main-receipt-analyzer-{0}', github.sha)" in upload["with"]["name"]
     )
     assert "contract-drift-main-receipt-analyzer.json" in upload["with"]["path"]
+    dispatch = _named_run_step("main-receipt", "Finalize completed historical receipt")
+    assert dispatch["if"] == (
+        "github.event_name == 'workflow_dispatch' && inputs.historical_backfill"
+    )
+    dispatch_run = dispatch["run"]
+    assert "/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" in dispatch_run
+    assert 'select(.name == "contract-drift-main-receipt") | .id' in dispatch_run
+    assert "steps.receipt-upload.outputs.artifact-id" in dispatch_run
+    assert "producer_identity" in dispatch_run
+    assert "gh workflow run contract-drift-historical-backfill-finalizer.yml" in dispatch_run
+    assert '--ref "$SOURCE_SHA"' in dispatch_run
 
     text, finalizer = _historical_finalizer()
     assert finalizer["on"] == {
-        "workflow_run": {
-            "types": ["completed"],
-            "workflows": ["Contract Drift Governance"],
+        "workflow_dispatch": {
+            "inputs": {
+                "producer_identity": {
+                    "description": (
+                        "Canonical JSON identity of the completed historical receipt producer"
+                    ),
+                    "required": "true",
+                    "type": "string",
+                }
+            }
         }
     }
     jobs = finalizer["jobs"]
     assert set(jobs) == {"finalize-historical-receipt"}
     job = jobs["finalize-historical-receipt"]
     assert job["name"] == "contract-drift-historical-backfill-receipt-finalizer"
-    assert "github.event.workflow_run.conclusion == 'success'" in job["if"]
-    assert "github.event.workflow_run.event == 'workflow_dispatch'" in job["if"]
-    assert (
-        "github.event.workflow_run.path == '.github/workflows/contract-drift-governance.yml'"
-    ) in job["if"]
+    assert "if" not in job
+    assert job["env"]["PRODUCER_IDENTITY"] == "${{ inputs.producer_identity }}"
+    validate = next(
+        step for step in job["steps"] if step.get("name") == "Validate completed producer identity"
+    )
+    assert '["artifact_id","job_id","run_attempt","workflow_run_id"]' in validate["run"]
+    assert "$GITHUB_OUTPUT" in validate["run"]
 
     checkout = next(
         step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")
     )
-    assert checkout["with"]["ref"] == "${{ github.event.workflow_run.head_sha }}"
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
     download = next(
         step
         for step in job["steps"]
         if str(step.get("uses", "")).startswith("actions/download-artifact@")
     )
-    assert download["with"]["run-id"] == "${{ github.event.workflow_run.id }}"
+    assert download["with"]["artifact-ids"] == "${{ steps.producer.outputs.artifact_id }}"
     assert download["with"]["github-token"] == "${{ github.token }}"
     assert download["with"]["repository"] == "${{ github.repository }}"
-    assert download["with"]["name"] == (
-        "contract-drift-main-receipt-analyzer-${{ github.event.workflow_run.head_sha }}"
-    )
 
     build = next(
         step
@@ -949,6 +967,7 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert "--output-receipt contract-drift-main-receipt.json" in run
     assert '--workflow-run-id "$PRODUCER_RUN_ID"' in run
     assert '--run-attempt "$PRODUCER_RUN_ATTEMPT"' in run
+    assert '--job-id "$PRODUCER_JOB_ID"' in run
     assert '--repository "$GITHUB_REPOSITORY"' in run
     assert "--github-api" in run
     assert "artifact_name=" in run and "$GITHUB_OUTPUT" in run
@@ -962,23 +981,11 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert final_upload["with"]["name"] == "${{ steps.envelope.outputs.artifact_name }}"
     assert final_upload["with"]["path"] == "contract-drift-main-receipt.json"
     assert "contract-drift-main-receipt" not in {value["name"] for value in jobs.values()}
-    assert "workflow_dispatch:" not in text
+    assert "workflow_run:" not in text
 
     analyzer = _analyzer_step_text(receipt)
     assert "tee contract-drift-main-receipt-analyzer.json" in analyzer
     assert "tee contract-drift-main-receipt.json" not in analyzer
-
-
-def test_historical_backfill_finalizer_fails_closed_on_other_or_incomplete_producers():
-    _, finalizer = _historical_finalizer()
-    condition = finalizer["jobs"]["finalize-historical-receipt"]["if"]
-    assert "github.event.workflow_run.conclusion == 'success'" in condition
-    assert "github.event.workflow_run.event == 'workflow_dispatch'" in condition
-    assert (
-        "github.event.workflow_run.path == '.github/workflows/contract-drift-governance.yml'"
-    ) in condition
-    assert "always()" not in condition
-    assert "||" not in condition
 
 
 def test_program_trajectory_preserves_real_red_exit(tmp_path):

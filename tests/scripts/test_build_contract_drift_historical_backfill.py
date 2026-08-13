@@ -522,6 +522,7 @@ def test_receipt_envelope_is_canonical_and_feeds_builder_directly() -> None:
         repository="synaptent/aragora",
         workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
         run_attempt=1,
+        job_id=SYNTHETIC_RECEIPT_JOB_ID,
         reader=_ReceiptApiFixture(),
     )
     assert receipt == _input_document()["receipt"]
@@ -545,7 +546,20 @@ def test_receipt_envelope_rejects_the_still_running_producer_lifecycle() -> None
             repository="synaptent/aragora",
             workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
             run_attempt=1,
+            job_id=SYNTHETIC_RECEIPT_JOB_ID,
             reader=_ReceiptApiFixture(receipt_lifecycle="in_progress"),
+        )
+
+
+def test_receipt_envelope_rejects_a_moved_producer_job_id() -> None:
+    with pytest.raises(ValueError, match="job ID"):
+        backfill.build_historical_receipt_envelope(
+            analyzer_result=_historical_analyzer_result(),
+            repository="synaptent/aragora",
+            workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
+            run_attempt=1,
+            job_id=SYNTHETIC_RECEIPT_JOB_ID + 1,
+            reader=_ReceiptApiFixture(),
         )
 
 
@@ -591,6 +605,7 @@ def test_receipt_envelope_rejects_malformed_authenticated_identity(
             repository="synaptent/aragora",
             workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
             run_attempt=1,
+            job_id=SYNTHETIC_RECEIPT_JOB_ID,
             reader=fixture,
         )
 

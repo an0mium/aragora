@@ -111,10 +111,40 @@ jobs:
             cp contract-drift-main-receipt-analyzer.json contract-drift-main-receipt.json
           fi
       - if: success()
+        id: receipt-upload
         uses: actions/upload-artifact@v4
         with:
           name: "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && format('contract-drift-main-receipt-analyzer-{0}', github.sha) || format('contract-drift-main-receipt-{0}', github.sha) }}"
           path: "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && 'contract-drift-main-receipt-analyzer.json' || 'contract-drift-main-receipt.json' }}"
+      - name: Finalize completed historical receipt
+        if: github.event_name == 'workflow_dispatch' && inputs.historical_backfill
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PRODUCER_JOB_ID="$(
+            gh api --method GET -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" \
+              --jq '.jobs[] | select(.name == "contract-drift-main-receipt") | .id'
+          )"
+          [[ "$PRODUCER_JOB_ID" =~ ^[1-9][0-9]*$ ]]
+          FINALIZER_PAYLOAD="$(
+            jq -cn \
+              --argjson artifact_id '${{ steps.receipt-upload.outputs.artifact-id }}' \
+              --argjson job_id "$PRODUCER_JOB_ID" \
+              --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
+              --argjson workflow_run_id "$GITHUB_RUN_ID" \
+              '{artifact_id:$artifact_id,job_id:$job_id,run_attempt:$run_attempt,workflow_run_id:$workflow_run_id}'
+          )"
+          jq -e '
+            (.artifact_id | type == "number" and . > 0) and
+            (.job_id | type == "number" and . > 0) and
+            (.run_attempt | type == "number" and . > 0) and
+            (.workflow_run_id | type == "number" and . > 0)
+          ' <<<"$FINALIZER_PAYLOAD" >/dev/null
+          gh workflow run contract-drift-historical-backfill-finalizer.yml \
+            --ref "$SOURCE_SHA" \
+            -f producer_identity="$FINALIZER_PAYLOAD"
 
   program-trajectory:
     name: contract-drift-program-trajectory

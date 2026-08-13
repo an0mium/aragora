@@ -479,6 +479,7 @@ def _require_github_job_check(
     head_sha: str,
     expected_name: str,
     label: str,
+    expected_job_id: int | None = None,
 ) -> dict[str, Any]:
     endpoint = f"repos/{repository}/actions/runs/{workflow_run_id}/attempts/{run_attempt}/jobs"
     jobs = _github_collection(
@@ -492,6 +493,8 @@ def _require_github_job_check(
     if len(matching) != 1:
         _fail(f"{label} attempt does not contain exactly one expected job")
     job = matching[0]
+    if expected_job_id is not None and job.get("id") != expected_job_id:
+        _fail(f"{label} job ID does not match the completed producer identity")
     if (
         job.get("run_attempt") != run_attempt
         or job.get("head_sha") != head_sha
@@ -545,6 +548,7 @@ def build_historical_receipt_envelope(
     repository: str,
     workflow_run_id: int,
     run_attempt: int,
+    job_id: int,
     reader: ApiReader,
 ) -> dict[str, Any]:
     if REPOSITORY_RE.fullmatch(repository) is None:
@@ -573,6 +577,10 @@ def build_historical_receipt_envelope(
         run_attempt,
         label="historical receipt run attempt",
     )
+    job_id = _require_positive_int(
+        job_id,
+        label="historical receipt producer job ID",
+    )
     _require_github_run(
         reader,
         repository=repository,
@@ -590,6 +598,7 @@ def build_historical_receipt_envelope(
         head_sha=source_sha,
         expected_name=RECEIPT_JOB_NAME,
         label="historical receipt",
+        expected_job_id=job_id,
     )
 
     contexts: list[dict[str, Any]] = []
@@ -1576,6 +1585,7 @@ def main() -> int:
     parser.add_argument("--repository")
     parser.add_argument("--workflow-run-id", type=int)
     parser.add_argument("--run-attempt", type=int)
+    parser.add_argument("--job-id", type=int)
     parser.add_argument("--github-api", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -1597,6 +1607,7 @@ def main() -> int:
                 "--output-receipt": args.output_receipt,
                 "--repository": args.repository,
                 "--run-attempt": args.run_attempt,
+                "--job-id": args.job_id,
                 "--workflow-run-id": args.workflow_run_id,
             }
             missing = [flag for flag, value in required.items() if value is None]
@@ -1613,6 +1624,7 @@ def main() -> int:
                 repository=args.repository,
                 workflow_run_id=args.workflow_run_id,
                 run_attempt=args.run_attempt,
+                job_id=args.job_id,
                 reader=GhApiReader(),
             )
             receipt_bytes = _canonical_json_bytes(receipt)
