@@ -10102,6 +10102,112 @@ def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.
     assert "inventory_mod.collect_ids" in live_source
 
 
+def test_historical_receipt_mode_supports_the_exact_9320_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["passing"] is True
+    assert result["execution"] == {
+        "base_sha": "14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        "first_parent_sha": "e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        "first_parent_patch_byte_length": 5874,
+        "first_parent_patch_sha256": (
+            "a5c94ff5c9d32a60c055d5ae67b21935dd7f98aae6f868ab1d68e300bb604455"
+        ),
+        "head_sha": "aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        "head_tree_sha": "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a",
+        "merge_sha": "0b28f68b9f4d204ae14814169093723ea84c1364",
+        "merge_tree_sha": "79c1c374eed261c42468dc526d837e726e73425a",
+        "semantic_delta_paths": [
+            "aragora/server/handlers/social/__init__.py",
+            "aragora/server/handlers/social/sharing.py",
+            "tests/handlers/social/test_sharing.py",
+        ],
+        "source_sha": subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+    }
+
+
+def test_historical_receipt_mode_fails_closed_on_incomplete_or_mismatched_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    source_sha = subprocess.check_output(
+        ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    incomplete = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+    )
+    assert incomplete["error_code"] == "accepted_authority_historical_pair_incomplete"
+    assert incomplete["passing"] is False
+
+    mismatched = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+    )
+    assert mismatched["error_code"] == "accepted_authority_historical_pair_mismatch"
+    assert mismatched["passing"] is False
+
+    wrong_base = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert wrong_base["error_code"] in {
+        "accepted_authority_historical_pair_invalid",
+        "accepted_authority_historical_pair_mismatch",
+    }
+    assert wrong_base["passing"] is False
+
+
 def test_no_reachable_classification_filtered_or_raw_baseline_fallback():
     # Neither analyzer surface carries PR #9346's classification-filtered or
     # raw-baseline fallback identifiers at all.

@@ -33,6 +33,7 @@ LIVE_CHECK_NAMES = (
     "contract-drift-program-trajectory",
 )
 SOURCE_SHA_EXPR = "${{ github.event_name == 'push' && github.event.after || github.sha }}"
+HISTORICAL_SOURCE_SHA_EXPR = "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && github.sha || github.event_name == 'push' && github.event.after || github.sha }}"
 # GitHub Actions app installation id: required-check tuples produced by
 # workflow jobs must carry this app identity, never a third-party app.
 EXPECTED_PR_DELTA_APP_ID = 15368
@@ -197,7 +198,8 @@ def test_pr_admission_is_event_bound_absolute_and_terminal():
     terminal = JOBS["pr-delta"]["steps"][-1]
     assert terminal["if"] == "always()" and "steps.admission.outcome" in terminal["run"]
     receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
-    assert receipt["env"]["SOURCE_SHA"] == program["env"]["SOURCE_SHA"]
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
     assert "needs" not in receipt and "needs" not in program
     assert "--mode program" in str(program) and "continue-on-error" not in str(program)
 
@@ -452,7 +454,13 @@ def test_contract_drift_triggers_pr_main_schedule_dispatch():
     assert DOC["on"]["push"]["branches"] == ["main"]
     schedule = DOC["on"]["schedule"]
     assert schedule and all("cron" in entry for entry in schedule)
-    assert DOC["on"]["workflow_dispatch"] == {}
+    assert set(DOC["on"]["workflow_dispatch"]["inputs"]) == {
+        "historical_backfill",
+        "historical_base_sha",
+        "historical_first_parent_sha",
+        "historical_head_sha",
+        "historical_merge_sha",
+    }
 
 
 def test_contract_drift_pr_has_no_governed_path_filter_gap():
@@ -482,9 +490,8 @@ def test_contract_drift_non_pr_events_resolve_one_sha_for_receipt_and_program():
     reader, expected = _live_fixture()
     result = verify_workflow_state(reader)
     assert result["selection"]["identity"]["run_id"] == expected["run_id"]
-    assert (
-        JOBS["main-receipt"]["env"]["SOURCE_SHA"] == JOBS["program-trajectory"]["env"]["SOURCE_SHA"]
-    )
+    assert JOBS["main-receipt"]["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert JOBS["program-trajectory"]["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
 
 
 def _analyzer_step_text(job: dict) -> str:
@@ -687,6 +694,35 @@ def test_main_receipt_requires_complete_first_parent_backfill(tmp_path):
     assert "continue-on-error" not in str(JOBS["main-receipt"])
 
 
+def test_historical_backfill_dispatch_is_exact_pair_and_event_disjoint():
+    dispatch = DOC["on"]["workflow_dispatch"]["inputs"]
+    assert dispatch["historical_backfill"]["type"] == "boolean"
+    assert dispatch["historical_backfill"]["default"] == "false"
+    receipt = JOBS["main-receipt"]
+    run = _analyzer_step_text(receipt)
+    env = receipt["env"]
+    assert receipt["if"] == "github.event_name != 'pull_request'"
+    assert env["EVENT_NAME"] == "${{ github.event_name }}"
+    assert "inputs.historical_backfill" in env["HISTORICAL_BACKFILL"]
+    assert env["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert "${EVENT_NAME:-}" in run
+    assert "${HISTORICAL_BACKFILL:-false}" in run
+    for flag, input_name in (
+        ("--historical-base-sha", "historical_base_sha"),
+        ("--historical-head-sha", "historical_head_sha"),
+        ("--historical-merge-sha", "historical_merge_sha"),
+        ("--historical-first-parent-sha", "historical_first_parent_sha"),
+    ):
+        assert flag in run
+        env_name = input_name.upper()
+        assert f"inputs.{input_name}" in env[env_name]
+        assert f"${env_name}" in run
+    assert "FULL_SHA='^[0-9a-f]{40}$'" in run
+    assert "inputs.historical_merge_sha" in _upload_step("main-receipt")["with"]["name"]
+    assert JOBS["program-trajectory"]["if"].endswith("|| !inputs.historical_backfill)")
+
+
 def test_program_trajectory_preserves_real_red_exit(tmp_path):
     program = JOBS["program-trajectory"]
     assert "continue-on-error" not in str(program)
@@ -770,8 +806,8 @@ def test_pull_request_invokes_only_pr_mode():
     assert "--mode receipt" not in str(JOBS["pr-delta"])
     assert "--mode program" not in str(JOBS["pr-delta"])
     # The two main-only jobs are event-disjoint from PR admission.
-    for job_id in ("main-receipt", "program-trajectory"):
-        assert JOBS[job_id]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["main-receipt"]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["program-trajectory"]["if"].startswith("github.event_name != 'pull_request'")
 
 
 def test_pull_request_uses_immutable_event_base_and_head_shas():
@@ -805,10 +841,13 @@ def test_synthetic_merge_sha_is_rejected_for_pr_delta():
 def test_push_main_binds_receipt_and_program_to_event_after_sha():
     assert DOC["on"]["push"]["branches"] == ["main"]
     assert "github.event.after" in SOURCE_SHA_EXPR
-    for job_id in ("main-receipt", "program-trajectory"):
-        job = JOBS[job_id]
-        assert job["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
-        assert job["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    receipt = JOBS["main-receipt"]
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    program = JOBS["program-trajectory"]
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
+    assert program["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    for job in (receipt, program):
         assert '--ref "$SOURCE_SHA"' in _analyzer_step_text(job)
 
 
@@ -818,9 +857,12 @@ def test_schedule_and_dispatch_resolve_main_once_for_both_main_jobs():
     # resolved github.sha, so receipt and trajectory bind one identical SHA.
     assert SOURCE_SHA_EXPR.endswith("|| github.sha }}")
     receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
-    assert receipt["env"]["SOURCE_SHA"] == program["env"]["SOURCE_SHA"]
-    assert receipt["steps"][0]["with"]["ref"] == program["steps"][0]["with"]["ref"]
-    assert TEXT.count(SOURCE_SHA_EXPR) == 4
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
+    assert program["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    assert TEXT.count(SOURCE_SHA_EXPR) == 2
+    assert TEXT.count(HISTORICAL_SOURCE_SHA_EXPR) == 2
 
 
 def test_exact_three_live_check_names_are_separate():
@@ -900,7 +942,7 @@ def test_program_red_cannot_mask_or_replace_pr_delta_result():
     # PR admission and program trajectory run on disjoint events, publish
     # differently named artifacts, and satisfy different required contexts.
     assert JOBS["pr-delta"]["if"].startswith("github.event_name == 'pull_request'")
-    assert JOBS["program-trajectory"]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["program-trajectory"]["if"].startswith("github.event_name != 'pull_request'")
     assert "contract-drift-pr-delta.json" not in str(JOBS["program-trajectory"])
     assert "contract-drift-program-trajectory.json" not in str(JOBS["pr-delta"])
 

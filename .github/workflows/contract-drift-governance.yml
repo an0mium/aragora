@@ -4,7 +4,29 @@ on:
   pull_request: {types: [opened, synchronize, reopened, ready_for_review], branches: [main]}
   push: {branches: [main]}
   schedule: [{cron: '0 5 * * 1'}]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      historical_backfill:
+        description: Run the exact historical-backfill receipt path
+        required: true
+        type: boolean
+        default: false
+      historical_base_sha:
+        description: Exact historical PR base SHA
+        required: false
+        type: string
+      historical_head_sha:
+        description: Exact historical PR head SHA
+        required: false
+        type: string
+      historical_merge_sha:
+        description: Exact historical squash-merge SHA
+        required: false
+        type: string
+      historical_first_parent_sha:
+        description: Exact historical merge first-parent SHA
+        required: false
+        type: string
 
 concurrency: {group: "contract-drift-governance-${{ github.event.pull_request.number || github.ref }}", cancel-in-progress: "${{ github.event_name == 'pull_request' }}"}
 
@@ -39,22 +61,45 @@ jobs:
     name: contract-drift-main-receipt
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    env: {SOURCE_SHA: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
+    env:
+      EVENT_NAME: "${{ github.event_name }}"
+      HISTORICAL_BACKFILL: "${{ inputs.historical_backfill || false }}"
+      HISTORICAL_BASE_SHA: "${{ inputs.historical_base_sha || '' }}"
+      HISTORICAL_HEAD_SHA: "${{ inputs.historical_head_sha || '' }}"
+      HISTORICAL_MERGE_SHA: "${{ inputs.historical_merge_sha || '' }}"
+      HISTORICAL_FIRST_PARENT_SHA: "${{ inputs.historical_first_parent_sha || '' }}"
+      SOURCE_SHA: "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && github.sha || github.event_name == 'push' && github.event.after || github.sha }}"
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, ref: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
+        with: {fetch-depth: 0, ref: "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && github.sha || github.event_name == 'push' && github.event.after || github.sha }}"}
       - {uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065, with: {python-version: "3.11"}}
       - run: |
           set -euo pipefail
-          python3 -B scripts/check_contract_drift_ratchet.py --mode receipt \
-            --ref "$SOURCE_SHA" --repo-root "$GITHUB_WORKSPACE" --json | tee contract-drift-main-receipt.json
+          ARGS=(--mode receipt --ref "$SOURCE_SHA" --repo-root "$GITHUB_WORKSPACE" --json)
+          if [[ "${EVENT_NAME:-}" == "workflow_dispatch" && "${HISTORICAL_BACKFILL:-false}" == "true" ]]; then
+            FULL_SHA='^[0-9a-f]{40}$'
+            [[ "$HISTORICAL_BASE_SHA" =~ $FULL_SHA ]]
+            [[ "$HISTORICAL_HEAD_SHA" =~ $FULL_SHA ]]
+            [[ "$HISTORICAL_MERGE_SHA" =~ $FULL_SHA ]]
+            [[ "$HISTORICAL_FIRST_PARENT_SHA" =~ $FULL_SHA ]]
+            ARGS+=(
+              --historical-base-sha "$HISTORICAL_BASE_SHA"
+              --historical-head-sha "$HISTORICAL_HEAD_SHA"
+              --historical-merge-sha "$HISTORICAL_MERGE_SHA"
+              --historical-first-parent-sha "$HISTORICAL_FIRST_PARENT_SHA"
+            )
+          fi
+          python3 -B scripts/check_contract_drift_ratchet.py "${ARGS[@]}" \
+            | tee contract-drift-main-receipt.json
       - if: success()
         uses: actions/upload-artifact@v4
-        with: {name: "contract-drift-main-receipt-${{ github.sha }}", path: contract-drift-main-receipt.json}
+        with:
+          name: "contract-drift-main-receipt-${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && inputs.historical_merge_sha || github.sha }}"
+          path: contract-drift-main-receipt.json
 
   program-trajectory:
     name: contract-drift-program-trajectory
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || !inputs.historical_backfill)
     runs-on: ubuntu-latest
     env: {SOURCE_SHA: "${{ github.event_name == 'push' && github.event.after || github.sha }}"}
     steps:

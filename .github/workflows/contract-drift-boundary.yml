@@ -21,8 +21,9 @@ on:
     inputs:
       tag:
         description: >-
-          Boundary capsule tag (cdg-<boundary>-<end_sha>). Must equal the tag
-          ref this run is dispatched on.
+          Boundary capsule tag (cdg-<boundary>-<end_sha>) or historical
+          successor tag (backfill-v2-<merge_sha>). Must equal the tag ref this
+          run is dispatched on.
         required: true
         type: string
 
@@ -42,7 +43,7 @@ jobs:
       - name: Download and authenticate the capsule assets at the boundary tag
         run: |
           set -euo pipefail
-          [[ "$TAG" =~ ^cdg-(corrective_bootstrap|route_truth|core_sdk|extended_sdk|final_seal)-[0-9a-f]{40}$ ]]
+          [[ "$TAG" =~ ^(cdg-(corrective_bootstrap|route_truth|core_sdk|extended_sdk|final_seal)|backfill-v2)-[0-9a-f]{40}$ ]]
           test "refs/tags/$TAG" = "$GITHUB_REF"
           test "${TAG##*-}" = "$GITHUB_SHA"
           mkdir assets
