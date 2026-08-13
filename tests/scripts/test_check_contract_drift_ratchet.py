@@ -7577,6 +7577,7 @@ def _authenticate_committed_authority_while_checker_is_dirty(
     )
     live_checker = _REPO_ROOT / checker_binding["path"]
     if hashlib.sha256(live_checker.read_bytes()).hexdigest() == checker_binding["sha256"]:
+        yield
         return
     with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
         root = Path(temp)
