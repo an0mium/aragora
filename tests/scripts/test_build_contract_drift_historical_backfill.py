@@ -21,7 +21,7 @@ MERGE_SHA = "0b28f68b9f4d204ae14814169093723ea84c1364"
 FIRST_PARENT_SHA = "e448b840dad03ee28accd218c14a27fa8b87c7b4"
 HEAD_TREE_SHA = "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a"
 MERGE_TREE_SHA = "79c1c374eed261c42468dc526d837e726e73425a"
-PATCH_SHA256 = "a5c94ff5c9d32a60c055d5ae67b21935dd7f98aae6f868ab1d68e300bb604455"
+PATCH_SHA256 = "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
 OLD_RELEASE_ID = 363450207
 SYNTHETIC_RELEASE_ID = 990000001
 SYNTHETIC_RULE_SUITE_ID = 990000002
@@ -167,7 +167,7 @@ def _input_document() -> dict[str, Any]:
                     "path": "tests/handlers/social/test_sharing.py",
                 },
             ],
-            "first_parent_patch_byte_length": 5874,
+            "first_parent_patch_byte_length": 6054,
             "first_parent_patch_sha256": PATCH_SHA256,
             "first_parent_sha": FIRST_PARENT_SHA,
             "head_sha": HEAD_SHA,
@@ -773,33 +773,100 @@ def test_historical_git_fixture_is_exact() -> None:
     assert _git_text("diff", "--name-only", FIRST_PARENT_SHA, MERGE_SHA).splitlines() == (
         EXPECTED_PATHS
     )
-    head_patch = subprocess.check_output(
-        [
-            "git",
-            "-C",
-            str(ROOT),
-            "diff",
-            "--no-ext-diff",
-            "--no-renames",
-            f"{PR_BASE_SHA}^{{tree}}",
-            f"{HEAD_SHA}^{{tree}}",
-        ]
+    patch_args = (
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.algorithm=myers",
+        "-c",
+        "diff.context=3",
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--no-color",
+        "--no-indent-heuristic",
+        "--full-index",
+        "--unified=3",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "-O/dev/null",
     )
-    merge_patch = subprocess.check_output(
-        [
-            "git",
-            "-C",
-            str(ROOT),
-            "diff",
-            "--no-ext-diff",
-            "--no-renames",
-            f"{FIRST_PARENT_SHA}^{{tree}}",
-            f"{MERGE_SHA}^{{tree}}",
-        ]
+    head_patch = backfill._git_bytes(
+        ROOT,
+        *patch_args,
+        f"{PR_BASE_SHA}^{{tree}}",
+        f"{HEAD_SHA}^{{tree}}",
+    )
+    merge_patch = backfill._git_bytes(
+        ROOT,
+        *patch_args,
+        f"{FIRST_PARENT_SHA}^{{tree}}",
+        f"{MERGE_SHA}^{{tree}}",
     )
     assert head_patch == merge_patch
-    assert len(merge_patch) == 5874
+    assert len(merge_patch) == 6054
     assert backfill._sha256(merge_patch) == PATCH_SHA256
+
+
+def test_builder_patch_binding_ignores_hostile_git_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    global_config = tmp_path / "hostile-gitconfig"
+    global_config.write_text(
+        "[diff]\n"
+        "\tnoprefix = true\n"
+        "\talgorithm = histogram\n"
+        "\tcontext = 19\n"
+        "[core]\n"
+        "\tabbrev = 40\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    payload = backfill.build_payload(
+        repo_root=ROOT,
+        input_document=_input_document(),
+        authority_manifest=_authority_manifest(),
+    )
+    historical = payload["historical_pull_request"]
+    assert historical["first_parent_patch_byte_length"] == 6054
+    assert historical["first_parent_patch_sha256"] == PATCH_SHA256
+
+
+def test_builder_isolates_every_git_subprocess(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], dict[str, str]]] = []
+    real_run = subprocess.run
+    authority_manifest = _authority_manifest()
+
+    def recording_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        if (
+            argv
+            and Path(argv[0]).name == "git"
+            and argv[1:3] == ["-C", str(ROOT)]
+            and "env" in kwargs
+        ):
+            calls.append((argv, kwargs["env"]))
+        return real_run(argv, **kwargs)
+
+    monkeypatch.setattr(backfill.subprocess, "run", recording_run)
+    backfill.build_payload(
+        repo_root=ROOT,
+        input_document=_input_document(),
+        authority_manifest=authority_manifest,
+    )
+    assert calls
+    for argv, env in calls:
+        assert Path(argv[0]).name == "git"
+        assert env["GIT_CONFIG_GLOBAL"] == os.devnull
+        assert env["GIT_CONFIG_NOSYSTEM"] == "1"
+        assert env["GIT_NO_REPLACE_OBJECTS"] == "1"
+        assert env["LC_ALL"] == "C"
 
 
 def test_builder_cli_is_supported_from_outside_the_repository(tmp_path: Path) -> None:

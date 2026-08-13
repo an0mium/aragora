@@ -17,7 +17,7 @@ exact PR/head/receipt/release-byte delegation.
 | Merge first parent | `e448b840dad03ee28accd218c14a27fa8b87c7b4` |
 | Head tree | `e5c6c3d07a918cf43fffed6d4a9f472bc10a674a` |
 | Merge tree | `79c1c374eed261c42468dc526d837e726e73425a` |
-| First-parent patch | `5874` bytes, SHA-256 `a5c94ff5c9d32a60c055d5ae67b21935dd7f98aae6f868ab1d68e300bb604455` |
+| First-parent patch | canonical full-index Myers diff with three context lines: `6054` bytes, SHA-256 `7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4` |
 | Old immutable release | API ID `363450207`, tag `backfill-0b28f68b9f4d204ae14814169093723ea84c1364` |
 | Successor tag | `backfill-v2-0b28f68b9f4d204ae14814169093723ea84c1364` |
 

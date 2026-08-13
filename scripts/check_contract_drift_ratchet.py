@@ -420,6 +420,11 @@ def _git_subcommand(argv: list[str]) -> str:
         if item == "-C":
             index += 2
             continue
+        if item == "-c":
+            if index + 1 >= len(argv):
+                return ""
+            index += 2
+            continue
         if item.startswith("--git-dir=") or item.startswith("--work-tree="):
             index += 1
             continue
@@ -507,8 +512,17 @@ def _run_read_only(
     log_operation: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
     _guard_subprocess_argv(argv)
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
     executable = Path(argv[0]).name
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    if executable == "git":
+        env.update(
+            {
+                "GIT_CONFIG_GLOBAL": os.devnull,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_NO_REPLACE_OBJECTS": "1",
+                "LC_ALL": "C",
+            }
+        )
     try:
         if executable == "git":
             proc = subprocess.run(["git", *argv[1:]], capture_output=True, env=env, check=False)
@@ -4909,11 +4923,27 @@ def build_accepted_result(
                 )
                 patch_args = [
                     "git",
+                    "-c",
+                    "diff.noprefix=false",
+                    "-c",
+                    "diff.mnemonicPrefix=false",
+                    "-c",
+                    "diff.algorithm=myers",
+                    "-c",
+                    "diff.context=3",
                     "-C",
                     str(repo_root),
                     "diff",
                     "--no-ext-diff",
+                    "--no-textconv",
                     "--no-renames",
+                    "--no-color",
+                    "--no-indent-heuristic",
+                    "--full-index",
+                    "--unified=3",
+                    "--src-prefix=a/",
+                    "--dst-prefix=b/",
+                    "-O/dev/null",
                 ]
                 head_patch = _run_read_only(
                     [

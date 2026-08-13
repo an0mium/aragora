@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -321,8 +322,20 @@ def _git_text(repo_root: Path, *args: str) -> str:
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         check=True,
+        env=_git_env(),
         text=True,
     ).stdout.strip()
+
+
+def _git_env() -> dict[str, str]:
+    return {
+        **os.environ,
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "LC_ALL": "C",
+    }
 
 
 def _git_bytes(repo_root: Path, *args: str) -> bytes:
@@ -330,6 +343,7 @@ def _git_bytes(repo_root: Path, *args: str) -> bytes:
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         check=True,
+        env=_git_env(),
     ).stdout
 
 
@@ -1471,6 +1485,7 @@ def build_payload(
         ancestry = subprocess.run(
             ["git", "-C", str(repo_root), "merge-base", "--is-ancestor", ancestor, descendant],
             capture_output=True,
+            env=_git_env(),
         )
         if ancestry.returncode != 0:
             _fail(label)
@@ -1481,7 +1496,27 @@ def build_payload(
         _fail("historical head tree does not match input")
     if _git_text(repo_root, "rev-parse", f"{merge_sha}^{{tree}}") != historical["merge_tree_sha"]:
         _fail("historical merge tree does not match input")
-    patch_args = ("diff", "--no-ext-diff", "--no-renames")
+    patch_args = (
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.algorithm=myers",
+        "-c",
+        "diff.context=3",
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--no-color",
+        "--no-indent-heuristic",
+        "--full-index",
+        "--unified=3",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "-O/dev/null",
+    )
     head_patch = _git_bytes(repo_root, *patch_args, f"{base_sha}^{{tree}}", f"{head_sha}^{{tree}}")
     patch = _git_bytes(
         repo_root,

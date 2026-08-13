@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -2780,23 +2781,35 @@ def test_sdk_partition_has_exact_75_core_523_extended_and_pinned_digests():
 
 def test_original_descriptor_and_provenance_are_identical_across_authority_transitions():
     authority = _accepted_authority()
-    result = ratchet.compare_accepted_authorities(
-        authority, copy.deepcopy(authority), repo_root=REPO_ROOT
-    )
-    assert result["status"] == "pass"
-    assert result["added_original_record_ids"] == []
-    assert result["removed_original_record_ids"] == []
-    # A transition that touches one ratified literal is rejected outright.
-    hostile = copy.deepcopy(authority)
-    record = hostile["canonical_artifacts"]["original_cohort"]["original_records"][0]
-    record["exact_historical_literal_record"] += "/renamed"
-    with pytest.raises(ValueError):
-        ratchet.compare_accepted_authorities(authority, hostile, repo_root=REPO_ROOT)
-    # Swapping the analyzer bundle is an authority change, not a transition.
-    rebundled = copy.deepcopy(authority)
-    rebundled["analyzer_bundle"]["files"][0]["sha256"] = "f" * 64
-    with pytest.raises(ValueError):
-        ratchet.compare_accepted_authorities(authority, rebundled, repo_root=REPO_ROOT)
+    with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
+        authority_root = Path(temp)
+        for binding in authority["analyzer_bundle"]["files"]:
+            target = authority_root / binding["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                subprocess.check_output(
+                    ["git", "-C", str(REPO_ROOT), "show", f"HEAD:{binding['path']}"]
+                )
+            )
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setenv("CDG_AUTHORITY_ROOT", str(authority_root))
+            result = ratchet.compare_accepted_authorities(
+                authority, copy.deepcopy(authority), repo_root=REPO_ROOT
+            )
+            assert result["status"] == "pass"
+            assert result["added_original_record_ids"] == []
+            assert result["removed_original_record_ids"] == []
+            # A transition that touches one ratified literal is rejected outright.
+            hostile = copy.deepcopy(authority)
+            record = hostile["canonical_artifacts"]["original_cohort"]["original_records"][0]
+            record["exact_historical_literal_record"] += "/renamed"
+            with pytest.raises(ValueError):
+                ratchet.compare_accepted_authorities(authority, hostile, repo_root=REPO_ROOT)
+            # Swapping the analyzer bundle is an authority change, not a transition.
+            rebundled = copy.deepcopy(authority)
+            rebundled["analyzer_bundle"]["files"][0]["sha256"] = "f" * 64
+            with pytest.raises(ValueError):
+                ratchet.compare_accepted_authorities(authority, rebundled, repo_root=REPO_ROOT)
 
 
 def test_operation_projection_has_one_membership_per_655_originals():

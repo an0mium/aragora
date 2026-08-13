@@ -4288,6 +4288,8 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         ["git", "merge", "main"],
         ["git", "push", "origin", "HEAD"],
         ["git", "config", "user.name", "unsafe"],
+        ["git", "-c", "diff.context=3", "merge", "main"],
+        ["git", "-c"],
         ["gh", "pr", "merge", "1"],
         ["gh", "run", "rerun", "1"],
         ["gh", "release", "upload", "tag", "asset"],
@@ -4297,7 +4299,40 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         with pytest.raises(ValueError, match="mutating|unsupported"):
             ratchet._guard_subprocess_argv(argv)
     ratchet._guard_subprocess_argv(["git", "status", "--porcelain=v1"])
+    ratchet._guard_subprocess_argv(["git", "-c", "diff.context=3", "diff", "HEAD^", "HEAD"])
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
+
+
+def test_read_only_git_scrubs_config_without_scrubbing_gh(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        calls.append((argv, kwargs["env"]))
+        return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/hostile/global")
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(ratchet.subprocess, "run", fake_run)
+    ratchet._run_read_only(
+        ["git", "status", "--porcelain=v1"],
+        operation_log=[],
+        resource="git-status",
+    )
+    ratchet._run_read_only(
+        ["gh", "api", "--method", "GET", "repos/o/r"],
+        operation_log=[],
+        resource="github-api",
+    )
+    git_env = calls[0][1]
+    assert git_env["GIT_CONFIG_GLOBAL"] == os.devnull
+    assert git_env["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert git_env["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert git_env["LC_ALL"] == "C"
+    gh_env = calls[1][1]
+    assert gh_env["GIT_CONFIG_GLOBAL"] == "/hostile/global"
+    assert "GIT_CONFIG_NOSYSTEM" not in gh_env
 
 
 def _accepted_authority() -> dict[str, Any]:
@@ -4686,10 +4721,13 @@ def _run_accepted_cli(
         command.extend(["--as-of", "2026-04-17", "--strict"])
     if source_ref is not None:
         command.extend(["--ref", source_ref])
+    env = {**os.environ}
+    env.pop("CDG_AUTHORITY_ROOT", None)
     proc = subprocess.run(
         command,
         cwd=repo,
         capture_output=True,
+        env=env,
         text=True,
     )
     return proc, json.loads(proc.stdout)
@@ -6328,7 +6366,9 @@ def _hermetic_repo(
     for rel in _HERMETIC_FILES:
         destination = repo / rel
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes((src / rel).read_bytes())
+        destination.write_bytes(
+            subprocess.check_output(["git", "-C", str(src), "show", f"HEAD:{rel}"])
+        )
     if mutate_base_inventory is not None:
         inventory = json.loads((repo / _HERMETIC_INVENTORY).read_text())
         mutate_base_inventory(inventory)
@@ -7518,6 +7558,40 @@ def _real_authority() -> dict:
     return _real_inventory()["accepted_authority"]
 
 
+def _bound_authority_bytes(binding: dict[str, Any]) -> bytes:
+    authority_root = os.environ.get("CDG_AUTHORITY_ROOT")
+    if authority_root:
+        return (Path(authority_root) / binding["path"]).read_bytes()
+    return (_REPO_ROOT / binding["path"]).read_bytes()
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_committed_authority_while_checker_is_dirty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    authority = _real_authority()
+    checker_binding = next(
+        binding
+        for binding in authority["analyzer_bundle"]["files"]
+        if binding["path"] == "scripts/check_contract_drift_ratchet.py"
+    )
+    live_checker = _REPO_ROOT / checker_binding["path"]
+    if hashlib.sha256(live_checker.read_bytes()).hexdigest() == checker_binding["sha256"]:
+        return
+    with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
+        root = Path(temp)
+        for binding in authority["analyzer_bundle"]["files"]:
+            target = root / binding["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                subprocess.check_output(
+                    ["git", "-C", str(_REPO_ROOT), "show", f"HEAD:{binding['path']}"]
+                )
+            )
+        monkeypatch.setenv("CDG_AUTHORITY_ROOT", str(root))
+        yield
+
+
 def _relink_fact(schema: str, value: dict) -> dict:
     return {"fact": value, "sha256": ratchet._fact_digest(schema, value)}
 
@@ -7729,7 +7803,7 @@ def test_corrective_guard_v2_sequence_is_h2_then_h3_repin_merge_then_empty_h4(tm
     assert bootstrap.ANALYZER_SOURCE_SHA == h3["oid"]
     assert bootstrap.BootstrapPolicy().transition_base_sha == CORRECTIVE_BASE_SHA
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -7808,7 +7882,7 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
     # bootstrap policy; the live analyzer bytes are pinned by the accepted
     # authority manifest, which authorized rotations rebind in place.
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -10134,9 +10208,9 @@ def test_historical_receipt_mode_supports_the_exact_9320_pair(
     assert result["execution"] == {
         "base_sha": "14d1ef53e23c5466c0491ed93f72752944c78cd4",
         "first_parent_sha": "e448b840dad03ee28accd218c14a27fa8b87c7b4",
-        "first_parent_patch_byte_length": 5874,
+        "first_parent_patch_byte_length": 6054,
         "first_parent_patch_sha256": (
-            "a5c94ff5c9d32a60c055d5ae67b21935dd7f98aae6f868ab1d68e300bb604455"
+            "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
         ),
         "head_sha": "aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
         "head_tree_sha": "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a",
@@ -10152,6 +10226,52 @@ def test_historical_receipt_mode_supports_the_exact_9320_pair(
             text=True,
         ).strip(),
     }
+
+
+def test_historical_receipt_patch_binding_ignores_hostile_git_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
+    global_config = tmp_path / "hostile-gitconfig"
+    global_config.write_text(
+        "[diff]\n"
+        "\tnoprefix = true\n"
+        "\talgorithm = histogram\n"
+        "\tcontext = 19\n"
+        "[core]\n"
+        "\tabbrev = 40\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha=cast(str, PR_9320_FACT["head_sha"]),
+        historical_merge_sha=cast(str, PR_9320_FACT["merge_sha"]),
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["execution"]["first_parent_patch_byte_length"] == 6054
+    assert result["execution"]["first_parent_patch_sha256"] == (
+        "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+    )
 
 
 def test_historical_receipt_mode_fails_closed_on_incomplete_or_mismatched_pair(
