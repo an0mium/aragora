@@ -26,6 +26,7 @@ SYNTHETIC_RELEASE_ID = 990000001
 SYNTHETIC_RULE_SUITE_ID = 990000002
 SYNTHETIC_RECEIPT_RUN_ID = 990000003
 SYNTHETIC_RECEIPT_JOB_ID = 990000004
+SYNTHETIC_RECEIPT_ARTIFACT_ID = 990000005
 APP_ID = 15368
 EXPECTED_PATHS = [
     "aragora/server/handlers/social/__init__.py",
@@ -395,7 +396,12 @@ def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
 
 
 class _ReceiptApiFixture:
-    def __init__(self, *, receipt_lifecycle: str = "completed") -> None:
+    def __init__(
+        self,
+        *,
+        artifact_id: int = SYNTHETIC_RECEIPT_ARTIFACT_ID,
+        receipt_lifecycle: str = "completed",
+    ) -> None:
         self.responses: dict[str, dict[str, Any]] = {}
         if receipt_lifecycle not in {"completed", "in_progress"}:
             raise AssertionError(f"unsupported receipt lifecycle: {receipt_lifecycle}")
@@ -426,6 +432,23 @@ class _ReceiptApiFixture:
         self.responses[f"repos/synaptent/aragora/actions/runs/{SYNTHETIC_RECEIPT_RUN_ID}"] = (
             receipt_run
         )
+        self.responses[
+            f"repos/synaptent/aragora/actions/runs/{SYNTHETIC_RECEIPT_RUN_ID}/artifacts"
+            "?per_page=100&page=1"
+        ] = {
+            "artifacts": [
+                {
+                    "expired": False,
+                    "id": artifact_id,
+                    "name": f"contract-drift-main-receipt-analyzer-{SOURCE_SHA}",
+                    "workflow_run": {
+                        "head_sha": SOURCE_SHA,
+                        "id": SYNTHETIC_RECEIPT_RUN_ID,
+                    },
+                }
+            ],
+            "total_count": 1,
+        }
         self.responses[
             "repos/synaptent/aragora/actions/runs/"
             f"{SYNTHETIC_RECEIPT_RUN_ID}/attempts/1/jobs?per_page=100&page=1"
@@ -523,6 +546,7 @@ def test_receipt_envelope_is_canonical_and_feeds_builder_directly() -> None:
         workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
         run_attempt=1,
         job_id=SYNTHETIC_RECEIPT_JOB_ID,
+        artifact_id=SYNTHETIC_RECEIPT_ARTIFACT_ID,
         reader=_ReceiptApiFixture(),
     )
     assert receipt == _input_document()["receipt"]
@@ -547,6 +571,7 @@ def test_receipt_envelope_rejects_the_still_running_producer_lifecycle() -> None
             workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
             run_attempt=1,
             job_id=SYNTHETIC_RECEIPT_JOB_ID,
+            artifact_id=SYNTHETIC_RECEIPT_ARTIFACT_ID,
             reader=_ReceiptApiFixture(receipt_lifecycle="in_progress"),
         )
 
@@ -559,6 +584,20 @@ def test_receipt_envelope_rejects_a_moved_producer_job_id() -> None:
             workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
             run_attempt=1,
             job_id=SYNTHETIC_RECEIPT_JOB_ID + 1,
+            artifact_id=SYNTHETIC_RECEIPT_ARTIFACT_ID,
+            reader=_ReceiptApiFixture(),
+        )
+
+
+def test_receipt_envelope_rejects_an_artifact_outside_the_producer_run() -> None:
+    with pytest.raises(ValueError, match="artifact"):
+        backfill.build_historical_receipt_envelope(
+            analyzer_result=_historical_analyzer_result(),
+            repository="synaptent/aragora",
+            workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
+            run_attempt=1,
+            job_id=SYNTHETIC_RECEIPT_JOB_ID,
+            artifact_id=SYNTHETIC_RECEIPT_ARTIFACT_ID + 1,
             reader=_ReceiptApiFixture(),
         )
 
@@ -606,6 +645,7 @@ def test_receipt_envelope_rejects_malformed_authenticated_identity(
             workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
             run_attempt=1,
             job_id=SYNTHETIC_RECEIPT_JOB_ID,
+            artifact_id=SYNTHETIC_RECEIPT_ARTIFACT_ID,
             reader=fixture,
         )
 

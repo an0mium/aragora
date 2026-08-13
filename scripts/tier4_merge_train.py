@@ -510,6 +510,7 @@ CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES: tuple[str, ...] = (
     "scripts/add_openapi_param_descriptions.py",
     "scripts/audit_openapi_docs.py",
     "scripts/audit_test_skips.py",
+    "scripts/build_contract_drift_historical_backfill.py",
     "scripts/capability_gap_report.py",
     "scripts/check_capability_matrix_sync.py",
     "scripts/check_cross_sdk_parity.py",

@@ -53,6 +53,7 @@ jobs:
       - id: envelope
         name: Build completed historical receipt envelope
         env:
+          ANALYZER_ARTIFACT_ID: "${{ steps.producer.outputs.artifact_id }}"
           GH_TOKEN: "${{ github.token }}"
           PRODUCER_JOB_ID: "${{ steps.producer.outputs.job_id }}"
           PRODUCER_RUN_ATTEMPT: "${{ steps.producer.outputs.run_attempt }}"
@@ -68,6 +69,7 @@ jobs:
               --workflow-run-id "$PRODUCER_RUN_ID" \
               --run-attempt "$PRODUCER_RUN_ATTEMPT" \
               --job-id "$PRODUCER_JOB_ID" \
+              --artifact-id "$ANALYZER_ARTIFACT_ID" \
               --github-api --json
           )"
           printf '%s\n' "$SUMMARY"

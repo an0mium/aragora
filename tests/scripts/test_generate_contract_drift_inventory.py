@@ -1531,6 +1531,84 @@ def test_dynamic_conventional_root_binding_fails_closed(tmp_path: Path):
         gen._subprocess_helper_edges(tmp_path, "scripts/runner.py")
 
 
+def test_historical_backfill_builder_binds_its_inventory_generator_helper() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    assert gen._subprocess_helper_edges(
+        repo_root,
+        "scripts/build_contract_drift_historical_backfill.py",
+        include_function_bodies=True,
+    ) == [
+        (
+            "scripts/generate_contract_drift_inventory.py",
+            "literal_subprocess_helper",
+        )
+    ]
+
+
+def test_literal_workflow_dispatch_reference_is_discovered() -> None:
+    run = (
+        "gh api --method POST "
+        '"repos/${GITHUB_REPOSITORY}/actions/workflows/'
+        'contract-drift-historical-backfill-finalizer.yml/dispatches" '
+        '-f ref="$SOURCE_REF"'
+    )
+    assert gen._workflow_dispatch_references(run) == [
+        ".github/workflows/contract-drift-historical-backfill-finalizer.yml"
+    ]
+
+
+def test_successor_backfill_execution_paths_join_the_exact_ref_authority_closure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    tree = subprocess.check_output(
+        ["git", "-C", str(repo_root), "write-tree"],
+        text=True,
+    ).strip()
+    head = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "commit-tree",
+            tree,
+            "-p",
+            subprocess.check_output(
+                ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+                text=True,
+            ).strip(),
+        ],
+        input="temporary successor authority closure fixture\n",
+        text=True,
+    ).strip()
+    monkeypatch.setattr(gen, "_resolve_full_commit", lambda _repo_root, ref: ref)
+    manifest = gen.build_authority_manifest(
+        repo_root,
+        head,
+        scratch_root=tmp_path,
+    )
+    files = {entry["path"]: entry for entry in manifest["repo_files"]}
+    assert ".github/workflows/contract-drift-governance.yml" in files
+    assert ".github/workflows/contract-drift-historical-backfill-finalizer.yml" in files
+    assert "scripts/build_contract_drift_historical_backfill.py" in files
+    assert "scripts/generate_contract_drift_inventory.py" in files
+    assert {
+        "from": ".github/workflows/contract-drift-governance.yml",
+        "kind": "local_workflow_dispatch",
+    } in files[".github/workflows/contract-drift-historical-backfill-finalizer.yml"][
+        "incoming_edges"
+    ]
+    assert {
+        "from": ".github/workflows/contract-drift-historical-backfill-finalizer.yml",
+        "kind": "workflow_run_executable",
+    } in files["scripts/build_contract_drift_historical_backfill.py"]["incoming_edges"]
+    assert {
+        "from": "scripts/build_contract_drift_historical_backfill.py",
+        "kind": "literal_subprocess_helper",
+    } in files["scripts/generate_contract_drift_inventory.py"]["incoming_edges"]
+
+
 def test_dynamic_python_executable_fails_closed_even_with_static_module(tmp_path: Path):
     _write_text(tmp_path / "scripts/helper.py", "# helper\n")
     with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow run command"):

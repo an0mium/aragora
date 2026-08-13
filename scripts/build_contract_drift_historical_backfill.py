@@ -542,6 +542,36 @@ def _require_github_job_check(
     }
 
 
+def _require_github_run_artifact(
+    reader: ApiReader,
+    *,
+    repository: str,
+    workflow_run_id: int,
+    artifact_id: int,
+    head_sha: str,
+) -> None:
+    artifacts = _github_collection(
+        reader,
+        f"repos/{repository}/actions/runs/{workflow_run_id}/artifacts",
+        collection_key="artifacts",
+        identity=lambda artifact: artifact.get("id"),
+        label="historical receipt artifacts",
+    )
+    matching = [artifact for artifact in artifacts if artifact.get("id") == artifact_id]
+    if len(matching) != 1:
+        _fail("historical receipt artifact is not bound to the completed producer run")
+    artifact = matching[0]
+    workflow_run = artifact.get("workflow_run")
+    if (
+        artifact.get("expired") is not False
+        or artifact.get("name") != f"contract-drift-main-receipt-analyzer-{head_sha}"
+        or not isinstance(workflow_run, dict)
+        or workflow_run.get("id") != workflow_run_id
+        or workflow_run.get("head_sha") != head_sha
+    ):
+        _fail("historical receipt artifact identity contradicts the completed producer run")
+
+
 def build_historical_receipt_envelope(
     *,
     analyzer_result: Mapping[str, Any],
@@ -549,6 +579,7 @@ def build_historical_receipt_envelope(
     workflow_run_id: int,
     run_attempt: int,
     job_id: int,
+    artifact_id: int,
     reader: ApiReader,
 ) -> dict[str, Any]:
     if REPOSITORY_RE.fullmatch(repository) is None:
@@ -581,6 +612,10 @@ def build_historical_receipt_envelope(
         job_id,
         label="historical receipt producer job ID",
     )
+    artifact_id = _require_positive_int(
+        artifact_id,
+        label="historical receipt analyzer artifact ID",
+    )
     _require_github_run(
         reader,
         repository=repository,
@@ -589,6 +624,13 @@ def build_historical_receipt_envelope(
         head_sha=source_sha,
         label="historical receipt",
         require_dispatch=True,
+    )
+    _require_github_run_artifact(
+        reader,
+        repository=repository,
+        workflow_run_id=workflow_run_id,
+        artifact_id=artifact_id,
+        head_sha=source_sha,
     )
     receipt_job = _require_github_job_check(
         reader,
@@ -739,11 +781,12 @@ def _load_inventory_at_ref(repo_root: Path, source_sha: str) -> dict[str, Any]:
 
 
 def _load_authority_manifest(repo_root: Path, source_sha: str) -> dict[str, Any]:
+    inventory_script = REPO_ROOT / "scripts/generate_contract_drift_inventory.py"
     proc = subprocess.run(
         [
             sys.executable,
             "-B",
-            str(repo_root / "scripts/generate_contract_drift_inventory.py"),
+            str(inventory_script),
             "--repo-root",
             str(repo_root),
             "--authority-manifest",
@@ -1586,6 +1629,7 @@ def main() -> int:
     parser.add_argument("--workflow-run-id", type=int)
     parser.add_argument("--run-attempt", type=int)
     parser.add_argument("--job-id", type=int)
+    parser.add_argument("--artifact-id", type=int)
     parser.add_argument("--github-api", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -1608,6 +1652,7 @@ def main() -> int:
                 "--repository": args.repository,
                 "--run-attempt": args.run_attempt,
                 "--job-id": args.job_id,
+                "--artifact-id": args.artifact_id,
                 "--workflow-run-id": args.workflow_run_id,
             }
             missing = [flag for flag, value in required.items() if value is None]
@@ -1625,6 +1670,7 @@ def main() -> int:
                 workflow_run_id=args.workflow_run_id,
                 run_attempt=args.run_attempt,
                 job_id=args.job_id,
+                artifact_id=args.artifact_id,
                 reader=GhApiReader(),
             )
             receipt_bytes = _canonical_json_bytes(receipt)

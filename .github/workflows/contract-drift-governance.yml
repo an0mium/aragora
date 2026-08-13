@@ -1,7 +1,7 @@
 name: Contract Drift Governance
 
 permissions:
-  actions: read
+  actions: write
   checks: read
   contents: read
 
@@ -123,6 +123,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          SOURCE_REF="${GITHUB_REF#refs/heads/}"
+          if [[ "$SOURCE_REF" == "$GITHUB_REF" ]]; then
+            SOURCE_REF="${GITHUB_REF#refs/tags/}"
+          fi
+          test -n "$SOURCE_REF"
+          test "$SOURCE_REF" != "$GITHUB_REF"
           PRODUCER_JOB_ID="$(
             gh api --method GET -H 'Accept: application/vnd.github+json' \
               "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" \
@@ -146,7 +152,7 @@ jobs:
           gh api --method POST \
             -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/workflows/contract-drift-historical-backfill-finalizer.yml/dispatches" \
-            -f ref="$SOURCE_SHA" \
+            -f ref="$SOURCE_REF" \
             -f "inputs[producer_identity]=$FINALIZER_PAYLOAD"
 
   program-trajectory:

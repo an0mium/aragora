@@ -896,6 +896,7 @@ exec {git_bin!r} "$@"
 def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     receipt = JOBS["main-receipt"]
     assert "build_contract_drift_historical_backfill.py" not in str(receipt)
+    assert DOC["permissions"]["actions"] == "write"
 
     upload = _upload_step("main-receipt")
     assert upload["id"] == "receipt-upload"
@@ -920,7 +921,10 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
         "actions/workflows/contract-drift-historical-backfill-finalizer.yml/dispatches"
         in dispatch_run
     )
-    assert '-f ref="$SOURCE_SHA"' in dispatch_run
+    assert 'SOURCE_REF="${GITHUB_REF#refs/heads/}"' in dispatch_run
+    assert 'SOURCE_REF="${GITHUB_REF#refs/tags/}"' in dispatch_run
+    assert '-f ref="$SOURCE_REF"' in dispatch_run
+    assert '-f ref="$SOURCE_SHA"' not in dispatch_run
 
     text, finalizer = _historical_finalizer()
     assert finalizer["on"] == {
@@ -966,6 +970,7 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
         for step in job["steps"]
         if step.get("name") == "Build completed historical receipt envelope"
     )
+    assert build["env"]["ANALYZER_ARTIFACT_ID"] == ("${{ steps.producer.outputs.artifact_id }}")
     assert build["env"]["GH_TOKEN"] == "${{ github.token }}"
     run = build["run"]
     assert "scripts/build_contract_drift_historical_backfill.py" in run
@@ -975,6 +980,7 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert '--workflow-run-id "$PRODUCER_RUN_ID"' in run
     assert '--run-attempt "$PRODUCER_RUN_ATTEMPT"' in run
     assert '--job-id "$PRODUCER_JOB_ID"' in run
+    assert '--artifact-id "$ANALYZER_ARTIFACT_ID"' in run
     assert '--repository "$GITHUB_REPOSITORY"' in run
     assert "--github-api" in run
     assert "artifact_name=" in run and "$GITHUB_OUTPUT" in run

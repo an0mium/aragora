@@ -79,7 +79,9 @@ checkpoint input.
 ## Finalization checkpoint P2: execute the exact historical receipt
 
 Dispatch the merged `Contract Drift Governance` producer workflow at the exact merged
-implementation SHA with:
+implementation branch or tag ref whose tip is the exact merged implementation SHA. Record both the
+accepted dispatch ref and the resulting `github.sha`, and require that resulting SHA to equal the
+merged implementation SHA, with:
 
 ```text
 historical_backfill=true
@@ -89,12 +91,15 @@ historical_merge_sha=0b28f68b9f4d204ae14814169093723ea84c1364
 historical_first_parent_sha=e448b840dad03ee28accd218c14a27fa8b87c7b4
 ```
 
-This preparation feature must not run that dispatch. The producer schedules the completion finalizer
-as its last successful step, after the analyzer artifact exists. The finalizer must authenticate the
-submitted artifact/run/attempt/job tuple against GitHub and require the producer to have reached
-completed success; it must never authenticate its own in-progress job as already successful. The
-publication finalizer must discover workflow runs without conclusion filters, reconcile pagination,
-enumerate attempts, select the intended producer run, and bind:
+This preparation feature must not run that dispatch. GitHub accepts a branch or tag name, not a raw
+commit SHA, for the `workflow_dispatch` API `ref`; the workflow still binds the analyzer and receipt
+to the immutable resolved `github.sha`. The producer schedules the completion finalizer as its last
+successful step, after the analyzer artifact exists. The finalizer must authenticate the submitted
+artifact/run/attempt/job tuple against GitHub, including proving the analyzer artifact ID belongs to
+that exact producer run, and require the producer to have reached completed success; it must never
+authenticate its own in-progress job as already successful. The publication finalizer must discover
+workflow runs without conclusion filters, reconcile pagination, enumerate attempts, select the
+intended producer run, and bind:
 
 - workflow run ID and run attempt;
 - attempt-specific job ID and check-run ID;
