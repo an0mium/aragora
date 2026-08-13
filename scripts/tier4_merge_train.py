@@ -127,16 +127,20 @@ def _pr_sort_key(pr: dict[str, Any]) -> tuple[str, int]:
     value sorts first (treated as oldest) so it still yields a stable order.
     """
     created = str(pr.get("createdAt") or pr.get("created_at") or "")
+    raw_number = pr.get("number")
     try:
-        number = int(pr.get("number"))
+        number = int(raw_number) if raw_number is not None else 0
     except (TypeError, ValueError):
         number = 0
     return (created, number)
 
 
 def _pr_number(pr: dict[str, Any]) -> int | None:
+    raw_number = pr.get("number")
+    if raw_number is None:
+        return None
     try:
-        return int(pr.get("number"))
+        return int(raw_number)
     except (TypeError, ValueError):
         return None
 
