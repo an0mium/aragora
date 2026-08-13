@@ -912,8 +912,12 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert 'select(.name == "contract-drift-main-receipt") | .id' in dispatch_run
     assert "steps.receipt-upload.outputs.artifact-id" in dispatch_run
     assert "producer_identity" in dispatch_run
-    assert "gh workflow run contract-drift-historical-backfill-finalizer.yml" in dispatch_run
-    assert '--ref "$SOURCE_SHA"' in dispatch_run
+    assert "gh api --method POST" in dispatch_run
+    assert (
+        "actions/workflows/contract-drift-historical-backfill-finalizer.yml/dispatches"
+        in dispatch_run
+    )
+    assert '-f ref="$SOURCE_SHA"' in dispatch_run
 
     text, finalizer = _historical_finalizer()
     assert finalizer["on"] == {

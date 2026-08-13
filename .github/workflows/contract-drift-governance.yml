@@ -142,9 +142,11 @@ jobs:
             (.run_attempt | type == "number" and . > 0) and
             (.workflow_run_id | type == "number" and . > 0)
           ' <<<"$FINALIZER_PAYLOAD" >/dev/null
-          gh workflow run contract-drift-historical-backfill-finalizer.yml \
-            --ref "$SOURCE_SHA" \
-            -f producer_identity="$FINALIZER_PAYLOAD"
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/contract-drift-historical-backfill-finalizer.yml/dispatches" \
+            -f ref="$SOURCE_SHA" \
+            -f "inputs[producer_identity]=$FINALIZER_PAYLOAD"
 
   program-trajectory:
     name: contract-drift-program-trajectory
