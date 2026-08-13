@@ -22,6 +22,11 @@ from scripts.verify_contract_drift_workflow_state import (
     VerificationError,
     verify_workflow_state,
 )
+from tests.scripts._contract_drift_historical_git import (
+    PR_9320_HEAD_REF,
+    PR_9320_LOCAL_REF,
+    ensure_pr_9320_head,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXT = (ROOT / ".github/workflows/contract-drift-governance.yml").read_text()
@@ -819,7 +824,7 @@ def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(tmp_path
     bare = tmp_path / "origin.git"
     subprocess.run(["git", "clone", "-q", "--bare", str(source), str(bare)], check=True)
     subprocess.run(
-        ["git", f"--git-dir={bare}", "update-ref", "refs/pull/9320/head", head_sha],
+        ["git", f"--git-dir={bare}", "update-ref", PR_9320_HEAD_REF, head_sha],
         check=True,
     )
     subprocess.run(
@@ -849,6 +854,20 @@ def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(tmp_path
             capture_output=True,
         ).returncode
         != 0
+    )
+    assert ensure_pr_9320_head(checkout, expected_sha=head_sha) == head_sha
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            text=True,
+        ).strip()
+        == head_sha
+    )
+    subprocess.run(
+        ["git", "update-ref", "-d", PR_9320_LOCAL_REF],
+        cwd=checkout,
+        check=True,
     )
 
     git_stub_dir = tmp_path / "bin"
@@ -885,7 +904,7 @@ exec {git_bin!r} "$@"
     assert result.returncode == 0, result.stderr
     assert (
         subprocess.check_output(
-            ["git", "rev-parse", "refs/cdg-historical-backfill/9320/head"],
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
             cwd=checkout,
             text=True,
         ).strip()
@@ -896,7 +915,13 @@ exec {git_bin!r} "$@"
 def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     receipt = JOBS["main-receipt"]
     assert "build_contract_drift_historical_backfill.py" not in str(receipt)
-    assert DOC["permissions"]["actions"] == "write"
+    assert DOC["permissions"] == {"checks": "read", "contents": "read"}
+    assert "permissions" not in JOBS["pr-delta"]
+    assert receipt["permissions"] == {
+        "actions": "write",
+        "checks": "read",
+        "contents": "read",
+    }
 
     upload = _upload_step("main-receipt")
     assert upload["id"] == "receipt-upload"

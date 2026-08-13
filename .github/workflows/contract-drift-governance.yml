@@ -1,7 +1,6 @@
 name: Contract Drift Governance
 
 permissions:
-  actions: write
   checks: read
   contents: read
 
@@ -66,6 +65,10 @@ jobs:
     name: contract-drift-main-receipt
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      checks: read
+      contents: read
     env:
       EVENT_NAME: "${{ github.event_name }}"
       HISTORICAL_BACKFILL: "${{ inputs.historical_backfill || false }}"

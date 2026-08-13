@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from scripts import build_contract_drift_historical_backfill as backfill
+from tests.scripts._contract_drift_historical_git import ensure_pr_9320_head
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_SHA = "ee989c889e51f911f1cf5dd5fe667417613bbeb6"
@@ -738,6 +739,7 @@ def test_movement_is_fail_closed() -> None:
 
 
 def test_historical_git_fixture_is_exact() -> None:
+    assert ensure_pr_9320_head(ROOT) == HEAD_SHA
     assert _git_text("rev-parse", f"{MERGE_SHA}^1") == FIRST_PARENT_SHA
     assert (
         subprocess.run(

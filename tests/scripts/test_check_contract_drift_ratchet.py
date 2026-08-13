@@ -19,6 +19,7 @@ from typing import Any, Literal, cast, overload
 import pytest
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
+from tests.scripts._contract_drift_historical_git import ensure_pr_9320_head
 
 if sys.platform == "win32":
     import msvcrt
@@ -10105,6 +10106,7 @@ def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.
 def test_historical_receipt_mode_supports_the_exact_9320_pair(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
     monkeypatch.setattr(
         ratchet,
         "validate_accepted_authority",
