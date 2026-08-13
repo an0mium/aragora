@@ -907,10 +907,13 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert dispatch["if"] == (
         "github.event_name == 'workflow_dispatch' && inputs.historical_backfill"
     )
+    assert dispatch["env"]["ANALYZER_ARTIFACT_ID"] == (
+        "${{ steps.receipt-upload.outputs.artifact-id }}"
+    )
     dispatch_run = dispatch["run"]
     assert "/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" in dispatch_run
     assert 'select(.name == "contract-drift-main-receipt") | .id' in dispatch_run
-    assert "steps.receipt-upload.outputs.artifact-id" in dispatch_run
+    assert '--argjson artifact_id "$ANALYZER_ARTIFACT_ID"' in dispatch_run
     assert "producer_identity" in dispatch_run
     assert "gh api --method POST" in dispatch_run
     assert (

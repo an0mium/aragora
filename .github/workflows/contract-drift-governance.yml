@@ -119,6 +119,7 @@ jobs:
       - name: Finalize completed historical receipt
         if: github.event_name == 'workflow_dispatch' && inputs.historical_backfill
         env:
+          ANALYZER_ARTIFACT_ID: ${{ steps.receipt-upload.outputs.artifact-id }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -130,7 +131,7 @@ jobs:
           [[ "$PRODUCER_JOB_ID" =~ ^[1-9][0-9]*$ ]]
           FINALIZER_PAYLOAD="$(
             jq -cn \
-              --argjson artifact_id '${{ steps.receipt-upload.outputs.artifact-id }}' \
+              --argjson artifact_id "$ANALYZER_ARTIFACT_ID" \
               --argjson job_id "$PRODUCER_JOB_ID" \
               --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
               --argjson workflow_run_id "$GITHUB_RUN_ID" \
