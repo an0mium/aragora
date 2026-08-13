@@ -26,20 +26,21 @@ jobs:
         run: |
           set -euo pipefail
           jq -e '
-            (keys | sort) == ["artifact_id","job_id","run_attempt","workflow_run_id"] and
+            (keys | sort) == ["artifact_id","job_id","run_attempt","source_sha","workflow_run_id"] and
             (.artifact_id | type == "number" and . > 0) and
             (.job_id | type == "number" and . > 0) and
             (.run_attempt | type == "number" and . > 0) and
+            (.source_sha | type == "string" and test("^[0-9a-f]{40}$")) and
             (.workflow_run_id | type == "number" and . > 0)
           ' <<<"$PRODUCER_IDENTITY" >/dev/null
-          for field in artifact_id job_id run_attempt workflow_run_id; do
+          for field in artifact_id job_id run_attempt source_sha workflow_run_id; do
             printf '%s=%s\n' "$field" "$(jq -r ".$field" <<<"$PRODUCER_IDENTITY")" \
               >> "$GITHUB_OUTPUT"
           done
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: "${{ github.sha }}"
+          ref: "${{ steps.producer.outputs.source_sha }}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
@@ -62,6 +63,29 @@ jobs:
           PRODUCER_RUN_ID: "${{ steps.producer.outputs.workflow_run_id }}"
         run: |
           set -euo pipefail
+          for attempt in $(seq 1 30); do
+            RUN_STATE="$(
+              gh api --method GET -H 'Accept: application/vnd.github+json' \
+                "repos/${GITHUB_REPOSITORY}/actions/runs/${PRODUCER_RUN_ID}"
+            )"
+            test "$(jq -r '.id' <<<"$RUN_STATE")" = "$PRODUCER_RUN_ID"
+            test "$(jq -r '.run_attempt' <<<"$RUN_STATE")" = "$PRODUCER_RUN_ATTEMPT"
+            test "$(jq -r '.head_sha' <<<"$RUN_STATE")" = "${{ steps.producer.outputs.source_sha }}"
+            test "$(jq -r '.path' <<<"$RUN_STATE")" = \
+              ".github/workflows/contract-drift-governance.yml"
+            test "$(jq -r '.event' <<<"$RUN_STATE")" = "workflow_dispatch"
+            test "$(jq -r '.repository.full_name' <<<"$RUN_STATE")" = "$GITHUB_REPOSITORY"
+            RUN_STATUS="$(jq -r '.status' <<<"$RUN_STATE")"
+            RUN_CONCLUSION="$(jq -r '.conclusion // ""' <<<"$RUN_STATE")"
+            if [[ "$RUN_STATUS" == "completed" ]]; then
+              test "$RUN_CONCLUSION" = "success"
+              break
+            fi
+            test "$RUN_STATUS" != "cancelled"
+            sleep 10
+          done
+          test "${RUN_STATUS:-}" = "completed"
+          test "${RUN_CONCLUSION:-}" = "success"
           SUMMARY="$(
             python3 -B scripts/build_contract_drift_historical_backfill.py \
               --build-receipt-envelope \

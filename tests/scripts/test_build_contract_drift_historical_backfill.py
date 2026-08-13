@@ -135,7 +135,7 @@ def _input_document() -> dict[str, Any]:
             "repository": "synaptent/aragora",
             "schema": backfill.ATTESTATION_SCHEMA,
             "signer_san_regexp": backfill.ratchet.RELEASE_ATTESTATION_SIGNER_SAN_REGEXP,
-            "source_digest": MERGE_SHA,
+            "source_digest": SOURCE_SHA,
             "subject_asset_names": list(backfill.EXPECTED_ASSET_NAMES),
             "verified": True,
             "workflow": "actions/attest@v4",
@@ -200,7 +200,7 @@ def _input_document() -> dict[str, Any]:
             "immutable": True,
             "release_api_id": SYNTHETIC_RELEASE_ID,
             "tag_name": f"backfill-v2-{MERGE_SHA}",
-            "tag_target_sha": MERGE_SHA,
+            "tag_target_sha": SOURCE_SHA,
             "verified": True,
         },
         "repository": "synaptent/aragora",
@@ -287,6 +287,10 @@ def test_fixture_binds_all_semantic_planes(payload: dict[str, Any]) -> None:
     assert payload["receipt"]["head_sha"] == HEAD_SHA
     assert payload["receipt"]["source_sha"] == SOURCE_SHA
     assert payload["receipt"]["merge_sha"] == MERGE_SHA
+    assert payload["release"]["tag_name"] == f"backfill-v2-{MERGE_SHA}"
+    assert payload["release"]["exact_full_sha_tag"] == MERGE_SHA
+    assert payload["release"]["tag_target_sha"] == SOURCE_SHA
+    assert payload["attestation"]["source_digest"] == SOURCE_SHA
     assert (
         payload["historical_pull_request"]["changed_files"]
         == _input_document()["historical_pull_request"]["changed_files"]
@@ -367,6 +371,17 @@ def test_failed_receipt_and_missing_attestation_fail_closed(payload: dict[str, A
     wrong_merge["receipt"]["merge_sha"] = SOURCE_SHA
     with pytest.raises(ValueError, match="receipt merge SHA mismatch"):
         backfill.validate_payload(wrong_merge)
+
+    wrong_tag_target = copy.deepcopy(payload)
+    wrong_tag_target["release"]["tag_target_sha"] = MERGE_SHA
+    with pytest.raises(ValueError, match="release tag binding mismatch"):
+        backfill.validate_payload(wrong_tag_target)
+
+    wrong_pair = copy.deepcopy(payload)
+    wrong_pair["historical_pull_request"]["base_sha"] = FIRST_PARENT_SHA
+    wrong_pair["receipt"]["base_sha"] = FIRST_PARENT_SHA
+    with pytest.raises(ValueError, match="frozen PR #9320 exact pair"):
+        backfill.validate_payload(wrong_pair)
 
 
 def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
@@ -696,7 +711,7 @@ def test_attestation_subject_signer_and_repository_are_fail_closed(
     for field, value in (
         ("signer_san_regexp", "^https://example.invalid$"),
         ("repository", "other/repository"),
-        ("source_digest", "f" * 40),
+        ("source_digest", MERGE_SHA),
     ):
         mismatch = copy.deepcopy(evidence)
         mismatch[field] = value

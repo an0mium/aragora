@@ -10,7 +10,11 @@
         "repository": {"pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "type": "string"},
         "schema": {"const": "contract-drift-historical-backfill-attestation-v1"},
         "signer_san_regexp": {"const": "^https://dotcom\\.releases\\.github\\.com$"},
-        "source_digest": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "source_digest": {
+          "description": "Exact merged implementation SHA supplying the signer workflow; distinct from the historical squash merge SHA.",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
         "subject_asset_names": {"const": ["manifest.json", "payload.json", "checksums.txt"]},
         "verified": {"const": true},
         "workflow": {"const": "actions/attest@v4"},
@@ -240,7 +244,11 @@
         "immutable": {"const": true},
         "release_api_id": {"minimum": 1, "type": "integer"},
         "tag_name": {"pattern": "^backfill-v2-[0-9a-f]{40}$", "type": "string"},
-        "tag_target_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "tag_target_sha": {
+          "description": "Exact merged implementation SHA containing the signer workflow; distinct from the historical SHA named by exact_full_sha_tag.",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
         "verified": {"const": true}
       },
       "required": [

@@ -54,7 +54,15 @@ def test_schema_binds_successor_release_attestation_and_disposition() -> None:
         "payload.json",
         "checksums.txt",
     ]
+    assert (
+        "merged implementation SHA"
+        in (properties["release"]["properties"]["tag_target_sha"]["description"])
+    )
     assert properties["attestation"]["properties"]["workflow"]["const"] == "actions/attest@v4"
+    assert (
+        "merged implementation SHA"
+        in (properties["attestation"]["properties"]["source_digest"]["description"])
+    )
     assert properties["attestation"]["properties"]["subject_asset_names"]["const"] == [
         "manifest.json",
         "payload.json",

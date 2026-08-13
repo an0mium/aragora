@@ -940,6 +940,7 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert "/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" in dispatch_run
     assert 'select(.name == "contract-drift-main-receipt") | .id' in dispatch_run
     assert '--argjson artifact_id "$ANALYZER_ARTIFACT_ID"' in dispatch_run
+    assert '--arg source_sha "$SOURCE_SHA"' in dispatch_run
     assert "producer_identity" in dispatch_run
     assert "gh api --method POST" in dispatch_run
     assert (
@@ -974,13 +975,16 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     validate = next(
         step for step in job["steps"] if step.get("name") == "Validate completed producer identity"
     )
-    assert '["artifact_id","job_id","run_attempt","workflow_run_id"]' in validate["run"]
+    assert (
+        '["artifact_id","job_id","run_attempt","source_sha","workflow_run_id"]' in validate["run"]
+    )
+    assert 'test("^[0-9a-f]{40}$")' in validate["run"]
     assert "$GITHUB_OUTPUT" in validate["run"]
 
     checkout = next(
         step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")
     )
-    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    assert checkout["with"]["ref"] == "${{ steps.producer.outputs.source_sha }}"
     download = next(
         step
         for step in job["steps"]
@@ -1000,6 +1004,13 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     assert build["env"]["ANALYZER_ARTIFACT_ID"] == ("${{ steps.producer.outputs.artifact_id }}")
     assert build["env"]["GH_TOKEN"] == "${{ github.token }}"
     run = build["run"]
+    assert "for attempt in $(seq 1 30)" in run
+    assert "actions/runs/${PRODUCER_RUN_ID}" in run
+    assert "steps.producer.outputs.source_sha" in run
+    assert ".github/workflows/contract-drift-governance.yml" in run
+    assert '"workflow_dispatch"' in run
+    assert 'test "${RUN_STATUS:-}" = "completed"' in run
+    assert 'test "${RUN_CONCLUSION:-}" = "success"' in run
     assert "scripts/build_contract_drift_historical_backfill.py" in run
     assert "--build-receipt-envelope" in run
     assert "--analyzer-result receipt-input/contract-drift-main-receipt-analyzer.json" in run

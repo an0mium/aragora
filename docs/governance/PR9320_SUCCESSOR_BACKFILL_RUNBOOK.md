@@ -40,7 +40,9 @@ The repository provides:
   second workflow can authenticate that the producer run/job/check genuinely reached completed
   success, re-authenticate the six historical contexts, and upload the complete canonical receipt
   envelope;
-- `backfill-v2-<merge_sha>` support in the manual `actions/attest@v4` signer workflow.
+- `backfill-v2-<merge_sha>` support in the manual `actions/attest@v4` signer workflow, with the
+  successor tag targeting the merged implementation SHA and a separate exact `source_digest`
+  input binding the signer workflow bytes to that same implementation SHA.
 
 The builder emits exactly `manifest.json`, `payload.json`, and `checksums.txt`. Canonical JSON is
 UTF-8 without BOM, compact sorted-key serialization, and exactly one terminal LF.
@@ -78,10 +80,10 @@ checkpoint input.
 
 ## Finalization checkpoint P2: execute the exact historical receipt
 
-Dispatch the merged `Contract Drift Governance` producer workflow at the exact merged
-implementation branch or tag ref whose tip is the exact merged implementation SHA. Record both the
-accepted dispatch ref and the resulting `github.sha`, and require that resulting SHA to equal the
-merged implementation SHA, with:
+After this parked PR is normally merged, freeze that resulting merge SHA as `IMPLEMENTATION_SHA`.
+Dispatch the merged `Contract Drift Governance` producer workflow at a branch or tag ref whose tip
+is exactly `IMPLEMENTATION_SHA`. Record both the accepted dispatch ref and the resulting
+`github.sha`, and require that resulting SHA to equal `IMPLEMENTATION_SHA`, with:
 
 ```text
 historical_backfill=true
@@ -94,12 +96,14 @@ historical_first_parent_sha=e448b840dad03ee28accd218c14a27fa8b87c7b4
 This preparation feature must not run that dispatch. GitHub accepts a branch or tag name, not a raw
 commit SHA, for the `workflow_dispatch` API `ref`; the workflow still binds the analyzer and receipt
 to the immutable resolved `github.sha`. The producer schedules the completion finalizer as its last
-successful step, after the analyzer artifact exists. The finalizer must authenticate the submitted
-artifact/run/attempt/job tuple against GitHub, including proving the analyzer artifact ID belongs to
-that exact producer run, and require the producer to have reached completed success; it must never
-authenticate its own in-progress job as already successful. The publication finalizer must discover
-workflow runs without conclusion filters, reconcile pagination, enumerate attempts, select the
-intended producer run, and bind:
+successful step after the analyzer artifact exists, passing `IMPLEMENTATION_SHA` in the canonical
+producer identity. The finalizer checks out that immutable SHA, then waits boundedly until GitHub
+reports the producer run and job as completed success before building the envelope. It must
+authenticate the submitted artifact/run/attempt/job tuple against GitHub, including proving the
+analyzer artifact ID belongs to that exact producer run; it must never authenticate its own
+in-progress job as already successful. The publication finalizer must discover workflow runs
+without conclusion filters, reconcile pagination, enumerate attempts, select the intended producer
+run, and bind:
 
 - workflow run ID and run attempt;
 - attempt-specific job ID and check-run ID;
@@ -125,6 +129,9 @@ Build the final input document with:
 
 - the successful P2 receipt identity, including `receipt.source_sha == authority_source_sha` and
   `receipt.merge_sha == 0b28f68b9f4d204ae14814169093723ea84c1364`;
+- `release.tag_target_sha == attestation.source_digest == authority_source_sha ==
+  IMPLEMENTATION_SHA`, while `release.exact_full_sha_tag` and the `backfill-v2-<merge_sha>` suffix
+  remain the historical squash SHA;
 - current exact-ref authority, dependency, inventory, public-symbol, route-boundary, category,
   original-ID, projection-schema, SDK-provenance, and SDK/core/extended partition digests;
 - all `655` projection memberships and all `666` method-specific edges;
@@ -156,7 +163,8 @@ delegation names these exact bytes.
 Under an exact-byte publication delegation only:
 
 1. re-query future release immutability and require `enabled=true`;
-2. require the successor tag to resolve exactly to the historical merge SHA;
+2. require the successor tag suffix to name the historical merge SHA while the tag resolves
+   exactly to the merged implementation SHA that contains the signer workflow;
 3. upload exactly the three frozen assets to the unpublished draft;
 4. re-download and byte-compare every asset;
 5. publish the successor release once, immutable, with no tag or asset reuse;
@@ -168,11 +176,13 @@ No old release operation is permitted.
 ## Finalization checkpoint P5: attestation and rule suite
 
 Dispatch `.github/workflows/contract-drift-boundary.yml` at the published successor tag only under
-the later delegation. Require:
+the later delegation, passing `source_digest=<merged implementation SHA>`. Require:
 
 - `actions/attest@v4`;
 - signer workflow `synaptent/aragora/.github/workflows/contract-drift-boundary.yml`;
-- source digest `0b28f68b9f4d204ae14814169093723ea84c1364`;
+- source digest equal to the exact merged implementation SHA that supplied the successful receipt
+  and signer workflow, while the successor tag suffix and payload retain
+  `0b28f68b9f4d204ae14814169093723ea84c1364` as the historical squash identity;
 - predicate type `https://in-toto.io/attestation/release/v0.2`;
 - repository `synaptent/aragora`;
 - exact subject SHA-256 values for the three frozen assets.

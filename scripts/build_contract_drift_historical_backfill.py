@@ -44,6 +44,10 @@ EXPECTED_GITHUB_ACTIONS_APP_ID = 15368
 RECEIPT_JOB_NAME = "contract-drift-main-receipt"
 MAX_GITHUB_PAGES = 100
 EXPECTED_ASSET_NAMES = ("manifest.json", "payload.json", "checksums.txt")
+PR_9320_BASE_SHA = "14d1ef53e23c5466c0491ed93f72752944c78cd4"
+PR_9320_HEAD_SHA = "aba6b14c94eca3a9c825b1a303ea67684d5f8daa"
+PR_9320_MERGE_SHA = "0b28f68b9f4d204ae14814169093723ea84c1364"
+PR_9320_FIRST_PARENT_SHA = "e448b840dad03ee28accd218c14a27fa8b87c7b4"
 VALID_METHODS = frozenset(
     {
         "CONNECT",
@@ -1144,6 +1148,14 @@ def validate_payload(payload: Any) -> dict[str, Any]:
         historical.get("first_parent_sha"),
         label="historical first-parent SHA",
     )
+    if (
+        historical.get("pr") != 9320
+        or base_sha != PR_9320_BASE_SHA
+        or head_sha != PR_9320_HEAD_SHA
+        or merge_sha != PR_9320_MERGE_SHA
+        or first_parent_sha != PR_9320_FIRST_PARENT_SHA
+    ):
+        _fail("historical pull request does not match the frozen PR #9320 exact pair")
     _require_sha(historical.get("head_tree_sha"), label="historical head tree SHA")
     _require_sha(historical.get("merge_tree_sha"), label="historical merge tree SHA")
     _require_string(historical.get("actor"), label="historical merge actor")
@@ -1232,12 +1244,16 @@ def validate_payload(payload: Any) -> dict[str, Any]:
     expected_tag = f"backfill-v2-{merge_sha}"
     if (
         release.get("tag_name") != expected_tag
-        or release.get("tag_target_sha") != merge_sha
+        or release.get("tag_target_sha") != authority["source_sha"]
         or release.get("exact_full_sha_tag") != merge_sha
     ):
         _fail("historical successor release tag binding mismatch")
 
-    _validate_attestation(document.get("attestation"), repository=repository, source_sha=merge_sha)
+    _validate_attestation(
+        document.get("attestation"),
+        repository=repository,
+        source_sha=authority["source_sha"],
+    )
     _validate_rule_suite(document.get("rule_suite"), repository=repository, source_sha=merge_sha)
 
     supersedes = _require_exact_fields(

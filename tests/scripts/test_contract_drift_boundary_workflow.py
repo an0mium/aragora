@@ -27,9 +27,19 @@ def test_boundary_signer_accepts_only_canonical_boundary_or_successor_tags() -> 
         "backfill-v2)-[0-9a-f]{40}$"
     ) in run
     assert 'test "refs/tags/$TAG" = "$GITHUB_REF"' in run
+    assert 'test "$SOURCE_DIGEST" = "$GITHUB_SHA"' in run
+    assert 'if [[ "$TAG" == backfill-v2-* ]]' in run
+    assert 'test "${TAG##*-}" != "$GITHUB_SHA"' in run
     assert 'test "${TAG##*-}" = "$GITHUB_SHA"' in run
     assert "gh release download" in run
     assert "sha256sum --check --strict checksums.txt" in run
+
+
+def test_boundary_signer_requires_an_exact_source_digest_input() -> None:
+    inputs = DOC["on"]["workflow_dispatch"]["inputs"]
+    assert inputs["source_digest"]["required"] == "true"
+    assert inputs["source_digest"]["type"] == "string"
+    assert DOC["jobs"]["attest"]["env"]["SOURCE_DIGEST"] == "${{ inputs.source_digest }}"
 
 
 def test_boundary_signer_attests_exact_three_assets() -> None:

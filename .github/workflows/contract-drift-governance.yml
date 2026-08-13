@@ -144,12 +144,15 @@ jobs:
               --argjson job_id "$PRODUCER_JOB_ID" \
               --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
               --argjson workflow_run_id "$GITHUB_RUN_ID" \
-              '{artifact_id:$artifact_id,job_id:$job_id,run_attempt:$run_attempt,workflow_run_id:$workflow_run_id}'
+              --arg source_sha "$SOURCE_SHA" \
+              '{artifact_id:$artifact_id,job_id:$job_id,run_attempt:$run_attempt,source_sha:$source_sha,workflow_run_id:$workflow_run_id}'
           )"
           jq -e '
+            (keys | sort) == ["artifact_id","job_id","run_attempt","source_sha","workflow_run_id"] and
             (.artifact_id | type == "number" and . > 0) and
             (.job_id | type == "number" and . > 0) and
             (.run_attempt | type == "number" and . > 0) and
+            (.source_sha | type == "string" and test("^[0-9a-f]{40}$")) and
             (.workflow_run_id | type == "number" and . > 0)
           ' <<<"$FINALIZER_PAYLOAD" >/dev/null
           gh api --method POST \
