@@ -47,6 +47,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           github-token: "${{ github.token }}"
+          merge-multiple: true
           path: receipt-input
           repository: "${{ github.repository }}"
           run-id: "${{ steps.producer.outputs.workflow_run_id }}"

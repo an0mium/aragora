@@ -963,6 +963,7 @@ def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
     )
     assert download["with"]["artifact-ids"] == "${{ steps.producer.outputs.artifact_id }}"
     assert download["with"]["github-token"] == "${{ github.token }}"
+    assert download["with"]["merge-multiple"] == "true"
     assert download["with"]["repository"] == "${{ github.repository }}"
     assert download["with"]["run-id"] == "${{ steps.producer.outputs.workflow_run_id }}"
 
