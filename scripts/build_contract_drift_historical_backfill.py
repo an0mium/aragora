@@ -10,8 +10,10 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Protocol
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -38,6 +40,9 @@ REQUIRED_CONTEXT_NAMES = (
     "TypeScript SDK Type Check",
     "aragora-merge-quorum",
 )
+EXPECTED_GITHUB_ACTIONS_APP_ID = 15368
+RECEIPT_JOB_NAME = "contract-drift-main-receipt"
+MAX_GITHUB_PAGES = 100
 EXPECTED_ASSET_NAMES = ("manifest.json", "payload.json", "checksums.txt")
 VALID_METHODS = frozenset(
     {
@@ -345,6 +350,368 @@ def _load_json_path(path: Path, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         _fail(f"{label} must be a JSON object")
     return value
+
+
+class ApiReader(Protocol):
+    def get_json(self, endpoint: str) -> dict[str, Any]: ...
+
+
+class GhApiReader:
+    """Authenticated read-only GitHub transport backed by ``gh api``."""
+
+    def __init__(self, *, timeout_seconds: int = 60):
+        self.timeout_seconds = timeout_seconds
+
+    def get_json(self, endpoint: str) -> dict[str, Any]:
+        try:
+            proc = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    "--method",
+                    "GET",
+                    "-H",
+                    "Accept: application/vnd.github+json",
+                    endpoint,
+                ],
+                capture_output=True,
+                check=False,
+                timeout=self.timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            _fail(f"authenticated GitHub GET timed out: {endpoint}")
+        if proc.returncode != 0:
+            error = proc.stderr.decode("utf-8", errors="replace").strip()
+            _fail(f"authenticated GitHub GET failed for {endpoint}: {error}")
+        try:
+            payload = json.loads(
+                proc.stdout,
+                object_pairs_hook=ratchet._duplicate_key_object,
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            _fail(f"authenticated GitHub response is malformed for {endpoint}: {exc}")
+        if not isinstance(payload, dict):
+            _fail(f"authenticated GitHub response is not an object: {endpoint}")
+        return payload
+
+
+def _github_collection(
+    reader: ApiReader,
+    endpoint: str,
+    *,
+    collection_key: str,
+    identity: Callable[[dict[str, Any]], Any],
+    label: str,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    reported_total: int | None = None
+    for page in range(1, MAX_GITHUB_PAGES + 1):
+        separator = "&" if "?" in endpoint else "?"
+        page_endpoint = f"{endpoint}{separator}per_page=100&page={page}"
+        payload = reader.get_json(page_endpoint)
+        page_records = payload.get(collection_key)
+        if not isinstance(page_records, list) or not all(
+            isinstance(record, dict) for record in page_records
+        ):
+            _fail(f"{label} page is malformed")
+        total = _require_positive_int(
+            payload.get("total_count"),
+            label=f"{label} total_count",
+            allow_zero=True,
+        )
+        if reported_total is None:
+            reported_total = total
+        elif reported_total != total:
+            _fail(f"{label} total_count moved between pages")
+        existing = {identity(record) for record in records}
+        page_identities = [identity(record) for record in page_records]
+        if (
+            any(item is None for item in page_identities)
+            or len(page_identities) != len(set(page_identities))
+            or existing.intersection(page_identities)
+        ):
+            _fail(f"{label} pagination returned duplicate or missing identities")
+        records.extend(page_records)
+        if len(page_records) < 100:
+            break
+    else:
+        _fail(f"{label} pagination did not terminate")
+    if reported_total != len(records):
+        _fail(f"{label} records do not reconcile to total_count")
+    return records
+
+
+def _require_github_run(
+    reader: ApiReader,
+    *,
+    repository: str,
+    workflow_run_id: int,
+    run_attempt: int,
+    head_sha: str,
+    label: str,
+    require_dispatch: bool,
+) -> dict[str, Any]:
+    run = reader.get_json(f"repos/{repository}/actions/runs/{workflow_run_id}")
+    repo = run.get("repository")
+    repository_name = repo.get("full_name") if isinstance(repo, dict) else None
+    if (
+        run.get("id") != workflow_run_id
+        or run.get("run_attempt") != run_attempt
+        or run.get("head_sha") != head_sha
+        or run.get("status") != "completed"
+        or run.get("conclusion") != "success"
+        or repository_name != repository
+    ):
+        _fail(f"{label} run is not a completed success for the exact repository/source SHA")
+    if require_dispatch and (
+        run.get("event") != "workflow_dispatch" or run.get("path") != WORKFLOW_PATH
+    ):
+        _fail(f"{label} run is not the exact historical workflow dispatch")
+    return run
+
+
+def _require_github_job_check(
+    reader: ApiReader,
+    *,
+    repository: str,
+    workflow_run_id: int,
+    run_attempt: int,
+    head_sha: str,
+    expected_name: str,
+    label: str,
+) -> dict[str, Any]:
+    endpoint = f"repos/{repository}/actions/runs/{workflow_run_id}/attempts/{run_attempt}/jobs"
+    jobs = _github_collection(
+        reader,
+        endpoint,
+        collection_key="jobs",
+        identity=lambda job: job.get("id"),
+        label=f"{label} jobs",
+    )
+    matching = [job for job in jobs if job.get("name") == expected_name]
+    if len(matching) != 1:
+        _fail(f"{label} attempt does not contain exactly one expected job")
+    job = matching[0]
+    if (
+        job.get("run_attempt") != run_attempt
+        or job.get("head_sha") != head_sha
+        or job.get("status") != "completed"
+        or job.get("conclusion") != "success"
+    ):
+        _fail(f"{label} job is not a completed success for the exact attempt/source SHA")
+    job_id = _require_positive_int(job.get("id"), label=f"{label} job ID")
+    check_url = _require_string(
+        job.get("check_url") or job.get("check_run_url"),
+        label=f"{label} check URL",
+    )
+    parsed = urlparse(check_url)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "api.github.com"
+        or not parsed.path.startswith(f"/repos/{repository}/check-runs/")
+    ):
+        _fail(f"{label} check URL is bound to another repository")
+    check = reader.get_json(check_url)
+    app = check.get("app")
+    app_id = app.get("id") if isinstance(app, dict) else None
+    if app_id != EXPECTED_GITHUB_ACTIONS_APP_ID:
+        _fail(f"{label} check is not authenticated by the GitHub Actions app")
+    details_url = _require_string(check.get("details_url"), label=f"{label} details URL")
+    if (
+        check.get("name") != expected_name
+        or check.get("head_sha") != head_sha
+        or check.get("status") != "completed"
+        or check.get("conclusion") != "success"
+        or f"/actions/runs/{workflow_run_id}/job/{job_id}" not in details_url
+    ):
+        _fail(f"{label} check is not a completed success for the exact job/run/source SHA")
+    return {
+        "app_id": app_id,
+        "check_run_id": _require_positive_int(
+            check.get("id"),
+            label=f"{label} check-run ID",
+        ),
+        "conclusion": "success",
+        "job_id": job_id,
+        "name": expected_name,
+        "run_attempt": run_attempt,
+        "workflow_run_id": workflow_run_id,
+    }
+
+
+def build_historical_receipt_envelope(
+    *,
+    analyzer_result: Mapping[str, Any],
+    repository: str,
+    workflow_run_id: int,
+    run_attempt: int,
+    reader: ApiReader,
+) -> dict[str, Any]:
+    if REPOSITORY_RE.fullmatch(repository) is None:
+        _fail("historical receipt repository is malformed")
+    if analyzer_result.get("status") != "pass" or analyzer_result.get("passing") is not True:
+        _fail("historical receipt analyzer did not pass")
+    execution = analyzer_result.get("execution")
+    if not isinstance(execution, dict):
+        _fail("historical receipt analyzer execution is missing")
+    source_sha = _require_sha(execution.get("source_sha"), label="receipt source SHA")
+    base_sha = _require_sha(execution.get("base_sha"), label="receipt base SHA")
+    head_sha = _require_sha(execution.get("head_sha"), label="receipt head SHA")
+    merge_sha = _require_sha(execution.get("merge_sha"), label="receipt merge SHA")
+    first_parent_sha = _require_sha(
+        execution.get("first_parent_sha"),
+        label="receipt first-parent SHA",
+    )
+    if analyzer_result.get("source_sha") != source_sha:
+        _fail("historical receipt analyzer source SHA is contradictory")
+
+    workflow_run_id = _require_positive_int(
+        workflow_run_id,
+        label="historical receipt workflow run ID",
+    )
+    run_attempt = _require_positive_int(
+        run_attempt,
+        label="historical receipt run attempt",
+    )
+    _require_github_run(
+        reader,
+        repository=repository,
+        workflow_run_id=workflow_run_id,
+        run_attempt=run_attempt,
+        head_sha=source_sha,
+        label="historical receipt",
+        require_dispatch=True,
+    )
+    receipt_job = _require_github_job_check(
+        reader,
+        repository=repository,
+        workflow_run_id=workflow_run_id,
+        run_attempt=run_attempt,
+        head_sha=source_sha,
+        expected_name=RECEIPT_JOB_NAME,
+        label="historical receipt",
+    )
+
+    contexts: list[dict[str, Any]] = []
+    for context in _historical_context_bindings():
+        context_run_id = _require_positive_int(
+            context.get("workflow_run_id"),
+            label=f"historical context {context.get('name')} workflow run ID",
+        )
+        context_attempt = _require_positive_int(
+            context.get("run_attempt"),
+            label=f"historical context {context.get('name')} run attempt",
+        )
+        context_name = _require_string(
+            context.get("name"),
+            label="historical context name",
+        )
+        _require_github_run(
+            reader,
+            repository=repository,
+            workflow_run_id=context_run_id,
+            run_attempt=context_attempt,
+            head_sha=head_sha,
+            label=f"historical context {context_name}",
+            require_dispatch=False,
+        )
+        authenticated = _require_github_job_check(
+            reader,
+            repository=repository,
+            workflow_run_id=context_run_id,
+            run_attempt=context_attempt,
+            head_sha=head_sha,
+            expected_name=context_name,
+            label=f"historical context {context_name}",
+        )
+        if authenticated != context:
+            _fail(f"historical context {context_name} identity moved")
+        contexts.append(authenticated)
+
+    receipt = {
+        "artifact_name": f"contract-drift-main-receipt-{merge_sha}",
+        "base_sha": base_sha,
+        "check_run_id": receipt_job["check_run_id"],
+        "conclusion": "success",
+        "first_parent_sha": first_parent_sha,
+        "head_sha": head_sha,
+        "job_id": receipt_job["job_id"],
+        "merge_sha": merge_sha,
+        "required_contexts": contexts,
+        "run_attempt": run_attempt,
+        "schema": RECEIPT_SCHEMA,
+        "source_sha": source_sha,
+        "workflow_name": "Contract Drift Governance",
+        "workflow_path": WORKFLOW_PATH,
+        "workflow_run_id": workflow_run_id,
+    }
+    return _validate_receipt(
+        receipt,
+        authority_source_sha=source_sha,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        merge_sha=merge_sha,
+        first_parent_sha=first_parent_sha,
+    )
+
+
+def _historical_context_bindings() -> list[dict[str, Any]]:
+    return [
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87709243174,
+            "conclusion": "success",
+            "job_id": 87709243174,
+            "name": "lint",
+            "run_attempt": 1,
+            "workflow_run_id": 29524359563,
+        },
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87709180560,
+            "conclusion": "success",
+            "job_id": 87709180560,
+            "name": "typecheck",
+            "run_attempt": 1,
+            "workflow_run_id": 29524359563,
+        },
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87709276751,
+            "conclusion": "success",
+            "job_id": 87709276751,
+            "name": "sdk-parity",
+            "run_attempt": 1,
+            "workflow_run_id": 29524359665,
+        },
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87709726971,
+            "conclusion": "success",
+            "job_id": 87709726971,
+            "name": "Generate & Validate",
+            "run_attempt": 1,
+            "workflow_run_id": 29524359572,
+        },
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87709013895,
+            "conclusion": "success",
+            "job_id": 87709013895,
+            "name": "TypeScript SDK Type Check",
+            "run_attempt": 1,
+            "workflow_run_id": 29524359727,
+        },
+        {
+            "app_id": EXPECTED_GITHUB_ACTIONS_APP_ID,
+            "check_run_id": 87728267780,
+            "conclusion": "success",
+            "job_id": 87728267780,
+            "name": "aragora-merge-quorum",
+            "run_attempt": 3,
+            "workflow_run_id": 29524359568,
+        },
+    ]
 
 
 def _load_inventory_at_ref(repo_root: Path, source_sha: str) -> dict[str, Any]:
@@ -1174,9 +1541,11 @@ def write_capsule(output_dir: Path, assets: dict[str, bytes]) -> None:
 
 
 def _verify_directory(path: Path) -> dict[str, Any]:
-    observed = sorted(item.name for item in path.iterdir() if item.is_file())
-    if observed != sorted(EXPECTED_ASSET_NAMES):
-        _fail("historical backfill directory must contain exactly three assets")
+    entries = sorted(path.iterdir(), key=lambda item: item.name)
+    if [item.name for item in entries] != sorted(EXPECTED_ASSET_NAMES) or not all(
+        item.is_file() and not item.is_symlink() for item in entries
+    ):
+        _fail("historical backfill directory must contain the exact three regular files")
     payload = validate_capsule_bytes(
         manifest_bytes=(path / "manifest.json").read_bytes(),
         payload_bytes=(path / "payload.json").read_bytes(),
@@ -1201,11 +1570,63 @@ def main() -> int:
     parser.add_argument("--authority-manifest", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--verify-dir", type=Path)
+    parser.add_argument("--build-receipt-envelope", action="store_true")
+    parser.add_argument("--analyzer-result", type=Path)
+    parser.add_argument("--output-receipt", type=Path)
+    parser.add_argument("--repository")
+    parser.add_argument("--workflow-run-id", type=int)
+    parser.add_argument("--run-attempt", type=int)
+    parser.add_argument("--github-api", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     try:
-        if args.verify_dir is not None:
+        if args.build_receipt_envelope:
+            if any(
+                value is not None
+                for value in (
+                    args.input,
+                    args.authority_manifest,
+                    args.output_dir,
+                    args.verify_dir,
+                )
+            ):
+                _fail("--build-receipt-envelope cannot be combined with capsule build inputs")
+            required = {
+                "--analyzer-result": args.analyzer_result,
+                "--output-receipt": args.output_receipt,
+                "--repository": args.repository,
+                "--run-attempt": args.run_attempt,
+                "--workflow-run-id": args.workflow_run_id,
+            }
+            missing = [flag for flag, value in required.items() if value is None]
+            if missing:
+                _fail("receipt-envelope build requires " + ", ".join(missing))
+            if not args.github_api:
+                _fail("receipt-envelope build requires authenticated --github-api discovery")
+            analyzer_result = _load_json_path(
+                args.analyzer_result,
+                label="historical receipt analyzer result",
+            )
+            receipt = build_historical_receipt_envelope(
+                analyzer_result=analyzer_result,
+                repository=args.repository,
+                workflow_run_id=args.workflow_run_id,
+                run_attempt=args.run_attempt,
+                reader=GhApiReader(),
+            )
+            receipt_bytes = _canonical_json_bytes(receipt)
+            args.output_receipt.write_bytes(receipt_bytes)
+            result = {
+                "artifact_name": receipt["artifact_name"],
+                "byte_length": len(receipt_bytes),
+                "run_attempt": receipt["run_attempt"],
+                "sha256": _sha256(receipt_bytes),
+                "source_sha": receipt["source_sha"],
+                "status": "pass",
+                "workflow_run_id": receipt["workflow_run_id"],
+            }
+        elif args.verify_dir is not None:
             if (
                 args.input is not None
                 or args.output_dir is not None

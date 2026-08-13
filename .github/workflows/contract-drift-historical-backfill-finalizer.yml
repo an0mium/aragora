@@ -1,0 +1,66 @@
+name: Contract Drift Historical Backfill Finalizer
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+on:
+  workflow_run:
+    workflows: [Contract Drift Governance]
+    types: [completed]
+
+jobs:
+  finalize-historical-receipt:
+    name: contract-drift-historical-backfill-receipt-finalizer
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      github.event.workflow_run.path == '.github/workflows/contract-drift-governance.yml'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.workflow_run.head_sha }}"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+      - name: Download completed receipt analyzer
+        uses: actions/download-artifact@v4
+        with:
+          github-token: "${{ github.token }}"
+          name: "contract-drift-main-receipt-analyzer-${{ github.event.workflow_run.head_sha }}"
+          path: receipt-input
+          repository: "${{ github.repository }}"
+          run-id: "${{ github.event.workflow_run.id }}"
+      - id: envelope
+        name: Build completed historical receipt envelope
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          PRODUCER_RUN_ATTEMPT: "${{ github.event.workflow_run.run_attempt }}"
+          PRODUCER_RUN_ID: "${{ github.event.workflow_run.id }}"
+        run: |
+          set -euo pipefail
+          SUMMARY="$(
+            python3 -B scripts/build_contract_drift_historical_backfill.py \
+              --build-receipt-envelope \
+              --analyzer-result receipt-input/contract-drift-main-receipt-analyzer.json \
+              --output-receipt contract-drift-main-receipt.json \
+              --repository "$GITHUB_REPOSITORY" \
+              --workflow-run-id "$PRODUCER_RUN_ID" \
+              --run-attempt "$PRODUCER_RUN_ATTEMPT" \
+              --github-api --json
+          )"
+          printf '%s\n' "$SUMMARY"
+          ARTIFACT_NAME="$(
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["artifact_name"])' \
+              <<<"$SUMMARY"
+          )"
+          printf 'artifact_name=%s\n' "$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+      - if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ steps.envelope.outputs.artifact_name }}"
+          path: contract-drift-main-receipt.json

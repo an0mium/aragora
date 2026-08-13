@@ -394,6 +394,207 @@ def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
     assert built["receipt"]["merge_sha"] == MERGE_SHA
 
 
+class _ReceiptApiFixture:
+    def __init__(self, *, receipt_lifecycle: str = "completed") -> None:
+        self.responses: dict[str, dict[str, Any]] = {}
+        if receipt_lifecycle not in {"completed", "in_progress"}:
+            raise AssertionError(f"unsupported receipt lifecycle: {receipt_lifecycle}")
+        receipt_status = receipt_lifecycle
+        receipt_conclusion = "success" if receipt_lifecycle == "completed" else None
+        receipt_run = {
+            "conclusion": receipt_conclusion,
+            "event": "workflow_dispatch",
+            "head_sha": SOURCE_SHA,
+            "id": SYNTHETIC_RECEIPT_RUN_ID,
+            "path": backfill.WORKFLOW_PATH,
+            "repository": {"full_name": "synaptent/aragora"},
+            "run_attempt": 1,
+            "status": receipt_status,
+        }
+        receipt_job = {
+            "check_url": (
+                "https://api.github.com/repos/synaptent/aragora/check-runs/"
+                f"{SYNTHETIC_RECEIPT_JOB_ID}"
+            ),
+            "conclusion": receipt_conclusion,
+            "head_sha": SOURCE_SHA,
+            "id": SYNTHETIC_RECEIPT_JOB_ID,
+            "name": "contract-drift-main-receipt",
+            "run_attempt": 1,
+            "status": receipt_status,
+        }
+        self.responses[f"repos/synaptent/aragora/actions/runs/{SYNTHETIC_RECEIPT_RUN_ID}"] = (
+            receipt_run
+        )
+        self.responses[
+            "repos/synaptent/aragora/actions/runs/"
+            f"{SYNTHETIC_RECEIPT_RUN_ID}/attempts/1/jobs?per_page=100&page=1"
+        ] = {"jobs": [receipt_job], "total_count": 1}
+        self.responses[
+            f"https://api.github.com/repos/synaptent/aragora/check-runs/{SYNTHETIC_RECEIPT_JOB_ID}"
+        ] = {
+            "app": {"id": APP_ID},
+            "conclusion": receipt_conclusion,
+            "details_url": (
+                "https://github.com/synaptent/aragora/actions/runs/"
+                f"{SYNTHETIC_RECEIPT_RUN_ID}/job/{SYNTHETIC_RECEIPT_JOB_ID}"
+            ),
+            "head_sha": SOURCE_SHA,
+            "id": SYNTHETIC_RECEIPT_JOB_ID,
+            "name": "contract-drift-main-receipt",
+            "status": receipt_status,
+        }
+        for context in _contexts():
+            run_id = context["workflow_run_id"]
+            check_id = context["check_run_id"]
+            job_id = context["job_id"]
+            attempt = context["run_attempt"]
+            check_url = f"https://api.github.com/repos/synaptent/aragora/check-runs/{check_id}"
+            self.responses[f"repos/synaptent/aragora/actions/runs/{run_id}"] = {
+                "conclusion": "success",
+                "head_sha": HEAD_SHA,
+                "id": run_id,
+                "repository": {"full_name": "synaptent/aragora"},
+                "run_attempt": attempt,
+                "status": "completed",
+            }
+            self.responses[
+                "repos/synaptent/aragora/actions/runs/"
+                f"{run_id}/attempts/{attempt}/jobs?per_page=100&page=1"
+            ] = self.responses.get(
+                "repos/synaptent/aragora/actions/runs/"
+                f"{run_id}/attempts/{attempt}/jobs?per_page=100&page=1",
+                {"jobs": [], "total_count": 0},
+            )
+            jobs_payload = self.responses[
+                "repos/synaptent/aragora/actions/runs/"
+                f"{run_id}/attempts/{attempt}/jobs?per_page=100&page=1"
+            ]
+            jobs_payload["jobs"].append(
+                {
+                    "check_url": check_url,
+                    "conclusion": "success",
+                    "head_sha": HEAD_SHA,
+                    "id": job_id,
+                    "name": context["name"],
+                    "run_attempt": attempt,
+                    "status": "completed",
+                }
+            )
+            jobs_payload["total_count"] = len(jobs_payload["jobs"])
+            self.responses[check_url] = {
+                "app": {"id": APP_ID},
+                "conclusion": "success",
+                "details_url": (
+                    f"https://github.com/synaptent/aragora/actions/runs/{run_id}/job/{job_id}"
+                ),
+                "head_sha": HEAD_SHA,
+                "id": check_id,
+                "name": context["name"],
+                "status": "completed",
+            }
+
+    def get_json(self, endpoint: str) -> dict[str, Any]:
+        try:
+            return copy.deepcopy(self.responses[endpoint])
+        except KeyError as exc:
+            raise AssertionError(f"unexpected endpoint: {endpoint}") from exc
+
+
+def _historical_analyzer_result() -> dict[str, Any]:
+    result = backfill.ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=ROOT,
+        inventory_path=ROOT / backfill.inventory_mod.DEFAULT_INVENTORY,
+        source_sha=SOURCE_SHA,
+        historical_base_sha=PR_BASE_SHA,
+        historical_head_sha=HEAD_SHA,
+        historical_merge_sha=MERGE_SHA,
+        historical_first_parent_sha=FIRST_PARENT_SHA,
+    )
+    assert result["status"] == "pass"
+    return result
+
+
+def test_receipt_envelope_is_canonical_and_feeds_builder_directly() -> None:
+    receipt = backfill.build_historical_receipt_envelope(
+        analyzer_result=_historical_analyzer_result(),
+        repository="synaptent/aragora",
+        workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
+        run_attempt=1,
+        reader=_ReceiptApiFixture(),
+    )
+    assert receipt == _input_document()["receipt"]
+    raw = backfill._canonical_json_bytes(receipt)
+    assert backfill._parse_canonical_json(raw, label="historical receipt") == receipt
+
+    input_document = _input_document()
+    input_document["receipt"] = receipt
+    built = backfill.build_payload(
+        repo_root=ROOT,
+        input_document=input_document,
+        authority_manifest=_authority_manifest(),
+    )
+    assert built["receipt"] == receipt
+
+
+def test_receipt_envelope_rejects_the_still_running_producer_lifecycle() -> None:
+    with pytest.raises(ValueError, match="completed success"):
+        backfill.build_historical_receipt_envelope(
+            analyzer_result=_historical_analyzer_result(),
+            repository="synaptent/aragora",
+            workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
+            run_attempt=1,
+            reader=_ReceiptApiFixture(receipt_lifecycle="in_progress"),
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (
+            lambda fixture: fixture.responses.__setitem__(
+                f"repos/synaptent/aragora/actions/runs/{SYNTHETIC_RECEIPT_RUN_ID}",
+                {
+                    **fixture.responses[
+                        f"repos/synaptent/aragora/actions/runs/{SYNTHETIC_RECEIPT_RUN_ID}"
+                    ],
+                    "head_sha": MERGE_SHA,
+                },
+            ),
+            "source SHA",
+        ),
+        (
+            lambda fixture: fixture.responses[
+                "https://api.github.com/repos/synaptent/aragora/check-runs/"
+                f"{SYNTHETIC_RECEIPT_JOB_ID}"
+            ]["app"].__setitem__("id", 99999),
+            "GitHub Actions app",
+        ),
+        (
+            lambda fixture: fixture.responses[
+                "https://api.github.com/repos/synaptent/aragora/check-runs/87709243174"
+            ].__setitem__("conclusion", "failure"),
+            "completed success",
+        ),
+    ],
+)
+def test_receipt_envelope_rejects_malformed_authenticated_identity(
+    mutation,
+    message: str,
+) -> None:
+    fixture = _ReceiptApiFixture()
+    mutation(fixture)
+    with pytest.raises(ValueError, match=message):
+        backfill.build_historical_receipt_envelope(
+            analyzer_result=_historical_analyzer_result(),
+            repository="synaptent/aragora",
+            workflow_run_id=SYNTHETIC_RECEIPT_RUN_ID,
+            run_attempt=1,
+            reader=fixture,
+        )
+
+
 def test_tampered_assets_fail_closed(
     payload: dict[str, Any],
     assets: dict[str, bytes],
@@ -551,3 +752,15 @@ def test_builder_cli_is_supported_from_outside_the_repository(tmp_path: Path) ->
     )
     assert result.returncode == 0, result.stderr
     assert "--verify-dir" in result.stdout
+    assert "--build-receipt-envelope" in result.stdout
+
+
+def test_verify_directory_rejects_rogue_subdirectories(
+    tmp_path: Path,
+    assets: dict[str, bytes],
+) -> None:
+    output = tmp_path / "capsule"
+    backfill.write_capsule(output, assets)
+    (output / "rogue").mkdir()
+    with pytest.raises(ValueError, match="exact three regular files"):
+        backfill._verify_directory(output)

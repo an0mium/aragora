@@ -31,7 +31,13 @@ The repository provides:
 - `scripts/build_contract_drift_historical_backfill.py`, the canonical builder/verifier;
 - `scripts/schemas/contract-drift-historical-backfill-capsule-v2.schema.json`, the strict payload
   schema;
-- an exact-pair `workflow_dispatch` path in `Contract Drift Governance`;
+- an exact-pair `workflow_dispatch` path in `Contract Drift Governance` that fetches only
+  `refs/pull/9320/head`, verifies it equals the supplied immutable head SHA, and uploads the
+  successful raw analyzer result;
+- a completion-triggered `Contract Drift Historical Backfill Finalizer` that runs only after the
+  producer workflow is a successful completed `workflow_dispatch`, downloads that exact run's
+  analyzer artifact, authenticates the completed producer run/attempt/job/check plus the six
+  historical contexts, and uploads the complete canonical receipt envelope;
 - `backfill-v2-<merge_sha>` support in the manual `actions/attest@v4` signer workflow.
 
 The builder emits exactly `manifest.json`, `payload.json`, and `checksums.txt`. Canonical JSON is
@@ -70,8 +76,8 @@ checkpoint input.
 
 ## Finalization checkpoint P2: execute the exact historical receipt
 
-Dispatch the merged `Contract Drift Governance` workflow at the exact merged implementation SHA
-with:
+Dispatch the merged `Contract Drift Governance` producer workflow at the exact merged
+implementation SHA with:
 
 ```text
 historical_backfill=true
@@ -81,8 +87,10 @@ historical_merge_sha=0b28f68b9f4d204ae14814169093723ea84c1364
 historical_first_parent_sha=e448b840dad03ee28accd218c14a27fa8b87c7b4
 ```
 
-This preparation feature must not run that dispatch. The finalizer must discover workflow runs
-without conclusion filters, reconcile pagination, enumerate attempts, select the intended run, and
+This preparation feature must not run that dispatch. The completion-triggered finalizer must then
+run only after the producer is complete and successful. It must not attempt to authenticate its own
+in-progress job as already successful. The publication finalizer must discover workflow runs without
+conclusion filters, reconcile pagination, enumerate attempts, select the intended producer run, and
 bind:
 
 - workflow run ID and run attempt;
@@ -94,8 +102,11 @@ bind:
   base-to-head and first-parent-to-merge patch digest/length, and semantic delta paths;
 - all six successful historical required-context run/attempt/job/check/app identities.
 
-Persist the downloaded receipt bytes and digest. A failed, cancelled, incomplete, or generic push
-receipt is terminal failure.
+The completion-triggered finalizer's uploaded `contract-drift-main-receipt.json` is itself the canonical
+`contract-drift-historical-backfill-receipt-v1` envelope and can be inserted directly as the
+builder input's `receipt` object. Persist those exact downloaded bytes and their digest. A failed,
+cancelled, incomplete, missing-finalizer, raw-analyzer-only, or generic push receipt is terminal
+failure.
 
 ## Finalization checkpoint P3: draft release and deterministic bytes
 
@@ -114,7 +125,8 @@ Build the final input document with:
 - non-precedential `historical_nonconforming` disposition;
 - explicit supersession of release `363450207`.
 
-Build twice into two empty directories:
+Build twice into two nonexistent output paths. The builder creates each directory exclusively and
+rejects a pre-existing path, extra file, symlink, or rogue subdirectory:
 
 ```bash
 python3 -B scripts/build_contract_drift_historical_backfill.py \
