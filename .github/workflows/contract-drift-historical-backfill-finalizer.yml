@@ -49,6 +49,7 @@ jobs:
           github-token: "${{ github.token }}"
           path: receipt-input
           repository: "${{ github.repository }}"
+          run-id: "${{ steps.producer.outputs.workflow_run_id }}"
           artifact-ids: "${{ steps.producer.outputs.artifact_id }}"
       - id: envelope
         name: Build completed historical receipt envelope
