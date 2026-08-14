@@ -9,14 +9,14 @@ from aragora.server.openapi.endpoints.wired_registrations import (
 def test_wired_registration_routes_survive_fresh_generation() -> None:
     paths = generate_openapi_schema()["paths"]
 
-    assert len(WIRED_REGISTRATION_ENDPOINTS) == 39
+    assert len(WIRED_REGISTRATION_ENDPOINTS) == 57
     assert (
         sum(
             method in {"delete", "get", "patch", "post", "put"}
             for methods in WIRED_REGISTRATION_ENDPOINTS.values()
             for method in methods
         )
-        == 50
+        == 68
     )
     for path, expected_methods in WIRED_REGISTRATION_ENDPOINTS.items():
         assert path in paths
@@ -45,3 +45,38 @@ def test_unversioned_only_email_routes_do_not_gain_v1_aliases() -> None:
     assert "/api/email/sender-profile" in paths
     assert "/api/v1/email/daily-digest" not in paths
     assert "/api/v1/email/sender-profile" not in paths
+
+
+def test_canonical_wired_routes_do_not_inherit_legacy_metadata() -> None:
+    paths = generate_openapi_schema()["paths"]
+
+    canonical_operations = (
+        ("/api/v1/inbox/actions", "post"),
+        ("/api/v1/payments/authorize", "post"),
+        ("/api/v1/costs/recommendations/{recommendation_id}", "get"),
+    )
+    for path, method in canonical_operations:
+        operation = paths[path][method]
+        assert operation.get("deprecated") is not True
+        assert operation["x-aragora-stability"] != "deprecated"
+        assert operation["summary"] != f"{method.upper()} {path.replace('/api/v1/', '/api/')}"
+
+
+def test_inbox_quick_action_keeps_typed_success_response() -> None:
+    response_schema = generate_openapi_schema()["paths"]["/api/v1/inbox/actions"]["post"][
+        "responses"
+    ]["200"]["content"]["application/json"]["schema"]
+
+    assert response_schema["properties"] == {
+        "id": {"type": "string", "description": "Created resource ID"},
+        "success": {"type": "boolean"},
+    }
+
+
+def test_cost_recommendation_mutations_are_exported() -> None:
+    paths = generate_openapi_schema()["paths"]
+
+    for version_prefix in ("/api/", "/api/v1/"):
+        for action in ("apply", "dismiss"):
+            path = f"{version_prefix}costs/recommendations/{{recommendation_id}}/{action}"
+            assert "post" in paths[path]

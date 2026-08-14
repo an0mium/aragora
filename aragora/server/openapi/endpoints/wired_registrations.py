@@ -111,6 +111,12 @@ _INBOX_ROUTES = (
     ("/api/inbox/daily-digest", ("get",), "200", False),
     ("/api/inbox/reprioritize", ("post",), "200", False),
     ("/api/inbox/sender-profile", ("get",), "200", False),
+    ("/api/v1/inbox/actions", ("post",), "200", False),
+    ("/api/v1/inbox/bulk-actions", ("post",), "200", False),
+    ("/api/v1/inbox/command", ("get",), "200", False),
+    ("/api/v1/inbox/daily-digest", ("get",), "200", False),
+    ("/api/v1/inbox/reprioritize", ("post",), "200", False),
+    ("/api/v1/inbox/sender-profile", ("get",), "200", False),
 )
 
 _INTEGRATION_ROUTES = (
@@ -137,7 +143,13 @@ _PAYMENT_ROUTES = (
     ("/api/payments/void", ("post",), "200", False),
     ("/api/payments/webhook/authnet", ("post",), "200", True),
     ("/api/payments/webhook/stripe", ("post",), "200", True),
+    ("/api/v1/payments/authorize", ("post",), "200", False),
+    ("/api/v1/payments/capture", ("post",), "200", False),
+    ("/api/v1/payments/charge", ("post",), "200", False),
+    ("/api/v1/payments/customer", ("post",), "200", False),
     ("/api/v1/payments/customer/{customer_id}", ("delete", "get", "put"), "200", False),
+    ("/api/v1/payments/refund", ("post",), "200", False),
+    ("/api/v1/payments/subscription", ("post",), "200", False),
     (
         "/api/v1/payments/subscription/{subscription_id}",
         ("delete", "get", "put"),
@@ -145,6 +157,7 @@ _PAYMENT_ROUTES = (
         False,
     ),
     ("/api/v1/payments/transaction/{transaction_id}", ("get",), "200", False),
+    ("/api/v1/payments/void", ("post",), "200", False),
     ("/api/v1/payments/webhook/authnet", ("post",), "200", True),
     ("/api/v1/payments/webhook/stripe", ("post",), "200", True),
 )
@@ -167,6 +180,28 @@ WIRED_REGISTRATION_ENDPOINTS = {
     **_routes(
         "aragora/server/handlers/costs/routes.py",
         "Costs",
-        (("/api/costs/recommendations/{recommendation_id}", ("get",), "200", False),),
+        (
+            ("/api/costs/recommendations/{recommendation_id}", ("get",), "200", False),
+            ("/api/costs/recommendations/{recommendation_id}/apply", ("post",), "200", False),
+            (
+                "/api/costs/recommendations/{recommendation_id}/dismiss",
+                ("post",),
+                "200",
+                False,
+            ),
+            ("/api/v1/costs/recommendations/{recommendation_id}", ("get",), "200", False),
+            (
+                "/api/v1/costs/recommendations/{recommendation_id}/apply",
+                ("post",),
+                "200",
+                False,
+            ),
+            (
+                "/api/v1/costs/recommendations/{recommendation_id}/dismiss",
+                ("post",),
+                "200",
+                False,
+            ),
+        ),
     ),
 }
