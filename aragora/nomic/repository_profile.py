@@ -38,7 +38,12 @@ def normalize_remote_url(remote_url: str | None) -> str | None:
     if not remote_url:
         return None
     value = remote_url.strip()
-    if value.startswith(("/", "./", "../", "file://")) or ("://" not in value and ":" not in value):
+    windows_drive_path = re.match(r"^[A-Za-z]:", value) is not None
+    if (
+        windows_drive_path
+        or value.startswith(("/", "\\", "~", "./", "../", "file://"))
+        or ("://" not in value and ":" not in value)
+    ):
         # Filesystem remotes are machine-local and must not enter portable pack
         # metadata or content-address computation.
         return None

@@ -208,6 +208,9 @@ def test_revision_and_cleanliness(repository: Path) -> None:
         ("file:///opt/example/project.git", None, "fallback"),
         ("/opt/example/project.git", None, "fallback"),
         ("../project.git", None, "fallback"),
+        ("C:/repos/project.git", None, "fallback"),
+        (r"C:\repos\project.git", None, "fallback"),
+        (r"\\server\share\project.git", None, "fallback"),
     ],
 )
 def test_remote_normalization(raw: str, normalized: str | None, repository_id: str) -> None:
