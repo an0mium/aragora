@@ -331,6 +331,7 @@ class NomicContextBuilder:
         """Build and atomically publish a clean, commit-addressed planning context pack."""
         root = self._aragora_path.resolve()
         revision = assert_clean_revision(root)
+        self._assert_artifact_directory_ignored(root)
         resolved_profile = profile or load_nomic_repository_profile(root, config_path)
         resolved_profile.validate_files(root, revision)
 
@@ -402,6 +403,29 @@ class NomicContextBuilder:
             if temporary.exists():
                 shutil.rmtree(temporary)
         return pack
+
+    @staticmethod
+    def _assert_artifact_directory_ignored(repo_root: Path) -> None:
+        """Fail before publication unless runtime packs cannot dirty Git status."""
+        ignored = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "check-ignore",
+                "--quiet",
+                "--no-index",
+                "--",
+                ".nomic/context/.artifact-probe",
+            ],
+            capture_output=True,
+            check=False,
+        )
+        if ignored.returncode != 0:
+            raise RepositoryStateError(
+                "repository must ignore .nomic/ before planning; add '.nomic/' to "
+                ".gitignore or a local Git exclude"
+            )
 
     def verify_context_pack(self, pack: ContextPack) -> None:
         """Verify an existing pack's native metadata and bound artifact digests."""

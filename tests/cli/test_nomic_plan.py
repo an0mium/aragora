@@ -122,6 +122,21 @@ def test_plan_json_emits_pack_and_receipt(cli_repository: Path, capsys) -> None:
     assert (pack_path / "manifest.tsv").is_file()
 
 
+def test_plan_human_output_lists_artifacts_and_goal(cli_repository: Path, capsys) -> None:
+    args = parse("plan", "Choose work", "--repo", str(cli_repository))
+    with (
+        patch.object(MetaPlanner, "_run_repository_planning_debate", fake_multimodel_debate),
+        patch.object(MetaPlanner, "_ingest_receipt_to_km", lambda self, receipt: None),
+    ):
+        args.func(args)
+
+    output = capsys.readouterr().out
+    assert "Repository plan: CLI Plan" in output
+    assert "Context pack:" in output
+    assert "Receipt JSON:" in output
+    assert "Implement the roadmap planning milestone" in output
+
+
 def test_dirty_plan_fails_before_artifacts(cli_repository: Path, capsys) -> None:
     (cli_repository / "dirty.txt").write_text("dirty\n", encoding="utf-8")
     args = parse("plan", "Choose work", "--repo", str(cli_repository), "--json")

@@ -145,6 +145,18 @@ async def test_dirty_repository_fails_before_artifact_creation(clean_repository:
 
 
 @pytest.mark.asyncio
+async def test_unignored_runtime_directory_fails_before_artifacts(clean_repository: Path) -> None:
+    git(clean_repository, "rm", ".gitignore")
+    git(clean_repository, "commit", "-m", "remove runtime ignore")
+    builder = NomicContextBuilder(clean_repository, full_corpus=False)
+
+    with pytest.raises(RepositoryStateError, match="ignore .nomic"):
+        await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+
+    assert not (clean_repository / ".nomic").exists()
+
+
+@pytest.mark.asyncio
 async def test_mid_build_revision_drift_is_not_published(clean_repository: Path) -> None:
     builder = NomicContextBuilder(clean_repository, full_corpus=False)
     builder._before_pack_publish = lambda: (clean_repository / "README.md").write_text("drift\n")

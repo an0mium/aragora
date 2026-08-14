@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -162,7 +163,7 @@ async def _cmd_plan(args: argparse.Namespace) -> None:
             raise SystemExit(3)
     except SystemExit:
         raise
-    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+    except (ImportError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
         if as_json:
             print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
         else:
