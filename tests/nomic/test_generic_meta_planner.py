@@ -74,7 +74,12 @@ def debate(answer: dict[str, Any], *, models: int = 2) -> DebateResult:
         rounds_used=2,
         participants=list(proposals),
         proposals=proposals,
-        metadata={"nomic_planning_models": identities},
+        metadata={
+            "nomic_planning_models": identities,
+            "nomic_planning_agent_models": {
+                f"agent-{index}": identity for index, identity in enumerate(identities)
+            },
+        },
     )
 
 
@@ -121,6 +126,7 @@ async def test_full_coverage_emits_bound_schema_13_receipt(planning_repository: 
     result = await instance.plan("Improve the widget roadmap", pack)
 
     assert result.status == "planned"
+    assert result.to_dict()["repository_name"] == "Acme Widgets"
     assert result.receipt.verdict == "PASS"
     assert result.receipt.schema_version == "1.3"
     assert result.evidence_coverage == 1.0
@@ -135,6 +141,9 @@ async def test_full_coverage_emits_bound_schema_13_receipt(planning_repository: 
     assert stored == result.receipt.to_dict()
     assert "planning/NEXT.md" in result.receipt_markdown_path.read_text(encoding="utf-8")
     assert pack.reference == result.debate_result.metadata["nomic_context_pack"]
+    assert result.debate_result.metadata["nomic_repository_name"] == "Acme Widgets"
+    assert result.debate_result.metadata["nomic_repository_id"] == "example/acme-widgets"
+    assert result.receipt.decision_payload["repository_name"] == "Acme Widgets"
 
     prompt = captured["prompt"]
     assert "Acme Widgets" in prompt
@@ -218,6 +227,47 @@ async def test_single_model_has_no_settled_goals(planning_repository: Path) -> N
 
 
 @pytest.mark.asyncio
+async def test_two_agent_outputs_from_one_model_are_not_multimodel(
+    planning_repository: Path,
+) -> None:
+    pack = await build_pack(planning_repository)
+    instance = planner(planning_repository)
+
+    async def run(_prompt: str, _pack):
+        result = debate({"goals": [goal("planning/NEXT.md")]})
+        result.metadata["nomic_planning_agent_models"] = {
+            "agent-0": "provider-0:model-0",
+            "agent-1": "provider-0:model-0",
+        }
+        return result
+
+    instance._run_repository_planning_debate = run
+    result = await instance.plan("Improve the widget roadmap", pack)
+
+    assert result.substantive_debate is False
+    assert result.goals == []
+    assert result.receipt.verdict == "NO_EVIDENCE"
+
+
+@pytest.mark.asyncio
+async def test_debate_failure_emits_no_evidence_receipt(planning_repository: Path) -> None:
+    pack = await build_pack(planning_repository)
+    instance = planner(planning_repository)
+
+    async def run(_prompt: str, _pack):
+        raise RuntimeError("all planning transports failed")
+
+    instance._run_repository_planning_debate = run
+    result = await instance.plan("Improve the widget roadmap", pack)
+
+    assert result.status == "no_evidence"
+    assert result.goals == []
+    assert result.receipt.verdict == "NO_EVIDENCE"
+    assert result.receipt_json_path.is_file()
+    assert "all planning transports failed" in result.debate_result.metadata["nomic_planning_error"]
+
+
+@pytest.mark.asyncio
 async def test_invalid_structured_scores_do_not_settle(planning_repository: Path) -> None:
     pack = await build_pack(planning_repository)
     instance = planner(planning_repository)
@@ -247,6 +297,42 @@ async def test_revision_drift_before_receipt_publish_fails_closed(
 
     instance._run_repository_planning_debate = run
     with pytest.raises(RepositoryStateError, match="clean"):
+        await instance.plan("Improve the widget roadmap", pack)
+
+    assert not list(pack.pack_path.glob("decision-receipt-*"))
+
+
+@pytest.mark.asyncio
+async def test_tampered_pack_is_rejected_before_debate(planning_repository: Path) -> None:
+    pack = await build_pack(planning_repository)
+    instance = planner(planning_repository)
+    (pack.pack_path / "context.md").write_text("tampered\n", encoding="utf-8")
+    called = False
+
+    async def run(_prompt: str, _pack):
+        nonlocal called
+        called = True
+        return debate({"goals": [goal("planning/NEXT.md")]})
+
+    instance._run_repository_planning_debate = run
+    with pytest.raises(RepositoryStateError, match="artifact verification"):
+        await instance.plan("Improve the widget roadmap", pack)
+
+    assert called is False
+    assert not list(pack.pack_path.glob("decision-receipt-*"))
+
+
+@pytest.mark.asyncio
+async def test_pack_tampering_during_debate_blocks_receipt(planning_repository: Path) -> None:
+    pack = await build_pack(planning_repository)
+    instance = planner(planning_repository)
+
+    async def run(_prompt: str, _pack):
+        (pack.pack_path / "context.md").write_text("tampered\n", encoding="utf-8")
+        return debate({"goals": [goal("planning/NEXT.md")]})
+
+    instance._run_repository_planning_debate = run
+    with pytest.raises(RepositoryStateError, match="artifact verification"):
         await instance.plan("Improve the widget roadmap", pack)
 
     assert not list(pack.pack_path.glob("decision-receipt-*"))

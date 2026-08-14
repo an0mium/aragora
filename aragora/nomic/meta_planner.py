@@ -118,6 +118,7 @@ class MetaPlanningResult:
         return {
             "status": self.status,
             "objective": self.objective,
+            "repository_name": self.context_pack.repository.repository_name,
             "repository_id": self.context_pack.repository.repository_id,
             "commit_sha": self.context_pack.revision.commit_sha,
             "profile_hash": self.context_pack.profile_hash,
@@ -254,7 +255,9 @@ class MetaPlanner:
         This API is deliberately evidence-bearing: heuristic or single-model
         fallback output is never promoted into settled goals.
         """
+        from aragora.core_types import DebateResult as CoreDebateResult
         from aragora.gauntlet.receipt_models import DecisionReceipt
+        from aragora.nomic.context_builder import NomicContextBuilder
         from aragora.nomic.repository_profile import assert_clean_revision
 
         if not objective.strip():
@@ -270,6 +273,11 @@ class MetaPlanner:
         )
         if context_pack.pack_path.resolve() != expected_pack_path:
             raise ValueError("context pack does not belong to the configured repository root")
+        pack_verifier = NomicContextBuilder(
+            root,
+            full_corpus=context_pack.corpus_included,
+        )
+        pack_verifier.verify_context_pack(context_pack)
 
         context_markdown = (context_pack.pack_path / "context.md").read_text(encoding="utf-8")
         prompt = build_repository_planning_topic(
@@ -292,7 +300,19 @@ class MetaPlanner:
                 f"- {constraint}" for constraint in constraints
             )
 
-        debate_result = await self._run_repository_planning_debate(prompt, context_pack)
+        try:
+            debate_result = await self._run_repository_planning_debate(prompt, context_pack)
+        except (ImportError, RuntimeError, OSError, TimeoutError, TypeError, ValueError) as exc:
+            logger.warning("Repository planning debate failed without evidence: %s", exc)
+            debate_result = CoreDebateResult(
+                task=prompt,
+                participants=[],
+                metadata={
+                    "nomic_planning_models": [],
+                    "nomic_planning_agent_models": {},
+                    "nomic_planning_error": f"{type(exc).__name__}: {exc}",
+                },
+            )
         metadata = getattr(debate_result, "metadata", None)
         if not isinstance(metadata, dict):
             metadata = {}
@@ -303,6 +323,8 @@ class MetaPlanner:
                 "nomic_pack_id": context_pack.pack_id,
                 "nomic_commit_sha": context_pack.revision.commit_sha,
                 "nomic_profile_hash": context_pack.profile_hash,
+                "nomic_repository_name": context_pack.repository.repository_name,
+                "nomic_repository_id": context_pack.repository.repository_id,
             }
         )
 
@@ -320,6 +342,7 @@ class MetaPlanner:
         evidence_references = [evidence_by_id[item].to_dict() for item in referenced_ids]
         decision_payload = {
             "objective": objective,
+            "repository_name": context_pack.repository.repository_name,
             "repository_id": context_pack.repository.repository_id,
             "commit_sha": context_pack.revision.commit_sha,
             "profile_hash": context_pack.profile_hash,
@@ -359,6 +382,7 @@ class MetaPlanner:
 
         # The debate may be long-running. Bind publication to the same clean HEAD.
         assert_clean_revision(root, context_pack.revision)
+        pack_verifier.verify_context_pack(context_pack)
         json_path = context_pack.pack_path / f"decision-receipt-{receipt.receipt_id}.json"
         markdown_path = context_pack.pack_path / f"decision-receipt-{receipt.receipt_id}.md"
         self._persist_planning_receipt(receipt, json_path, markdown_path)
@@ -388,6 +412,7 @@ class MetaPlanner:
         configured = self._maybe_add_fusion(list(dict.fromkeys(self.config.agents)))
         agents: list[Any] = []
         identities: list[str] = []
+        agent_models: dict[str, str] = {}
         for agent_type in configured:
             try:
                 agent = self._create_agent(agent_type)
@@ -399,10 +424,15 @@ class MetaPlanner:
             agents.append(agent)
             model = str(getattr(agent, "model", "") or agent_type)
             identities.append(model)
+            agent_name = str(getattr(agent, "name", "") or agent_type)
+            agent_models[agent_name] = model
 
         metadata = {
             "nomic_planning_models": sorted(set(identities)),
+            "nomic_planning_agent_models": dict(sorted(agent_models.items())),
             "nomic_context_pack": context_pack.reference,
+            "nomic_repository_name": context_pack.repository.repository_name,
+            "nomic_repository_id": context_pack.repository.repository_id,
         }
         if len(set(identities)) < 2:
             return DebateResult(task=prompt, participants=[], metadata=metadata)
@@ -506,13 +536,22 @@ class MetaPlanner:
 
         metadata = getattr(result, "metadata", {}) or {}
         models = {str(item) for item in metadata.get("nomic_planning_models", []) if item}
+        raw_agent_models = metadata.get("nomic_planning_agent_models", {})
+        agent_models = (
+            {str(agent): str(model) for agent, model in raw_agent_models.items() if model}
+            if isinstance(raw_agent_models, dict)
+            else {}
+        )
+
+        def substantive(text: Any) -> bool:
+            value = str(text or "").strip()
+            return len(value) >= 20 and not looks_like_agent_failure_response(value)
+
         response_agents: set[str] = set()
         proposals = getattr(result, "proposals", {}) or {}
         if isinstance(proposals, dict):
             response_agents.update(
-                str(agent)
-                for agent, text in proposals.items()
-                if not looks_like_agent_failure_response(text)
+                str(agent) for agent, text in proposals.items() if substantive(text)
             )
         for item in getattr(result, "agent_responses", []) or []:
             if isinstance(item, dict):
@@ -521,14 +560,17 @@ class MetaPlanner:
             else:
                 agent = getattr(item, "agent", None)
                 text = getattr(item, "response", None) or getattr(item, "content", None)
-            if agent and not looks_like_agent_failure_response(text):
+            if agent and substantive(text):
                 response_agents.add(str(agent))
         for message in getattr(result, "messages", []) or []:
             agent = getattr(message, "agent", None)
             text = getattr(message, "content", None)
-            if agent and not looks_like_agent_failure_response(text):
+            if agent and substantive(text):
                 response_agents.add(str(agent))
-        return len(models) >= 2 and len(response_agents) >= 2
+        responding_models = {
+            agent_models[agent] for agent in response_agents if agent in agent_models
+        }
+        return len(models) >= 2 and len(responding_models) >= 2
 
     @staticmethod
     def _planning_input_hash(objective: str, context_pack: ContextPack) -> str:

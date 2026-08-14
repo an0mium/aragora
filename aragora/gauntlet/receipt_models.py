@@ -471,7 +471,7 @@ def build_crux_receipt_from_proof(
 #         version; the decision-payload hash separately binds normalized goals.
 #
 # Hash-binding rule: ``cruxes`` is bound whenever present; ``schema_version``
-# is bound ONLY when it is exactly 1.2 (version-gated, not presence-gated).
+# is bound when it is exactly 1.2 or 1.3 (version-gated, not presence-gated).
 # Crux binding shipped on main (#9414) BEFORE the 1.2 stamp existed, so
 # already-persisted audit receipts carry cruxes with schema_version 1.1 and a
 # hash computed WITHOUT schema_version — those must keep verifying. Receipts
@@ -543,11 +543,10 @@ def compute_receipt_artifact_hash(data: Any) -> str:
     delegate here, so the hashed field set cannot drift between producer and
     verifier. Covers the decision-integrity fields (receipt_id, gauntlet_id,
     input_hash, risk_summary, verdict, confidence); binds ``cruxes`` whenever
-    present; and binds ``schema_version`` only for receipts stamped 1.2
-    (downgrade-tamper protection). The version binding is gated on the 1.2
-    stamp — NOT on crux presence — because #9414 shipped crux binding before
-    the stamp existed: receipts with cruxes + schema_version 1.1 hashed
-    without schema_version and must keep verifying (see changelog above).
+    present; binds ``schema_version`` for receipts stamped 1.2; and, for 1.3,
+    additionally binds the normalized evidence references and decision-payload
+    hash. Version binding remains gated on the exact stamp so pre-stamp 1.1
+    crux receipts keep verifying unchanged (see changelog above).
     """
     if not isinstance(data, dict):
         data = {}
@@ -783,6 +782,13 @@ class DecisionReceipt:
 
     def verify_integrity(self) -> bool:
         """Verify receipt has not been tampered with."""
+        has_evidence_material = bool(
+            self.evidence_references
+            or self.decision_payload is not None
+            or self.decision_payload_hash is not None
+        )
+        if has_evidence_material and self.schema_version != RECEIPT_SCHEMA_VERSION_EVIDENCE:
+            return False
         expected_hash = self._calculate_hash()
         if expected_hash != self.artifact_hash:
             return False
@@ -2336,7 +2342,8 @@ class DecisionReceipt:
             for record in agent_response_data
         ]
 
-        return cls(
+        supplied_schema = data.get("schema_version", "1.0")
+        receipt = cls(
             receipt_id=data.get("receipt_id", ""),
             gauntlet_id=data.get("gauntlet_id", ""),
             timestamp=data.get("timestamp", ""),
@@ -2356,7 +2363,7 @@ class DecisionReceipt:
             consensus_proof=consensus,
             provenance_chain=provenance,
             agent_responses=agent_responses,
-            schema_version=data.get("schema_version", "1.0"),
+            schema_version=supplied_schema,
             artifact_hash=data.get("artifact_hash", ""),
             cost_summary=data.get("cost_summary"),
             settlement_metadata=data.get("settlement_metadata"),
@@ -2373,6 +2380,18 @@ class DecisionReceipt:
             signature_key_id=data.get("signature_key_id"),
             signed_at=data.get("signed_at"),
         )
+        # ``__post_init__`` upgrades newly-created evidence-bearing receipts to
+        # schema 1.3. On reconstruction, preserve a conflicting serialized stamp
+        # so verify_integrity() can reject downgrade/unknown-version tampering
+        # instead of normalizing the evidence away from the attack surface.
+        has_serialized_evidence = bool(
+            data.get("evidence_references")
+            or data.get("decision_payload") is not None
+            or data.get("decision_payload_hash") is not None
+        )
+        if has_serialized_evidence and supplied_schema != RECEIPT_SCHEMA_VERSION_EVIDENCE:
+            receipt.schema_version = supplied_schema
+        return receipt
 
     def to_markdown(self, include_provenance: bool = True, include_evidence: bool = True) -> str:
         """Generate markdown report with full provenance and evidence links."""

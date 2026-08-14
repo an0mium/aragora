@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -75,6 +77,9 @@ async def test_pack_is_exact_portable_and_tracked_only(clean_repository: Path) -
 
     assert pack.revision.commit_sha == git(clean_repository, "rev-parse", "HEAD")
     assert len(pack.revision.commit_sha) == 40
+    assert pack.revision.tree_sha == git(clean_repository, "rev-parse", "HEAD^{tree}")
+    assert pack.revision.branch == git(clean_repository, "branch", "--show-current")
+    assert pack.revision.remote_url == "https://github.com/example/context-pack"
     assert pack.pack_path == (
         clean_repository / ".nomic" / "context" / "packs" / pack.revision.commit_sha / pack.pack_id
     )
@@ -83,10 +88,32 @@ async def test_pack_is_exact_portable_and_tracked_only(clean_repository: Path) -
     assert "docs/ROADMAP.md" in paths
     assert "src/app.py" in paths
     assert "UNTRACKED.md" not in paths
+    app_evidence = next(item for item in pack.evidence if item.path == "src/app.py")
+    app_bytes = subprocess.run(
+        ["git", "-C", str(clean_repository), "show", f"HEAD:{app_evidence.path}"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert re.fullmatch(r"ev-[0-9a-f]{20}", app_evidence.evidence_id)
+    assert app_evidence.blob_id == git(clean_repository, "rev-parse", f"HEAD:{app_evidence.path}")
+    assert app_evidence.sha256 == hashlib.sha256(app_bytes).hexdigest()
+    assert app_evidence.size_bytes == len(app_bytes)
+    assert app_evidence.line_count == 2
+    assert app_evidence.role == "source"
+    assert app_evidence.uri.endswith("/src/app.py#L1-L2")
+    assert app_evidence.http_permalink == (
+        f"https://github.com/example/context-pack/blob/{pack.revision.commit_sha}/src/app.py#L1-L2"
+    )
     metadata = (pack.pack_path / "context-pack.json").read_text(encoding="utf-8")
     assert str(clean_repository) not in metadata
+    manifest = (pack.pack_path / "manifest.tsv").read_text(encoding="utf-8")
+    assert "evidence_id\tpath\tblob_id\tsha256\tbytes\tlines\trole\turi\thttp_permalink" in manifest
+    assert f"{app_evidence.evidence_id}\tsrc/app.py\t{app_evidence.blob_id}" in manifest
     assert (pack.pack_path / "corpus.txt").is_file()
-    assert "Roadmap" in (pack.pack_path / "context.md").read_text(encoding="utf-8")
+    context = (pack.pack_path / "context.md").read_text(encoding="utf-8")
+    assert "Roadmap" in context
+    assert "The corpus is queryable by evidence marker" in context
+    assert "Configured evidence coverage: 2/2" in context
     builder.verify_context_pack(pack)
 
 
@@ -102,6 +129,9 @@ async def test_pack_reuses_deterministic_artifacts(clean_repository: Path) -> No
 
     assert first.pack_id == second.pack_id
     assert first.pack_path == second.pack_path
+    assert [item.evidence_id for item in first.evidence] == [
+        item.evidence_id for item in second.evidence
+    ]
     assert "Stable RLM summary" in (first.pack_path / "context.md").read_text()
     assert not (first.pack_path / "corpus.txt").exists()
 
@@ -168,6 +198,25 @@ async def test_mid_build_revision_drift_is_not_published(clean_repository: Path)
 
 
 @pytest.mark.asyncio
+async def test_mid_build_head_drift_is_not_published(clean_repository: Path) -> None:
+    builder = NomicContextBuilder(clean_repository, full_corpus=False)
+
+    def move_head() -> None:
+        (clean_repository / "src" / "app.py").write_text(
+            "def main():\n    return 3\n", encoding="utf-8"
+        )
+        git(clean_repository, "add", "src/app.py")
+        git(clean_repository, "commit", "-m", "move head during pack build")
+
+    builder._before_pack_publish = move_head
+
+    with pytest.raises(RepositoryStateError, match="drifted"):
+        await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+
+    assert not list((clean_repository / ".nomic").rglob("context-pack.json"))
+
+
+@pytest.mark.asyncio
 async def test_artifact_tampering_is_detected(clean_repository: Path) -> None:
     builder = NomicContextBuilder(clean_repository, full_corpus=False)
     pack = await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
@@ -175,6 +224,23 @@ async def test_artifact_tampering_is_detected(clean_repository: Path) -> None:
 
     with pytest.raises(RepositoryStateError, match="verification failed"):
         builder.verify_context_pack(pack)
+
+
+@pytest.mark.asyncio
+async def test_forged_pack_identifier_is_detected(clean_repository: Path) -> None:
+    builder = NomicContextBuilder(clean_repository, full_corpus=False)
+    pack = await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+    forged_id = "0" * 64
+    forged_path = pack.pack_path.parent / forged_id
+    pack.pack_path.rename(forged_path)
+    forged = replace(pack, pack_id=forged_id, pack_path=forged_path)
+    (forged_path / "context-pack.json").write_text(
+        json.dumps(forged.to_dict(), sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RepositoryStateError, match="identifier"):
+        builder.verify_context_pack(forged)
 
 
 @pytest.mark.asyncio

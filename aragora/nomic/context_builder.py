@@ -357,16 +357,7 @@ class NomicContextBuilder:
         if self._full_corpus:
             artifacts["corpus.txt"] = corpus.encode()
         digests = {name: hashlib.sha256(data).hexdigest() for name, data in artifacts.items()}
-        pack_basis = {
-            "repository_id": resolved_profile.repository_id,
-            "revision": revision.to_dict(),
-            "profile_hash": resolved_profile.profile_hash,
-            "manifest_digest": digests["manifest.tsv"],
-            "artifact_digests": dict(sorted(digests.items())),
-        }
-        pack_id = hashlib.sha256(
-            json.dumps(pack_basis, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        pack_id = self._compute_pack_id(resolved_profile, revision, digests)
         destination = root / ".nomic" / "context" / "packs" / revision.commit_sha / pack_id
         pack = ContextPack(
             pack_id=pack_id,
@@ -428,7 +419,25 @@ class NomicContextBuilder:
             )
 
     def verify_context_pack(self, pack: ContextPack) -> None:
-        """Verify an existing pack's native metadata and bound artifact digests."""
+        """Verify metadata, content address, manifest, and bound artifact digests."""
+        expected_path = (
+            self._aragora_path.resolve()
+            / ".nomic"
+            / "context"
+            / "packs"
+            / pack.revision.commit_sha
+            / pack.pack_id
+        )
+        if pack.pack_path.resolve() != expected_path:
+            raise RepositoryStateError("context pack path does not match its content address")
+        if pack.profile_hash != pack.repository.profile_hash:
+            raise RepositoryStateError("context pack profile hash does not match its profile")
+        required_artifacts = {"context.md", "manifest.tsv"}
+        if pack.corpus_included:
+            required_artifacts.add("corpus.txt")
+        if set(pack.artifact_digests) != required_artifacts:
+            raise RepositoryStateError("context pack artifact inventory is invalid")
+
         metadata_path = pack.pack_path / "context-pack.json"
         if not metadata_path.is_file():
             raise RepositoryStateError(f"context pack metadata is missing: {pack.reference}")
@@ -438,10 +447,44 @@ class NomicContextBuilder:
             raise RepositoryStateError(f"invalid context pack metadata: {pack.reference}") from exc
         if stored != pack.to_dict():
             raise RepositoryStateError(f"context pack metadata mismatch: {pack.reference}")
+        expected_manifest = self._render_pack_manifest(
+            pack.revision,
+            pack.repository,
+            list(pack.evidence),
+        ).encode()
+        manifest_path = pack.pack_path / "manifest.tsv"
+        if not manifest_path.is_file() or manifest_path.read_bytes() != expected_manifest:
+            raise RepositoryStateError("context pack manifest does not match its evidence metadata")
         for name, expected in pack.artifact_digests.items():
             path = pack.pack_path / name
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                 raise RepositoryStateError(f"context pack artifact verification failed: {name}")
+        expected_pack_id = self._compute_pack_id(
+            pack.repository,
+            pack.revision,
+            pack.artifact_digests,
+        )
+        if expected_pack_id != pack.pack_id:
+            raise RepositoryStateError("context pack identifier does not match bound artifacts")
+
+    @staticmethod
+    def _compute_pack_id(
+        profile: NomicRepositoryProfile,
+        revision: RepositoryRevision,
+        artifact_digests: Any,
+    ) -> str:
+        """Compute the portable content address shared by build and verification."""
+        digests = dict(sorted(dict(artifact_digests).items()))
+        pack_basis = {
+            "repository_id": profile.repository_id,
+            "revision": revision.to_dict(),
+            "profile_hash": profile.profile_hash,
+            "manifest_digest": digests["manifest.tsv"],
+            "artifact_digests": digests,
+        }
+        return hashlib.sha256(
+            json.dumps(pack_basis, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
 
     def _collect_commit_evidence(
         self,
@@ -606,8 +649,29 @@ class NomicContextBuilder:
         return "".join(sections).lstrip(), truncated
 
     async def _build_pack_rlm_summary(self, corpus: str, profile: NomicRepositoryProfile) -> str:
-        """Extension point for deterministic or provider-backed RLM summaries."""
-        return ""
+        """Build a deterministic map for REPL/RLM traversal of the packed corpus."""
+        if self._index is None:
+            return ""
+        grouped: dict[str, list[IndexedFile]] = {}
+        for item in self._index.files:
+            parts = item.relative_path.split("/", 1)
+            group = parts[0] if len(parts) > 1 else "root"
+            grouped.setdefault(group, []).append(item)
+        lines = [
+            "The corpus is queryable by evidence marker (`--- ev-… path ---`) and path.",
+            f"Corpus bytes available to the RLM: {len(corpus.encode())}",
+            "Priority layers: " + ", ".join([*profile.roadmap_paths, *profile.context_entry_files])
+            if profile.roadmap_paths or profile.context_entry_files
+            else "Priority layers: none configured",
+        ]
+        for group in sorted(grouped):
+            files = grouped[group]
+            lines.append(
+                f"- {group}/: {len(files)} files, "
+                f"{sum(item.line_count for item in files)} lines, "
+                f"{sum(item.size_bytes for item in files)} bytes"
+            )
+        return "\n".join(lines)
 
     def _render_pack_context(
         self,
@@ -620,6 +684,8 @@ class NomicContextBuilder:
         corpus_truncated: bool,
     ) -> str:
         by_path = {item.path: item for item in evidence}
+        configured_paths = set(profile.roadmap_paths) | set(profile.context_entry_files)
+        configured_covered = len(configured_paths & set(by_path))
         sections = [
             f"# {profile.repository_name} Repository Planning Context",
             f"Objective: {objective}",
@@ -662,6 +728,9 @@ class NomicContextBuilder:
                 "",
                 "## Budgets and Coverage",
                 f"- Included evidence files: {len(evidence)}",
+                f"- Configured evidence coverage: {configured_covered}/{len(configured_paths)}"
+                if configured_paths
+                else "- Configured evidence coverage: no configured files",
                 f"- Context byte budget: {self._max_context_bytes}",
                 f"- Full corpus enabled: {str(self._full_corpus).lower()}",
                 f"- Corpus truncated: {str(corpus_truncated).lower()}",

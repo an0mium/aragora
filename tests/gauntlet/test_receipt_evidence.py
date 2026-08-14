@@ -142,6 +142,9 @@ def test_schema_downgrade_is_detected() -> None:
     data["schema_version"] = "1.2"
 
     assert _verify_receipt(data)["valid"] is False
+    restored = DecisionReceipt.from_dict(data)
+    assert restored.schema_version == "1.2"
+    assert restored.verify_integrity() is False
 
 
 def test_legacy_receipts_remain_byte_and_hash_compatible() -> None:

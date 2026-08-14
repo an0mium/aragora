@@ -351,8 +351,15 @@ Aragora-specific autonomous self-improvement Nomic Loop.
 `plan` is a local-only, read-only planning slice. It requires a clean Git worktree, emits a
 commit-addressed context pack and evidence-linked Decision Receipt under `.nomic/`, and stops
 without designing, implementing, verifying, protecting, streaming, or committing changes.
+`.nomic/` must be ignored by Git before planning starts (`aragora init` adds the ignore rule).
 `nomic run` retains its existing Aragora-specific execution behavior and is outside this generic
 planning path.
+
+Artifacts are written below
+`.nomic/context/packs/<full-commit-sha>/<content-addressed-pack-id>/`. Exit status `2` indicates
+an invalid profile, repository state, or artifact; exit status `3` means the pack and a
+`NO_EVIDENCE` receipt were emitted but fewer than two distinct models contributed substantive
+planning evidence (or no selected goal resolved to pack evidence).
 
 The optional repository-owned `.aragora.yaml` profile is:
 

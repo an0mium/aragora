@@ -87,7 +87,13 @@ async def fake_multimodel_debate(self, prompt: str, context_pack) -> DebateResul
             "fake-alpha": "Implement the tracked roadmap milestone with tests.",
             "fake-beta": "Prioritize the same milestone because it has direct evidence.",
         },
-        metadata={"nomic_planning_models": ["frontier-alpha", "frontier-beta"]},
+        metadata={
+            "nomic_planning_models": ["frontier-alpha", "frontier-beta"],
+            "nomic_planning_agent_models": {
+                "fake-alpha": "frontier-alpha",
+                "fake-beta": "frontier-beta",
+            },
+        },
     )
 
 
@@ -109,6 +115,7 @@ def test_plan_json_emits_pack_and_receipt(cli_repository: Path, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "planned"
+    assert payload["repository_name"] == "CLI Plan"
     assert payload["commit_sha"] == git(cli_repository, "rev-parse", "HEAD")
     assert payload["evidence_coverage"] == 1.0
     assert payload["verdict"] == "PASS"
@@ -171,6 +178,26 @@ def test_no_multimodel_debate_returns_distinct_status(cli_repository: Path, caps
     assert payload["status"] == "no_evidence"
     assert payload["goals"] == []
     assert payload["verdict"] == "NO_EVIDENCE"
+
+
+def test_multimodel_transport_failure_still_emits_receipt(cli_repository: Path, capsys) -> None:
+    async def failed_debate(self, prompt: str, context_pack) -> DebateResult:
+        raise RuntimeError("frontier transports unavailable")
+
+    args = parse("plan", "Choose work", "--repo", str(cli_repository), "--json")
+    with (
+        patch.object(MetaPlanner, "_run_repository_planning_debate", failed_debate),
+        patch.object(MetaPlanner, "_ingest_receipt_to_km", lambda self, receipt: None),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        args.func(args)
+
+    assert exc_info.value.code == 3
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "no_evidence"
+    assert payload["goals"] == []
+    assert payload["verdict"] == "NO_EVIDENCE"
+    assert Path(payload["receipt_json_path"]).is_file()
 
 
 def test_plan_rejects_api_mode(cli_repository: Path) -> None:
