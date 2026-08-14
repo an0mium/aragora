@@ -366,6 +366,8 @@ class ContextPack:
     pack_path: Path = field(compare=False, repr=False)
     corpus_included: bool = False
     corpus_truncated: bool = False
+    context_byte_budget: int = 100_000_000
+    include_tests: bool = True
     rlm_summary: str = field(default="", repr=False)
 
     @property
@@ -385,6 +387,8 @@ class ContextPack:
             "artifact_digests": dict(sorted(self.artifact_digests.items())),
             "corpus_included": self.corpus_included,
             "corpus_truncated": self.corpus_truncated,
+            "context_byte_budget": self.context_byte_budget,
+            "include_tests": self.include_tests,
             "rlm_summary": self.rlm_summary,
         }
 
