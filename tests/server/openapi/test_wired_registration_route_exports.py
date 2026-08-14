@@ -4,6 +4,26 @@ from aragora.server.openapi import generate_openapi_schema
 from aragora.server.openapi.endpoints.wired_registrations import (
     WIRED_REGISTRATION_ENDPOINTS,
 )
+from aragora.server.handlers.admin.credits import (
+    CreditsAdminHandler,
+    register_credits_admin_routes,
+)
+
+
+class _RecordingRouter:
+    def __init__(self) -> None:
+        self.operations: set[tuple[str, str]] = set()
+
+    def add_get(self, path: str, handler: object) -> None:
+        self.operations.add((path, "get"))
+
+    def add_post(self, path: str, handler: object) -> None:
+        self.operations.add((path, "post"))
+
+
+class _RecordingApp:
+    def __init__(self) -> None:
+        self.router = _RecordingRouter()
 
 
 def test_wired_registration_routes_survive_fresh_generation() -> None:
@@ -80,3 +100,37 @@ def test_cost_recommendation_mutations_are_exported() -> None:
         for action in ("apply", "dismiss"):
             path = f"{version_prefix}costs/recommendations/{{recommendation_id}}/{action}"
             assert "post" in paths[path]
+
+
+def test_admin_credit_declarations_match_registered_routes() -> None:
+    app = _RecordingApp()
+    register_credits_admin_routes(app, CreditsAdminHandler())  # type: ignore[arg-type]
+
+    declared = {
+        (path, method)
+        for path, methods in WIRED_REGISTRATION_ENDPOINTS.items()
+        if path.startswith(("/api/admin/credits/", "/api/v1/admin/credits/"))
+        for method in methods
+        if not method.startswith("x-")
+    }
+    assert declared == app.router.operations
+
+
+def test_authorize_net_webhooks_require_bearer_auth() -> None:
+    paths = generate_openapi_schema()["paths"]
+
+    for path in ("/api/payments/webhook/authnet", "/api/v1/payments/webhook/authnet"):
+        assert paths[path]["post"]["security"] == [{"bearerAuth": []}]
+    for path in ("/api/payments/webhook/stripe", "/api/v1/payments/webhook/stripe"):
+        assert "security" not in paths[path]["post"]
+
+
+def test_wired_operations_do_not_share_mutable_schema_objects() -> None:
+    charge = WIRED_REGISTRATION_ENDPOINTS["/api/payments/charge"]["post"]
+    refund = WIRED_REGISTRATION_ENDPOINTS["/api/payments/refund"]["post"]
+    charge_response = charge["responses"]["200"]["content"]["application/json"]["schema"]
+    charge_request = charge["requestBody"]["content"]["application/json"]["schema"]
+    refund_response = refund["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert charge_response is not charge_request
+    assert charge_response is not refund_response

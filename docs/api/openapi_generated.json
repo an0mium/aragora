@@ -43880,6 +43880,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "operationId": "createPaymentsWebhookAuthnet"
       }
     },
@@ -201488,6 +201493,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "operationId": "createPaymentsWebhookAuthnet1"
       }
     },
