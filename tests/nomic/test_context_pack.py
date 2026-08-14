@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -75,6 +76,7 @@ async def test_pack_is_exact_portable_and_tracked_only(clean_repository: Path) -
 
     pack = await builder.build_context_pack("Improve the roadmap", profile=profile)
 
+    assert pack.objective == "Improve the roadmap"
     assert pack.revision.commit_sha == git(clean_repository, "rev-parse", "HEAD")
     assert len(pack.revision.commit_sha) == 40
     assert pack.revision.tree_sha == git(clean_repository, "rev-parse", "HEAD^{tree}")
@@ -137,6 +139,21 @@ async def test_pack_reuses_deterministic_artifacts(clean_repository: Path) -> No
 
 
 @pytest.mark.asyncio
+async def test_pack_identity_binds_normalized_objective(clean_repository: Path) -> None:
+    profile = load_nomic_repository_profile(clean_repository)
+    first = await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+        "  Plan the roadmap  ", profile=profile
+    )
+    second = await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+        "Plan a different roadmap", profile=profile
+    )
+
+    assert first.objective == "Plan the roadmap"
+    assert second.objective == "Plan a different roadmap"
+    assert first.pack_id != second.pack_id
+
+
+@pytest.mark.asyncio
 async def test_pack_invalidates_for_profile_and_commit(clean_repository: Path) -> None:
     profile = load_nomic_repository_profile(clean_repository)
     builder = NomicContextBuilder(clean_repository, full_corpus=False)
@@ -182,6 +199,24 @@ async def test_unignored_runtime_directory_fails_before_artifacts(clean_reposito
 
     with pytest.raises(RepositoryStateError, match="ignore .nomic"):
         await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+
+    assert not (clean_repository / ".nomic").exists()
+
+
+@pytest.mark.asyncio
+async def test_probe_only_ignore_rule_does_not_authorize_real_artifacts(
+    clean_repository: Path,
+) -> None:
+    (clean_repository / ".gitignore").write_text(
+        ".nomic/context/.artifact-probe\n", encoding="utf-8"
+    )
+    git(clean_repository, "add", ".gitignore")
+    git(clean_repository, "commit", "-m", "ignore only the old sentinel")
+
+    with pytest.raises(RepositoryStateError, match="runtime artifact path"):
+        await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+            profile=load_nomic_repository_profile(clean_repository)
+        )
 
     assert not (clean_repository / ".nomic").exists()
 
@@ -240,6 +275,45 @@ async def test_forged_pack_identifier_is_detected(clean_repository: Path) -> Non
     )
 
     with pytest.raises(RepositoryStateError, match="identifier"):
+        builder.verify_context_pack(forged)
+
+
+@pytest.mark.asyncio
+async def test_self_consistent_forged_evidence_is_rejected(clean_repository: Path) -> None:
+    builder = NomicContextBuilder(clean_repository, full_corpus=False)
+    pack = await builder.build_context_pack(
+        "Ground the plan", profile=load_nomic_repository_profile(clean_repository)
+    )
+    forged_evidence = (replace(pack.evidence[0], sha256="0" * 64), *pack.evidence[1:])
+    manifest = builder._render_pack_manifest(
+        pack.revision,
+        pack.repository,
+        list(forged_evidence),
+    ).encode()
+    digests = dict(pack.artifact_digests)
+    digests["manifest.tsv"] = hashlib.sha256(manifest).hexdigest()
+    forged_id = builder._compute_pack_id(
+        pack.objective,
+        pack.repository,
+        pack.revision,
+        digests,
+    )
+    forged_path = pack.pack_path.parent / forged_id
+    shutil.copytree(pack.pack_path, forged_path)
+    forged = replace(
+        pack,
+        pack_id=forged_id,
+        pack_path=forged_path,
+        evidence=forged_evidence,
+        artifact_digests=digests,
+    )
+    (forged_path / "manifest.tsv").write_bytes(manifest)
+    (forged_path / "context-pack.json").write_text(
+        json.dumps(forged.to_dict(), sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RepositoryStateError, match="claimed Git revision"):
         builder.verify_context_pack(forged)
 
 

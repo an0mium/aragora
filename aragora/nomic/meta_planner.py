@@ -262,6 +262,9 @@ class MetaPlanner:
 
         if not objective.strip():
             raise ValueError("planning objective must be non-empty")
+        normalized_objective = objective.strip()
+        if normalized_objective != context_pack.objective:
+            raise ValueError("planning objective does not match the context pack objective")
         root = Path(self.config.repo_path).resolve()
         expected_pack_path = (
             root
@@ -281,7 +284,7 @@ class MetaPlanner:
 
         context_markdown = (context_pack.pack_path / "context.md").read_text(encoding="utf-8")
         prompt = build_repository_planning_topic(
-            objective=objective,
+            objective=normalized_objective,
             repository_name=context_pack.repository.repository_name,
             repository_id=context_pack.repository.repository_id,
             commit_sha=context_pack.revision.commit_sha,
@@ -302,7 +305,7 @@ class MetaPlanner:
 
         try:
             debate_result = await self._run_repository_planning_debate(prompt, context_pack)
-        except (ImportError, RuntimeError, OSError, TimeoutError, TypeError, ValueError) as exc:
+        except Exception as exc:  # noqa: BLE001 - provider SDKs expose unrelated exception trees
             logger.warning("Repository planning debate failed without evidence: %s", exc)
             debate_result = CoreDebateResult(
                 task=prompt,
@@ -341,7 +344,7 @@ class MetaPlanner:
         )
         evidence_references = [evidence_by_id[item].to_dict() for item in referenced_ids]
         decision_payload = {
-            "objective": objective,
+            "objective": normalized_objective,
             "repository_name": context_pack.repository.repository_name,
             "repository_id": context_pack.repository.repository_id,
             "commit_sha": context_pack.revision.commit_sha,
@@ -350,7 +353,7 @@ class MetaPlanner:
             "evidence_coverage": evidence_coverage,
             "goals": [goal.to_dict() for goal in goals],
         }
-        input_hash = self._planning_input_hash(objective, context_pack)
+        input_hash = self._planning_input_hash(normalized_objective, context_pack)
         receipt = DecisionReceipt.from_debate_result(
             debate_result,
             input_hash=input_hash,
@@ -385,10 +388,17 @@ class MetaPlanner:
         pack_verifier.verify_context_pack(context_pack)
         json_path = context_pack.pack_path / f"decision-receipt-{receipt.receipt_id}.json"
         markdown_path = context_pack.pack_path / f"decision-receipt-{receipt.receipt_id}.md"
+        pack_verifier._assert_artifact_paths_ignored(
+            root,
+            [
+                json_path.relative_to(root).as_posix(),
+                markdown_path.relative_to(root).as_posix(),
+            ],
+        )
         self._persist_planning_receipt(receipt, json_path, markdown_path)
         self._ingest_receipt_to_km(receipt)
         return MetaPlanningResult(
-            objective=objective,
+            objective=normalized_objective,
             context_pack=context_pack,
             goals=goals,
             receipt=receipt,

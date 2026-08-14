@@ -254,8 +254,11 @@ async def test_debate_failure_emits_no_evidence_receipt(planning_repository: Pat
     pack = await build_pack(planning_repository)
     instance = planner(planning_repository)
 
+    class ProviderTransportError(Exception):
+        pass
+
     async def run(_prompt: str, _pack):
-        raise RuntimeError("all planning transports failed")
+        raise ProviderTransportError("all planning transports failed")
 
     instance._run_repository_planning_debate = run
     result = await instance.plan("Improve the widget roadmap", pack)
@@ -265,6 +268,25 @@ async def test_debate_failure_emits_no_evidence_receipt(planning_repository: Pat
     assert result.receipt.verdict == "NO_EVIDENCE"
     assert result.receipt_json_path.is_file()
     assert "all planning transports failed" in result.debate_result.metadata["nomic_planning_error"]
+
+
+@pytest.mark.asyncio
+async def test_objective_mismatch_is_rejected_before_debate(planning_repository: Path) -> None:
+    pack = await build_pack(planning_repository)
+    instance = planner(planning_repository)
+    called = False
+
+    async def run(_prompt: str, _pack):
+        nonlocal called
+        called = True
+        return debate({"goals": [goal("planning/NEXT.md")]})
+
+    instance._run_repository_planning_debate = run
+    with pytest.raises(ValueError, match="does not match"):
+        await instance.plan("Plan an unrelated objective", pack)
+
+    assert called is False
+    assert not list(pack.pack_path.glob("decision-receipt-*"))
 
 
 @pytest.mark.asyncio

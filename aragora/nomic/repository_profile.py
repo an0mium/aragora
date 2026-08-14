@@ -357,6 +357,7 @@ class ContextPack:
     """Published context-pack metadata plus its local artifact directory."""
 
     pack_id: str
+    objective: str
     repository: NomicRepositoryProfile
     revision: RepositoryRevision
     profile_hash: str
@@ -364,6 +365,8 @@ class ContextPack:
     artifact_digests: Mapping[str, str]
     pack_path: Path = field(compare=False, repr=False)
     corpus_included: bool = False
+    corpus_truncated: bool = False
+    rlm_summary: str = field(default="", repr=False)
 
     @property
     def reference(self) -> str:
@@ -374,12 +377,15 @@ class ContextPack:
             "schema_version": "nomic-context-pack/1.0",
             "pack_id": self.pack_id,
             "reference": self.reference,
+            "objective": self.objective,
             "repository": self.repository.to_dict(),
             "revision": self.revision.to_dict(),
             "profile_hash": self.profile_hash,
             "evidence": [item.to_dict() for item in self.evidence],
             "artifact_digests": dict(sorted(self.artifact_digests.items())),
             "corpus_included": self.corpus_included,
+            "corpus_truncated": self.corpus_truncated,
+            "rlm_summary": self.rlm_summary,
         }
 
 
