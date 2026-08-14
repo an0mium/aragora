@@ -117,6 +117,7 @@ from aragora.nomic.hierarchical_coordinator import (
 
 # Meta-planning (debate-driven goal prioritization)
 from aragora.nomic.meta_planner import (
+    MetaPlanningResult,
     MetaPlanner,
     MetaPlannerConfig,
     PlanningContext,
@@ -668,6 +669,7 @@ __all__ = [
     # Meta-planning
     "MetaPlanner",
     "MetaPlannerConfig",
+    "MetaPlanningResult",
     "PrioritizedGoal",
     "PlanningContext",
     # Generic repository planning
