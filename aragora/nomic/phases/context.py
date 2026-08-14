@@ -64,6 +64,7 @@ class ContextPhase:
         stream_emit_fn: Callable[..., None] | None = None,
         get_features_fn: Callable[[], str] | None = None,
         context_builder: Any | None = None,
+        context_pack_reference: str | None = None,
     ):
         """
         Initialize the context gathering phase.
@@ -80,6 +81,7 @@ class ContextPhase:
             stream_emit_fn: Function to emit streaming events
             get_features_fn: Function to get current features as fallback
             context_builder: Optional NomicContextBuilder for RLM-powered context
+            context_pack_reference: Optional portable commit-addressed pack reference
         """
         self.aragora_path = aragora_path
         self.claude = claude_agent
@@ -90,10 +92,11 @@ class ContextPhase:
         self.skip_kilocode = skip_kilocode
         self.kilocode_agent_factory = kilocode_agent_factory
         self.cycle_count = cycle_count
-        self._log = log_fn or print
-        self._stream_emit = stream_emit_fn or (lambda *args: None)
+        self._log: Callable[..., None] = log_fn or print
+        self._stream_emit: Callable[..., None] = stream_emit_fn or (lambda *args: None)
         self._get_features = get_features_fn or (lambda: "No features available")
         self._context_builder = context_builder
+        self._context_pack_reference = context_pack_reference
 
     async def execute(self) -> ContextResult:
         """
@@ -294,14 +297,19 @@ class ContextPhase:
                 gathered_context = f"{gathered_context}\n\n{recent_cycle_context}"
                 self._log("  [context] Injected recent cycle history for cross-cycle learning")
 
-        return ContextResult(
+        data: dict[str, Any] = {"agents_succeeded": len(combined_context)}
+        phase_result = ContextResult(
             success=success,
-            data={"agents_succeeded": len(combined_context)},
+            data=data,
             duration_seconds=phase_duration,
             codebase_summary=gathered_context,
             recent_changes="",  # Can be populated if needed
             open_issues=[],
         )
+        if self._context_pack_reference:
+            data["context_pack_reference"] = self._context_pack_reference
+            phase_result["context_pack_reference"] = self._context_pack_reference
+        return phase_result
 
     def _build_explore_prompt(self) -> str:
         """Build the codebase exploration prompt."""

@@ -18,6 +18,8 @@ from __future__ import annotations
 import logging
 from typing import Any, TypedDict
 
+from typing_extensions import NotRequired
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +38,7 @@ class ContextResult(PhaseResult):
     codebase_summary: str
     recent_changes: str
     open_issues: list[str]
+    context_pack_reference: NotRequired[str]
 
 
 class DebateResult(PhaseResult):
@@ -45,6 +48,7 @@ class DebateResult(PhaseResult):
     consensus_reached: bool
     confidence: float
     votes: list[tuple]
+    context_pack_reference: NotRequired[str]
 
 
 class DesignResult(PhaseResult):
@@ -177,7 +181,7 @@ class PhaseValidator:
         """Validate and raise PhaseValidationError if invalid."""
         is_valid, error = cls.validate(phase, result)
         if not is_valid:
-            raise PhaseValidationError(phase, error)
+            raise PhaseValidationError(phase, error or "unknown validation error")
 
     @classmethod
     def safe_get(cls, result: Any, field: str, default: Any = None) -> Any:

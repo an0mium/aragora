@@ -485,6 +485,7 @@ class DebatePhase:
         learning_context: LearningContext | None = None,
         hooks: PostDebateHooks | None = None,
         arena_kwargs: dict[str, Any] | None = None,
+        context_pack_reference: str | None = None,
     ) -> DebateResult:
         """
         Execute the debate phase.
@@ -495,6 +496,7 @@ class DebatePhase:
             learning_context: Aggregated learning context
             hooks: Post-debate processing hooks
             arena_kwargs: Additional kwargs for Arena creation
+            context_pack_reference: Optional portable commit-addressed pack reference
 
         Returns:
             DebateResult with debate outcome
@@ -520,14 +522,19 @@ class DebatePhase:
 
         # Create environment and protocol
         context_section = self._build_context_section(codebase_context)
-        env = self._environment_factory(task=task, context=context_section)
+        environment_factory = self._environment_factory
+        protocol_factory = self._protocol_factory
+        arena_factory = self._arena_factory
+        if environment_factory is None or protocol_factory is None or arena_factory is None:
+            raise RuntimeError("execute() requires environment, protocol, and arena factories")
+        env = environment_factory(task=task, context=context_section)
 
         # Enable asymmetric stances periodically
         asymmetric = self.cycle_count % 15 == 0
         if asymmetric:
             self._log("  [stances] Devil's advocate mode enabled")
 
-        protocol = self._protocol_factory(
+        protocol = protocol_factory(
             rounds=self.config.rounds,
             consensus=self.config.consensus_mode,
             judge_selection=self.config.judge_selection,
@@ -548,7 +555,7 @@ class DebatePhase:
         agent_weights = await self._probe_agents()
 
         # Create arena
-        arena = self._arena_factory(
+        arena = arena_factory(
             env,
             self.agents,
             protocol,
@@ -558,6 +565,9 @@ class DebatePhase:
 
         # Run debate
         result = await self._run_debate(arena)
+        if context_pack_reference:
+            result.metadata = dict(getattr(result, "metadata", {}) or {})
+            result.metadata["nomic_context_pack"] = context_pack_reference
 
         # Validate final answer against codebase features
         codebase_novelty_warning = None
@@ -600,20 +610,25 @@ class DebatePhase:
             {"confidence": result.confidence},
         )
 
-        return DebateResult(
+        data = {
+            "final_answer": result.final_answer,
+            "consensus_reached": result.consensus_reached,
+            "confidence": result.confidence,
+            "codebase_novelty_warning": codebase_novelty_warning,
+        }
+        phase_result = DebateResult(
             success=result.consensus_reached,
-            data={
-                "final_answer": result.final_answer,
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
-                "codebase_novelty_warning": codebase_novelty_warning,
-            },
+            data=data,
             duration_seconds=phase_duration,
             improvement=result.final_answer or "",
             consensus_reached=result.consensus_reached,
             confidence=result.confidence,
             votes=[(v.agent, v.choice) for v in (result.votes or [])],
         )
+        if context_pack_reference:
+            data["context_pack_reference"] = context_pack_reference
+            phase_result["context_pack_reference"] = context_pack_reference
+        return phase_result
 
     async def _load_previous_belief_network(self) -> None:
         """Load belief network from previous cycle if available."""

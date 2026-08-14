@@ -341,14 +341,41 @@ aragora memory promote <id> --to glacial
 
 ### `aragora nomic`
 
-**Purpose:** Run or inspect the autonomous self-improvement Nomic Loop.
+**Purpose:** Plan improvements for a clean local Git repository, or run and inspect the
+Aragora-specific autonomous self-improvement Nomic Loop.
 
-**Usage:** `aragora nomic <run|status|history|resume> [options]`
+**Usage:** `aragora nomic <plan|run|status|history|resume> [options]`
 
 **Key options for `run`:** `--cycles <n>`
 
+`plan` is a local-only, read-only planning slice. It requires a clean Git worktree, emits a
+commit-addressed context pack and evidence-linked Decision Receipt under `.nomic/`, and stops
+without designing, implementing, verifying, protecting, streaming, or committing changes.
+`nomic run` retains its existing Aragora-specific execution behavior and is outside this generic
+planning path.
+
+The optional repository-owned `.aragora.yaml` profile is:
+
+```yaml
+nomic:
+  repository:
+    name: Aragora
+    id: synaptent/aragora
+    remote_url: https://github.com/synaptent/aragora
+  roadmap_paths:
+    - docs/plans/ARAGORA_EVOLUTION_ROADMAP.md
+  context_entry_files:
+    - README.md
+    - AGENTS.md
+    - pyproject.toml
+  evaluation_criteria:
+    - id: usefulness
+      description: Produces practical, measurable repository improvement
+```
+
 **Examples:**
 ```bash
+aragora nomic plan "Prioritize the next roadmap milestone" --repo /path/to/repository --config /path/to/repository/.aragora.yaml --json
 aragora nomic run --cycles 3
 aragora nomic status
 aragora nomic history

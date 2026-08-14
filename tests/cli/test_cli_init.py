@@ -71,6 +71,7 @@ class TestGitignoreContent:
     def test_includes_aragora_dir(self):
         """Gitignore includes .aragora directory."""
         assert ".aragora/" in GITIGNORE_CONTENT
+        assert ".nomic/" in GITIGNORE_CONTENT
 
     def test_includes_db_files(self):
         """Gitignore includes database files."""

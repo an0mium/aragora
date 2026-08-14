@@ -136,6 +136,7 @@ class TestContextPhaseExecution:
             codex_agent=mock_codex_agent,
             log_fn=mock_log_fn,
             stream_emit_fn=mock_stream_emit_fn,
+            context_pack_reference=".nomic/context/packs/commit/pack",
         )
 
         with patch(STREAM_PATCH, mock_streaming_context):
@@ -145,6 +146,8 @@ class TestContextPhaseExecution:
         assert "codebase_summary" in result
         # The summary should contain agent output or fallback content
         assert len(result["codebase_summary"]) > 0
+        assert result["context_pack_reference"] == ".nomic/context/packs/commit/pack"
+        assert result["data"]["context_pack_reference"] == ".nomic/context/packs/commit/pack"
 
     @pytest.mark.asyncio
     async def test_execute_records_duration(

@@ -3,6 +3,7 @@ Nomic Loop CLI commands.
 
 Provides CLI access to the autonomous self-improvement system.
 Commands:
+- aragora nomic plan "<objective>" --repo <path> - Emit a repository planning receipt
 - gt nomic run --cycles <n> - Run improvement cycles
 - gt nomic status - Show current loop status
 - gt nomic history - View cycle history
@@ -76,7 +77,10 @@ def cmd_nomic(args: argparse.Namespace) -> None:
     use_api = bool(getattr(args, "api", False))
     use_local = bool(getattr(args, "local", False))
 
-    if subcommand == "run":
+    if subcommand == "plan":
+        _resolve_api_mode(use_api, use_local, api_url, api_key, supports_api=False)
+        asyncio.run(_cmd_plan(args))
+    elif subcommand == "run":
         supports_api = True
         use_api_mode, client = _resolve_api_mode(
             use_api, use_local, api_url, api_key, supports_api=supports_api
@@ -106,6 +110,7 @@ def cmd_nomic(args: argparse.Namespace) -> None:
         # Default: show help
         print("\nUsage: aragora nomic <command>")
         print("\nCommands:")
+        print("  plan <objective>    Build a context pack and planning receipt (local only)")
         print("  run                 Run improvement cycles")
         print("  status              Show current loop status")
         print("  history             View cycle history")
@@ -116,6 +121,53 @@ def cmd_nomic(args: argparse.Namespace) -> None:
         print("  --protected <files> Comma-separated list of protected files")
         print("  --max-files <n>     Max files per cycle (default: 20)")
         print("  --json              Output as JSON")
+
+
+async def _cmd_plan(args: argparse.Namespace) -> None:
+    """Plan against one clean local Git repository without executing changes."""
+    as_json = bool(getattr(args, "json", False))
+    repo = Path(getattr(args, "repo", ".")).expanduser().resolve()
+    raw_config = getattr(args, "config", None)
+    config_path = Path(raw_config).expanduser().resolve() if raw_config else None
+    objective = str(getattr(args, "objective", "") or "").strip()
+    try:
+        if not objective:
+            raise ValueError("planning objective must be non-empty")
+        from aragora.nomic.context_builder import NomicContextBuilder
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+        from aragora.nomic.repository_profile import load_nomic_repository_profile
+
+        profile = load_nomic_repository_profile(repo, config_path)
+        pack = await NomicContextBuilder(repo).build_context_pack(
+            objective,
+            profile=profile,
+        )
+        result = await MetaPlanner(MetaPlannerConfig(repo_path=str(repo))).plan(objective, pack)
+        payload = result.to_dict()
+        if as_json:
+            print(json.dumps(payload, indent=2, default=str))
+        else:
+            print(f"\nRepository plan: {profile.repository_name}")
+            print(f"  Commit:           {pack.revision.commit_sha}")
+            print(f"  Context pack:     {pack.reference}")
+            print(f"  Evidence coverage: {result.evidence_coverage:.1%}")
+            print(f"  Verdict:          {result.receipt.verdict}")
+            print(f"  Receipt JSON:     {result.receipt_json_path}")
+            print(f"  Receipt Markdown: {result.receipt_markdown_path}")
+            if result.goals:
+                print("\n  Selected goals:")
+                for goal in result.goals:
+                    print(f"    {goal.priority}. {goal.description}")
+        if result.status == "no_evidence":
+            raise SystemExit(3)
+    except SystemExit:
+        raise
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        if as_json:
+            print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+        else:
+            print(f"\nError planning repository: {exc}")
+        raise SystemExit(2) from exc
 
 
 async def _cmd_run(args: argparse.Namespace) -> None:
@@ -499,6 +551,13 @@ def add_nomic_parser(subparsers: Any) -> None:
     )
 
     np_sub = np.add_subparsers(dest="nomic_command")
+
+    # Plan (always local and read-only with respect to tracked repository files)
+    plan_p = np_sub.add_parser("plan", help="Plan improvements for a clean Git repository")
+    plan_p.add_argument("objective", help="Planning objective")
+    plan_p.add_argument("--repo", default=".", help="Git repository root (default: current)")
+    plan_p.add_argument("--config", default=None, help="Path to .aragora.yaml")
+    plan_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     # Run
     run_p = np_sub.add_parser("run", help="Run improvement cycles")

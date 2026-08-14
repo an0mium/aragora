@@ -103,6 +103,7 @@ jobs:
 GITIGNORE_CONTENT = """\
 # Aragora data
 .aragora/
+.nomic/
 *.db
 *.db-journal
 *.db-wal

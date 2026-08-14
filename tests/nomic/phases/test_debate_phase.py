@@ -677,11 +677,16 @@ class TestDebatePhaseExecute:
             codebase_context="Feature inventory: ...",
             recent_changes="Added module X",
             learning_context=LearningContext(failure_lessons="Don't duplicate features"),
+            context_pack_reference=".nomic/context/packs/commit/pack",
         )
 
         assert result["success"] is True
         assert result["consensus_reached"] is True
         assert "improvement" in result
+        assert result["context_pack_reference"] == ".nomic/context/packs/commit/pack"
+        assert result["data"]["context_pack_reference"] == ".nomic/context/packs/commit/pack"
+        debate_result = mock_arena_factory.return_value.run.return_value
+        assert debate_result.metadata["nomic_context_pack"] == ".nomic/context/packs/commit/pack"
         mock_arena_factory.assert_called_once()
 
     @pytest.mark.asyncio
