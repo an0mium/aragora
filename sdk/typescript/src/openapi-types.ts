@@ -140482,9 +140482,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @description Created resource ID */
-                        id?: string;
-                        success?: boolean;
+                        success: boolean;
+                        action: string;
+                        processed: number;
+                        results: {
+                            [key: string]: unknown;
+                        }[];
                     };
                 };
             };

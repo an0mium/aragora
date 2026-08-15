@@ -95,14 +95,20 @@ def test_canonical_wired_routes_do_not_inherit_legacy_metadata() -> None:
         assert operation["summary"] != f"{method.upper()} {path.replace('/api/v1/', '/api/')}"
 
 
-def test_inbox_quick_action_keeps_typed_success_response() -> None:
+def test_inbox_quick_action_response_matches_runtime_shape() -> None:
     response_schema = generate_openapi_schema()["paths"]["/api/v1/inbox/actions"]["post"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]
 
+    assert response_schema["required"] == ["success", "action", "processed", "results"]
     assert response_schema["properties"] == {
-        "id": {"type": "string", "description": "Created resource ID"},
         "success": {"type": "boolean"},
+        "action": {"type": "string"},
+        "processed": {"type": "integer"},
+        "results": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
     }
 
 

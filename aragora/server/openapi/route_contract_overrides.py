@@ -129,12 +129,18 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
                         "application/json": {
                             "schema": {
                                 "type": "object",
+                                "required": ["success", "action", "processed", "results"],
                                 "properties": {
-                                    "id": {
-                                        "type": "string",
-                                        "description": "Created resource ID",
-                                    },
                                     "success": {"type": "boolean"},
+                                    "action": {"type": "string"},
+                                    "processed": {"type": "integer"},
+                                    "results": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": True,
+                                        },
+                                    },
                                 },
                             }
                         }
