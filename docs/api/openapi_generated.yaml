@@ -25752,6 +25752,8 @@ paths:
           application/json:
             schema:
               type: object
+      security:
+      - bearerAuth: []
   /api/personas:
     get:
       tags:
@@ -114300,6 +114302,8 @@ paths:
           application/json:
             schema:
               type: object
+      security:
+      - bearerAuth: []
   /api/v1/personas:
     get:
       tags:

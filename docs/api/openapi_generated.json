@@ -43921,6 +43921,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "operationId": "createPaymentsWebhookStripe"
       }
     },
@@ -201533,6 +201538,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "operationId": "createPaymentsWebhookStripe1"
       }
     },

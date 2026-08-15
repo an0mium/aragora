@@ -1,29 +1,42 @@
 """Regression coverage for free-function registered OpenAPI routes."""
 
+import ast
+from pathlib import Path
+
 from aragora.server.openapi import generate_openapi_schema
 from aragora.server.openapi.endpoints.wired_registrations import (
     WIRED_REGISTRATION_ENDPOINTS,
 )
-from aragora.server.handlers.admin.credits import (
-    CreditsAdminHandler,
-    register_credits_admin_routes,
-)
+from aragora.server.openapi_impl import _is_source_backed_registration
 
 
-class _RecordingRouter:
-    def __init__(self) -> None:
-        self.operations: set[tuple[str, str]] = set()
+_ROOT = Path(__file__).parents[3]
+_REGISTRARS = {
+    "aragora/server/handlers/admin/credits.py": "register_credits_admin_routes",
+    "aragora/server/handlers/inbox_command.py": "register_routes",
+    "aragora/server/handlers/features/integrations.py": "register_integration_routes",
+    "aragora/server/handlers/payments/plans.py": "register_payment_routes",
+    "aragora/server/handlers/costs/routes.py": "register_routes",
+}
 
-    def add_get(self, path: str, handler: object) -> None:
-        self.operations.add((path, "get"))
 
-    def add_post(self, path: str, handler: object) -> None:
-        self.operations.add((path, "post"))
-
-
-class _RecordingApp:
-    def __init__(self) -> None:
-        self.router = _RecordingRouter()
+def _literal_registrar_operations(source: str, function_name: str) -> set[tuple[str, str]]:
+    tree = ast.parse((_ROOT / source).read_text())
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name
+    )
+    operations: set[tuple[str, str]] = set()
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if not node.func.attr.startswith("add_") or not node.args:
+            continue
+        path = node.args[0]
+        if isinstance(path, ast.Constant) and isinstance(path.value, str):
+            operations.add((path.value, node.func.attr.removeprefix("add_")))
+    return operations
 
 
 def test_wired_registration_routes_survive_fresh_generation() -> None:
@@ -102,27 +115,32 @@ def test_cost_recommendation_mutations_are_exported() -> None:
             assert "post" in paths[path]
 
 
-def test_admin_credit_declarations_match_registered_routes() -> None:
-    app = _RecordingApp()
-    register_credits_admin_routes(app, CreditsAdminHandler())  # type: ignore[arg-type]
+def test_wired_declarations_match_all_registrar_sources() -> None:
+    for source, function_name in _REGISTRARS.items():
+        registered = _literal_registrar_operations(source, function_name)
+        declared = {
+            (path, method)
+            for path, methods in WIRED_REGISTRATION_ENDPOINTS.items()
+            for method, operation in methods.items()
+            if not method.startswith("x-")
+            and f"registered by {source}." in operation["description"]
+        }
+        assert declared
+        assert declared <= registered, (
+            f"{source} has unserved declarations: {declared - registered}"
+        )
 
-    declared = {
-        (path, method)
-        for path, methods in WIRED_REGISTRATION_ENDPOINTS.items()
-        if path.startswith(("/api/admin/credits/", "/api/v1/admin/credits/"))
-        for method in methods
-        if not method.startswith("x-")
-    }
-    assert declared == app.router.operations
 
-
-def test_authorize_net_webhooks_require_bearer_auth() -> None:
+def test_payment_webhooks_match_runtime_bearer_auth() -> None:
     paths = generate_openapi_schema()["paths"]
 
-    for path in ("/api/payments/webhook/authnet", "/api/v1/payments/webhook/authnet"):
+    for path in (
+        "/api/payments/webhook/authnet",
+        "/api/v1/payments/webhook/authnet",
+        "/api/payments/webhook/stripe",
+        "/api/v1/payments/webhook/stripe",
+    ):
         assert paths[path]["post"]["security"] == [{"bearerAuth": []}]
-    for path in ("/api/payments/webhook/stripe", "/api/v1/payments/webhook/stripe"):
-        assert "security" not in paths[path]["post"]
 
 
 def test_wired_operations_do_not_share_mutable_schema_objects() -> None:
@@ -134,3 +152,10 @@ def test_wired_operations_do_not_share_mutable_schema_objects() -> None:
 
     assert charge_response is not charge_request
     assert charge_response is not refund_response
+
+
+def test_source_backed_bypass_is_limited_to_canonical_wired_paths() -> None:
+    marked = {"get": {"x-wired-registration": True}}
+
+    assert _is_source_backed_registration("/api/admin/credits/{org_id}", marked)
+    assert not _is_source_backed_registration("/api/unrelated", marked)

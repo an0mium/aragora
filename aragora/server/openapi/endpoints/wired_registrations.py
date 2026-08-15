@@ -147,7 +147,7 @@ _PAYMENT_ROUTES = (
     ("/api/payments/transaction/{transaction_id}", ("get",), "200", False),
     ("/api/payments/void", ("post",), "200", False),
     ("/api/payments/webhook/authnet", ("post",), "200", False),
-    ("/api/payments/webhook/stripe", ("post",), "200", True),
+    ("/api/payments/webhook/stripe", ("post",), "200", False),
     ("/api/v1/payments/authorize", ("post",), "200", False),
     ("/api/v1/payments/capture", ("post",), "200", False),
     ("/api/v1/payments/charge", ("post",), "200", False),
@@ -164,7 +164,7 @@ _PAYMENT_ROUTES = (
     ("/api/v1/payments/transaction/{transaction_id}", ("get",), "200", False),
     ("/api/v1/payments/void", ("post",), "200", False),
     ("/api/v1/payments/webhook/authnet", ("post",), "200", False),
-    ("/api/v1/payments/webhook/stripe", ("post",), "200", True),
+    ("/api/v1/payments/webhook/stripe", ("post",), "200", False),
 )
 
 
