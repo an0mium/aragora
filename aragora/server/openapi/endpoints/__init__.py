@@ -90,6 +90,7 @@ from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
 from aragora.server.openapi.endpoints.agent_bridge import AGENT_BRIDGE_ENDPOINTS
 from aragora.server.openapi.endpoints.wired_registrations import (
     WIRED_REGISTRATION_ENDPOINTS,
+    WIRED_REGISTRATION_NO_V1_ALIASES,
 )
 
 
@@ -287,5 +288,6 @@ __all__ = [
     "STATUS_ENDPOINTS",
     "AGENT_BRIDGE_ENDPOINTS",
     "WIRED_REGISTRATION_ENDPOINTS",
+    "WIRED_REGISTRATION_NO_V1_ALIASES",
     "ALL_ENDPOINTS",
 ]

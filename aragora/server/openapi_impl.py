@@ -35,7 +35,11 @@ from aragora.server.openapi.route_contract_overrides import ROUTE_CONTRACT_OVERR
 from aragora.server.openapi.schemas import COMMON_SCHEMAS
 
 # Import all endpoint definitions from endpoints subpackage
-from aragora.server.openapi.endpoints import ALL_ENDPOINTS, WIRED_REGISTRATION_ENDPOINTS
+from aragora.server.openapi.endpoints import (
+    ALL_ENDPOINTS,
+    WIRED_REGISTRATION_ENDPOINTS,
+    WIRED_REGISTRATION_NO_V1_ALIASES,
+)
 from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
@@ -361,7 +365,7 @@ def _add_v1_aliases(paths: dict[str, Any]) -> dict[str, Any]:
             continue
         if path.startswith("/api/v1/") or path.startswith("/api/v2/"):
             continue
-        if spec.get("x-no-v1-alias") is True:
+        if path in WIRED_REGISTRATION_NO_V1_ALIASES:
             continue
         v1_path = path.replace("/api/", "/api/v1/", 1)
         if v1_path not in aliased:
