@@ -10,7 +10,9 @@ import yaml
 from aragora.server.openapi import generate_openapi_schema
 from aragora.server.openapi.endpoints.wired_registrations import (
     WIRED_REGISTRATION_ENDPOINTS,
+    _PRESERVED_OPERATION_IDS,
 )
+from aragora.server.openapi.operation_ids import generate_operation_id
 from aragora.server.openapi_impl import _is_source_backed_registration
 
 
@@ -85,6 +87,16 @@ def test_wired_operation_ids_are_unique() -> None:
 
     assert len(operation_ids) == 68
     assert len(set(operation_ids)) == 68
+
+
+def test_canonical_wired_routes_own_unsuffixed_generated_operation_ids() -> None:
+    for path, methods in WIRED_REGISTRATION_ENDPOINTS.items():
+        if not path.startswith("/api/v1/"):
+            continue
+        for method, operation in methods.items():
+            if (path, method) in _PRESERVED_OPERATION_IDS:
+                continue
+            assert operation["operationId"] == generate_operation_id(method, path)
 
 
 def test_wired_operation_ids_match_generated_json_and_yaml() -> None:

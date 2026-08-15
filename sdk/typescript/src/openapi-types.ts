@@ -382,7 +382,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getAdminCreditsByorgid"];
+        get: operations["getAdminCreditsByorgid1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -405,7 +405,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createAdminCreditsByorgidAdjust"];
+        post: operations["createAdminCreditsByorgidAdjust1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -424,7 +424,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["listAdminCreditsByorgidExpiring"];
+        get: operations["listAdminCreditsByorgidExpiring1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -447,7 +447,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createAdminCreditsByorgidIssue"];
+        post: operations["createAdminCreditsByorgidIssue1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -466,7 +466,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["listAdminCreditsByorgidTransactions"];
+        get: operations["listAdminCreditsByorgidTransactions1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11013,7 +11013,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsAuthorize"];
+        post: operations["createPaymentsAuthorize1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11034,7 +11034,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCapture"];
+        post: operations["createPaymentsCapture1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11055,7 +11055,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCharge"];
+        post: operations["createPaymentsCharge1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11076,7 +11076,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCustomer"];
+        post: operations["createPaymentsCustomer1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11095,20 +11095,20 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsCustomerBycustomerid"];
+        get: operations["getPaymentsCustomerBycustomerid1"];
         /**
          * PUT /api/payments/customer/{customer_id}
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        put: operations["updatePaymentsCustomerBycustomerid"];
+        put: operations["updatePaymentsCustomerBycustomerid1"];
         post?: never;
         /**
          * DELETE /api/payments/customer/{customer_id}
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        delete: operations["deletePaymentsCustomerBycustomerid"];
+        delete: operations["deletePaymentsCustomerBycustomerid1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11128,7 +11128,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsRefund"];
+        post: operations["createPaymentsRefund1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11149,7 +11149,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsSubscription"];
+        post: operations["createPaymentsSubscription1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11168,20 +11168,20 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsSubscriptionBysubscriptionid"];
+        get: operations["getPaymentsSubscriptionBysubscriptionid1"];
         /**
          * PUT /api/payments/subscription/{subscription_id}
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        put: operations["updatePaymentsSubscriptionBysubscriptionid"];
+        put: operations["updatePaymentsSubscriptionBysubscriptionid1"];
         post?: never;
         /**
          * DELETE /api/payments/subscription/{subscription_id}
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        delete: operations["deletePaymentsSubscriptionBysubscriptionid"];
+        delete: operations["deletePaymentsSubscriptionBysubscriptionid1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11199,7 +11199,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsTransactionBytransactionid"];
+        get: operations["getPaymentsTransactionBytransactionid1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11222,7 +11222,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsVoid"];
+        post: operations["createPaymentsVoid1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11243,7 +11243,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsWebhookAuthnet"];
+        post: operations["createPaymentsWebhookAuthnet1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11264,7 +11264,7 @@ export interface paths {
          * @deprecated
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsWebhookStripe"];
+        post: operations["createPaymentsWebhookStripe1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16071,7 +16071,7 @@ export interface paths {
          * GET /api/v1/admin/credits/{org_id}
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getAdminCreditsByorgid1"];
+        get: operations["getAdminCreditsByorgid"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16093,7 +16093,7 @@ export interface paths {
          * POST /api/v1/admin/credits/{org_id}/adjust
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createAdminCreditsByorgidAdjust1"];
+        post: operations["createAdminCreditsByorgidAdjust"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16111,7 +16111,7 @@ export interface paths {
          * GET /api/v1/admin/credits/{org_id}/expiring
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["listAdminCreditsByorgidExpiring1"];
+        get: operations["listAdminCreditsByorgidExpiring"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16133,7 +16133,7 @@ export interface paths {
          * POST /api/v1/admin/credits/{org_id}/issue
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createAdminCreditsByorgidIssue1"];
+        post: operations["createAdminCreditsByorgidIssue"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16151,7 +16151,7 @@ export interface paths {
          * GET /api/v1/admin/credits/{org_id}/transactions
          * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["listAdminCreditsByorgidTransactions1"];
+        get: operations["listAdminCreditsByorgidTransactions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -48738,7 +48738,7 @@ export interface paths {
          * POST /api/v1/payments/authorize
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsAuthorize1"];
+        post: operations["createPaymentsAuthorize"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48758,7 +48758,7 @@ export interface paths {
          * POST /api/v1/payments/capture
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCapture1"];
+        post: operations["createPaymentsCapture"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48778,7 +48778,7 @@ export interface paths {
          * POST /api/v1/payments/charge
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCharge1"];
+        post: operations["createPaymentsCharge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48798,7 +48798,7 @@ export interface paths {
          * POST /api/v1/payments/customer
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsCustomer1"];
+        post: operations["createPaymentsCustomer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48816,18 +48816,18 @@ export interface paths {
          * GET /api/v1/payments/customer/{customer_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsCustomerBycustomerid1"];
+        get: operations["getPaymentsCustomerBycustomerid"];
         /**
          * PUT /api/v1/payments/customer/{customer_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        put: operations["updatePaymentsCustomerBycustomerid1"];
+        put: operations["updatePaymentsCustomerBycustomerid"];
         post?: never;
         /**
          * DELETE /api/v1/payments/customer/{customer_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        delete: operations["deletePaymentsCustomerBycustomerid1"];
+        delete: operations["deletePaymentsCustomerBycustomerid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -48846,7 +48846,7 @@ export interface paths {
          * POST /api/v1/payments/refund
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsRefund1"];
+        post: operations["createPaymentsRefund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48866,7 +48866,7 @@ export interface paths {
          * POST /api/v1/payments/subscription
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsSubscription1"];
+        post: operations["createPaymentsSubscription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48884,18 +48884,18 @@ export interface paths {
          * GET /api/v1/payments/subscription/{subscription_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsSubscriptionBysubscriptionid1"];
+        get: operations["getPaymentsSubscriptionBysubscriptionid"];
         /**
          * PUT /api/v1/payments/subscription/{subscription_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        put: operations["updatePaymentsSubscriptionBysubscriptionid1"];
+        put: operations["updatePaymentsSubscriptionBysubscriptionid"];
         post?: never;
         /**
          * DELETE /api/v1/payments/subscription/{subscription_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        delete: operations["deletePaymentsSubscriptionBysubscriptionid1"];
+        delete: operations["deletePaymentsSubscriptionBysubscriptionid"];
         options?: never;
         head?: never;
         patch?: never;
@@ -48912,7 +48912,7 @@ export interface paths {
          * GET /api/v1/payments/transaction/{transaction_id}
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        get: operations["getPaymentsTransactionBytransactionid1"];
+        get: operations["getPaymentsTransactionBytransactionid"];
         put?: never;
         post?: never;
         delete?: never;
@@ -48934,7 +48934,7 @@ export interface paths {
          * POST /api/v1/payments/void
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsVoid1"];
+        post: operations["createPaymentsVoid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48954,7 +48954,7 @@ export interface paths {
          * POST /api/v1/payments/webhook/authnet
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsWebhookAuthnet1"];
+        post: operations["createPaymentsWebhookAuthnet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48974,7 +48974,7 @@ export interface paths {
          * POST /api/v1/payments/webhook/stripe
          * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
          */
-        post: operations["createPaymentsWebhookStripe1"];
+        post: operations["createPaymentsWebhookStripe"];
         delete?: never;
         options?: never;
         head?: never;
@@ -65341,7 +65341,7 @@ export interface operations {
             };
         };
     };
-    getAdminCreditsByorgid: {
+    getAdminCreditsByorgid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -65364,7 +65364,7 @@ export interface operations {
             };
         };
     };
-    createAdminCreditsByorgidAdjust: {
+    createAdminCreditsByorgidAdjust1: {
         parameters: {
             query?: never;
             header?: never;
@@ -65391,7 +65391,7 @@ export interface operations {
             };
         };
     };
-    listAdminCreditsByorgidExpiring: {
+    listAdminCreditsByorgidExpiring1: {
         parameters: {
             query?: never;
             header?: never;
@@ -65414,7 +65414,7 @@ export interface operations {
             };
         };
     };
-    createAdminCreditsByorgidIssue: {
+    createAdminCreditsByorgidIssue1: {
         parameters: {
             query?: never;
             header?: never;
@@ -65441,7 +65441,7 @@ export interface operations {
             };
         };
     };
-    listAdminCreditsByorgidTransactions: {
+    listAdminCreditsByorgidTransactions1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84624,7 +84624,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsAuthorize: {
+    createPaymentsAuthorize1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84648,7 +84648,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCapture: {
+    createPaymentsCapture1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84672,7 +84672,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCharge: {
+    createPaymentsCharge1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84696,7 +84696,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCustomer: {
+    createPaymentsCustomer1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84720,7 +84720,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsCustomerBycustomerid: {
+    getPaymentsCustomerBycustomerid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84743,7 +84743,7 @@ export interface operations {
             };
         };
     };
-    updatePaymentsCustomerBycustomerid: {
+    updatePaymentsCustomerBycustomerid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84770,7 +84770,7 @@ export interface operations {
             };
         };
     };
-    deletePaymentsCustomerBycustomerid: {
+    deletePaymentsCustomerBycustomerid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84793,7 +84793,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsRefund: {
+    createPaymentsRefund1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84817,7 +84817,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsSubscription: {
+    createPaymentsSubscription1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84841,7 +84841,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsSubscriptionBysubscriptionid: {
+    getPaymentsSubscriptionBysubscriptionid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84864,7 +84864,7 @@ export interface operations {
             };
         };
     };
-    updatePaymentsSubscriptionBysubscriptionid: {
+    updatePaymentsSubscriptionBysubscriptionid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84891,7 +84891,7 @@ export interface operations {
             };
         };
     };
-    deletePaymentsSubscriptionBysubscriptionid: {
+    deletePaymentsSubscriptionBysubscriptionid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84914,7 +84914,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsTransactionBytransactionid: {
+    getPaymentsTransactionBytransactionid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84937,7 +84937,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsVoid: {
+    createPaymentsVoid1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84961,7 +84961,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsWebhookAuthnet: {
+    createPaymentsWebhookAuthnet1: {
         parameters: {
             query?: never;
             header?: never;
@@ -84985,7 +84985,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsWebhookStripe: {
+    createPaymentsWebhookStripe1: {
         parameters: {
             query?: never;
             header?: never;
@@ -93464,7 +93464,7 @@ export interface operations {
             };
         };
     };
-    getAdminCreditsByorgid1: {
+    getAdminCreditsByorgid: {
         parameters: {
             query?: never;
             header?: never;
@@ -93487,7 +93487,7 @@ export interface operations {
             };
         };
     };
-    createAdminCreditsByorgidAdjust1: {
+    createAdminCreditsByorgidAdjust: {
         parameters: {
             query?: never;
             header?: never;
@@ -93514,7 +93514,7 @@ export interface operations {
             };
         };
     };
-    listAdminCreditsByorgidExpiring1: {
+    listAdminCreditsByorgidExpiring: {
         parameters: {
             query?: never;
             header?: never;
@@ -93537,7 +93537,7 @@ export interface operations {
             };
         };
     };
-    createAdminCreditsByorgidIssue1: {
+    createAdminCreditsByorgidIssue: {
         parameters: {
             query?: never;
             header?: never;
@@ -93564,7 +93564,7 @@ export interface operations {
             };
         };
     };
-    listAdminCreditsByorgidTransactions1: {
+    listAdminCreditsByorgidTransactions: {
         parameters: {
             query?: never;
             header?: never;
@@ -160838,7 +160838,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsAuthorize1: {
+    createPaymentsAuthorize: {
         parameters: {
             query?: never;
             header?: never;
@@ -160862,7 +160862,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCapture1: {
+    createPaymentsCapture: {
         parameters: {
             query?: never;
             header?: never;
@@ -160886,7 +160886,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCharge1: {
+    createPaymentsCharge: {
         parameters: {
             query?: never;
             header?: never;
@@ -160910,7 +160910,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsCustomer1: {
+    createPaymentsCustomer: {
         parameters: {
             query?: never;
             header?: never;
@@ -160934,7 +160934,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsCustomerBycustomerid1: {
+    getPaymentsCustomerBycustomerid: {
         parameters: {
             query?: never;
             header?: never;
@@ -160957,7 +160957,7 @@ export interface operations {
             };
         };
     };
-    updatePaymentsCustomerBycustomerid1: {
+    updatePaymentsCustomerBycustomerid: {
         parameters: {
             query?: never;
             header?: never;
@@ -160984,7 +160984,7 @@ export interface operations {
             };
         };
     };
-    deletePaymentsCustomerBycustomerid1: {
+    deletePaymentsCustomerBycustomerid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161007,7 +161007,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsRefund1: {
+    createPaymentsRefund: {
         parameters: {
             query?: never;
             header?: never;
@@ -161031,7 +161031,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsSubscription1: {
+    createPaymentsSubscription: {
         parameters: {
             query?: never;
             header?: never;
@@ -161055,7 +161055,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsSubscriptionBysubscriptionid1: {
+    getPaymentsSubscriptionBysubscriptionid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161078,7 +161078,7 @@ export interface operations {
             };
         };
     };
-    updatePaymentsSubscriptionBysubscriptionid1: {
+    updatePaymentsSubscriptionBysubscriptionid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161105,7 +161105,7 @@ export interface operations {
             };
         };
     };
-    deletePaymentsSubscriptionBysubscriptionid1: {
+    deletePaymentsSubscriptionBysubscriptionid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161128,7 +161128,7 @@ export interface operations {
             };
         };
     };
-    getPaymentsTransactionBytransactionid1: {
+    getPaymentsTransactionBytransactionid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161151,7 +161151,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsVoid1: {
+    createPaymentsVoid: {
         parameters: {
             query?: never;
             header?: never;
@@ -161175,7 +161175,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsWebhookAuthnet1: {
+    createPaymentsWebhookAuthnet: {
         parameters: {
             query?: never;
             header?: never;
@@ -161199,7 +161199,7 @@ export interface operations {
             };
         };
     };
-    createPaymentsWebhookStripe1: {
+    createPaymentsWebhookStripe: {
         parameters: {
             query?: never;
             header?: never;

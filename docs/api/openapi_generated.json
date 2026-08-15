@@ -2641,7 +2641,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getAdminCreditsByorgid"
+        "operationId": "getAdminCreditsByorgid1"
       }
     },
     "/api/admin/credits/{org_id}/adjust": {
@@ -2693,7 +2693,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createAdminCreditsByorgidAdjust"
+        "operationId": "createAdminCreditsByorgidAdjust1"
       }
     },
     "/api/admin/credits/{org_id}/expiring": {
@@ -2736,7 +2736,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listAdminCreditsByorgidExpiring"
+        "operationId": "listAdminCreditsByorgidExpiring1"
       }
     },
     "/api/admin/credits/{org_id}/issue": {
@@ -2788,7 +2788,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createAdminCreditsByorgidIssue"
+        "operationId": "createAdminCreditsByorgidIssue1"
       }
     },
     "/api/admin/credits/{org_id}/transactions": {
@@ -2831,7 +2831,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listAdminCreditsByorgidTransactions"
+        "operationId": "listAdminCreditsByorgidTransactions1"
       }
     },
     "/api/admin/feature-flags": {
@@ -43285,7 +43285,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsAuthorize"
+        "operationId": "createPaymentsAuthorize1"
       }
     },
     "/api/payments/capture": {
@@ -43326,7 +43326,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCapture"
+        "operationId": "createPaymentsCapture1"
       }
     },
     "/api/payments/charge": {
@@ -43367,7 +43367,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCharge"
+        "operationId": "createPaymentsCharge1"
       }
     },
     "/api/payments/customer": {
@@ -43408,7 +43408,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCustomer"
+        "operationId": "createPaymentsCustomer1"
       }
     },
     "/api/payments/customer/{customer_id}": {
@@ -43451,7 +43451,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "deletePaymentsCustomerBycustomerid"
+        "operationId": "deletePaymentsCustomerBycustomerid1"
       },
       "get": {
         "summary": "GET /api/payments/customer/{customer_id}",
@@ -43492,7 +43492,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsCustomerBycustomerid"
+        "operationId": "getPaymentsCustomerBycustomerid1"
       },
       "put": {
         "summary": "PUT /api/payments/customer/{customer_id}",
@@ -43542,7 +43542,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "updatePaymentsCustomerBycustomerid"
+        "operationId": "updatePaymentsCustomerBycustomerid1"
       }
     },
     "/api/payments/refund": {
@@ -43583,7 +43583,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsRefund"
+        "operationId": "createPaymentsRefund1"
       }
     },
     "/api/payments/subscription": {
@@ -43624,7 +43624,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsSubscription"
+        "operationId": "createPaymentsSubscription1"
       }
     },
     "/api/payments/subscription/{subscription_id}": {
@@ -43667,7 +43667,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "deletePaymentsSubscriptionBysubscriptionid"
+        "operationId": "deletePaymentsSubscriptionBysubscriptionid1"
       },
       "get": {
         "summary": "GET /api/payments/subscription/{subscription_id}",
@@ -43708,7 +43708,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsSubscriptionBysubscriptionid"
+        "operationId": "getPaymentsSubscriptionBysubscriptionid1"
       },
       "put": {
         "summary": "PUT /api/payments/subscription/{subscription_id}",
@@ -43758,7 +43758,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "updatePaymentsSubscriptionBysubscriptionid"
+        "operationId": "updatePaymentsSubscriptionBysubscriptionid1"
       }
     },
     "/api/payments/transaction/{transaction_id}": {
@@ -43801,7 +43801,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsTransactionBytransactionid"
+        "operationId": "getPaymentsTransactionBytransactionid1"
       }
     },
     "/api/payments/void": {
@@ -43842,7 +43842,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsVoid"
+        "operationId": "createPaymentsVoid1"
       }
     },
     "/api/payments/webhook/authnet": {
@@ -43883,7 +43883,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsWebhookAuthnet"
+        "operationId": "createPaymentsWebhookAuthnet1"
       }
     },
     "/api/payments/webhook/stripe": {
@@ -43924,7 +43924,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsWebhookStripe"
+        "operationId": "createPaymentsWebhookStripe1"
       }
     },
     "/api/personas": {
@@ -61329,7 +61329,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getAdminCreditsByorgid1"
+        "operationId": "getAdminCreditsByorgid"
       }
     },
     "/api/v1/admin/credits/{org_id}/adjust": {
@@ -61379,7 +61379,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createAdminCreditsByorgidAdjust1"
+        "operationId": "createAdminCreditsByorgidAdjust"
       }
     },
     "/api/v1/admin/credits/{org_id}/expiring": {
@@ -61420,7 +61420,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listAdminCreditsByorgidExpiring1"
+        "operationId": "listAdminCreditsByorgidExpiring"
       }
     },
     "/api/v1/admin/credits/{org_id}/issue": {
@@ -61470,7 +61470,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createAdminCreditsByorgidIssue1"
+        "operationId": "createAdminCreditsByorgidIssue"
       }
     },
     "/api/v1/admin/credits/{org_id}/transactions": {
@@ -61511,7 +61511,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listAdminCreditsByorgidTransactions1"
+        "operationId": "listAdminCreditsByorgidTransactions"
       }
     },
     "/api/v1/admin/feature-flags": {
@@ -200923,7 +200923,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsAuthorize1"
+        "operationId": "createPaymentsAuthorize"
       }
     },
     "/api/v1/payments/capture": {
@@ -200962,7 +200962,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCapture1"
+        "operationId": "createPaymentsCapture"
       }
     },
     "/api/v1/payments/charge": {
@@ -201001,7 +201001,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCharge1"
+        "operationId": "createPaymentsCharge"
       }
     },
     "/api/v1/payments/customer": {
@@ -201040,7 +201040,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsCustomer1"
+        "operationId": "createPaymentsCustomer"
       }
     },
     "/api/v1/payments/customer/{customer_id}": {
@@ -201081,7 +201081,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "deletePaymentsCustomerBycustomerid1"
+        "operationId": "deletePaymentsCustomerBycustomerid"
       },
       "get": {
         "summary": "GET /api/v1/payments/customer/{customer_id}",
@@ -201120,7 +201120,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsCustomerBycustomerid1"
+        "operationId": "getPaymentsCustomerBycustomerid"
       },
       "put": {
         "summary": "PUT /api/v1/payments/customer/{customer_id}",
@@ -201168,7 +201168,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "updatePaymentsCustomerBycustomerid1"
+        "operationId": "updatePaymentsCustomerBycustomerid"
       }
     },
     "/api/v1/payments/refund": {
@@ -201207,7 +201207,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsRefund1"
+        "operationId": "createPaymentsRefund"
       }
     },
     "/api/v1/payments/subscription": {
@@ -201246,7 +201246,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsSubscription1"
+        "operationId": "createPaymentsSubscription"
       }
     },
     "/api/v1/payments/subscription/{subscription_id}": {
@@ -201287,7 +201287,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "deletePaymentsSubscriptionBysubscriptionid1"
+        "operationId": "deletePaymentsSubscriptionBysubscriptionid"
       },
       "get": {
         "summary": "GET /api/v1/payments/subscription/{subscription_id}",
@@ -201326,7 +201326,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsSubscriptionBysubscriptionid1"
+        "operationId": "getPaymentsSubscriptionBysubscriptionid"
       },
       "put": {
         "summary": "PUT /api/v1/payments/subscription/{subscription_id}",
@@ -201374,7 +201374,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "updatePaymentsSubscriptionBysubscriptionid1"
+        "operationId": "updatePaymentsSubscriptionBysubscriptionid"
       }
     },
     "/api/v1/payments/transaction/{transaction_id}": {
@@ -201415,7 +201415,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getPaymentsTransactionBytransactionid1"
+        "operationId": "getPaymentsTransactionBytransactionid"
       }
     },
     "/api/v1/payments/void": {
@@ -201454,7 +201454,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsVoid1"
+        "operationId": "createPaymentsVoid"
       }
     },
     "/api/v1/payments/webhook/authnet": {
@@ -201493,7 +201493,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsWebhookAuthnet1"
+        "operationId": "createPaymentsWebhookAuthnet"
       }
     },
     "/api/v1/payments/webhook/stripe": {
@@ -201532,7 +201532,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "createPaymentsWebhookStripe1"
+        "operationId": "createPaymentsWebhookStripe"
       }
     },
     "/api/v1/personas": {

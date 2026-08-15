@@ -235,4 +235,11 @@ _PRESERVED_OPERATION_IDS = {
 for (_path, _method), _operation_id in _PRESERVED_OPERATION_IDS.items():
     WIRED_REGISTRATION_ENDPOINTS[_path][_method]["operationId"] = _operation_id
 
-add_operation_ids_to_paths(WIRED_REGISTRATION_ENDPOINTS)
+add_operation_ids_to_paths(
+    dict(
+        sorted(
+            WIRED_REGISTRATION_ENDPOINTS.items(),
+            key=lambda item: not item[0].startswith("/api/v1/"),
+        )
+    )
+)

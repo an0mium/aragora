@@ -1431,7 +1431,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: getAdminCreditsByorgid
+      operationId: getAdminCreditsByorgid1
   /api/admin/credits/{org_id}/adjust:
     post:
       summary: POST /api/admin/credits/{org_id}/adjust
@@ -1465,7 +1465,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createAdminCreditsByorgidAdjust
+      operationId: createAdminCreditsByorgidAdjust1
   /api/admin/credits/{org_id}/expiring:
     get:
       summary: GET /api/admin/credits/{org_id}/expiring
@@ -1494,7 +1494,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: listAdminCreditsByorgidExpiring
+      operationId: listAdminCreditsByorgidExpiring1
   /api/admin/credits/{org_id}/issue:
     post:
       summary: POST /api/admin/credits/{org_id}/issue
@@ -1528,7 +1528,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createAdminCreditsByorgidIssue
+      operationId: createAdminCreditsByorgidIssue1
   /api/admin/credits/{org_id}/transactions:
     get:
       summary: GET /api/admin/credits/{org_id}/transactions
@@ -1557,7 +1557,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: listAdminCreditsByorgidTransactions
+      operationId: listAdminCreditsByorgidTransactions1
   /api/admin/feature-flags:
     get:
       tags:
@@ -25364,7 +25364,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsAuthorize
+      operationId: createPaymentsAuthorize1
   /api/payments/capture:
     post:
       summary: POST /api/payments/capture
@@ -25391,7 +25391,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCapture
+      operationId: createPaymentsCapture1
   /api/payments/charge:
     post:
       summary: POST /api/payments/charge
@@ -25418,7 +25418,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCharge
+      operationId: createPaymentsCharge1
   /api/payments/customer:
     post:
       summary: POST /api/payments/customer
@@ -25445,7 +25445,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCustomer
+      operationId: createPaymentsCustomer1
   /api/payments/customer/{customer_id}:
     delete:
       summary: DELETE /api/payments/customer/{customer_id}
@@ -25474,7 +25474,7 @@ paths:
         description: 'Path parameter: customer_id'
       security:
       - bearerAuth: []
-      operationId: deletePaymentsCustomerBycustomerid
+      operationId: deletePaymentsCustomerBycustomerid1
     get:
       summary: GET /api/payments/customer/{customer_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -25502,7 +25502,7 @@ paths:
         description: 'Path parameter: customer_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsCustomerBycustomerid
+      operationId: getPaymentsCustomerBycustomerid1
     put:
       summary: PUT /api/payments/customer/{customer_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -25535,7 +25535,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: updatePaymentsCustomerBycustomerid
+      operationId: updatePaymentsCustomerBycustomerid1
   /api/payments/refund:
     post:
       summary: POST /api/payments/refund
@@ -25562,7 +25562,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsRefund
+      operationId: createPaymentsRefund1
   /api/payments/subscription:
     post:
       summary: POST /api/payments/subscription
@@ -25589,7 +25589,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsSubscription
+      operationId: createPaymentsSubscription1
   /api/payments/subscription/{subscription_id}:
     delete:
       summary: DELETE /api/payments/subscription/{subscription_id}
@@ -25618,7 +25618,7 @@ paths:
         description: 'Path parameter: subscription_id'
       security:
       - bearerAuth: []
-      operationId: deletePaymentsSubscriptionBysubscriptionid
+      operationId: deletePaymentsSubscriptionBysubscriptionid1
     get:
       summary: GET /api/payments/subscription/{subscription_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -25646,7 +25646,7 @@ paths:
         description: 'Path parameter: subscription_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsSubscriptionBysubscriptionid
+      operationId: getPaymentsSubscriptionBysubscriptionid1
     put:
       summary: PUT /api/payments/subscription/{subscription_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -25679,7 +25679,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: updatePaymentsSubscriptionBysubscriptionid
+      operationId: updatePaymentsSubscriptionBysubscriptionid1
   /api/payments/transaction/{transaction_id}:
     get:
       summary: GET /api/payments/transaction/{transaction_id}
@@ -25708,7 +25708,7 @@ paths:
         description: 'Path parameter: transaction_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsTransactionBytransactionid
+      operationId: getPaymentsTransactionBytransactionid1
   /api/payments/void:
     post:
       summary: POST /api/payments/void
@@ -25735,7 +25735,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsVoid
+      operationId: createPaymentsVoid1
   /api/payments/webhook/authnet:
     post:
       summary: POST /api/payments/webhook/authnet
@@ -25762,7 +25762,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsWebhookAuthnet
+      operationId: createPaymentsWebhookAuthnet1
   /api/payments/webhook/stripe:
     post:
       summary: POST /api/payments/webhook/stripe
@@ -25789,7 +25789,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsWebhookStripe
+      operationId: createPaymentsWebhookStripe1
   /api/personas:
     get:
       tags:
@@ -35997,7 +35997,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: getAdminCreditsByorgid1
+      operationId: getAdminCreditsByorgid
   /api/v1/admin/credits/{org_id}/adjust:
     post:
       summary: POST /api/v1/admin/credits/{org_id}/adjust
@@ -36029,7 +36029,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createAdminCreditsByorgidAdjust1
+      operationId: createAdminCreditsByorgidAdjust
   /api/v1/admin/credits/{org_id}/expiring:
     get:
       summary: GET /api/v1/admin/credits/{org_id}/expiring
@@ -36056,7 +36056,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: listAdminCreditsByorgidExpiring1
+      operationId: listAdminCreditsByorgidExpiring
   /api/v1/admin/credits/{org_id}/issue:
     post:
       summary: POST /api/v1/admin/credits/{org_id}/issue
@@ -36088,7 +36088,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createAdminCreditsByorgidIssue1
+      operationId: createAdminCreditsByorgidIssue
   /api/v1/admin/credits/{org_id}/transactions:
     get:
       summary: GET /api/v1/admin/credits/{org_id}/transactions
@@ -36115,7 +36115,7 @@ paths:
         description: 'Path parameter: org_id'
       security:
       - bearerAuth: []
-      operationId: listAdminCreditsByorgidTransactions1
+      operationId: listAdminCreditsByorgidTransactions
   /api/v1/admin/feature-flags:
     get:
       tags:
@@ -113961,7 +113961,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsAuthorize1
+      operationId: createPaymentsAuthorize
   /api/v1/payments/capture:
     post:
       summary: POST /api/v1/payments/capture
@@ -113986,7 +113986,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCapture1
+      operationId: createPaymentsCapture
   /api/v1/payments/charge:
     post:
       summary: POST /api/v1/payments/charge
@@ -114011,7 +114011,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCharge1
+      operationId: createPaymentsCharge
   /api/v1/payments/customer:
     post:
       summary: POST /api/v1/payments/customer
@@ -114036,7 +114036,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsCustomer1
+      operationId: createPaymentsCustomer
   /api/v1/payments/customer/{customer_id}:
     delete:
       summary: DELETE /api/v1/payments/customer/{customer_id}
@@ -114063,7 +114063,7 @@ paths:
         description: 'Path parameter: customer_id'
       security:
       - bearerAuth: []
-      operationId: deletePaymentsCustomerBycustomerid1
+      operationId: deletePaymentsCustomerBycustomerid
     get:
       summary: GET /api/v1/payments/customer/{customer_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -114089,7 +114089,7 @@ paths:
         description: 'Path parameter: customer_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsCustomerBycustomerid1
+      operationId: getPaymentsCustomerBycustomerid
     put:
       summary: PUT /api/v1/payments/customer/{customer_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -114120,7 +114120,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: updatePaymentsCustomerBycustomerid1
+      operationId: updatePaymentsCustomerBycustomerid
   /api/v1/payments/refund:
     post:
       summary: POST /api/v1/payments/refund
@@ -114145,7 +114145,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsRefund1
+      operationId: createPaymentsRefund
   /api/v1/payments/subscription:
     post:
       summary: POST /api/v1/payments/subscription
@@ -114170,7 +114170,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsSubscription1
+      operationId: createPaymentsSubscription
   /api/v1/payments/subscription/{subscription_id}:
     delete:
       summary: DELETE /api/v1/payments/subscription/{subscription_id}
@@ -114197,7 +114197,7 @@ paths:
         description: 'Path parameter: subscription_id'
       security:
       - bearerAuth: []
-      operationId: deletePaymentsSubscriptionBysubscriptionid1
+      operationId: deletePaymentsSubscriptionBysubscriptionid
     get:
       summary: GET /api/v1/payments/subscription/{subscription_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -114223,7 +114223,7 @@ paths:
         description: 'Path parameter: subscription_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsSubscriptionBysubscriptionid1
+      operationId: getPaymentsSubscriptionBysubscriptionid
     put:
       summary: PUT /api/v1/payments/subscription/{subscription_id}
       description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
@@ -114254,7 +114254,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: updatePaymentsSubscriptionBysubscriptionid1
+      operationId: updatePaymentsSubscriptionBysubscriptionid
   /api/v1/payments/transaction/{transaction_id}:
     get:
       summary: GET /api/v1/payments/transaction/{transaction_id}
@@ -114281,7 +114281,7 @@ paths:
         description: 'Path parameter: transaction_id'
       security:
       - bearerAuth: []
-      operationId: getPaymentsTransactionBytransactionid1
+      operationId: getPaymentsTransactionBytransactionid
   /api/v1/payments/void:
     post:
       summary: POST /api/v1/payments/void
@@ -114306,7 +114306,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsVoid1
+      operationId: createPaymentsVoid
   /api/v1/payments/webhook/authnet:
     post:
       summary: POST /api/v1/payments/webhook/authnet
@@ -114331,7 +114331,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsWebhookAuthnet1
+      operationId: createPaymentsWebhookAuthnet
   /api/v1/payments/webhook/stripe:
     post:
       summary: POST /api/v1/payments/webhook/stripe
@@ -114356,7 +114356,7 @@ paths:
               type: object
       security:
       - bearerAuth: []
-      operationId: createPaymentsWebhookStripe1
+      operationId: createPaymentsWebhookStripe
   /api/v1/personas:
     get:
       tags:
