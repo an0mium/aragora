@@ -84,10 +84,21 @@ def _extract_typescript_paths() -> set[str]:
 # Main
 # ---------------------------------------------------------------------------
 
+_CONFIG_ERROR_EXIT = 2
+
+
+def _config_error(message: str) -> int:
+    print(f"check_cross_sdk_parity: configuration error: {message}", file=sys.stderr)
+    return _CONFIG_ERROR_EXIT
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cross-language SDK parity check")
-    parser.add_argument("--strict", action="store_true", help="Fail on regressions beyond baseline")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail on regressions beyond baseline (requires --baseline)",
+    )
     parser.add_argument(
         "--baseline",
         type=Path,
@@ -96,6 +107,27 @@ def main() -> int:
     )
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
+
+    # Resolve the baseline up front and fail loudly when it cannot be
+    # resolved: silently gating against an implicitly empty baseline would
+    # re-flag every grandfathered gap as a new regression.
+    baseline_py_only: set[str] = set()
+    baseline_ts_only: set[str] = set()
+    if args.baseline is not None:
+        if not args.baseline.exists():
+            return _config_error(f"baseline file not found: {args.baseline}")
+        try:
+            data = json.loads(args.baseline.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return _config_error(f"could not load baseline {args.baseline}: {exc}")
+        if not isinstance(data, dict):
+            return _config_error(f"baseline {args.baseline} must be a JSON object")
+        baseline_py_only = set(data.get("python_only", []))
+        baseline_ts_only = set(data.get("typescript_only", []))
+    elif args.strict:
+        return _config_error(
+            "--strict requires --baseline (canonical: scripts/baselines/cross_sdk_parity.json)"
+        )
 
     py_paths = _extract_python_paths()
     ts_paths = _extract_typescript_paths()
@@ -136,13 +168,6 @@ def main() -> int:
                 print(f"  ... and {len(typescript_only) - 20} more")
 
     # Baseline regression check
-    baseline_py_only: set[str] = set()
-    baseline_ts_only: set[str] = set()
-    if args.baseline and args.baseline.exists():
-        data = json.loads(args.baseline.read_text())
-        baseline_py_only = set(data.get("python_only", []))
-        baseline_ts_only = set(data.get("typescript_only", []))
-
     new_py_only = set(python_only) - baseline_py_only
     new_ts_only = set(typescript_only) - baseline_ts_only
 
