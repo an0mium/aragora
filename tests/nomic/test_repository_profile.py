@@ -55,8 +55,8 @@ def test_defaults_infer_repository_identity(repository: Path) -> None:
     assert [item.id for item in profile.evaluation_criteria] == ["usefulness"]
 
 
-def test_yaml_round_trip_and_external_config_hash(repository: Path, tmp_path: Path) -> None:
-    config = tmp_path / "external.yaml"
+def test_yaml_round_trip_and_external_config_hash(repository: Path) -> None:
+    config = repository.parent / f"{repository.name}-external.yaml"
     config.write_text(
         yaml.safe_dump(
             {
@@ -86,9 +86,10 @@ def test_yaml_round_trip_and_external_config_hash(repository: Path, tmp_path: Pa
     )
 
     assert round_tripped == profile
+    assert not config.is_relative_to(repository)
     assert profile.source_config_sha256
     assert profile.profile_hash == round_tripped.profile_hash
-    assert str(tmp_path) not in str(profile.to_dict())
+    assert str(repository.parent) not in str(profile.to_dict())
 
 
 def test_duplicate_criterion_ids_rejected(repository: Path) -> None:
@@ -127,6 +128,16 @@ def test_profile_fields_are_strictly_typed(
 ) -> None:
     with pytest.raises(NomicProfileError, match=message):
         NomicRepositoryProfile.from_mapping(value, repo_root=repository)
+
+
+def test_falsy_non_mapping_sections_are_rejected(repository: Path) -> None:
+    with pytest.raises(NomicProfileError, match="repository must be a mapping"):
+        NomicRepositoryProfile.from_mapping({"repository": []}, repo_root=repository)
+
+    config = repository.parent / f"{repository.name}-invalid-nomic.yaml"
+    config.write_text(yaml.safe_dump({"nomic": []}), encoding="utf-8")
+    with pytest.raises(NomicProfileError, match="nomic must be a mapping"):
+        load_nomic_repository_profile(repository, config)
 
 
 @pytest.mark.parametrize("path", ["/tmp/ROADMAP.md", "../ROADMAP.md", "docs/../README.md"])
@@ -211,6 +222,7 @@ def test_revision_and_cleanliness(repository: Path) -> None:
             "https://github.com/example/project",
             "example/project",
         ),
+        ("git@host:/srv/repo.git", "https://host/srv/repo", "host/srv/repo"),
         ("file:///opt/example/project.git", None, "fallback"),
         ("/opt/example/project.git", None, "fallback"),
         ("../project.git", None, "fallback"),

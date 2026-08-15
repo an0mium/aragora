@@ -50,7 +50,7 @@ def normalize_remote_url(remote_url: str | None) -> str | None:
     scp_match = re.match(r"^(?:[^@]+@)?([^:]+):(.+)$", value)
     if scp_match and "://" not in value:
         host, path = scp_match.groups()
-        value = f"https://{host}/{path}"
+        value = f"https://{host}/{path.lstrip('/')}"
     elif value.startswith("ssh://"):
         parsed = urlparse(value)
         value = f"https://{parsed.hostname or ''}{parsed.path}"
@@ -217,7 +217,9 @@ class NomicRepositoryProfile:
         repo_root: Path,
         source_config_sha256: str | None = None,
     ) -> NomicRepositoryProfile:
-        repository = value.get("repository") or {}
+        repository = value.get("repository")
+        if repository is None:
+            repository = {}
         if not isinstance(repository, Mapping):
             raise NomicProfileError("nomic.repository must be a mapping")
         raw_name = repository.get("name")
@@ -329,7 +331,9 @@ def load_nomic_repository_profile(
         raise NomicProfileError(f"invalid YAML in {path.name}: {exc}") from exc
     if not isinstance(loaded, Mapping):
         raise NomicProfileError(".aragora.yaml must contain a mapping")
-    nomic = loaded.get("nomic") or {}
+    nomic = loaded.get("nomic")
+    if nomic is None:
+        nomic = {}
     if not isinstance(nomic, Mapping):
         raise NomicProfileError("nomic must be a mapping")
     return NomicRepositoryProfile.from_mapping(
