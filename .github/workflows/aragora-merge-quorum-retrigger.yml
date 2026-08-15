@@ -35,6 +35,9 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  # Read-only: the draft-run partition reads the PR's ready_for_review
+  # transitions from the issue-events timeline.
+  issues: read
   actions: write
 
 jobs:
@@ -84,35 +87,86 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number || github.event.inputs.pr_number }}
-          WORKFLOW_NAME: "Aragora Merge Quorum"
         shell: bash
         run: |
           set -euo pipefail
 
-          head_sha="$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json headRefOid --jq .headRefOid)"
-          if [[ -z "$head_sha" ]]; then
+          # Same gate-deferral rule as the enforcing workflow: drafts and
+          # closed PRs have no active gate to refresh.
+          pr_json="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}")"
+          pr_state="$(jq -r '.state' <<<"$pr_json")"
+          pr_draft="$(jq -r '.draft' <<<"$pr_json")"
+          head_sha="$(jq -r '.head.sha' <<<"$pr_json")"
+          if [[ -z "$head_sha" || "$head_sha" == "null" ]]; then
             echo "::warning::could not resolve head SHA for PR #${PR_NUMBER}; nothing to do."
+            exit 0
+          fi
+          if [[ "$pr_state" != "open" || "$pr_draft" != "false" ]]; then
+            echo "PR #${PR_NUMBER} state=${pr_state} draft=${pr_draft} — gate not active; no-op."
             exit 0
           fi
           echo "PR #${PR_NUMBER} current head: ${head_sha}"
 
-          # Most recent COMPLETED enforcing merge-quorum run for this exact head.
-          # gh run rerun only works on completed runs; an in-progress run will
-          # already evaluate the current head, so skipping it is correct.
-          # head_sha is bound through jq --arg (never interpolated into the program)
-          # so the selection is independent of upstream API formatting guarantees.
-          run_id="$(gh run list --repo "$GH_REPO" --workflow "$WORKFLOW_NAME" \
-            --limit 100 \
-            --json databaseId,headSha,status,createdAt \
-            | jq -r --arg head "$head_sha" \
-                '[.[] | select(.headSha==$head and .status=="completed")]
-                 | sort_by(.createdAt) | last | .databaseId // empty')"
-
-          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
-            echo "No completed merge-quorum run for head ${head_sha}; nothing to re-run."
+          # Deterministic selection, identical to the evidence-retrigger job
+          # in aragora-merge-quorum.yml. A rerun re-executes the run's
+          # ORIGINAL frozen event payload, so re-running an evaluation
+          # created while the PR was still a draft replays its draft
+          # short-circuit and resurfaces a stale SUCCESS over the truthful
+          # newest ready-state result (PR #9754: this helper picked
+          # draft-era run 31772664823 precisely because the newest
+          # evaluation was already re-running and a completed-only filter
+          # fell back past it). Enumerate ALL head-bound pull_request
+          # evaluations (full pagination, reconciled against total_count),
+          # drop runs created before the PR's newest ready_for_review
+          # transition (frozen draft payloads), order by (run_started_at,
+          # run_id, run_attempt), and consider ONLY the newest survivor.
+          # In-flight newest: it already evaluates the current evidence —
+          # no-op. Green newest: no recount needed — no-op. Never fall back.
+          runs_url="repos/${GH_REPO}/actions/workflows/aragora-merge-quorum.yml/runs?event=pull_request&head_sha=${head_sha}"
+          total_count="$(gh api "${runs_url}&per_page=1" --jq '.total_count')"
+          runs_json="$(gh api --paginate "${runs_url}&per_page=100" \
+            --jq '.workflow_runs[] | {id, run_attempt, status, conclusion, created_at, run_started_at}' \
+            | jq -s '.')"
+          if [[ "$(jq 'length' <<<"$runs_json")" -ne "$total_count" ]]; then
+            echo "::warning::head-bound run listing inconsistent with total_count=${total_count}; no-op."
+            exit 0
+          fi
+          ready_at="$(gh api --paginate "repos/${GH_REPO}/issues/${PR_NUMBER}/events?per_page=100" \
+            --jq '.[] | select(.event == "ready_for_review") | .created_at' | sort | tail -n1)"
+          target_json="$(jq -c --arg ready "${ready_at}" \
+            '[.[] | select(($ready == "") or (.created_at >= $ready))]
+             | sort_by(.run_started_at, .id, .run_attempt) | last // empty' <<<"$runs_json")"
+          if [[ -z "$target_json" ]]; then
+            echo "No non-draft head-bound evaluation run for ${head_sha} — no-op."
             echo "(A pull_request-triggered run will evaluate this head on its own.)"
             exit 0
           fi
+          run_id="$(jq -r '.id' <<<"$target_json")"
+          run_status="$(jq -r '.status' <<<"$target_json")"
+          run_conclusion="$(jq -r '.conclusion' <<<"$target_json")"
+          if [[ "$run_status" != "completed" ]]; then
+            echo "Newest non-draft evaluation run ${run_id} is ${run_status} — it will see the current evidence; no-op."
+            exit 0
+          fi
+          if [[ "$run_conclusion" == "success" ]]; then
+            echo "Newest non-draft evaluation run ${run_id} already succeeded — no-op."
+            exit 0
+          fi
 
-          echo "Re-running merge-quorum run ${run_id} for head ${head_sha}"
-          gh run rerun "$run_id" --repo "$GH_REPO"
+          # Concurrent evidence comments (and the evidence-retrigger job in
+          # the enforcing workflow) all compute this same target, so a
+          # fresh status read immediately before the request collapses a
+          # burst into ONE rerun: losers see a non-completed run and no-op,
+          # and the rerun API rejecting an already-queued run covers the
+          # residual race.
+          fresh_status="$(gh api "repos/${GH_REPO}/actions/runs/${run_id}" --jq '.status')"
+          if [[ "$fresh_status" != "completed" ]]; then
+            echo "Evaluation run ${run_id} is already ${fresh_status} (concurrent retrigger won) — no-op."
+            exit 0
+          fi
+          echo "Re-running stale evaluation run ${run_id} (conclusion=${run_conclusion}) for PR #${PR_NUMBER} head ${head_sha}."
+          # A rejected rerun request (already re-running) must not turn
+          # comment activity into red noise; the A1 reconciler remains the
+          # safety net.
+          gh run rerun "$run_id" --repo "$GH_REPO" \
+            || echo "::warning::rerun request for run ${run_id} failed (possibly already re-running); no-op."

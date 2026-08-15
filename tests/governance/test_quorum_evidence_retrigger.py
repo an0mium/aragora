@@ -13,7 +13,13 @@ They pin the structural contract of ``aragora-merge-quorum.yml``:
 * the re-trigger path is guarded, debounced, and least-privileged;
 * the enforcing evaluation job is untouched: no comment event reaches
   it, its permissions stay read-only, and its anti-doom-loop
-  ``cancel-in-progress: false`` invariant is preserved.
+  ``cancel-in-progress: false`` invariant is preserved;
+* BOTH retrigger surfaces (the in-file ``evidence-retrigger`` job and
+  the standalone ``aragora-merge-quorum-retrigger.yml`` helper) select
+  their rerun target deterministically: the newest completed non-draft
+  head-bound evaluation ordered by ``(run_started_at, run_id,
+  run_attempt)``, with concurrent comment bursts collapsing into a
+  single rerun (``TestDeterministicNonDraftSelection``).
 
 The suite must FAIL against the pre-B1 workflow and PASS with the
 change (RED/GREEN proof captured in the implementing PR).
@@ -30,11 +36,22 @@ import yaml
 WORKFLOW_PATH = (
     Path(__file__).resolve().parents[2] / ".github" / "workflows" / "aragora-merge-quorum.yml"
 )
+STANDALONE_WORKFLOW_PATH = (
+    Path(__file__).resolve().parents[2]
+    / ".github"
+    / "workflows"
+    / "aragora-merge-quorum-retrigger.yml"
+)
 
 
 @pytest.fixture(scope="module")
 def workflow() -> dict[str, Any]:
     return yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def standalone_workflow() -> dict[str, Any]:
+    return yaml.safe_load(STANDALONE_WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -181,3 +198,132 @@ class TestEnforcingJobUnchanged:
         assert writes == ["actions"]
         assert permissions.get("contents") is None
         assert permissions.get("statuses") is None
+
+
+class TestDeterministicNonDraftSelection:
+    """Both retrigger surfaces select their rerun target deterministically.
+
+    Regression target for the 2026-08-14 draft-success resurfacing incident
+    on PR #9754: two pull_request evaluations existed at head ``ee63516c``
+    (draft-era run 31772664823, ready-state run 31772790229), and a
+    two-comment evidence burst rerain BOTH — the standalone helper picked
+    the older draft-era run because the newest one was already re-running,
+    and a rerun re-executes the run's ORIGINAL frozen event payload, so the
+    draft short-circuit replayed a stale SUCCESS over the truthful
+    ready-state ``human_risk_settlement_required`` result.
+
+    The contract pinned here, for the in-file ``evidence-retrigger`` job AND
+    the standalone ``aragora-merge-quorum-retrigger.yml`` helper alike:
+
+    * enumerate ALL head-bound ``pull_request`` evaluations (full
+      pagination reconciled against ``total_count``), never a single
+      API-ordering-dependent first item;
+    * exclude draft-frozen evaluations (runs created before the PR's newest
+      ``ready_for_review`` transition);
+    * order candidates by ``(run_started_at, run_id, run_attempt)`` and
+      consider ONLY the newest survivor — an in-flight or already-green
+      newest evaluation means no-op, never a fallback to an older run;
+    * deduplicate concurrent comment-triggered retriggers into one rerun
+      via a fresh pre-rerun status read plus rerun-rejection tolerance.
+    """
+
+    @pytest.fixture(scope="class")
+    def retrigger_scripts(
+        self, retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
+    ) -> dict[str, str]:
+        return {
+            "evidence-retrigger": _run_blocks(retrigger_job),
+            "standalone": _run_blocks(standalone_workflow["jobs"]["retrigger"]),
+        }
+
+    def test_selection_enumerates_all_head_bound_runs(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """Full pagination + total_count reconciliation, per surface."""
+        for surface, script in retrigger_scripts.items():
+            assert "--paginate" in script, f"{surface}: must enumerate ALL head-bound runs"
+            assert "total_count" in script, (
+                f"{surface}: enumeration must be reconciled against total_count"
+            )
+
+    def test_selection_orders_by_run_started_at_run_id_run_attempt(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """The pinned deterministic ordering key, identical on both surfaces."""
+        for surface, script in retrigger_scripts.items():
+            assert "sort_by(.run_started_at, .id, .run_attempt)" in script, (
+                f"{surface}: selection must order by (run_started_at, run_id, run_attempt)"
+            )
+
+    def test_selection_excludes_draft_frozen_evaluations(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """Runs created before the newest ready_for_review transition are
+        frozen draft payloads and must never be rerun targets."""
+        for surface, script in retrigger_scripts.items():
+            assert "ready_for_review" in script, (
+                f"{surface}: selection must partition out draft-created evaluations"
+            )
+            assert "created_at" in script
+
+    def test_nondeterministic_selections_are_gone(self, retrigger_scripts: dict[str, str]) -> None:
+        """The two incident-era selections must not reappear."""
+        for surface, script in retrigger_scripts.items():
+            assert ".workflow_runs[0]" not in script, (
+                f"{surface}: per_page=1 first-item selection is API-ordering-dependent"
+            )
+            assert "sort_by(.createdAt)" not in script, (
+                f"{surface}: createdAt-only ordering ignores reruns and attempt order"
+            )
+            assert '.status=="completed")' not in script, (
+                f"{surface}: filtering to completed runs BEFORE picking the newest "
+                "falls back to older (draft-era) evaluations while the newest is "
+                "re-running — the PR #9754 resurfacing mechanism"
+            )
+
+    def test_only_the_newest_evaluation_may_be_rerun(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """Completed/success checks happen AFTER selection: an in-flight or
+        green newest evaluation no-ops instead of falling back."""
+        for surface, script in retrigger_scripts.items():
+            assert script.count("gh run rerun") == 1, (
+                f"{surface}: exactly one rerun path, for the selected newest run only"
+            )
+            assert '"$run_status" != "completed"' in script, (
+                f"{surface}: in-flight newest evaluation must no-op, not fall back"
+            )
+            assert '"$run_conclusion" == "success"' in script, (
+                f"{surface}: a green newest evaluation needs no recount"
+            )
+
+    def test_concurrent_retriggers_collapse_into_one_rerun(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """All surfaces compute the same target; a fresh pre-rerun status
+        read plus rerun-rejection tolerance turns burst losers into no-ops."""
+        for surface, script in retrigger_scripts.items():
+            assert "actions/runs/${run_id}" in script, (
+                f"{surface}: must re-read the selected run's status just before rerun"
+            )
+            assert "concurrent retrigger won" in script
+            assert "::warning::rerun request" in script, (
+                f"{surface}: a rejected rerun (already re-running) must not be red noise"
+            )
+
+    def test_standalone_guards_open_non_draft_pr(self, standalone_workflow: dict[str, Any]) -> None:
+        """The helper must observe the same gate-deferral rule as the job."""
+        script = _run_blocks(standalone_workflow["jobs"]["retrigger"])
+        assert ".draft" in script
+        assert ".state" in script
+
+    def test_issue_events_read_permission_present(
+        self, retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
+    ) -> None:
+        """The ready_for_review partition reads issue events on both surfaces."""
+        job_permissions = retrigger_job.get("permissions") or {}
+        assert job_permissions.get("issues") == "read"
+        workflow_permissions = standalone_workflow.get("permissions") or {}
+        assert workflow_permissions.get("issues") == "read"
+        writes = sorted(scope for scope, level in workflow_permissions.items() if level == "write")
+        assert writes == ["actions"], "helper workflow write surface stays exactly actions"
