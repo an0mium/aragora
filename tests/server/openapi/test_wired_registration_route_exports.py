@@ -1,7 +1,11 @@
 """Regression coverage for free-function registered OpenAPI routes."""
 
 import ast
+from collections import Counter
+import json
 from pathlib import Path
+
+import yaml
 
 from aragora.server.openapi import generate_openapi_schema
 from aragora.server.openapi.endpoints.wired_registrations import (
@@ -69,6 +73,43 @@ def test_wired_registration_metadata_is_explicit() -> None:
             assert operation["x-wired-registration"] is True
             assert operation["summary"] == f"{method.upper()} {path}"
             assert "Served route registered by" in operation["description"]
+
+
+def test_wired_operation_ids_are_unique() -> None:
+    operation_ids = [
+        operation["operationId"]
+        for methods in WIRED_REGISTRATION_ENDPOINTS.values()
+        for method, operation in methods.items()
+        if not method.startswith("x-")
+    ]
+
+    assert len(operation_ids) == 68
+    assert len(set(operation_ids)) == 68
+
+
+def test_wired_operation_ids_match_generated_json_and_yaml() -> None:
+    json_spec = json.loads((_ROOT / "docs/api/openapi_generated.json").read_text())
+    yaml_spec = yaml.safe_load((_ROOT / "docs/api/openapi_generated.yaml").read_text())
+    json_ids = Counter(
+        operation["operationId"]
+        for methods in json_spec["paths"].values()
+        for operation in methods.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    )
+    yaml_ids = Counter(
+        operation["operationId"]
+        for methods in yaml_spec["paths"].values()
+        for operation in methods.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    )
+
+    for path, methods in WIRED_REGISTRATION_ENDPOINTS.items():
+        for method, operation in methods.items():
+            expected = operation["operationId"]
+            assert json_spec["paths"][path][method]["operationId"] == expected
+            assert yaml_spec["paths"][path][method]["operationId"] == expected
+            assert json_ids[expected] == 1
+            assert yaml_ids[expected] == 1
 
 
 def test_unversioned_only_email_routes_do_not_gain_v1_aliases() -> None:

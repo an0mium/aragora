@@ -9,6 +9,8 @@ from collections.abc import Iterable
 import re
 from typing import Any
 
+from aragora.server.openapi.operation_ids import add_operation_ids_to_paths
+
 
 _MUTATING_METHODS = {"patch", "post", "put"}
 
@@ -46,6 +48,7 @@ def _operation(
     }
     if deprecated:
         operation["deprecated"] = True
+        operation["x-preserve-legacy-operation-id"] = True
     parameters = [
         {
             "name": name,
@@ -208,3 +211,9 @@ WIRED_REGISTRATION_ENDPOINTS = {
         ),
     ),
 }
+
+_added_operation_ids, _existing_operation_ids, _updated_operation_ids = add_operation_ids_to_paths(
+    WIRED_REGISTRATION_ENDPOINTS
+)
+if (_added_operation_ids, _existing_operation_ids, _updated_operation_ids) != (68, 0, 0):
+    raise RuntimeError("wired operation IDs must be assigned once without collisions")

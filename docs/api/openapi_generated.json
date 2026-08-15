@@ -2624,6 +2624,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "org_id",
@@ -2666,6 +2667,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "org_id",
@@ -2717,6 +2719,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "org_id",
@@ -2759,6 +2762,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "org_id",
@@ -2810,6 +2814,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "org_id",
@@ -22466,6 +22471,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "recommendation_id",
@@ -22508,6 +22514,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "recommendation_id",
@@ -22559,6 +22566,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "recommendation_id",
@@ -29039,6 +29047,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -29070,6 +29079,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -32956,6 +32966,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -32996,6 +33007,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -33036,6 +33048,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -33067,6 +33080,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -33098,6 +33112,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -33138,6 +33153,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -34323,6 +34339,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "security": [
           {
             "bearerAuth": []
@@ -34860,6 +34877,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "type",
@@ -34900,6 +34918,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "type",
@@ -34940,6 +34959,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "type",
@@ -34989,6 +35009,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "type",
@@ -35040,6 +35061,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "type",
@@ -43248,6 +43270,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43288,6 +43311,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43328,6 +43352,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43368,6 +43393,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43408,6 +43434,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "customer_id",
@@ -43448,6 +43475,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "customer_id",
@@ -43488,6 +43516,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "customer_id",
@@ -43539,6 +43568,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43579,6 +43609,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43619,6 +43650,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "subscription_id",
@@ -43659,6 +43691,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "subscription_id",
@@ -43699,6 +43732,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "subscription_id",
@@ -43750,6 +43784,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "parameters": [
           {
             "name": "transaction_id",
@@ -43792,6 +43827,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43832,6 +43868,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
@@ -43872,6 +43909,7 @@
         "x-wired-registration": true,
         "x-aragora-stability": "deprecated",
         "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
         "requestBody": {
           "content": {
             "application/json": {
