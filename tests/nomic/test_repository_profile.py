@@ -49,7 +49,7 @@ def repository(tmp_path: Path) -> Path:
 def test_defaults_infer_repository_identity(repository: Path) -> None:
     profile = load_nomic_repository_profile(repository)
 
-    assert profile.repository_name == repository.name
+    assert profile.repository_name == "project"
     assert profile.repository_id == "example/project"
     assert profile.remote_url == "https://github.com/example/project"
     assert [item.id for item in profile.evaluation_criteria] == ["usefulness"]
@@ -119,6 +119,8 @@ def test_duplicate_criterion_ids_rejected(repository: Path) -> None:
             {"evaluation_criteria": [{"id": "impact", "description": "Impact", "weight": 1}]},
             "unknown evaluation criterion",
         ),
+        ({"roadmap_path": ["README.md"]}, "unknown nomic field"),
+        ({"repository": {"slug": "example/project"}}, "unknown nomic.repository field"),
     ],
 )
 def test_profile_fields_are_strictly_typed(
@@ -152,7 +154,9 @@ def test_external_config_errors_name_the_selected_file(repository: Path) -> None
         load_nomic_repository_profile(repository, config)
 
 
-@pytest.mark.parametrize("path", ["/tmp/ROADMAP.md", "../ROADMAP.md", "docs/../README.md"])
+@pytest.mark.parametrize(
+    "path", ["/tmp/ROADMAP.md", "../ROADMAP.md", "docs/../README.md", "bad\x00path"]
+)
 def test_invalid_repository_paths_rejected(repository: Path, path: str) -> None:
     with pytest.raises(NomicProfileError, match="path"):
         NomicRepositoryProfile.from_mapping(
@@ -201,6 +205,34 @@ def test_symlink_escaping_repository_rejected(repository: Path) -> None:
         profile.validate_files(repository, RepositoryRevision.resolve(repository))
 
 
+def test_tracked_in_repository_symlink_cannot_redirect_to_ignored_content(
+    repository: Path,
+) -> None:
+    (repository / ".gitignore").write_text("ignored.md\n", encoding="utf-8")
+    (repository / "ignored.md").write_text("not in the commit\n", encoding="utf-8")
+    (repository / "context.md").symlink_to("ignored.md")
+    git(repository, "add", ".gitignore", "context.md")
+    git(repository, "commit", "-m", "track in-repository symlink")
+    profile = NomicRepositoryProfile.from_mapping(
+        {"context_entry_files": ["context.md"]}, repo_root=repository
+    )
+
+    assert git(repository, "status", "--porcelain") == ""
+    with pytest.raises(NomicProfileError, match="must not be a symlink"):
+        profile.validate_files(repository, RepositoryRevision.resolve(repository))
+
+
+def test_profile_without_remote_requires_explicit_portable_id(tmp_path: Path) -> None:
+    with pytest.raises(NomicProfileError, match="repository.id is required"):
+        NomicRepositoryProfile.from_mapping({}, repo_root=tmp_path)
+
+    profile = NomicRepositoryProfile.from_mapping(
+        {"repository": {"id": "local/example"}}, repo_root=tmp_path
+    )
+    assert profile.repository_name == "example"
+    assert profile.repository_id == "local/example"
+
+
 def test_revision_and_cleanliness(repository: Path) -> None:
     revision = assert_clean_revision(repository)
     assert len(revision.commit_sha) == 40
@@ -238,6 +270,11 @@ def test_revision_and_cleanliness(repository: Path) -> None:
             "git://github.com/example/project.git",
             "https://github.com/example/project",
             "example/project",
+        ),
+        (
+            "https://git.corp.example:8443/team/repo.git",
+            "https://git.corp.example:8443/team/repo",
+            "git.corp.example:8443/team/repo",
         ),
         ("git@host:/srv/repo.git", "https://host/srv/repo", "host/srv/repo"),
         ("file:///opt/example/project.git", None, "fallback"),
@@ -296,6 +333,7 @@ def test_context_pack_serializes_complete_metadata_contract(tmp_path: Path) -> N
     assert payload["context_byte_budget"] == 4096
     assert payload["include_tests"] is False
     assert payload["rlm_summary"] == "Repository summary"
+    assert isinstance(hash(pack), int)
 
 
 @pytest.mark.parametrize("pack_id", ["", ".", "..", "nested/pack", r"nested\\pack", "pack id"])
