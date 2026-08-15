@@ -129,9 +129,7 @@ class TestOutcomeMapping:
         assert r.outcome == "yes"
 
     def test_no_outcome(self) -> None:
-        _, r = bridge_from_manifold_market(
-            _market(resolution="NO"), _res(outcome="no"), "ag", 0.2
-        )
+        _, r = bridge_from_manifold_market(_market(resolution="NO"), _res(outcome="no"), "ag", 0.2)
         assert r.outcome == "no"
 
     @pytest.mark.parametrize("raw_outcome", ["inconclusive", "CANCEL", "mkt", "", "MKT"])
@@ -142,9 +140,7 @@ class TestOutcomeMapping:
         assert r.outcome == "inconclusive"
 
     def test_unknown_outcome_is_inconclusive(self) -> None:
-        _, r = bridge_from_manifold_market(
-            _market(), _res(outcome="CHOOSE_ONE"), "ag", 0.5
-        )
+        _, r = bridge_from_manifold_market(_market(), _res(outcome="CHOOSE_ONE"), "ag", 0.5)
         assert r.outcome == "inconclusive"
 
 
@@ -184,7 +180,14 @@ class TestClaimShape:
 
     def test_provenance_keys(self) -> None:
         claim, _ = bridge_from_manifold_market(_market(), _res(), "ag", 0.8)
-        for key in ("market_id", "slug", "outcome_type", "close_time_ms", "close_time_iso", "submitted_at"):
+        for key in (
+            "market_id",
+            "slug",
+            "outcome_type",
+            "close_time_ms",
+            "close_time_iso",
+            "submitted_at",
+        ):
             assert key in claim.provenance
 
     def test_evidence_keys(self) -> None:
@@ -193,7 +196,9 @@ class TestClaimShape:
             assert key in resolved.evidence
 
     def test_evidence_market_id_matches(self) -> None:
-        _, resolved = bridge_from_manifold_market(_market(market_id="mkt_q"), _res(market_id="mkt_q"), "ag", 0.8)
+        _, resolved = bridge_from_manifold_market(
+            _market(market_id="mkt_q"), _res(market_id="mkt_q"), "ag", 0.8
+        )
         assert resolved.evidence["market_id"] == "mkt_q"
 
     def test_claim_id_content_addressed(self) -> None:
@@ -235,8 +240,13 @@ class TestClaimShape:
 
     def test_stake_params_forwarded(self) -> None:
         claim, r = bridge_from_manifold_market(
-            _market(), _res(), "ag", 0.8,
-            stake_units=5, stake_policy="scaled", require_enabled=False
+            _market(),
+            _res(),
+            "ag",
+            0.8,
+            stake_units=5,
+            stake_policy="scaled",
+            require_enabled=False,
         )
         assert claim.stake_units == 5
         assert claim.stake_policy == "scaled"
