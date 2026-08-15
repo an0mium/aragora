@@ -51,7 +51,7 @@ def normalize_remote_url(remote_url: str | None) -> str | None:
     if scp_match and "://" not in value:
         host, path = scp_match.groups()
         value = f"https://{host}/{path.lstrip('/')}"
-    elif value.startswith("ssh://"):
+    elif value.startswith(("ssh://", "git+ssh://")):
         parsed = urlparse(value)
         value = f"https://{parsed.hostname or ''}{parsed.path}"
     parsed = urlparse(value)
@@ -324,13 +324,18 @@ def load_nomic_repository_profile(
         if config_path is not None:
             raise NomicProfileError(f"configuration file does not exist: {path.name}")
         return NomicRepositoryProfile.from_mapping({}, repo_root=root)
-    raw = path.read_bytes()
+    if not path.is_file():
+        raise NomicProfileError(f"configuration path is not a file: {path.name}")
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise NomicProfileError(f"cannot read configuration file {path.name}: {exc}") from exc
     try:
         loaded = yaml.safe_load(raw) or {}
     except yaml.YAMLError as exc:
         raise NomicProfileError(f"invalid YAML in {path.name}: {exc}") from exc
     if not isinstance(loaded, Mapping):
-        raise NomicProfileError(".aragora.yaml must contain a mapping")
+        raise NomicProfileError(f"{path.name} must contain a mapping")
     nomic = loaded.get("nomic")
     if nomic is None:
         nomic = {}
@@ -378,6 +383,12 @@ class ContextPack:
     context_byte_budget: int = 100_000_000
     include_tests: bool = True
     rlm_summary: str = field(default="", repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.pack_id, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._-]*", self.pack_id
+        ):
+            raise NomicProfileError("context pack ID must be a non-empty portable path segment")
 
     @property
     def reference(self) -> str:

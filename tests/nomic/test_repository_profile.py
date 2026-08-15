@@ -140,6 +140,18 @@ def test_falsy_non_mapping_sections_are_rejected(repository: Path) -> None:
         load_nomic_repository_profile(repository, config)
 
 
+def test_external_config_errors_name_the_selected_file(repository: Path) -> None:
+    config_directory = repository.parent / f"{repository.name}-config-directory"
+    config_directory.mkdir()
+    with pytest.raises(NomicProfileError, match=r"configuration path is not a file: .*directory"):
+        load_nomic_repository_profile(repository, config_directory)
+
+    config = repository.parent / f"{repository.name}-list-root.yaml"
+    config.write_text("- not\n- a\n- mapping\n", encoding="utf-8")
+    with pytest.raises(NomicProfileError, match=rf"{config.name} must contain a mapping"):
+        load_nomic_repository_profile(repository, config)
+
+
 @pytest.mark.parametrize("path", ["/tmp/ROADMAP.md", "../ROADMAP.md", "docs/../README.md"])
 def test_invalid_repository_paths_rejected(repository: Path, path: str) -> None:
     with pytest.raises(NomicProfileError, match="path"):
@@ -218,6 +230,11 @@ def test_revision_and_cleanliness(repository: Path) -> None:
             "gitlab.com/group/project",
         ),
         (
+            "git+ssh://git@github.com/synaptent/aragora.git",
+            "https://github.com/synaptent/aragora",
+            "synaptent/aragora",
+        ),
+        (
             "git://github.com/example/project.git",
             "https://github.com/example/project",
             "example/project",
@@ -279,3 +296,29 @@ def test_context_pack_serializes_complete_metadata_contract(tmp_path: Path) -> N
     assert payload["context_byte_budget"] == 4096
     assert payload["include_tests"] is False
     assert payload["rlm_summary"] == "Repository summary"
+
+
+@pytest.mark.parametrize("pack_id", ["", ".", "..", "nested/pack", r"nested\\pack", "pack id"])
+def test_context_pack_rejects_path_unsafe_pack_ids(tmp_path: Path, pack_id: str) -> None:
+    profile = NomicRepositoryProfile(
+        repository_name="Example",
+        repository_id="example/project",
+    )
+    revision = RepositoryRevision(
+        commit_sha="a" * 40,
+        tree_sha="b" * 40,
+        branch="main",
+        remote_url=None,
+    )
+
+    with pytest.raises(NomicProfileError, match="portable path segment"):
+        ContextPack(
+            pack_id=pack_id,
+            objective="Improve the roadmap",
+            repository=profile,
+            revision=revision,
+            profile_hash=profile.profile_hash,
+            evidence=(),
+            artifact_digests={},
+            pack_path=tmp_path,
+        )
