@@ -1403,6 +1403,161 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       deprecated: true
       x-aragora-stability: deprecated
+  /api/admin/credits/{org_id}:
+    get:
+      summary: GET /api/admin/credits/{org_id}
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: getAdminCreditsByorgid
+  /api/admin/credits/{org_id}/adjust:
+    post:
+      summary: POST /api/admin/credits/{org_id}/adjust
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createAdminCreditsByorgidAdjust
+  /api/admin/credits/{org_id}/expiring:
+    get:
+      summary: GET /api/admin/credits/{org_id}/expiring
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: listAdminCreditsByorgidExpiring
+  /api/admin/credits/{org_id}/issue:
+    post:
+      summary: POST /api/admin/credits/{org_id}/issue
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createAdminCreditsByorgidIssue
+  /api/admin/credits/{org_id}/transactions:
+    get:
+      summary: GET /api/admin/credits/{org_id}/transactions
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: listAdminCreditsByorgidTransactions
   /api/admin/feature-flags:
     get:
       tags:
@@ -12804,64 +12959,103 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       deprecated: true
       x-aragora-stability: deprecated
-  /api/costs/recommendations/{param}/apply:
-    post:
-      summary: Autogenerated placeholder (spec pending)
+  /api/costs/recommendations/{recommendation_id}:
+    get:
+      summary: GET /api/costs/recommendations/{recommendation_id}
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
       - Costs
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  id:
-                    type: string
-                    description: Created resource ID
-                  success:
-                    type: boolean
-      x-autogenerated: true
-      x-method-inferred: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
       deprecated: true
+      x-preserve-legacy-operation-id: true
       parameters:
-      - name: param
+      - name: recommendation_id
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: param'
-      x-aragora-stability: deprecated
-  /api/costs/recommendations/{param}/dismiss:
+        description: 'Path parameter: recommendation_id'
+      security:
+      - bearerAuth: []
+      operationId: getCostsRecommendationsByrecommendationid
+  /api/costs/recommendations/{recommendation_id}/apply:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: POST /api/costs/recommendations/{recommendation_id}/apply
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
       - Costs
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  id:
-                    type: string
-                    description: Created resource ID
-                  success:
-                    type: boolean
-      x-autogenerated: true
-      x-method-inferred: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
       deprecated: true
+      x-preserve-legacy-operation-id: true
       parameters:
-      - name: param
+      - name: recommendation_id
         in: path
         required: true
         schema:
           type: string
-        description: 'Path parameter: param'
+        description: 'Path parameter: recommendation_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createCostsRecommendationsByrecommendationidApply
+  /api/costs/recommendations/{recommendation_id}/dismiss:
+    post:
+      summary: POST /api/costs/recommendations/{recommendation_id}/dismiss
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Costs
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: recommendation_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: recommendation_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createCostsRecommendationsByrecommendationidDismiss
   /api/costs/timeline:
     get:
       tags:
@@ -16649,6 +16843,50 @@ paths:
                 type: integer
       deprecated: true
       x-aragora-stability: deprecated
+  /api/email/daily-digest:
+    get:
+      summary: GET /api/email/daily-digest
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listEmailDailyDigest
+  /api/email/sender-profile:
+    get:
+      summary: GET /api/email/sender-profile
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listEmailSenderProfile
   /api/evolution:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -19058,6 +19296,153 @@ paths:
                     type: number
       deprecated: true
       x-aragora-stability: deprecated
+  /api/inbox/actions:
+    post:
+      summary: POST /api/inbox/actions
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createInboxActions1
+  /api/inbox/bulk-actions:
+    post:
+      summary: POST /api/inbox/bulk-actions
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createInboxBulkActions1
+  /api/inbox/command:
+    get:
+      summary: GET /api/inbox/command
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listInboxCommand1
+  /api/inbox/daily-digest:
+    get:
+      summary: GET /api/inbox/daily-digest
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listInboxDailyDigest1
+  /api/inbox/reprioritize:
+    post:
+      summary: POST /api/inbox/reprioritize
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createInboxReprioritize1
+  /api/inbox/sender-profile:
+    get:
+      summary: GET /api/inbox/sender-profile
+      description: Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Inbox
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listInboxSenderProfile1
   /api/insights/extract-detailed:
     post:
       tags:
@@ -19745,6 +20130,28 @@ paths:
           type: string
         description: 'Path parameter: param'
       x-aragora-stability: deprecated
+  /api/integrations/status:
+    get:
+      summary: GET /api/integrations/status
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      security:
+      - bearerAuth: []
+      operationId: listIntegrationsStatus
   /api/integrations/teams/callback:
     get:
       tags:
@@ -20045,6 +20452,163 @@ paths:
           type: string
         description: 'Path parameter: param'
       x-aragora-stability: deprecated
+  /api/integrations/{type}:
+    delete:
+      summary: DELETE /api/integrations/{type}
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: type'
+      security:
+      - bearerAuth: []
+      operationId: deleteIntegrationsBytype
+    get:
+      summary: GET /api/integrations/{type}
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: type'
+      security:
+      - bearerAuth: []
+      operationId: getIntegrationsBytype
+    patch:
+      summary: PATCH /api/integrations/{type}
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: type'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: patchIntegrationsBytype
+    put:
+      summary: PUT /api/integrations/{type}
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: type'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: updateIntegrationsBytype
+  /api/integrations/{type}/test:
+    post:
+      summary: POST /api/integrations/{type}/test
+      description: Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired
+        route registration; detailed contract pending.
+      tags:
+      - Integrations
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: type'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createIntegrationsBytypeTest
   /api/introspection/agents:
     get:
       tags:
@@ -24774,6 +25338,458 @@ paths:
                     trace_id: req_abc123xyz
       deprecated: true
       x-aragora-stability: deprecated
+  /api/payments/authorize:
+    post:
+      summary: POST /api/payments/authorize
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsAuthorize
+  /api/payments/capture:
+    post:
+      summary: POST /api/payments/capture
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCapture
+  /api/payments/charge:
+    post:
+      summary: POST /api/payments/charge
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCharge
+  /api/payments/customer:
+    post:
+      summary: POST /api/payments/customer
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCustomer
+  /api/payments/customer/{customer_id}:
+    delete:
+      summary: DELETE /api/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      security:
+      - bearerAuth: []
+      operationId: deletePaymentsCustomerBycustomerid
+    get:
+      summary: GET /api/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsCustomerBycustomerid
+    put:
+      summary: PUT /api/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: updatePaymentsCustomerBycustomerid
+  /api/payments/refund:
+    post:
+      summary: POST /api/payments/refund
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsRefund
+  /api/payments/subscription:
+    post:
+      summary: POST /api/payments/subscription
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsSubscription
+  /api/payments/subscription/{subscription_id}:
+    delete:
+      summary: DELETE /api/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      security:
+      - bearerAuth: []
+      operationId: deletePaymentsSubscriptionBysubscriptionid
+    get:
+      summary: GET /api/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsSubscriptionBysubscriptionid
+    put:
+      summary: PUT /api/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: updatePaymentsSubscriptionBysubscriptionid
+  /api/payments/transaction/{transaction_id}:
+    get:
+      summary: GET /api/payments/transaction/{transaction_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      parameters:
+      - name: transaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: transaction_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsTransactionBytransactionid
+  /api/payments/void:
+    post:
+      summary: POST /api/payments/void
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsVoid
+  /api/payments/webhook/authnet:
+    post:
+      summary: POST /api/payments/webhook/authnet
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsWebhookAuthnet
+  /api/payments/webhook/stripe:
+    post:
+      summary: POST /api/payments/webhook/stripe
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: deprecated
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsWebhookStripe
   /api/personas:
     get:
       tags:
@@ -34955,6 +35971,151 @@ paths:
       x-autogenerated: true
       x-method-inferred: false
       x-aragora-stability: experimental
+  /api/v1/admin/credits/{org_id}:
+    get:
+      summary: GET /api/v1/admin/credits/{org_id}
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: getAdminCreditsByorgid1
+  /api/v1/admin/credits/{org_id}/adjust:
+    post:
+      summary: POST /api/v1/admin/credits/{org_id}/adjust
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createAdminCreditsByorgidAdjust1
+  /api/v1/admin/credits/{org_id}/expiring:
+    get:
+      summary: GET /api/v1/admin/credits/{org_id}/expiring
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: listAdminCreditsByorgidExpiring1
+  /api/v1/admin/credits/{org_id}/issue:
+    post:
+      summary: POST /api/v1/admin/credits/{org_id}/issue
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createAdminCreditsByorgidIssue1
+  /api/v1/admin/credits/{org_id}/transactions:
+    get:
+      summary: GET /api/v1/admin/credits/{org_id}/transactions
+      description: Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: org_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: org_id'
+      security:
+      - bearerAuth: []
+      operationId: listAdminCreditsByorgidTransactions1
   /api/v1/admin/feature-flags:
     get:
       tags:
@@ -66985,17 +68146,11 @@ paths:
       x-aragora-stability: stable
   /api/v1/costs/recommendations/{recommendation_id}:
     get:
-      summary: Get recommendation
-      tags: []
-      description: Get a specific cost optimization recommendation.
-      operationId: handle_get_recommendation
-      parameters:
-      - name: recommendation_id
-        in: path
-        required: true
-        schema:
-          type: string
-        description: 'Path parameter: recommendation_id'
+      summary: GET /api/v1/costs/recommendations/{recommendation_id}
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Costs
       responses:
         '200':
           description: Success
@@ -67003,14 +68158,36 @@ paths:
             application/json:
               schema:
                 type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: recommendation_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: recommendation_id'
       security:
       - bearerAuth: []
+      operationId: handle_get_recommendation
   /api/v1/costs/recommendations/{recommendation_id}/apply:
     post:
-      summary: Apply recommendation
-      tags: []
-      description: Apply a cost optimization recommendation.
-      operationId: handle_apply_recommendation
+      summary: POST /api/v1/costs/recommendations/{recommendation_id}/apply
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Costs
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       parameters:
       - name: recommendation_id
         in: path
@@ -67023,21 +68200,26 @@ paths:
           application/json:
             schema:
               type: object
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
       security:
       - bearerAuth: []
+      operationId: handle_apply_recommendation
   /api/v1/costs/recommendations/{recommendation_id}/dismiss:
     post:
-      summary: Dismiss recommendation
-      tags: []
-      description: Dismiss a cost optimization recommendation.
-      operationId: handle_dismiss_recommendation
+      summary: POST /api/v1/costs/recommendations/{recommendation_id}/dismiss
+      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Costs
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       parameters:
       - name: recommendation_id
         in: path
@@ -67050,15 +68232,9 @@ paths:
           application/json:
             schema:
               type: object
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
       security:
       - bearerAuth: []
+      operationId: handle_dismiss_recommendation
   /api/v1/costs/timeline:
     get:
       tags:
@@ -89504,6 +90680,7 @@ paths:
   /api/v1/inbox/actions:
     post:
       summary: Execute inbox quick action
+      description: Execute an inbox command-center action against selected email IDs.
       tags:
       - Inbox
       responses:
@@ -89513,16 +90690,26 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                - success
+                - action
+                - processed
+                - results
                 properties:
-                  id:
-                    type: string
-                    description: Created resource ID
                   success:
                     type: boolean
-      x-method-inferred: true
-      security:
-      - bearerAuth: []
-      description: Execute an inbox command-center action against selected email IDs.
+                  action:
+                    type: string
+                  processed:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       requestBody:
         description: Inbox quick-action request.
         required: true
@@ -89547,7 +90734,9 @@ paths:
               required:
               - action
               - emailIds
-      x-aragora-stability: stable
+      security:
+      - bearerAuth: []
+      operationId: createInboxActions
   /api/v1/inbox/bulk-action:
     post:
       summary: Execute unified inbox bulk action
@@ -89593,25 +90782,19 @@ paths:
   /api/v1/inbox/bulk-actions:
     post:
       summary: Execute inbox bulk action by filter
+      description: Execute an inbox command-center bulk action against messages selected by filter.
       tags:
       - Inbox
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  id:
-                    type: string
-                    description: Created resource ID
-                  success:
-                    type: boolean
-      x-method-inferred: true
-      security:
-      - bearerAuth: []
-      description: Execute an inbox command-center bulk action against messages selected by filter.
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       requestBody:
         description: Inbox bulk-action-by-filter request.
         required: true
@@ -89634,30 +90817,28 @@ paths:
               required:
               - action
               - filter
-      x-aragora-stability: stable
+      security:
+      - bearerAuth: []
+      operationId: createInboxBulkActions
   /api/v1/inbox/command:
     get:
       summary: Fetch inbox command center view
+      description: Fetch prioritized inbox messages with aggregate stats and command-center filters.
       tags:
       - Inbox
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-method-inferred: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       security:
       - bearerAuth: []
-      description: Fetch prioritized inbox messages with aggregate stats and command-center filters.
-      x-aragora-stability: stable
+      operationId: listInboxCommand
   /api/v1/inbox/connect:
     post:
       summary: Connect unified inbox account
@@ -89705,26 +90886,22 @@ paths:
   /api/v1/inbox/daily-digest:
     get:
       summary: Get inbox daily digest
+      description: Get daily digest statistics for the inbox command center.
       tags:
       - Inbox
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-method-inferred: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       security:
       - bearerAuth: []
-      description: Get daily digest statistics for the inbox command center.
-      x-aragora-stability: stable
+      operationId: listInboxDailyDigest
   /api/v1/inbox/mentions:
     get:
       tags:
@@ -90007,25 +91184,19 @@ paths:
   /api/v1/inbox/reprioritize:
     post:
       summary: Reprioritize inbox
+      description: Trigger inbox reprioritization, optionally scoped to selected emails.
       tags:
       - Inbox
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  id:
-                    type: string
-                    description: Created resource ID
-                  success:
-                    type: boolean
-      x-method-inferred: true
-      security:
-      - bearerAuth: []
-      description: Trigger inbox reprioritization, optionally scoped to selected emails.
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       requestBody:
         description: Inbox reprioritization request.
         required: true
@@ -90042,7 +91213,9 @@ paths:
                   type: string
                 auto_debate:
                   type: boolean
-      x-aragora-stability: stable
+      security:
+      - bearerAuth: []
+      operationId: createInboxReprioritize
   /api/v1/inbox/routing/rules:
     post:
       tags:
@@ -90506,26 +91679,22 @@ paths:
   /api/v1/inbox/sender-profile:
     get:
       summary: Get inbox sender profile
+      description: Get profile information for a sender from the inbox command center.
       tags:
       - Inbox
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-method-inferred: true
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: stable
       security:
       - bearerAuth: []
-      description: Get profile information for a sender from the inbox command center.
-      x-aragora-stability: stable
+      operationId: listInboxSenderProfile
   /api/v1/inbox/shared:
     post:
       tags:
@@ -112769,152 +113938,425 @@ paths:
                     trace_id: req_abc123xyz
       x-aragora-stability: experimental
   /api/v1/payments/authorize:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/authorize
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsAuthorize1
   /api/v1/payments/capture:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/capture
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCapture1
   /api/v1/payments/charge:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/charge
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCharge1
   /api/v1/payments/customer:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/customer
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsCustomer1
+  /api/v1/payments/customer/{customer_id}:
+    delete:
+      summary: DELETE /api/v1/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      security:
+      - bearerAuth: []
+      operationId: deletePaymentsCustomerBycustomerid1
+    get:
+      summary: GET /api/v1/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsCustomerBycustomerid1
+    put:
+      summary: PUT /api/v1/payments/customer/{customer_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: customer_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: updatePaymentsCustomerBycustomerid1
   /api/v1/payments/refund:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/refund
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsRefund1
   /api/v1/payments/subscription:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/subscription
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsSubscription1
+  /api/v1/payments/subscription/{subscription_id}:
+    delete:
+      summary: DELETE /api/v1/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      security:
+      - bearerAuth: []
+      operationId: deletePaymentsSubscriptionBysubscriptionid1
+    get:
+      summary: GET /api/v1/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsSubscriptionBysubscriptionid1
+    put:
+      summary: PUT /api/v1/payments/subscription/{subscription_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: subscription_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: subscription_id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: updatePaymentsSubscriptionBysubscriptionid1
+  /api/v1/payments/transaction/{transaction_id}:
+    get:
+      summary: GET /api/v1/payments/transaction/{transaction_id}
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      parameters:
+      - name: transaction_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: transaction_id'
+      security:
+      - bearerAuth: []
+      operationId: getPaymentsTransactionBytransactionid1
   /api/v1/payments/void:
-    get:
-      summary: Autogenerated placeholder (spec pending)
+    post:
+      summary: POST /api/v1/payments/void
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
       tags:
-      - Accounting
+      - Payments
       responses:
         '200':
-          description: OK
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  data:
-                    type: object
-                    description: Response data
-                  success:
-                    type: boolean
-      x-autogenerated: true
       x-method-inferred: false
+      x-wired-registration: true
       x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsVoid1
+  /api/v1/payments/webhook/authnet:
+    post:
+      summary: POST /api/v1/payments/webhook/authnet
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsWebhookAuthnet1
+  /api/v1/payments/webhook/stripe:
+    post:
+      summary: POST /api/v1/payments/webhook/stripe
+      description: Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration;
+        detailed contract pending.
+      tags:
+      - Payments
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      x-method-inferred: false
+      x-wired-registration: true
+      x-aragora-stability: experimental
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      security:
+      - bearerAuth: []
+      operationId: createPaymentsWebhookStripe1
   /api/v1/personas:
     get:
       tags:
