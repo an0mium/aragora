@@ -2075,9 +2075,8 @@ class TestModelReviewQuorum:
         )
 
     def test_evidence_lint_rejects_undisclosed_proxy_transport_body(self) -> None:
-        # A hand-posted VibeProxy-transported body without the machine-readable
-        # transport-grounding disclosure must never count: in-process demotion
-        # cannot protect against re-posting the composed text by hand.
+        # A hand-posted VibeProxy body without the grounding disclosure never
+        # counts: in-process demotion cannot protect against re-posting by hand.
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         result = _lint_evidence_comment(
             pr="9505",

@@ -4543,16 +4543,12 @@ def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[
 def _proxy_transport_grounding_problem(text: str, heading_index: int | None) -> str:
     """Transport-aware counting check for proxy-transported review bodies.
 
-    The evidence collector composes every VibeProxy-transported body with a
-    prose ``Reviewer: ... via <harness>`` line, and — only on the conditionally
-    countable path — the machine-readable ``Reviewer harness:`` /
-    ``Transport grounding:`` pair. Any body whose reviewer/harness disclosure
-    names a proxy transport must therefore ALSO carry the exact canonical
-    grounding disclosure to count; otherwise it is an undisclosed proxy body
-    (e.g. hand-posted collector output the in-process demotion never saw) and
-    fails closed. Scans the same fence-aware post-heading window as
-    :func:`_structured_identity_metadata`; quoted (``> ``-prefixed) lines never
-    match because the label no longer starts the line.
+    Any body whose reviewer/harness disclosure names a proxy transport must
+    ALSO carry the exact canonical grounding disclosure to count; otherwise it
+    is an undisclosed proxy body (e.g. hand-posted collector output the
+    in-process demotion never saw) and fails closed. Scans the same
+    fence-aware post-heading window as :func:`_structured_identity_metadata`;
+    quoted (``> ``-prefixed) lines never match.
     """
     lines = str(text).splitlines()
     start = heading_index + 1 if heading_index is not None else 0

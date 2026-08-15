@@ -459,12 +459,9 @@ GROUNDED_TRANSPORT_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "gr
 #: advisory-only everywhere.
 PROXY_TRANSPORT_HARNESS_MARKERS: frozenset[str] = frozenset(("vibeproxy",))
 
-#: Canonical machine-readable value of the ``Transport grounding:`` disclosure
-#: line. Emitted verbatim by :func:`compose_evidence_comment` and matched
-#: EXACTLY (never fuzzily) by the countability checks on both sides of the gate
-#: (:func:`_proxy_grounding_disclosed` here; the identity resolver in
-#: ``review_queue``), so a paraphrased or hand-written variant never satisfies
-#: the disclosure.
+#: Canonical machine-readable value of the ``Transport grounding:`` line,
+#: emitted verbatim by :func:`compose_evidence_comment` and matched EXACTLY on
+#: both sides of the gate, so a paraphrased variant never satisfies it.
 PROXY_GROUNDING_DISCLOSURE = (
     "prompt-embedded (bounded full diff + full-file grounding at the reviewed head)"
 )
@@ -480,11 +477,10 @@ def _harness_is_proxy_transport(label: str) -> bool:
 def _proxy_grounding_disclosed(body: str) -> bool:
     """Whether ``body`` carries the machine-readable proxy-transport disclosure.
 
-    Requires BOTH collector-emitted lines: a ``Reviewer harness:`` line naming a
-    proxy transport and a ``Transport grounding:`` line exactly equal to
+    Requires BOTH collector-emitted lines: ``Reviewer harness:`` naming a proxy
+    transport and ``Transport grounding:`` exactly equal to
     :data:`PROXY_GROUNDING_DISCLOSURE`. Quoted (``> ``-prefixed) copies never
-    match — the label no longer starts the line — so reviewer-emitted text
-    neutralized by ``_neutralize_reviewer_text`` cannot satisfy this check.
+    match, so neutralized reviewer-emitted text cannot satisfy this check.
     """
     harness_is_proxy = False
     grounding_disclosed = False
@@ -616,14 +612,14 @@ def _run_reviewer_with_infra_retry(
     genuine dissent can never be "retried away". Counting/settlement are unchanged.
 
     One grok-specific exception (2026-08-15 fold Decision): a grok run that
-    COMPLETED (``ok=True``, non-empty text) but parses to NO valid Verdict line is
-    malformed reviewer output, not a review — observed twice live (#9693 round 1;
-    the 2026-08-14 #9752 flip). It is re-run exactly ONCE; a retry that parses to
-    a real verdict (PASS or CHANGES-REQUESTED alike) is scored normally, while a
-    second malformed result returns the FIRST result so the outcome stays
-    byte-identical to the pre-retry non-countable behavior. A parsed dissenting
-    or failing verdict never reaches this branch — retrying one would be
-    gate-gaming, exactly what the never-retry-a-real-verdict rule forbids.
+    COMPLETED (``ok=True``, non-empty text) but carries NO verdict line at all
+    is malformed output, not a review (observed live: #9693 round 1; the
+    2026-08-14 #9752 flip), and is re-run exactly ONCE. A retry that parses to
+    a real verdict (PASS or CHANGES-REQUESTED alike) is scored normally; a
+    second malformed result returns the FIRST, keeping the pre-retry
+    non-countable outcome. A body that HAS a verdict line never reaches this
+    branch even when its token is non-canonical (``Verdict: FAIL``) —
+    re-rolling substantive signal could convert a dissent into a counted PASS.
     """
     attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
     result = runner(family, prompt)
@@ -634,9 +630,10 @@ def _run_reviewer_with_infra_retry(
         result.ok
         and result.text.strip()
         and canonical_family(family) == "grok"
-        # Mirror the composed-body parse (normalize first): a result the
-        # composer would successfully re-anchor to a verdict is NOT malformed.
-        and _reviewer_verdict(normalize_reviewer_output(result.text, family=family)) == "unknown"
+        # Mirror the composed-body parse (normalize first), then require the
+        # verdict-less stream shape: a body the composer could anchor to ANY
+        # verdict line — canonical token or not — is never re-rolled.
+        and not _has_verdict_line(normalize_reviewer_output(result.text, family=family))
     ):
         retry_result = runner(family, prompt)
         if (
@@ -779,12 +776,9 @@ class EvidenceItem:
     #: facts. Mirrors :attr:`ReviewerResult.grounded`; see the demotion in
     #: ``__post_init__`` and the veto in :attr:`dissenting`.
     grounded: bool = True
-    #: Whether prompt-embedded grounding (the complete bounded diff plus the
-    #: opt-in ``ARAGORA_REVIEWER_FULL_FILE_GROUNDING`` full-file section) was
-    #: active for the run that produced ``body``. Only this, together with the
-    #: body-visible transport disclosure, lets a proxy-transported review keep
-    #: signal authority; see :meth:`_countable_proxy`. Fails CLOSED on artifact
-    #: round-trips (``_coerce_prompt_grounded_flag``).
+    #: Whether prompt-embedded grounding (complete bounded diff + the opt-in
+    #: full-file section) was active for the run that produced ``body``; see
+    #: :meth:`_countable_proxy`. Fails CLOSED on artifact round-trips.
     prompt_grounded: bool = False
     # Captured ONCE at construction (not re-read per property access) so a
     # security-relevant gate decision stays deterministic within a single
@@ -814,11 +808,8 @@ class EvidenceItem:
         # ungrounded review back into counting_families.
         #
         # Conditional carve-out (Tier-4 Decisions 2026-08-14/15): a VibeProxy-
-        # transported review keeps counting authority ONLY when the prompt itself
-        # embedded the facts a single-shot transport needs to verify claims
-        # (``prompt_grounded``) AND the composed body publicly discloses the
-        # transport in the machine-readable form downstream counting re-verifies
-        # (``_countable_proxy``). Either missing demotes exactly as before.
+        # transported review keeps counting authority ONLY per
+        # ``_countable_proxy``. Either condition missing demotes as before.
         if (
             self.would_count
             and not self.grounded
@@ -893,12 +884,10 @@ class EvidenceItem:
     def _countable_proxy(self) -> bool:
         """Conditionally-countable proxy bar (Tier-4 Decisions 2026-08-14/15).
 
-        An ungrounded proxy-transported review keeps FULL signal semantics —
-        counting AND dissent — only when prompt-embedded grounding was active
-        for its run and the body carries the exact machine-readable transport
-        disclosure. The disclosure requirement is body-visible on purpose: the
-        review-queue lint independently re-verifies it, so a hand-posted proxy
-        body that skipped this collector cannot count either.
+        An ungrounded proxy review keeps FULL signal semantics — counting AND
+        dissent — only with run-level prompt grounding plus the exact
+        machine-readable disclosure. Body-visible on purpose: the review-queue
+        lint re-verifies it, so a hand-posted proxy body cannot count either.
         """
         return self.prompt_grounded and _proxy_grounding_disclosed(self.body)
 
@@ -1185,11 +1174,9 @@ def _coerce_grounded_flag(value: Any) -> bool:
 def _coerce_prompt_grounded_flag(value: Any) -> bool:
     """Coerce a serialized ``prompt_grounded`` flag strictly, failing CLOSED.
 
-    Unlike ``_coerce_grounded_flag`` there is no legacy-artifact carve-out: the
-    conditionally-countable proxy path postdates this field, so an artifact that
-    omits it (or carries null/garbage) has no proxy authority to preserve — a
-    missing field can only ever DEMOTE. Token parsing stays strict so a stringly
-    ``"false"`` cannot truthify authority back in.
+    Unlike ``_coerce_grounded_flag`` there is no legacy-artifact carve-out:
+    the field postdates the proxy path, so an absent/null/garbage value can
+    only DEMOTE, and strict token parsing keeps a stringly ``"false"`` False.
     """
     if isinstance(value, bool):
         return value
@@ -1387,6 +1374,16 @@ def _reviewer_verdict(text: str) -> str:
     return "unknown"
 
 
+def _has_verdict_line(text: str) -> bool:
+    """Whether any line lexes as a verdict label (same probe as above),
+    distinguishing a verdict-less stream from a verdict whose token merely
+    fails to parse — substantive signal that must never be re-rolled."""
+    return any(
+        line.strip().lstrip("*#>-`0123456789.)\t ").lower().startswith("verdict:")
+        for line in text.splitlines()
+    )
+
+
 # ---------------------------------------------------------------------------
 # Reviewer-output normalization
 #
@@ -1544,9 +1541,8 @@ def compose_evidence_comment(
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
     committed = f", committed {safe_committed}" if safe_committed else ""
-    # The disclosure pair is emitted ONLY when every conditional-countability
-    # precondition held at run time; its absence is what keeps every other
-    # proxy-transported body advisory, in-process and at the downstream lint.
+    # Emitted ONLY when every conditional-countability precondition held; its
+    # absence keeps every other proxy body advisory, here and at the lint.
     transport_disclosure = ""
     if not grounded and prompt_grounded and _harness_is_proxy_transport(harness_label):
         transport_disclosure = (
@@ -1652,13 +1648,33 @@ _FULL_FILE_MAX_CHARS = 20_000
 _FULL_FILE_SECTION_MAX_CHARS = 80_000
 
 
+class FullFileSection(str):
+    """Full-file grounding section carrying builder-asserted completeness.
+
+    ``complete`` is True only when every changed file's post-change contents
+    made it into the section whole: no fetch failure, no per-file clipping, no
+    file dropped by the caps. An elided section still helps a reviewer, but
+    grounding must fail closed rather than attest to contents the prompt does
+    not fully contain.
+    """
+
+    __slots__ = ("complete",)
+
+    complete: bool
+
+    def __new__(cls, text: str, *, complete: bool = False) -> "FullFileSection":
+        section = super().__new__(cls, text)
+        section.complete = complete
+        return section
+
+
 def _full_file_section(
     repo: str,
     head_sha: str,
     diff_text: str,
     *,
     file_fetcher: Callable[[str, str, str], str] | None = None,
-) -> str:
+) -> FullFileSection:
     """Bounded post-change contents of the changed files, largest diff first.
 
     Best-effort by design: grounding is an enhancement — any per-file fetch
@@ -1679,19 +1695,21 @@ def _full_file_section(
             sizes[current] = sizes[current] + 1
     ordered = sorted(sizes, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
     if not ordered:
-        return ""
+        return FullFileSection("")
+    elided = len(sizes) > len(ordered)
     parts: list[str] = []
-    for path in ordered:
+    for index, path in enumerate(ordered):
         try:
             content = fetcher(repo, head_sha, path)
         except (RuntimeError, ValueError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
             # Grounding is best-effort by contract: the default fetcher raises
             # RuntimeError/ValueError; transport/decoding surface OSError,
             # SubprocessError, or UnicodeError. Anything else is a real bug.
+            elided = True
             parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
             continue
         if not content.strip():
-            # Deleted or empty at head: nothing to ground on.
+            # Deleted or empty at head: nothing to ground on, nothing elided.
             continue
         lines = content.splitlines()
         clipped = lines[:_FULL_FILE_MAX_LINES]
@@ -1707,17 +1725,22 @@ def _full_file_section(
         if len(body_text) > _FULL_FILE_MAX_CHARS:
             body_text = body_text[:_FULL_FILE_MAX_CHARS].rstrip() + "\n[file clipped for length]"
             note = note or " (clipped for length)"
+        if note:
+            elided = True
         parts.append(f"--- {path}{note} ---\n" + body_text)
         if sum(len(part) for part in parts) > _FULL_FILE_SECTION_MAX_CHARS:
+            if index < len(ordered) - 1:
+                elided = True
             break
     if not any(part for part in parts if not part.endswith("---")):
-        return ""
-    return (
+        return FullFileSection("")
+    return FullFileSection(
         f"=== FULL CHANGED FILES (post-change contents at head {head_sha[:7]}; "
         f"bounded to {_FULL_FILE_MAX_FILES} files x {_FULL_FILE_MAX_LINES} lines — use these "
         "to VERIFY claims about imports/definitions before reporting them missing) ===\n"
         + "\n\n".join(parts)
-        + "\n"
+        + "\n",
+        complete=not elided,
     )
 
 
@@ -1754,14 +1777,12 @@ def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
 class BuiltReviewPrompt(str):
     """Review prompt carrying builder-asserted grounding provenance.
 
-    ``prompt_grounded`` records what the builder actually embedded: a non-empty
-    full-file section AND a diff bounded without per-file elision — a
-    single-shot transport can verify exactly what the prompt contains and
-    nothing else, so any elision reopens the fabrication surface the grounding
-    contract closes. It is provenance, never re-derived from prompt text: diff
-    content is author-controlled, so scanning the prompt for the section marker
-    would let the reviewed change itself forge the countable-proxy
-    precondition through a diff line.
+    ``prompt_grounded`` records what the builder actually embedded: a
+    :class:`FullFileSection` complete within its bounds AND a diff bounded
+    without per-file elision. It is provenance, never re-derived from prompt
+    text — diff content is author-controlled, so scanning the prompt for the
+    section marker would let the reviewed change itself forge the
+    countable-proxy precondition through a diff line.
     """
 
     __slots__ = ("prompt_grounded",)
@@ -1835,7 +1856,9 @@ def build_review_prompt(
         "is what makes a finding blocking.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else ""),
-        prompt_grounded=bool(full_files) and not truncated,
+        prompt_grounded=bool(full_files)
+        and bool(getattr(full_files, "complete", False))
+        and not truncated,
     )
 
 
@@ -2921,10 +2944,8 @@ def collect_evidence(
     )
 
     prompt = prompt_builder(repo, pr, ctx)
-    # Every reviewer receives this same prompt, so prompt-embedded grounding is a
-    # run-level fact captured once, not a per-reviewer one. Only builder-asserted
-    # provenance counts (``BuiltReviewPrompt``); a custom builder returning a
-    # plain str fails closed to ungrounded.
+    # A run-level fact captured once for every reviewer. Only builder-asserted
+    # provenance counts; a custom builder returning plain str fails closed.
     prompt_grounded = bool(getattr(prompt, "prompt_grounded", False))
 
     # Resolve the ordered, de-duplicated family list up front so item/failure
