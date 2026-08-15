@@ -639,16 +639,23 @@ jobs:
             echo "::error::OpenAPI scope classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          if [[ "$IN_SCOPE" == "true" ]]; then
-            if [[ "$WORKER_RESULT" != "success" ]]; then
-              echo "::error::OpenAPI generate & validate concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+          case "$IN_SCOPE" in
+            true)
+              if [[ "$WORKER_RESULT" != "success" ]]; then
+                echo "::error::OpenAPI generate & validate concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+                exit 1
+              fi
+              echo "OpenAPI generate & validate passed."
+              ;;
+            false)
+              if [[ "$WORKER_RESULT" != "skipped" ]]; then
+                echo "::error::OpenAPI was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+                exit 1
+              fi
+              echo "OpenAPI not required — no relevant changes."
+              ;;
+            *)
+              echo "::error::OpenAPI scope classification produced invalid IN_SCOPE value '$IN_SCOPE' (expected exactly 'true' or 'false'). Failing closed."
               exit 1
-            fi
-            echo "OpenAPI generate & validate passed."
-            exit 0
-          fi
-          if [[ "$WORKER_RESULT" != "skipped" ]]; then
-            echo "::error::OpenAPI was out of scope but concluded '$WORKER_RESULT'. Failing closed."
-            exit 1
-          fi
-          echo "OpenAPI not required — no relevant changes."
+              ;;
+          esac
