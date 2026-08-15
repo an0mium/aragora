@@ -204,15 +204,38 @@ class NomicContextBuilder:
         if use_manifest is None:
             use_manifest = "1"
 
-        is_git_repository = (
-            subprocess.run(
+        tracked_paths: list[Path] | None = None
+        try:
+            probe = subprocess.run(
                 ["git", "-C", str(self._aragora_path), "rev-parse", "--git-dir"],
                 capture_output=True,
                 check=False,
-            ).returncode
-            == 0
-        )
-        if not is_git_repository and use_manifest.strip().lower() in {"1", "true", "yes", "on"}:
+            )
+            if probe.returncode == 0:
+                tracked = subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(self._aragora_path),
+                        "ls-tree",
+                        "-r",
+                        "-z",
+                        "--name-only",
+                        "HEAD",
+                    ],
+                    capture_output=True,
+                    check=False,
+                )
+                if tracked.returncode == 0:
+                    tracked_paths = [
+                        self._aragora_path / raw.decode("utf-8", errors="surrogateescape")
+                        for raw in tracked.stdout.split(b"\0")
+                        if raw
+                    ]
+        except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
+            logger.debug("Git tracked-file enumeration unavailable; using legacy fallback: %s", exc)
+
+        if tracked_paths is None and use_manifest.strip().lower() in {"1", "true", "yes", "on"}:
             manifest_index = self._load_manifest_index(manifest_path)
             if manifest_index is not None:
                 self._index = manifest_index
@@ -222,17 +245,9 @@ class NomicContextBuilder:
         files: list[IndexedFile] = []
         total_bytes = 0
 
-        paths: list[Path]
-        if is_git_repository:
-            result = subprocess.run(
-                ["git", "-C", str(self._aragora_path), "ls-tree", "-r", "--name-only", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            paths = [self._aragora_path / item for item in result.stdout.splitlines()]
-        else:
-            paths = sorted(self._aragora_path.rglob("*"))
+        paths = (
+            tracked_paths if tracked_paths is not None else sorted(self._aragora_path.rglob("*"))
+        )
 
         for path in paths:
             if not path.is_file():
@@ -241,7 +256,7 @@ class NomicContextBuilder:
                 continue
             if any(skip in path.parts for skip in SKIP_DIRS):
                 continue
-            if not self._include_tests and "test" in path.parts:
+            if not self._include_tests and any(part in {"test", "tests"} for part in path.parts):
                 continue
             if path.stat().st_size > MAX_FILE_SIZE:
                 continue
@@ -469,6 +484,17 @@ class NomicContextBuilder:
         metadata_path = pack.pack_path / "context-pack.json"
         if not metadata_path.is_file():
             raise RepositoryStateError(f"context pack metadata is missing: {pack.reference}")
+        expected_entries = required_artifacts | {"context-pack.json"}
+        try:
+            actual_entries = list(pack.pack_path.iterdir())
+        except OSError as exc:
+            raise RepositoryStateError(
+                f"context pack directory cannot be inspected: {pack.reference}"
+            ) from exc
+        if {entry.name for entry in actual_entries} != expected_entries or any(
+            not entry.is_file() or entry.is_symlink() for entry in actual_entries
+        ):
+            raise RepositoryStateError("context pack directory contains unexpected artifacts")
         try:
             stored = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -656,7 +682,9 @@ class NomicContextBuilder:
                 size_bytes=item.size_bytes,
                 line_count=item.line_count,
                 extension=Path(item.path).suffix,
-                module_path=item.path.replace("/", ".").removesuffix(".py")
+                module_path=item.path.replace("/", ".")
+                .removesuffix(".py")
+                .removesuffix(".__init__")
                 if item.path.endswith(".py")
                 else "",
             )

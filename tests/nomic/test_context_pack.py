@@ -37,7 +37,7 @@ def clean_repository(tmp_path: Path) -> Path:
     git(tmp_path, "config", "user.email", "pack@example.test")
     git(tmp_path, "config", "user.name", "Pack Test")
     git(tmp_path, "remote", "add", "origin", "git@github.com:example/context-pack.git")
-    (tmp_path / ".gitignore").write_text(".nomic/\n", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".nomic/\nIGNORED.md\n", encoding="utf-8")
     (tmp_path / ".aragora.yaml").write_text(
         """nomic:
   repository:
@@ -68,9 +68,7 @@ def clean_repository(tmp_path: Path) -> Path:
 
 @pytest.mark.asyncio
 async def test_pack_is_exact_portable_and_tracked_only(clean_repository: Path) -> None:
-    (clean_repository / "UNTRACKED.md").write_text("not evidence\n", encoding="utf-8")
-    git(clean_repository, "status", "--porcelain")
-    (clean_repository / "UNTRACKED.md").unlink()
+    (clean_repository / "IGNORED.md").write_text("not evidence\n", encoding="utf-8")
     profile = load_nomic_repository_profile(clean_repository)
     builder = NomicContextBuilder(clean_repository, full_corpus=True)
 
@@ -89,7 +87,7 @@ async def test_pack_is_exact_portable_and_tracked_only(clean_repository: Path) -
     assert "README.md" in paths
     assert "docs/ROADMAP.md" in paths
     assert "src/app.py" in paths
-    assert "UNTRACKED.md" not in paths
+    assert "IGNORED.md" not in paths
     app_evidence = next(item for item in pack.evidence if item.path == "src/app.py")
     app_bytes = subprocess.run(
         ["git", "-C", str(clean_repository), "show", f"HEAD:{app_evidence.path}"],
@@ -289,6 +287,16 @@ async def test_artifact_tampering_is_detected(clean_repository: Path) -> None:
     (pack.pack_path / "context.md").write_text("tampered\n", encoding="utf-8")
 
     with pytest.raises(RepositoryStateError, match="verification failed"):
+        builder.verify_context_pack(pack)
+
+
+@pytest.mark.asyncio
+async def test_unexpected_pack_artifact_is_rejected(clean_repository: Path) -> None:
+    builder = NomicContextBuilder(clean_repository, full_corpus=False)
+    pack = await builder.build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+    (pack.pack_path / "unexpected.txt").write_text("not bound\n", encoding="utf-8")
+
+    with pytest.raises(RepositoryStateError, match="unexpected artifacts"):
         builder.verify_context_pack(pack)
 
 
