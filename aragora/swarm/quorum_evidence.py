@@ -453,6 +453,73 @@ DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 #: ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.
 GROUNDED_TRANSPORT_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "gemini"))
 
+#: Harness-label markers naming the ONLY proxy transport eligible for the
+#: conditionally-countable path (Tier-4 Decisions, 2026-08-14/15). Deliberately
+#: excludes the family APIs and OpenRouter: their ungrounded reviews remain
+#: advisory-only everywhere.
+PROXY_TRANSPORT_HARNESS_MARKERS: frozenset[str] = frozenset(("vibeproxy",))
+
+#: Canonical machine-readable value of the ``Transport grounding:`` disclosure
+#: line. Emitted verbatim by :func:`compose_evidence_comment` and matched
+#: EXACTLY (never fuzzily) by the countability checks on both sides of the gate
+#: (:func:`_proxy_grounding_disclosed` here; the identity resolver in
+#: ``review_queue``), so a paraphrased or hand-written variant never satisfies
+#: the disclosure.
+PROXY_GROUNDING_DISCLOSURE = (
+    "prompt-embedded (bounded full diff + full-file grounding at the reviewed head)"
+)
+_REVIEWER_HARNESS_LABEL = "Reviewer harness"
+_TRANSPORT_GROUNDING_LABEL = "Transport grounding"
+#: Stable prefix of the ``_full_file_section`` header, used to detect that the
+#: opt-in full-file grounding section actually made it into a built prompt.
+_FULL_FILE_SECTION_MARKER = "=== FULL CHANGED FILES ("
+
+
+def _harness_is_proxy_transport(label: str) -> bool:
+    lower = str(label or "").lower()
+    return any(marker in lower for marker in PROXY_TRANSPORT_HARNESS_MARKERS)
+
+
+def _prompt_embedded_grounding_active(prompt: str) -> bool:
+    """Whether the reviewer prompt embedded verifiable grounding for a proxy.
+
+    A single-shot transport can verify exactly what the prompt contains and
+    nothing else, so the conditional countable-proxy path requires BOTH the
+    complete (never per-file-truncated) diff and the opt-in full-file section:
+    any elision reopens the fabrication surface the grounding contract closes.
+    """
+    if _PER_FILE_TRUNCATION_MARKER.strip() in prompt:
+        return False
+    return _FULL_FILE_SECTION_MARKER in prompt
+
+
+def _proxy_grounding_disclosed(body: str) -> bool:
+    """Whether ``body`` carries the machine-readable proxy-transport disclosure.
+
+    Requires BOTH collector-emitted lines: a ``Reviewer harness:`` line naming a
+    proxy transport and a ``Transport grounding:`` line exactly equal to
+    :data:`PROXY_GROUNDING_DISCLOSURE`. Quoted (``> ``-prefixed) copies never
+    match — the label no longer starts the line — so reviewer-emitted text
+    neutralized by ``_neutralize_reviewer_text`` cannot satisfy this check.
+    """
+    harness_is_proxy = False
+    grounding_disclosed = False
+    for line in body.splitlines():
+        stripped = line.strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        normalized_value = value.strip().strip("*").strip()
+        if normalized_label == _REVIEWER_HARNESS_LABEL.lower():
+            harness_is_proxy = harness_is_proxy or _harness_is_proxy_transport(normalized_value)
+        elif normalized_label == _TRANSPORT_GROUNDING_LABEL.lower():
+            grounding_disclosed = grounding_disclosed or (
+                normalized_value == PROXY_GROUNDING_DISCLOSURE
+            )
+    return harness_is_proxy and grounding_disclosed
+
+
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
 
@@ -563,12 +630,38 @@ def _run_reviewer_with_infra_retry(
     ``retries`` extra attempts. A result that returned a verdict (``ok is True``)
     — pass OR changes_requested — is returned immediately and never retried, so a
     genuine dissent can never be "retried away". Counting/settlement are unchanged.
+
+    One grok-specific exception (2026-08-15 fold Decision): a grok run that
+    COMPLETED (``ok=True``, non-empty text) but parses to NO valid Verdict line is
+    malformed reviewer output, not a review — observed twice live (#9693 round 1;
+    the 2026-08-14 #9752 flip). It is re-run exactly ONCE; a retry that parses to
+    a real verdict (PASS or CHANGES-REQUESTED alike) is scored normally, while a
+    second malformed result returns the FIRST result so the outcome stays
+    byte-identical to the pre-retry non-countable behavior. A parsed dissenting
+    or failing verdict never reaches this branch — retrying one would be
+    gate-gaming, exactly what the never-retry-a-real-verdict rule forbids.
     """
     attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
     result = runner(family, prompt)
     while not result.ok and attempts_left > 0:
         attempts_left -= 1
         result = runner(family, prompt)
+    if (
+        result.ok
+        and result.text.strip()
+        and canonical_family(family) == "grok"
+        # Mirror the composed-body parse (normalize first): a result the
+        # composer would successfully re-anchor to a verdict is NOT malformed.
+        and _reviewer_verdict(normalize_reviewer_output(result.text, family=family)) == "unknown"
+    ):
+        retry_result = runner(family, prompt)
+        if (
+            retry_result.ok
+            and retry_result.text.strip()
+            and _reviewer_verdict(normalize_reviewer_output(retry_result.text, family=family))
+            != "unknown"
+        ):
+            return retry_result
     return result
 
 
@@ -702,6 +795,13 @@ class EvidenceItem:
     #: facts. Mirrors :attr:`ReviewerResult.grounded`; see the demotion in
     #: ``__post_init__`` and the veto in :attr:`dissenting`.
     grounded: bool = True
+    #: Whether prompt-embedded grounding (the complete bounded diff plus the
+    #: opt-in ``ARAGORA_REVIEWER_FULL_FILE_GROUNDING`` full-file section) was
+    #: active for the run that produced ``body``. Only this, together with the
+    #: body-visible transport disclosure, lets a proxy-transported review keep
+    #: signal authority; see :meth:`_countable_proxy`. Fails CLOSED on artifact
+    #: round-trips (``_coerce_prompt_grounded_flag``).
+    prompt_grounded: bool = False
     # Captured ONCE at construction (not re-read per property access) so a
     # security-relevant gate decision stays deterministic within a single
     # settlement flow even if the process env mutates mid-run. Uses the same
@@ -728,10 +828,18 @@ class EvidenceItem:
         # too — openai #9641 round-3 [P3].) Demoted here, the single choke point
         # every construction path shares, so a prepared artifact cannot smuggle an
         # ungrounded review back into counting_families.
+        #
+        # Conditional carve-out (Tier-4 Decisions 2026-08-14/15): a VibeProxy-
+        # transported review keeps counting authority ONLY when the prompt itself
+        # embedded the facts a single-shot transport needs to verify claims
+        # (``prompt_grounded``) AND the composed body publicly discloses the
+        # transport in the machine-readable form downstream counting re-verifies
+        # (``_countable_proxy``). Either missing demotes exactly as before.
         if (
             self.would_count
             and not self.grounded
             and canonical_family(self.family) in GROUNDED_TRANSPORT_FAMILIES
+            and not self._countable_proxy()
         ):
             self.would_count = False
             self.problems.append(
@@ -798,6 +906,18 @@ class EvidenceItem:
                 "negative decision in the same review — contradictory review never counts"
             )
 
+    def _countable_proxy(self) -> bool:
+        """Conditionally-countable proxy bar (Tier-4 Decisions 2026-08-14/15).
+
+        An ungrounded proxy-transported review keeps FULL signal semantics —
+        counting AND dissent — only when prompt-embedded grounding was active
+        for its run and the body carries the exact machine-readable transport
+        disclosure. The disclosure requirement is body-visible on purpose: the
+        review-queue lint independently re-verifies it, so a hand-posted proxy
+        body that skipped this collector cannot count either.
+        """
+        return self.prompt_grounded and _proxy_grounding_disclosed(self.body)
+
     @property
     def supportive(self) -> bool:
         # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
@@ -815,7 +935,14 @@ class EvidenceItem:
         # not gate a merge. Checked BEFORE truncation (which fails closed) because
         # a review that could never verify anything gains nothing from being
         # complete. See the __post_init__ contract for the live evidence.
-        if not self.grounded and canonical_family(self.family) in GROUNDED_TRANSPORT_FAMILIES:
+        # Symmetric carve-out: a conditionally-countable proxy review carries the
+        # full signal, including dissent — a review that can support a quorum must
+        # also be able to veto one, or the proxy path would be a pass-only ratchet.
+        if (
+            not self.grounded
+            and canonical_family(self.family) in GROUNDED_TRANSPORT_FAMILIES
+            and not self._countable_proxy()
+        ):
             return False
         # Advisory-only families never block (roster record: "gemini dissent is
         # NOT to be counted anywhere"): their CHANGES-REQUESTED posts and stays
@@ -951,6 +1078,7 @@ class CollectOutcome:
                     "family": item.family,
                     "would_count": item.would_count,
                     "grounded": item.grounded,
+                    "prompt_grounded": item.prompt_grounded,
                     "verdict": item.verdict,
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
@@ -1070,6 +1198,22 @@ def _coerce_grounded_flag(value: Any) -> bool:
     return False
 
 
+def _coerce_prompt_grounded_flag(value: Any) -> bool:
+    """Coerce a serialized ``prompt_grounded`` flag strictly, failing CLOSED.
+
+    Unlike ``_coerce_grounded_flag`` there is no legacy-artifact carve-out: the
+    conditionally-countable proxy path postdates this field, so an artifact that
+    omits it (or carries null/garbage) has no proxy authority to preserve — a
+    missing field can only ever DEMOTE. Token parsing stays strict so a stringly
+    ``"false"`` cannot truthify authority back in.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return False
+
+
 def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
     if not isinstance(raw, dict):
         raise ValueError("prepared evidence item must be an object")
@@ -1087,6 +1231,7 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
         grounded=_coerce_grounded_flag(raw.get("grounded", _GROUNDED_MISSING)),
+        prompt_grounded=_coerce_prompt_grounded_flag(raw.get("prompt_grounded")),
         # Restore the prepare-time regime; default fail-CLOSED (strict — every
         # changes_requested blocks) when an older/forged artifact omits it, so a
         # missing field can never RELAX the gate. apply_prepared_evidence then
@@ -1216,11 +1361,19 @@ def _neutralize_reviewer_text(text: str) -> str:
         is_heading = probe.startswith("#")
         is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
         # Over-quoting is harmless; a missed disclosure is not, so match the
-        # ``model family:`` label anywhere it could be parsed. The gate parser
-        # strips surrounding emphasis from the label, so tolerate whitespace and
-        # ``*``/``_`` between "family" and the colon (e.g. ``**Model family**:``).
-        has_family = bool(re.search(r"model\s+family[\s*_]*:", lower))
-        if is_heading or is_setext or has_family:
+        # ``model family:`` label — and the transport-disclosure labels the
+        # countable-proxy path relies on (``reviewer harness:``, ``transport
+        # grounding:``, plus the prose ``reviewer:`` line the lint also reads) —
+        # anywhere they could be parsed. The gate parser strips surrounding
+        # emphasis from the label, so tolerate whitespace and ``*``/``_`` between
+        # the label words and the colon (e.g. ``**Model family**:``).
+        has_disclosure_label = bool(
+            re.search(
+                r"(?:model\s+family|reviewer\s+harness|transport\s+grounding|reviewer)[\s*_]*:",
+                lower,
+            )
+        )
+        if is_heading or is_setext or has_disclosure_label:
             out.append(f"> {line}")
         else:
             out.append(line)
@@ -1377,6 +1530,8 @@ def compose_evidence_comment(
     pr: int | str,
     reviewer_text: str,
     harness: str = "",
+    grounded: bool = True,
+    prompt_grounded: bool = False,
 ) -> str:
     """Compose an evidence comment the quorum parsers recognize and count.
 
@@ -1386,6 +1541,11 @@ def compose_evidence_comment(
     placed immediately under the heading so the comment is grounded on the exact
     head. ``reviewer_text`` is the genuine reviewer output; only lines that could
     hijack the identity parser are quoted (see :func:`_neutralize_reviewer_text`).
+
+    On the conditionally-countable proxy path (ungrounded proxy transport whose
+    run had prompt-embedded grounding) the machine-readable ``Reviewer harness:``
+    and ``Transport grounding:`` lines are emitted so the transport is auditable
+    in the public record and downstream counting can re-verify it.
     """
     fam = canonical_family(family)
     display = FAMILY_DISPLAY.get(fam, fam.title())
@@ -1400,13 +1560,23 @@ def compose_evidence_comment(
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
     committed = f", committed {safe_committed}" if safe_committed else ""
+    # The disclosure pair is emitted ONLY when every conditional-countability
+    # precondition held at run time; its absence is what keeps every other
+    # proxy-transported body advisory, in-process and at the downstream lint.
+    transport_disclosure = ""
+    if not grounded and prompt_grounded and _harness_is_proxy_transport(harness_label):
+        transport_disclosure = (
+            f"{_REVIEWER_HARNESS_LABEL}: {harness_label}\n"
+            f"{_TRANSPORT_GROUNDING_LABEL}: {PROXY_GROUNDING_DISCLOSURE}\n"
+        )
     return (
         f"## {display} independent model review\n\n"
         f"Reviewer: {fam} ({provider}) — independent adversarial model review via "
         f"{harness_label}, grounded on the exact PR head.\n"
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
-        f"Model family: {fam}\n\n"
+        f"Model family: {fam}\n"
+        f"{transport_disclosure}\n"
         f"{_neutralize_reviewer_text(_normalize_preserving_truncation(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
@@ -2743,6 +2913,9 @@ def collect_evidence(
     )
 
     prompt = prompt_builder(repo, pr, ctx)
+    # Every reviewer receives this same prompt, so prompt-embedded grounding is a
+    # run-level fact captured once, not a per-reviewer one.
+    prompt_grounded = _prompt_embedded_grounding_active(prompt)
 
     # Resolve the ordered, de-duplicated family list up front so item/failure
     # ordering stays deterministic and matches the caller's requested order,
@@ -2821,6 +2994,8 @@ def collect_evidence(
             pr=pr,
             reviewer_text=result.text,
             harness=result.harness,
+            grounded=result.grounded,
+            prompt_grounded=prompt_grounded,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(
@@ -2831,6 +3006,7 @@ def collect_evidence(
                 # Carry the transport's grounding through from the reviewer run: the
                 # linter reads only text and cannot tell which transport produced it.
                 grounded=result.grounded,
+                prompt_grounded=prompt_grounded,
                 # Parse the COMPOSED body, not the raw reviewer text: composition
                 # normalizes messy output (thinking traces, preamble) into a
                 # canonical verdict line, and the prepared-apply relint path
@@ -3224,6 +3400,7 @@ def _clone_prepared_items(
             problems=list(item.problems),
             verdict=item.verdict,
             grounded=item.grounded,
+            prompt_grounded=item.prompt_grounded,
             severity_gated=(
                 item.severity_gated
                 if live_severity_gated is None
@@ -3390,9 +3567,11 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
-                # Grounding is a property of the transport that produced the body, so
-                # a relint (which only re-parses text) must preserve it verbatim.
+                # Grounding (transport AND prompt-embedded) is a property of the run
+                # that produced the body, so a relint (which only re-parses text)
+                # must preserve both verbatim.
                 grounded=item.grounded,
+                prompt_grounded=item.prompt_grounded,
                 # Preserve the regime already reconciled by _clone_prepared_items
                 # (effective = prepared AND live). Re-running the linter must NOT
                 # let EvidenceItem.default_factory re-read the live env and undo

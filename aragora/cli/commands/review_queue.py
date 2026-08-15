@@ -152,6 +152,8 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 # replacing the prior test-only parity guard (claude #8507 P2).
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     ADVISORY_ONLY_FAMILIES as ADVISORY_ONLY_FAMILIES,
+    PROXY_GROUNDING_DISCLOSURE as PROXY_GROUNDING_DISCLOSURE,
+    PROXY_TRANSPORT_HARNESS_MARKERS as PROXY_TRANSPORT_HARNESS_MARKERS,
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
     advisory_dissent_settle_enabled as advisory_dissent_settle_enabled,
@@ -187,6 +189,7 @@ IDENTITY_COUNT_BLOCKERS: frozenset[str] = frozenset(
         "unknown_model_family",
         "heading_model_family_conflict",
         "unknown_surface_reviewer",
+        "proxy_transport_grounding_undisclosed",
     )
 )
 
@@ -4537,6 +4540,58 @@ def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[
     return metadata
 
 
+def _proxy_transport_grounding_problem(text: str, heading_index: int | None) -> str:
+    """Transport-aware counting check for proxy-transported review bodies.
+
+    The evidence collector composes every VibeProxy-transported body with a
+    prose ``Reviewer: ... via <harness>`` line, and — only on the conditionally
+    countable path — the machine-readable ``Reviewer harness:`` /
+    ``Transport grounding:`` pair. Any body whose reviewer/harness disclosure
+    names a proxy transport must therefore ALSO carry the exact canonical
+    grounding disclosure to count; otherwise it is an undisclosed proxy body
+    (e.g. hand-posted collector output the in-process demotion never saw) and
+    fails closed. Scans the same fence-aware post-heading window as
+    :func:`_structured_identity_metadata`; quoted (``> ``-prefixed) lines never
+    match because the label no longer starts the line.
+    """
+    lines = str(text).splitlines()
+    start = heading_index + 1 if heading_index is not None else 0
+    proxy_transport = False
+    grounding_disclosed = False
+    in_fence = False
+    fence_marker = ""
+    for line in lines[start : start + 25]:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith("#"):
+            break
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        normalized_value = value.strip().strip("*").strip()
+        if normalized_label in {"reviewer", "reviewer harness"}:
+            lower_value = normalized_value.lower()
+            if any(marker in lower_value for marker in PROXY_TRANSPORT_HARNESS_MARKERS):
+                proxy_transport = True
+        elif normalized_label == "transport grounding":
+            if normalized_value == PROXY_GROUNDING_DISCLOSURE:
+                grounding_disclosed = True
+    if proxy_transport and not grounding_disclosed:
+        return "proxy_transport_grounding_undisclosed"
+    return ""
+
+
 def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
     candidate, heading_index = _first_heading_candidate(text)
     surface = _infer_surface_reviewer_from_candidate(candidate)
@@ -4571,6 +4626,10 @@ def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
 
     if not receipt_artifact:
         problems.append("missing_receipt_artifact")
+
+    proxy_problem = _proxy_transport_grounding_problem(text, heading_index)
+    if proxy_problem:
+        problems.append(proxy_problem)
 
     return ModelReviewIdentity(
         surface_reviewer_id=surface,

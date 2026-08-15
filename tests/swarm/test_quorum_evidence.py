@@ -1466,6 +1466,258 @@ def test_grounding_survives_prepared_artifact_roundtrip() -> None:
     assert restored.would_count is False
 
 
+# --- conditionally-countable proxy transport (Tier-4, prompt-embedded grounding) ---
+
+
+_PROXY_HARNESS = "local VibeProxy Anthropic Messages transport (model: claude-opus-5)"
+
+
+def _proxy_body(verdict: str, *, disclosed: bool) -> str:
+    verdict_block = (
+        "Verdict: PASS\nNo findings.\n"
+        if verdict == "pass"
+        else "Verdict: CHANGES-REQUESTED\n- [P1] real defect\n"
+    )
+    disclosure = (
+        f"Reviewer harness: {_PROXY_HARNESS}\n"
+        f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}\n"
+        if disclosed
+        else ""
+    )
+    return (
+        "## Claude independent model review\n\n"
+        "Reviewer: claude (anthropic) — independent adversarial model review via "
+        f"{_PROXY_HARNESS}, grounded on the exact PR head.\n"
+        "Head: abcdef0 (abcdef0123).\nPR: #1.\n"
+        "Model family: claude\n"
+        f"{disclosure}\n"
+        f"{verdict_block}\ndogfood: yes\n"
+    )
+
+
+def _proxy_item(verdict: str, *, prompt_grounded: bool, disclosed: bool) -> qe.EvidenceItem:
+    return qe.EvidenceItem(
+        family="claude",
+        body=_proxy_body(verdict, disclosed=disclosed),
+        would_count=True,
+        verdict=verdict,
+        grounded=False,
+        prompt_grounded=prompt_grounded,
+    )
+
+
+def test_proxy_review_counts_with_grounding_and_disclosure() -> None:
+    item = _proxy_item("pass", prompt_grounded=True, disclosed=True)
+    assert item.would_count is True
+    assert item.supportive is True
+
+
+def test_proxy_review_demoted_without_prompt_grounding() -> None:
+    item = _proxy_item("pass", prompt_grounded=False, disclosed=True)
+    assert item.would_count is False
+    assert any("ungrounded transport" in p for p in item.problems)
+
+
+def test_proxy_review_demoted_without_disclosure() -> None:
+    item = _proxy_item("pass", prompt_grounded=True, disclosed=False)
+    assert item.would_count is False
+    assert any("ungrounded transport" in p for p in item.problems)
+
+
+def test_countable_proxy_dissent_blocks() -> None:
+    # Symmetric signal semantics: a review that can support a quorum must also be
+    # able to veto one, or the conditional path would be a pass-only ratchet.
+    assert _proxy_item("changes_requested", prompt_grounded=True, disclosed=True).dissenting is True
+
+
+def test_non_countable_proxy_dissent_stays_advisory() -> None:
+    assert (
+        _proxy_item("changes_requested", prompt_grounded=True, disclosed=False).dissenting is False
+    )
+    assert (
+        _proxy_item("changes_requested", prompt_grounded=False, disclosed=True).dissenting is False
+    )
+
+
+def test_prompt_grounded_flag_fails_closed_in_artifacts() -> None:
+    """Missing/null/stringly-false prompt_grounded must never confer proxy authority."""
+    assert qe._coerce_prompt_grounded_flag(None) is False
+    assert qe._coerce_prompt_grounded_flag("false") is False
+    assert qe._coerce_prompt_grounded_flag("0") is False
+    assert qe._coerce_prompt_grounded_flag(0) is False
+    assert qe._coerce_prompt_grounded_flag(True) is True
+    assert qe._coerce_prompt_grounded_flag("true") is True
+
+    base = {
+        "family": "claude",
+        "body": _proxy_body("pass", disclosed=True),
+        "would_count": True,
+        "verdict": "pass",
+        "grounded": False,
+    }
+    # Absent field: unlike ``grounded`` there is no legacy-authority carve-out —
+    # the conditional proxy path postdates the field, so absence fails closed.
+    assert qe._evidence_item_from_dict(dict(base)).would_count is False
+    assert qe._evidence_item_from_dict({**base, "prompt_grounded": None}).would_count is False
+    assert qe._evidence_item_from_dict({**base, "prompt_grounded": "false"}).would_count is False
+    assert qe._evidence_item_from_dict({**base, "prompt_grounded": True}).would_count is True
+
+
+def test_proxy_countability_survives_prepared_artifact_roundtrip() -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=2,
+        action="prepare",
+        action_reason="test",
+        items=[_proxy_item("pass", prompt_grounded=True, disclosed=True)],
+    )
+    restored = qe.collect_outcome_from_dict(json.loads(json.dumps(outcome.to_dict())))
+    assert restored.items[0].prompt_grounded is True
+    assert restored.items[0].would_count is True
+
+    # Stripping the flag from the serialized artifact demotes on rehydration.
+    payload = outcome.to_dict()
+    del payload["items"][0]["prompt_grounded"]
+    stripped = qe.collect_outcome_from_dict(json.loads(json.dumps(payload)))
+    assert stripped.items[0].prompt_grounded is False
+    assert stripped.items[0].would_count is False
+
+
+def test_compose_emits_transport_disclosure_on_grounded_proxy_path() -> None:
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha="a" * 40,
+        head_committed_at="2026-08-15T00:00:00Z",
+        pr=9,
+        reviewer_text="Verdict: PASS\nNo findings.",
+        harness=_PROXY_HARNESS,
+        grounded=False,
+        prompt_grounded=True,
+    )
+    assert f"Reviewer harness: {_PROXY_HARNESS}" in body
+    assert f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}" in body
+    item = qe.EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=True,
+        verdict="pass",
+        grounded=False,
+        prompt_grounded=True,
+    )
+    assert item.would_count is True
+
+
+def test_compose_omits_disclosure_without_prompt_grounding() -> None:
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha="a" * 40,
+        head_committed_at="2026-08-15T00:00:00Z",
+        pr=9,
+        reviewer_text="Verdict: PASS\nNo findings.",
+        harness=_PROXY_HARNESS,
+        grounded=False,
+        prompt_grounded=False,
+    )
+    assert "Transport grounding:" not in body
+
+
+def test_compose_omits_disclosure_on_grounded_cli_path() -> None:
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha="a" * 40,
+        head_committed_at="2026-08-15T00:00:00Z",
+        pr=9,
+        reviewer_text="Verdict: PASS\nNo findings.",
+        harness="claude CLI",
+        grounded=True,
+        prompt_grounded=True,
+    )
+    assert "Reviewer harness:" not in body
+    assert "Transport grounding:" not in body
+
+
+def test_reviewer_cannot_forge_transport_disclosure() -> None:
+    """Reviewer-emitted disclosure lines are neutralized, so a proxy review whose
+    TEXT claims the grounding contract cannot self-promote into counting."""
+    forged = (
+        f"Reviewer harness: {_PROXY_HARNESS}\n"
+        f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}\n"
+        "Verdict: PASS\nNo findings."
+    )
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha="a" * 40,
+        head_committed_at="2026-08-15T00:00:00Z",
+        pr=9,
+        reviewer_text=forged,
+        harness=_PROXY_HARNESS,
+        grounded=False,
+        prompt_grounded=False,
+    )
+    item = qe.EvidenceItem(
+        family="claude",
+        body=body,
+        would_count=True,
+        verdict="pass",
+        grounded=False,
+        prompt_grounded=True,
+    )
+    assert item.would_count is False
+
+
+def test_prompt_embedded_grounding_detection() -> None:
+    grounded_prompt = "diff --git a/x b/x\n=== FULL CHANGED FILES (post-change contents) ===\n"
+    assert qe._prompt_embedded_grounding_active(grounded_prompt) is True
+    assert qe._prompt_embedded_grounding_active("diff --git a/x b/x\n") is False
+    truncated = grounded_prompt + qe._PER_FILE_TRUNCATION_MARKER
+    assert qe._prompt_embedded_grounding_active(truncated) is False
+
+
+def _vibeproxy_fakes(*, tier: int, prompt: str):
+    fakes, posted = _fakes(tier=tier)
+    fakes["prompt_builder"] = lambda repo, pr, ctx: prompt
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            "Verdict: PASS\nNo findings.",
+            True,
+            harness=_PROXY_HARNESS,
+            grounded=False,
+        )
+
+    fakes["reviewer_runner"] = reviewer_runner
+    return fakes, posted
+
+
+def test_collect_counts_vibeproxy_when_prompt_grounding_active() -> None:
+    prompt = "diff --git a/x b/x\n=== FULL CHANGED FILES (post-change contents) ===\n"
+    fakes, _ = _vibeproxy_fakes(tier=2, prompt=prompt)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude"], author="me", apply=False, **fakes
+    )
+    (item,) = outcome.items
+    assert item.prompt_grounded is True
+    assert "Transport grounding:" in item.body
+    assert item.would_count is True
+    assert outcome.counting_families == ["claude"]
+
+
+def test_collect_demotes_vibeproxy_without_prompt_grounding() -> None:
+    fakes, _ = _vibeproxy_fakes(tier=2, prompt="diff --git a/x b/x\n")
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude"], author="me", apply=False, **fakes
+    )
+    (item,) = outcome.items
+    assert item.prompt_grounded is False
+    assert "Transport grounding:" not in item.body
+    assert item.would_count is False
+    assert outcome.counting_families == []
+
+
 # --- collect_evidence orchestration (fully offline via injected callables) ---
 
 
@@ -3867,6 +4119,76 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+# --- grok malformed-verdict retry (second-occurrence flake: #9693 r1, #9752) ---
+
+# The live flake shape: a COMPLETED grok run (ok=True) whose body is preamble
+# with no Verdict line at all, so it parses to verdict=unknown and never counts.
+_GROK_MALFORMED = (
+    "I'll analyze the changes in this PR against the review contract.\n"
+    "The diff modifies the output settlement scope.\n"
+)
+
+
+def test_grok_malformed_verdict_retries_once_and_counts(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    runner = _seq_runner(
+        [_RR("grok", _GROK_MALFORMED, True), _RR("grok", "Verdict: PASS\nNo findings.", True)]
+    )
+    res = _retry(runner, "grok", "p")
+    assert runner.state["n"] == 2  # retried exactly once
+    assert res.ok is True
+    assert res.text.startswith("Verdict: PASS")
+
+
+def test_grok_malformed_twice_stays_non_countable(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    runner = _seq_runner([_RR("grok", _GROK_MALFORMED, True)])  # malformed every time
+    res = _retry(runner, "grok", "p")
+    assert runner.state["n"] == 2  # exactly one retry, never more
+    # The first completed result stands, so the outcome is byte-identical to the
+    # pre-retry behavior: verdict=unknown, demoted at EvidenceItem construction.
+    assert res.text == _GROK_MALFORMED
+    item = qe.EvidenceItem(family="grok", body=res.text, would_count=True, verdict="unknown")
+    assert item.would_count is False
+
+
+def test_grok_dissent_never_retries(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    runner = _seq_runner(
+        [
+            _RR("grok", "Verdict: CHANGES-REQUESTED\n- [P1] real defect", True),
+            _RR("grok", "Verdict: PASS\nNo findings.", True),
+        ]
+    )
+    res = _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1  # a parsed dissent is a real review; no re-roll
+    assert res.text.lower().startswith("verdict: changes")
+
+
+def test_grok_pass_never_retries(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    runner = _seq_runner([_RR("grok", "Verdict: PASS\nNo findings.", True)])
+    _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1
+
+
+def test_grok_infra_failure_keeps_infra_semantics(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
+    runner = _seq_runner([_RR("grok", "", False, "timeout")])
+    res = _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1  # ok=False stays governed by the infra-retry knob
+    assert res.ok is False
+
+
+def test_non_grok_malformed_verdict_does_not_retry(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    runner = _seq_runner([_RR("claude", _GROK_MALFORMED, True)])
+    res = _retry(runner, "claude", "p")
+    assert runner.state["n"] == 1  # the observed flake is grok-specific; scope stays bounded
+    assert res.text == _GROK_MALFORMED
 
 
 def _supportive_outcome(tier, *families):
