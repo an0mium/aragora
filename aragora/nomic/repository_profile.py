@@ -38,6 +38,15 @@ def normalize_remote_url(remote_url: str | None) -> str | None:
     if not remote_url:
         return None
     value = remote_url.strip()
+    windows_drive_path = re.match(r"^[A-Za-z]:", value) is not None
+    if (
+        windows_drive_path
+        or value.startswith(("/", "\\", "~", "./", "../", "file://"))
+        or ("://" not in value and ":" not in value)
+    ):
+        # Filesystem remotes are machine-local and must not enter portable pack
+        # metadata or content-address computation.
+        return None
     scp_match = re.match(r"^(?:[^@]+@)?([^:]+):(.+)$", value)
     if scp_match and "://" not in value:
         host, path = scp_match.groups()
@@ -46,12 +55,14 @@ def normalize_remote_url(remote_url: str | None) -> str | None:
         parsed = urlparse(value)
         value = f"https://{parsed.hostname or ''}{parsed.path}"
     parsed = urlparse(value)
-    if parsed.scheme in {"http", "https"}:
+    if parsed.scheme in {"http", "https", "git"}:
         host = (parsed.hostname or "").lower()
         path = parsed.path.rstrip("/")
         if path.endswith(".git"):
             path = path[:-4]
         return f"https://{host}{path}"
+    if parsed.scheme:
+        return None
     return value.removesuffix(".git").rstrip("/")
 
 
@@ -92,6 +103,8 @@ class EvaluationCriterion:
     description: str
 
     def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not isinstance(self.description, str):
+            raise NomicProfileError("evaluation criterion id and description must be strings")
         if not re.fullmatch(r"[a-z][a-z0-9_-]*", self.id):
             raise NomicProfileError(f"invalid evaluation criterion id: {self.id!r}")
         if not self.description.strip():
@@ -207,11 +220,31 @@ class NomicRepositoryProfile:
         repository = value.get("repository") or {}
         if not isinstance(repository, Mapping):
             raise NomicProfileError("nomic.repository must be a mapping")
+        raw_name = repository.get("name")
+        raw_id = repository.get("id")
         remote = repository.get("remote_url")
+        for key, raw_value in (
+            ("name", raw_name),
+            ("id", raw_id),
+            ("remote_url", remote),
+        ):
+            if raw_value is not None and not isinstance(raw_value, str):
+                raise NomicProfileError(f"nomic.repository.{key} must be a string")
         if remote is None:
             remote = RepositoryRevision.resolve(repo_root).remote_url
-        name = str(repository.get("name") or repo_root.resolve().name)
-        repository_id = str(repository.get("id") or infer_repository_id(remote, name))
+        name = raw_name if raw_name is not None else repo_root.resolve().name
+        repository_id = raw_id if raw_id is not None else infer_repository_id(remote, name)
+
+        def configured_paths(key: str) -> tuple[str, ...]:
+            raw_paths = value.get(key)
+            if raw_paths is None:
+                return ()
+            if not isinstance(raw_paths, list) or not all(
+                isinstance(path, str) for path in raw_paths
+            ):
+                raise NomicProfileError(f"nomic.{key} must be a list of strings")
+            return tuple(raw_paths)
+
         raw_criteria = value.get("evaluation_criteria")
         criteria: tuple[EvaluationCriterion, ...]
         if raw_criteria is None:
@@ -219,15 +252,29 @@ class NomicRepositoryProfile:
         elif isinstance(raw_criteria, list) and all(
             isinstance(item, Mapping) for item in raw_criteria
         ):
-            criteria = tuple(EvaluationCriterion(**item) for item in raw_criteria)
+            parsed: list[EvaluationCriterion] = []
+            for item in raw_criteria:
+                unknown = set(item) - {"id", "description"}
+                if unknown:
+                    raise NomicProfileError(
+                        "unknown evaluation criterion field(s): "
+                        + ", ".join(sorted(str(field) for field in unknown))
+                    )
+                try:
+                    parsed.append(EvaluationCriterion(**item))
+                except TypeError as exc:
+                    raise NomicProfileError(
+                        "each evaluation criterion requires string id and description fields"
+                    ) from exc
+            criteria = tuple(parsed)
         else:
             raise NomicProfileError("nomic.evaluation_criteria must be a list of mappings")
         return cls(
             repository_name=name,
             repository_id=repository_id,
-            remote_url=str(remote) if remote else None,
-            roadmap_paths=tuple(value.get("roadmap_paths") or ()),
-            context_entry_files=tuple(value.get("context_entry_files") or ()),
+            remote_url=remote or None,
+            roadmap_paths=configured_paths("roadmap_paths"),
+            context_entry_files=configured_paths("context_entry_files"),
             evaluation_criteria=criteria,
             source_config_sha256=source_config_sha256,
         )
@@ -244,14 +291,21 @@ class NomicRepositoryProfile:
                 ) from exc
             if not resolved.is_relative_to(root):
                 raise NomicProfileError(f"configured symlink escapes repository: {relative}")
+            if not resolved.is_file():
+                raise NomicProfileError(f"configured repository path is not a file: {relative}")
             tracked = subprocess.run(
-                ["git", "-C", str(root), "cat-file", "-e", f"{revision.commit_sha}:{relative}"],
+                ["git", "-C", str(root), "cat-file", "-t", f"{revision.commit_sha}:{relative}"],
                 capture_output=True,
+                text=True,
                 check=False,
             )
             if tracked.returncode != 0:
                 raise NomicProfileError(
                     f"configured file is not tracked at {revision.commit_sha}: {relative}"
+                )
+            if tracked.stdout.strip() != "blob":
+                raise NomicProfileError(
+                    f"configured path is not a tracked file at {revision.commit_sha}: {relative}"
                 )
 
 
@@ -308,6 +362,7 @@ class ContextPack:
     """Published context-pack metadata plus its local artifact directory."""
 
     pack_id: str
+    objective: str
     repository: NomicRepositoryProfile
     revision: RepositoryRevision
     profile_hash: str
@@ -315,6 +370,10 @@ class ContextPack:
     artifact_digests: Mapping[str, str]
     pack_path: Path = field(compare=False, repr=False)
     corpus_included: bool = False
+    corpus_truncated: bool = False
+    context_byte_budget: int = 100_000_000
+    include_tests: bool = True
+    rlm_summary: str = field(default="", repr=False)
 
     @property
     def reference(self) -> str:
@@ -325,12 +384,17 @@ class ContextPack:
             "schema_version": "nomic-context-pack/1.0",
             "pack_id": self.pack_id,
             "reference": self.reference,
+            "objective": self.objective,
             "repository": self.repository.to_dict(),
             "revision": self.revision.to_dict(),
             "profile_hash": self.profile_hash,
             "evidence": [item.to_dict() for item in self.evidence],
             "artifact_digests": dict(sorted(self.artifact_digests.items())),
             "corpus_included": self.corpus_included,
+            "corpus_truncated": self.corpus_truncated,
+            "context_byte_budget": self.context_byte_budget,
+            "include_tests": self.include_tests,
+            "rlm_summary": self.rlm_summary,
         }
 
 
