@@ -470,27 +470,11 @@ PROXY_GROUNDING_DISCLOSURE = (
 )
 _REVIEWER_HARNESS_LABEL = "Reviewer harness"
 _TRANSPORT_GROUNDING_LABEL = "Transport grounding"
-#: Stable prefix of the ``_full_file_section`` header, used to detect that the
-#: opt-in full-file grounding section actually made it into a built prompt.
-_FULL_FILE_SECTION_MARKER = "=== FULL CHANGED FILES ("
 
 
 def _harness_is_proxy_transport(label: str) -> bool:
     lower = str(label or "").lower()
     return any(marker in lower for marker in PROXY_TRANSPORT_HARNESS_MARKERS)
-
-
-def _prompt_embedded_grounding_active(prompt: str) -> bool:
-    """Whether the reviewer prompt embedded verifiable grounding for a proxy.
-
-    A single-shot transport can verify exactly what the prompt contains and
-    nothing else, so the conditional countable-proxy path requires BOTH the
-    complete (never per-file-truncated) diff and the opt-in full-file section:
-    any elision reopens the fabrication surface the grounding contract closes.
-    """
-    if _PER_FILE_TRUNCATION_MARKER.strip() in prompt:
-        return False
-    return _FULL_FILE_SECTION_MARKER in prompt
 
 
 def _proxy_grounding_disclosed(body: str) -> bool:
@@ -1767,6 +1751,29 @@ def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
     return base64.b64decode((proc.stdout or "").strip()).decode("utf-8", errors="replace")
 
 
+class BuiltReviewPrompt(str):
+    """Review prompt carrying builder-asserted grounding provenance.
+
+    ``prompt_grounded`` records what the builder actually embedded: a non-empty
+    full-file section AND a diff bounded without per-file elision — a
+    single-shot transport can verify exactly what the prompt contains and
+    nothing else, so any elision reopens the fabrication surface the grounding
+    contract closes. It is provenance, never re-derived from prompt text: diff
+    content is author-controlled, so scanning the prompt for the section marker
+    would let the reviewed change itself forge the countable-proxy
+    precondition through a diff line.
+    """
+
+    __slots__ = ("prompt_grounded",)
+
+    prompt_grounded: bool
+
+    def __new__(cls, text: str, *, prompt_grounded: bool = False) -> "BuiltReviewPrompt":
+        built = super().__new__(cls, text)
+        built.prompt_grounded = prompt_grounded
+        return built
+
+
 def build_review_prompt(
     *,
     repo: str,
@@ -1775,7 +1782,7 @@ def build_review_prompt(
     diff_text: str,
     name_status: str = "",
     full_files: str = "",
-) -> str:
+) -> BuiltReviewPrompt:
     """Adversarial review prompt grounded on the exact head.
 
     The complete changed-file list (from ``gh pr diff --name-status`` or, as a
@@ -1796,7 +1803,7 @@ def build_review_prompt(
             f"=== DIFF (head {short}; some hunks omitted for length - the CHANGED FILES "
             "list above is complete, so treat every listed path as present) ==="
         )
-    return (
+    return BuiltReviewPrompt(
         "You are an adversarial senior reviewer giving an independent model review. "
         f"Review ONLY the changes below for PR #{pr} in {repo} at head {short}. "
         "Look hard for correctness, security, and regression risks. "
@@ -1827,7 +1834,8 @@ def build_review_prompt(
         "Never tag an UNVERIFIED assumption [P1] or [P2]. Verification, not visibility, "
         "is what makes a finding blocking.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
-        f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else "")
+        f"{body_header}\n{bounded}\n" + (f"\n{full_files}" if full_files else ""),
+        prompt_grounded=bool(full_files) and not truncated,
     )
 
 
@@ -2914,8 +2922,10 @@ def collect_evidence(
 
     prompt = prompt_builder(repo, pr, ctx)
     # Every reviewer receives this same prompt, so prompt-embedded grounding is a
-    # run-level fact captured once, not a per-reviewer one.
-    prompt_grounded = _prompt_embedded_grounding_active(prompt)
+    # run-level fact captured once, not a per-reviewer one. Only builder-asserted
+    # provenance counts (``BuiltReviewPrompt``); a custom builder returning a
+    # plain str fails closed to ungrounded.
+    prompt_grounded = bool(getattr(prompt, "prompt_grounded", False))
 
     # Resolve the ordered, de-duplicated family list up front so item/failure
     # ordering stays deterministic and matches the caller's requested order,
