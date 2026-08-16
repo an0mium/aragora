@@ -617,32 +617,30 @@ def _run_reviewer_with_infra_retry(
     2026-08-14 #9752 flip), and is re-run exactly ONCE. A retry that parses to
     a real verdict (PASS or CHANGES-REQUESTED alike) is scored normally; a
     second malformed result returns the FIRST, keeping the pre-retry
-    non-countable outcome. A body that HAS a verdict line never reaches this
-    branch even when its token is non-canonical (``Verdict: FAIL``) —
-    re-rolling substantive signal could convert a dissent into a counted PASS.
+    non-countable outcome. A body with a verdict line (even a non-canonical
+    token like ``Verdict: FAIL``) or blocking findings never reaches this
+    branch — re-rolling substantive signal could convert dissent into PASS.
     """
     attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
     result = runner(family, prompt)
     while not result.ok and attempts_left > 0:
         attempts_left -= 1
         result = runner(family, prompt)
-    if (
-        result.ok
-        and result.text.strip()
-        and canonical_family(family) == "grok"
+    if result.ok and result.text.strip() and canonical_family(family) == "grok":
         # Mirror the composed-body parse (normalize first), then require the
-        # verdict-less stream shape: a body the composer could anchor to ANY
-        # verdict line — canonical token or not — is never re-rolled.
-        and not _has_verdict_line(normalize_reviewer_output(result.text, family=family))
-    ):
-        retry_result = runner(family, prompt)
-        if (
-            retry_result.ok
-            and retry_result.text.strip()
-            and _reviewer_verdict(normalize_reviewer_output(retry_result.text, family=family))
-            != "unknown"
-        ):
-            return retry_result
+        # verdict-less, finding-less stream shape: a body the composer could
+        # anchor to ANY verdict line — canonical token or not — or that carries
+        # blocking/negative findings is substantive and never re-rolled.
+        normalized = normalize_reviewer_output(result.text, family=family)
+        if not _has_verdict_line(normalized) and not has_blocking_or_negative_verdict(normalized):
+            retry_result = runner(family, prompt)
+            if (
+                retry_result.ok
+                and retry_result.text.strip()
+                and _reviewer_verdict(normalize_reviewer_output(retry_result.text, family=family))
+                != "unknown"
+            ):
+                return retry_result
     return result
 
 
@@ -1326,7 +1324,8 @@ def _neutralize_reviewer_text(text: str) -> str:
         # and surrounding emphasis) so the neutralizer is a strict superset of
         # what the identity parser will accept as a heading or disclosure line.
         probe = stripped.lstrip(">").strip()
-        probe = re.sub(r"^([-*+]\s+|\d+[.)]\s+)+", "", probe)
+        probe = re.sub(r"`[^`]*`", " ", probe).strip()
+        probe = re.sub(r"^([-*+]\s*|\d+[.)]\s*)+", "", probe)
         probe = probe.strip("*_ ").strip()
         is_heading = probe.startswith("#")
         is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
