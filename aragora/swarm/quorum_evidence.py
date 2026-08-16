@@ -1322,7 +1322,6 @@ def _neutralize_reviewer_text(text: str) -> str:
     out: list[str] = []
     for line in text.strip().splitlines():
         stripped = line.strip()
-        lower = stripped.lower()
         # Canonicalize the way the parser does (strip leading quote/list markers
         # and surrounding emphasis) so the neutralizer is a strict superset of
         # what the identity parser will accept as a heading or disclosure line.
@@ -1331,17 +1330,13 @@ def _neutralize_reviewer_text(text: str) -> str:
         probe = probe.strip("*_ ").strip()
         is_heading = probe.startswith("#")
         is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
-        # Over-quoting is harmless; a missed disclosure is not, so match the
-        # ``model family:`` label — and the transport-disclosure labels the
-        # countable-proxy path relies on (``reviewer harness:``, ``transport
-        # grounding:``, plus the prose ``reviewer:`` line the lint also reads) —
-        # anywhere they could be parsed. The gate parser strips surrounding
-        # emphasis from the label, so tolerate whitespace and ``*``/``_`` between
-        # the label words and the colon (e.g. ``**Model family**:``).
+        # Quote a disclosure label ONLY at the start of the canonicalized line,
+        # where a parser could read one: quoting a finding that merely CONTAINS
+        # ``reviewer:`` gets it dropped downstream, suppressing real dissent.
         has_disclosure_label = bool(
-            re.search(
+            re.match(
                 r"(?:model\s+family|reviewer\s+harness|transport\s+grounding|reviewer)[\s*_]*:",
-                lower,
+                probe.lower(),
             )
         )
         if is_heading or is_setext or has_disclosure_label:
@@ -1692,8 +1687,8 @@ def _full_file_section(
                 sizes.setdefault(current, 0)
         elif current is not None:
             # A deletion has no post-change contents to ground on; fetching it
-            # would 404 and wrongly mark the section elided. The metadata line
-            # cannot be forged from hunk content (content lines start +/-/space).
+            # would 404 and wrongly elide. Unforgeable from hunk content
+            # (content lines start with +/-/space, never a bare ``d``).
             if line.startswith("deleted file mode"):
                 deleted.add(current)
             sizes[current] = sizes[current] + 1

@@ -2103,8 +2103,7 @@ class TestModelReviewQuorum:
     def test_evidence_lint_counts_disclosed_proxy_transport_body(self) -> None:
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         disclosure = (
-            "Reviewer harness: local VibeProxy Anthropic Messages transport "
-            "(model: claude-opus-5)\n"
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
             f"Transport grounding: {PROXY_GROUNDING_DISCLOSURE}\n"
         )
         result = _lint_evidence_comment(

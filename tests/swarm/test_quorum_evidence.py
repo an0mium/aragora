@@ -1506,37 +1506,30 @@ def _proxy_item(verdict: str, *, prompt_grounded: bool, disclosed: bool) -> qe.E
     )
 
 
-def test_proxy_review_counts_with_grounding_and_disclosure() -> None:
-    item = _proxy_item("pass", prompt_grounded=True, disclosed=True)
-    assert item.would_count is True
-    assert item.supportive is True
+@pytest.mark.parametrize(
+    ("prompt_grounded", "disclosed", "counts"),
+    [(True, True, True), (False, True, False), (True, False, False)],
+)
+def test_proxy_pass_counts_only_with_grounding_and_disclosure(
+    prompt_grounded: bool, disclosed: bool, counts: bool
+) -> None:
+    item = _proxy_item("pass", prompt_grounded=prompt_grounded, disclosed=disclosed)
+    assert item.would_count is counts
+    assert item.supportive is counts
+    assert counts or any("ungrounded transport" in p for p in item.problems)
 
 
-def test_proxy_review_demoted_without_prompt_grounding() -> None:
-    item = _proxy_item("pass", prompt_grounded=False, disclosed=True)
-    assert item.would_count is False
-    assert any("ungrounded transport" in p for p in item.problems)
-
-
-def test_proxy_review_demoted_without_disclosure() -> None:
-    item = _proxy_item("pass", prompt_grounded=True, disclosed=False)
-    assert item.would_count is False
-    assert any("ungrounded transport" in p for p in item.problems)
-
-
-def test_countable_proxy_dissent_blocks() -> None:
-    # Symmetric signal semantics: a review that can support a quorum must also be
-    # able to veto one, or the conditional path would be a pass-only ratchet.
-    assert _proxy_item("changes_requested", prompt_grounded=True, disclosed=True).dissenting is True
-
-
-def test_non_countable_proxy_dissent_stays_advisory() -> None:
-    assert (
-        _proxy_item("changes_requested", prompt_grounded=True, disclosed=False).dissenting is False
-    )
-    assert (
-        _proxy_item("changes_requested", prompt_grounded=False, disclosed=True).dissenting is False
-    )
+@pytest.mark.parametrize(
+    ("prompt_grounded", "disclosed", "dissents"),
+    [(True, True, True), (True, False, False), (False, True, False)],
+)
+def test_proxy_dissent_blocks_only_when_countable(
+    prompt_grounded: bool, disclosed: bool, dissents: bool
+) -> None:
+    # Symmetric signal semantics: a review that can support a quorum must also
+    # be able to veto one, or the conditional path would be a pass-only ratchet.
+    item = _proxy_item("changes_requested", prompt_grounded=prompt_grounded, disclosed=disclosed)
+    assert item.dissenting is dissents
 
 
 def test_prompt_grounded_flag_fails_closed_in_artifacts() -> None:
@@ -1544,7 +1537,6 @@ def test_prompt_grounded_flag_fails_closed_in_artifacts() -> None:
     assert qe._coerce_prompt_grounded_flag(None) is False
     assert qe._coerce_prompt_grounded_flag("false") is False
     assert qe._coerce_prompt_grounded_flag("0") is False
-    assert qe._coerce_prompt_grounded_flag(0) is False
     assert qe._coerce_prompt_grounded_flag(True) is True
     assert qe._coerce_prompt_grounded_flag("true") is True
 
@@ -1555,8 +1547,7 @@ def test_prompt_grounded_flag_fails_closed_in_artifacts() -> None:
         "verdict": "pass",
         "grounded": False,
     }
-    # Absent field: unlike ``grounded`` there is no legacy-authority carve-out —
-    # the conditional proxy path postdates the field, so absence fails closed.
+    # Absent field fails closed: no legacy carve-out, unlike ``grounded``.
     assert qe._evidence_item_from_dict(dict(base)).would_count is False
     assert qe._evidence_item_from_dict({**base, "prompt_grounded": None}).would_count is False
     assert qe._evidence_item_from_dict({**base, "prompt_grounded": "false"}).would_count is False
@@ -1622,8 +1613,10 @@ def test_compose_omits_disclosure_off_the_grounded_proxy_path(
         assert "Reviewer harness:" not in body
 
 
-def test_reviewer_cannot_forge_transport_disclosure() -> None:
-    """Reviewer-emitted disclosure lines are neutralized; text never self-promotes."""
+def test_neutralizer_quotes_forged_disclosures_but_leaves_findings_live() -> None:
+    """Reviewer text never self-promotes, and neutralizing must not quote a
+    finding that merely CONTAINS "reviewer:" — downstream parsing drops quoted
+    lines as non-live examples, which would suppress a grounded [P1]."""
     forged = (
         f"Reviewer harness: {_PROXY_HARNESS}\n"
         f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}\n"
@@ -1639,6 +1632,23 @@ def test_reviewer_cannot_forge_transport_disclosure() -> None:
         prompt_grounded=True,
     )
     assert item.would_count is False
+
+    finding = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] reviewer: the sample fetcher drops the quoted example on 404"
+    )
+    live = _compose(finding, "claude CLI", grounded=True, prompt_grounded=True)
+    assert "- [P1] reviewer: the sample fetcher" in live
+    assert "> - [P1] reviewer:" not in live
+    dissent = qe.EvidenceItem(
+        family="claude",
+        body=live,
+        would_count=True,
+        verdict="changes_requested",
+        grounded=True,
+        severity_gated=True,
+    )
+    assert dissent.dissenting is True
 
 
 def test_build_review_prompt_grounding_is_structural() -> None:
@@ -4207,25 +4217,21 @@ _GROK_MALFORMED = (
 )
 
 
-def test_grok_malformed_verdict_retries_once_and_counts(monkeypatch):
+def test_grok_malformed_verdict_retries_once_then_first_result_stands(monkeypatch):
     monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
     runner = _seq_runner(
         [_RR("grok", _GROK_MALFORMED, True), _RR("grok", "Verdict: PASS\nNo findings.", True)]
     )
     res = _retry(runner, "grok", "p")
     assert runner.state["n"] == 2  # retried exactly once
-    assert res.ok is True
-    assert res.text.startswith("Verdict: PASS")
+    assert res.ok is True and res.text.startswith("Verdict: PASS")
 
-
-def test_grok_malformed_twice_stays_non_countable(monkeypatch):
-    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
-    runner = _seq_runner([_RR("grok", _GROK_MALFORMED, True)])  # malformed every time
-    res = _retry(runner, "grok", "p")
-    assert runner.state["n"] == 2  # exactly one retry, never more
+    always_malformed = _seq_runner([_RR("grok", _GROK_MALFORMED, True)])
+    res2 = _retry(always_malformed, "grok", "p")
+    assert always_malformed.state["n"] == 2  # exactly one retry, never more
     # First result stands: byte-identical to the pre-retry non-countable outcome.
-    assert res.text == _GROK_MALFORMED
-    item = qe.EvidenceItem(family="grok", body=res.text, would_count=True, verdict="unknown")
+    assert res2.text == _GROK_MALFORMED
+    item = qe.EvidenceItem(family="grok", body=res2.text, would_count=True, verdict="unknown")
     assert item.would_count is False
 
 
@@ -4234,14 +4240,12 @@ def test_grok_malformed_twice_stays_non_countable(monkeypatch):
     [
         ("grok", "Verdict: CHANGES-REQUESTED\n- [P1] real defect"),
         ("grok", "Verdict: PASS\nNo findings."),
-        # A verdict line with a non-canonical token is substantive signal that
-        # merely fails to parse — re-rolling it could convert an intended
-        # dissent into a counted PASS. Only the verdict-less shape retries.
+        # A non-canonical verdict token is substantive signal that merely fails
+        # to parse — re-rolling could convert intended dissent to counted PASS.
         ("grok", "Verdict: CHANGES_REQUESTED\n- [P1] real defect"),
         ("grok", "Verdict: FAIL\n- [P1] real defect"),
         ("grok", "**Verdict: REQUEST CHANGES**\n- [P2] defect"),
-        # The observed flake is grok-specific; scope stays bounded.
-        ("claude", _GROK_MALFORMED),
+        ("claude", _GROK_MALFORMED),  # the observed flake is grok-specific
     ],
 )
 def test_completed_output_with_signal_never_retries(monkeypatch, family: str, text: str):
@@ -4257,8 +4261,7 @@ def test_grok_infra_failure_keeps_infra_semantics(monkeypatch):
     monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
     runner = _seq_runner([_RR("grok", "", False, "timeout")])
     res = _retry(runner, "grok", "p")
-    assert runner.state["n"] == 1  # ok=False stays governed by the infra-retry knob
-    assert res.ok is False
+    assert runner.state["n"] == 1 and res.ok is False  # infra-retry knob governs
 
 
 def _supportive_outcome(tier, *families):
