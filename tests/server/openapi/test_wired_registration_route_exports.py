@@ -124,6 +124,33 @@ def test_wired_operation_ids_match_generated_json_and_yaml() -> None:
             assert yaml_ids[expected] == 1
 
 
+def test_cost_metadata_survives_json_yaml_and_typescript_generation() -> None:
+    json_spec = json.loads((_ROOT / "docs/api/openapi_generated.json").read_text())
+    yaml_spec = yaml.safe_load((_ROOT / "docs/api/openapi_generated.yaml").read_text())
+    typescript = (_ROOT / "sdk/typescript/src/openapi-types.ts").read_text()
+    contracts = {
+        ("", "get"): ("Get recommendation", "Get a specific cost optimization recommendation."),
+        ("/apply", "post"): ("Apply recommendation", "Apply a cost optimization recommendation."),
+        ("/dismiss", "post"): (
+            "Dismiss recommendation",
+            "Dismiss a cost optimization recommendation.",
+        ),
+    }
+
+    for prefix in (
+        "/api/costs/recommendations/{recommendation_id}",
+        "/api/v1/costs/recommendations/{recommendation_id}",
+    ):
+        for (suffix, method), (summary, description) in contracts.items():
+            path = f"{prefix}{suffix}"
+            for spec in (json_spec, yaml_spec):
+                assert spec["paths"][path][method]["summary"] == summary
+                assert spec["paths"][path][method]["description"] == description
+            path_block = typescript.split(f'    "{path}": {{', 1)[1].split('\n    "/api/', 1)[0]
+            assert f"* {summary}" in path_block
+            assert f"* @description {description}" in path_block
+
+
 def test_existing_wired_operation_ids_remain_stable() -> None:
     json_spec = json.loads((_ROOT / "docs/api/openapi_generated.json").read_text())
     yaml_spec = yaml.safe_load((_ROOT / "docs/api/openapi_generated.yaml").read_text())

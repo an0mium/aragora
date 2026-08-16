@@ -5381,9 +5381,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * GET /api/costs/recommendations/{recommendation_id}
+         * Get recommendation
          * @deprecated
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * @description Get a specific cost optimization recommendation.
          */
         get: operations["getCostsRecommendationsByrecommendationid"];
         put?: never;
@@ -5404,9 +5404,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /api/costs/recommendations/{recommendation_id}/apply
+         * Apply recommendation
          * @deprecated
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * @description Apply a cost optimization recommendation.
          */
         post: operations["createCostsRecommendationsByrecommendationidApply"];
         delete?: never;
@@ -5425,9 +5425,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /api/costs/recommendations/{recommendation_id}/dismiss
+         * Dismiss recommendation
          * @deprecated
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * @description Dismiss a cost optimization recommendation.
          */
         post: operations["createCostsRecommendationsByrecommendationidDismiss"];
         delete?: never;
@@ -28870,8 +28870,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * GET /api/v1/costs/recommendations/{recommendation_id}
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * Get recommendation
+         * @description Get a specific cost optimization recommendation.
          */
         get: operations["handle_get_recommendation"];
         put?: never;
@@ -28892,8 +28892,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /api/v1/costs/recommendations/{recommendation_id}/apply
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * Apply recommendation
+         * @description Apply a cost optimization recommendation.
          */
         post: operations["handle_apply_recommendation"];
         delete?: never;
@@ -28912,8 +28912,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /api/v1/costs/recommendations/{recommendation_id}/dismiss
-         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         * Dismiss recommendation
+         * @description Dismiss a cost optimization recommendation.
          */
         post: operations["handle_dismiss_recommendation"];
         delete?: never;

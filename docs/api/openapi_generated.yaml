@@ -12961,9 +12961,8 @@ paths:
       x-aragora-stability: deprecated
   /api/costs/recommendations/{recommendation_id}:
     get:
-      summary: GET /api/costs/recommendations/{recommendation_id}
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Get recommendation
+      description: Get a specific cost optimization recommendation.
       tags:
       - Costs
       responses:
@@ -12990,9 +12989,8 @@ paths:
       operationId: getCostsRecommendationsByrecommendationid
   /api/costs/recommendations/{recommendation_id}/apply:
     post:
-      summary: POST /api/costs/recommendations/{recommendation_id}/apply
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Apply recommendation
+      description: Apply a cost optimization recommendation.
       tags:
       - Costs
       responses:
@@ -13024,9 +13022,8 @@ paths:
       operationId: createCostsRecommendationsByrecommendationidApply
   /api/costs/recommendations/{recommendation_id}/dismiss:
     post:
-      summary: POST /api/costs/recommendations/{recommendation_id}/dismiss
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Dismiss recommendation
+      description: Dismiss a cost optimization recommendation.
       tags:
       - Costs
       responses:
@@ -68146,9 +68143,8 @@ paths:
       x-aragora-stability: stable
   /api/v1/costs/recommendations/{recommendation_id}:
     get:
-      summary: GET /api/v1/costs/recommendations/{recommendation_id}
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Get recommendation
+      description: Get a specific cost optimization recommendation.
       tags:
       - Costs
       responses:
@@ -68173,9 +68169,8 @@ paths:
       operationId: handle_get_recommendation
   /api/v1/costs/recommendations/{recommendation_id}/apply:
     post:
-      summary: POST /api/v1/costs/recommendations/{recommendation_id}/apply
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Apply recommendation
+      description: Apply a cost optimization recommendation.
       tags:
       - Costs
       responses:
@@ -68205,9 +68200,8 @@ paths:
       operationId: handle_apply_recommendation
   /api/v1/costs/recommendations/{recommendation_id}/dismiss:
     post:
-      summary: POST /api/v1/costs/recommendations/{recommendation_id}/dismiss
-      description: Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration;
-        detailed contract pending.
+      summary: Dismiss recommendation
+      description: Dismiss a cost optimization recommendation.
       tags:
       - Costs
       responses:

@@ -22450,8 +22450,8 @@
     },
     "/api/costs/recommendations/{recommendation_id}": {
       "get": {
-        "summary": "GET /api/costs/recommendations/{recommendation_id}",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Get recommendation",
+        "description": "Get a specific cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
@@ -22493,8 +22493,8 @@
     },
     "/api/costs/recommendations/{recommendation_id}/apply": {
       "post": {
-        "summary": "POST /api/costs/recommendations/{recommendation_id}/apply",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Apply recommendation",
+        "description": "Apply a cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
@@ -22545,8 +22545,8 @@
     },
     "/api/costs/recommendations/{recommendation_id}/dismiss": {
       "post": {
-        "summary": "POST /api/costs/recommendations/{recommendation_id}/dismiss",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Dismiss recommendation",
+        "description": "Dismiss a cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
@@ -117769,8 +117769,8 @@
     },
     "/api/v1/costs/recommendations/{recommendation_id}": {
       "get": {
-        "summary": "GET /api/v1/costs/recommendations/{recommendation_id}",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Get recommendation",
+        "description": "Get a specific cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
@@ -117810,8 +117810,8 @@
     },
     "/api/v1/costs/recommendations/{recommendation_id}/apply": {
       "post": {
-        "summary": "POST /api/v1/costs/recommendations/{recommendation_id}/apply",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Apply recommendation",
+        "description": "Apply a cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
@@ -117860,8 +117860,8 @@
     },
     "/api/v1/costs/recommendations/{recommendation_id}/dismiss": {
       "post": {
-        "summary": "POST /api/v1/costs/recommendations/{recommendation_id}/dismiss",
-        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "summary": "Dismiss recommendation",
+        "description": "Dismiss a cost optimization recommendation.",
         "tags": [
           "Costs"
         ],
