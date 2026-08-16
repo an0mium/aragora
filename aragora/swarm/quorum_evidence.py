@@ -1652,10 +1652,8 @@ class FullFileSection(str):
     """Full-file grounding section carrying builder-asserted completeness.
 
     ``complete`` is True only when every changed file's post-change contents
-    made it into the section whole: no fetch failure, no per-file clipping, no
-    file dropped by the caps. An elided section still helps a reviewer, but
-    grounding must fail closed rather than attest to contents the prompt does
-    not fully contain.
+    made it into the section whole (no fetch failure, clipping, or capped-out
+    file); grounding fails closed on any elision.
     """
 
     __slots__ = ("complete",)
@@ -1683,6 +1681,7 @@ def _full_file_section(
     """
     fetcher = file_fetcher or _fetch_file_at_ref
     sizes: dict[str, int] = {}
+    deleted: set[str] = set()
     current: str | None = None
     for line in diff_text.splitlines():
         if line.startswith("diff --git "):
@@ -1692,11 +1691,17 @@ def _full_file_section(
             if current is not None:
                 sizes.setdefault(current, 0)
         elif current is not None:
+            # A deletion has no post-change contents to ground on; fetching it
+            # would 404 and wrongly mark the section elided. The metadata line
+            # cannot be forged from hunk content (content lines start +/-/space).
+            if line.startswith("deleted file mode"):
+                deleted.add(current)
             sizes[current] = sizes[current] + 1
-    ordered = sorted(sizes, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
+    candidates = [path for path in sizes if path not in deleted]
+    ordered = sorted(candidates, key=lambda p: sizes[p], reverse=True)[:_FULL_FILE_MAX_FILES]
     if not ordered:
         return FullFileSection("")
-    elided = len(sizes) > len(ordered)
+    elided = len(candidates) > len(ordered)
     parts: list[str] = []
     for index, path in enumerate(ordered):
         try:
@@ -1709,7 +1714,9 @@ def _full_file_section(
             parts.append(f"--- {path}: unavailable ({type(exc).__name__}) ---")
             continue
         if not content.strip():
-            # Deleted or empty at head: nothing to ground on, nothing elided.
+            # Genuinely empty at head OR the contents API's 1 MB gap returning
+            # "" — indistinguishable cheaply, so completeness fails closed.
+            elided = True
             continue
         lines = content.splitlines()
         clipped = lines[:_FULL_FILE_MAX_LINES]
@@ -1777,12 +1784,10 @@ def _fetch_file_at_ref(repo: str, ref: str, path: str) -> str:
 class BuiltReviewPrompt(str):
     """Review prompt carrying builder-asserted grounding provenance.
 
-    ``prompt_grounded`` records what the builder actually embedded: a
-    :class:`FullFileSection` complete within its bounds AND a diff bounded
-    without per-file elision. It is provenance, never re-derived from prompt
-    text — diff content is author-controlled, so scanning the prompt for the
-    section marker would let the reviewed change itself forge the
-    countable-proxy precondition through a diff line.
+    ``prompt_grounded`` records what the builder actually embedded (a complete
+    :class:`FullFileSection` AND a diff bounded without elision). Provenance is
+    never re-derived from prompt text: diff content is author-controlled, so
+    marker-scanning would let the reviewed change forge the precondition.
     """
 
     __slots__ = ("prompt_grounded",)

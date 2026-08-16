@@ -2074,15 +2074,26 @@ class TestModelReviewQuorum:
             "\nVerdict: PASS\nNo findings.\n\ndogfood: yes\n"
         )
 
-    def test_evidence_lint_rejects_undisclosed_proxy_transport_body(self) -> None:
-        # A hand-posted VibeProxy body without the grounding disclosure never
-        # counts: in-process demotion cannot protect against re-posting by hand.
+    @pytest.mark.parametrize(
+        "disclosure",
+        [
+            "",  # hand-posted proxy body with no disclosure at all
+            # Non-canonical grounding value: the exact line is required.
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            "Transport grounding: trust me\n",
+        ],
+    )
+    def test_evidence_lint_rejects_proxy_body_without_exact_disclosure(
+        self, disclosure: str
+    ) -> None:
+        # In-process demotion cannot protect against re-posting composed text
+        # by hand; the lint must fail these closed on its own.
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         result = _lint_evidence_comment(
             pr="9505",
             head_sha=head,
             head_committed_at="2026-08-15T00:00:00Z",
-            body=self._proxy_lint_body(head, disclosure=""),
+            body=self._proxy_lint_body(head, disclosure=disclosure),
             author="an0mium",
             source="test",
         )
@@ -2107,23 +2118,6 @@ class TestModelReviewQuorum:
         assert "proxy_transport_grounding_undisclosed" not in result["problems"]
         assert result["would_count"] is True
         assert result["counted_model_families"] == ["claude"]
-
-    def test_evidence_lint_rejects_wrong_proxy_grounding_value(self) -> None:
-        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
-        disclosure = (
-            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
-            "Transport grounding: trust me\n"
-        )
-        result = _lint_evidence_comment(
-            pr="9505",
-            head_sha=head,
-            head_committed_at="2026-08-15T00:00:00Z",
-            body=self._proxy_lint_body(head, disclosure=disclosure),
-            author="an0mium",
-            source="test",
-        )
-        assert result["would_count"] is False
-        assert "proxy_transport_grounding_undisclosed" in result["problems"]
 
     def test_evidence_lint_ignores_vibeproxy_mention_in_findings(self) -> None:
         # Transport classification keys on the reviewer/harness disclosure lines,

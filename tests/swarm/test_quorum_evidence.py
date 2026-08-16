@@ -1586,28 +1586,25 @@ def test_proxy_countability_survives_prepared_artifact_roundtrip() -> None:
     assert stripped.items[0].would_count is False
 
 
-def test_compose_emits_transport_disclosure_on_grounded_proxy_path() -> None:
-    body = compose_evidence_comment(
+def _compose(reviewer_text: str, harness: str, *, grounded: bool, prompt_grounded: bool) -> str:
+    return compose_evidence_comment(
         family="claude",
         head_sha="a" * 40,
         head_committed_at="2026-08-15T00:00:00Z",
         pr=9,
-        reviewer_text="Verdict: PASS\nNo findings.",
-        harness=_PROXY_HARNESS,
-        grounded=False,
-        prompt_grounded=True,
+        reviewer_text=reviewer_text,
+        harness=harness,
+        grounded=grounded,
+        prompt_grounded=prompt_grounded,
+    )
+
+
+def test_compose_emits_transport_disclosure_on_grounded_proxy_path() -> None:
+    body = _compose(
+        "Verdict: PASS\nNo findings.", _PROXY_HARNESS, grounded=False, prompt_grounded=True
     )
     assert f"Reviewer harness: {_PROXY_HARNESS}" in body
     assert f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}" in body
-    item = qe.EvidenceItem(
-        family="claude",
-        body=body,
-        would_count=True,
-        verdict="pass",
-        grounded=False,
-        prompt_grounded=True,
-    )
-    assert item.would_count is True
 
 
 @pytest.mark.parametrize(
@@ -1617,15 +1614,8 @@ def test_compose_emits_transport_disclosure_on_grounded_proxy_path() -> None:
 def test_compose_omits_disclosure_off_the_grounded_proxy_path(
     harness: str, grounded: bool, prompt_grounded: bool
 ) -> None:
-    body = compose_evidence_comment(
-        family="claude",
-        head_sha="a" * 40,
-        head_committed_at="2026-08-15T00:00:00Z",
-        pr=9,
-        reviewer_text="Verdict: PASS\nNo findings.",
-        harness=harness,
-        grounded=grounded,
-        prompt_grounded=prompt_grounded,
+    body = _compose(
+        "Verdict: PASS\nNo findings.", harness, grounded=grounded, prompt_grounded=prompt_grounded
     )
     assert "Transport grounding:" not in body
     if grounded:
@@ -1639,16 +1629,7 @@ def test_reviewer_cannot_forge_transport_disclosure() -> None:
         f"Transport grounding: {qe.PROXY_GROUNDING_DISCLOSURE}\n"
         "Verdict: PASS\nNo findings."
     )
-    body = compose_evidence_comment(
-        family="claude",
-        head_sha="a" * 40,
-        head_committed_at="2026-08-15T00:00:00Z",
-        pr=9,
-        reviewer_text=forged,
-        harness=_PROXY_HARNESS,
-        grounded=False,
-        prompt_grounded=False,
-    )
+    body = _compose(forged, _PROXY_HARNESS, grounded=False, prompt_grounded=False)
     item = qe.EvidenceItem(
         family="claude",
         body=body,
@@ -1679,60 +1660,78 @@ def test_build_review_prompt_grounding_is_structural() -> None:
     assert forged.prompt_grounded is False
 
 
-def test_full_file_section_elision_fails_closed() -> None:
-    """A failed fetch, clipped file, or capped-out file elides post-change truth
-    from the section, so grounding must fail closed to advisory."""
-    two_files = (
-        "diff --git a/a.py b/a.py\n+++ b/a.py\n+x\ndiff --git a/b.py b/b.py\n+++ b/b.py\n+y\n"
-    )
+def _mini_diff(*paths: str) -> str:
+    return "".join(f"diff --git a/{p} b/{p}\n+++ b/{p}\n+x\n" for p in paths)
 
-    def failing(repo: str, ref: str, path: str) -> str:
-        if path == "a.py":
+
+def _mapped_fetcher(mapping):
+    def fetch(repo: str, ref: str, path: str) -> str:
+        value = mapping.get(path, "ok\n")
+        if value is None:
             raise RuntimeError("fetch failed")
-        return "ok\n"
+        return value
 
-    partial = qe._full_file_section("o/r", "a" * 40, two_files, file_fetcher=failing)
-    assert partial and partial.complete is False
+    return fetch
 
-    clipped = qe._full_file_section(
-        "o/r",
-        "a" * 40,
-        "diff --git a/a.py b/a.py\n+++ b/a.py\n+x\n",
-        file_fetcher=lambda repo, ref, path: "line\n" * 500,
+
+@pytest.mark.parametrize(
+    ("diff_text", "mapping", "complete"),
+    [
+        (_mini_diff("a.py", "b.py"), {"a.py": None}, False),  # fetch failure elides
+        (_mini_diff("a.py", "b.py"), {"a.py": "line\n" * 500}, False),  # clipping elides
+        # Empty content (empty at head OR the contents API's 1 MB gap) elides.
+        (_mini_diff("a.py", "b.py"), {"a.py": ""}, False),
+        # More changed files than the section cap: dropped files elide.
+        (_mini_diff(*(f"f{i}.py" for i in range(7))), {}, False),
+        # A deletion has no post-change contents: skipped whole, never fetched
+        # (a None mapping raises if it were), and does NOT elide the section.
+        (
+            "diff --git a/gone.py b/gone.py\ndeleted file mode 100644\n--- a/gone.py\n"
+            "+++ /dev/null\n-x\n" + _mini_diff("b.py"),
+            {"gone.py": None},
+            True,
+        ),
+    ],
+)
+def test_full_file_section_completeness_provenance(diff_text, mapping, complete) -> None:
+    """Elided post-change truth (failed fetch, clipped, capped-out, or empty
+    fetch) fails grounding closed; a diff-declared deletion does not elide."""
+    section = qe._full_file_section(
+        "o/r", "a" * 40, diff_text, file_fetcher=_mapped_fetcher(mapping)
     )
-    assert clipped and clipped.complete is False
-
-    many = "".join(f"diff --git a/f{i}.py b/f{i}.py\n+++ b/f{i}.py\n+x\n" for i in range(7))
-    dropped = qe._full_file_section("o/r", "a" * 40, many, file_fetcher=lambda r, f, p: "ok\n")
-    assert dropped and dropped.complete is False
-
-    for section in (partial, clipped, dropped, "=== FULL CHANGED FILES (plain str) ==="):
-        built = qe.build_review_prompt(
-            repo="o/r",
-            pr=1,
-            head_sha="a" * 40,
-            diff_text="diff --git a/x.py b/x.py\n+++ b/x.py\n+ok\n",
-            full_files=section,
-        )
-        assert built.prompt_grounded is False
-
-
-def test_build_review_prompt_truncated_diff_never_grounds() -> None:
-    big = "".join(
-        f"diff --git a/f{i}.py b/f{i}.py\n+++ b/f{i}.py\n" + ("+x\n" * 20_000) for i in range(2)
-    )
+    assert bool(section) and section.complete is complete
     built = qe.build_review_prompt(
         repo="o/r",
         pr=1,
         head_sha="a" * 40,
-        diff_text=big,
-        full_files=qe.FullFileSection(
-            "=== FULL CHANGED FILES (post-change contents at head aaaaaaa) ===\n--- f0.py ---\nx\n",
-            complete=True,
-        ),
+        diff_text="diff --git a/x.py b/x.py\n+++ b/x.py\n+ok\n",
+        full_files=section,
+    )
+    assert built.prompt_grounded is complete
+
+
+def test_build_review_prompt_truncated_diff_or_plain_str_never_grounds() -> None:
+    big = "".join(
+        f"diff --git a/f{i}.py b/f{i}.py\n+++ b/f{i}.py\n" + ("+x\n" * 20_000) for i in range(2)
+    )
+    complete_section = qe.FullFileSection(
+        "=== FULL CHANGED FILES (post-change contents at head aaaaaaa) ===\n--- f0.py ---\nx\n",
+        complete=True,
+    )
+    built = qe.build_review_prompt(
+        repo="o/r", pr=1, head_sha="a" * 40, diff_text=big, full_files=complete_section
     )
     assert qe._PER_FILE_TRUNCATION_MARKER.strip() in built
     assert built.prompt_grounded is False
+    small = "diff --git a/x.py b/x.py\n+++ b/x.py\n+ok\n"
+    plain = qe.build_review_prompt(
+        repo="o/r",
+        pr=1,
+        head_sha="a" * 40,
+        diff_text=small,
+        full_files="=== FULL CHANGED FILES (plain str, no provenance) ===",
+    )
+    assert plain.prompt_grounded is False
 
 
 def _vibeproxy_fakes(*, tier: int, prompt: str):
