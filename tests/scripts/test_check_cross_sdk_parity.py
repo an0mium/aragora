@@ -112,6 +112,29 @@ def test_string_baseline_value_is_config_error(tmp_path: Path) -> None:
     assert "typescript_only" in proc.stderr
 
 
+def test_non_string_baseline_element_is_config_error(tmp_path: Path) -> None:
+    nested = tmp_path / "nested_element.json"
+    nested.write_text(
+        json.dumps({"python_only": [["/api/x"]], "typescript_only": []}),
+        encoding="utf-8",
+    )
+    proc = _run("--strict", "--baseline", str(nested))
+    assert proc.returncode == CONFIG_ERROR_EXIT
+    assert str(nested) in proc.stderr
+    assert "python_only" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+    numeric = tmp_path / "numeric_element.json"
+    numeric.write_text(
+        json.dumps({"python_only": [], "typescript_only": [1, 2]}),
+        encoding="utf-8",
+    )
+    proc = _run("--strict", "--baseline", str(numeric))
+    assert proc.returncode == CONFIG_ERROR_EXIT
+    assert str(numeric) in proc.stderr
+    assert "typescript_only" in proc.stderr
+
+
 def test_strict_with_valid_baseline_passes_unchanged(tmp_path: Path) -> None:
     baseline = _live_baseline(tmp_path)
     proc = _run("--strict", "--baseline", str(baseline))
