@@ -38,9 +38,16 @@ project owns; this catalog makes the detection mechanical.
 
 No runtime table changed behavior. `tests/models/test_catalog.py` asserts
 that existing table rows for an **enforced** model match the catalog
-(`ENFORCED_MODELS`, currently the nine models verified live this week).
+(`ENFORCED_MODELS`, currently the twelve models verified live).
 A covered drifting mirror now fails tests in seconds instead of consuming
 an adversarial review round.
+
+The 2026-08-16 runtime refresh added the live OpenRouter defaults
+`perplexity/sonar-reasoning-pro`, `cohere/command-a`, and
+`ai21/jamba-large-1.7`; Grok's OpenRouter runtime routing now uses
+`x-ai/grok-4.5` while Grok 4.6 completes its repository soak. The same live
+capture recorded the Kimi K2.7 Code price change to $0.71/$3.50 per MTok
+without changing its pin.
 
 The current Anthropic frontier pin is **`claude-opus-5`** (`anthropic/claude-opus-5`
 via OpenRouter), adopted 2026-07-24 at the same $5/$25 per MTok as its

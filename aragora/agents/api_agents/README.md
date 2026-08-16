@@ -115,9 +115,9 @@ Agent (core.py)
 | `YiAgent` | yi-large | 01.AI flagship |
 | `KimiK2Agent` | kimi-k2.6 | Latest frontier Kimi model on OpenRouter |
 | `KimiThinkingAgent` | kimi-k2-thinking | Reasoning model |
-| `SonarAgent` | sonar-reasoning | DeepSeek R1 + web search |
-| `CommandRAgent` | command-r-plus | RAG-optimized |
-| `JambaAgent` | jamba-1.6-large | SSM-Transformer hybrid |
+| `SonarAgent` | sonar-reasoning-pro | Advanced reasoning + web search |
+| `CommandRAgent` | command-a | Tool use and RAG |
+| `JambaAgent` | jamba-large-1.7 | SSM-Transformer hybrid |
 
 ### Local Inference
 
