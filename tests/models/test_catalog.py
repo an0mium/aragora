@@ -81,6 +81,24 @@ def test_catalog_matches_committed_snapshot() -> None:
         assert float(row["output_per_mtok"]) == pytest.approx(spec.output_per_mtok)
 
 
+@pytest.mark.parametrize(
+    ("canonical_id", "openrouter_id", "rates"),
+    [
+        ("sonar-reasoning-pro", "perplexity/sonar-reasoning-pro", (2.0, 8.0)),
+        ("command-a", "cohere/command-a", (2.5, 10.0)),
+        ("jamba-large-1.7", "ai21/jamba-large-1.7", (2.0, 8.0)),
+    ],
+)
+def test_refreshed_openrouter_defaults_are_cataloged(
+    canonical_id: str,
+    openrouter_id: str,
+    rates: tuple[float, float],
+) -> None:
+    spec = CATALOG[canonical_id]
+    assert spec.openrouter_id == openrouter_id
+    assert (spec.input_per_mtok, spec.output_per_mtok) == rates
+
+
 # ---------------------------------------------------------------------------
 # Mirror-consistency enforcement
 # ---------------------------------------------------------------------------

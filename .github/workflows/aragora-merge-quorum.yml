@@ -323,6 +323,10 @@ jobs:
     # keeps the workflow-level read-only permissions unchanged.
     permissions:
       actions: write
+      # Read-only: check out the default-branch shared selection helper
+      # (scripts/quorum_evidence_retrigger_select.sh). Nothing in this job
+      # can write repository contents.
+      contents: read
       pull-requests: read
       # Read-only: the draft-run partition in Guard 3 reads the PR's
       # ready_for_review transitions from the issue-events timeline.
@@ -337,102 +341,53 @@ jobs:
       group: quorum-evidence-retrigger-${{ github.event.issue.number }}
       cancel-in-progress: true
     steps:
-      - name: Guard and re-trigger stale quorum evaluation
+      # Guard 1: the comment's FIRST markdown heading must name a known
+      # reviewer family — the same convention the quorum evidence parsers
+      # key on (review_queue.py heading inference + canonical model-family
+      # markers). Anything else no-ops successfully.
+      - name: Evidence-heading guard
+        id: heading
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
           # Attacker-controlled content enters ONLY via env (never inline
           # ${{ }} inside run:), so comment markdown cannot inject shell.
           COMMENT_BODY: ${{ github.event.comment.body }}
         shell: bash
         run: |
           set -euo pipefail
-
-          # Guard 1: the comment's FIRST markdown heading must name a known
-          # reviewer family — the same convention the quorum evidence
-          # parsers key on (review_queue.py heading inference + canonical
-          # model-family markers). Anything else no-ops successfully.
           heading="$(printf '%s\n' "$COMMENT_BODY" | grep -m1 -E '^[[:space:]]{0,3}#{1,6}[[:space:]]' || true)"
           if [[ -z "$heading" ]]; then
+            echo "match=false" >> "$GITHUB_OUTPUT"
             echo "No markdown heading in comment — not evidence-shaped; no-op."
             exit 0
           fi
           families='claude|anthropic|codex|tesla|harvey|factory|grok|xai|gemini|openai|gpt|mistral|codestral|deepseek|qwen|kimi|moonshot|yi|glm|zhipu|minimax|hermes'
           heading_lower="$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]')"
           if ! printf '%s' "$heading_lower" | grep -qE "(^|[^a-z0-9])(${families})([^a-z0-9]|$)"; then
+            echo "match=false" >> "$GITHUB_OUTPUT"
             echo "First heading names no known reviewer family — no-op."
             exit 0
           fi
+          echo "match=true" >> "$GITHUB_OUTPUT"
 
-          # Guard 2: PR must be open and non-draft (drafts defer the gate).
-          pr_json="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}")"
-          pr_state="$(jq -r '.state' <<<"$pr_json")"
-          pr_draft="$(jq -r '.draft' <<<"$pr_json")"
-          head_sha="$(jq -r '.head.sha' <<<"$pr_json")"
-          if [[ "$pr_state" != "open" || "$pr_draft" != "false" ]]; then
-            echo "PR #${PR_NUMBER} state=${pr_state} draft=${pr_draft} — gate not active; no-op."
-            exit 0
-          fi
+      - name: Check out the shared selection helper (default branch)
+        if: steps.heading.outputs.match == 'true'
+        uses: actions/checkout@v4
+        with:
+          # Always run the BASE repo's default-branch copy of the helper —
+          # never PR code (the enforcing evaluation job's same ref pin).
+          ref: ${{ github.event.repository.default_branch }}
 
-          # Guard 3: deterministically select the ONLY legitimate rerun
-          # target. A rerun re-executes the run's ORIGINAL frozen event
-          # payload, so re-running an evaluation created while the PR was
-          # still a draft replays its draft short-circuit and resurfaces a
-          # stale SUCCESS over the truthful newest ready-state result (PR
-          # #9754: draft-era run 31772664823 attempt 2 masked ready-state
-          # run 31772790229). And when the newest evaluation is busy,
-          # falling back to an OLDER completed run re-executes exactly such
-          # a stale evaluation. So: enumerate ALL head-bound pull_request
-          # evaluations (full pagination, reconciled against total_count),
-          # drop runs created before the PR's newest ready_for_review
-          # transition (frozen draft payloads), order by (run_started_at,
-          # run_id, run_attempt), and consider ONLY the newest survivor.
-          # In-flight newest: it will already see this comment — no-op.
-          # Green newest: no recount needed — no-op. Never fall back.
-          runs_url="repos/${GH_REPO}/actions/workflows/aragora-merge-quorum.yml/runs?event=pull_request&head_sha=${head_sha}"
-          total_count="$(gh api "${runs_url}&per_page=1" --jq '.total_count')"
-          runs_json="$(gh api --paginate "${runs_url}&per_page=100" \
-            --jq '.workflow_runs[] | {id, run_attempt, status, conclusion, created_at, run_started_at}' \
-            | jq -s '.')"
-          if [[ "$(jq 'length' <<<"$runs_json")" -ne "$total_count" ]]; then
-            echo "::warning::head-bound run listing inconsistent with total_count=${total_count}; no-op."
-            exit 0
-          fi
-          ready_at="$(gh api --paginate "repos/${GH_REPO}/issues/${PR_NUMBER}/events?per_page=100" \
-            --jq '.[] | select(.event == "ready_for_review") | .created_at' | sort | tail -n1)"
-          target_json="$(jq -c --arg ready "${ready_at}" \
-            '[.[] | select(($ready == "") or (.created_at >= $ready))]
-             | sort_by(.run_started_at, .id, .run_attempt) | last // empty' <<<"$runs_json")"
-          if [[ -z "$target_json" ]]; then
-            echo "No non-draft head-bound evaluation run for ${head_sha} — no-op."
-            exit 0
-          fi
-          run_id="$(jq -r '.id' <<<"$target_json")"
-          run_status="$(jq -r '.status' <<<"$target_json")"
-          run_conclusion="$(jq -r '.conclusion' <<<"$target_json")"
-          if [[ "$run_status" != "completed" ]]; then
-            echo "Newest non-draft evaluation run ${run_id} is ${run_status} — it will see this comment; no-op."
-            exit 0
-          fi
-          if [[ "$run_conclusion" == "success" ]]; then
-            echo "Newest non-draft evaluation run ${run_id} already succeeded — no-op."
-            exit 0
-          fi
-
-          # Concurrent evidence comments (and the standalone retrigger
-          # helper) all compute this same target, so a fresh status read
-          # immediately before the request collapses a burst into ONE
-          # rerun: losers see a non-completed run and no-op, and the rerun
-          # API rejecting an already-queued run covers the residual race.
-          fresh_status="$(gh api "repos/${GH_REPO}/actions/runs/${run_id}" --jq '.status')"
-          if [[ "$fresh_status" != "completed" ]]; then
-            echo "Evaluation run ${run_id} is already ${fresh_status} (concurrent retrigger won) — no-op."
-            exit 0
-          fi
-          echo "Re-running stale evaluation run ${run_id} (conclusion=${run_conclusion}) for PR #${PR_NUMBER} head ${head_sha}."
-          # Tolerate rerun races (e.g. a manual rerun already in progress):
-          # failure to request a rerun must not turn comment activity into
-          # red noise. The A1 reconciler remains the safety net.
-          gh run rerun "$run_id" --repo "$GH_REPO" \
-            || echo "::warning::rerun request for run ${run_id} failed (possibly already re-running); no-op."
+      # Guards 2-3: gate-deferral check + deterministic newest-survivor
+      # selection + burst dedup live in the shared helper so this job and
+      # the standalone aragora-merge-quorum-retrigger.yml helper cannot
+      # drift apart (docs/specs/QUORUM_EVIDENCE_RETRIGGER.md, PR #9754).
+      - name: Guard and re-trigger stale quorum evaluation
+        if: steps.heading.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/quorum_evidence_retrigger_select.sh

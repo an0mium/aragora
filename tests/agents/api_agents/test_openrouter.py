@@ -309,6 +309,31 @@ class TestOpenRouterModelFallback:
         # DeepSeek -> GPT-5.5
         assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"] == "openai/gpt-5.5"
 
+    @pytest.mark.parametrize(
+        ("retired", "replacement", "frontier_fallback"),
+        [
+            (
+                "perplexity/sonar-reasoning",
+                "perplexity/sonar-reasoning-pro",
+                "openai/gpt-5.5",
+            ),
+            ("cohere/command-r-plus", "cohere/command-a", "openai/gpt-5.5"),
+            ("ai21/jamba-1.6-large", "ai21/jamba-large-1.7", "openai/gpt-5.5"),
+            ("x-ai/grok-4", "x-ai/grok-4.5", "openai/gpt-5.5"),
+        ],
+    )
+    def test_retired_defaults_fall_forward_then_fail_over(
+        self,
+        mock_env_with_api_keys,
+        retired,
+        replacement,
+        frontier_fallback,
+    ):
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+
+        assert OPENROUTER_FALLBACK_MODELS[retired] == replacement
+        assert OPENROUTER_FALLBACK_MODELS[replacement] == frontier_fallback
+
 
 class TestOpenRouterGenerateStream:
     """Tests for streaming generation."""
@@ -633,7 +658,7 @@ class TestSonarAgent:
         agent = SonarAgent()
 
         assert agent.name == "sonar"
-        assert "sonar" in agent.model
+        assert agent.model == "perplexity/sonar-reasoning-pro"
         assert agent.agent_type == "sonar"
 
 
@@ -647,7 +672,7 @@ class TestCommandRAgent:
         agent = CommandRAgent()
 
         assert agent.name == "command-r"
-        assert "command" in agent.model
+        assert agent.model == "cohere/command-a"
         assert agent.agent_type == "command-r"
 
 
@@ -661,7 +686,7 @@ class TestJambaAgent:
         agent = JambaAgent()
 
         assert agent.name == "jamba"
-        assert "jamba" in agent.model
+        assert agent.model == "ai21/jamba-large-1.7"
         assert agent.agent_type == "jamba"
 
 
