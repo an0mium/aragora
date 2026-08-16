@@ -4766,6 +4766,27 @@ class TestFullFileGrounding:
         assert f"first {qe._FULL_FILE_MAX_LINES} of 1000 lines" in section
         assert "line 999" not in section
 
+    def test_section_cap_enforced_before_append_fails_closed(self) -> None:
+        """The section cap must hold BEFORE append (openai #9770 [P2]): the old
+        post-append early break let the final ordered file overshoot
+        ``_FULL_FILE_SECTION_MAX_CHARS`` with ``elided`` still false, so an
+        over-bound payload could still claim complete/prompt-grounded truth."""
+        paths = [f"f{i}.py" for i in range(5)]
+        diff = "".join(
+            f"diff --git a/{p} b/{p}\n+++ b/{p}\n" + "+x\n" * (5 - i) for i, p in enumerate(paths)
+        )
+        section = qe._full_file_section(
+            "o/r", "a" * 40, diff, file_fetcher=lambda r, f, p: "x" * 19_000
+        )
+        assert section.complete is False  # the cut file fails grounding closed
+        assert len(section) <= qe._FULL_FILE_SECTION_MAX_CHARS + 1_000  # banner + joiners only
+        assert "--- f3.py ---" in section  # in-bound files still ground whole
+        assert "f4.py" not in section  # the overshooting final part is dropped
+        built = qe.build_review_prompt(
+            repo="o/r", pr=1, head_sha="a" * 40, diff_text=diff, full_files=section
+        )
+        assert built.prompt_grounded is False
+
     def test_fetch_failure_never_blocks(self) -> None:
         def fetcher(repo: str, ref: str, path: str) -> str:
             raise RuntimeError("api down")

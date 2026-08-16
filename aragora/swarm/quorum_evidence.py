@@ -1697,7 +1697,7 @@ def _full_file_section(
         return FullFileSection("")
     elided = len(candidates) > len(ordered)
     parts: list[str] = []
-    for index, path in enumerate(ordered):
+    for path in ordered:
         try:
             content = fetcher(repo, head_sha, path)
         except (RuntimeError, ValueError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
@@ -1728,11 +1728,16 @@ def _full_file_section(
             note = note or " (clipped for length)"
         if note:
             elided = True
-        parts.append(f"--- {path}{note} ---\n" + body_text)
-        if sum(len(part) for part in parts) > _FULL_FILE_SECTION_MAX_CHARS:
-            if index < len(ordered) - 1:
-                elided = True
+        part = f"--- {path}{note} ---\n" + body_text
+        # Cap check BEFORE append (openai #9770 [P2]): appending first let the
+        # final ordered file overshoot _FULL_FILE_SECTION_MAX_CHARS with
+        # ``elided`` still false — an over-bound payload claiming complete
+        # (hence prompt-grounded) truth. Drop the overshooting part instead:
+        # the bound stays hard and completeness fails closed on the cut.
+        if sum(len(p) for p in parts) + len(part) > _FULL_FILE_SECTION_MAX_CHARS:
+            elided = True
             break
+        parts.append(part)
     if not any(part for part in parts if not part.endswith("---")):
         return FullFileSection("")
     return FullFileSection(
