@@ -18,6 +18,7 @@ from aragora.cli.commands.review_queue import (
     LARGE_DIFF_THRESHOLD,
     MODEL_REVIEW_QUEUE_CAP,
     PARKED_LABELS,
+    PROXY_GROUNDING_DISCLOSURE,
     QueueItem,
     ReviewPacket,
     _build_merge_authorization_packet,
@@ -2058,6 +2059,89 @@ class TestModelReviewQuorum:
         assert result["would_count"] is False
         assert result["counted_model_families"] == []
         assert "no_counted_model_family" in result["problems"]
+
+    @staticmethod
+    def _proxy_lint_body(head: str, *, disclosure: str) -> str:
+        return (
+            "## Claude independent model review\n\n"
+            "Reviewer: claude (anthropic) — independent adversarial model review via "
+            "local VibeProxy Anthropic Messages transport (model: claude-opus-5), "
+            "grounded on the exact PR head.\n"
+            f"Head: {head[:7]} ({head}).\n"
+            "PR: #9505.\n"
+            "Model family: claude\n"
+            f"{disclosure}"
+            "\nVerdict: PASS\nNo findings.\n\ndogfood: yes\n"
+        )
+
+    @pytest.mark.parametrize(
+        "disclosure",
+        [
+            "",  # hand-posted proxy body with no disclosure at all
+            # Non-canonical grounding value: the exact line is required.
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            "Transport grounding: trust me\n",
+        ],
+    )
+    def test_evidence_lint_rejects_proxy_body_without_exact_disclosure(
+        self, disclosure: str
+    ) -> None:
+        # In-process demotion cannot protect against re-posting composed text
+        # by hand; the lint must fail these closed on its own.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert "proxy_transport_grounding_undisclosed" in result["problems"]
+
+    def test_evidence_lint_counts_disclosed_proxy_transport_body(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        disclosure = (
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            f"Transport grounding: {PROXY_GROUNDING_DISCLOSURE}\n"
+        )
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
+        assert result["counted_model_families"] == ["claude"]
+
+    def test_evidence_lint_ignores_vibeproxy_mention_in_findings(self) -> None:
+        # Transport classification keys on the reviewer/harness disclosure lines,
+        # not on prose: a grounded CLI review DISCUSSING VibeProxy still counts.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=(
+                "## Claude independent model review\n\n"
+                "Reviewer: claude (anthropic) — independent adversarial model review "
+                "via claude CLI, grounded on the exact PR head.\n"
+                f"Head: {head[:7]} ({head}).\n"
+                "PR: #9505.\n"
+                "Model family: claude\n"
+                "\nVerdict: PASS\n"
+                "- [P3] the VibeProxy fallback comment could cite the policy doc\n"
+                "\ndogfood: yes\n"
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
 
     def test_severity_gated_explicit_p2_blocker_still_blocks(
         self,

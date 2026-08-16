@@ -359,6 +359,7 @@ _SIGNAL_IDENTITY_BLOCKERS: frozenset[str] = frozenset(
         "unknown_model_family",
         "heading_model_family_conflict",
         "unknown_surface_reviewer",
+        "proxy_transport_grounding_undisclosed",
     )
 )
 

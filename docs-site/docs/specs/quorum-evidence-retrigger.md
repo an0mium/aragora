@@ -87,14 +87,58 @@ In-step (read-only `gh api` + `jq`):
    word-boundary matched, case-insensitive). Non-evidence-shaped
    comments exit 0 in seconds.
 2. The PR is open and non-draft (drafts defer the gate by design).
-3. The latest `pull_request`-event run of this workflow **for the
-   current head SHA** exists, is `completed`, and concluded
-   non-`success`. In-flight runs will already see the comment; green
-   gates need no recount; runs for superseded heads are left alone.
+3. Deterministic selection of the ONLY legitimate rerun target
+   (PR #9766). A rerun re-executes the run's ORIGINAL frozen event
+   payload, so re-running an evaluation created while the PR was
+   still a draft replays its draft short-circuit and can resurface a
+   stale SUCCESS over the truthful newest ready-state result; and
+   when the newest evaluation is busy, falling back to an older
+   completed run re-executes exactly such a stale evaluation
+   (observed on PR #9754: draft-era run 31772664823 attempt 2 masked
+   ready-state run 31772790229). The guard therefore:
+   - enumerates ALL head-bound `pull_request`-event evaluations of
+     this workflow for the current head SHA via full pagination and
+     reconciles the listing against the API's `total_count`; any
+     mismatch (incomplete discovery) logs a warning and no-ops;
+   - partitions away frozen draft payloads: runs created before the
+     PR's newest `ready_for_review` issue event are dropped (the
+     timeline is read through the job's read-only `issues: read`
+     scope); a PR with no `ready_for_review` transition keeps all
+     runs;
+   - orders the survivors by `(run_started_at, run_id, run_attempt)`
+     and considers ONLY the newest survivor. No survivor: no-op (a
+     `pull_request`-triggered run will evaluate the head on its own).
+     Newest survivor in-flight: no-op (it already sees the comment).
+     Newest survivor concluded `success`: no-op (green gates need no
+     recount). The guard NEVER falls back to an older run.
 
-Only then: `gh run rerun <run_id>`, tolerating rerun races
-(an "already running" rejection logs a warning and exits 0 — comment
-activity must never manufacture red noise).
+Only then: `gh run rerun <newest survivor>`. Concurrent evidence
+comments collapse to ONE rerun: every retrigger surface (this job and
+the standalone helper workflow `aragora-merge-quorum-retrigger.yml`,
+which applies this same deterministic selection) computes the same
+target, a fresh status read immediately before the rerun request
+makes burst losers see a non-completed run and no-op, and the rerun
+API rejecting an already-queued run covers the residual race (a
+rejected request logs a warning and exits 0 — comment activity must
+never manufacture red noise).
+
+### Comment-shape filter boundary (intentional)
+
+Both retrigger surfaces fire only on evidence-shaped comments: this
+job requires the comment's first markdown heading to name a known
+reviewer family (Guard 1), and the standalone helper workflow
+(`aragora-merge-quorum-retrigger.yml`) requires a known
+reviewer-heading marker plus a 7+-hex head-SHA citation in the body.
+A Tier-4 human-settlement comment ("Tier-4 Human Settlement
+Authorization ...") is deliberately NOT evidence-shaped — it opens
+with no reviewer-family heading and carries no reviewer-heading
+marker — so posting it never auto-fires either surface, even though
+its operator author passes the author gates. This is a boundary, not
+a gap: the distinct post-settlement quorum execution required by
+Tier-4 chronology is produced by the sanctioned manual `gh run rerun`
+of the newest head-bound quorum run, which is the permanent
+post-settlement step in every Tier-4 settlement chronology (proven on
+PR #9770, 2026-08-16).
 
 ### Permissions
 
@@ -104,7 +148,9 @@ unchanged.
 
 **Deliberate deviation from the one-line B1 sketch** ("permissions
 unchanged"): the `evidence-retrigger` job carries job-scoped
-`permissions: { actions: write, pull-requests: read }`. A purely
+`permissions: { actions: write, pull-requests: read, issues: read }`
+(`issues: read` exists solely for Guard 3's read-only
+`ready_for_review` timeline read). A purely
 read-permission comment-triggered run cannot move the head-bound
 required check (see "Why re-run instead of evaluating inline"), so
 `actions: write` — the capability to re-run this workflow's own prior
