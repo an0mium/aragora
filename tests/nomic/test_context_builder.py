@@ -95,6 +95,30 @@ class TestNomicContextBuilder:
         assert index.get_file("source.py") is not None
 
     @pytest.mark.asyncio
+    async def test_build_index_falls_back_for_untracked_directory_in_outer_repository(
+        self, tmp_path
+    ):
+        subprocess.run(["git", "-C", str(tmp_path), "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.email", "index@example.test"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.name", "Index Test"],
+            check=True,
+        )
+        (tmp_path / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "tracked.txt"], check=True)
+        subprocess.run(["git", "-C", str(tmp_path), "commit", "-m", "initial"], check=True)
+        target = tmp_path / "untracked-target"
+        target.mkdir()
+        (target / "source.py").write_text("value = 1\n", encoding="utf-8")
+
+        index = await NomicContextBuilder(aragora_path=target).build_index()
+
+        assert index.get_file("source.py") is not None
+
+    @pytest.mark.asyncio
     async def test_build_index_handles_non_ascii_tracked_paths(self, tmp_path):
         subprocess.run(["git", "-C", str(tmp_path), "init"], check=True, capture_output=True)
         subprocess.run(

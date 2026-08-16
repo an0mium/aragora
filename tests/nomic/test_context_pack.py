@@ -9,11 +9,11 @@ import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.nomic.context_builder import NomicContextBuilder
+from aragora.nomic.context_builder import MAX_FILE_SIZE, NomicContextBuilder
 from aragora.nomic.repository_profile import (
     EvaluationCriterion,
     RepositoryStateError,
@@ -183,6 +183,52 @@ async def test_verifier_uses_pack_budget_and_test_policy(clean_repository: Path)
 
 
 @pytest.mark.asyncio
+async def test_pack_identity_binds_test_inclusion_policy(clean_repository: Path) -> None:
+    profile = load_nomic_repository_profile(clean_repository)
+
+    with_tests = await NomicContextBuilder(
+        clean_repository, include_tests=True, full_corpus=False
+    ).build_context_pack("Plan", profile=profile)
+    without_tests = await NomicContextBuilder(
+        clean_repository, include_tests=False, full_corpus=False
+    ).build_context_pack("Plan", profile=profile)
+
+    assert with_tests.evidence == without_tests.evidence
+    assert with_tests.artifact_digests == without_tests.artifact_digests
+    assert with_tests.pack_id != without_tests.pack_id
+    NomicContextBuilder(clean_repository).verify_context_pack(with_tests)
+    NomicContextBuilder(clean_repository).verify_context_pack(without_tests)
+
+
+@pytest.mark.asyncio
+async def test_pack_reads_commit_evidence_with_one_git_batch(clean_repository: Path) -> None:
+    profile = load_nomic_repository_profile(clean_repository)
+
+    with patch("aragora.nomic.context_builder.subprocess.run", wraps=subprocess.run) as run:
+        await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+            "Batch evidence", profile=profile
+        )
+
+    commands = [call.args[0] for call in run.call_args_list]
+    assert sum(command[-2:] == ["cat-file", "--batch"] for command in commands) == 1
+    assert not any("show" in command for command in commands)
+
+
+@pytest.mark.asyncio
+async def test_oversized_configured_file_fails_before_artifacts(clean_repository: Path) -> None:
+    (clean_repository / "README.md").write_bytes(b"x" * (MAX_FILE_SIZE + 1))
+    git(clean_repository, "add", "README.md")
+    git(clean_repository, "commit", "-m", "add oversized configured evidence")
+
+    with pytest.raises(RepositoryStateError, match="configured Nomic evidence file exceeds"):
+        await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+            profile=load_nomic_repository_profile(clean_repository)
+        )
+
+    assert not (clean_repository / ".nomic").exists()
+
+
+@pytest.mark.asyncio
 async def test_pack_invalidates_for_profile_and_commit(clean_repository: Path) -> None:
     profile = load_nomic_repository_profile(clean_repository)
     builder = NomicContextBuilder(clean_repository, full_corpus=False)
@@ -336,6 +382,7 @@ async def test_self_consistent_forged_evidence_is_rejected(clean_repository: Pat
         pack.repository,
         pack.revision,
         digests,
+        include_tests=pack.include_tests,
     )
     forged_path = pack.pack_path.parent / forged_id
     shutil.copytree(pack.pack_path, forged_path)
@@ -380,6 +427,7 @@ async def test_self_consistent_forged_rlm_summary_is_rejected(clean_repository: 
         pack.repository,
         pack.revision,
         digests,
+        include_tests=pack.include_tests,
     )
     forged_path = pack.pack_path.parent / forged_id
     shutil.copytree(pack.pack_path, forged_path)

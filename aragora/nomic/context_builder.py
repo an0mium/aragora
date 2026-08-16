@@ -27,10 +27,11 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
+import io
+import json
 import logging
 import os
-import hashlib
-import json
 import shutil
 import subprocess
 import tempfile
@@ -207,11 +208,16 @@ class NomicContextBuilder:
         tracked_paths: list[Path] | None = None
         try:
             probe = subprocess.run(
-                ["git", "-C", str(self._aragora_path), "rev-parse", "--git-dir"],
+                ["git", "-C", str(self._aragora_path), "rev-parse", "--show-toplevel"],
                 capture_output=True,
                 check=False,
             )
-            if probe.returncode == 0:
+            git_root = (
+                Path(os.fsdecode(probe.stdout.strip())).resolve()
+                if probe.returncode == 0 and probe.stdout.strip()
+                else None
+            )
+            if git_root == self._aragora_path.resolve():
                 tracked = subprocess.run(
                     [
                         "git",
@@ -227,11 +233,13 @@ class NomicContextBuilder:
                     check=False,
                 )
                 if tracked.returncode == 0:
-                    tracked_paths = [
+                    candidates = [
                         self._aragora_path / raw.decode("utf-8", errors="surrogateescape")
                         for raw in tracked.stdout.split(b"\0")
                         if raw
                     ]
+                    if candidates:
+                        tracked_paths = candidates
         except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
             logger.debug("Git tracked-file enumeration unavailable; using legacy fallback: %s", exc)
 
@@ -377,6 +385,7 @@ class NomicContextBuilder:
             resolved_profile,
             revision,
             digests,
+            include_tests=self._include_tests,
         )
         destination = root / ".nomic" / "context" / "packs" / revision.commit_sha / pack_id
         relative_destination = destination.relative_to(root).as_posix()
@@ -560,6 +569,7 @@ class NomicContextBuilder:
             pack.repository,
             pack.revision,
             pack.artifact_digests,
+            include_tests=pack.include_tests,
         )
         if expected_pack_id != pack.pack_id:
             raise RepositoryStateError("context pack identifier does not match bound artifacts")
@@ -570,6 +580,8 @@ class NomicContextBuilder:
         profile: NomicRepositoryProfile,
         revision: RepositoryRevision,
         artifact_digests: Any,
+        *,
+        include_tests: bool,
     ) -> str:
         """Compute the portable content address shared by build and verification."""
         digests = dict(sorted(dict(artifact_digests).items()))
@@ -578,6 +590,7 @@ class NomicContextBuilder:
             "repository_id": profile.repository_id,
             "revision": revision.to_dict(),
             "profile_hash": profile.profile_hash,
+            "include_tests": include_tests,
             "manifest_digest": digests["manifest.tsv"],
             "artifact_digests": digests,
         }
@@ -618,21 +631,27 @@ class NomicContextBuilder:
             path = raw_path.decode("utf-8", errors="surrogateescape")
             if object_type != "blob" or raw_size == "-":
                 continue
+            size = int(raw_size)
+            if path in configured and size > MAX_FILE_SIZE:
+                raise RepositoryStateError(
+                    "configured Nomic evidence file exceeds the "
+                    f"{MAX_FILE_SIZE}-byte limit: {path} ({size} bytes)"
+                )
             parts = tuple(part for part in path.replace("\\", "/").split("/") if part)
             include = path in configured or (
                 Path(path).suffix in SOURCE_EXTENSIONS
                 and not any(part in SKIP_DIRS for part in parts)
                 and (resolved_include_tests or not any(part in {"test", "tests"} for part in parts))
-                and int(raw_size) <= MAX_FILE_SIZE
+                and size <= MAX_FILE_SIZE
             )
             if include:
-                rows.append((path, blob_id, int(raw_size)))
+                rows.append((path, blob_id, size))
 
         evidence: list[ContextEvidenceReference] = []
-        contents: dict[str, bytes] = {}
-        for path, blob_id, size in sorted(rows):
-            data = self._read_commit_blob(revision.commit_sha, path)
-            contents[path] = data
+        sorted_rows = sorted(rows)
+        contents = self._read_commit_blobs(sorted_rows)
+        for path, blob_id, size in sorted_rows:
+            data = contents[path]
             lines = data.count(b"\n") + int(bool(data) and not data.endswith(b"\n"))
             role = (
                 "roadmap"
@@ -666,13 +685,47 @@ class NomicContextBuilder:
             )
         return evidence, contents
 
-    def _read_commit_blob(self, commit_sha: str, path: str) -> bytes:
+    def _read_commit_blobs(self, rows: list[tuple[str, str, int]]) -> dict[str, bytes]:
+        """Read a validated set of Git blobs through one batch object stream."""
+        if not rows:
+            return {}
         result = subprocess.run(
-            ["git", "-C", str(self._aragora_path), "show", f"{commit_sha}:{path}"],
+            ["git", "-C", str(self._aragora_path), "cat-file", "--batch"],
+            input=b"".join(blob_id.encode("ascii") + b"\n" for _, blob_id, _ in rows),
             capture_output=True,
             check=True,
         )
-        return result.stdout
+        stream = io.BytesIO(result.stdout)
+        contents: dict[str, bytes] = {}
+        for path, expected_blob_id, expected_size in rows:
+            fields = stream.readline().rstrip(b"\n").split()
+            if len(fields) != 3:
+                raise RepositoryStateError(f"invalid Git batch response for evidence file: {path}")
+            try:
+                actual_blob_id = fields[0].decode("ascii")
+                object_type = fields[1].decode("ascii")
+                actual_size = int(fields[2])
+            except (UnicodeDecodeError, ValueError) as exc:
+                raise RepositoryStateError(
+                    f"invalid Git batch metadata for evidence file: {path}"
+                ) from exc
+            if (
+                actual_blob_id != expected_blob_id
+                or object_type != "blob"
+                or actual_size != expected_size
+            ):
+                raise RepositoryStateError(
+                    f"Git batch metadata does not match evidence manifest: {path}"
+                )
+            data = stream.read(expected_size)
+            if len(data) != expected_size or stream.read(1) != b"\n":
+                raise RepositoryStateError(
+                    f"truncated Git batch response for evidence file: {path}"
+                )
+            contents[path] = data
+        if stream.read():
+            raise RepositoryStateError("Git batch response contains unexpected trailing data")
+        return contents
 
     @staticmethod
     def _index_from_evidence(root: Path, evidence: list[ContextEvidenceReference]) -> CodebaseIndex:
