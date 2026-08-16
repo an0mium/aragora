@@ -14,12 +14,11 @@ They pin the structural contract of ``aragora-merge-quorum.yml``:
 * the enforcing evaluation job is untouched: no comment event reaches
   it, its permissions stay read-only, and its anti-doom-loop
   ``cancel-in-progress: false`` invariant is preserved;
-* BOTH retrigger surfaces (the in-file ``evidence-retrigger`` job and
-  the standalone ``aragora-merge-quorum-retrigger.yml`` helper) select
-  their rerun target deterministically: the newest completed non-draft
-  head-bound evaluation ordered by ``(run_started_at, run_id,
-  run_attempt)``, with concurrent comment bursts collapsing into a
-  single rerun (``TestDeterministicNonDraftSelection``).
+* BOTH retrigger surfaces run the SAME checked-in selection helper,
+  ``scripts/quorum_evidence_retrigger_select.sh``, checked out from the
+  default branch: the newest completed non-draft head-bound evaluation,
+  ordered by ``((run_started_at // created_at), run_id, run_attempt)``,
+  with comment bursts collapsing into a single rerun.
 
 The suite must FAIL against the pre-B1 workflow and PASS with the
 change (RED/GREEN proof captured in the implementing PR).
@@ -27,21 +26,22 @@ change (RED/GREEN proof captured in the implementing PR).
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 
-WORKFLOW_PATH = (
-    Path(__file__).resolve().parents[2] / ".github" / "workflows" / "aragora-merge-quorum.yml"
-)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "aragora-merge-quorum.yml"
 STANDALONE_WORKFLOW_PATH = (
-    Path(__file__).resolve().parents[2]
-    / ".github"
-    / "workflows"
-    / "aragora-merge-quorum-retrigger.yml"
+    REPO_ROOT / ".github" / "workflows" / "aragora-merge-quorum-retrigger.yml"
 )
+SELECT_SCRIPT_PATH = REPO_ROOT / "scripts" / "quorum_evidence_retrigger_select.sh"
+SELECT_SCRIPT_INVOCATION = "bash scripts/quorum_evidence_retrigger_select.sh"
 
 
 @pytest.fixture(scope="module")
@@ -52,6 +52,14 @@ def workflow() -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def standalone_workflow() -> dict[str, Any]:
     return yaml.safe_load(STANDALONE_WORKFLOW_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def select_script() -> str:
+    assert SELECT_SCRIPT_PATH.is_file(), (
+        "both retrigger surfaces must share scripts/quorum_evidence_retrigger_select.sh"
+    )
+    return SELECT_SCRIPT_PATH.read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -73,6 +81,16 @@ def retrigger_job(workflow: dict[str, Any]) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def enforcing_job(workflow: dict[str, Any]) -> dict[str, Any]:
     return workflow["jobs"]["merge-quorum"]
+
+
+@pytest.fixture(scope="module")
+def retrigger_scripts(
+    retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
+) -> dict[str, str]:
+    return {
+        "evidence-retrigger": _run_blocks(retrigger_job),
+        "standalone": _run_blocks(standalone_workflow["jobs"]["retrigger"]),
+    }
 
 
 def _run_blocks(job: dict[str, Any]) -> str:
@@ -131,16 +149,17 @@ class TestRetriggerGuards:
             assert family in script, f"guard regex must include reviewer family {family!r}"
 
     def test_guard_requires_open_non_draft_pr_and_stale_head_bound_run(
-        self, retrigger_job: dict[str, Any]
+        self, retrigger_job: dict[str, Any], select_script: str
     ) -> None:
-        script = _run_blocks(retrigger_job)
+        """The gate-deferral + stale-run guards live in the shared helper."""
+        assert SELECT_SCRIPT_INVOCATION in _run_blocks(retrigger_job)
         # PR open + non-draft.
-        assert ".draft" in script
-        assert ".state" in script
-        # Re-run only the latest COMPLETED non-success run for the CURRENT head.
-        assert "head_sha" in script
-        assert "completed" in script
-        assert "gh run rerun" in script
+        assert ".draft" in select_script
+        assert ".state" in select_script
+        # Re-run only the newest COMPLETED non-success run for the CURRENT head.
+        assert "head_sha" in select_script
+        assert "completed" in select_script
+        assert "gh run rerun" in select_script
 
     def test_comment_body_enters_only_via_env(self, retrigger_job: dict[str, Any]) -> None:
         """Injection pin: comment markdown never interpolates into run: text."""
@@ -196,79 +215,120 @@ class TestEnforcingJobUnchanged:
         permissions = retrigger_job.get("permissions") or {}
         writes = sorted(scope for scope, level in permissions.items() if level == "write")
         assert writes == ["actions"]
-        assert permissions.get("contents") is None
+        # contents:read exists solely to check out the default-branch shared
+        # selection helper; the job still cannot write repository contents.
+        assert permissions.get("contents") == "read"
         assert permissions.get("statuses") is None
 
 
-class TestDeterministicNonDraftSelection:
-    """Both retrigger surfaces select their rerun target deterministically.
+class TestSharedSelectionSurface:
+    """The selection logic exists in exactly ONE checked-in helper.
 
-    Regression target for the 2026-08-14 draft-success resurfacing incident
-    on PR #9754: two pull_request evaluations existed at head ``ee63516c``
-    (draft-era run 31772664823, ready-state run 31772790229), and a
-    two-comment evidence burst rerain BOTH — the standalone helper picked
-    the older draft-era run because the newest one was already re-running,
-    and a rerun re-executes the run's ORIGINAL frozen event payload, so the
-    draft short-circuit replayed a stale SUCCESS over the truthful
-    ready-state ``human_risk_settlement_required`` result.
-
-    The contract pinned here, for the in-file ``evidence-retrigger`` job AND
-    the standalone ``aragora-merge-quorum-retrigger.yml`` helper alike:
-
-    * enumerate ALL head-bound ``pull_request`` evaluations (full
-      pagination reconciled against ``total_count``), never a single
-      API-ordering-dependent first item;
-    * exclude draft-frozen evaluations (runs created before the PR's newest
-      ``ready_for_review`` transition);
-    * order candidates by ``(run_started_at, run_id, run_attempt)`` and
-      consider ONLY the newest survivor — an in-flight or already-green
-      newest evaluation means no-op, never a fallback to an older run;
-    * deduplicate concurrent comment-triggered retriggers into one rerun
-      via a fresh pre-rerun status read plus rerun-rejection tolerance.
+    Duplicated merge-authority logic can drift independently, and a
+    drifted copy re-opens the PR #9754 incident class, so both surfaces
+    delegate to the same repo script, checked out from the BASE repo's
+    default branch (the enforcing evaluation job's existing ref pin) so
+    comment events never execute PR-author-controlled code.
     """
 
-    @pytest.fixture(scope="class")
-    def retrigger_scripts(
+    def test_selection_helper_is_strict_bash(self, select_script: str) -> None:
+        assert select_script.startswith("#!/usr/bin/env bash")
+        assert "set -euo pipefail" in select_script
+
+    def test_both_surfaces_delegate_to_the_shared_helper(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        for surface, script in retrigger_scripts.items():
+            assert script.count(SELECT_SCRIPT_INVOCATION) == 1, (
+                f"{surface}: must invoke the shared selection helper exactly once"
+            )
+
+    def test_no_inline_selection_remains_on_either_surface(
+        self, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """Re-introducing a private copy of the selection is drift."""
+        for surface, script in retrigger_scripts.items():
+            for token in (
+                "sort_by(",
+                "--paginate",
+                "total_count",
+                "gh run rerun",
+                "run_started_at",
+            ):
+                assert token not in script, (
+                    f"{surface}: selection logic must live only in the shared helper "
+                    f"(found inline {token!r})"
+                )
+
+    def test_surface_checkouts_pin_the_default_branch(
         self, retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
-    ) -> dict[str, str]:
-        return {
-            "evidence-retrigger": _run_blocks(retrigger_job),
-            "standalone": _run_blocks(standalone_workflow["jobs"]["retrigger"]),
+    ) -> None:
+        surfaces = {
+            "evidence-retrigger": retrigger_job,
+            "standalone": standalone_workflow["jobs"]["retrigger"],
         }
-
-    def test_selection_enumerates_all_head_bound_runs(
-        self, retrigger_scripts: dict[str, str]
-    ) -> None:
-        """Full pagination + total_count reconciliation, per surface."""
-        for surface, script in retrigger_scripts.items():
-            assert "--paginate" in script, f"{surface}: must enumerate ALL head-bound runs"
-            assert "total_count" in script, (
-                f"{surface}: enumeration must be reconciled against total_count"
+        for surface, job in surfaces.items():
+            checkouts = [
+                step
+                for step in job.get("steps", [])
+                if str(step.get("uses", "")).startswith("actions/checkout@")
+            ]
+            assert len(checkouts) == 1, f"{surface}: exactly one checkout, for the shared helper"
+            ref = (checkouts[0].get("with") or {}).get("ref")
+            assert ref == "${{ github.event.repository.default_branch }}", (
+                f"{surface}: the helper must come from the default branch, never PR code"
             )
 
-    def test_selection_orders_by_run_started_at_run_id_run_attempt(
-        self, retrigger_scripts: dict[str, str]
-    ) -> None:
-        """The pinned deterministic ordering key, identical on both surfaces."""
-        for surface, script in retrigger_scripts.items():
-            assert "sort_by(.run_started_at, .id, .run_attempt)" in script, (
-                f"{surface}: selection must order by (run_started_at, run_id, run_attempt)"
-            )
 
-    def test_selection_excludes_draft_frozen_evaluations(
-        self, retrigger_scripts: dict[str, str]
-    ) -> None:
-        """Runs created before the newest ready_for_review transition are
-        frozen draft payloads and must never be rerun targets."""
-        for surface, script in retrigger_scripts.items():
-            assert "ready_for_review" in script, (
-                f"{surface}: selection must partition out draft-created evaluations"
-            )
-            assert "created_at" in script
+class TestDeterministicNonDraftSelection:
+    """The shared helper selects its rerun target deterministically.
 
-    def test_nondeterministic_selections_are_gone(self, retrigger_scripts: dict[str, str]) -> None:
-        """The two incident-era selections must not reappear."""
-        for surface, script in retrigger_scripts.items():
+    Regression target for the 2026-08-14 draft-success resurfacing
+    incident on PR #9754: an evidence burst reran BOTH evaluations at
+    head ``ee63516c`` — the older draft-era run was picked because the
+    newest was already re-running, and a rerun re-executes the run's
+    ORIGINAL frozen event payload, so the draft short-circuit replayed
+    a stale SUCCESS over the truthful ready-state result.
+
+    Pinned contract (shared by both surfaces through the helper):
+    enumerate ALL head-bound pull_request evaluations (pagination
+    reconciled against ``total_count``); exclude runs created before
+    the newest ``ready_for_review`` transition; order by
+    ``((run_started_at // created_at), run_id, run_attempt)`` —
+    coalesced because ``run_started_at`` is null while a run is still
+    queued — and consider ONLY the newest survivor (in-flight or green
+    newest: no-op, never a fallback); collapse concurrent retriggers
+    into one rerun via a fresh pre-rerun status read plus
+    rerun-rejection tolerance.
+    """
+
+    def test_selection_enumerates_all_head_bound_runs(self, select_script: str) -> None:
+        """Full pagination + total_count reconciliation."""
+        assert "--paginate" in select_script, "must enumerate ALL head-bound runs"
+        assert "total_count" in select_script, "enumeration must be reconciled against total_count"
+
+    def test_selection_orders_by_coalesced_start_time_run_id_run_attempt(
+        self, select_script: str
+    ) -> None:
+        """The pinned deterministic ordering key, with the null coalesce."""
+        assert "sort_by((.run_started_at // .created_at), .id, .run_attempt)" in select_script, (
+            "selection must order by ((run_started_at // created_at), run_id, run_attempt)"
+        )
+        assert "sort_by(.run_started_at, .id, .run_attempt)" not in select_script, (
+            "an uncoalesced null run_started_at sorts the queued newest run below older runs"
+        )
+
+    def test_selection_excludes_draft_frozen_evaluations(self, select_script: str) -> None:
+        """Runs created before the newest ready_for_review transition are frozen drafts."""
+        assert "ready_for_review" in select_script, "must partition out draft-created evaluations"
+        assert "created_at" in select_script
+
+    def test_nondeterministic_selections_are_gone(
+        self, select_script: str, retrigger_scripts: dict[str, str]
+    ) -> None:
+        """The two incident-era selections must not reappear anywhere."""
+        surfaces = {"shared-helper": select_script, **retrigger_scripts}
+        for surface, script in surfaces.items():
             assert ".workflow_runs[0]" not in script, (
                 f"{surface}: per_page=1 first-item selection is API-ordering-dependent"
             )
@@ -281,41 +341,29 @@ class TestDeterministicNonDraftSelection:
                 "re-running — the PR #9754 resurfacing mechanism"
             )
 
-    def test_only_the_newest_evaluation_may_be_rerun(
-        self, retrigger_scripts: dict[str, str]
-    ) -> None:
+    def test_only_the_newest_evaluation_may_be_rerun(self, select_script: str) -> None:
         """Completed/success checks happen AFTER selection: an in-flight or
         green newest evaluation no-ops instead of falling back."""
-        for surface, script in retrigger_scripts.items():
-            assert script.count("gh run rerun") == 1, (
-                f"{surface}: exactly one rerun path, for the selected newest run only"
-            )
-            assert '"$run_status" != "completed"' in script, (
-                f"{surface}: in-flight newest evaluation must no-op, not fall back"
-            )
-            assert '"$run_conclusion" == "success"' in script, (
-                f"{surface}: a green newest evaluation needs no recount"
-            )
+        assert select_script.count("gh run rerun") == 1, (
+            "exactly one rerun path, for the selected newest run only"
+        )
+        assert '"$run_status" != "completed"' in select_script, (
+            "in-flight newest evaluation must no-op, not fall back"
+        )
+        assert '"$run_conclusion" == "success"' in select_script, (
+            "a green newest evaluation needs no recount"
+        )
 
-    def test_concurrent_retriggers_collapse_into_one_rerun(
-        self, retrigger_scripts: dict[str, str]
-    ) -> None:
+    def test_concurrent_retriggers_collapse_into_one_rerun(self, select_script: str) -> None:
         """All surfaces compute the same target; a fresh pre-rerun status
         read plus rerun-rejection tolerance turns burst losers into no-ops."""
-        for surface, script in retrigger_scripts.items():
-            assert "actions/runs/${run_id}" in script, (
-                f"{surface}: must re-read the selected run's status just before rerun"
-            )
-            assert "concurrent retrigger won" in script
-            assert "::warning::rerun request" in script, (
-                f"{surface}: a rejected rerun (already re-running) must not be red noise"
-            )
-
-    def test_standalone_guards_open_non_draft_pr(self, standalone_workflow: dict[str, Any]) -> None:
-        """The helper must observe the same gate-deferral rule as the job."""
-        script = _run_blocks(standalone_workflow["jobs"]["retrigger"])
-        assert ".draft" in script
-        assert ".state" in script
+        assert "actions/runs/${run_id}" in select_script, (
+            "must re-read the selected run's status just before rerun"
+        )
+        assert "concurrent retrigger won" in select_script
+        assert "::warning::rerun request" in select_script, (
+            "a rejected rerun (already re-running) must not be red noise"
+        )
 
     def test_issue_events_read_permission_present(
         self, retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
@@ -325,5 +373,113 @@ class TestDeterministicNonDraftSelection:
         assert job_permissions.get("issues") == "read"
         workflow_permissions = standalone_workflow.get("permissions") or {}
         assert workflow_permissions.get("issues") == "read"
-        writes = sorted(scope for scope, level in workflow_permissions.items() if level == "write")
-        assert writes == ["actions"], "helper workflow write surface stays exactly actions"
+        assert workflow_permissions.get("contents") == "read", (
+            "helper workflow checks out the shared selection helper"
+        )
+        surfaces = {
+            "evidence-retrigger job": job_permissions,
+            "helper workflow": workflow_permissions,
+        }
+        for surface, permissions in surfaces.items():
+            writes = sorted(scope for scope, level in permissions.items() if level == "write")
+            assert writes == ["actions"], f"{surface} write surface stays exactly actions"
+
+
+_GH_SHIM = """\
+#!/usr/bin/env bash
+set -euo pipefail
+args="$*"
+case "$args" in
+  *"/pulls/"*) cat "${GH_FIXTURES}/pr.json" ;;
+  *".total_count"*) cat "${GH_FIXTURES}/total_count.txt" ;;
+  *"/actions/workflows/"*) cat "${GH_FIXTURES}/runs.jsonl" ;;
+  *"/issues/"*) cat "${GH_FIXTURES}/ready_events.txt" ;;
+  *"/actions/runs/"*) cat "${GH_FIXTURES}/fresh_status.txt" ;;
+  "run rerun"*) printf '%s\\n' "$args" >>"${GH_FIXTURES}/rerun.log" ;;
+  *) echo "unexpected gh invocation: $args" >&2; exit 64 ;;
+esac
+"""
+
+
+def _run(
+    run_id: int, status: str, conclusion: str | None, created: str, started: str | None
+) -> dict[str, Any]:
+    return {
+        "id": run_id,
+        "run_attempt": 1,
+        "status": status,
+        "conclusion": conclusion,
+        "created_at": created,
+        "run_started_at": started,
+    }
+
+
+def _run_select_script(
+    tmp_path: Path, runs: list[dict[str, Any]], ready_events: list[str]
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    pr_json = {"state": "open", "draft": False, "head": {"sha": "f" * 40}}
+    (fixtures / "pr.json").write_text(json.dumps(pr_json), encoding="utf-8")
+    (fixtures / "total_count.txt").write_text(f"{len(runs)}\n", encoding="utf-8")
+    (fixtures / "runs.jsonl").write_text(
+        "".join(json.dumps(run) + "\n" for run in runs), encoding="utf-8"
+    )
+    (fixtures / "ready_events.txt").write_text(
+        "".join(ts + "\n" for ts in ready_events), encoding="utf-8"
+    )
+    (fixtures / "fresh_status.txt").write_text("completed\n", encoding="utf-8")
+    shim_dir = tmp_path / "bin"
+    shim_dir.mkdir()
+    shim = shim_dir / "gh"
+    shim.write_text(_GH_SHIM, encoding="utf-8")
+    shim.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{shim_dir}{os.pathsep}{env['PATH']}"
+    env["GH_FIXTURES"] = str(fixtures)
+    env["GH_REPO"] = "synaptent/aragora"
+    env["PR_NUMBER"] = "1234"
+    proc = subprocess.run(
+        ["bash", str(SELECT_SCRIPT_PATH)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+    return proc, fixtures / "rerun.log"
+
+
+class TestSelectionBehavior:
+    """Run the real helper (bash + jq) against a fixture-backed fake gh."""
+
+    def test_reruns_newest_ready_run_and_partitions_draft_era_runs(self, tmp_path: Path) -> None:
+        proc, rerun_log = _run_select_script(
+            tmp_path,
+            runs=[
+                _run(50, "completed", "success", "2026-08-16T09:00Z", "2026-08-16T09:01Z"),
+                _run(300, "completed", "failure", "2026-08-16T10:05Z", "2026-08-16T10:06Z"),
+            ],
+            ready_events=["2026-08-16T10:00Z"],
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert rerun_log.read_text(encoding="utf-8") == "run rerun 300 --repo synaptent/aragora\n"
+        assert "Re-running stale evaluation run 300" in proc.stdout
+
+    def test_null_run_started_at_newest_run_cannot_lose_to_older_completed_run(
+        self, tmp_path: Path
+    ) -> None:
+        """The coalesced key keeps a still-queued newest run (null
+        run_started_at) newest instead of falling back to an older rerun."""
+        proc, rerun_log = _run_select_script(
+            tmp_path,
+            runs=[
+                _run(100, "completed", "failure", "2026-08-16T10:00Z", "2026-08-16T10:01Z"),
+                _run(200, "queued", None, "2026-08-16T10:30Z", None),
+            ],
+            ready_events=[],
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert not rerun_log.exists(), "must not fall back to re-running the older evaluation"
+        assert "run 200 is queued" in proc.stdout
+        assert "no-op" in proc.stdout
