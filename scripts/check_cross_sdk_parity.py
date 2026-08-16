@@ -122,6 +122,22 @@ def main() -> int:
             return _config_error(f"could not load baseline {args.baseline}: {exc}")
         if not isinstance(data, dict):
             return _config_error(f"baseline {args.baseline} must be a JSON object")
+        # A null value would raise an uncaught TypeError below, a string would
+        # silently dissolve into a set of characters, and non-string elements
+        # either crash set() (unhashable) or silently never match any path;
+        # all must fail as configuration errors instead of gating against a
+        # corrupted baseline.
+        for key in ("python_only", "typescript_only"):
+            value = data.get(key, [])
+            if not isinstance(value, list):
+                return _config_error(
+                    f"baseline {args.baseline} key {key!r} must be a JSON array, "
+                    f"got {type(value).__name__}"
+                )
+            if not all(isinstance(item, str) for item in value):
+                return _config_error(
+                    f"baseline {args.baseline} key {key!r} must be a JSON array of strings"
+                )
         baseline_py_only = set(data.get("python_only", []))
         baseline_ts_only = set(data.get("typescript_only", []))
     elif args.strict:
@@ -183,7 +199,12 @@ def main() -> int:
 
     if args.strict:
         if new_py_only or new_ts_only:
-            print("\nFAILED: Cross-SDK parity regression (--strict mode)")
+            # Under --json stdout must stay pure machine-readable JSON, so the
+            # human-facing verdict line moves to stderr there.
+            print(
+                "\nFAILED: Cross-SDK parity regression (--strict mode)",
+                file=sys.stderr if args.json else sys.stdout,
+            )
             return 1
         if not args.json:
             print("\nPASS: No new cross-SDK parity regressions")
