@@ -33,7 +33,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "gemini": "Gemini 3.1 Pro",
     "qwen": "Qwen3 Max",
     "qwen-max": "Qwen3 Max",
-    "kimi": "Kimi K2.6",
+    "kimi": "Kimi K3",
     "kimi-thinking": "Kimi K2 Thinking",
     "llama": "Llama 3.3",
     "llama4-maverick": "Llama 4 Maverick",

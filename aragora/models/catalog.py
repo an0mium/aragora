@@ -265,6 +265,20 @@ CATALOG: dict[str, ModelSpec] = {
             release_date=date(2026, 6, 1),
         ),
         ModelSpec(
+            canonical_id="kimi-k3",
+            provider="moonshot",
+            direct_id="kimi-k3",
+            openrouter_id="moonshotai/kimi-k3",
+            input_per_mtok=3.00,
+            output_per_mtok=15.00,
+            context_window=1_048_576,
+            # OpenRouter does not currently publish a completion-token cap;
+            # retain the existing conservative application cap.
+            max_output_tokens=32_768,
+            release_date=date(2026, 7, 16),
+            soak_until=date(2026, 7, 30),
+        ),
+        ModelSpec(
             canonical_id="kimi-k2.7-code",
             provider="moonshot",
             direct_id="kimi-k2.7-code",

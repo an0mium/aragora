@@ -36,7 +36,7 @@
     "mistral": "mistral-large-2512",
     "openai": "gpt-4.1",
     "openrouter.deepseek": "deepseek/deepseek-v4-pro",
-    "openrouter.kimi": "moonshotai/kimi-k2-0905",
+    "openrouter.kimi": "moonshotai/kimi-k3",
     "openrouter.llama": "meta-llama/llama-3.3-70b-instruct",
     "openrouter.qwen": "qwen/qwen3-max",
     "xai": "grok-4-latest"
