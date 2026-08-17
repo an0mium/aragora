@@ -18,6 +18,15 @@ on:
         type: boolean
         required: false
         default: false
+      operator_confirmed_immutable_releases:
+        description: >-
+          Attestation that an admin-capable read of
+          repos/<owner>/<repo>/immutable-releases returned {"enabled":true}
+          immediately before this dispatch. The in-run token cannot see that
+          setting, so the envelope job fails closed (blocked) without this.
+        type: boolean
+        required: true
+        default: false
 
 concurrency:
   group: openapi-sync-${{ github.event.pull_request.number || github.ref }}
@@ -674,6 +683,24 @@ jobs:
       GH_TOKEN: ${{ github.token }}
 
     steps:
+      # The workflow token reads admin-gated settings behind HTTP 404, so
+      # in-run report-mode preflight cannot distinguish "immutable releases
+      # disabled" from "hidden from this token" and a disabled setting would
+      # surface only post-publish. This gate machine-checks the operator's
+      # admin-capable {"enabled":true} pre-dispatch read instead of weakening
+      # that degradation: without an explicit true, nothing is downloaded,
+      # attested, or published.
+      - name: Require operator immutable-releases attestation
+        env:
+          OPERATOR_CONFIRMED: ${{ inputs.operator_confirmed_immutable_releases }}
+        run: |
+          set -euo pipefail
+          if [[ "$OPERATOR_CONFIRMED" != "true" ]]; then
+            echo "::error::blocked: operator_confirmed_immutable_releases is not true. Re-run the admin-capable immutable-releases enabled-check and re-dispatch with the attestation input set."
+            exit 2
+          fi
+          echo "Operator immutable-releases attestation present."
+
       - name: Checkout
         uses: actions/checkout@v4
 

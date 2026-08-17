@@ -22,10 +22,11 @@ after with restart-on-movement semantics (main-only movement after
 publication is recorded as supersession, never a strand); ``dry-run`` proves
 deterministic byte construction from checked-in fixture bytes with no
 network access. Admin-gated reads (rule suites, the immutability setting)
-degrade under ``--admin-reads report`` only on a true HTTP 403 capability
-gap (the workflow's GITHUB_TOKEN); every readable answer keeps full
-fail-closed semantics, and the operator's ``required`` mode enforces the
-reads outright.
+degrade under ``--admin-reads report`` on a true HTTP 403 capability gap
+and on the admin-gated HTTP 404 mapping (the workflow's GITHUB_TOKEN sees a
+hidden settings surface, indistinguishable in-run from a disabled setting);
+every readable answer keeps full fail-closed semantics, and the operator's
+``required`` mode enforces the reads outright.
 
 Exit codes (CDG status vocabulary): 0 pass, 1 fail (verification
 contradiction), 2 blocked (publication/attestation/rule-suite not yet

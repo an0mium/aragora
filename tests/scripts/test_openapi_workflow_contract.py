@@ -952,6 +952,70 @@ def test_openapi_envelope_serializes_sync_before_publication_preflight():
         assert clause in ENVELOPE_IF
 
 
+def test_envelope_requires_operator_immutable_releases_attestation_input():
+    """In-run report-mode preflight cannot distinguish the admin-gated 404
+    "hidden from this token" from "immutable releases disabled", so a
+    disabled setting would otherwise surface only post-publish. The dispatch
+    input machine-checks the operator's admin-capable {"enabled":true}
+    pre-dispatch read; it must be a required boolean that defaults off."""
+    dispatch = DOC["on"]["workflow_dispatch"]
+    attestation = dispatch["inputs"]["operator_confirmed_immutable_releases"]
+    assert attestation["type"] == "boolean"
+    assert attestation["required"] == "true"
+    assert attestation["default"] == "false"
+    description = attestation["description"]
+    assert "immutable-releases" in description
+    assert '{"enabled":true}' in description
+
+
+def test_envelope_gate_fails_closed_without_operator_attestation(tmp_path):
+    """The attestation gate is the FIRST envelope step: unless the input is
+    exactly the string true it exits 2 (blocked) before any download,
+    attestation, or publication step runs. It machine-checks the operator's
+    pre-dispatch admin-capable check WITHOUT weakening in-run degradation:
+    preflight/verify keep --admin-reads report so the non-admin workflow
+    token can never wedge, and no other job consumes the input."""
+    gate = _steps("envelope")[0]
+    assert gate.get("name") == "Require operator immutable-releases attestation"
+    assert "continue-on-error" not in gate
+    assert "if" not in gate
+    assert (gate.get("env") or {}).get("OPERATOR_CONFIRMED") == (
+        "${{ inputs.operator_confirmed_immutable_releases }}"
+    )
+    run = gate["run"]
+    assert "set -euo pipefail" in run
+    # Every non-"true" value (including the empty string an expression-drift
+    # would interpolate) must block with exit 2 and publish nothing.
+    for value in ("false", "", "1", "True"):
+        blocked = _simulate_step(run, env={"OPERATOR_CONFIRMED": value}, cwd=tmp_path)
+        assert blocked.returncode == 2, (value, blocked.stdout, blocked.stderr)
+        assert "blocked" in blocked.stdout + blocked.stderr, value
+    confirmed = _simulate_step(run, env={"OPERATOR_CONFIRMED": "true"}, cwd=tmp_path)
+    assert confirmed.returncode == 0, (confirmed.stdout, confirmed.stderr)
+    # The gate precedes every payload/publication step in the job.
+    gate_index = _step_index("envelope", "Require operator immutable-releases attestation")
+    for name in (
+        "Download run-level spec artifact",
+        "Build deterministic release envelope",
+        "Attest the envelope assets",
+        "Preflight verify before publication",
+        "Publish immutable release",
+    ):
+        assert gate_index < _step_index("envelope", name), name
+    # Degradation semantics unchanged: in-run preflight and post-publish
+    # verify still degrade admin-gated reads under report mode.
+    assert "--admin-reads report" in _step("envelope", "Preflight verify before publication")["run"]
+    assert (
+        "--admin-reads report"
+        in _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    )
+    # Only the envelope job consumes the attestation; a plain sync dispatch
+    # is never gated by it.
+    for job_id, job in JOBS.items():
+        if job_id != "envelope":
+            assert "operator_confirmed_immutable_releases" not in json.dumps(job), job_id
+
+
 def test_openapi_envelope_helper_dry_run_is_a_pr_time_authority():
     # The dry-run proof runs on every generate-run execution and is part of
     # the no-masking census (AUTHORITATIVE_STEPS).
@@ -1317,6 +1381,16 @@ def test_envelope_module_docstring_names_attempt_free_artifact_form():
     doc = _load_envelope_helper().__doc__
     assert "``openapi-spec-<run_id>-<head_sha>``" in doc
     assert "<attempt>" not in doc
+
+
+def test_envelope_module_docstring_names_admin_gated_404_degradation():
+    """Report mode degrades on BOTH capability-gap classes: a true HTTP 403
+    and the admin-gated HTTP 404 mapping (hidden-from-token is in-run
+    indistinguishable from a disabled setting). Claiming degradation happens
+    only on 403 misdocuments the second class."""
+    doc = _load_envelope_helper().__doc__
+    assert "admin-gated HTTP 404" in doc
+    assert "only on a true HTTP 403" not in doc
 
 
 def test_envelope_snapshot_binds_attempt_record_and_survives_settled_reruns(monkeypatch):
