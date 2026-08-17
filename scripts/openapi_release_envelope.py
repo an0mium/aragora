@@ -3,10 +3,11 @@
 
 Expiring, fixed-name Actions artifacts are not durable contract evidence. The
 ``envelope`` job in ``.github/workflows/openapi.yml`` binds the exact
-run-level payload bytes of the SHA/run-bound ``openapi-spec-<run>-<attempt>-
-<head_sha>`` artifact into an immutable GitHub release at the exact-SHA tag
-``openapi-envelope-<head_sha>``, attests the exact assets with the pinned
-``actions/attest`` signer, and verifies the whole chain with this helper.
+run-level payload bytes of the run/SHA-bound (attempt-free)
+``openapi-spec-<run_id>-<head_sha>`` artifact into an immutable GitHub
+release at the exact-SHA tag ``openapi-envelope-<head_sha>``, attests the
+exact assets with the pinned ``actions/attest`` signer, and verifies the
+whole chain with this helper.
 
 This module never mutates remote state. ``build`` writes deterministic
 envelope bytes (canonical compact sorted-key JSON manifest plus an
@@ -637,14 +638,20 @@ def cmd_verify(args: argparse.Namespace) -> int:
             for name, data in files.items():
                 if hosted[name].get("size") != len(data):
                     raise RuntimeError(f"hosted size for {name!r} contradicts its exact bytes")
+            # release verify/verify-asset read the same Sigstore data plane
+            # as attestation verify; right after publication that data can
+            # lag, which is a blocked retry state, not a contradiction.
             _checked_verification(
-                release_verify_argv(tag, repository=repository), kind=f"release {tag}"
+                release_verify_argv(tag, repository=repository),
+                kind=f"release {tag}",
+                blocked_marker="no attestations",
             )
             for name in sorted(files):
                 asset_path = str(Path(scratch) / name)
                 _checked_verification(
                     release_verify_asset_argv(tag, asset_path, repository=repository),
                     kind=f"release asset {name}",
+                    blocked_marker="no attestations",
                 )
                 _checked_verification(
                     attestation_verify_argv(
@@ -718,8 +725,14 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 kind=f"pre-publish attestation for {name}",
                 blocked_marker="no attestations",
             )
+        # Forbidden subclasses Blocked: only a plain Blocked (404-class
+        # invisibility) proves absence. A 403 rate-limit/permission answer
+        # must stay blocked, or an existing tag could hide behind it and
+        # the irreversible publish would proceed over it.
         try:
             _gh_api_json(f"repos/{repository}/releases/tags/{tag}")
+        except Forbidden:
+            raise
         except Blocked:
             pass
         else:
@@ -731,6 +744,8 @@ def cmd_preflight(args: argparse.Namespace) -> int:
         # attach to it and ignore --target, publishing at the wrong commit.
         try:
             _gh_api_json(f"repos/{repository}/git/ref/tags/{tag}")
+        except Forbidden:
+            raise
         except Blocked:
             pass
         else:

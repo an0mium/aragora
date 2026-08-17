@@ -22,6 +22,7 @@ the rules and the repo-tree census so a drifting workflow fails here first.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -780,6 +781,55 @@ def _identity_kwargs(module, head: str, run_id: int = 7, run_attempt: int = 1) -
     }
 
 
+def _live_api_stub(module, identity: dict, head: str, overrides: list):
+    """Fake `_gh_api_json` covering every live surface cmd_preflight/cmd_verify
+    re-query (main ref, workflow, run, attempt record, artifacts, settings),
+    with ordered per-endpoint `(marker, outcome)` overrides; an Exception
+    outcome is raised, anything else returned. Tag probes default to Blocked
+    (proven absence) so each test states only what it changes."""
+    tag = identity["tag"]
+
+    def fake_api(endpoint: str, **kwargs):
+        for marker, outcome in overrides:
+            if marker in endpoint:
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return outcome
+        if endpoint.endswith("immutable-releases"):
+            return {"enabled": True}
+        if "rule-suites" in endpoint:
+            return [{"after_sha": head, "id": 9, "result": "pass"}]
+        if endpoint.endswith("git/ref/heads/main"):
+            return {"object": {"sha": head}}
+        if "/actions/workflows/" in endpoint:
+            return {
+                "id": OPENAPI_WORKFLOW_ID,
+                "path": ".github/workflows/openapi.yml",
+                "state": "active",
+            }
+        if endpoint.endswith(f"/attempts/{identity['run_attempt']}"):
+            return {
+                "run_attempt": identity["run_attempt"],
+                "head_sha": head,
+                "conclusion": "success",
+            }
+        if endpoint.endswith("/artifacts?per_page=100"):
+            return [
+                {"artifacts": [{"name": identity["artifact_name"], "id": 91, "size_in_bytes": 10}]}
+            ]
+        if f"releases/tags/{tag}" in endpoint or f"git/ref/tags/{tag}" in endpoint:
+            raise module.Blocked(f"{endpoint} is not visible: HTTP 404")
+        return {
+            "id": identity["run_id"],
+            "path": ".github/workflows/openapi.yml",
+            "head_sha": head,
+            "run_attempt": identity["run_attempt"],
+            "conclusion": "success",
+        }
+
+    return fake_api
+
+
 def test_openapi_artifact_names_are_run_and_sha_bound():
     env = DOC.get("env") or {}
     assert env.get("OPENAPI_RUN_ARTIFACT") == f"openapi-spec-{RUN_SHA_SUFFIX}"
@@ -804,7 +854,7 @@ def test_openapi_artifact_names_are_run_and_sha_bound():
 
 def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
     job = JOBS["envelope"]
-    assert job["needs"] == "generate-run"
+    assert job["needs"] == ["generate-run", "sync"]
     assert job["if"] == ENVELOPE_IF
     # actions:read is load-bearing: the explicit permissions block zeroes
     # unlisted scopes, and preflight/verify re-query the workflow, run, and
@@ -878,6 +928,28 @@ def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
     # must degrade admin-gated reads to report mode (never exit 1 for a
     # capability gap after publication).
     assert "--admin-reads report" in verify
+
+
+def test_openapi_envelope_serializes_sync_before_publication_preflight():
+    """A publish_envelope=true dispatch also runs sync, which can push a
+    spec-drift commit to main. Needing sync serializes any such push BEFORE
+    envelope preflight's main-still-at-bound-head check, so the movement is
+    the free pre-publication exit-3 restart instead of a post-publish
+    supersession record against an already-immutable capsule."""
+    envelope = JOBS["envelope"]
+    assert envelope["needs"] == ["generate-run", "sync"]
+    # The dependency is satisfiable exactly when envelope runs: sync gates on
+    # the same dispatch+main events (envelope only adds the publish input),
+    # so needing sync can never wedge a publish dispatch, and gating drift
+    # between the two jobs fails here first.
+    sync = JOBS["sync"]
+    assert sync["needs"] == "generate-run"
+    assert (
+        sync["if"] == "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    )
+    for clause in ("github.event_name == 'workflow_dispatch'", "github.ref == 'refs/heads/main'"):
+        assert clause in sync["if"]
+        assert clause in ENVELOPE_IF
 
 
 def test_openapi_envelope_helper_dry_run_is_a_pr_time_authority():
@@ -1106,6 +1178,145 @@ def test_envelope_admin_reads_degrade_only_on_true_capability_gaps(monkeypatch):
     with pytest.raises(module.Blocked):
         module._gh_api_json(f"repos/{repo}/releases/tags/x")
     assert module._immutability_state(repo, admin_reads="report").startswith("unreadable")
+
+
+def test_envelope_preflight_tag_probes_treat_forbidden_as_blocked(monkeypatch, tmp_path, capsys):
+    """Tag absence must be PROVEN before publication. Forbidden subclasses
+    Blocked, so a rate-limit/permission 403 on either tag probe must surface
+    as blocked (exit 2) instead of reading as "tag unused" and letting the
+    irreversible `gh release create` proceed over a possibly-existing tag."""
+    module = _load_envelope_helper()
+    head = "f" * 40
+    identity = module.make_identity(**_identity_kwargs(module, head, run_id=55))
+    assets = module.build_envelope(
+        {"docs/api/openapi_generated.json": b'{"openapi":"3.1.0"}\n'}, identity
+    )
+    assets_dir = tmp_path / "assets"
+    assets_dir.mkdir()
+    for name, data in assets.items():
+        (assets_dir / name).write_bytes(data)
+    ok = subprocess.CompletedProcess(args=["gh"], returncode=0, stdout=b"{}", stderr=b"")
+    monkeypatch.setattr(module, "_run_gh", lambda argv: ok)
+    args = argparse.Namespace(
+        repository="synaptent/aragora",
+        head_sha=head,
+        run_id=55,
+        run_attempt=1,
+        artifact_name=identity["artifact_name"],
+        assets_dir=str(assets_dir),
+        signer_workflow="",
+        admin_reads="report",
+    )
+    tag = identity["tag"]
+    forbidden = module.Forbidden("HTTP 403 rate limit exceeded")
+    # Control: proven absence (404 on both probes) preflights clean.
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    # A readable existing release tag still fails closed, never retries.
+    monkeypatch.setattr(
+        module,
+        "_gh_api_json",
+        _live_api_stub(module, identity, head, [(f"releases/tags/{tag}", {"id": 1})]),
+    )
+    assert module.cmd_preflight(args) == module.EXIT_FAIL
+    assert json.loads(capsys.readouterr().out)["status"] == "fail"
+    # Forbidden on the release-tag probe: blocked, never absence.
+    monkeypatch.setattr(
+        module,
+        "_gh_api_json",
+        _live_api_stub(module, identity, head, [(f"releases/tags/{tag}", forbidden)]),
+    )
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"
+    # Forbidden on the bare-git-tag probe: same.
+    monkeypatch.setattr(
+        module,
+        "_gh_api_json",
+        _live_api_stub(module, identity, head, [(f"git/ref/tags/{tag}", forbidden)]),
+    )
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"
+
+
+def test_envelope_post_publish_release_verify_lag_blocks_not_fails(monkeypatch, tmp_path, capsys):
+    """`gh release verify`/`verify-asset` read the same Sigstore data plane as
+    `gh attestation verify`; immediately after publication that data can lag.
+    Lag is a Blocked retry state (exit 2), never a byte contradiction (exit
+    1) — while a readable verification contradiction still fails closed."""
+    module = _load_envelope_helper()
+    head = "e" * 40
+    identity = module.make_identity(**_identity_kwargs(module, head, run_id=66))
+    assets = module.build_envelope(
+        {"docs/api/openapi_generated.json": b'{"openapi":"3.1.0"}\n'}, identity
+    )
+    tag = identity["tag"]
+    release = {
+        "id": 4242,
+        "draft": False,
+        "immutable": True,
+        "assets": [{"name": name, "size": len(data)} for name, data in assets.items()],
+    }
+    monkeypatch.setattr(
+        module,
+        "_gh_api_json",
+        _live_api_stub(
+            module,
+            identity,
+            head,
+            [
+                (f"releases/tags/{tag}", release),
+                (f"git/ref/tags/{tag}", {"object": {"type": "commit", "sha": head}}),
+            ],
+        ),
+    )
+
+    def run_stub(lagging: set, failing: set | frozenset = frozenset()):
+        def fake_run(argv):
+            module.require_read_only_argv(argv)
+            action = tuple(argv[1:3])
+            if action == ("release", "download"):
+                dest = Path(argv[argv.index("--dir") + 1])
+                for name, data in assets.items():
+                    (dest / name).write_bytes(data)
+                return subprocess.CompletedProcess(argv, 0, b"", b"")
+            if action in lagging:
+                return subprocess.CompletedProcess(
+                    argv, 1, b"", b"no attestations found for the requested subject yet"
+                )
+            if action in failing:
+                return subprocess.CompletedProcess(argv, 1, b"", b"subject digest mismatch")
+            return subprocess.CompletedProcess(argv, 0, b"{}", b"")
+
+        return fake_run
+
+    args = argparse.Namespace(
+        repository="synaptent/aragora",
+        head_sha=head,
+        run_id=66,
+        run_attempt=1,
+        artifact_name=identity["artifact_name"],
+        signer_workflow="",
+        admin_reads="report",
+    )
+    monkeypatch.setattr(module, "_run_gh", run_stub({("release", "verify")}))
+    assert module.cmd_verify(args) == module.EXIT_BLOCKED
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"
+    monkeypatch.setattr(module, "_run_gh", run_stub({("release", "verify-asset")}))
+    assert module.cmd_verify(args) == module.EXIT_BLOCKED
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"
+    monkeypatch.setattr(module, "_run_gh", run_stub(set(), {("release", "verify")}))
+    assert module.cmd_verify(args) == module.EXIT_FAIL
+    assert json.loads(capsys.readouterr().out)["status"] == "fail"
+
+
+def test_envelope_module_docstring_names_attempt_free_artifact_form():
+    """The artifact name deliberately carries no attempt (attempt binding
+    lives in the manifest and the movement plane); an attempt-bearing name in
+    the module docstring misdocuments that design."""
+    doc = _load_envelope_helper().__doc__
+    assert "``openapi-spec-<run_id>-<head_sha>``" in doc
+    assert "<attempt>" not in doc
 
 
 def test_envelope_snapshot_binds_attempt_record_and_survives_settled_reruns(monkeypatch):

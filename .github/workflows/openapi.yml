@@ -655,7 +655,11 @@ jobs:
   envelope:
     name: Publish Release Envelope (dispatch only)
     runs-on: ubuntu-latest
-    needs: generate-run
+    # sync runs on the same dispatch+main events and can push a spec-drift
+    # commit to main; needing it serializes any such push BEFORE preflight's
+    # main-still-at-bound-head check, so the movement is the free exit-3
+    # restart instead of a post-publish supersession record.
+    needs: [generate-run, sync]
     timeout-minutes: 15
     if: github.event_name == 'workflow_dispatch' && inputs.publish_envelope == true && github.ref == 'refs/heads/main'
     permissions:
