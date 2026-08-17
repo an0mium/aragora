@@ -25,10 +25,12 @@ concurrency:
 
 # Run/SHA-bound artifact names (FIX-RT-017). `github.sha` is the merge SHA on
 # pull_request events, so the pull-request head SHA must win there for the
-# name to end with the run's head_sha.
+# name to end with the run's head_sha. The attempt is deliberately not part
+# of the name: re-running only a failed dependent job increments the run
+# attempt while the artifact keeps its original name.
 env:
-  OPENAPI_RUN_ARTIFACT: openapi-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.sha }}
-  DRIFT_RUN_ARTIFACT: contract-drift-artifacts-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.sha }}
+  OPENAPI_RUN_ARTIFACT: openapi-spec-${{ github.run_id }}-${{ github.event.pull_request.head.sha || github.sha }}
+  DRIFT_RUN_ARTIFACT: contract-drift-artifacts-${{ github.run_id }}-${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   scope:
@@ -712,6 +714,29 @@ jobs:
             --output-dir /tmp/openapi-envelope/assets
           (cd /tmp/openapi-envelope/assets && sha256sum --check --strict checksums.txt)
 
+      # Attestation precedes publication: the only irreversible step
+      # (creating the immutable release) runs last, after the exact local
+      # bytes are attested and preflight-verified, so a failure never
+      # strands a half-published capsule.
+      - name: Attest the envelope assets
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: /tmp/openapi-envelope/assets/*
+
+      - name: Preflight verify before publication
+        run: |
+          set -euo pipefail
+          gh --version
+          python3 scripts/openapi_release_envelope.py preflight \
+            --repository "$GITHUB_REPOSITORY" \
+            --head-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --artifact-name "$OPENAPI_RUN_ARTIFACT" \
+            --assets-dir /tmp/openapi-envelope/assets \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml" \
+            --admin-reads report
+
       - name: Publish immutable release
         run: |
           set -euo pipefail
@@ -723,11 +748,6 @@ jobs:
             --notes "Immutable OpenAPI contract envelope for $GITHUB_SHA (run $GITHUB_RUN_ID attempt $GITHUB_RUN_ATTEMPT)." \
             /tmp/openapi-envelope/assets/*
 
-      - name: Attest the envelope assets
-        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
-        with:
-          subject-path: /tmp/openapi-envelope/assets/*
-
       - name: Verify release, assets, attestation, and rule suite
         run: |
           set -euo pipefail
@@ -737,7 +757,8 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             --run-attempt "$GITHUB_RUN_ATTEMPT" \
             --artifact-name "$OPENAPI_RUN_ARTIFACT" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml"
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml" \
+            --admin-reads report
 
   generate:
     name: Generate & Validate

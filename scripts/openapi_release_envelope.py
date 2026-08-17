@@ -11,12 +11,18 @@ run-level payload bytes of the SHA/run-bound ``openapi-spec-<run>-<attempt>-
 This module never mutates remote state. ``build`` writes deterministic
 envelope bytes (canonical compact sorted-key JSON manifest plus an
 ``sha256sum --check --strict``-compatible checksums file) to a local
-directory; ``verify`` re-authenticates a published envelope release, its
-assets, its attestations (``--signer-workflow`` + ``--source-digest``), and
-the passing rule-suite record for the bound head, re-querying
-workflow/run/artifact/main before and after with restart-on-movement
-semantics; ``dry-run`` proves deterministic byte construction from checked-in
-fixture bytes with no network access.
+directory; ``preflight`` proves everything that must hold before the
+irreversible publication (local bytes, attestations, unused tag, capability,
+main still at the bound head — movement is a free restart here); ``verify``
+re-authenticates a published envelope release, its assets, its attestations
+(``--signer-workflow`` + ``--source-digest``), and the passing rule-suite
+record for the bound head, re-querying workflow/run/artifact/main before and
+after with restart-on-movement semantics (main-only movement after
+publication is recorded as supersession, never a strand); ``dry-run`` proves
+deterministic byte construction from checked-in fixture bytes with no
+network access. Admin-gated reads (rule suites, the immutability setting)
+degrade to ``report`` mode under the workflow's GITHUB_TOKEN; the operator's
+``required`` mode enforces them.
 
 Exit codes (CDG status vocabulary): 0 pass, 1 fail (verification
 contradiction), 2 blocked (publication/attestation/rule-suite not yet
@@ -69,6 +75,11 @@ class Blocked(RuntimeError):
     """Publication, attestation, or rule-suite record is not visible yet."""
 
 
+class Forbidden(Blocked):
+    """The token cannot read an admin-gated surface (rule suites, release
+    immutability setting); verification is blocked, not contradicted."""
+
+
 class Movement(RuntimeError):
     """The bound selection moved during verification; restart required."""
 
@@ -95,8 +106,11 @@ def make_identity(
     artifact_name: str,
 ) -> dict[str, Any]:
     """Validate and freeze the execution identity every envelope operation is
-    bound to. The artifact name must be exactly run-, attempt-, and SHA-bound;
-    a fixed or foreign name is rejected before any bytes are touched."""
+    bound to. The artifact name must be exactly run- and SHA-bound; a fixed or
+    foreign name is rejected before any bytes are touched. The attempt is
+    deliberately NOT part of the name (re-running only a failed dependent job
+    increments the run attempt while the artifact keeps its original name);
+    attempt binding lives in the manifest and the movement plane instead."""
     if not isinstance(repository, str) or not _REPOSITORY.fullmatch(repository):
         raise ValueError(f"repository {repository!r} is not owner/name")
     if not isinstance(head_sha, str) or not _FULL_SHA.fullmatch(head_sha):
@@ -104,7 +118,7 @@ def make_identity(
     for label, value in (("run id", run_id), ("run attempt", run_attempt)):
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise ValueError(f"{label} must be a positive integer")
-    expected_name = f"{ARTIFACT_PREFIX}{run_id}-{run_attempt}-{head_sha}"
+    expected_name = f"{ARTIFACT_PREFIX}{run_id}-{head_sha}"
     if artifact_name != expected_name:
         raise ValueError(
             f"artifact name {artifact_name!r} is not run/SHA-bound (expected {expected_name!r})"
@@ -252,6 +266,25 @@ def selection_is_stable(before: dict[str, Any], after: dict[str, Any]) -> bool:
     return True
 
 
+def movement_disposition(before: dict[str, Any], after: dict[str, Any]) -> str:
+    """Classify movement between two selection snapshots.
+
+    ``restart``: the bound execution's own provenance moved (workflow, run,
+    attempt, conclusion, or artifact) — verification must restart.
+    ``superseded``: only main advanced past the bound head. A published
+    immutable capsule stays byte-valid for its exact SHA; failing here after
+    publication would strand it, so callers record supersession instead
+    (before publication a restart is still free and callers restart).
+    ``stable``: nothing moved.
+    """
+    if selection_is_stable(before, after):
+        return "stable"
+    moved = {key for key in SELECTION_KEYS if before[key] != after[key]}
+    if moved == {"main_sha"}:
+        return "superseded"
+    return "restart"
+
+
 def attestation_verify_argv(
     asset_path: str, *, repository: str, head_sha: str, signer_workflow: str
 ) -> list[str]:
@@ -339,6 +372,8 @@ def _gh_api_json(endpoint: str, *, paginate: bool = False) -> Any:
         stderr = completed.stderr.decode("utf-8", "replace").strip()
         if "HTTP 404" in stderr:
             raise Blocked(f"{endpoint} is not visible: {stderr}")
+        if "HTTP 403" in stderr:
+            raise Forbidden(f"{endpoint} is not readable by this token: {stderr}")
         raise RuntimeError(f"gh api {endpoint} failed: {stderr}")
     return json.loads(completed.stdout)
 
@@ -468,6 +503,31 @@ def cmd_build(args: argparse.Namespace) -> int:
     return EXIT_PASS
 
 
+def _immutability_state(repository: str, *, admin_reads: str) -> str:
+    """Read the repo immutable-releases setting; under a token without
+    Administration read (the workflow's GITHUB_TOKEN) the surface is
+    recorded as unreadable in ``report`` mode instead of blocking, and the
+    release object's own ``immutable`` field carries the durability proof."""
+    try:
+        immutability = _gh_api_json(f"repos/{repository}/immutable-releases")
+    except Blocked as exc:
+        if admin_reads == "required":
+            raise
+        return f"unreadable ({exc})"
+    if immutability.get("enabled") is not True:
+        raise RuntimeError("release immutability is not enabled; the envelope is not durable")
+    return "enabled"
+
+
+def _rule_suite_binding(repository: str, head_sha: str, *, admin_reads: str) -> dict[str, Any]:
+    try:
+        return _passing_rule_suite(repository, head_sha)
+    except Blocked as exc:
+        if admin_reads == "required":
+            raise
+        return {"state": "unverified", "reason": str(exc)}
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     identity = make_identity(
         repository=args.repository,
@@ -479,11 +539,11 @@ def cmd_verify(args: argparse.Namespace) -> int:
     repository = identity["repository"]
     tag = identity["tag"]
     signer_workflow = args.signer_workflow or f"{repository}/{WORKFLOW_PATH}"
-    report: dict[str, Any] = {"tag": tag, "head_sha": identity["head_sha"]}
+    report: dict[str, Any] = {"tag": tag, "head_sha": identity["head_sha"], "phase": "verify"}
     try:
-        immutability = _gh_api_json(f"repos/{repository}/immutable-releases")
-        if immutability.get("enabled") is not True:
-            raise RuntimeError("release immutability is not enabled; the envelope is not durable")
+        report["immutability_setting"] = _immutability_state(
+            repository, admin_reads=args.admin_reads
+        )
         before = live_selection_snapshot(identity)
         try:
             release = _gh_api_json(f"repos/{repository}/releases/tags/{tag}")
@@ -492,6 +552,19 @@ def cmd_verify(args: argparse.Namespace) -> int:
         if release.get("draft"):
             raise Blocked(f"release {tag} is still an unpublished draft")
         report["release_api_id"] = release.get("id")
+        # The release object's own immutable flag is readable with plain
+        # contents access and proves durability without Administration read.
+        if release.get("immutable") is False:
+            raise RuntimeError(f"release {tag} is not immutable")
+        report["release_immutable"] = (
+            release["immutable"] if isinstance(release.get("immutable"), bool) else "unreported"
+        )
+        if (
+            args.admin_reads == "required"
+            and release.get("immutable") is not True
+            and report["immutability_setting"] != "enabled"
+        ):
+            raise RuntimeError(f"no surface proves release {tag} is immutable")
         tag_commit = _resolve_tag_commit(repository, tag)
         if tag_commit != identity["head_sha"]:
             raise RuntimeError(
@@ -544,11 +617,88 @@ def cmd_verify(args: argparse.Namespace) -> int:
                     blocked_marker="no attestations",
                 )
         report["payload_assets"] = [entry["name"] for entry in manifest["payload_assets"]]
-        report["rule_suite"] = _passing_rule_suite(repository, identity["head_sha"])
+        report["rule_suite"] = _rule_suite_binding(
+            repository, identity["head_sha"], admin_reads=args.admin_reads
+        )
         after = live_selection_snapshot(identity)
-        if not selection_is_stable(before, after):
-            raise Movement("workflow/run/artifact/main selection moved during verification")
-        report["superseded_by_newer_main"] = before["main_sha"] != identity["head_sha"]
+        disposition = movement_disposition(before, after)
+        if disposition == "restart":
+            raise Movement("workflow/run/artifact selection moved during verification")
+        # Main-only movement after publication cannot strand the published
+        # capsule: it stays byte-valid for its exact SHA and is recorded as
+        # superseded for the validator's newest-execution selection.
+        report["main_moved_during_verification"] = disposition == "superseded"
+        report["superseded_by_newer_main"] = after["main_sha"] != identity["head_sha"]
+        report["status"] = "pass"
+        _emit(report)
+        return EXIT_PASS
+    except Blocked as exc:
+        _emit({**report, "status": "blocked", "reason": str(exc)})
+        return EXIT_BLOCKED
+    except Movement as exc:
+        _emit({**report, "status": "movement", "reason": str(exc)})
+        return EXIT_MOVEMENT
+    except (RuntimeError, ValueError) as exc:
+        _emit({**report, "status": "fail", "reason": str(exc)})
+        return EXIT_FAIL
+
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    """Everything that must hold BEFORE the irreversible `gh release create`:
+    local envelope bytes verify, every asset already has a valid attestation,
+    the tag is unused, admin-read capability is probed, and main still points
+    at the bound head (a restart is free at this point, so any movement exits
+    3 instead of stranding a half-published capsule later)."""
+    identity = make_identity(
+        repository=args.repository,
+        head_sha=args.head_sha,
+        run_id=args.run_id,
+        run_attempt=args.run_attempt,
+        artifact_name=args.artifact_name,
+    )
+    repository = identity["repository"]
+    tag = identity["tag"]
+    signer_workflow = args.signer_workflow or f"{repository}/{WORKFLOW_PATH}"
+    report: dict[str, Any] = {"tag": tag, "head_sha": identity["head_sha"], "phase": "preflight"}
+    try:
+        assets_dir = Path(args.assets_dir)
+        files = {
+            path.name: path.read_bytes() for path in sorted(assets_dir.iterdir()) if path.is_file()
+        }
+        manifest = verify_envelope_assets(files, identity)
+        report["payload_assets"] = [entry["name"] for entry in manifest["payload_assets"]]
+        for name in sorted(files):
+            _checked_verification(
+                attestation_verify_argv(
+                    str(assets_dir / name),
+                    repository=repository,
+                    head_sha=identity["head_sha"],
+                    signer_workflow=signer_workflow,
+                ),
+                kind=f"pre-publish attestation for {name}",
+                blocked_marker="no attestations",
+            )
+        try:
+            _gh_api_json(f"repos/{repository}/releases/tags/{tag}")
+        except Blocked:
+            pass
+        else:
+            raise RuntimeError(
+                f"release tag {tag} already exists; refusing to publish over it "
+                "(verify the existing capsule with its own run identity instead)"
+            )
+        report["immutability_setting"] = _immutability_state(
+            repository, admin_reads=args.admin_reads
+        )
+        report["rule_suite"] = _rule_suite_binding(
+            repository, identity["head_sha"], admin_reads=args.admin_reads
+        )
+        snapshot = live_selection_snapshot(identity)
+        if snapshot["main_sha"] != identity["head_sha"]:
+            raise Movement(
+                f"main is at {snapshot['main_sha']}, no longer the bound head "
+                f"{identity['head_sha']}; re-dispatch at the current head before publishing"
+            )
         report["status"] = "pass"
         _emit(report)
         return EXIT_PASS
@@ -582,7 +732,7 @@ def dry_run_report() -> dict[str, Any]:
         head_sha=DRY_RUN_HEAD_SHA,
         run_id=1,
         run_attempt=1,
-        artifact_name=f"{ARTIFACT_PREFIX}1-1-{DRY_RUN_HEAD_SHA}",
+        artifact_name=f"{ARTIFACT_PREFIX}1-{DRY_RUN_HEAD_SHA}",
     )
     first = build_envelope(DRY_RUN_PAYLOADS, identity)
     second = build_envelope(dict(DRY_RUN_PAYLOADS), identity)
@@ -602,6 +752,10 @@ def dry_run_report() -> dict[str, Any]:
         raise RuntimeError("stable selection was misreported as movement")
     if selection_is_stable(snapshot, {**snapshot, "main_sha": "moved"}):
         raise RuntimeError("main movement was not detected")
+    if movement_disposition(snapshot, {**snapshot, "main_sha": "moved"}) != "superseded":
+        raise RuntimeError("main-only movement must classify as superseded")
+    if movement_disposition(snapshot, {**snapshot, "run_attempt": 99}) != "restart":
+        raise RuntimeError("execution movement must classify as restart")
     return {
         "status": "pass",
         "deterministic": True,
@@ -638,7 +792,17 @@ def main(argv: list[str] | None = None) -> int:
     verify = subparsers.add_parser("verify", help="verify a published envelope read-only")
     add_identity_args(verify)
     verify.add_argument("--signer-workflow", default="")
+    verify.add_argument("--admin-reads", choices=("required", "report"), default="required")
     verify.set_defaults(func=cmd_verify)
+
+    preflight = subparsers.add_parser(
+        "preflight", help="verify everything that must hold before publication"
+    )
+    add_identity_args(preflight)
+    preflight.add_argument("--assets-dir", required=True)
+    preflight.add_argument("--signer-workflow", default="")
+    preflight.add_argument("--admin-reads", choices=("required", "report"), default="report")
+    preflight.set_defaults(func=cmd_preflight)
 
     dry_run = subparsers.add_parser("dry-run", help="offline deterministic self-check")
     dry_run.set_defaults(func=cmd_dry_run)

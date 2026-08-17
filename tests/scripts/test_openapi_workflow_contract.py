@@ -748,11 +748,11 @@ def test_openapi_summary_and_artifact_steps_cannot_rewrite_gate_conclusion():
 # The exact run/SHA binding suffix. `github.sha` is the merge SHA on
 # pull_request events, so the pull-request head SHA must win there for the
 # artifact name to end with the RUN's head_sha (the `-{head_sha}` rule that
-# `_validate_run_artifact` pins).
-RUN_SHA_SUFFIX = (
-    "${{ github.run_id }}-${{ github.run_attempt }}"
-    "-${{ github.event.pull_request.head.sha || github.sha }}"
-)
+# `_validate_run_artifact` pins). The attempt is deliberately NOT in the
+# name: re-running only a failed dependent job (sync/envelope) increments
+# the run attempt while the artifact keeps its original name, so an
+# attempt-bearing name could never be downloaded again.
+RUN_SHA_SUFFIX = "${{ github.run_id }}-${{ github.event.pull_request.head.sha || github.sha }}"
 ENVELOPE_HELPER_PATH = ROOT / "scripts" / "openapi_release_envelope.py"
 # Same pinned actions/attest release the ratified contract-drift boundary
 # signer uses; a different (unreviewed) signer version fails this census.
@@ -776,7 +776,7 @@ def _identity_kwargs(module, head: str, run_id: int = 7, run_attempt: int = 1) -
         "head_sha": head,
         "run_id": run_id,
         "run_attempt": run_attempt,
-        "artifact_name": f"openapi-spec-{run_id}-{run_attempt}-{head}",
+        "artifact_name": f"openapi-spec-{run_id}-{head}",
     }
 
 
@@ -837,6 +837,28 @@ def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
     assert attest["uses"] == ENVELOPE_ATTEST_ACTION
     assert "# v4.2.1" in TEXT
     assert attest["with"]["subject-path"].strip() == "/tmp/openapi-envelope/assets/*"
+    # Preflight proves attestations, tag availability, capability, and that
+    # main is still at the bound head BEFORE anything irreversible runs.
+    preflight = _step("envelope", "Preflight verify before publication")["run"]
+    assert "set -euo pipefail" in preflight
+    assert "scripts/openapi_release_envelope.py preflight" in preflight
+    assert "--assets-dir" in preflight
+    assert "--admin-reads report" in preflight
+    assert "gh --version" in preflight
+    # The irreversible publication is the LAST mutating step: build, attest,
+    # and preflight all precede it, so no failure can strand a half-published
+    # immutable capsule.
+    order = [
+        _step_index("envelope", name)
+        for name in (
+            "Build deterministic release envelope",
+            "Attest the envelope assets",
+            "Preflight verify before publication",
+            "Publish immutable release",
+            "Verify release, assets, attestation, and rule suite",
+        )
+    ]
+    assert order == sorted(order), "envelope steps out of publication-safety order"
     # Verification binds release, assets, attestation, and rule suite to this
     # workflow as the signer, with movement-requery semantics in the helper.
     verify = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
@@ -844,6 +866,10 @@ def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
     assert "scripts/openapi_release_envelope.py verify" in verify
     assert "--signer-workflow" in verify
     assert ".github/workflows/openapi.yml" in verify
+    # The workflow token lacks Administration read, so in-run verification
+    # must degrade admin-gated reads to report mode (never exit 1 for a
+    # capability gap after publication).
+    assert "--admin-reads report" in verify
 
 
 def test_openapi_envelope_helper_dry_run_is_a_pr_time_authority():
@@ -878,7 +904,7 @@ def test_envelope_build_is_deterministic_and_release_bound():
     assert manifest["head_sha"] == head
     assert manifest["workflow_run_id"] == 7
     assert manifest["run_attempt"] == 1
-    assert manifest["artifact_name"] == f"openapi-spec-7-1-{head}"
+    assert manifest["artifact_name"] == f"openapi-spec-7-{head}"
     assert manifest["tag"] == f"openapi-envelope-{head}"
     assert manifest["workflow_path"] == ".github/workflows/openapi.yml"
     # Canonical bytes: re-serializing the parsed manifest reproduces the
@@ -914,16 +940,17 @@ def test_envelope_rejects_unbound_names_and_tampered_assets():
     head = "b" * 40
     base = _identity_kwargs(module, head)
     identity = module.make_identity(**base)
-    # Hostile identities: fixed (unbound) name, wrong run, wrong attempt,
-    # foreign head, non-canonical SHA.
+    # Hostile identities: fixed (unbound) name, wrong run, attempt-bearing
+    # legacy name, foreign head, non-canonical SHA, non-positive run/attempt.
     for kwargs in (
         dict(base, artifact_name="openapi-spec"),
-        dict(base, artifact_name=f"openapi-spec-8-1-{head}"),
-        dict(base, artifact_name=f"openapi-spec-7-2-{head}"),
-        dict(base, artifact_name=f"openapi-spec-7-1-{'c' * 40}"),
-        dict(base, head_sha=head.upper(), artifact_name=f"openapi-spec-7-1-{head.upper()}"),
-        dict(base, head_sha="b" * 39, artifact_name=f"openapi-spec-7-1-{'b' * 39}"),
-        dict(base, run_id=0, artifact_name=f"openapi-spec-0-1-{head}"),
+        dict(base, artifact_name=f"openapi-spec-8-{head}"),
+        dict(base, artifact_name=f"openapi-spec-7-1-{head}"),
+        dict(base, artifact_name=f"openapi-spec-7-{'c' * 40}"),
+        dict(base, head_sha=head.upper(), artifact_name=f"openapi-spec-7-{head.upper()}"),
+        dict(base, head_sha="b" * 39, artifact_name=f"openapi-spec-7-{'b' * 39}"),
+        dict(base, run_id=0, artifact_name=f"openapi-spec-0-{head}"),
+        dict(base, run_attempt=0),
         dict(base, repository="aragora"),
     ):
         with pytest.raises(ValueError):
@@ -1005,8 +1032,18 @@ def test_envelope_selection_movement_restarts_verification():
         assert not module.selection_is_stable(before, after), (
             f"movement in {key} must restart verification"
         )
+        # Execution-provenance movement is always a restart; ONLY a bare
+        # main advance classifies as supersession (a published immutable
+        # capsule stays byte-valid for its exact SHA and must not strand).
+        expected = "superseded" if key == "main_sha" else "restart"
+        assert module.movement_disposition(before, after) == expected, key
+    assert module.movement_disposition(before, dict(before)) == "stable"
+    moved_both = dict(before, main_sha="b" * 40, run_attempt=3)
+    assert module.movement_disposition(before, moved_both) == "restart"
     with pytest.raises(ValueError, match="missing"):
         module.selection_is_stable(before, {"main_sha": "a" * 40})
+    with pytest.raises(ValueError, match="missing"):
+        module.movement_disposition(before, {"main_sha": "a" * 40})
 
 
 def test_envelope_verification_argv_and_read_only_guard():
@@ -1115,7 +1152,7 @@ def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
                 "--run-attempt",
                 "3",
                 "--artifact-name",
-                f"openapi-spec-12-3-{head}",
+                f"openapi-spec-12-{head}",
                 "--payload-dir",
                 str(tmp_path / "payload"),
                 "--output-dir",
