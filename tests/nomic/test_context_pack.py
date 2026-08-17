@@ -476,6 +476,30 @@ async def test_build_index_uses_git_tracked_files(clean_repository: Path) -> Non
     assert index.get_file("untracked.py") is None
 
 
+@pytest.mark.asyncio
+async def test_build_index_test_filter_uses_repository_relative_paths(
+    clean_repository: Path,
+) -> None:
+    tests_parent = clean_repository.parent / f"{clean_repository.name}-parent" / "tests"
+    tests_parent.mkdir(parents=True)
+    nested_repository = tests_parent / "repository"
+    clean_repository.rename(nested_repository)
+    repository_tests = nested_repository / "tests"
+    repository_tests.mkdir()
+    (repository_tests / "test_app.py").write_text(
+        "def test_app():\n    assert True\n", encoding="utf-8"
+    )
+    git(nested_repository, "add", "tests/test_app.py")
+    git(nested_repository, "commit", "-m", "add repository-local test")
+
+    index = await NomicContextBuilder(
+        nested_repository, include_tests=False, full_corpus=False
+    ).build_index()
+
+    assert index.get_file("src/app.py") is not None
+    assert index.get_file("tests/test_app.py") is None
+
+
 def test_manifest_has_complete_evidence_fields(clean_repository: Path) -> None:
     """The async artifact assertions cover values; pin the portable native schema."""
     from aragora.nomic.repository_profile import ContextEvidenceReference

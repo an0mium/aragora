@@ -262,14 +262,17 @@ class NomicContextBuilder:
                 continue
             if path.suffix not in SOURCE_EXTENSIONS:
                 continue
+            relative_path = path.relative_to(self._aragora_path)
             if any(skip in path.parts for skip in SKIP_DIRS):
                 continue
-            if not self._include_tests and any(part in {"test", "tests"} for part in path.parts):
+            if not self._include_tests and any(
+                part in {"test", "tests"} for part in relative_path.parts
+            ):
                 continue
             if path.stat().st_size > MAX_FILE_SIZE:
                 continue
 
-            rel_path = str(path.relative_to(self._aragora_path))
+            rel_path = str(relative_path)
             size = path.stat().st_size
 
             # Count lines efficiently
