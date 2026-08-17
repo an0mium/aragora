@@ -502,6 +502,9 @@ jobs:
           set -euo pipefail
           python3 scripts/openapi_release_envelope.py dry-run
 
+      # overwrite: v4 artifacts are immutable per run and the name carries no
+      # attempt, so re-running all jobs would otherwise 409 on the name laid
+      # down by the previous attempt.
       - name: Upload generated spec and SDK types
         uses: actions/upload-artifact@v4
         with:
@@ -513,6 +516,7 @@ jobs:
             sdk/python/aragora/generated_types.py
             aragora/live/src/types/api.generated.ts
           retention-days: 14
+          overwrite: true
 
       - name: Upload contract drift artifacts
         if: always()
@@ -525,6 +529,7 @@ jobs:
             /tmp/CONTRACT_DRIFT_BACKLOG.json
             /tmp/CONTRACT_DRIFT_BACKLOG.md
           retention-days: 14
+          overwrite: true
 
       - name: Comment on PR (if spec changed)
         if: github.event_name == 'pull_request' && steps.compare.outputs.spec_changed == 'true'
@@ -657,6 +662,10 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+      # Preflight/verify re-query the workflow, run, and run-level artifacts;
+      # an explicit permissions block zeroes unlisted scopes, so without this
+      # read every dispatch would 403 before publication.
+      actions: read
     env:
       GH_TOKEN: ${{ github.token }}
 

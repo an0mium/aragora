@@ -726,7 +726,7 @@ def test_openapi_summary_and_artifact_steps_cannot_rewrite_gate_conclusion():
     assert len(uploads) == 2
     for step in uploads:
         assert step["uses"] == "actions/upload-artifact@v4"
-        assert set(step["with"]) <= {"name", "path", "retention-days"}
+        assert set(step["with"]) <= {"name", "path", "retention-days", "overwrite"}
         assert "continue-on-error" not in step
         assert step.get("if") in (None, "always()")
     # No step anywhere in the workflow writes check runs, check conclusions,
@@ -788,6 +788,10 @@ def test_openapi_artifact_names_are_run_and_sha_bound():
     assert spec_upload["with"]["name"] == "${{ env.OPENAPI_RUN_ARTIFACT }}"
     drift_upload = _step("generate-run", "Upload contract drift artifacts")
     assert drift_upload["with"]["name"] == "${{ env.DRIFT_RUN_ARTIFACT }}"
+    # v4 artifacts are immutable per run and the name carries no attempt, so
+    # a re-run of all jobs must overwrite rather than 409 on its own name.
+    assert spec_upload["with"]["overwrite"] == "true"
+    assert drift_upload["with"]["overwrite"] == "true"
     # Every artifact consumer resolves the same run-bound name.
     sync_download = _step("sync", "Download generated spec")
     assert sync_download["with"]["name"] == "${{ env.OPENAPI_RUN_ARTIFACT }}"
@@ -802,10 +806,14 @@ def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
     job = JOBS["envelope"]
     assert job["needs"] == "generate-run"
     assert job["if"] == ENVELOPE_IF
+    # actions:read is load-bearing: the explicit permissions block zeroes
+    # unlisted scopes, and preflight/verify re-query the workflow, run, and
+    # run-level artifacts through the actions API.
     assert job["permissions"] == {
         "contents": "write",
         "id-token": "write",
         "attestations": "write",
+        "actions": "read",
     }
     for step in job["steps"]:
         assert "continue-on-error" not in step, step.get("name")
@@ -1046,6 +1054,41 @@ def test_envelope_selection_movement_restarts_verification():
         module.movement_disposition(before, {"main_sha": "a" * 40})
 
 
+def test_envelope_admin_reads_degrade_only_on_true_capability_gaps(monkeypatch):
+    module = _load_envelope_helper()
+    head = "d" * 40
+    repo = "synaptent/aragora"
+
+    def forbidden(endpoint, **kwargs):
+        raise module.Forbidden(f"{endpoint} is not readable by this token: HTTP 403")
+
+    # HTTP 403 (the workflow GITHUB_TOKEN lacks Administration:read): report
+    # mode records the gap and degrades; required mode blocks.
+    monkeypatch.setattr(module, "_gh_api_json", forbidden)
+    assert module._immutability_state(repo, admin_reads="report").startswith("unreadable")
+    with pytest.raises(module.Forbidden):
+        module._immutability_state(repo, admin_reads="required")
+    degraded = module._rule_suite_binding(repo, head, admin_reads="report")
+    assert degraded["state"] == "unverified"
+    with pytest.raises(module.Forbidden):
+        module._rule_suite_binding(repo, head, admin_reads="required")
+    # A READABLE surface keeps full fail-closed semantics in BOTH modes:
+    # degradation never substitutes for an answer the token could see.
+    monkeypatch.setattr(module, "_gh_api_json", lambda endpoint, **kwargs: {"enabled": False})
+    with pytest.raises(RuntimeError, match="not enabled"):
+        module._immutability_state(repo, admin_reads="report")
+    monkeypatch.setattr(module, "_gh_api_json", lambda endpoint, **kwargs: [])
+    with pytest.raises(module.Blocked, match="no rule-suite record"):
+        module._rule_suite_binding(repo, head, admin_reads="report")
+    monkeypatch.setattr(
+        module,
+        "_gh_api_json",
+        lambda endpoint, **kwargs: [{"after_sha": head, "id": 5, "result": "fail"}],
+    )
+    with pytest.raises(RuntimeError, match="concluded"):
+        module._rule_suite_binding(repo, head, admin_reads="report")
+
+
 def test_envelope_verification_argv_and_read_only_guard():
     module = _load_envelope_helper()
     head = "c" * 40
@@ -1100,12 +1143,20 @@ def test_envelope_verification_argv_and_read_only_guard():
         ["gh", "release", "edit", tag],
         ["gh", "api", "-X", "DELETE", "repos/synaptent/aragora/releases/1"],
         ["gh", "api", "--method", "POST", "repos/synaptent/aragora/releases"],
+        # pflag attached-shorthand forms must not slip past the guard.
+        ["gh", "api", "-XPOST", "repos/synaptent/aragora/releases"],
+        ["gh", "api", "--method=POST", "repos/synaptent/aragora/releases"],
+        ["gh", "api", "-fname=v", "repos/synaptent/aragora/releases"],
+        ["gh", "api", "-Fname=v", "repos/synaptent/aragora/releases"],
+        ["gh", "api", "-f", "name=v", "repos/synaptent/aragora/releases"],
+        ["gh", "api", "--raw-field=name=v", "repos/synaptent/aragora/releases"],
         ["gh", "pr", "merge", "1"],
         ["rm", "-rf", "/tmp/x"],
     ):
         with pytest.raises(ValueError):
             module.require_read_only_argv(hostile)
     module.require_read_only_argv(["gh", "api", "repos/synaptent/aragora/releases/tags/x"])
+    module.require_read_only_argv(["gh", "api", "-XGET", "repos/synaptent/aragora/releases"])
     module.require_read_only_argv(["gh", "release", "download", tag])
     module.require_read_only_argv(["gh", "release", "verify", tag])
 

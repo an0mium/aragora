@@ -21,8 +21,10 @@ after with restart-on-movement semantics (main-only movement after
 publication is recorded as supersession, never a strand); ``dry-run`` proves
 deterministic byte construction from checked-in fixture bytes with no
 network access. Admin-gated reads (rule suites, the immutability setting)
-degrade to ``report`` mode under the workflow's GITHUB_TOKEN; the operator's
-``required`` mode enforces them.
+degrade under ``--admin-reads report`` only on a true HTTP 403 capability
+gap (the workflow's GITHUB_TOKEN); every readable answer keeps full
+fail-closed semantics, and the operator's ``required`` mode enforces the
+reads outright.
 
 Exit codes (CDG status vocabulary): 0 pass, 1 fail (verification
 contradiction), 2 blocked (publication/attestation/rule-suite not yet
@@ -343,12 +345,22 @@ def require_read_only_argv(argv: list[str]) -> None:
                     raise ValueError("gh api may only issue GET requests")
                 index += 2
                 continue
+            # pflag also accepts attached shorthand (-XPOST, -fk=v, -Fk=v),
+            # so prefix forms must be screened, not just separated flags.
+            if item.startswith("-X") and item != "-X":
+                if item[2:].upper() != "GET":
+                    raise ValueError("gh api may only issue GET requests")
+                index += 1
+                continue
             if item.startswith("--method=") and item.split("=", 1)[1].upper() != "GET":
                 raise ValueError("gh api may only issue GET requests")
             if (
                 item in _GH_API_WRITE_FLAGS
                 or item.startswith("--field=")
+                or item.startswith("--raw-field=")
                 or item.startswith("--input=")
+                or (item.startswith("-f") and item != "-f")
+                or (item.startswith("-F") and item != "-F")
             ):
                 raise ValueError("gh api write-shaped flags are rejected")
             index += 1
@@ -507,10 +519,13 @@ def _immutability_state(repository: str, *, admin_reads: str) -> str:
     """Read the repo immutable-releases setting; under a token without
     Administration read (the workflow's GITHUB_TOKEN) the surface is
     recorded as unreadable in ``report`` mode instead of blocking, and the
-    release object's own ``immutable`` field carries the durability proof."""
+    release object's own ``immutable`` field carries the durability proof.
+    Only a true capability gap (HTTP 403) may degrade: any readable answer
+    keeps full semantics in both modes, so a readable ``enabled: false``
+    always fails."""
     try:
         immutability = _gh_api_json(f"repos/{repository}/immutable-releases")
-    except Blocked as exc:
+    except Forbidden as exc:
         if admin_reads == "required":
             raise
         return f"unreadable ({exc})"
@@ -520,9 +535,13 @@ def _immutability_state(repository: str, *, admin_reads: str) -> str:
 
 
 def _rule_suite_binding(repository: str, head_sha: str, *, admin_reads: str) -> dict[str, Any]:
+    """Only a 403 capability gap may degrade in ``report`` mode. A readable
+    rule-suite surface with no matching record stays ``Blocked`` and a
+    readable non-pass result stays a failure, in both modes: degradation
+    never substitutes for a missing binding the token could have seen."""
     try:
         return _passing_rule_suite(repository, head_sha)
-    except Blocked as exc:
+    except Forbidden as exc:
         if admin_reads == "required":
             raise
         return {"state": "unverified", "reason": str(exc)}
@@ -687,6 +706,16 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 f"release tag {tag} already exists; refusing to publish over it "
                 "(verify the existing capsule with its own run identity instead)"
             )
+        # `gh release verify`/`verify-asset` arrived in gh 2.96; probing them
+        # here keeps a missing subcommand from surfacing only after the
+        # irreversible publication.
+        for capability in (("release", "verify"), ("release", "verify-asset")):
+            if _run_gh(["gh", *capability, "--help"]).returncode != 0:
+                raise Blocked(
+                    f"gh {' '.join(capability)} is unavailable on this runner; "
+                    "post-publication verification would be impossible"
+                )
+        report["gh_capabilities"] = ["release verify", "release verify-asset"]
         report["immutability_setting"] = _immutability_state(
             repository, admin_reads=args.admin_reads
         )
