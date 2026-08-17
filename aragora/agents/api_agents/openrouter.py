@@ -34,6 +34,7 @@ from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import ExternalServiceError
+from aragora.models import CATALOG
 from aragora.models.compat import strip_sampling_params
 from aragora.observability.metrics.agents import (
     ErrorType,
@@ -46,6 +47,7 @@ from aragora.observability.metrics.agents import (
 logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
+KIMI_K3_MODEL = CATALOG["kimi-k3"].openrouter_id
 # OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
@@ -77,6 +79,7 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-r1": "openai/gpt-5.5",
     "deepseek/deepseek-reasoner": "openai/gpt-5.5",
     # Kimi -> Claude Opus 5
+    KIMI_K3_MODEL: "anthropic/claude-opus-5",
     "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-5",
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-5",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-5",
@@ -126,7 +129,7 @@ class OpenRouterAgent(APIAgent):
     - mistralai/mistral-large-2512 (Mistral Large 3)
     - qwen/qwen3.7-max (Qwen3.7 Max)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
-    - moonshotai/kimi-k2.7-code (Kimi K2.7 Code)
+    - moonshotai/kimi-k3 (Kimi K3)
     - perplexity/sonar-reasoning-pro (Sonar Reasoning Pro)
     - cohere/command-a (Command A)
     - ai21/jamba-large-1.7 (Jamba Large 1.7)
@@ -830,19 +833,19 @@ class YiAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "kimi",
-    default_model="moonshotai/kimi-k2.7-code",
+    default_model=KIMI_K3_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2.7 Code - Moonshot AI's latest frontier Kimi model on OpenRouter",
+    description="Kimi K3 - Moonshot AI's frontier multimodal reasoning model on OpenRouter",
 )
-class KimiK2Agent(OpenRouterAgent):
-    """Moonshot AI Kimi K2.7 Code via OpenRouter - latest frontier Kimi model."""
+class KimiK3Agent(OpenRouterAgent):
+    """Moonshot AI Kimi K3 via OpenRouter."""
 
     def __init__(
         self,
         name: str = "kimi",
         role: AgentRole = "analyst",
-        model: str = "moonshotai/kimi-k2.7-code",
+        model: str = KIMI_K3_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -852,6 +855,10 @@ class KimiK2Agent(OpenRouterAgent):
             system_prompt=system_prompt,
         )
         self.agent_type = "kimi"
+
+
+# Public compatibility for callers importing the pre-K3 class name.
+KimiK2Agent = KimiK3Agent
 
 
 @AgentRegistry.register(
@@ -1184,6 +1191,7 @@ __all__ = [
     "QwenMaxAgent",
     "Qwen35PlusAgent",
     "YiAgent",
+    "KimiK3Agent",
     "KimiK2Agent",
     "KimiThinkingAgent",
     "KimiLegacyAgent",

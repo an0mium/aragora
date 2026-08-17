@@ -57,7 +57,7 @@ DECLARED_MODEL_PINS = {
     "openrouter.deepseek": "deepseek/deepseek-v4-pro",
     "openrouter.llama": "meta-llama/llama-3.3-70b-instruct",
     "openrouter.qwen": "qwen/qwen3-max",
-    "openrouter.kimi": "moonshotai/kimi-k2-0905",
+    "openrouter.kimi": "moonshotai/kimi-k3",
     "built-in.demo": "demo",
 }
 

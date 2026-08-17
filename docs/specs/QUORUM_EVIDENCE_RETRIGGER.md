@@ -270,6 +270,24 @@ workflow with `yaml.safe_load` and pins:
 The suite FAILS against the pre-change workflow (RED) and PASSES with
 the change (GREEN); the RED proof is captured in the PR body.
 
+## Operational Notes
+
+- **Rehearsal is post-merge only.** A pre-merge rehearsal of either
+  retrigger surface via a branch-ref `workflow_dispatch` fails at the
+  helper invocation step: both surfaces deliberately check out
+  `scripts/quorum_evidence_retrigger_select.sh` from the BASE repo's
+  **default branch** (the fork-PR safety pin above), so until the PR
+  carrying the helper lands, the checked-out tree does not contain it.
+  This is a property of the pin, not a defect (observed on the PR #9772
+  rehearsal attempt, 2026-08-16). Pre-merge behavioral coverage comes
+  from the fixture-backed governance suite (`TestSelectionBehavior`
+  runs the real helper against a fake `gh`); live rehearsal happens
+  after merge.
+- **Helper checkouts are sparse.** Both retrigger checkouts exist
+  solely to fetch the helper, so they use a non-cone sparse checkout
+  of exactly that file. Per-comment retrigger runs materialize a
+  single script instead of the full tree.
+
 ## Operator Settlement Requested
 
 Approving and settling the carrying PR constitutes the Tier 4

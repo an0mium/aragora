@@ -90,6 +90,11 @@ jobs:
           # Always run the BASE repo's default-branch copy of the helper —
           # never PR code (the enforcing evaluation job's same ref pin).
           ref: ${{ github.event.repository.default_branch }}
+          # This checkout exists solely to fetch the helper; a non-cone
+          # sparse checkout materializes that single file instead of the
+          # full tree on every evidence comment.
+          sparse-checkout: scripts/quorum_evidence_retrigger_select.sh
+          sparse-checkout-cone-mode: false
 
       - name: Re-run merge-quorum for the PR's current head
         if: >-

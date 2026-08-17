@@ -235,6 +235,13 @@ class TestSharedSelectionSurface:
         assert select_script.startswith("#!/usr/bin/env bash")
         assert "set -euo pipefail" in select_script
 
+    def test_selection_helper_is_executable(self) -> None:
+        """Mode hygiene pin: committed as 100755, even though both surfaces
+        invoke it via ``bash <path>`` and never rely on the bit at runtime."""
+        assert os.access(SELECT_SCRIPT_PATH, os.X_OK), (
+            "scripts/quorum_evidence_retrigger_select.sh must keep its executable bit"
+        )
+
     def test_both_surfaces_delegate_to_the_shared_helper(
         self, retrigger_scripts: dict[str, str]
     ) -> None:
@@ -277,6 +284,31 @@ class TestSharedSelectionSurface:
             ref = (checkouts[0].get("with") or {}).get("ref")
             assert ref == "${{ github.event.repository.default_branch }}", (
                 f"{surface}: the helper must come from the default branch, never PR code"
+            )
+
+    def test_surface_checkouts_materialize_only_the_shared_helper(
+        self, retrigger_job: dict[str, Any], standalone_workflow: dict[str, Any]
+    ) -> None:
+        """Both retrigger checkouts exist solely to fetch the helper, so a
+        non-cone sparse checkout of exactly that file keeps per-comment
+        runs from paying a full-tree checkout."""
+        surfaces = {
+            "evidence-retrigger": retrigger_job,
+            "standalone": standalone_workflow["jobs"]["retrigger"],
+        }
+        for surface, job in surfaces.items():
+            checkouts = [
+                step
+                for step in job.get("steps", [])
+                if str(step.get("uses", "")).startswith("actions/checkout@")
+            ]
+            with_block = checkouts[0].get("with") or {}
+            patterns = str(with_block.get("sparse-checkout", "")).split()
+            assert patterns == ["scripts/quorum_evidence_retrigger_select.sh"], (
+                f"{surface}: checkout must sparse-checkout exactly the shared helper"
+            )
+            assert with_block.get("sparse-checkout-cone-mode") is False, (
+                f"{surface}: cone mode cannot express a single-file pattern"
             )
 
 
@@ -415,11 +447,17 @@ def _run(
 
 
 def _run_select_script(
-    tmp_path: Path, runs: list[dict[str, Any]], ready_events: list[str]
+    tmp_path: Path,
+    runs: list[dict[str, Any]],
+    ready_events: list[str],
+    *,
+    pr_state: str = "open",
+    pr_draft: bool = False,
+    fresh_status: str = "completed",
 ) -> tuple[subprocess.CompletedProcess[str], Path]:
     fixtures = tmp_path / "fixtures"
     fixtures.mkdir()
-    pr_json = {"state": "open", "draft": False, "head": {"sha": "f" * 40}}
+    pr_json = {"state": pr_state, "draft": pr_draft, "head": {"sha": "f" * 40}}
     (fixtures / "pr.json").write_text(json.dumps(pr_json), encoding="utf-8")
     (fixtures / "total_count.txt").write_text(f"{len(runs)}\n", encoding="utf-8")
     (fixtures / "runs.jsonl").write_text(
@@ -428,7 +466,7 @@ def _run_select_script(
     (fixtures / "ready_events.txt").write_text(
         "".join(ts + "\n" for ts in ready_events), encoding="utf-8"
     )
-    (fixtures / "fresh_status.txt").write_text("completed\n", encoding="utf-8")
+    (fixtures / "fresh_status.txt").write_text(f"{fresh_status}\n", encoding="utf-8")
     shim_dir = tmp_path / "bin"
     shim_dir.mkdir()
     shim = shim_dir / "gh"
@@ -483,3 +521,41 @@ class TestSelectionBehavior:
         assert not rerun_log.exists(), "must not fall back to re-running the older evaluation"
         assert "run 200 is queued" in proc.stdout
         assert "no-op" in proc.stdout
+
+    @pytest.mark.parametrize(
+        ("pr_state", "pr_draft"),
+        [("open", True), ("closed", False)],
+        ids=["draft-pr", "closed-pr"],
+    )
+    def test_draft_or_closed_pr_defers_the_gate_with_no_rerun(
+        self, tmp_path: Path, pr_state: str, pr_draft: bool
+    ) -> None:
+        """Drafts and closed PRs have no active gate to refresh: the helper
+        must exit 0 before any selection, even with a stale failed run."""
+        proc, rerun_log = _run_select_script(
+            tmp_path,
+            runs=[_run(300, "completed", "failure", "2026-08-16T10:05Z", "2026-08-16T10:06Z")],
+            ready_events=[],
+            pr_state=pr_state,
+            pr_draft=pr_draft,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert not rerun_log.exists(), "a gate-deferred PR must never produce a rerun"
+        assert "gate not active; no-op" in proc.stdout
+        assert "Re-running" not in proc.stdout
+
+    def test_burst_loser_no_ops_when_fresh_status_is_no_longer_completed(
+        self, tmp_path: Path
+    ) -> None:
+        """Burst dedup: the listing still shows a completed failure, but the
+        fresh pre-rerun status read sees the concurrent winner's rerun
+        already queued, so this surface must no-op instead of double-firing."""
+        proc, rerun_log = _run_select_script(
+            tmp_path,
+            runs=[_run(300, "completed", "failure", "2026-08-16T10:05Z", "2026-08-16T10:06Z")],
+            ready_events=[],
+            fresh_status="queued",
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert not rerun_log.exists(), "the burst loser must not issue a second rerun"
+        assert "concurrent retrigger won" in proc.stdout
