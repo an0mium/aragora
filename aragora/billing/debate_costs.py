@@ -77,6 +77,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "anthropic/claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
         "openai/gpt-5.6-sol": (Decimal("5.00"), Decimal("30.00")),
         "qwen/qwen3.7-max": (Decimal("1.475"), Decimal("4.425")),
+        "moonshotai/kimi-k3": (Decimal("3.00"), Decimal("15.00")),
         "moonshotai/kimi-k2.7-code": (Decimal("0.71"), Decimal("3.50")),
         "perplexity/sonar-reasoning-pro": (Decimal("2.00"), Decimal("8.00")),
         "cohere/command-a": (Decimal("2.50"), Decimal("10.00")),

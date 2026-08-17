@@ -99,6 +99,20 @@ def test_refreshed_openrouter_defaults_are_cataloged(
     assert (spec.input_per_mtok, spec.output_per_mtok) == rates
 
 
+def test_kimi_k3_runtime_metadata_and_soak_boundary() -> None:
+    spec = CATALOG["kimi-k3"]
+
+    assert spec.direct_id == "kimi-k3"
+    assert spec.openrouter_id == "moonshotai/kimi-k3"
+    assert (spec.input_per_mtok, spec.output_per_mtok) == (3.0, 15.0)
+    assert spec.context_window == 1_048_576
+    assert spec.max_output_tokens == 32_768
+    assert spec.release_date == date(2026, 7, 16)
+    assert spec.soak_until == date(2026, 7, 30)
+    assert spec.is_under_soak(today=date(2026, 7, 29))
+    assert not spec.is_under_soak(today=date(2026, 7, 30))
+
+
 # ---------------------------------------------------------------------------
 # Mirror-consistency enforcement
 # ---------------------------------------------------------------------------
