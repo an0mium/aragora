@@ -38,7 +38,7 @@ project owns; this catalog makes the detection mechanical.
 
 No runtime table changed behavior. `tests/models/test_catalog.py` asserts
 that existing table rows for an **enforced** model match the catalog
-(`ENFORCED_MODELS`, currently the thirteen models verified live).
+(`ENFORCED_MODELS`, currently the fourteen models verified live).
 A covered drifting mirror now fails tests in seconds instead of consuming
 an adversarial review round.
 
@@ -50,7 +50,10 @@ capture recorded the Kimi K2.7 Code price change to $0.71/$3.50 per MTok
 without changing its reviewer pin. The runtime-only Kimi refresh adds
 `moonshotai/kimi-k3` at $3/$15 per MTok with a 1,048,576-token context after
 its 14-day availability soak; `kimi-thinking` retains its distinct K2
-reasoning model.
+reasoning model. The Qwen runtime refresh adds `qwen/qwen3.8-max` at $2/$6
+per MTok with a 1,000,000-token context and 131,072-token output limit after
+its 14-day availability soak; Qwen 3.7 and older IDs remain accepted and
+priced for compatibility.
 
 The current Anthropic frontier pin is **`claude-opus-5`** (`anthropic/claude-opus-5`
 via OpenRouter), adopted 2026-07-24 at the same $5/$25 per MTok as its

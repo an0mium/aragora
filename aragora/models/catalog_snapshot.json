@@ -6,7 +6,7 @@
     "and commit the diff; the scheduled advisory drift job reports when",
     "this snapshot disagrees with the live catalog."
   ],
-  "captured_at": "2026-08-17T00:02:45Z",
+  "captured_at": "2026-08-17T04:39:24Z",
   "models": {
     "ai21/jamba-large-1.7": {
       "context_length": 256000,
@@ -62,6 +62,11 @@
       "context_length": 1000000,
       "input_per_mtok": 1.475,
       "output_per_mtok": 4.425
+    },
+    "qwen/qwen3.8-max": {
+      "context_length": 1000000,
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 6.0
     },
     "x-ai/grok-4.3": {
       "context_length": 1000000,

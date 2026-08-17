@@ -115,6 +115,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "anthropic/claude-fable-5-output": Decimal("50.00"),
         "openai/gpt-5.6-sol": Decimal("5.00"),
         "openai/gpt-5.6-sol-output": Decimal("30.00"),
+        "qwen/qwen3.8-max": Decimal("2.00"),
+        "qwen/qwen3.8-max-output": Decimal("6.00"),
         "qwen/qwen3.7-max": Decimal("1.475"),
         "qwen/qwen3.7-max-output": Decimal("4.425"),
         "moonshotai/kimi-k3": Decimal("3.00"),

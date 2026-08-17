@@ -180,6 +180,12 @@ class TestEstimateCostUsd:
         )
         assert cost == pytest.approx(5.9)
 
+    def test_qwen38_max_priced_not_free(self) -> None:
+        cost = estimate_cost_usd(
+            model="qwen/qwen3.8-max", tokens_in=1_000_000, tokens_out=1_000_000
+        )
+        assert cost == pytest.approx(8.0)
+
     def test_unknown_model_returns_zero(self) -> None:
         cost = estimate_cost_usd(model="unknown-model", tokens_in=1000, tokens_out=500)
         assert cost == 0.0

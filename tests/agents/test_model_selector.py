@@ -62,6 +62,16 @@ class TestModelProfiles:
         assert (kimi.cost_input_per_1k, kimi.cost_output_per_1k) == (0.003, 0.015)
         assert kimi.supports_vision is True
 
+    def test_qwen_profile_tracks_qwen38_max_runtime_metadata(self):
+        qwen = MODEL_PROFILES["qwen"]
+
+        assert qwen.model_id == "qwen3.8-max"
+        assert qwen.display_name == "Qwen 3.8 Max"
+        assert qwen.provider == "alibaba"
+        assert qwen.max_context_tokens == 1_000_000
+        assert qwen.max_output_tokens == 131_072
+        assert (qwen.cost_input_per_1k, qwen.cost_output_per_1k) == (0.002, 0.006)
+
     def test_all_profiles_have_required_fields(self):
         """Verify all profiles have required fields populated."""
         for name, profile in MODEL_PROFILES.items():

@@ -109,8 +109,8 @@ Agent (core.py)
 | `LlamaAgent` | llama-3.3-70b | Meta's flagship open model |
 | `Llama4MaverickAgent` | llama-4-maverick | 400B MoE, 1M context |
 | `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
-| `QwenAgent` | qwen3-max | Alibaba's frontier model |
-| `QwenMaxAgent` | qwen3-max | Trillion-parameter frontier |
+| `QwenAgent` | qwen3.8-max | Alibaba's frontier model |
+| `QwenMaxAgent` | qwen3.8-max | 1M-context frontier model |
 | `MistralAgent` | mistral-large-2411 | Via OpenRouter |
 | `YiAgent` | yi-large | 01.AI flagship |
 | `KimiK3Agent` | kimi-k3 | Latest frontier Kimi model on OpenRouter |

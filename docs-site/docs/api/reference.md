@@ -1532,8 +1532,8 @@ OpenRouter:
 | `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
 | `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
-| `qwen` | qwen/qwen3-max | Qwen3 Max |
-| `qwen-max` | qwen/qwen3-max | Qwen3 Max |
+| `qwen` | qwen/qwen3.8-max | Qwen 3.8 Max |
+| `qwen-max` | qwen/qwen3.8-max | Qwen 3.8 Max |
 | `yi` | 01-ai/yi-large | Yi Large |
 
 CLI:

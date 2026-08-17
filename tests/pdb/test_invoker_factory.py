@@ -741,6 +741,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "qwen": frozenset(
         {
+            "qwen/qwen3.8-max",
             "qwen/qwen3-235b-a22b",
             "qwen/qwen3.7-max",
             "qwen/qwen3.5-plus-02-15",
