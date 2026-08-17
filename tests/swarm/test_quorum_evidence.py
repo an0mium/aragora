@@ -1374,14 +1374,21 @@ def test_grounded_review_still_counts() -> None:
     assert _grounding_item("claude", "pass", grounded=True).would_count is True
 
 
-def test_ungrounded_dissent_never_blocks() -> None:
+def test_ungrounded_dissent_never_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
     # The live case this fixes: three ungrounded CHANGES-REQUESTED reviews on #9505
     # asserted facts about a registry tag and unlisted files they were never shown.
+    # Pin the default strict regime: ambient ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1
+    # would make these [P2]-only dissents advisory, passing vacuously without
+    # exercising the groundedness veto this test exists to pin.
+    monkeypatch.delenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", raising=False)
     assert _grounding_item("claude", "changes_requested", grounded=False).dissenting is False
     assert _grounding_item("grok", "changes_requested", grounded=False).dissenting is False
 
 
-def test_grounded_dissent_still_blocks() -> None:
+def test_grounded_dissent_still_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Pin the default strict regime: ambient ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1
+    # would downgrade this [P2]-only dissent to advisory and flip the assertion.
+    monkeypatch.delenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", raising=False)
     assert _grounding_item("claude", "changes_requested", grounded=True).dissenting is True
 
 
@@ -3364,7 +3371,13 @@ def test_apply_relaxed_artifact_posts_when_both_regimes_relaxed(tmp_path, monkey
     assert posted == [_prepared_body("claude")]
 
 
-def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
+def test_apply_prepared_evidence_rederives_verdict_from_body(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Pin the default strict regime: ambient ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1
+    # would relax the finding-free CHANGES-REQUESTED body to advisory and flip the
+    # expected prepare/dissent outcome.
+    monkeypatch.delenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", raising=False)
     prepared = _prepared_outcome_file(
         tmp_path,
         items=[
