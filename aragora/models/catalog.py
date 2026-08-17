@@ -252,6 +252,18 @@ CATALOG: dict[str, ModelSpec] = {
             release_date=date(2025, 8, 8),
         ),
         ModelSpec(
+            canonical_id="qwen3.8-max",
+            provider="alibaba",
+            direct_id="qwen3.8-max",
+            openrouter_id="qwen/qwen3.8-max",
+            input_per_mtok=2.00,
+            output_per_mtok=6.00,
+            context_window=1_000_000,
+            max_output_tokens=131_072,
+            release_date=date(2026, 8, 3),
+            soak_until=date(2026, 8, 17),
+        ),
+        ModelSpec(
             canonical_id="qwen3.7-max",
             provider="alibaba",
             direct_id="qwen3.7-max",

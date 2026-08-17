@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
 KIMI_K3_MODEL = CATALOG["kimi-k3"].openrouter_id
+QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-max"].openrouter_id
 # OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
@@ -63,6 +64,7 @@ FUSION_MODEL = "openrouter/fusion"
 # Maps primary model -> fallback model (used after max_retries exhausted)
 OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # Qwen models -> DeepSeek
+    QWEN_3_8_MAX_MODEL: DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen-2.5-72b-instruct": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3-235b-a22b": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
@@ -127,7 +129,8 @@ class OpenRouterAgent(APIAgent):
     - meta-llama/llama-4-scout (Llama 4 Scout 109B MoE)
     - meta-llama/llama-3.3-70b-instruct
     - mistralai/mistral-large-2512 (Mistral Large 3)
-    - qwen/qwen3.7-max (Qwen3.7 Max)
+    - qwen/qwen3.8-max (Qwen 3.8 Max)
+    - qwen/qwen3.7-max (Qwen 3.7 Max compatibility)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k3 (Kimi K3)
     - perplexity/sonar-reasoning-pro (Sonar Reasoning Pro)
@@ -729,19 +732,19 @@ class MistralAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "qwen",
-    default_model="qwen/qwen3.7-max",
+    default_model=QWEN_3_8_MAX_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen3.7 Max - Alibaba's frontier model, 256K context, trillion params",
+    description="Qwen 3.8 Max - Alibaba's frontier model with 1M context",
 )
 class QwenAgent(OpenRouterAgent):
-    """Alibaba Qwen3.7 Max via OpenRouter - frontier model with 256K context."""
+    """Alibaba Qwen 3.8 Max via OpenRouter."""
 
     def __init__(
         self,
         name: str = "qwen",
         role: AgentRole = "analyst",
-        model: str = "qwen/qwen3.7-max",
+        model: str = QWEN_3_8_MAX_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -755,19 +758,19 @@ class QwenAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "qwen-max",
-    default_model="qwen/qwen3.7-max",
+    default_model=QWEN_3_8_MAX_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Qwen3.7 Max - Alibaba's frontier model, 256K context, trillion params",
+    description="Qwen 3.8 Max - Alibaba's frontier model with 1M context",
 )
 class QwenMaxAgent(OpenRouterAgent):
-    """Alibaba Qwen3.7 Max via OpenRouter - trillion-parameter frontier model."""
+    """Alibaba Qwen 3.8 Max via OpenRouter."""
 
     def __init__(
         self,
         name: str = "qwen-max",
         role: AgentRole = "analyst",
-        model: str = "qwen/qwen3.7-max",
+        model: str = QWEN_3_8_MAX_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(

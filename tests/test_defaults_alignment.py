@@ -51,3 +51,15 @@ def test_kimi_display_name_matches_runtime_frontier() -> None:
     frontend_name = _extract_default(r"'kimi':\s*'([^']+)'", text, "kimi display name")
 
     assert frontend_name == AGENT_DISPLAY_NAMES["kimi"] == "Kimi K3"
+
+
+@pytest.mark.parametrize("agent_type", ["qwen", "qwen-max"])
+def test_qwen_display_names_match_runtime_frontier(agent_type: str) -> None:
+    config_path = Path(__file__).resolve().parents[1] / "aragora" / "live" / "src" / "config.ts"
+    text = config_path.read_text(encoding="utf-8")
+
+    frontend_name = _extract_default(
+        rf"'{agent_type}':\s*'([^']+)'", text, f"{agent_type} display name"
+    )
+
+    assert frontend_name == AGENT_DISPLAY_NAMES[agent_type] == "Qwen 3.8 Max"
