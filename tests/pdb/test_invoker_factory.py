@@ -295,7 +295,7 @@ class TestBuildDefaultInvoker:
 
         claude_agent = invoker._agents[FAMILY_CLAUDE]
         assert claude_agent is not None
-        assert claude_agent.enable_web_search is False
+        assert getattr(claude_agent, "enable_web_search") is False
         # Heterodox slots in unavailable set (no heterodox keys supplied)
         assert "grok_heterodox" in invoker._unavailable_slots
         assert "gemini_heterodox" in invoker._unavailable_slots

@@ -132,7 +132,7 @@ def test_qwen38_max_runtime_metadata_and_soak_boundary() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _approx_pair(actual_in: float, actual_out: float, spec) -> None:
+def _approx_pair(actual_in: float | Decimal, actual_out: float | Decimal, spec) -> None:
     assert float(actual_in) == pytest.approx(spec.input_per_mtok), (
         f"{spec.canonical_id}: input {actual_in} != catalog {spec.input_per_mtok}"
     )

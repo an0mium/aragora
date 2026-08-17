@@ -535,7 +535,9 @@ class TestSamplingParamStripOnFallback:
         from aragora.models.compat import strip_sampling_params
 
         payload = {"model": "moonshotai/kimi-k2.7-code", "temperature": 0.7, "top_p": 0.9}
-        strip_sampling_params(payload, payload["model"])
+        model = payload["model"]
+        assert isinstance(model, str)
+        strip_sampling_params(payload, model)
         assert payload["temperature"] == 0.7, "non-Claude routing must be unchanged"
         assert payload["top_p"] == 0.9
 
@@ -553,7 +555,9 @@ class TestSamplingParamStripOnFallback:
         assert "temperature" in payload, "guard-rail: self.model is the wrong key"
 
         # Keying off the payload's own model strips them correctly.
-        strip_sampling_params(payload, payload["model"])
+        model = payload["model"]
+        assert isinstance(model, str)
+        strip_sampling_params(payload, model)
         assert "temperature" not in payload
         assert "top_p" not in payload
 
