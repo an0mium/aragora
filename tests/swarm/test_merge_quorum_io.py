@@ -145,7 +145,9 @@ def test_fetch_pr_context_falls_back_to_rest_with_complete_stability_state(monke
             return {
                 "check_runs": [
                     {"name": m.QUORUM_CHECK_NAME, "conclusion": "failure"},
+                    {"name": "lint", "conclusion": "success"},
                     {"name": "lint", "conclusion": "failure"},
+                    {"name": "typecheck", "conclusion": "success"},
                     {"name": "typecheck", "status": "in_progress"},
                 ]
             }

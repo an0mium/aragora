@@ -366,28 +366,21 @@ def _fetch_pr_context_rest(repo: str, pr: int, *, env: dict[str, str]) -> dict[s
         f"repos/{repo}/commits/{head_sha}/statuses?per_page={_REST_PAGE_SIZE}", env=env
     )
     checks: list[dict[str, Any]] = []
-    check_by_name: dict[str, dict[str, Any]] = {}
     for check in check_runs:
         if not isinstance(check, dict):
             continue
         name = str(check.get("name") or "").strip()
         if name:
-            check_by_name.setdefault(
-                name,
+            checks.append(
                 {
                     "name": name,
                     "conclusion": check.get("conclusion") or check.get("status"),
                 },
             )
-    checks.extend(check_by_name.values())
-    status_by_context: dict[str, dict[str, Any]] = {}
     for status in statuses:
         context = str(status.get("context") or "").strip()
-        if context and context not in check_by_name:
-            status_by_context.setdefault(
-                context, {"context": context, "state": status.get("state")}
-            )
-    checks.extend(status_by_context.values())
+        if context:
+            checks.append({"context": context, "state": status.get("state")})
     required_names = _required_check_names(repo, str(base.get("ref") or ""), env=env)
     quorum_conclusion, real_failure, real_pending = _summarize_checks(
         checks, required_names=required_names
