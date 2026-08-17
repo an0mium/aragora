@@ -22,9 +22,12 @@ the rules and the repo-tree census so a drifting workflow fails here first.
 
 from __future__ import annotations
 
+import importlib.util
+import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -67,6 +70,7 @@ AUTHORITATIVE_STEPS = (
     "Verify SDK contracts against spec",
     "Check namespace SDK parity",
     "Run contract matrix tests",
+    "Validate release envelope helper (dry run)",
 )
 
 # The complete continue-on-error census of the workflow. Every entry is a
@@ -98,6 +102,7 @@ RECOVERY_STEPS_WITH_OR_TRUE = {
     ("sync", "Verify checkout integrity"),
     ("sync", "Check for changes"),
     ("sync", "Commit updated spec"),
+    ("envelope", "Verify checkout integrity"),
 }
 
 _PIPE = re.compile(r"(?<!\|)\|(?!\|)")
@@ -734,3 +739,394 @@ def test_openapi_summary_and_artifact_steps_cannot_rewrite_gate_conclusion():
     script = comment["with"]["script"]
     assert "createComment" in script
     assert "conclusion" not in script
+
+
+# ---------------------------------------------------------------------------
+# FIX-RT-017: SHA/run-bound artifacts and the immutable release envelope
+# ---------------------------------------------------------------------------
+
+# The exact run/SHA binding suffix. `github.sha` is the merge SHA on
+# pull_request events, so the pull-request head SHA must win there for the
+# artifact name to end with the RUN's head_sha (the `-{head_sha}` rule that
+# `_validate_run_artifact` pins).
+RUN_SHA_SUFFIX = (
+    "${{ github.run_id }}-${{ github.run_attempt }}"
+    "-${{ github.event.pull_request.head.sha || github.sha }}"
+)
+ENVELOPE_HELPER_PATH = ROOT / "scripts" / "openapi_release_envelope.py"
+# Same pinned actions/attest release the ratified contract-drift boundary
+# signer uses; a different (unreviewed) signer version fails this census.
+ENVELOPE_ATTEST_ACTION = "actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d"
+ENVELOPE_IF = (
+    "github.event_name == 'workflow_dispatch' && inputs.publish_envelope == true"
+    " && github.ref == 'refs/heads/main'"
+)
+
+
+def _load_envelope_helper():
+    spec = importlib.util.spec_from_file_location("openapi_release_envelope", ENVELOPE_HELPER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _identity_kwargs(module, head: str, run_id: int = 7, run_attempt: int = 1) -> dict:
+    return {
+        "repository": "synaptent/aragora",
+        "head_sha": head,
+        "run_id": run_id,
+        "run_attempt": run_attempt,
+        "artifact_name": f"openapi-spec-{run_id}-{run_attempt}-{head}",
+    }
+
+
+def test_openapi_artifact_names_are_run_and_sha_bound():
+    env = DOC.get("env") or {}
+    assert env.get("OPENAPI_RUN_ARTIFACT") == f"openapi-spec-{RUN_SHA_SUFFIX}"
+    assert env.get("DRIFT_RUN_ARTIFACT") == f"contract-drift-artifacts-{RUN_SHA_SUFFIX}"
+    spec_upload = _step("generate-run", "Upload generated spec and SDK types")
+    assert spec_upload["with"]["name"] == "${{ env.OPENAPI_RUN_ARTIFACT }}"
+    drift_upload = _step("generate-run", "Upload contract drift artifacts")
+    assert drift_upload["with"]["name"] == "${{ env.DRIFT_RUN_ARTIFACT }}"
+    # Every artifact consumer resolves the same run-bound name.
+    sync_download = _step("sync", "Download generated spec")
+    assert sync_download["with"]["name"] == "${{ env.OPENAPI_RUN_ARTIFACT }}"
+    envelope_download = _step("envelope", "Download run-level spec artifact")
+    assert envelope_download["with"]["name"] == "${{ env.OPENAPI_RUN_ARTIFACT }}"
+    # No fixed-name expiring artifact remains anywhere in the workflow.
+    assert "name: openapi-spec\n" not in TEXT
+    assert "name: contract-drift-artifacts\n" not in TEXT
+
+
+def test_openapi_envelope_job_is_dispatch_gated_and_attests_exact_assets():
+    job = JOBS["envelope"]
+    assert job["needs"] == "generate-run"
+    assert job["if"] == ENVELOPE_IF
+    assert job["permissions"] == {
+        "contents": "write",
+        "id-token": "write",
+        "attestations": "write",
+    }
+    for step in job["steps"]:
+        assert "continue-on-error" not in step, step.get("name")
+        if step.get("name") != "Verify checkout integrity":
+            assert "|| true" not in step.get("run", ""), step.get("name")
+    # A bare dispatch can never publish: the input defaults off.
+    dispatch = DOC["on"]["workflow_dispatch"]
+    publish_input = dispatch["inputs"]["publish_envelope"]
+    assert publish_input["type"] == "boolean"
+    assert publish_input["default"] == "false"
+    assert publish_input["required"] == "false"
+    # Envelope construction hashes the exact downloaded run-payload bytes and
+    # re-authenticates them with sha256sum --check --strict.
+    build = _step("envelope", "Build deterministic release envelope")["run"]
+    assert "set -euo pipefail" in build
+    assert "scripts/openapi_release_envelope.py build" in build
+    for flag in ("--repository", "--head-sha", "--run-id", "--run-attempt", "--artifact-name"):
+        assert flag in build, flag
+    assert "sha256sum --check --strict checksums.txt" in build
+    # The release is published (not draft) at the exact-SHA tag.
+    publish = _step("envelope", "Publish immutable release")["run"]
+    assert "set -euo pipefail" in publish
+    assert "gh release create" in publish
+    assert "--draft" not in publish
+    assert "openapi-envelope-$GITHUB_SHA" in publish
+    assert '--target "$GITHUB_SHA"' in publish
+    # Exact assets are attested with the pinned signer action.
+    attest = _step("envelope", "Attest the envelope assets")
+    assert attest["uses"] == ENVELOPE_ATTEST_ACTION
+    assert "# v4.2.1" in TEXT
+    assert attest["with"]["subject-path"].strip() == "/tmp/openapi-envelope/assets/*"
+    # Verification binds release, assets, attestation, and rule suite to this
+    # workflow as the signer, with movement-requery semantics in the helper.
+    verify = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    assert "set -euo pipefail" in verify
+    assert "scripts/openapi_release_envelope.py verify" in verify
+    assert "--signer-workflow" in verify
+    assert ".github/workflows/openapi.yml" in verify
+
+
+def test_openapi_envelope_helper_dry_run_is_a_pr_time_authority():
+    # The dry-run proof runs on every generate-run execution and is part of
+    # the no-masking census (AUTHORITATIVE_STEPS).
+    assert "Validate release envelope helper (dry run)" in AUTHORITATIVE_STEPS
+    step = _step("generate-run", "Validate release envelope helper (dry run)")
+    assert "set -euo pipefail" in step["run"]
+    assert "scripts/openapi_release_envelope.py dry-run" in step["run"]
+    assert "if" not in step
+
+
+def test_envelope_build_is_deterministic_and_release_bound():
+    module = _load_envelope_helper()
+    head = "a" * 40
+    identity = module.make_identity(**_identity_kwargs(module, head))
+    payloads = {
+        "docs/api/openapi_generated.json": b'{"openapi":"3.1.0"}\n',
+        "sdk/python/aragora/generated_types.py": b"GENERATED = True\n",
+    }
+    first = module.build_envelope(payloads, identity)
+    second = module.build_envelope(dict(payloads), identity)
+    assert first == second, "envelope bytes must be deterministic"
+    assert set(first) == {
+        "manifest.json",
+        "checksums.txt",
+        "openapi_generated.json",
+        "generated_types.py",
+    }
+    manifest = json.loads(first["manifest.json"])
+    assert manifest["repository"] == "synaptent/aragora"
+    assert manifest["head_sha"] == head
+    assert manifest["workflow_run_id"] == 7
+    assert manifest["run_attempt"] == 1
+    assert manifest["artifact_name"] == f"openapi-spec-7-1-{head}"
+    assert manifest["tag"] == f"openapi-envelope-{head}"
+    assert manifest["workflow_path"] == ".github/workflows/openapi.yml"
+    # Canonical bytes: re-serializing the parsed manifest reproduces the
+    # exact on-release bytes.
+    assert module.canonical_json_bytes(manifest) == first["manifest.json"]
+    # checksums.txt is sha256sum-compatible, sorted, and covers every payload
+    # asset plus the manifest (never itself).
+    lines = first["checksums.txt"].decode("ascii").splitlines()
+    names = [line.split("  ", 1)[1] for line in lines]
+    assert names == sorted(names)
+    assert set(names) == {"manifest.json", "openapi_generated.json", "generated_types.py"}
+    for line in lines:
+        assert re.fullmatch(r"[0-9a-f]{64}  [^/\s]+", line)
+    # Round-trip verification passes and the digest set release-binds the
+    # run-level artifact under the VAL-CDG-012 rule.
+    verified = module.verify_envelope_assets(first, identity)
+    assert verified["head_sha"] == head
+    digests = module.release_digest_set(first)
+    artifact = {
+        "name": identity["artifact_name"],
+        "size_in_bytes": 20,
+        "payload_sha256": manifest["payload_assets"][0]["sha256"],
+    }
+    assert _validate_run_artifact(artifact, head_sha=head, release_digests=digests)
+    # A digest the release never published is not bound.
+    foreign = dict(artifact, payload_sha256="f" * 64)
+    with pytest.raises(ValueError, match="not bound"):
+        _validate_run_artifact(foreign, head_sha=head, release_digests=digests)
+
+
+def test_envelope_rejects_unbound_names_and_tampered_assets():
+    module = _load_envelope_helper()
+    head = "b" * 40
+    base = _identity_kwargs(module, head)
+    identity = module.make_identity(**base)
+    # Hostile identities: fixed (unbound) name, wrong run, wrong attempt,
+    # foreign head, non-canonical SHA.
+    for kwargs in (
+        dict(base, artifact_name="openapi-spec"),
+        dict(base, artifact_name=f"openapi-spec-8-1-{head}"),
+        dict(base, artifact_name=f"openapi-spec-7-2-{head}"),
+        dict(base, artifact_name=f"openapi-spec-7-1-{'c' * 40}"),
+        dict(base, head_sha=head.upper(), artifact_name=f"openapi-spec-7-1-{head.upper()}"),
+        dict(base, head_sha="b" * 39, artifact_name=f"openapi-spec-7-1-{'b' * 39}"),
+        dict(base, run_id=0, artifact_name=f"openapi-spec-0-1-{head}"),
+        dict(base, repository="aragora"),
+    ):
+        with pytest.raises(ValueError):
+            module.make_identity(**kwargs)
+    assets = module.build_envelope({"a.json": b"{}\n"}, identity)
+    # Tampered payload bytes.
+    tampered = dict(assets, **{"a.json": b"{ }\n"})
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(tampered, identity)
+    # Renamed, missing, and extra assets.
+    renamed = {("b.json" if key == "a.json" else key): value for key, value in assets.items()}
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(renamed, identity)
+    missing = {key: value for key, value in assets.items() if key != "a.json"}
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(missing, identity)
+    extra = dict(assets, **{"rogue.bin": b"x"})
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(extra, identity)
+    # Tampered checksum line.
+    digest = assets["checksums.txt"].decode("ascii").split("  ", 1)[0]
+    flipped = ("0" if digest[0] != "0" else "1") + digest[1:]
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(
+            dict(
+                assets,
+                **{
+                    "checksums.txt": assets["checksums.txt"].replace(
+                        digest.encode("ascii"), flipped.encode("ascii")
+                    )
+                },
+            ),
+            identity,
+        )
+    # Verifying under a different execution identity fails.
+    other = module.make_identity(**_identity_kwargs(module, head, run_id=8))
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(assets, other)
+    # Non-canonical manifest bytes fail even with a recomputed checksum line.
+    noncanonical = json.dumps(json.loads(assets["manifest.json"]), indent=2).encode("ascii")
+    rebuilt = dict(assets, **{"manifest.json": noncanonical})
+    manifest_digest = module.sha256_hexdigest(assets["manifest.json"])
+    rebuilt["checksums.txt"] = assets["checksums.txt"].replace(
+        manifest_digest.encode("ascii"),
+        module.sha256_hexdigest(noncanonical).encode("ascii"),
+    )
+    with pytest.raises(ValueError):
+        module.verify_envelope_assets(rebuilt, identity)
+    # Empty payloads are never publishable.
+    with pytest.raises(ValueError):
+        module.build_envelope({}, identity)
+    with pytest.raises(ValueError):
+        module.build_envelope({"a.json": b""}, identity)
+
+
+def test_envelope_selection_movement_restarts_verification():
+    module = _load_envelope_helper()
+    before = {
+        "main_sha": "a" * 40,
+        "workflow_id": OPENAPI_WORKFLOW_ID,
+        "run_id": 300,
+        "run_attempt": 2,
+        "conclusion": "success",
+        "artifact_id": 91,
+        "artifact_size": 1024,
+    }
+    assert module.selection_is_stable(before, dict(before))
+    for key, moved in (
+        ("main_sha", "b" * 40),
+        ("workflow_id", 1),
+        ("run_id", 301),
+        ("run_attempt", 3),
+        ("conclusion", "failure"),
+        ("artifact_id", 92),
+        ("artifact_size", 2048),
+    ):
+        after = dict(before)
+        after[key] = moved
+        assert not module.selection_is_stable(before, after), (
+            f"movement in {key} must restart verification"
+        )
+    with pytest.raises(ValueError, match="missing"):
+        module.selection_is_stable(before, {"main_sha": "a" * 40})
+
+
+def test_envelope_verification_argv_and_read_only_guard():
+    module = _load_envelope_helper()
+    head = "c" * 40
+    tag = f"openapi-envelope-{head}"
+    signer = "synaptent/aragora/.github/workflows/openapi.yml"
+    assert module.attestation_verify_argv(
+        "/tmp/x/manifest.json",
+        repository="synaptent/aragora",
+        head_sha=head,
+        signer_workflow=signer,
+    ) == [
+        "gh",
+        "attestation",
+        "verify",
+        "/tmp/x/manifest.json",
+        "-R",
+        "synaptent/aragora",
+        "--signer-workflow",
+        signer,
+        "--source-digest",
+        head,
+        "--format",
+        "json",
+    ]
+    assert module.release_verify_argv(tag, repository="synaptent/aragora") == [
+        "gh",
+        "release",
+        "verify",
+        tag,
+        "-R",
+        "synaptent/aragora",
+        "--format",
+        "json",
+    ]
+    assert module.release_verify_asset_argv(
+        tag, "/tmp/x/manifest.json", repository="synaptent/aragora"
+    ) == [
+        "gh",
+        "release",
+        "verify-asset",
+        tag,
+        "/tmp/x/manifest.json",
+        "-R",
+        "synaptent/aragora",
+        "--format",
+        "json",
+    ]
+    # The helper is read-only: mutating argv is rejected before execution.
+    for hostile in (
+        ["gh", "release", "create", tag],
+        ["gh", "release", "delete", tag],
+        ["gh", "release", "edit", tag],
+        ["gh", "api", "-X", "DELETE", "repos/synaptent/aragora/releases/1"],
+        ["gh", "api", "--method", "POST", "repos/synaptent/aragora/releases"],
+        ["gh", "pr", "merge", "1"],
+        ["rm", "-rf", "/tmp/x"],
+    ):
+        with pytest.raises(ValueError):
+            module.require_read_only_argv(hostile)
+    module.require_read_only_argv(["gh", "api", "repos/synaptent/aragora/releases/tags/x"])
+    module.require_read_only_argv(["gh", "release", "download", tag])
+    module.require_read_only_argv(["gh", "release", "verify", tag])
+
+
+def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
+    # dry-run: deterministic fixture bytes, byte-identical across invocations.
+    runs = [
+        subprocess.run(
+            [sys.executable, str(ENVELOPE_HELPER_PATH), "dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+            stdin=subprocess.DEVNULL,
+        )
+        for _ in range(2)
+    ]
+    for completed in runs:
+        assert completed.returncode == 0, completed.stderr
+    assert runs[0].stdout == runs[1].stdout
+    report = json.loads(runs[0].stdout)
+    assert report["status"] == "pass"
+    assert report["deterministic"] is True
+    assert re.fullmatch(r"[0-9a-f]{64}", report["manifest_sha256"])
+    # build CLI: two builds from the same payload bytes produce identical
+    # envelope files that pass strict checksum verification.
+    head = "d" * 40
+    payload_dir = tmp_path / "payload" / "docs" / "api"
+    payload_dir.mkdir(parents=True)
+    (payload_dir / "openapi_generated.json").write_bytes(b'{"openapi":"3.1.0"}\n')
+    outputs = []
+    for name in ("assets-one", "assets-two"):
+        out_dir = tmp_path / name
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ENVELOPE_HELPER_PATH),
+                "build",
+                "--repository",
+                "synaptent/aragora",
+                "--head-sha",
+                head,
+                "--run-id",
+                "12",
+                "--run-attempt",
+                "3",
+                "--artifact-name",
+                f"openapi-spec-12-3-{head}",
+                "--payload-dir",
+                str(tmp_path / "payload"),
+                "--output-dir",
+                str(out_dir),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+            stdin=subprocess.DEVNULL,
+        )
+        assert completed.returncode == 0, completed.stderr
+        outputs.append({path.name: path.read_bytes() for path in sorted(out_dir.iterdir())})
+    assert outputs[0] == outputs[1]
+    assert set(outputs[0]) == {"manifest.json", "checksums.txt", "openapi_generated.json"}

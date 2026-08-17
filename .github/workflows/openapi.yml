@@ -10,10 +10,25 @@ on:
     # Nightly at 1:10 UTC
     - cron: '10 1 * * *'
   workflow_dispatch:
+    inputs:
+      publish_envelope:
+        description: >-
+          Publish and attest the immutable openapi-envelope-<sha> release
+          capsule for this main head (finalization delegation only).
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: openapi-sync-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Run/SHA-bound artifact names (FIX-RT-017). `github.sha` is the merge SHA on
+# pull_request events, so the pull-request head SHA must win there for the
+# name to end with the run's head_sha.
+env:
+  OPENAPI_RUN_ARTIFACT: openapi-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.sha }}
+  DRIFT_RUN_ARTIFACT: contract-drift-artifacts-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   scope:
@@ -480,10 +495,15 @@ jobs:
           python -m pip install pytest pytest-asyncio
           pytest tests/server/openapi/test_contract_matrix.py -v --timeout=60
 
+      - name: Validate release envelope helper (dry run)
+        run: |
+          set -euo pipefail
+          python3 scripts/openapi_release_envelope.py dry-run
+
       - name: Upload generated spec and SDK types
         uses: actions/upload-artifact@v4
         with:
-          name: openapi-spec
+          name: ${{ env.OPENAPI_RUN_ARTIFACT }}
           path: |
             docs/api/openapi_generated.json
             docs/api/openapi_generated.yaml
@@ -496,7 +516,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: contract-drift-artifacts
+          name: ${{ env.DRIFT_RUN_ARTIFACT }}
           path: |
             /tmp/contract-drift-summary.json
             /tmp/contract-drift-summary.md
@@ -570,7 +590,7 @@ jobs:
       - name: Download generated spec
         uses: actions/download-artifact@v4
         with:
-          name: openapi-spec
+          name: ${{ env.OPENAPI_RUN_ARTIFACT }}
           path: /tmp/openapi-spec/
 
       - name: Check for changes
@@ -620,6 +640,104 @@ jobs:
           else
             echo "::warning::Could not auto-push spec update (branch protection). The generated spec is available as a workflow artifact."
           fi
+
+  # FIX-RT-017 publication path: expiring run artifacts are authoritative only
+  # through this immutable, digest-bound release capsule. Dispatch-gated and
+  # default-off; the finalization delegation dispatches it deliberately at the
+  # exact main head it binds.
+  envelope:
+    name: Publish Release Envelope (dispatch only)
+    runs-on: ubuntu-latest
+    needs: generate-run
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_envelope == true && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git reset --hard || true
+            git clean -ffdx || true
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            git checkout -f "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffdx || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::Sparse-checkout recovery incomplete; attempting archive restore"
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            if ! git archive "${GITHUB_SHA:-HEAD}" | tar -x; then
+              git archive HEAD | tar -x
+            fi
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - name: Download run-level spec artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.OPENAPI_RUN_ARTIFACT }}
+          path: /tmp/openapi-envelope/payload/
+
+      - name: Build deterministic release envelope
+        run: |
+          set -euo pipefail
+          python3 scripts/openapi_release_envelope.py build \
+            --repository "$GITHUB_REPOSITORY" \
+            --head-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --artifact-name "$OPENAPI_RUN_ARTIFACT" \
+            --payload-dir /tmp/openapi-envelope/payload \
+            --output-dir /tmp/openapi-envelope/assets
+          (cd /tmp/openapi-envelope/assets && sha256sum --check --strict checksums.txt)
+
+      - name: Publish immutable release
+        run: |
+          set -euo pipefail
+          tag="openapi-envelope-$GITHUB_SHA"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$tag" \
+            --notes "Immutable OpenAPI contract envelope for $GITHUB_SHA (run $GITHUB_RUN_ID attempt $GITHUB_RUN_ATTEMPT)." \
+            /tmp/openapi-envelope/assets/*
+
+      - name: Attest the envelope assets
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: /tmp/openapi-envelope/assets/*
+
+      - name: Verify release, assets, attestation, and rule suite
+        run: |
+          set -euo pipefail
+          python3 scripts/openapi_release_envelope.py verify \
+            --repository "$GITHUB_REPOSITORY" \
+            --head-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --artifact-name "$OPENAPI_RUN_ARTIFACT" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml"
 
   generate:
     name: Generate & Validate
