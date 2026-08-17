@@ -18,6 +18,39 @@ def _proc(stdout: str, returncode: int = 0) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(args=["gh"], returncode=returncode, stdout=stdout, stderr="")
 
 
+_OLDER = "2026-08-17T10:00:00Z"
+_NEWER = "2026-08-17T11:00:00Z"
+
+
+def _rest_context_stub(head: str, pr: int, check_runs: list[dict], required: list[str] | None):
+    def fake(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if args[1:3] == ["pr", "view"]:
+            raise RuntimeError("GraphQL unavailable")
+        endpoint = args[-1]
+        if endpoint == f"repos/o/r/pulls/{pr}":
+            return {
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "blocked",
+                "head": {"sha": head},
+                "base": {"ref": "main"},
+            }
+        if endpoint == f"repos/o/r/commits/{head}":
+            return {"commit": {"committer": {"date": "2026-08-17T12:00:00Z"}}}
+        if "/check-runs" in endpoint:
+            return {"check_runs": check_runs}
+        if "/statuses" in endpoint:
+            return []
+        if endpoint.endswith("branches/main/protection/required_status_checks"):
+            if required is None:
+                raise RuntimeError("403")
+            return {"contexts": required, "checks": []}
+        raise AssertionError(args)
+
+    return fake
+
+
 def test_read_env_prefers_app_installation_token(monkeypatch) -> None:
     from aragora.swarm import github_app_auth
 
@@ -50,21 +83,8 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
 
     def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
         captured_envs.append(env or {})
-        if args[1:3] == ["pr", "checks"]:
-            return _proc("[]")
-        return _proc(
-            json.dumps(
-                {
-                    "headRefOid": "abc",
-                    "commits": [],
-                    "statusCheckRollup": [],
-                    "isDraft": False,
-                    "state": "OPEN",
-                    "mergeable": "MERGEABLE",
-                    "mergeStateStatus": "CLEAN",
-                }
-            )
-        )
+        payload = [] if args[1:3] == ["pr", "checks"] else {"headRefOid": "abc"}
+        return _proc(json.dumps(payload))
 
     monkeypatch.setattr(m, "run", capture_run)
     m.fetch_pr_context("o/r", 1)
@@ -74,44 +94,29 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
 
 
 def test_fetch_pr_context_uses_required_check_surface_not_raw_rollup(monkeypatch) -> None:
+    view = {
+        "headRefOid": "abc",
+        "commits": [{"oid": "abc", "committedDate": "2026-08-17T12:00:00Z"}],
+        "statusCheckRollup": [
+            {"name": m.QUORUM_CHECK_NAME, "conclusion": "FAILURE", "startedAt": _NEWER},
+            {"name": "non-required historical job", "conclusion": "FAILURE"},
+            {"name": m.QUORUM_CHECK_NAME, "conclusion": "SUCCESS", "startedAt": _OLDER},
+        ],
+        "isDraft": False,
+        "state": "OPEN",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+    }
+    required = [
+        {"name": "lint", "state": "SUCCESS", "bucket": "pass"},
+        {"name": m.QUORUM_CHECK_NAME, "state": "FAILURE", "bucket": "fail"},
+    ]
+
     def fake_run(args, *, env=None, timeout=m._GH_TIMEOUT):
         if args[1:3] == ["pr", "view"]:
-            return _proc(
-                json.dumps(
-                    {
-                        "headRefOid": "abc",
-                        "commits": [{"oid": "abc", "committedDate": "2026-08-17T12:00:00Z"}],
-                        "statusCheckRollup": [
-                            {
-                                "name": m.QUORUM_CHECK_NAME,
-                                "conclusion": "FAILURE",
-                            },
-                            {"name": "non-required historical job", "conclusion": "FAILURE"},
-                            {
-                                "name": m.QUORUM_CHECK_NAME,
-                                "conclusion": "SUCCESS",
-                            },
-                        ],
-                        "isDraft": False,
-                        "state": "OPEN",
-                        "mergeable": "MERGEABLE",
-                        "mergeStateStatus": "BLOCKED",
-                    }
-                )
-            )
+            return _proc(json.dumps(view))
         if args[1:3] == ["pr", "checks"]:
-            return _proc(
-                json.dumps(
-                    [
-                        {"name": "lint", "state": "SUCCESS", "bucket": "pass"},
-                        {
-                            "name": m.QUORUM_CHECK_NAME,
-                            "state": "FAILURE",
-                            "bucket": "fail",
-                        },
-                    ]
-                )
-            )
+            return _proc(json.dumps(required))
         raise AssertionError(args)
 
     monkeypatch.setattr(m, "run", fake_run)
@@ -125,42 +130,18 @@ def test_fetch_pr_context_uses_required_check_surface_not_raw_rollup(monkeypatch
 
 def test_fetch_pr_context_falls_back_to_rest_with_complete_stability_state(monkeypatch) -> None:
     head = "a" * 40
-
-    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
-        if args[1:3] == ["pr", "view"]:
-            raise RuntimeError("GraphQL 503")
-        endpoint = args[-1]
-        if endpoint == "repos/o/r/pulls/7":
-            return {
-                "state": "open",
-                "draft": False,
-                "mergeable": True,
-                "mergeable_state": "blocked",
-                "head": {"sha": head},
-                "base": {"ref": "main"},
-            }
-        if endpoint == f"repos/o/r/commits/{head}":
-            return {"commit": {"committer": {"date": "2026-08-17T12:00:00Z"}}}
-        if endpoint.startswith(f"repos/o/r/commits/{head}/check-runs"):
-            return {
-                "check_runs": [
-                    {"name": m.QUORUM_CHECK_NAME, "conclusion": "failure"},
-                    {"name": "lint", "conclusion": "success"},
-                    {"name": "lint", "conclusion": "failure"},
-                    {"name": "typecheck", "conclusion": "success"},
-                    {"name": "typecheck", "status": "in_progress"},
-                ]
-            }
-        if endpoint.startswith(f"repos/o/r/commits/{head}/statuses"):
-            return []
-        if endpoint.endswith("branches/main/protection/required_status_checks"):
-            return {
-                "contexts": [m.QUORUM_CHECK_NAME, "lint", "typecheck"],
-                "checks": [],
-            }
-        raise AssertionError(args)
-
-    monkeypatch.setattr(m, "run_json", fake_run_json)
+    runs = [
+        {"name": m.QUORUM_CHECK_NAME, "conclusion": "failure"},
+        {"name": "lint", "conclusion": "success", "completed_at": _OLDER},
+        {"name": "lint", "conclusion": "failure", "completed_at": _NEWER},
+        {"name": "typecheck", "conclusion": "success", "started_at": _OLDER},
+        {"name": "typecheck", "status": "in_progress", "started_at": _NEWER},
+    ]
+    monkeypatch.setattr(
+        m,
+        "run_json",
+        _rest_context_stub(head, 7, runs, [m.QUORUM_CHECK_NAME, "lint", "typecheck"]),
+    )
 
     context = m.fetch_pr_context("o/r", 7)
 
@@ -175,44 +156,17 @@ def test_fetch_pr_context_falls_back_to_rest_with_complete_stability_state(monke
     assert context["has_real_required_failure"] is True
     assert context["has_real_required_pending"] is True
     assert context["required_checks_disclosed"] is True
-    assert "GraphQL 503" in context["graphql_error"]
+    assert "GraphQL unavailable" in context["graphql_error"]
 
 
 def test_fetch_pr_context_rest_fails_closed_when_required_set_unavailable(monkeypatch) -> None:
     head = "b" * 40
-
-    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
-        if args[1:3] == ["pr", "view"]:
-            raise RuntimeError("GraphQL unavailable")
-        endpoint = args[-1]
-        if endpoint == "repos/o/r/pulls/8":
-            return {
-                "state": "open",
-                "draft": False,
-                "mergeable": True,
-                "mergeable_state": "clean",
-                "head": {"sha": head},
-                "base": {"ref": "main"},
-            }
-        if endpoint == f"repos/o/r/commits/{head}":
-            return {"commit": {"committer": {"date": "2026-08-17T12:00:00Z"}}}
-        if endpoint.startswith(f"repos/o/r/commits/{head}/check-runs"):
-            return {
-                "check_runs": [
-                    {"name": "optional integration", "conclusion": "failure"},
-                    {"name": "preview shadow", "conclusion": "failure"},
-                ]
-            }
-        if endpoint.startswith(f"repos/o/r/commits/{head}/statuses"):
-            return []
-        if endpoint.endswith("branches/main/protection/required_status_checks"):
-            raise RuntimeError("403")
-        raise AssertionError(args)
-
-    monkeypatch.setattr(m, "run_json", fake_run_json)
-
+    runs = [
+        {"name": "optional integration", "conclusion": "failure"},
+        {"name": "preview shadow", "conclusion": "failure"},
+    ]
+    monkeypatch.setattr(m, "run_json", _rest_context_stub(head, 8, runs, None))
     context = m.fetch_pr_context("o/r", 8)
-
     assert context["required_checks_disclosed"] is False
     assert context["has_real_required_failure"] is True
 
@@ -228,22 +182,38 @@ def test_fetch_pr_context_reports_graphql_and_rest_failure(monkeypatch) -> None:
         m.fetch_pr_context("o/r", 9)
 
 
-def test_summarize_checks_treats_missing_or_unknown_required_check_as_pending() -> None:
+def test_summarize_checks_required_state_and_newest_status() -> None:
     assert m._summarize_checks([], required_names={"lint"}) == ("", False, True)
     assert m._summarize_checks(
         [{"name": "lint", "conclusion": "new-provider-state"}],
         required_names={"lint"},
     ) == ("", False, True)
-
-
-def test_summarize_checks_accepts_green_required_checks() -> None:
     assert m._summarize_checks(
-        [
-            {"name": "lint", "conclusion": "success"},
-            {"context": "types", "state": "success"},
-        ],
+        [{"name": "lint", "conclusion": "success"}, {"context": "types", "state": "success"}],
         required_names={"lint", "types"},
     ) == ("", False, False)
+    assert m._summarize_checks(
+        [
+            {"context": "lint", "state": "failure", "updated_at": _OLDER},
+            {"context": "lint", "state": "success", "updated_at": _NEWER},
+        ],
+        required_names={"lint"},
+    ) == ("", False, False)
+
+
+def test_summarize_checks_missing_or_tied_ordering_fails_closed() -> None:
+    cases = (
+        [
+            {"name": "lint", "conclusion": "success"},
+            {"name": "lint", "conclusion": "failure"},
+        ],
+        [
+            {"name": "lint", "conclusion": "success", "startedAt": _OLDER},
+            {"name": "lint", "conclusion": "failure", "startedAt": _OLDER},
+        ],
+    )
+    for rows in cases:
+        assert m._summarize_checks(rows, required_names={"lint"}) == ("", False, True)
 
 
 def test_required_check_names_retries_with_ambient_operator_auth(monkeypatch) -> None:
@@ -258,9 +228,7 @@ def test_required_check_names_retries_with_ambient_operator_auth(monkeypatch) ->
 
     monkeypatch.setattr(m, "run_json", fake_run_json)
     monkeypatch.setattr(m, "aragora_env", lambda: {"GH_TOKEN": "operator-token"})
-
     names = m._required_check_names("o/r", "release/2026-08-17", env={"GH_TOKEN": "app-token"})
-
     assert names == {"lint", "types"}
     assert seen_tokens == ["app-token", "operator-token"]
 

@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -166,6 +167,62 @@ def _check_state(check: dict[str, Any]) -> tuple[str, str, bool | None]:
     return name, conclusion, is_required if isinstance(is_required, bool) else None
 
 
+def _check_attempt_timestamp(check: dict[str, Any]) -> datetime | None:
+    """Return the best attempt-ordering timestamp, or ``None`` if unprovable."""
+    for key in (
+        "startedAt",
+        "started_at",
+        "completedAt",
+        "completed_at",
+        "updatedAt",
+        "updated_at",
+    ):
+        raw = check.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        try:
+            parsed = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else None
+    return None
+
+
+def _latest_check_attempts(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Select the uniquely newest row per check name; ambiguity becomes pending."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    selected: list[dict[str, Any]] = []
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("name") or check.get("context") or "").strip()
+        if not name:
+            selected.append(check)
+            continue
+        grouped.setdefault(name, []).append(check)
+    for name, attempts in grouped.items():
+        if len(attempts) == 1:
+            selected.append(attempts[0])
+            continue
+        timestamps = [_check_attempt_timestamp(attempt) for attempt in attempts]
+        if any(timestamp is None for timestamp in timestamps):
+            newest: list[dict[str, Any]] = []
+        else:
+            latest = max(timestamp for timestamp in timestamps if timestamp is not None)
+            newest = [
+                attempt for attempt, timestamp in zip(attempts, timestamps) if timestamp == latest
+            ]
+        if len(newest) == 1:
+            selected.append(newest[0])
+            continue
+        disclosed = [attempt.get("isRequired") for attempt in attempts]
+        is_required = (
+            True if True in disclosed else False if all(v is False for v in disclosed) else None
+        )
+        selected.append({"name": name, "conclusion": "", "isRequired": is_required})
+    return selected
+
+
 def _summarize_checks(
     checks: list[dict[str, Any]],
     *,
@@ -182,17 +239,12 @@ def _summarize_checks(
     real_pending = False
     quorum_conclusion = ""
     seen_names: set[str] = set()
-    for check in checks:
-        if not isinstance(check, dict):
-            continue
+    for check in _latest_check_attempts(checks):
         name, conclusion, disclosed_required = _check_state(check)
         if name:
             seen_names.add(name)
         if name == QUORUM_CHECK_NAME:
-            # GitHub returns duplicate workflow attempts newest-first. Preserve
-            # the first conclusion instead of letting an older run overwrite it.
-            if not quorum_conclusion:
-                quorum_conclusion = conclusion
+            quorum_conclusion = conclusion
             continue
         if disclosed_required is not None:
             required = disclosed_required
@@ -375,12 +427,21 @@ def _fetch_pr_context_rest(repo: str, pr: int, *, env: dict[str, str]) -> dict[s
                 {
                     "name": name,
                     "conclusion": check.get("conclusion") or check.get("status"),
+                    "started_at": check.get("started_at"),
+                    "completed_at": check.get("completed_at"),
+                    "updated_at": check.get("updated_at"),
                 },
             )
     for status in statuses:
         context = str(status.get("context") or "").strip()
         if context:
-            checks.append({"context": context, "state": status.get("state")})
+            checks.append(
+                {
+                    "context": context,
+                    "state": status.get("state"),
+                    "updated_at": status.get("updated_at"),
+                }
+            )
     required_names = _required_check_names(repo, str(base.get("ref") or ""), env=env)
     quorum_conclusion, real_failure, real_pending = _summarize_checks(
         checks, required_names=required_names
