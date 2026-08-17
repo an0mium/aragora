@@ -62,11 +62,16 @@ _ASSET_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
 
 # Post-verification re-query rule (VAL-CDG-012): if any of these move between
 # the opening and closing snapshots, the whole selection restarts.
+# `run_attempt`/`conclusion` describe the BOUND attempt's immutable record;
+# `latest_run_attempt` tracks the run-level object so a re-run landing DURING
+# a verification window restarts it, while a re-run that settled before the
+# window leaves the bound attempt verifiable (no permanent wedge).
 SELECTION_KEYS = (
     "main_sha",
     "workflow_id",
     "run_id",
     "run_attempt",
+    "latest_run_attempt",
     "conclusion",
     "artifact_id",
     "artifact_size",
@@ -375,7 +380,7 @@ def _run_gh(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(argv, capture_output=True, check=False)
 
 
-def _gh_api_json(endpoint: str, *, paginate: bool = False) -> Any:
+def _gh_api_json(endpoint: str, *, paginate: bool = False, admin_gated: bool = False) -> Any:
     argv = ["gh", "api", "-H", API_VERSION_HEADER, endpoint]
     if paginate:
         argv += ["--paginate", "--slurp"]
@@ -383,6 +388,12 @@ def _gh_api_json(endpoint: str, *, paginate: bool = False) -> Any:
     if completed.returncode != 0:
         stderr = completed.stderr.decode("utf-8", "replace").strip()
         if "HTTP 404" in stderr:
+            if admin_gated:
+                # Admin-gated settings surfaces exist for every repository
+                # and GitHub hides them behind 404 (not 403) from tokens
+                # without Administration:read, so 404 here is a capability
+                # gap, not an absent resource.
+                raise Forbidden(f"{endpoint} is hidden from this token: {stderr}")
             raise Blocked(f"{endpoint} is not visible: {stderr}")
         if "HTTP 403" in stderr:
             raise Forbidden(f"{endpoint} is not readable by this token: {stderr}")
@@ -401,8 +412,15 @@ def _checked_verification(argv: list[str], *, kind: str, blocked_marker: str = "
 
 
 def live_selection_snapshot(identity: dict[str, Any]) -> dict[str, Any]:
-    """Requery main, workflow, run, attempt, and the run-level artifact; the
-    caller compares two snapshots and restarts on any movement."""
+    """Requery main, workflow, the bound attempt, and the run-level artifact;
+    the caller compares two snapshots and restarts on any movement.
+
+    The run-level object reports only the LATEST attempt, so binding to it
+    would permanently wedge verification of a correctly published capsule
+    after any later re-run. The bound attempt's own immutable record carries
+    the head/conclusion binding instead, and the latest attempt number joins
+    the movement plane so a re-run landing DURING a verification window still
+    restarts it."""
     repository = identity["repository"]
     main_ref = _gh_api_json(f"repos/{repository}/git/ref/heads/main")
     workflow = _gh_api_json(f"repos/{repository}/actions/workflows/{Path(WORKFLOW_PATH).name}")
@@ -415,12 +433,13 @@ def live_selection_snapshot(identity: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("bound run does not belong to the OpenAPI workflow")
     if run.get("head_sha") != identity["head_sha"]:
         raise RuntimeError("bound run head SHA contradicts the envelope identity")
-    latest_attempt = run.get("run_attempt")
-    if latest_attempt != identity["run_attempt"]:
-        raise Movement(
-            f"run attempt {latest_attempt} supersedes bound attempt "
-            f"{identity['run_attempt']}; restart verification at the newest execution"
-        )
+    attempt = _gh_api_json(
+        f"repos/{repository}/actions/runs/{identity['run_id']}/attempts/{identity['run_attempt']}"
+    )
+    if attempt.get("run_attempt") != identity["run_attempt"]:
+        raise RuntimeError("attempt record contradicts the bound run attempt")
+    if attempt.get("head_sha") != identity["head_sha"]:
+        raise RuntimeError("bound attempt head SHA contradicts the envelope identity")
     pages = _gh_api_json(
         f"repos/{repository}/actions/runs/{identity['run_id']}/artifacts?per_page=100",
         paginate=True,
@@ -442,8 +461,9 @@ def live_selection_snapshot(identity: dict[str, Any]) -> dict[str, Any]:
         "main_sha": main_ref.get("object", {}).get("sha"),
         "workflow_id": workflow.get("id"),
         "run_id": run.get("id"),
-        "run_attempt": latest_attempt,
-        "conclusion": run.get("conclusion"),
+        "run_attempt": attempt.get("run_attempt"),
+        "latest_run_attempt": run.get("run_attempt"),
+        "conclusion": attempt.get("conclusion"),
         "artifact_id": artifact.get("id"),
         "artifact_size": size,
     }
@@ -462,6 +482,7 @@ def _passing_rule_suite(repository: str, head_sha: str) -> dict[str, Any]:
         f"repos/{repository}/rulesets/rule-suites"
         f"?ref=refs/heads/main&time_period=month&per_page=100",
         paginate=True,
+        admin_gated=True,
     )
     suites: list[dict[str, Any]] = []
     for page in pages if isinstance(pages, list) else [pages]:
@@ -524,7 +545,7 @@ def _immutability_state(repository: str, *, admin_reads: str) -> str:
     keeps full semantics in both modes, so a readable ``enabled: false``
     always fails."""
     try:
-        immutability = _gh_api_json(f"repos/{repository}/immutable-releases")
+        immutability = _gh_api_json(f"repos/{repository}/immutable-releases", admin_gated=True)
     except Forbidden as exc:
         if admin_reads == "required":
             raise
@@ -705,6 +726,17 @@ def cmd_preflight(args: argparse.Namespace) -> int:
             raise RuntimeError(
                 f"release tag {tag} already exists; refusing to publish over it "
                 "(verify the existing capsule with its own run identity instead)"
+            )
+        # A bare git tag is just as disqualifying: `gh release create` would
+        # attach to it and ignore --target, publishing at the wrong commit.
+        try:
+            _gh_api_json(f"repos/{repository}/git/ref/tags/{tag}")
+        except Blocked:
+            pass
+        else:
+            raise RuntimeError(
+                f"git tag {tag} already exists; publishing would bind the release "
+                "to that tag's commit instead of the requested target"
             )
         # `gh release verify`/`verify-asset` arrived in gh 2.96; probing them
         # here keeps a missing subcommand from surfacing only after the

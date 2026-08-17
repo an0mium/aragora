@@ -1021,6 +1021,7 @@ def test_envelope_selection_movement_restarts_verification():
         "workflow_id": OPENAPI_WORKFLOW_ID,
         "run_id": 300,
         "run_attempt": 2,
+        "latest_run_attempt": 2,
         "conclusion": "success",
         "artifact_id": 91,
         "artifact_size": 1024,
@@ -1031,6 +1032,9 @@ def test_envelope_selection_movement_restarts_verification():
         ("workflow_id", 1),
         ("run_id", 301),
         ("run_attempt", 3),
+        # A re-run landing DURING the verification window restarts it even
+        # though the bound attempt's own record is immutable.
+        ("latest_run_attempt", 3),
         ("conclusion", "failure"),
         ("artifact_id", 92),
         ("artifact_size", 2048),
@@ -1058,6 +1062,7 @@ def test_envelope_admin_reads_degrade_only_on_true_capability_gaps(monkeypatch):
     module = _load_envelope_helper()
     head = "d" * 40
     repo = "synaptent/aragora"
+    real_api = module._gh_api_json
 
     def forbidden(endpoint, **kwargs):
         raise module.Forbidden(f"{endpoint} is not readable by this token: HTTP 403")
@@ -1087,6 +1092,62 @@ def test_envelope_admin_reads_degrade_only_on_true_capability_gaps(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="concluded"):
         module._rule_suite_binding(repo, head, admin_reads="report")
+    # GitHub hides admin-gated settings behind HTTP 404 (not 403) from
+    # tokens without Administration:read: that 404 is a capability gap
+    # (Forbidden, degradable), while the same 404 on an ordinary endpoint
+    # stays Blocked.
+    hidden = subprocess.CompletedProcess(
+        args=["gh"], returncode=1, stdout=b"", stderr=b"HTTP 404 Not Found"
+    )
+    monkeypatch.setattr(module, "_run_gh", lambda argv: hidden)
+    monkeypatch.setattr(module, "_gh_api_json", real_api)
+    with pytest.raises(module.Forbidden):
+        module._gh_api_json(f"repos/{repo}/immutable-releases", admin_gated=True)
+    with pytest.raises(module.Blocked):
+        module._gh_api_json(f"repos/{repo}/releases/tags/x")
+    assert module._immutability_state(repo, admin_reads="report").startswith("unreadable")
+
+
+def test_envelope_snapshot_binds_attempt_record_and_survives_settled_reruns(monkeypatch):
+    module = _load_envelope_helper()
+    head = "e" * 40
+    identity = module.make_identity(**_identity_kwargs(module, head, run_id=44))
+    latest = {"seen": []}
+
+    def fake_api(endpoint, **kwargs):
+        latest["seen"].append(endpoint)
+        if endpoint.endswith("git/ref/heads/main"):
+            return {"object": {"sha": head}}
+        if "/actions/workflows/" in endpoint:
+            return {"id": 7001, "path": ".github/workflows/openapi.yml", "state": "active"}
+        if endpoint.endswith("/attempts/1"):
+            # The bound attempt's immutable record: still head-bound and
+            # successful even after a later re-run.
+            return {"run_attempt": 1, "head_sha": head, "conclusion": "success"}
+        if endpoint.endswith("/artifacts?per_page=100"):
+            return [
+                {"artifacts": [{"name": identity["artifact_name"], "id": 91, "size_in_bytes": 10}]}
+            ]
+        # The run-level object reports only the LATEST attempt.
+        return {
+            "id": 44,
+            "path": ".github/workflows/openapi.yml",
+            "head_sha": head,
+            "run_attempt": 2,
+            "conclusion": "failure",
+        }
+
+    monkeypatch.setattr(module, "_gh_api_json", fake_api)
+    snapshot = module.live_selection_snapshot(identity)
+    # A settled newer attempt must NOT wedge the bound capsule: the snapshot
+    # binds the attempt record (attempt 1, success) and reports the latest
+    # attempt on the movement plane instead of raising.
+    assert snapshot["run_attempt"] == 1
+    assert snapshot["latest_run_attempt"] == 2
+    assert snapshot["conclusion"] == "success"
+    assert any(endpoint.endswith("/actions/runs/44/attempts/1") for endpoint in latest["seen"])
+    assert module.selection_is_stable(snapshot, module.live_selection_snapshot(identity))
+    assert set(snapshot) == set(module.SELECTION_KEYS)
 
 
 def test_envelope_verification_argv_and_read_only_guard():
