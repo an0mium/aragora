@@ -763,6 +763,12 @@ class NomicContextBuilder:
             "evidence_id\tpath\tblob_id\tsha256\tbytes\tlines\trole\turi\thttp_permalink",
         ]
         for item in evidence:
+            if any(delimiter in item.path for delimiter in ("\t", "\n", "\r")):
+                escaped_path = json.dumps(item.path, ensure_ascii=True)
+                raise RepositoryStateError(
+                    "tracked evidence path contains an unsupported manifest delimiter: "
+                    f"{escaped_path}"
+                )
             rows.append(
                 "\t".join(
                     [

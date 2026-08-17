@@ -228,6 +228,25 @@ async def test_oversized_configured_file_fails_before_artifacts(clean_repository
     assert not (clean_repository / ".nomic").exists()
 
 
+@pytest.mark.parametrize("delimiter", ["\t", "\n", "\r"], ids=["tab", "newline", "carriage-return"])
+@pytest.mark.asyncio
+async def test_manifest_delimiter_in_tracked_evidence_path_fails_before_artifacts(
+    clean_repository: Path,
+    delimiter: str,
+) -> None:
+    relative_path = f"src/unsafe{delimiter}evidence.py"
+    (clean_repository / relative_path).write_text("unsafe = True\n", encoding="utf-8")
+    git(clean_repository, "add", "--", relative_path)
+    git(clean_repository, "commit", "-m", "add unsafe evidence path")
+
+    with pytest.raises(RepositoryStateError, match="unsupported manifest delimiter"):
+        await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+            profile=load_nomic_repository_profile(clean_repository)
+        )
+
+    assert not (clean_repository / ".nomic").exists()
+
+
 @pytest.mark.asyncio
 async def test_pack_invalidates_for_profile_and_commit(clean_repository: Path) -> None:
     profile = load_nomic_repository_profile(clean_repository)
