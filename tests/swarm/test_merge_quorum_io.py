@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import subprocess
 
+import pytest
+
 from aragora.swarm import merge_quorum_io as m
 
 
@@ -48,13 +50,217 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
 
     def capture_run(args, *, env=None, timeout=m._GH_TIMEOUT):
         captured_envs.append(env or {})
-        return _proc(json.dumps({"headRefOid": "abc", "commits": [], "statusCheckRollup": []}))
+        if args[1:3] == ["pr", "checks"]:
+            return _proc("[]")
+        return _proc(
+            json.dumps(
+                {
+                    "headRefOid": "abc",
+                    "commits": [],
+                    "statusCheckRollup": [],
+                    "isDraft": False,
+                    "state": "OPEN",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                }
+            )
+        )
 
     monkeypatch.setattr(m, "run", capture_run)
     m.fetch_pr_context("o/r", 1)
     assert captured_envs, "expected fetch_pr_context to shell out to gh"
     assert captured_envs[0].get("GH_TOKEN") == "fake-app-token"
     assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
+
+
+def test_fetch_pr_context_uses_required_check_surface_not_raw_rollup(monkeypatch) -> None:
+    def fake_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if args[1:3] == ["pr", "view"]:
+            return _proc(
+                json.dumps(
+                    {
+                        "headRefOid": "abc",
+                        "commits": [{"oid": "abc", "committedDate": "2026-08-17T12:00:00Z"}],
+                        "statusCheckRollup": [
+                            {
+                                "name": m.QUORUM_CHECK_NAME,
+                                "conclusion": "FAILURE",
+                            },
+                            {"name": "non-required historical job", "conclusion": "FAILURE"},
+                            {
+                                "name": m.QUORUM_CHECK_NAME,
+                                "conclusion": "SUCCESS",
+                            },
+                        ],
+                        "isDraft": False,
+                        "state": "OPEN",
+                        "mergeable": "MERGEABLE",
+                        "mergeStateStatus": "BLOCKED",
+                    }
+                )
+            )
+        if args[1:3] == ["pr", "checks"]:
+            return _proc(
+                json.dumps(
+                    [
+                        {"name": "lint", "state": "SUCCESS", "bucket": "pass"},
+                        {
+                            "name": m.QUORUM_CHECK_NAME,
+                            "state": "FAILURE",
+                            "bucket": "fail",
+                        },
+                    ]
+                )
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(m, "run", fake_run)
+
+    context = m.fetch_pr_context("o/r", 1)
+
+    assert context["quorum_conclusion"] == "FAILURE"
+    assert context["has_real_required_failure"] is False
+    assert context["has_real_required_pending"] is False
+
+
+def test_fetch_pr_context_falls_back_to_rest_with_complete_stability_state(monkeypatch) -> None:
+    head = "a" * 40
+
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if args[1:3] == ["pr", "view"]:
+            raise RuntimeError("GraphQL 503")
+        endpoint = args[-1]
+        if endpoint == "repos/o/r/pulls/7":
+            return {
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "blocked",
+                "head": {"sha": head},
+                "base": {"ref": "main"},
+            }
+        if endpoint == f"repos/o/r/commits/{head}":
+            return {"commit": {"committer": {"date": "2026-08-17T12:00:00Z"}}}
+        if endpoint.startswith(f"repos/o/r/commits/{head}/check-runs"):
+            return {
+                "check_runs": [
+                    {"name": m.QUORUM_CHECK_NAME, "conclusion": "failure"},
+                    {"name": "lint", "conclusion": "failure"},
+                    {"name": "typecheck", "status": "in_progress"},
+                ]
+            }
+        if endpoint.startswith(f"repos/o/r/commits/{head}/statuses"):
+            return []
+        if endpoint.endswith("branches/main/protection/required_status_checks"):
+            return {
+                "contexts": [m.QUORUM_CHECK_NAME, "lint", "typecheck"],
+                "checks": [],
+            }
+        raise AssertionError(args)
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+
+    context = m.fetch_pr_context("o/r", 7)
+
+    assert context["context_source"] == "rest"
+    assert context["head_sha"] == head
+    assert context["head_committed_at"] == "2026-08-17T12:00:00Z"
+    assert context["pr_state"] == "OPEN"
+    assert context["is_draft"] is False
+    assert context["mergeable"] == "MERGEABLE"
+    assert context["merge_state_status"] == "BLOCKED"
+    assert context["quorum_conclusion"] == "FAILURE"
+    assert context["has_real_required_failure"] is True
+    assert context["has_real_required_pending"] is True
+    assert context["required_checks_disclosed"] is True
+    assert "GraphQL 503" in context["graphql_error"]
+
+
+def test_fetch_pr_context_rest_fails_closed_when_required_set_unavailable(monkeypatch) -> None:
+    head = "b" * 40
+
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if args[1:3] == ["pr", "view"]:
+            raise RuntimeError("GraphQL unavailable")
+        endpoint = args[-1]
+        if endpoint == "repos/o/r/pulls/8":
+            return {
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "clean",
+                "head": {"sha": head},
+                "base": {"ref": "main"},
+            }
+        if endpoint == f"repos/o/r/commits/{head}":
+            return {"commit": {"committer": {"date": "2026-08-17T12:00:00Z"}}}
+        if endpoint.startswith(f"repos/o/r/commits/{head}/check-runs"):
+            return {
+                "check_runs": [
+                    {"name": "optional integration", "conclusion": "failure"},
+                    {"name": "preview shadow", "conclusion": "failure"},
+                ]
+            }
+        if endpoint.startswith(f"repos/o/r/commits/{head}/statuses"):
+            return []
+        if endpoint.endswith("branches/main/protection/required_status_checks"):
+            raise RuntimeError("403")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+
+    context = m.fetch_pr_context("o/r", 8)
+
+    assert context["required_checks_disclosed"] is False
+    assert context["has_real_required_failure"] is True
+
+
+def test_fetch_pr_context_reports_graphql_and_rest_failure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        m,
+        "run_json",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("service unavailable")),
+    )
+
+    with pytest.raises(RuntimeError, match="GraphQL.*or REST"):
+        m.fetch_pr_context("o/r", 9)
+
+
+def test_summarize_checks_treats_missing_or_unknown_required_check_as_pending() -> None:
+    assert m._summarize_checks([], required_names={"lint"}) == ("", False, True)
+    assert m._summarize_checks(
+        [{"name": "lint", "conclusion": "new-provider-state"}],
+        required_names={"lint"},
+    ) == ("", False, True)
+
+
+def test_summarize_checks_accepts_green_required_checks() -> None:
+    assert m._summarize_checks(
+        [
+            {"name": "lint", "conclusion": "success"},
+            {"context": "types", "state": "success"},
+        ],
+        required_names={"lint", "types"},
+    ) == ("", False, False)
+
+
+def test_required_check_names_retries_with_ambient_operator_auth(monkeypatch) -> None:
+    seen_tokens: list[str] = []
+
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        token = str((env or {}).get("GH_TOKEN") or "")
+        seen_tokens.append(token)
+        if token == "app-token":
+            raise RuntimeError("403 Resource not accessible by integration")
+        return {"contexts": ["lint"], "checks": [{"context": "types", "app_id": 1}]}
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    monkeypatch.setattr(m, "aragora_env", lambda: {"GH_TOKEN": "operator-token"})
+
+    names = m._required_check_names("o/r", "release/2026-08-17", env={"GH_TOKEN": "app-token"})
+
+    assert names == {"lint", "types"}
+    assert seen_tokens == ["app-token", "operator-token"]
 
 
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
