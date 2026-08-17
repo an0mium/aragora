@@ -350,7 +350,7 @@ def fetch_quorum_run_packet_classification(
 # Hard identity problems that stop one reviewer-signal item from counting.
 # Mirrors ``review_queue.IDENTITY_COUNT_BLOCKERS`` — the swarm layer cannot
 # import the CLI module (upward layer edge, and a circular import via
-# quorum_evidence), so the four blocker strings are duplicated here and pinned
+# quorum_evidence), so the five blocker strings are duplicated here and pinned
 # against the CLI set by
 # tests/swarm/test_merge_quorum_reconcile.py::TestSignalFamiliesFromLint.
 _SIGNAL_IDENTITY_BLOCKERS: frozenset[str] = frozenset(

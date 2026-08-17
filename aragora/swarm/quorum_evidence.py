@@ -597,12 +597,26 @@ def _reviewer_infra_retries() -> int:
         return _REVIEWER_INFRA_RETRIES_DEFAULT
 
 
+def _deadline_allows_reviewer_attempt(deadline: float | None) -> bool:
+    """Whether one worst-case reviewer attempt fits before ``deadline``.
+
+    The per-reviewer timeout is the attempt's dominant upper bound (CLI runs
+    are killed at it), so an attempt started with less remaining budget would
+    overrun the orchestration deadline instead of finishing.
+    """
+    if deadline is None:
+        return True
+    remaining = deadline - time.monotonic()
+    return remaining >= _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
+
+
 def _run_reviewer_with_infra_retry(
     runner: Callable[[str, str], ReviewerResult],
     family: str,
     prompt: str,
     *,
     retries: int | None = None,
+    deadline: float | None = None,
 ) -> ReviewerResult:
     """Invoke ``runner(family, prompt)``, retrying ONLY transport failures.
 
@@ -614,12 +628,26 @@ def _run_reviewer_with_infra_retry(
     One grok-specific exception (2026-08-15 fold Decision): a grok run that
     COMPLETED (``ok=True``, non-empty text) but carries NO verdict line at all
     is malformed output, not a review (observed live: #9693 round 1; the
-    2026-08-14 #9752 flip), and is re-run exactly ONCE. A retry that parses to
+    2026-08-14 #9752 flip), and is re-run at most ONCE. A retry that parses to
     a real verdict (PASS or CHANGES-REQUESTED alike) is scored normally; a
     second malformed result returns the FIRST, keeping the pre-retry
     non-countable outcome. A body with a verdict line (even a non-canonical
     token like ``Verdict: FAIL``) or blocking findings never reaches this
     branch — re-rolling substantive signal could convert dissent into PASS.
+
+    The malformed re-roll is doubly bounded so it can never convert an
+    otherwise-countable round into an orchestration timeout: it draws on the
+    same operator retry budget as infra retries (a consumed or zeroed
+    ``ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES`` disables it, capping the worst
+    case at 1 + retries attempts), and when the caller supplies a ``deadline``
+    (a ``time.monotonic()`` instant) it fires only if one worst-case attempt
+    still fits before it.
+
+    The normalization computed for the re-roll decision is attached to the
+    returned result (``normalized_text``) so compose reuses it instead of
+    normalizing the same body again — with the opt-in LLM normalizer this both
+    halves the calls and guarantees the decision and the composed body saw the
+    SAME normalization.
     """
     attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
     result = runner(family, prompt)
@@ -632,15 +660,19 @@ def _run_reviewer_with_infra_retry(
         # anchor to ANY verdict line — canonical token or not — or that carries
         # blocking/negative findings is substantive and never re-rolled.
         normalized = normalize_reviewer_output(result.text, family=family)
-        if not _has_verdict_line(normalized) and not has_blocking_or_negative_verdict(normalized):
+        result.normalized_text = normalized
+        if (
+            not _has_verdict_line(normalized)
+            and not has_blocking_or_negative_verdict(normalized)
+            and attempts_left > 0
+            and _deadline_allows_reviewer_attempt(deadline)
+        ):
             retry_result = runner(family, prompt)
-            if (
-                retry_result.ok
-                and retry_result.text.strip()
-                and _reviewer_verdict(normalize_reviewer_output(retry_result.text, family=family))
-                != "unknown"
-            ):
-                return retry_result
+            if retry_result.ok and retry_result.text.strip():
+                retry_normalized = normalize_reviewer_output(retry_result.text, family=family)
+                retry_result.normalized_text = retry_normalized
+                if _reviewer_verdict(retry_normalized) != "unknown":
+                    return retry_result
     return result
 
 
@@ -758,6 +790,12 @@ class ReviewerResult:
     #: Ungrounded reviews stay visible but carry no authority; see
     #: :meth:`EvidenceItem.__post_init__`.
     grounded: bool = True
+    #: Canonical normalization of ``text``, attached when the malformed-verdict
+    #: re-roll decision already computed it, so compose reuses that exact
+    #: normalization instead of normalizing the same body a second time (the
+    #: opt-in LLM normalizer must run at most once per body). ``None`` means no
+    #: normalization has been computed for this result.
+    normalized_text: str | None = None
 
 
 @dataclass
@@ -1482,7 +1520,9 @@ def normalize_reviewer_output(text: str, *, family: str = "") -> str:
     return normalized if normalized is not None else cleaned
 
 
-def _normalize_preserving_truncation(text: str, *, family: str) -> str:
+def _normalize_preserving_truncation(
+    text: str, *, family: str, precomputed: str | None = None
+) -> str:
     """Normalize reviewer output without ever losing the truncation marker.
 
     The opt-in LLM normalizer can rewrite a truncated body into clean canonical
@@ -1490,8 +1530,14 @@ def _normalize_preserving_truncation(text: str, *, family: str) -> str:
     evade the truncated-PASS demotion in ``EvidenceItem.__post_init__``
     (openai #9249 r9 [P2]). Truncation is a fact about the transport, not the
     prose: if the input was truncated, the composed body always says so.
+
+    ``precomputed`` short-circuits the (possibly LLM-backed) normalization when
+    the caller already normalized exactly ``text``; the truncation-marker
+    restore below still applies to it.
     """
-    normalized = normalize_reviewer_output(text, family=family)
+    normalized = (
+        precomputed if precomputed is not None else normalize_reviewer_output(text, family=family)
+    )
     if _TRUNCATION_MARKER in text and _TRUNCATION_MARKER not in normalized:
         normalized = normalized.rstrip() + f"\n\n{_TRUNCATION_MARKER}"
     return normalized
@@ -1507,6 +1553,7 @@ def compose_evidence_comment(
     harness: str = "",
     grounded: bool = True,
     prompt_grounded: bool = False,
+    normalized_reviewer_text: str | None = None,
 ) -> str:
     """Compose an evidence comment the quorum parsers recognize and count.
 
@@ -1516,6 +1563,9 @@ def compose_evidence_comment(
     placed immediately under the heading so the comment is grounded on the exact
     head. ``reviewer_text`` is the genuine reviewer output; only lines that could
     hijack the identity parser are quoted (see :func:`_neutralize_reviewer_text`).
+    ``normalized_reviewer_text`` optionally carries a normalization of exactly
+    ``reviewer_text`` the collector already computed (for the malformed-verdict
+    re-roll decision), so the normalizer is not re-run here.
 
     On the conditionally-countable proxy path (ungrounded proxy transport whose
     run had prompt-embedded grounding) the machine-readable ``Reviewer harness:``
@@ -1543,6 +1593,11 @@ def compose_evidence_comment(
             f"{_REVIEWER_HARNESS_LABEL}: {harness_label}\n"
             f"{_TRANSPORT_GROUNDING_LABEL}: {PROXY_GROUNDING_DISCLOSURE}\n"
         )
+    body = _neutralize_reviewer_text(
+        _normalize_preserving_truncation(
+            reviewer_text, family=family, precomputed=normalized_reviewer_text
+        )
+    )
     return (
         f"## {display} independent model review\n\n"
         f"Reviewer: {fam} ({provider}) — independent adversarial model review via "
@@ -1551,7 +1606,7 @@ def compose_evidence_comment(
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n"
         f"{transport_disclosure}\n"
-        f"{_neutralize_reviewer_text(_normalize_preserving_truncation(reviewer_text, family=family))}\n\n"
+        f"{body}\n\n"
         f"dogfood: yes\n"
     )
 
@@ -3031,6 +3086,7 @@ def collect_evidence(
             harness=result.harness,
             grounded=result.grounded,
             prompt_grounded=prompt_grounded,
+            normalized_reviewer_text=result.normalized_text,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(
@@ -3213,9 +3269,18 @@ def _reviewer_process_worker(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
+    remaining_budget_seconds: float | None = None,
 ) -> None:
     _isolate_reviewer_worker_process_group()
-    result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
+    # The parent's absolute deadline cannot cross the process boundary
+    # (time.monotonic() has no defined cross-process reference point), so the
+    # remaining budget ships as a duration and is re-anchored here.
+    deadline = (
+        None
+        if remaining_budget_seconds is None
+        else time.monotonic() + max(0.0, remaining_budget_seconds)
+    )
+    result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt, deadline=deadline)
     try:
         result_queue.put(result)
     except (OSError, ValueError):
@@ -3283,11 +3348,13 @@ def _start_reviewer_worker(
     reviewer_runner: Callable[[str, str], ReviewerResult],
     family: str,
     prompt: str,
+    *,
+    remaining_budget_seconds: float | None = None,
 ) -> _ReviewerWorker:
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
     process = ctx.Process(
         target=_reviewer_process_worker,
-        args=(reviewer_runner, family, prompt, result_queue),
+        args=(reviewer_runner, family, prompt, result_queue, remaining_budget_seconds),
         daemon=False,
     )
     process.start()
@@ -3378,7 +3445,15 @@ def _run_reviewers_with_overall_timeout(
         while pending and len(active) < _MAX_REVIEWER_WORKERS:
             family = pending.pop(0)
             try:
-                active.append(_start_reviewer_worker(ctx, reviewer_runner, family, prompt))
+                active.append(
+                    _start_reviewer_worker(
+                        ctx,
+                        reviewer_runner,
+                        family,
+                        prompt,
+                        remaining_budget_seconds=max(0.0, deadline - time.monotonic()),
+                    )
+                )
             except (OSError, RuntimeError, ValueError) as exc:
                 results[family] = ReviewerResult(
                     family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -3751,6 +3826,15 @@ def _reviewer_timeout_env_overrides(
     }
 
 
+# Exit code for a run that completed cleanly — every produced item is countable
+# supportive evidence; no reviewer failures, post errors, or orchestration
+# timeout — but the tier's supportive-quorum bar was not met (the expected shape
+# of a deliberate single-family or partial-family round). Distinct from 1 so
+# callers can tell a clean shortfall from a real failure without parsing JSON;
+# the JSON outcome remains the authority on what actually happened.
+EXIT_CLEAN_NO_SUPPORTIVE_QUORUM = 2
+
+
 def run_collect_cli(
     *,
     repo: str,
@@ -3766,11 +3850,16 @@ def run_collect_cli(
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
 
-    Returns 0 when >=2 reviewers produced counting evidence, else 1. Note that a
-    non-zero exit does not imply nothing was posted: with ``--apply`` on a
-    low-tier PR a single genuine reviewer can post one counting comment and still
-    return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
-    in the JSON output rather than treating exit-code 1 as "nothing posted".
+    Returns 0 when the tier's supportive quorum bar was met with no
+    orchestration timeout; ``EXIT_CLEAN_NO_SUPPORTIVE_QUORUM`` (2) when the run
+    was clean — every produced item is countable supportive evidence, with no
+    reviewer failures, post errors, or timeout — but the bar was not met; 1
+    otherwise (failures, dissent, timeout, errors, or nothing produced). Note
+    that a non-zero exit does not imply nothing was posted: with ``--apply`` on
+    a low-tier PR a single genuine reviewer can post one counting comment and
+    still exit 2 (quorum is enforced as N-of-M elsewhere). Inspect
+    ``posted_families`` in the JSON output rather than treating a non-zero exit
+    as "nothing posted".
     """
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
@@ -3821,4 +3910,13 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timeout else 1
+    if outcome.has_supportive_quorum and not outcome.orchestration_timeout:
+        return 0
+    clean_shortfall = (
+        not outcome.orchestration_timeout
+        and not outcome.failures
+        and not outcome.post_errors
+        and bool(outcome.items)
+        and all(item.supportive for item in outcome.items)
+    )
+    return EXIT_CLEAN_NO_SUPPORTIVE_QUORUM if clean_shortfall else 1

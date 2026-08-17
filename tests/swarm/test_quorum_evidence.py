@@ -1933,7 +1933,14 @@ def test_overall_timeout_reaps_finished_reviewer_before_deadline_failure(
         def join(self, timeout: float | None = None) -> None:
             return None
 
-    def start_worker(ctx, reviewer_runner, family: str, prompt: str) -> qe._ReviewerWorker:
+    def start_worker(
+        ctx,
+        reviewer_runner,
+        family: str,
+        prompt: str,
+        *,
+        remaining_budget_seconds: float | None = None,
+    ) -> qe._ReviewerWorker:
         result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
         result_queue.put(ReviewerResult(family, f"Verdict: PASS from {family}", True))
         return qe._ReviewerWorker(
@@ -2043,7 +2050,7 @@ def test_reviewer_process_worker_creates_posix_process_group(
     monkeypatch.setattr(
         qe,
         "_run_reviewer_with_infra_retry",
-        lambda runner, family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+        lambda runner, family, prompt, deadline=None: ReviewerResult(family, "Verdict: PASS", True),
     )
 
     qe._reviewer_process_worker(
@@ -3767,6 +3774,81 @@ def test_run_collect_cli_timeout_returns_failure_even_with_supportive_quorum(mon
     assert rc == 1
 
 
+def test_run_collect_cli_clean_shortfall_exits_distinct(monkeypatch) -> None:
+    # A deliberate single-family prepare round: every produced item is countable
+    # supportive evidence and nothing failed, timed out, or dissented. Callers
+    # get a distinct exit so "clean shortfall" is tellable from a real failure
+    # without parsing JSON; the JSON outcome remains the authority.
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="settlement",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
+    )
+    assert rc == qe.EXIT_CLEAN_NO_SUPPORTIVE_QUORUM == 2
+
+
+def test_run_collect_cli_shortfall_with_failures_keeps_exit_one(monkeypatch) -> None:
+    # The same shortfall with a real reviewer failure is NOT clean.
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="settlement",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            failures=[ReviewerResult("grok", "", False, "grok CLI timed out")],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
+    )
+    assert rc == 1
+
+
+def test_run_collect_cli_shortfall_with_non_supportive_item_keeps_exit_one(monkeypatch) -> None:
+    # A produced item that does not count supportively (dissent here; the
+    # verdict-less case is test_run_collect_cli_exit_code_quorum_incomplete)
+    # means the round did not cleanly produce only supportive evidence.
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="settlement",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("openai", "body", True, ["openai"], [], "changes_requested"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
+    )
+    assert rc == 1
+
+
 def test_run_collect_cli_error_path(monkeypatch, capsys) -> None:
     def boom(**kwargs):
         raise ValueError("no head")
@@ -4244,6 +4326,182 @@ def test_grok_infra_failure_keeps_infra_semantics(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "timeout")])
     res = _retry(runner, "grok", "p")
     assert runner.state["n"] == 1 and res.ok is False  # infra-retry knob governs
+
+
+# --- malformed re-roll bounds + normalize-once reuse (follow-up, 2026-08-16) ---
+
+
+def test_grok_malformed_retry_honors_infra_retries_zero(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
+    runner = _seq_runner(
+        [_RR("grok", _GROK_MALFORMED, True), _RR("grok", "Verdict: PASS\nNo findings.", True)]
+    )
+    res = _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1  # operator disabled retries: malformed re-roll included
+    assert res.text == _GROK_MALFORMED
+
+
+def test_grok_malformed_retry_shares_the_infra_retry_budget(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)  # default: 1
+    runner = _seq_runner(
+        [
+            _RR("grok", "", False, "timeout"),
+            _RR("grok", _GROK_MALFORMED, True),
+            _RR("grok", "Verdict: PASS\nNo findings.", True),
+        ]
+    )
+    res = _retry(runner, "grok", "p")
+    # The infra retry consumed the whole budget, so the malformed re-roll may
+    # not add a third attempt: the worst case stays at 1 + retries attempts.
+    assert runner.state["n"] == 2
+    assert res.text == _GROK_MALFORMED
+
+
+def test_grok_malformed_retry_is_bounded_by_the_deadline(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "60")
+
+    def make():
+        return _seq_runner(
+            [_RR("grok", _GROK_MALFORMED, True), _RR("grok", "Verdict: PASS\nNo findings.", True)]
+        )
+
+    # Remaining budget below one worst-case attempt: the re-roll must not start
+    # (it would overrun the orchestration deadline instead of finishing).
+    short = make()
+    res = _retry(short, "grok", "p", deadline=time.monotonic() + 5.0)
+    assert short.state["n"] == 1
+    assert res.text == _GROK_MALFORMED
+    # Generous remaining budget: the re-roll fires exactly as before.
+    roomy = make()
+    res2 = _retry(roomy, "grok", "p", deadline=time.monotonic() + 3600.0)
+    assert roomy.state["n"] == 2
+    assert res2.text.startswith("Verdict: PASS")
+
+
+def test_reviewer_process_worker_rebases_remaining_budget_to_a_deadline(monkeypatch):
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "60")
+    got: list[ReviewerResult] = []
+
+    class FakeQueue:
+        def put(self, result: ReviewerResult) -> None:
+            got.append(result)
+
+    runner = _seq_runner(
+        [_RR("grok", _GROK_MALFORMED, True), _RR("grok", "Verdict: PASS\nNo findings.", True)]
+    )
+    qe._reviewer_process_worker(runner, "grok", "p", FakeQueue(), remaining_budget_seconds=5.0)
+    assert runner.state["n"] == 1  # 5s remaining < one 60s attempt: no re-roll
+    assert got and got[0].text == _GROK_MALFORMED
+
+
+def test_overall_timeout_supervisor_ships_remaining_budget_to_workers(monkeypatch):
+    captured: dict[str, float | None] = {}
+
+    class FakeProcess:
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            return None
+
+    class FakeQueue:
+        def __init__(self, result: ReviewerResult) -> None:
+            self._result = result
+
+        def get_nowait(self) -> ReviewerResult:
+            return self._result
+
+        def close(self) -> None:
+            return None
+
+        def join_thread(self) -> None:
+            return None
+
+    def fake_start(ctx, runner, family, prompt, *, remaining_budget_seconds=None):
+        captured[family] = remaining_budget_seconds
+        return qe._ReviewerWorker(
+            family=family,
+            process=FakeProcess(),
+            result_queue=FakeQueue(_RR(family, "Verdict: PASS", True)),
+        )
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: object())
+    monkeypatch.setattr(qe, "_start_reviewer_worker", fake_start)
+    results, timed_out = qe._run_reviewers_with_overall_timeout(
+        reviewer_runner=lambda family, prompt: _RR(family, "Verdict: PASS", True),
+        prompt="p",
+        families=["grok"],
+        overall_timeout_seconds=120.0,
+    )
+    assert timed_out == []
+    assert results["grok"].ok is True
+    budget = captured["grok"]
+    assert budget is not None
+    assert 0.0 < budget <= 120.0
+
+
+def test_grok_malformed_retry_decision_normalizes_once_and_compose_reuses_it(monkeypatch):
+    # The opt-in LLM normalizer must run at most ONCE per reviewer body: the
+    # retry decision and the composed body must see the SAME normalization.
+    calls = {"n": 0}
+
+    def fake_llm(raw: str) -> str:
+        calls["n"] += 1
+        return "Verdict: PASS\n- [P3] advisory note"
+
+    monkeypatch.setattr(qe, "_llm_normalize_reviewer", fake_llm)
+    runner = _seq_runner([_RR("grok", _GROK_MALFORMED, True)])
+    res = _retry(runner, "grok", "p")
+    # The normalizer recovered a verdict, so the body is substantive: no re-roll.
+    assert runner.state["n"] == 1
+    assert calls["n"] == 1
+    assert res.normalized_text is not None
+    assert "Verdict: PASS" in res.normalized_text
+    body = compose_evidence_comment(
+        family="grok",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=1,
+        reviewer_text=res.text,
+        normalized_reviewer_text=res.normalized_text,
+    )
+    assert calls["n"] == 1  # compose reused the retry-decision normalization
+    assert "Verdict: PASS" in body
+
+
+def test_collect_evidence_normalizes_each_grok_body_once_end_to_end(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_llm(raw: str) -> str:
+        calls["n"] += 1
+        return "Verdict: PASS\n- [P3] advisory note"
+
+    monkeypatch.setattr(qe, "_llm_normalize_reviewer", fake_llm)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["grok"],
+        author="me",
+        apply=False,
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        prompt_builder=lambda repo, pr, ctx: "p",
+        reviewer_runner=lambda family, prompt: _RR(family, _GROK_MALFORMED, True),
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["grok"],
+            "problems": [],
+        },
+    )
+    assert [item.family for item in outcome.items] == ["grok"]
+    assert "Verdict: PASS" in outcome.items[0].body
+    assert calls["n"] == 1  # retry decision + compose share one normalization
 
 
 def _supportive_outcome(tier, *families):
