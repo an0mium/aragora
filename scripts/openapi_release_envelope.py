@@ -30,7 +30,10 @@ every readable answer keeps full fail-closed semantics, and the operator's
 
 Exit codes (CDG status vocabulary): 0 pass, 1 fail (verification
 contradiction), 2 blocked (publication/attestation/rule-suite not yet
-visible), 3 movement (selection moved; restart verification).
+visible), 3 movement (selection moved; restart verification). Only blocked
+post-publication verification may be retried in place, with the same original
+identity and envelope. Fail, movement, and unexpected errors are terminal;
+build, preflight, attestation, and publication must stay outside that retry.
 """
 
 from __future__ import annotations

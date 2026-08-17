@@ -952,16 +952,17 @@ def test_openapi_envelope_serializes_sync_before_publication_preflight():
         assert clause in ENVELOPE_IF
 
 
-def test_envelope_requires_operator_immutable_releases_attestation_input():
+def test_envelope_operator_immutable_releases_attestation_input_defaults_false():
     """In-run report-mode preflight cannot distinguish the admin-gated 404
     "hidden from this token" from "immutable releases disabled", so a
     disabled setting would otherwise surface only post-publish. The dispatch
     input machine-checks the operator's admin-capable {"enabled":true}
-    pre-dispatch read; it must be a required boolean that defaults off."""
+    pre-dispatch read when publishing, but stays optional/default-off so an
+    omitted input cannot break bare sync-only dispatches."""
     dispatch = DOC["on"]["workflow_dispatch"]
     attestation = dispatch["inputs"]["operator_confirmed_immutable_releases"]
     assert attestation["type"] == "boolean"
-    assert attestation["required"] == "true"
+    assert "required" not in attestation
     assert attestation["default"] == "false"
     description = attestation["description"]
     assert "immutable-releases" in description
@@ -1564,3 +1565,139 @@ def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
         outputs.append({path.name: path.read_bytes() for path in sorted(out_dir.iterdir())})
     assert outputs[0] == outputs[1]
     assert set(outputs[0]) == {"manifest.json", "checksums.txt", "openapi_generated.json"}
+
+
+def _verify_retry_stub(exit_codes: list[int], tmp_path: Path) -> str:
+    queue = tmp_path / "verify-exit-codes"
+    calls = tmp_path / "verify-calls"
+    sleeps = tmp_path / "verify-sleeps"
+    queue.write_text("\n".join(str(code) for code in exit_codes) + "\n", encoding="utf-8")
+    return f"""
+python3() {{
+  printf '%s\\n' "$*" >> {calls}
+  code="$(head -n 1 {queue})"
+  tail -n +2 {queue} > {queue}.next
+  mv {queue}.next {queue}
+  return "$code"
+}}
+sleep() {{
+  printf '%s\\n' "$1" >> {sleeps}
+}}
+"""
+
+
+def _verify_retry_env() -> dict[str, str]:
+    head = "e" * 40
+    return {
+        "GITHUB_REPOSITORY": "synaptent/aragora",
+        "GITHUB_SHA": head,
+        "GITHUB_RUN_ID": "4242",
+        "GITHUB_RUN_ATTEMPT": "7",
+        "OPENAPI_RUN_ARTIFACT": f"openapi-spec-4242-{head}",
+    }
+
+
+def test_post_publish_verify_recovers_blocked_blocked_pass(tmp_path):
+    run = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    completed = _simulate_step(
+        run,
+        env=_verify_retry_env(),
+        cwd=tmp_path,
+        stub_prelude=_verify_retry_stub([2, 2, 0], tmp_path),
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert (tmp_path / "verify-sleeps").read_text(encoding="utf-8").splitlines() == ["5", "10"]
+    assert len((tmp_path / "verify-calls").read_text(encoding="utf-8").splitlines()) == 3
+
+
+def test_post_publish_verify_readable_contradiction_fails_without_retry(tmp_path):
+    run = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    completed = _simulate_step(
+        run,
+        env=_verify_retry_env(),
+        cwd=tmp_path,
+        stub_prelude=_verify_retry_stub([1, 0], tmp_path),
+    )
+    assert completed.returncode == 1
+    assert len((tmp_path / "verify-calls").read_text(encoding="utf-8").splitlines()) == 1
+    assert not (tmp_path / "verify-sleeps").exists()
+
+
+@pytest.mark.parametrize("exit_code", [3, 17])
+def test_post_publish_verify_movement_and_unexpected_errors_do_not_retry(tmp_path, exit_code):
+    run = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    completed = _simulate_step(
+        run,
+        env=_verify_retry_env(),
+        cwd=tmp_path,
+        stub_prelude=_verify_retry_stub([exit_code, 0], tmp_path),
+    )
+    assert completed.returncode == exit_code
+    assert len((tmp_path / "verify-calls").read_text(encoding="utf-8").splitlines()) == 1
+    assert not (tmp_path / "verify-sleeps").exists()
+
+
+def test_post_publish_verify_blocked_exhaustion_is_bounded(tmp_path):
+    run = _step("envelope", "Verify release, assets, attestation, and rule suite")["run"]
+    completed = _simulate_step(
+        run,
+        env=_verify_retry_env(),
+        cwd=tmp_path,
+        stub_prelude=_verify_retry_stub([2, 2, 2, 2, 0], tmp_path),
+    )
+    assert completed.returncode == 2
+    assert (tmp_path / "verify-sleeps").read_text(encoding="utf-8").splitlines() == [
+        "5",
+        "10",
+        "20",
+    ]
+    assert len((tmp_path / "verify-calls").read_text(encoding="utf-8").splitlines()) == 4
+    assert "original-identity recovery runbook" in completed.stdout
+
+
+def test_post_publish_verify_retries_same_identity_without_replaying_prior_phases(tmp_path):
+    step = _step("envelope", "Verify release, assets, attestation, and rule suite")
+    run = step["run"]
+    assert " build " not in run
+    assert " preflight " not in run
+    assert "gh release create" not in run
+    assert "actions/attest" not in run
+
+    completed = _simulate_step(
+        run,
+        env=_verify_retry_env(),
+        cwd=tmp_path,
+        stub_prelude=_verify_retry_stub([2, 2, 0], tmp_path),
+    )
+    assert completed.returncode == 0, completed.stderr
+    calls = (tmp_path / "verify-calls").read_text(encoding="utf-8").splitlines()
+    assert len(calls) == 3
+    assert len(set(calls)) == 1
+    call = calls[0]
+    for expected in (
+        "scripts/openapi_release_envelope.py verify",
+        "--repository synaptent/aragora",
+        f"--head-sha {'e' * 40}",
+        "--run-id 4242",
+        "--run-attempt 7",
+        f"--artifact-name openapi-spec-4242-{'e' * 40}",
+        "--signer-workflow synaptent/aragora/.github/workflows/openapi.yml",
+        "--admin-reads report",
+    ):
+        assert expected in call
+
+
+def test_dispatch_omission_is_default_false_and_cannot_publish_envelope():
+    inputs = DOC["on"]["workflow_dispatch"]["inputs"]
+    publish = inputs["publish_envelope"]
+    operator_attestation = inputs["operator_confirmed_immutable_releases"]
+    assert publish["default"] == "false"
+    assert operator_attestation["default"] == "false"
+    assert operator_attestation.get("required", "false") == "false"
+
+    envelope_if = JOBS["envelope"]["if"]
+    assert "github.event_name == 'workflow_dispatch'" in envelope_if
+    assert "inputs.publish_envelope == true" in envelope_if
+    gate = _step("envelope", "Require operator immutable-releases attestation")["run"]
+    assert '[[ "$OPERATOR_CONFIRMED" != "true" ]]' in gate
+    assert "exit 2" in gate

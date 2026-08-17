@@ -25,7 +25,6 @@ on:
           immediately before this dispatch. The in-run token cannot see that
           setting, so the envelope job fails closed (blocked) without this.
         type: boolean
-        required: true
         default: false
 
 concurrency:
@@ -791,14 +790,37 @@ jobs:
       - name: Verify release, assets, attestation, and rule suite
         run: |
           set -euo pipefail
-          python3 scripts/openapi_release_envelope.py verify \
-            --repository "$GITHUB_REPOSITORY" \
-            --head-sha "$GITHUB_SHA" \
-            --run-id "$GITHUB_RUN_ID" \
-            --run-attempt "$GITHUB_RUN_ATTEMPT" \
-            --artifact-name "$OPENAPI_RUN_ARTIFACT" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml" \
-            --admin-reads report
+          verify_attempt=1
+          verify_delays=(5 10 20)
+          while true; do
+            set +e
+            python3 scripts/openapi_release_envelope.py verify \
+              --repository "$GITHUB_REPOSITORY" \
+              --head-sha "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID" \
+              --run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --artifact-name "$OPENAPI_RUN_ARTIFACT" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/openapi.yml" \
+              --admin-reads report
+            verify_rc=$?
+            set -e
+
+            if [[ "$verify_rc" -eq 0 ]]; then
+              break
+            fi
+            if [[ "$verify_rc" -ne 2 ]]; then
+              exit "$verify_rc"
+            fi
+            if [[ "$verify_attempt" -gt "${#verify_delays[@]}" ]]; then
+              echo "::error::post-publish verification remained blocked after $verify_attempt attempts; use the original-identity recovery runbook."
+              exit "$verify_rc"
+            fi
+
+            verify_delay="${verify_delays[$((verify_attempt - 1))]}"
+            echo "::warning::post-publish verification attempt $verify_attempt blocked; retrying the same immutable capsule in ${verify_delay}s."
+            sleep "$verify_delay"
+            verify_attempt=$((verify_attempt + 1))
+          done
 
   generate:
     name: Generate & Validate
