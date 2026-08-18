@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -181,6 +182,9 @@ class NomicContextBuilder:
             self._full_corpus = full_corpus
         self._index: CodebaseIndex | None = None
         self._rlm_context: Any | None = None
+        self._pending_pack_verification: (
+            tuple[str, tuple[ContextEvidenceReference, ...], dict[str, bytes]] | None
+        ) = None
         self._context_dir = self._aragora_path / ".nomic" / "context"
 
     @property
@@ -356,6 +360,8 @@ class NomicContextBuilder:
         root = self._aragora_path.resolve()
         if self._max_context_bytes <= 0:
             raise RepositoryStateError("context pack byte budget must be a positive integer")
+        runtime_root = root / ".nomic" / "context" / "packs"
+        self._assert_pack_destination_safe(root, runtime_root)
         revision = assert_clean_revision(root)
         normalized_objective = objective.strip()
         resolved_profile = profile or load_nomic_repository_profile(root, config_path)
@@ -391,6 +397,7 @@ class NomicContextBuilder:
             include_tests=self._include_tests,
         )
         destination = root / ".nomic" / "context" / "packs" / revision.commit_sha / pack_id
+        self._assert_pack_destination_safe(root, destination)
         relative_destination = destination.relative_to(root).as_posix()
         artifact_names = [*artifacts, "context-pack.json"]
         self._assert_artifact_paths_ignored(
@@ -420,6 +427,7 @@ class NomicContextBuilder:
 
         parent = destination.parent
         parent.mkdir(parents=True, exist_ok=True)
+        self._assert_pack_destination_safe(root, destination)
         temporary = Path(tempfile.mkdtemp(prefix=f".{pack_id}.", dir=parent))
         try:
             for name, data in artifacts.items():
@@ -427,16 +435,72 @@ class NomicContextBuilder:
             (temporary / "context-pack.json").write_bytes(metadata)
             self._before_pack_publish()
             assert_clean_revision(root, revision)
+            self._assert_pack_destination_safe(root, destination)
             try:
                 os.replace(temporary, destination)
             except OSError:
+                self._assert_pack_destination_safe(root, destination)
                 if not destination.exists():
                     raise
+            self._pending_pack_verification = (pack.pack_id, tuple(evidence), contents)
+            try:
                 self.verify_context_pack(pack)
+            finally:
+                self._pending_pack_verification = None
         finally:
-            if temporary.exists():
-                shutil.rmtree(temporary)
+            self._cleanup_temporary_pack(root, parent, temporary)
         return pack
+
+    @staticmethod
+    def _assert_pack_destination_safe(repo_root: Path, destination: Path) -> None:
+        """Reject symlinked, non-directory, or repository-escaping pack paths."""
+        root = repo_root.resolve()
+        try:
+            relative = destination.relative_to(root)
+        except ValueError as exc:
+            raise RepositoryStateError("context pack destination escapes repository root") from exc
+        if not relative.parts or relative.parts[0] != ".nomic":
+            raise RepositoryStateError("context pack destination must be beneath .nomic")
+
+        current = root
+        for part in relative.parts:
+            current /= part
+            try:
+                mode = current.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            except (OSError, RuntimeError) as exc:
+                raise RepositoryStateError(
+                    f"context pack destination cannot be inspected: {current}"
+                ) from exc
+            if stat.S_ISLNK(mode):
+                raise RepositoryStateError(
+                    f"context pack destination contains a symlink: {current}"
+                )
+            if not stat.S_ISDIR(mode):
+                raise RepositoryStateError(
+                    f"context pack destination contains a non-directory component: {current}"
+                )
+
+        try:
+            destination.resolve(strict=False).relative_to(root)
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise RepositoryStateError("context pack destination escapes repository root") from exc
+
+    @classmethod
+    def _cleanup_temporary_pack(cls, repo_root: Path, parent: Path, temporary: Path) -> None:
+        """Remove only a real temporary directory beneath the validated pack parent."""
+        if not os.path.lexists(temporary):
+            return
+        cls._assert_pack_destination_safe(repo_root, temporary)
+        try:
+            resolved_parent = parent.resolve(strict=True)
+            resolved_temporary = temporary.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise RepositoryStateError("temporary context pack path cannot be resolved") from exc
+        if resolved_temporary.parent != resolved_parent or not temporary.is_dir():
+            raise RepositoryStateError("temporary context pack path is not safe to remove")
+        shutil.rmtree(temporary)
 
     @staticmethod
     def _assert_artifact_paths_ignored(repo_root: Path, paths: list[str]) -> None:
@@ -513,11 +577,16 @@ class NomicContextBuilder:
             raise RepositoryStateError(f"invalid context pack metadata: {pack.reference}") from exc
         if stored != pack.to_dict():
             raise RepositoryStateError(f"context pack metadata mismatch: {pack.reference}")
-        expected_evidence, contents = self._collect_commit_evidence(
-            pack.repository,
-            pack.revision,
-            include_tests=pack.include_tests,
-        )
+        pending = self._pending_pack_verification
+        if pending is not None and pending[0] == pack.pack_id:
+            expected_evidence = list(pending[1])
+            contents = pending[2]
+        else:
+            expected_evidence, contents = self._collect_commit_evidence(
+                pack.repository,
+                pack.revision,
+                include_tests=pack.include_tests,
+            )
         if tuple(expected_evidence) != pack.evidence:
             raise RepositoryStateError(
                 "context pack evidence does not match the claimed Git revision"

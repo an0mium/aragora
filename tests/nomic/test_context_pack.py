@@ -340,6 +340,50 @@ async def test_probe_only_ignore_rule_does_not_authorize_real_artifacts(
     assert not (clean_repository / ".nomic").exists()
 
 
+@pytest.mark.parametrize("link_path", [".nomic", ".nomic/context"], ids=["root", "intermediate"])
+@pytest.mark.asyncio
+async def test_symlinked_pack_destination_fails_without_external_artifacts(
+    clean_repository: Path,
+    link_path: str,
+) -> None:
+    external = clean_repository.parent / f"{clean_repository.name}-external-output"
+    external.mkdir()
+    link = clean_repository / link_path
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(RepositoryStateError, match="destination contains a symlink"):
+        await NomicContextBuilder(clean_repository, full_corpus=False).build_context_pack(
+            profile=load_nomic_repository_profile(clean_repository)
+        )
+
+    assert not list(external.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_new_and_reused_packs_are_verified_before_return(clean_repository: Path) -> None:
+    profile = load_nomic_repository_profile(clean_repository)
+    first_builder = NomicContextBuilder(clean_repository, full_corpus=False)
+    with patch.object(
+        first_builder,
+        "verify_context_pack",
+        wraps=first_builder.verify_context_pack,
+    ) as first_verify:
+        first = await first_builder.build_context_pack("Verify publication", profile=profile)
+    first_verify.assert_called_once_with(first)
+
+    second_builder = NomicContextBuilder(clean_repository, full_corpus=False)
+    with patch.object(
+        second_builder,
+        "verify_context_pack",
+        wraps=second_builder.verify_context_pack,
+    ) as second_verify:
+        second = await second_builder.build_context_pack("Verify publication", profile=profile)
+    second_verify.assert_called_once_with(second)
+    assert second.pack_id == first.pack_id
+    assert second.pack_path == first.pack_path
+
+
 @pytest.mark.asyncio
 async def test_mid_build_revision_drift_is_not_published(clean_repository: Path) -> None:
     builder = NomicContextBuilder(clean_repository, full_corpus=False)
