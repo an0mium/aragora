@@ -1,0 +1,67 @@
+# Queue Adoption Disposition
+
+**Decision:** Adopt `aragora/queue` as Aragora's canonical public API and
+transport authority for durable server-side jobs.
+
+**Scope:** This resolves only the `aragora/queue` primitive in #8851 acceptance
+item 3. It does not unpark the other six primitive dispositions and introduces
+no runtime migration.
+
+## Live Evidence
+
+`aragora.queue` is not dormant:
+
+- `scripts/queue_worker.py` runs the Redis Streams debate worker.
+- `aragora/server/handlers/queue.py` exposes queue operations and constructs
+  jobs through `aragora.queue`.
+- Slack, Telegram, WhatsApp, and Teams handlers enqueue debate jobs through
+  the same package.
+- `aragora/integrations/email_reply_loop.py` uses the Redis queue for routed
+  email work.
+- The focused `tests/queue/` suite covers job contracts, Redis streams,
+  retries, status tracking, tracing, and workers.
+
+The earlier ARCH-015 note cited the default-on GauntletWorker as proof that
+`aragora.queue` was the sole implementation. Current main is different:
+GauntletWorker and several related workers use
+`aragora/storage/job_queue_store.py` directly. The startup wiring remains live
+in `aragora/server/startup/workers.py`, but it proves a backend split, not a
+single implementation.
+
+## Authority Boundary
+
+`aragora.queue` owns the public durable-job contract, enqueue/dequeue transport,
+status, retry, and worker-facing API. New durable server-job producers and job
+types enter through this package.
+
+`aragora/storage/job_queue_store.py` is a bounded current persistence backend,
+not a second public authority. Its existing direct consumers are frozen by the
+conformance test. They may remain until a separately reviewed migration places
+the backend behind `aragora.queue`; no new direct consumer may be added in the
+meantime.
+
+The following concerns remain distinct:
+
+- `aragora.missions` defines synchronous mission dispatch.
+- `aragora.workflow` defines product DAG execution.
+- `aragora.swarm` and `aragora.nomic.dev_coordination` define fleet scheduling,
+  ownership, and leases.
+- Operational cron belongs to `aragora.scheduler`.
+
+None of those packages may grow a rival durable server-job transport. This
+decision also does not revive the removed `aragora.queue:create_default_executor`
+re-export recorded by CHR-P4A-004.
+
+## Verification
+
+`tests/docs/test_queue_authority.py` pins the machine-readable ARCH-015 state,
+the decision-record link, the live entrypoints, and the closed set of existing
+direct `aragora.storage.job_queue_store` consumers. The test fails on authority
+drift or a new direct backend consumer; it never mutates the charter or baseline.
+
+## Provenance
+
+- #8851 operator ruling, 2026-07-06: adopt `aragora/queue`.
+- Operator authorization, 2026-08-18: unpark acceptance item 3 for this bounded
+  disposition only.
+- Current-main audit base: `07942c3dda14303ad49ef58d5154bbbb154d6277`.
