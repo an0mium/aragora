@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scripts.ci import check_boundary_edges as checker
 
@@ -193,3 +194,13 @@ def test_repository_policy_is_current() -> None:
     assert checker.scan(REPO_ROOT, policy) == checker.load_baseline(
         REPO_ROOT / checker.BASELINE_PATH
     )
+
+
+def test_required_lint_job_runs_boundary_checker() -> None:
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/lint.yml").read_text())
+    steps = workflow["jobs"]["lint-run"]["steps"]
+    matching = [
+        step for step in steps if "scripts/ci/check_boundary_edges.py" in str(step.get("run", ""))
+    ]
+    assert len(matching) == 1
+    assert matching[0]["name"] == "Enforce Boundary 2 module-edge policy"
