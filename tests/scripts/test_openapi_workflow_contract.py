@@ -1873,6 +1873,58 @@ def test_envelope_preflight_validates_blocked_marker_against_live_gh(monkeypatch
     assert state["probe_calls"] == 1
 
 
+def test_absent_attestation_http_404_shape_is_blocked_lag_not_contradiction(
+    monkeypatch, tmp_path, capsys
+):
+    """Newer gh (2.96.0, observed live 2026-08-18) reports an unattested or
+    not-yet-propagated subject as a raw attestations-API HTTP 404 instead of
+    the textual `no attestations` marker. Both shapes must class as the
+    retryable blocked state, while a 404 from any OTHER endpoint stays a
+    readable contradiction that fails on the first read with no retry."""
+    module = _load_envelope_helper()
+    attestation_404 = (
+        b"Error: HTTP 404: Not Found (https://api.github.com/repos/"
+        b"synaptent/aragora/attestations/sha256:ab12?per_page=30)"
+    )
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    # The live probe accepts the 404 shape as a validated blocked marker.
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, state = _preflight_gh_stub(module, probe_stderr=attestation_404)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["blocked_marker_probe"] == "validated"
+    assert state["probe_calls"] == 1
+    # The same shape is retryable propagation lag for the per-asset reads.
+    sleeps: list[int] = []
+    monkeypatch.setattr(module, "_sleep", sleeps.append)
+    fake_run, state = _preflight_gh_stub(module, asset_lag=1, asset_stderr=attestation_404)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    assert set(state["asset_attempts"].values()) == {2}
+    assert sleeps == [5] * len(state["asset_attempts"])
+    # A 404 from any non-attestations endpoint is a contradiction, not lag:
+    # the first read fails and the ladder never sleeps.
+    release_404 = (
+        b"HTTP 404: Not Found (https://api.github.com/repos/"
+        b"synaptent/aragora/releases/tags/openapi-envelope-x)"
+    )
+    sleeps.clear()
+    monkeypatch.setattr(
+        module,
+        "_run_gh",
+        lambda argv: subprocess.CompletedProcess(argv, 1, b"", release_404),
+    )
+    with pytest.raises(RuntimeError, match="release probe"):
+        module._verification_with_lag_retry(
+            ["gh", "release", "verify", "openapi-envelope-x", "-R", "synaptent/aragora"],
+            kind="release probe",
+        )
+    assert sleeps == []
+
+
 def test_envelope_preflight_attestation_lag_retry_is_bounded_and_deterministic(
     monkeypatch, tmp_path, capsys
 ):

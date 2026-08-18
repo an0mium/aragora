@@ -66,10 +66,12 @@ EXIT_FAIL = 1
 EXIT_BLOCKED = 2
 EXIT_MOVEMENT = 3
 
-# The single stderr marker `_checked_verification` keys blocked-vs-fail on.
-# cmd_preflight validates it against the live runner gh (blocked-marker
-# probe) so the marker and the detection can never drift apart silently.
+# The stderr shapes `_checked_verification` keys blocked-vs-fail on (see
+# `_is_absent_attestation_stderr`). cmd_preflight validates them against the
+# live runner gh (blocked-marker probe) so the detection and the runner's
+# actual error shape can never drift apart silently.
 NO_ATTESTATIONS_MARKER = "no attestations"
+ATTESTATIONS_API_PATH_MARKER = "/attestations/sha256:"
 BLOCKED_MARKER_PROBE_NAME = "blocked-marker-probe.bin"
 # Pre-publish attestation lag ladder; mirrors the workflow's post-publish
 # retry step (4 attempts, 5/10/20s waits), blocked class only.
@@ -422,12 +424,24 @@ def _gh_api_json(endpoint: str, *, paginate: bool = False, admin_gated: bool = F
     return json.loads(completed.stdout)
 
 
+def _is_absent_attestation_stderr(stderr: str, marker: str) -> bool:
+    """Both shapes gh uses for an absent (or not-yet-propagated) attestation:
+    the textual marker family, and the raw attestations-API HTTP 404 that
+    newer gh emits instead (2.96.0, observed live 2026-08-18). The 404 is
+    scoped to the attestations endpoint so a missing release or any other
+    404 stays a readable contradiction."""
+    lowered = stderr.lower()
+    if marker in lowered:
+        return True
+    return "http 404" in lowered and ATTESTATIONS_API_PATH_MARKER in lowered
+
+
 def _checked_verification(argv: list[str], *, kind: str, blocked_marker: str = "") -> None:
     completed = _run_gh(argv)
     if completed.returncode == 0:
         return
     stderr = completed.stderr.decode("utf-8", "replace").strip()
-    if blocked_marker and blocked_marker in stderr.lower():
+    if blocked_marker and _is_absent_attestation_stderr(stderr, blocked_marker):
         raise Blocked(f"{kind} is not attested yet: {stderr}")
     raise RuntimeError(f"{kind} verification failed: {stderr}")
 
@@ -835,10 +849,10 @@ def cmd_preflight(args: argparse.Namespace) -> int:
             "release verify-asset",
         ]
         # `_checked_verification` distinguishes retryable lag from a readable
-        # contradiction by NO_ATTESTATIONS_MARKER. Verifying a per-identity
-        # scratch subject that provably has no attestation forces the live
-        # runner gh to emit its no-attestation error NOW, so marker drift
-        # blocks here instead of hard-failing after publication.
+        # contradiction by `_is_absent_attestation_stderr`. Verifying a
+        # per-identity scratch subject that provably has no attestation forces
+        # the live runner gh to emit its no-attestation error NOW, so marker
+        # drift blocks here instead of hard-failing after publication.
         with tempfile.TemporaryDirectory() as probe_dir:
             probe_path = Path(probe_dir) / BLOCKED_MARKER_PROBE_NAME
             probe_path.write_bytes(f"unattested probe subject for {tag}\n".encode())
@@ -856,10 +870,11 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 "subject; this runner's gh verification verdicts cannot be trusted"
             )
         probe_stderr = probe.stderr.decode("utf-8", "replace").strip()
-        if NO_ATTESTATIONS_MARKER not in probe_stderr.lower():
+        if not _is_absent_attestation_stderr(probe_stderr, NO_ATTESTATIONS_MARKER):
             raise Blocked(
-                f"runner gh reports a missing attestation without the "
-                f"{NO_ATTESTATIONS_MARKER!r} marker, so post-publish propagation lag "
+                f"runner gh reports a missing attestation with neither the "
+                f"{NO_ATTESTATIONS_MARKER!r} marker nor the attestations-API "
+                f"HTTP 404 shape, so post-publish propagation lag "
                 f"would hard-fail instead of retrying; observed: {probe_stderr[:300]}"
             )
         report["blocked_marker_probe"] = "validated"
