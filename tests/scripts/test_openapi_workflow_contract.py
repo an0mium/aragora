@@ -2110,6 +2110,34 @@ def test_envelope_step_summary_dedupes_repeated_degraded_sections(monkeypatch, t
     assert text.count("### OpenAPI envelope verify: admin-read-gated reads degraded") == 1
 
 
+def test_envelope_step_summary_tolerates_foreign_undecodable_bytes(monkeypatch, tmp_path, capsys):
+    """GITHUB_STEP_SUMMARY is shared with every other step in the job, so its
+    existing content can be arbitrary non-UTF-8 bytes; the dedupe read must
+    never let a decode error escape the finally-block append and flip a
+    verification outcome (summary IO stays cosmetic), and dedupe must still
+    work across repeat runs against the poisoned file."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    degraded = [
+        ("immutable-releases", module.Forbidden("immutable-releases hidden: HTTP 404")),
+        ("rule-suites", module.Forbidden("rule-suites not readable: HTTP 403")),
+    ]
+    summary = tmp_path / "poisoned-summary.md"
+    summary.write_bytes(b"\xff\xfe\x80 foreign step bytes\n")
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    for _attempt in range(2):
+        assert module.cmd_preflight(args) == module.EXIT_PASS
+        assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    raw = summary.read_bytes()
+    assert raw.startswith(b"\xff\xfe\x80")
+    assert raw.count(b"### OpenAPI envelope preflight: admin-read-gated reads degraded") == 1
+
+
 def test_sync_copies_use_the_artifact_nested_layout():
     """download-artifact@v4 preserves the upload's repo-root-relative layout
     (the five payload paths share the repository root as their least common

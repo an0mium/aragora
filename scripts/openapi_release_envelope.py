@@ -683,9 +683,12 @@ def _append_step_summary(report: dict[str, Any]) -> None:
         "",
     ]
     block = "\n".join(lines) + "\n"
+    # The summary file is shared with every other step in the job and may
+    # hold arbitrary non-UTF-8 bytes; dedupe on raw bytes so no decode error
+    # can escape the finally-block append and flip a verification exit.
     try:
-        with open(path, "r", encoding="utf-8") as stream:
-            if block in stream.read():
+        with open(path, "rb") as stream:
+            if block.encode("utf-8") in stream.read():
                 return
     except OSError:
         pass
