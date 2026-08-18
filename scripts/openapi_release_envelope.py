@@ -73,6 +73,22 @@ EXIT_MOVEMENT = 3
 NO_ATTESTATIONS_MARKER = "no attestations"
 ATTESTATIONS_API_PATH_MARKER = "/attestations/sha256:"
 BLOCKED_MARKER_PROBE_NAME = "blocked-marker-probe.bin"
+# Transient transport shapes for `_probe_transient_class` (observed live on
+# gh 2.96.0, 2026-08-18): before verifier initialization a dead network
+# surfaces as the Sigstore verifier-init failure, after it as Go net
+# dial/lookup text. Message-only classification; never an exit-class input.
+PROBE_NETWORK_STDERR_MARKERS = (
+    "no valid sigstore verifiers could be initialized",
+    "dial tcp",
+    "proxyconnect",
+    "no such host",
+    "connection refused",
+    "connection reset",
+    "i/o timeout",
+    "tls handshake",
+    "context deadline exceeded",
+    "temporary failure in name resolution",
+)
 # Pre-publish attestation lag ladder; mirrors the workflow's post-publish
 # retry step (4 attempts, 5/10/20s waits), blocked class only.
 PREPUBLISH_RETRY_DELAYS = (5, 10, 20)
@@ -436,6 +452,20 @@ def _is_absent_attestation_stderr(stderr: str, marker: str) -> bool:
     return "http 404" in lowered and ATTESTATIONS_API_PATH_MARKER in lowered
 
 
+def _probe_transient_class(stderr: str) -> str | None:
+    """Message-only hint for a probe stderr that matched no absent-attestation
+    shape: an HTTP 403 answer or a network/Sigstore transport death never
+    carried a verification verdict, so attributing it to marker drift would
+    misdirect the operator. Anything unrecognized is genuine drift, and the
+    caller's fail-closed blocked exit is identical for every class."""
+    lowered = stderr.lower()
+    if "http 403" in lowered:
+        return "http-403"
+    if any(marker in lowered for marker in PROBE_NETWORK_STDERR_MARKERS):
+        return "network"
+    return None
+
+
 def _checked_verification(argv: list[str], *, kind: str, blocked_marker: str = "") -> None:
     completed = _run_gh(argv)
     if completed.returncode == 0:
@@ -636,7 +666,9 @@ def _append_step_summary(report: dict[str, Any]) -> None:
 
     The in-job token soft-reports these surfaces by design (``--admin-reads
     report``); the summary makes the degraded state visible to the operator
-    without hard-failing non-admin tokens. Summary IO is cosmetic and must
+    without hard-failing non-admin tokens. Blocked-class retries re-invoke
+    this process against the same summary file, so an identical block that
+    already landed is not appended again. Summary IO is cosmetic and must
     never flip a verification outcome."""
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
@@ -650,9 +682,16 @@ def _append_step_summary(report: dict[str, Any]) -> None:
         "- authoritative for these surfaces: the external `verify --admin-reads required` run",
         "",
     ]
+    block = "\n".join(lines) + "\n"
+    try:
+        with open(path, "r", encoding="utf-8") as stream:
+            if block in stream.read():
+                return
+    except OSError:
+        pass
     try:
         with open(path, "a", encoding="utf-8") as stream:
-            stream.write("\n".join(lines) + "\n")
+            stream.write(block)
     except OSError:
         return
 
@@ -871,6 +910,21 @@ def cmd_preflight(args: argparse.Namespace) -> int:
             )
         probe_stderr = probe.stderr.decode("utf-8", "replace").strip()
         if not _is_absent_attestation_stderr(probe_stderr, NO_ATTESTATIONS_MARKER):
+            transient = _probe_transient_class(probe_stderr)
+            if transient == "http-403":
+                raise Blocked(
+                    f"blocked-marker probe was answered with HTTP 403 (transient "
+                    f"rate-limit/permission class), so no live no-attestation "
+                    f"error shape was observed; retry when the attestations API "
+                    f"answers reads; observed: {probe_stderr[:300]}"
+                )
+            if transient == "network":
+                raise Blocked(
+                    f"blocked-marker probe died in the network/Sigstore transport "
+                    f"(transient infrastructure class) before any verification "
+                    f"verdict; retry when the runner has connectivity; "
+                    f"observed: {probe_stderr[:300]}"
+                )
             raise Blocked(
                 f"runner gh reports a missing attestation with neither the "
                 f"{NO_ATTESTATIONS_MARKER!r} marker nor the attestations-API "

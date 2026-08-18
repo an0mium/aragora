@@ -1873,6 +1873,64 @@ def test_envelope_preflight_validates_blocked_marker_against_live_gh(monkeypatch
     assert state["probe_calls"] == 1
 
 
+def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
+    monkeypatch, tmp_path, capsys
+):
+    """A probe answered by HTTP 403 or killed in the network/Sigstore
+    transport never observed a verification verdict, so the blocked report
+    must name the transient cause instead of claiming marker drift. The
+    exit class is message-only cosmetics: every class stays blocked
+    pre-publication with the observed stderr embedded and no per-asset
+    verification attempted, and an unrecognized shape still reads as
+    genuine drift."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    transient_shapes = {
+        "HTTP 403": (
+            b"Error: HTTP 403: API rate limit exceeded (https://api.github.com/"
+            b"repos/synaptent/aragora/attestations/sha256:ab12?per_page=30)"
+        ),
+        # Both live network shapes (gh 2.96.0, observed 2026-08-18): transport
+        # death before verifier initialization, and a post-init API dial
+        # failure whose stderr carries the attestations path but no HTTP 404.
+        "no valid Sigstore verifiers could be initialized": (
+            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
+        ),
+        "connection refused": (
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
+            b"dial tcp 127.0.0.1:9: connect: connection refused"
+        ),
+    }
+    for observed, stderr in transient_shapes.items():
+        fake_run, state = _preflight_gh_stub(module, probe_stderr=stderr)
+        monkeypatch.setattr(module, "_run_gh", fake_run)
+        assert module.cmd_preflight(args) == module.EXIT_BLOCKED, observed
+        report = json.loads(capsys.readouterr().out)
+        assert report["status"] == "blocked", observed
+        assert "transient" in report["reason"], observed
+        assert "neither the" not in report["reason"], observed
+        assert "observed:" in report["reason"], observed
+        assert observed in report["reason"], observed
+        assert state["probe_calls"] == 1, observed
+        assert state["asset_attempts"] == {}, observed
+    # Boundary: an unrecognized shape (HTTP 500 here) is NOT transient-classed;
+    # it keeps the marker-drift wording so genuine drift is never soft-pedaled.
+    fake_run, state = _preflight_gh_stub(
+        module, probe_stderr=b"attestation lookup failed: HTTP 500"
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "transient" not in report["reason"]
+    assert "neither the" in report["reason"]
+    assert state["asset_attempts"] == {}
+
+
 def test_absent_attestation_http_404_shape_is_blocked_lag_not_contradiction(
     monkeypatch, tmp_path, capsys
 ):
@@ -2013,6 +2071,43 @@ def test_envelope_admin_gated_degradation_lands_in_step_summary(monkeypatch, tmp
     monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
     assert module.cmd_preflight(args) == module.EXIT_PASS
     assert json.loads(capsys.readouterr().out)["status"] == "pass"
+
+
+def test_envelope_step_summary_dedupes_repeated_degraded_sections(monkeypatch, tmp_path, capsys):
+    """The workflow's post-publish step re-invokes verify inside one job step
+    on the blocked class, and every invocation appends to the same
+    GITHUB_STEP_SUMMARY file; an identical degradation block must land once,
+    while a genuinely different block (another phase here) still appends."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    degraded = [
+        ("immutable-releases", module.Forbidden("immutable-releases hidden: HTTP 404")),
+        ("rule-suites", module.Forbidden("rule-suites not readable: HTTP 403")),
+    ]
+    summary = tmp_path / "retry-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    for _attempt in range(2):
+        assert module.cmd_preflight(args) == module.EXIT_PASS
+        capsys.readouterr()
+    preflight_heading = "### OpenAPI envelope preflight: admin-read-gated reads degraded"
+    text = summary.read_text(encoding="utf-8")
+    assert text.count(preflight_heading) == 1
+    # Dedupe is exact-block only: a different phase's block still appends.
+    module._append_step_summary(
+        {
+            "phase": "verify",
+            "immutability_setting": "unreadable (HTTP 403)",
+            "rule_suite": {"state": "unverified"},
+        }
+    )
+    text = summary.read_text(encoding="utf-8")
+    assert text.count(preflight_heading) == 1
+    assert text.count("### OpenAPI envelope verify: admin-read-gated reads degraded") == 1
 
 
 def test_sync_copies_use_the_artifact_nested_layout():
