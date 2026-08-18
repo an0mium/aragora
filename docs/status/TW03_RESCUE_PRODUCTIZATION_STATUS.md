@@ -1,6 +1,6 @@
 # TW-03 Rescue Productization Status
 
-Last updated: 2026-07-28T14:02:57Z
+Last updated: 2026-08-18T13:34:27Z
 
 This is the repo-tracked recurring `TW-03` publication surface for repeated rescue-class harvest and conversion.
 
