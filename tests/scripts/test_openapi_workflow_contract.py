@@ -1876,15 +1876,17 @@ def test_envelope_preflight_validates_blocked_marker_against_live_gh(monkeypatch
 def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch, tmp_path, capsys
 ):
-    """A probe answered by HTTP 403 or killed in the network/Sigstore
-    transport never observed a verification verdict, so the blocked report
-    must name the observed cause instead of claiming marker drift: network
-    shapes as the transient infrastructure class, HTTP 403 without any
-    transience promise (a token-permission 403 persists until the token can
-    read the attestations API). The exit class is message-only cosmetics:
-    every class stays blocked pre-publication with the observed stderr
-    embedded and no per-asset verification attempted, and an unrecognized
-    shape still reads as genuine drift."""
+    """A probe answered by HTTP 403, failed by TLS certificate
+    verification, or killed in the network/Sigstore transport never
+    observed a verification verdict, so the blocked report must name the
+    observed cause instead of claiming marker drift: network shapes as the
+    transient infrastructure class, TLS-trust and HTTP 403 shapes without
+    any transience promise (a corporate-MITM trust failure and a
+    token-permission 403 persist until the runner/token configuration
+    changes). The exit class is message-only cosmetics: every class stays
+    blocked pre-publication with the observed stderr embedded and no
+    per-asset verification attempted, and an unrecognized shape still
+    reads as genuine drift."""
     module = _load_envelope_helper()
     identity, args = _preflight_fixture(module, tmp_path)
     head = args.head_sha
@@ -1902,10 +1904,26 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
             b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
             b"dial tcp 127.0.0.1:9: connect: connection refused"
         ),
-        # Corporate-MITM trust failures, pinned live 2026-08-18 against the
-        # byte-exact production argv (gh 2.96.0): an untrusted interceptor
-        # reports unknown authority even when its own certificate is expired,
-        # so the expired-chain shape rides on the crypto/tls umbrella prefix.
+    }
+    for observed, stderr in transient_shapes.items():
+        fake_run, state = _preflight_gh_stub(module, probe_stderr=stderr)
+        monkeypatch.setattr(module, "_run_gh", fake_run)
+        assert module.cmd_preflight(args) == module.EXIT_BLOCKED, observed
+        report = json.loads(capsys.readouterr().out)
+        assert report["status"] == "blocked", observed
+        assert "transient" in report["reason"], observed
+        assert "neither the" not in report["reason"], observed
+        assert "observed:" in report["reason"], observed
+        assert observed in report["reason"], observed
+        assert state["probe_calls"] == 1, observed
+        assert state["asset_attempts"] == {}, observed
+    # TLS-trust failures (corporate-MITM interception, untrusted or expired
+    # chains), pinned live 2026-08-18 against the byte-exact production argv
+    # (gh 2.96.0): an untrusted interceptor reports unknown authority even
+    # when its own certificate is expired, so the expired-chain shape rides
+    # on the crypto/tls umbrella prefix. These are persistent runner
+    # configuration states, so their wording promises no transience.
+    tls_trust_shapes = {
         "x509: certificate signed by unknown authority": (
             b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
             b'attestations/sha256:ab12?per_page=30": tls: failed to verify '
@@ -1918,13 +1936,15 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
             b"current time 2026-08-18T12:00:00Z is after 2026-08-17T18:40:37Z"
         ),
     }
-    for observed, stderr in transient_shapes.items():
+    for observed, stderr in tls_trust_shapes.items():
         fake_run, state = _preflight_gh_stub(module, probe_stderr=stderr)
         monkeypatch.setattr(module, "_run_gh", fake_run)
         assert module.cmd_preflight(args) == module.EXIT_BLOCKED, observed
         report = json.loads(capsys.readouterr().out)
         assert report["status"] == "blocked", observed
-        assert "transient" in report["reason"], observed
+        assert "failed TLS certificate verification" in report["reason"], observed
+        assert "persists until the runner trusts" in report["reason"], observed
+        assert "transient" not in report["reason"], observed
         assert "neither the" not in report["reason"], observed
         assert "observed:" in report["reason"], observed
         assert observed in report["reason"], observed
