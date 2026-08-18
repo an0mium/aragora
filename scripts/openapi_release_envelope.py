@@ -30,10 +30,13 @@ every readable answer keeps full fail-closed semantics, and the operator's
 
 Exit codes (CDG status vocabulary): 0 pass, 1 fail (verification
 contradiction), 2 blocked (publication/attestation/rule-suite not yet
-visible), 3 movement (selection moved; restart verification). Only blocked
-post-publication verification may be retried in place, with the same original
-identity and envelope. Fail, movement, and unexpected errors are terminal;
-build, preflight, attestation, and publication must stay outside that retry.
+visible), 3 movement (selection moved; restart verification). Retries are
+bounded, deterministic, and blocked-class only: ``preflight`` retries its
+read-only pre-publish attestation checks on the 5/10/20s ladder before
+concluding blocked, and only blocked post-publication verification may be
+retried in place, with the same original identity and envelope. Fail,
+movement, and unexpected errors are terminal; build, attestation (signing),
+publication, and every other phase stay outside any retry.
 """
 
 from __future__ import annotations
@@ -41,10 +44,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +65,17 @@ EXIT_PASS = 0
 EXIT_FAIL = 1
 EXIT_BLOCKED = 2
 EXIT_MOVEMENT = 3
+
+# The single stderr marker `_checked_verification` keys blocked-vs-fail on.
+# cmd_preflight validates it against the live runner gh (blocked-marker
+# probe) so the marker and the detection can never drift apart silently.
+NO_ATTESTATIONS_MARKER = "no attestations"
+BLOCKED_MARKER_PROBE_NAME = "blocked-marker-probe.bin"
+# Pre-publish attestation lag ladder; mirrors the workflow's post-publish
+# retry step (4 attempts, 5/10/20s waits), blocked class only.
+PREPUBLISH_RETRY_DELAYS = (5, 10, 20)
+
+_sleep = time.sleep
 
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -416,6 +432,23 @@ def _checked_verification(argv: list[str], *, kind: str, blocked_marker: str = "
     raise RuntimeError(f"{kind} verification failed: {stderr}")
 
 
+def _verification_with_lag_retry(
+    argv: list[str], *, kind: str, delays: tuple[int, ...] = PREPUBLISH_RETRY_DELAYS
+) -> None:
+    """Bounded deterministic retry for the blocked class only. Attestation
+    data written by actions/attest propagates to the verification data plane
+    asynchronously, so a pre-publish read can lag the signing step inside
+    the same run; a readable contradiction (RuntimeError) is terminal on the
+    first read and never retried."""
+    for delay in delays:
+        try:
+            _checked_verification(argv, kind=kind, blocked_marker=NO_ATTESTATIONS_MARKER)
+            return
+        except Blocked:
+            _sleep(delay)
+    _checked_verification(argv, kind=kind, blocked_marker=NO_ATTESTATIONS_MARKER)
+
+
 def live_selection_snapshot(identity: dict[str, Any]) -> dict[str, Any]:
     """Requery main, workflow, the bound attempt, and the run-level artifact;
     the caller compares two snapshots and restarts on any movement.
@@ -573,6 +606,43 @@ def _rule_suite_binding(repository: str, head_sha: str, *, admin_reads: str) -> 
         return {"state": "unverified", "reason": str(exc)}
 
 
+def _admin_gated_notes(report: dict[str, Any]) -> list[str]:
+    notes: list[str] = []
+    setting = report.get("immutability_setting")
+    if isinstance(setting, str) and setting.startswith("unreadable"):
+        notes.append("immutable-releases setting: unreadable (Administration:read gated)")
+    suite = report.get("rule_suite")
+    if isinstance(suite, dict) and suite.get("state") == "unverified":
+        notes.append("rule-suite binding: unverified (Administration:read gated)")
+    return notes
+
+
+def _append_step_summary(report: dict[str, Any]) -> None:
+    """Surface admin-read-gated degradation distinctly in the job summary.
+
+    The in-job token soft-reports these surfaces by design (``--admin-reads
+    report``); the summary makes the degraded state visible to the operator
+    without hard-failing non-admin tokens. Summary IO is cosmetic and must
+    never flip a verification outcome."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    notes = _admin_gated_notes(report)
+    if not notes:
+        return
+    lines = [
+        f"### OpenAPI envelope {report.get('phase', 'run')}: admin-read-gated reads degraded",
+        *[f"- {note}" for note in notes],
+        "- authoritative for these surfaces: the external `verify --admin-reads required` run",
+        "",
+    ]
+    try:
+        with open(path, "a", encoding="utf-8") as stream:
+            stream.write("\n".join(lines) + "\n")
+    except OSError:
+        return
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     identity = make_identity(
         repository=args.repository,
@@ -648,14 +718,14 @@ def cmd_verify(args: argparse.Namespace) -> int:
             _checked_verification(
                 release_verify_argv(tag, repository=repository),
                 kind=f"release {tag}",
-                blocked_marker="no attestations",
+                blocked_marker=NO_ATTESTATIONS_MARKER,
             )
             for name in sorted(files):
                 asset_path = str(Path(scratch) / name)
                 _checked_verification(
                     release_verify_asset_argv(tag, asset_path, repository=repository),
                     kind=f"release asset {name}",
-                    blocked_marker="no attestations",
+                    blocked_marker=NO_ATTESTATIONS_MARKER,
                 )
                 _checked_verification(
                     attestation_verify_argv(
@@ -665,7 +735,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
                         signer_workflow=signer_workflow,
                     ),
                     kind=f"attestation for {name}",
-                    blocked_marker="no attestations",
+                    blocked_marker=NO_ATTESTATIONS_MARKER,
                 )
         report["payload_assets"] = [entry["name"] for entry in manifest["payload_assets"]]
         report["rule_suite"] = _rule_suite_binding(
@@ -692,6 +762,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
     except (RuntimeError, ValueError) as exc:
         _emit({**report, "status": "fail", "reason": str(exc)})
         return EXIT_FAIL
+    finally:
+        _append_step_summary(report)
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:
@@ -718,8 +790,81 @@ def cmd_preflight(args: argparse.Namespace) -> int:
         }
         manifest = verify_envelope_assets(files, identity)
         report["payload_assets"] = [entry["name"] for entry in manifest["payload_assets"]]
+        # `gh release verify`/`verify-asset` arrived in gh 2.96; probing the
+        # subcommands AND every flag of the exact post-publish argv (built by
+        # the same builders the post-publish steps run) keeps a runner-gh
+        # mismatch from surfacing only after the irreversible publication.
+        sample_asset = str(assets_dir / MANIFEST_NAME)
+        for capability, probe_argv in (
+            (("release", "verify"), release_verify_argv(tag, repository=repository)),
+            (
+                ("release", "verify-asset"),
+                release_verify_asset_argv(tag, sample_asset, repository=repository),
+            ),
+            (
+                ("attestation", "verify"),
+                attestation_verify_argv(
+                    sample_asset,
+                    repository=repository,
+                    head_sha=identity["head_sha"],
+                    signer_workflow=signer_workflow,
+                ),
+            ),
+        ):
+            helped = _run_gh(["gh", *capability, "--help"])
+            if helped.returncode != 0:
+                raise Blocked(
+                    f"gh {' '.join(capability)} is unavailable on this runner; "
+                    "post-publication verification would be impossible"
+                )
+            help_text = (helped.stdout + helped.stderr).decode("utf-8", "replace")
+            missing = [
+                flag
+                for flag in sorted({token for token in probe_argv if token.startswith("-")})
+                if flag not in help_text
+            ]
+            if missing:
+                raise Blocked(
+                    f"gh {' '.join(capability)} on this runner does not accept "
+                    f"{', '.join(missing)}; the exact post-publish verification argv "
+                    "would be rejected only after the irreversible publication"
+                )
+        report["gh_capabilities"] = [
+            "attestation verify",
+            "release verify",
+            "release verify-asset",
+        ]
+        # `_checked_verification` distinguishes retryable lag from a readable
+        # contradiction by NO_ATTESTATIONS_MARKER. Verifying a per-identity
+        # scratch subject that provably has no attestation forces the live
+        # runner gh to emit its no-attestation error NOW, so marker drift
+        # blocks here instead of hard-failing after publication.
+        with tempfile.TemporaryDirectory() as probe_dir:
+            probe_path = Path(probe_dir) / BLOCKED_MARKER_PROBE_NAME
+            probe_path.write_bytes(f"unattested probe subject for {tag}\n".encode())
+            probe = _run_gh(
+                attestation_verify_argv(
+                    str(probe_path),
+                    repository=repository,
+                    head_sha=identity["head_sha"],
+                    signer_workflow=signer_workflow,
+                )
+            )
+        if probe.returncode == 0:
+            raise Blocked(
+                "blocked-marker probe unexpectedly verified an unattested scratch "
+                "subject; this runner's gh verification verdicts cannot be trusted"
+            )
+        probe_stderr = probe.stderr.decode("utf-8", "replace").strip()
+        if NO_ATTESTATIONS_MARKER not in probe_stderr.lower():
+            raise Blocked(
+                f"runner gh reports a missing attestation without the "
+                f"{NO_ATTESTATIONS_MARKER!r} marker, so post-publish propagation lag "
+                f"would hard-fail instead of retrying; observed: {probe_stderr[:300]}"
+            )
+        report["blocked_marker_probe"] = "validated"
         for name in sorted(files):
-            _checked_verification(
+            _verification_with_lag_retry(
                 attestation_verify_argv(
                     str(assets_dir / name),
                     repository=repository,
@@ -727,7 +872,6 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                     signer_workflow=signer_workflow,
                 ),
                 kind=f"pre-publish attestation for {name}",
-                blocked_marker="no attestations",
             )
         # Forbidden subclasses Blocked: only a plain Blocked (404-class
         # invisibility) proves absence. A 403 rate-limit/permission answer
@@ -757,16 +901,6 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 f"git tag {tag} already exists; publishing would bind the release "
                 "to that tag's commit instead of the requested target"
             )
-        # `gh release verify`/`verify-asset` arrived in gh 2.96; probing them
-        # here keeps a missing subcommand from surfacing only after the
-        # irreversible publication.
-        for capability in (("release", "verify"), ("release", "verify-asset")):
-            if _run_gh(["gh", *capability, "--help"]).returncode != 0:
-                raise Blocked(
-                    f"gh {' '.join(capability)} is unavailable on this runner; "
-                    "post-publication verification would be impossible"
-                )
-        report["gh_capabilities"] = ["release verify", "release verify-asset"]
         report["immutability_setting"] = _immutability_state(
             repository, admin_reads=args.admin_reads
         )
@@ -791,6 +925,8 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     except (RuntimeError, ValueError) as exc:
         _emit({**report, "status": "fail", "reason": str(exc)})
         return EXIT_FAIL
+    finally:
+        _append_step_summary(report)
 
 
 DRY_RUN_HEAD_SHA = "0123456789abcdef0123456789abcdef01234567"
