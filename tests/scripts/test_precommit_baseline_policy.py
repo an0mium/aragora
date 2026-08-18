@@ -49,6 +49,13 @@ def test_eof_normalizer_excludes_structured_artifacts(path: str) -> None:
     assert pattern.search(path)
 
 
+@pytest.mark.parametrize("hook_id", ["end-of-file-fixer", "ruff", "ruff-format"])
+def test_python_rewriters_exclude_integrity_pinned_launcher(hook_id: str) -> None:
+    pattern = re.compile(str(_hook(hook_id)["exclude"]))
+    assert pattern.search(".github/workflows/contract_drift_trusted_launcher.py")
+    assert not pattern.search(".github/workflows/contract_drift_trusted_bootstrap.py")
+
+
 def test_yaml_hook_excludes_only_helm_template_trees() -> None:
     pattern = re.compile(str(_hook("check-yaml")["exclude"]))
     assert pattern.search("deploy/kubernetes/helm/aragora/templates/deployment-backend.yaml")

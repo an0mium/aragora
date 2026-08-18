@@ -1,6 +1,6 @@
 # Pre-commit hooks for Aragora
 # See https://pre-commit.com for more information
-# Install: pre-commit install
+# Install: pre-commit install --hook-type pre-commit --hook-type pre-push
 # Run all: pre-commit run --all-files
 
 repos:
@@ -11,7 +11,7 @@ repos:
       - id: trailing-whitespace
         exclude: (^docs/|\.md$)
       - id: end-of-file-fixer
-        exclude: (^docs/|\.md$|\.json$|\.lock$)
+        exclude: (^docs/|\.md$|\.json$|\.lock$|^\.github/workflows/contract_drift_trusted_launcher\.py$)
       - id: check-yaml
         args: [--unsafe]  # Allow custom tags
         exclude: ^(deploy/(helm|multi-region/helm|kubernetes/helm)|aragora-operator/helm)/.*templates/  # Helm templates use Go templating
@@ -30,9 +30,10 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
         types_or: [python, pyi]
+        exclude: ^\.github/workflows/contract_drift_trusted_launcher\.py$
       - id: ruff-format
         types_or: [python, pyi]
-        exclude: ^sdk/python/aragora/generated_types\.py$  # Auto-generated, must stay stable
+        exclude: ^(sdk/python/aragora/generated_types\.py|\.github/workflows/contract_drift_trusted_launcher\.py)$  # Integrity-pinned/generated, must stay stable
 
   # Type checking with mypy on the same local planning surface as CI's REQUIRED
   # phase-1 typecheck gate. Touched `aragora/**.py` files use CI's changed-file
@@ -179,6 +180,17 @@ repos:
         entry: python3 scripts/check_portability.py
         language: system
         types: [text]
+
+  # Boundary 2 quarantine: report new or stale receipts+verifier module edges.
+  - repo: local
+    hooks:
+      - id: boundary2-edges
+        name: Boundary 2 receipts+verifier fail-on-new edges
+        entry: python3 scripts/ci/check_boundary_edges.py
+        language: system
+        pass_filenames: false
+        files: ^(?:\.pre-commit-config\.yaml|aragora/.*|aragora-verify/src/aragora_verify/.*|scripts/baselines/boundary2_edges_baseline\.json|scripts/ci/boundary_maps/receipts_verifier\.json|scripts/ci/check_boundary_edges\.py)$
+        stages: [pre-commit, pre-push]
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
