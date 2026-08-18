@@ -101,7 +101,6 @@ RECOVERY_STEPS_WITH_OR_TRUE = {
     ("generate-run", "Ensure python toolchain is available"),
     ("generate-run", "Fix npm cache ownership"),
     ("sync", "Verify checkout integrity"),
-    ("sync", "Check for changes"),
     ("sync", "Commit updated spec"),
     ("envelope", "Verify checkout integrity"),
 }
@@ -1260,8 +1259,8 @@ def test_envelope_preflight_tag_probes_treat_forbidden_as_blocked(monkeypatch, t
     assets_dir.mkdir()
     for name, data in assets.items():
         (assets_dir / name).write_bytes(data)
-    ok = subprocess.CompletedProcess(args=["gh"], returncode=0, stdout=b"{}", stderr=b"")
-    monkeypatch.setattr(module, "_run_gh", lambda argv: ok)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
     args = argparse.Namespace(
         repository="synaptent/aragora",
         head_sha=head,
@@ -1701,3 +1700,503 @@ def test_dispatch_omission_is_default_false_and_cannot_publish_envelope():
     gate = _step("envelope", "Require operator immutable-releases attestation")["run"]
     assert '[[ "$OPERATOR_CONFIRMED" != "true" ]]' in gate
     assert "exit 2" in gate
+
+
+# ---------------------------------------------------------------------------
+# PR #9781 P3 follow-ups: exact post-publish argv + blocked-marker probes,
+# bounded pre-publish attestation lag retry, admin-gated degradation in the
+# job summary, and the sync copy layout
+# ---------------------------------------------------------------------------
+
+SYNC_COPY_STEPS = ("Check for changes", "Commit updated spec")
+
+_GH_HELP_TEXT = b"-R, --repo | --format | --signer-workflow | --source-digest"
+
+
+def _upload_payload_paths() -> list[str]:
+    raw = _step("generate-run", "Upload generated spec and SDK types")["with"]["path"]
+    return [line.strip() for line in raw.splitlines() if line.strip()]
+
+
+def _sync_cp_lines(step_name: str) -> list[str]:
+    return [
+        line.strip()
+        for line in _step("sync", step_name)["run"].splitlines()
+        if line.strip().startswith("cp ")
+    ]
+
+
+def _preflight_gh_stub(
+    module,
+    *,
+    help_text: bytes = _GH_HELP_TEXT,
+    broken_help: tuple[str, ...] = (),
+    probe_rc: int = 1,
+    probe_stderr: bytes = b"HTTP 404: no attestations found for subject",
+    asset_lag: int = 0,
+    asset_stderr: bytes = b"no attestations found for the requested subject yet",
+):
+    """Fake `_run_gh` covering cmd_preflight's direct gh surfaces: the
+    `--help` capability probes, the scratch blocked-marker probe, and the
+    per-asset pre-publish attestation verifies (which lag `asset_lag` reads
+    before succeeding). Tag probes and settings go through `_gh_api_json`
+    and are stubbed separately."""
+    state: dict = {"help": [], "probe_calls": 0, "asset_attempts": {}}
+
+    def fake_run(argv):
+        module.require_read_only_argv(argv)
+        if argv[-1] == "--help":
+            action = " ".join(argv[1:-1])
+            state["help"].append(action)
+            if action in broken_help:
+                return subprocess.CompletedProcess(argv, 1, b"", b"unknown command")
+            return subprocess.CompletedProcess(argv, 0, help_text, b"")
+        assert tuple(argv[1:3]) == ("attestation", "verify"), argv
+        subject = argv[3]
+        if subject.endswith(module.BLOCKED_MARKER_PROBE_NAME):
+            state["probe_calls"] += 1
+            return subprocess.CompletedProcess(argv, probe_rc, b"", probe_stderr)
+        attempts = state["asset_attempts"].get(subject, 0) + 1
+        state["asset_attempts"][subject] = attempts
+        if attempts <= asset_lag:
+            return subprocess.CompletedProcess(argv, 1, b"", asset_stderr)
+        return subprocess.CompletedProcess(argv, 0, b"{}", b"")
+
+    return fake_run, state
+
+
+def _preflight_fixture(module, tmp_path, head: str = "a1" * 20, run_id: int = 77):
+    identity = module.make_identity(**_identity_kwargs(module, head, run_id=run_id))
+    assets = module.build_envelope(
+        {"docs/api/openapi_generated.json": b'{"openapi":"3.1.0"}\n'}, identity
+    )
+    assets_dir = tmp_path / "assets"
+    assets_dir.mkdir()
+    for name, data in assets.items():
+        (assets_dir / name).write_bytes(data)
+    args = argparse.Namespace(
+        repository="synaptent/aragora",
+        head_sha=head,
+        run_id=run_id,
+        run_attempt=1,
+        artifact_name=identity["artifact_name"],
+        assets_dir=str(assets_dir),
+        signer_workflow="",
+        admin_reads="report",
+    )
+    return identity, args
+
+
+def test_envelope_preflight_pins_exact_post_publish_verify_argv(monkeypatch, tmp_path, capsys):
+    """The capability probe must validate the exact post-publish argv shape
+    (every flag the shared builders emit) and the attestation subcommand
+    itself, so a runner-gh mismatch surfaces as blocked BEFORE `gh release
+    create` instead of as a hard exit 1 after the irreversible publication."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    # Control: a gh advertising every builder flag preflights clean and
+    # reports all three probed capabilities.
+    fake_run, state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "pass"
+    assert report["gh_capabilities"] == [
+        "attestation verify",
+        "release verify",
+        "release verify-asset",
+    ]
+    assert set(state["help"]) == {"release verify", "release verify-asset", "attestation verify"}
+    # Exact-argv drift: help output missing `--format` blocks pre-publication
+    # naming the rejected flag, before any per-asset verification runs.
+    fake_run, state = _preflight_gh_stub(module, help_text=b"-R, --repo only")
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "--format" in report["reason"]
+    assert state["asset_attempts"] == {}
+    assert state["probe_calls"] == 0
+    # A missing subcommand still blocks (the pre-existing guarantee, now
+    # covering `gh attestation verify` too).
+    fake_run, state = _preflight_gh_stub(module, broken_help=("attestation verify",))
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "attestation verify" in report["reason"]
+    assert state["asset_attempts"] == {}
+
+
+def test_envelope_preflight_validates_blocked_marker_against_live_gh(monkeypatch, tmp_path, capsys):
+    """`_checked_verification` keys blocked-vs-fail on the `no attestations`
+    stderr marker. Preflight forces the runner's gh to emit its live
+    no-attestation error against a guaranteed-unattested scratch subject, so
+    marker drift blocks pre-publication instead of turning post-publish
+    propagation lag into a hard failure."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    # Marker drift: the probe fails without the marker -> blocked, naming
+    # the observed stderr, before any per-asset verification.
+    fake_run, state = _preflight_gh_stub(
+        module, probe_stderr=b"attestation lookup failed: HTTP 500"
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "no attestations" in report["reason"]
+    assert "HTTP 500" in report["reason"]
+    assert state["probe_calls"] == 1
+    assert state["asset_attempts"] == {}
+    # A probe that unexpectedly verifies an unattested subject is just as
+    # disqualifying: the runner's verification verdicts cannot be trusted.
+    fake_run, state = _preflight_gh_stub(module, probe_rc=0)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "unattested" in report["reason"]
+    assert state["asset_attempts"] == {}
+    # Healthy runner: the probe validates the marker and preflight records it.
+    fake_run, state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    report = json.loads(capsys.readouterr().out)
+    assert report["blocked_marker_probe"] == "validated"
+    assert state["probe_calls"] == 1
+
+
+def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
+    monkeypatch, tmp_path, capsys
+):
+    """A probe answered by HTTP 403 or killed in the network/Sigstore
+    transport never observed a verification verdict, so the blocked report
+    must name the transient cause instead of claiming marker drift. The
+    exit class is message-only cosmetics: every class stays blocked
+    pre-publication with the observed stderr embedded and no per-asset
+    verification attempted, and an unrecognized shape still reads as
+    genuine drift."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    transient_shapes = {
+        "HTTP 403": (
+            b"Error: HTTP 403: API rate limit exceeded (https://api.github.com/"
+            b"repos/synaptent/aragora/attestations/sha256:ab12?per_page=30)"
+        ),
+        # Both live network shapes (gh 2.96.0, observed 2026-08-18): transport
+        # death before verifier initialization, and a post-init API dial
+        # failure whose stderr carries the attestations path but no HTTP 404.
+        "no valid Sigstore verifiers could be initialized": (
+            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
+        ),
+        "connection refused": (
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
+            b"dial tcp 127.0.0.1:9: connect: connection refused"
+        ),
+    }
+    for observed, stderr in transient_shapes.items():
+        fake_run, state = _preflight_gh_stub(module, probe_stderr=stderr)
+        monkeypatch.setattr(module, "_run_gh", fake_run)
+        assert module.cmd_preflight(args) == module.EXIT_BLOCKED, observed
+        report = json.loads(capsys.readouterr().out)
+        assert report["status"] == "blocked", observed
+        assert "transient" in report["reason"], observed
+        assert "neither the" not in report["reason"], observed
+        assert "observed:" in report["reason"], observed
+        assert observed in report["reason"], observed
+        assert state["probe_calls"] == 1, observed
+        assert state["asset_attempts"] == {}, observed
+    # Boundary: an unrecognized shape (HTTP 500 here) is NOT transient-classed;
+    # it keeps the marker-drift wording so genuine drift is never soft-pedaled.
+    fake_run, state = _preflight_gh_stub(
+        module, probe_stderr=b"attestation lookup failed: HTTP 500"
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "transient" not in report["reason"]
+    assert "neither the" in report["reason"]
+    assert state["asset_attempts"] == {}
+
+
+def test_absent_attestation_http_404_shape_is_blocked_lag_not_contradiction(
+    monkeypatch, tmp_path, capsys
+):
+    """Newer gh (2.96.0, observed live 2026-08-18) reports an unattested or
+    not-yet-propagated subject as a raw attestations-API HTTP 404 instead of
+    the textual `no attestations` marker. Both shapes must class as the
+    retryable blocked state, while a 404 from any OTHER endpoint stays a
+    readable contradiction that fails on the first read with no retry."""
+    module = _load_envelope_helper()
+    attestation_404 = (
+        b"Error: HTTP 404: Not Found (https://api.github.com/repos/"
+        b"synaptent/aragora/attestations/sha256:ab12?per_page=30)"
+    )
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    # The live probe accepts the 404 shape as a validated blocked marker.
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, state = _preflight_gh_stub(module, probe_stderr=attestation_404)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["blocked_marker_probe"] == "validated"
+    assert state["probe_calls"] == 1
+    # The same shape is retryable propagation lag for the per-asset reads.
+    sleeps: list[int] = []
+    monkeypatch.setattr(module, "_sleep", sleeps.append)
+    fake_run, state = _preflight_gh_stub(module, asset_lag=1, asset_stderr=attestation_404)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    assert set(state["asset_attempts"].values()) == {2}
+    assert sleeps == [5] * len(state["asset_attempts"])
+    # A 404 from any non-attestations endpoint is a contradiction, not lag:
+    # the first read fails and the ladder never sleeps.
+    release_404 = (
+        b"HTTP 404: Not Found (https://api.github.com/repos/"
+        b"synaptent/aragora/releases/tags/openapi-envelope-x)"
+    )
+    sleeps.clear()
+    monkeypatch.setattr(
+        module,
+        "_run_gh",
+        lambda argv: subprocess.CompletedProcess(argv, 1, b"", release_404),
+    )
+    with pytest.raises(RuntimeError, match="release probe"):
+        module._verification_with_lag_retry(
+            ["gh", "release", "verify", "openapi-envelope-x", "-R", "synaptent/aragora"],
+            kind="release probe",
+        )
+    assert sleeps == []
+
+
+def test_envelope_preflight_attestation_lag_retry_is_bounded_and_deterministic(
+    monkeypatch, tmp_path, capsys
+):
+    """Pre-publish attestation reads can lag the actions/attest step inside
+    the same run. The retry mirrors the post-publish ladder (4 attempts,
+    5/10/20s waits), retries ONLY the blocked class, and weakens no
+    fail-closed outcome: exhaustion stays blocked (exit 2, nothing
+    published) and a readable contradiction still fails on the first read."""
+    module = _load_envelope_helper()
+    assert module.PREPUBLISH_RETRY_DELAYS == (5, 10, 20)
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    sleeps: list[int] = []
+    monkeypatch.setattr(module, "_sleep", sleeps.append)
+    # Two lagging reads per asset recover without failing the run.
+    fake_run, state = _preflight_gh_stub(module, asset_lag=2)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    assert set(state["asset_attempts"].values()) == {3}
+    assert sleeps == [5, 10] * len(state["asset_attempts"])
+    # Persistent lag exhausts the bounded ladder on the first asset and
+    # stays blocked; the ladder never grows and never loops.
+    sleeps.clear()
+    fake_run, state = _preflight_gh_stub(module, asset_lag=10)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "not attested yet" in report["reason"]
+    assert state["asset_attempts"] == {
+        min(state["asset_attempts"]): 1 + len(module.PREPUBLISH_RETRY_DELAYS)
+    }
+    assert sleeps == [5, 10, 20]
+    # A readable contradiction never retries and never sleeps.
+    sleeps.clear()
+    fake_run, state = _preflight_gh_stub(
+        module, asset_lag=10, asset_stderr=b"subject digest mismatch"
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_FAIL
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "fail"
+    assert "digest mismatch" in report["reason"]
+    assert set(state["asset_attempts"].values()) == {1}
+    assert len(state["asset_attempts"]) == 1
+    assert sleeps == []
+
+
+def test_envelope_admin_gated_degradation_lands_in_step_summary(monkeypatch, tmp_path, capsys):
+    """The in-run token soft-reports admin-gated surfaces by design
+    (``--admin-reads report``); the job summary must surface that degraded
+    state distinctly WITHOUT hard-failing the non-admin token, stay silent
+    when nothing degraded, and never affect the verification outcome when no
+    summary surface exists."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    degraded = [
+        ("immutable-releases", module.Forbidden("immutable-releases hidden: HTTP 404")),
+        ("rule-suites", module.Forbidden("rule-suites not readable: HTTP 403")),
+    ]
+    summary = tmp_path / "step-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    text = summary.read_text(encoding="utf-8")
+    assert "admin-read-gated" in text
+    assert "immutable-releases setting: unreadable" in text
+    assert "rule-suite binding: unverified" in text
+    assert "--admin-reads required" in text
+    # Nothing degraded: nothing written.
+    clean_summary = tmp_path / "clean-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(clean_summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    capsys.readouterr()
+    assert not clean_summary.exists()
+    # No summary surface at all: degradation still soft-reports cleanly.
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY")
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    assert module.cmd_preflight(args) == module.EXIT_PASS
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+
+
+def test_envelope_step_summary_dedupes_repeated_degraded_sections(monkeypatch, tmp_path, capsys):
+    """The workflow's post-publish step re-invokes verify inside one job step
+    on the blocked class, and every invocation appends to the same
+    GITHUB_STEP_SUMMARY file; an identical degradation block must land once,
+    while a genuinely different block (another phase here) still appends."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    degraded = [
+        ("immutable-releases", module.Forbidden("immutable-releases hidden: HTTP 404")),
+        ("rule-suites", module.Forbidden("rule-suites not readable: HTTP 403")),
+    ]
+    summary = tmp_path / "retry-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    for _attempt in range(2):
+        assert module.cmd_preflight(args) == module.EXIT_PASS
+        capsys.readouterr()
+    preflight_heading = "### OpenAPI envelope preflight: admin-read-gated reads degraded"
+    text = summary.read_text(encoding="utf-8")
+    assert text.count(preflight_heading) == 1
+    # Dedupe is exact-block only: a different phase's block still appends.
+    module._append_step_summary(
+        {
+            "phase": "verify",
+            "immutability_setting": "unreadable (HTTP 403)",
+            "rule_suite": {"state": "unverified"},
+        }
+    )
+    text = summary.read_text(encoding="utf-8")
+    assert text.count(preflight_heading) == 1
+    assert text.count("### OpenAPI envelope verify: admin-read-gated reads degraded") == 1
+
+
+def test_envelope_step_summary_tolerates_foreign_undecodable_bytes(monkeypatch, tmp_path, capsys):
+    """GITHUB_STEP_SUMMARY is shared with every other step in the job, so its
+    existing content can be arbitrary non-UTF-8 bytes; the dedupe read must
+    never let a decode error escape the finally-block append and flip a
+    verification outcome (summary IO stays cosmetic), and dedupe must still
+    work across repeat runs against the poisoned file."""
+    module = _load_envelope_helper()
+    identity, args = _preflight_fixture(module, tmp_path)
+    head = args.head_sha
+    monkeypatch.setattr(module, "_sleep", lambda _delay: None)
+    fake_run, _state = _preflight_gh_stub(module)
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    degraded = [
+        ("immutable-releases", module.Forbidden("immutable-releases hidden: HTTP 404")),
+        ("rule-suites", module.Forbidden("rule-suites not readable: HTTP 403")),
+    ]
+    summary = tmp_path / "poisoned-summary.md"
+    summary.write_bytes(b"\xff\xfe\x80 foreign step bytes\n")
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, degraded))
+    for _attempt in range(2):
+        assert module.cmd_preflight(args) == module.EXIT_PASS
+        assert json.loads(capsys.readouterr().out)["status"] == "pass"
+    raw = summary.read_bytes()
+    assert raw.startswith(b"\xff\xfe\x80")
+    assert raw.count(b"### OpenAPI envelope preflight: admin-read-gated reads degraded") == 1
+
+
+def test_sync_copies_use_the_artifact_nested_layout():
+    """download-artifact@v4 preserves the upload's repo-root-relative layout
+    (the five payload paths share the repository root as their least common
+    ancestor), so the artifact sources sit at their full nested paths. A
+    flat basename copy matches nothing, and with ``2>/dev/null || true``
+    masking it silently reduced the whole sync push to a no-op."""
+    payload_paths = _upload_payload_paths()
+    assert len(payload_paths) == 5
+    expected_sources = {f"/tmp/openapi-spec/{path}" for path in payload_paths}
+    for step_name in SYNC_COPY_STEPS:
+        cp_lines = _sync_cp_lines(step_name)
+        assert len(cp_lines) == len(payload_paths), (step_name, cp_lines)
+        sources = {line.split()[1] for line in cp_lines}
+        assert sources == expected_sources, (step_name, sorted(sources))
+        for line in cp_lines:
+            assert "|| true" not in line, (step_name, line)
+            assert "2>/dev/null" not in line, (step_name, line)
+
+
+def test_sync_check_step_applies_copies_and_fails_loudly_on_layout_drift(tmp_path):
+    """Behavioral: with the artifact tree laid out the way the upload step
+    produces it, every copy lands and drift is reported; a missing source
+    (layout drift) fails the step instead of no-opping, which fails the sync
+    job and skips the dependent envelope job (fail-closed, nothing
+    published)."""
+    payload_paths = _upload_payload_paths()
+    destinations = {
+        "docs/api/openapi_generated.json": "docs/api/openapi.json",
+        "docs/api/openapi_generated.yaml": "docs/api/openapi.yaml",
+        "sdk/typescript/src/openapi-types.ts": "sdk/typescript/src/openapi-types.ts",
+        "sdk/python/aragora/generated_types.py": "sdk/python/aragora/generated_types.py",
+        "aragora/live/src/types/api.generated.ts": "aragora/live/src/types/api.generated.ts",
+    }
+    assert set(destinations) == set(payload_paths)
+    artifact_root = tmp_path / "openapi-spec"
+    for path in payload_paths:
+        source = artifact_root / path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(f"generated {path}\n", encoding="utf-8")
+        destination = tmp_path / destinations[path]
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text("stale\n", encoding="utf-8")
+    run = _relocated(_step("sync", "Check for changes")["run"], tmp_path)
+    output = tmp_path / "github-output"
+    env = {"GITHUB_OUTPUT": str(output)}
+    drift_stub = "git() { return 1; }\n"
+    result = _simulate_step(run, env=env, cwd=tmp_path, stub_prelude=drift_stub)
+    assert result.returncode == 0, result.stderr
+    for path, destination in destinations.items():
+        copied = (tmp_path / destination).read_text(encoding="utf-8")
+        assert copied == f"generated {path}\n", destination
+    assert "changes=true" in output.read_text(encoding="utf-8")
+    # No drift: no changes output is emitted.
+    output.write_text("", encoding="utf-8")
+    clean_stub = "git() { return 0; }\n"
+    result = _simulate_step(run, env=env, cwd=tmp_path, stub_prelude=clean_stub)
+    assert result.returncode == 0, result.stderr
+    assert "changes=true" not in output.read_text(encoding="utf-8")
+    # Layout drift: a missing source must fail the step loudly.
+    (artifact_root / payload_paths[0]).unlink()
+    result = _simulate_step(run, env=env, cwd=tmp_path, stub_prelude=drift_stub)
+    assert result.returncode != 0, "missing artifact source no-opped silently"
