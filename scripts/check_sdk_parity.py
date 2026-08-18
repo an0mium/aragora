@@ -836,6 +836,7 @@ def _run_tighten(args: argparse.Namespace) -> int:
         )
         with os.fdopen(fd, "wb") as handle:
             handle.write(target_bytes)
+        os.chmod(tmp_name, 0o644)  # mkstemp defaults to 0600; keep the budget world-readable
         os.replace(tmp_name, str(args.budget))
         tmp_name = None
     except OSError as exc:
@@ -1026,7 +1027,7 @@ def main() -> int:
 
     if budget_failure_rc is not None:
         if budget_failure_msg:
-            print(f"\n{budget_failure_msg}")
+            print(f"\n{budget_failure_msg}", file=sys.stderr if args.json else sys.stdout)
         return budget_failure_rc
 
     # Strict mode: fail if gaps exceed threshold

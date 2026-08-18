@@ -408,10 +408,14 @@ def test_exit_status_is_invariant_across_system_dates(monkeypatch, tmp_path):
         assert results == {expected}
 
 
-def test_strict_missing_budget_fails_closed(monkeypatch, tmp_path):
+def test_strict_missing_budget_fails_closed(monkeypatch, tmp_path, capsys):
     _patch_report(monkeypatch, missing=0)
     monkeypatch.setattr(sys, "argv", _strict_argv(tmp_path / "no-budget.json"))
     assert check_sdk_parity.main() == 2
+    monkeypatch.setattr(sys, "argv", _strict_argv(tmp_path / "no-budget.json", "--json"))
+    capsys.readouterr()
+    assert check_sdk_parity.main() == 2
+    assert json.loads(capsys.readouterr().out)["budget"]["error"] == "missing"
 
 
 def test_non_strict_missing_budget_is_tolerated(monkeypatch, tmp_path):
@@ -618,7 +622,7 @@ def test_tighten_exits_2_without_writing_when_extraction_unavailable(monkeypatch
     assert existing.read_bytes() == before
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="directory permissions are bypassed as root")
+@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0, reason="needs POSIX non-root")
 def test_tighten_exits_2_when_budget_path_unwritable(monkeypatch, tmp_path):
     _patch_report(monkeypatch, missing=0, stale_python=3)
     locked_dir = tmp_path / "locked"
