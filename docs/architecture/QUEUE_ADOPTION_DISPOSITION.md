@@ -35,10 +35,10 @@ status, retry, and worker-facing API. New durable server-job producers and job
 types enter through this package.
 
 `aragora/storage/job_queue_store.py` is a bounded current persistence backend,
-not a second public authority. Its existing direct consumers are frozen by the
-conformance test. They may remain until a separately reviewed migration places
-the backend behind `aragora.queue`; no new direct consumer may be added in the
-meantime.
+not a second public authority. Its existing static importers and dynamic module
+references are baselined by the conformance test. Consumer removals are allowed,
+but a new consumer file fails the test. Existing consumers may remain until a
+separately reviewed migration places the backend behind `aragora.queue`.
 
 The following concerns remain distinct:
 
@@ -55,13 +55,17 @@ re-export recorded by CHR-P4A-004.
 ## Verification
 
 `tests/docs/test_queue_authority.py` pins the machine-readable ARCH-015 state,
-the decision-record link, the live entrypoints, and the closed set of existing
-direct `aragora.storage.job_queue_store` consumers. The test fails on authority
-drift or a new direct backend consumer; it never mutates the charter or baseline.
+the decision-record link, the live entrypoints, and the allowed static-import and
+dynamic-reference consumer files. It resolves absolute and relative imports,
+allows consumer removal, and fails on authority drift or a new consumer; it never
+mutates the charter or baseline. ARCH-015's `binding_in_draft` authority is
+enforced by this focused test, not by `scripts/check_charter_compliance.py`, whose
+draft-binding logic applies only to `CHR-*` registry entries.
 
 ## Provenance
 
-- #8851 operator ruling, 2026-07-06: adopt `aragora/queue`.
-- Operator authorization, 2026-08-18: unpark acceptance item 3 for this bounded
-  disposition only.
+- [#8851 operator ruling](https://github.com/synaptent/aragora/issues/8851#issuecomment-4899964631),
+  2026-07-06: adopt `aragora/queue`.
+- [Operator authorization receipt](https://github.com/synaptent/aragora/issues/8851#issuecomment-5330909322),
+  2026-08-18: unpark acceptance item 3 for this bounded disposition only.
 - Current-main audit base: `07942c3dda14303ad49ef58d5154bbbb154d6277`.
