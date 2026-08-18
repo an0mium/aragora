@@ -22,7 +22,14 @@ _OLDER = "2026-08-17T10:00:00Z"
 _NEWER = "2026-08-17T11:00:00Z"
 
 
-def _rest_context_stub(head: str, pr: int, check_runs: list[dict], required: list[str] | None):
+def _rest_context_stub(
+    head: str,
+    pr: int,
+    check_runs: list[dict],
+    required: list[str] | None,
+    *,
+    rules: object = None,
+):
     def fake(args, *, env=None, timeout=m._GH_TIMEOUT):
         if args[1:3] == ["pr", "view"]:
             raise RuntimeError("GraphQL unavailable")
@@ -46,6 +53,10 @@ def _rest_context_stub(head: str, pr: int, check_runs: list[dict], required: lis
             if required is None:
                 raise RuntimeError("403")
             return {"contexts": required, "checks": []}
+        if "rules/branches/main" in endpoint:
+            if isinstance(rules, Exception):
+                raise rules
+            return [] if rules is None else rules
         raise AssertionError(args)
 
     return fake
@@ -216,21 +227,210 @@ def test_summarize_checks_missing_or_tied_ordering_fails_closed() -> None:
         assert m._summarize_checks(rows, required_names={"lint"}) == ("", False, True)
 
 
-def test_required_check_names_retries_with_ambient_operator_auth(monkeypatch) -> None:
-    seen_tokens: list[str] = []
+def test_required_check_names_unions_classic_and_ruleset_requirements(monkeypatch) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        endpoint = args[-1]
+        if "/protection/required_status_checks" in endpoint:
+            return {"contexts": ["lint"], "checks": [{"context": "types", "app_id": 1}]}
+        if "/rules/branches/" in endpoint:
+            return [
+                {"type": "non_fast_forward"},
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "required_status_checks": [
+                            {"context": "ruleset-only", "integration_id": 1},
+                            {"name": "named-requirement"},
+                        ]
+                    },
+                },
+            ]
+        raise AssertionError(args)
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    names = m._required_check_names("o/r", "release/2026-08-17", env={})
+    assert names == {"lint", "types", "ruleset-only", "named-requirement"}
+
+
+def test_required_check_names_accepts_ruleset_only_requirements(monkeypatch) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if "/protection/required_status_checks" in args[-1]:
+            return {"contexts": [], "checks": []}
+        return [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{"context": "ruleset-only"}]},
+            }
+        ]
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert m._required_check_names("o/r", "main", env={}) == {"ruleset-only"}
+
+
+@pytest.mark.parametrize(
+    ("check_runs", "has_failure", "has_pending"),
+    [
+        ([{"name": "ruleset-only", "conclusion": "failure"}], True, False),
+        ([], False, True),
+    ],
+)
+def test_fetch_pr_context_rest_blocks_failed_or_missing_ruleset_requirement(
+    monkeypatch, check_runs, has_failure, has_pending
+) -> None:
+    head = "c" * 40
+    rules = [
+        {
+            "type": "required_status_checks",
+            "parameters": {"required_status_checks": [{"context": "ruleset-only"}]},
+        }
+    ]
+    monkeypatch.setattr(
+        m,
+        "run_json",
+        _rest_context_stub(head, 10, check_runs, [], rules=rules),
+    )
+
+    context = m.fetch_pr_context("o/r", 10)
+
+    assert context["required_checks_disclosed"] is True
+    assert context["has_real_required_failure"] is has_failure
+    assert context["has_real_required_pending"] is has_pending
+
+
+@pytest.mark.parametrize(
+    "rules",
+    [
+        RuntimeError("403"),
+        {"unexpected": "object"},
+        ["not-a-rule"],
+        [{"ruleset_id": 1}],
+        [{"type": "required_status_checks"}],
+        [{"type": "required_status_checks", "parameters": {}}],
+        [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": "lint"},
+            }
+        ],
+        [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{}]},
+            }
+        ],
+        [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{"context": " lint"}]},
+            }
+        ],
+        [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{"context": "lint", "name": "types"}]},
+            }
+        ],
+    ],
+)
+def test_required_check_names_fails_closed_on_unavailable_or_malformed_rules(
+    monkeypatch, rules
+) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if "/protection/required_status_checks" in args[-1]:
+            return {"contexts": ["lint"], "checks": []}
+        if isinstance(rules, Exception):
+            raise rules
+        return rules
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert m._required_check_names("o/r", "main", env={}) is None
+
+
+@pytest.mark.parametrize(
+    "classic",
+    [None, {}, {"contexts": "lint", "checks": []}, {"contexts": [], "checks": [{}]}],
+)
+def test_required_check_names_fails_closed_on_malformed_classic_policy(
+    monkeypatch, classic
+) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        return classic if "/protection/required_status_checks" in args[-1] else []
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert m._required_check_names("o/r", "main", env={}) is None
+
+
+def test_required_check_names_accepts_applied_rules_without_status_checks(monkeypatch) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if "/protection/required_status_checks" in args[-1]:
+            return {"contexts": ["lint"], "checks": []}
+        return [{"type": "non_fast_forward"}, {"type": "deletion"}]
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert m._required_check_names("o/r", "main", env={}) == {"lint"}
+
+
+def test_required_check_names_fails_closed_when_classic_protection_unavailable(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        if "/protection/required_status_checks" in args[-1]:
+            raise RuntimeError("404")
+        return [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{"context": "ruleset-only"}]},
+            }
+        ]
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert m._required_check_names("o/r", "main", env={}) is None
+
+
+def test_applied_branch_rules_reads_every_page(monkeypatch) -> None:
+    pages: list[int] = []
+
+    def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
+        page = int(args[-1].rsplit("page=", 1)[-1])
+        pages.append(page)
+        return [{"type": "deletion"}] * 100 if page == 1 else [{"type": "non_fast_forward"}]
+
+    monkeypatch.setattr(m, "run_json", fake_run_json)
+    assert len(m._applied_branch_rules("o/r", "main", env={})) == 101
+    assert pages == [1, 2]
+
+
+def test_required_check_names_retries_complete_policy_with_ambient_operator_auth(
+    monkeypatch,
+) -> None:
+    seen: list[tuple[str, str]] = []
 
     def fake_run_json(args, *, env=None, timeout=m._GH_TIMEOUT):
         token = str((env or {}).get("GH_TOKEN") or "")
-        seen_tokens.append(token)
-        if token == "app-token":
+        endpoint = args[-1]
+        surface = "rules" if "/rules/branches/" in endpoint else "classic"
+        seen.append((token, surface))
+        if token == "app-token" and surface == "rules":
             raise RuntimeError("403 Resource not accessible by integration")
-        return {"contexts": ["lint"], "checks": [{"context": "types", "app_id": 1}]}
+        if surface == "classic":
+            return {"contexts": ["lint"], "checks": []}
+        return [
+            {
+                "type": "required_status_checks",
+                "parameters": {"required_status_checks": [{"context": "types"}]},
+            }
+        ]
 
     monkeypatch.setattr(m, "run_json", fake_run_json)
     monkeypatch.setattr(m, "aragora_env", lambda: {"GH_TOKEN": "operator-token"})
     names = m._required_check_names("o/r", "release/2026-08-17", env={"GH_TOKEN": "app-token"})
     assert names == {"lint", "types"}
-    assert seen_tokens == ["app-token", "operator-token"]
+    assert seen == [
+        ("app-token", "classic"),
+        ("app-token", "rules"),
+        ("operator-token", "classic"),
+        ("operator-token", "rules"),
+    ]
 
 
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:

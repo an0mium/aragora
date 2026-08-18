@@ -325,6 +325,75 @@ def _rest_check_runs(endpoint: str, *, env: dict[str, str]) -> list[dict[str, An
     return rows
 
 
+def _applied_branch_rules(repo: str, base_ref: str, *, env: dict[str, str]) -> list[dict[str, Any]]:
+    """Fetch every applied branch rule, rejecting incomplete pagination or schema."""
+    endpoint = f"repos/{repo}/rules/branches/{quote(base_ref, safe='')}?per_page={_REST_PAGE_SIZE}"
+    rows: list[dict[str, Any]] = []
+    for page in range(1, _REST_MAX_PAGES + 1):
+        payload = run_json(["gh", "api", "--method", "GET", _with_page(endpoint, page)], env=env)
+        if not isinstance(payload, list) or any(not isinstance(row, dict) for row in payload):
+            raise RuntimeError("applied branch rules returned an invalid payload")
+        rows.extend(payload)
+        if len(payload) < _REST_PAGE_SIZE:
+            return rows
+    raise RuntimeError("applied branch rules exceeded the pagination limit")
+
+
+def _required_context(value: Any, source: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise RuntimeError(f"{source} contained an invalid context")
+    return value
+
+
+def _classic_required_check_names(payload: Any) -> set[str]:
+    """Normalize classic branch-protection requirements without coercing bad data."""
+    if not isinstance(payload, dict):
+        raise RuntimeError("classic required checks returned a non-object payload")
+    contexts = payload.get("contexts")
+    checks = payload.get("checks")
+    if not isinstance(contexts, list) or not isinstance(checks, list):
+        raise RuntimeError("classic required checks omitted contexts or checks")
+    names: set[str] = set()
+    for context in contexts:
+        names.add(_required_context(context, "classic required checks"))
+    for check in checks:
+        if not isinstance(check, dict):
+            raise RuntimeError("classic required checks contained a non-object check")
+        names.add(_required_context(check.get("context"), "classic required checks"))
+    return names
+
+
+def _ruleset_required_check_names(rules: list[dict[str, Any]]) -> set[str]:
+    """Normalize required contexts from a complete applied-rules response."""
+    names: set[str] = set()
+    for rule in rules:
+        rule_type = rule.get("type")
+        if not isinstance(rule_type, str) or not rule_type or rule_type != rule_type.strip():
+            raise RuntimeError("applied branch rules contained an invalid rule type")
+        if rule_type != "required_status_checks":
+            continue
+        parameters = rule.get("parameters")
+        if not isinstance(parameters, dict):
+            raise RuntimeError("required_status_checks rule omitted parameters")
+        requirements = parameters.get("required_status_checks")
+        if not isinstance(requirements, list):
+            raise RuntimeError("required_status_checks rule omitted its requirements")
+        for requirement in requirements:
+            if not isinstance(requirement, dict):
+                raise RuntimeError("required_status_checks contained a non-object requirement")
+            context = requirement.get("context")
+            name = requirement.get("name")
+            if context is not None and name is not None and context != name:
+                raise RuntimeError("required_status_checks contained conflicting context names")
+            names.add(
+                _required_context(
+                    context if context is not None else name,
+                    "required_status_checks",
+                )
+            )
+    return names
+
+
 def _required_check_names(repo: str, base_ref: str, *, env: dict[str, str]) -> set[str] | None:
     if not base_ref:
         return None
@@ -334,7 +403,7 @@ def _required_check_names(repo: str, base_ref: str, *, env: dict[str, str]) -> s
         candidates.append(ambient_env)
     for candidate_env in candidates:
         try:
-            payload = run_json(
+            classic_payload = run_json(
                 [
                     "gh",
                     "api",
@@ -344,18 +413,12 @@ def _required_check_names(repo: str, base_ref: str, *, env: dict[str, str]) -> s
                 ],
                 env=candidate_env,
             )
+            rules = _applied_branch_rules(repo, base_ref, env=candidate_env)
+            names = _classic_required_check_names(classic_payload)
+            names.update(_ruleset_required_check_names(rules))
         except RuntimeError:
             continue
-        if not isinstance(payload, dict):
-            continue
-        names = {str(name).strip() for name in payload.get("contexts") or [] if str(name).strip()}
-        for check in payload.get("checks") or []:
-            if isinstance(check, dict) and str(check.get("context") or "").strip():
-                names.add(str(check["context"]).strip())
-        # An empty classic-protection result cannot prove that repository
-        # rulesets impose no required checks. Keep trying, then fail closed.
-        if names:
-            return names
+        return names
     return None
 
 
