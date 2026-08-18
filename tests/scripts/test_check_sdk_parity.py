@@ -645,3 +645,160 @@ def test_tighten_refuses_malformed_budget_without_writing(monkeypatch, tmp_path)
     monkeypatch.setattr(sys, "argv", _tighten_argv(budget))
     assert check_sdk_parity.main() == 2
     assert budget.read_bytes() == before
+
+
+# ---------------------------------------------------------------------------
+# --json stdout purity (diagnostics on stderr)
+# ---------------------------------------------------------------------------
+
+
+def test_json_stdout_is_parseable_when_extraction_unavailable_strict(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0)
+    monkeypatch.setattr(
+        check_sdk_parity,
+        "extract_handler_routes_with_status",
+        lambda: check_sdk_parity.HandlerRouteExtractionResult(
+            routes={}, available=False, error="handlers unavailable"
+        ),
+    )
+    budget = _write_committed_budget(tmp_path / "budget.json")
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget, "--json"))
+    assert check_sdk_parity.main() == 0
+    captured = capsys.readouterr()
+    json.loads(captured.out)
+    assert "SKIP: Handler route extraction unavailable" in captured.err
+    assert "SKIP" not in captured.out
+
+
+def test_json_stdout_is_parseable_on_threshold_failure(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, py_cov=75.0, ts_cov=88.0)
+    budget = _write_committed_budget(tmp_path / "budget.json")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_sdk_parity.py",
+            "--strict",
+            "--threshold",
+            "90",
+            "--json",
+            "--budget",
+            str(budget),
+        ],
+    )
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    json.loads(captured.out)
+    assert "FAIL: Coverage below threshold (90.0%)" in captured.err
+    assert "FAIL" not in captured.out
+
+
+def test_json_stdout_is_parseable_on_new_missing_routes_failure(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=3)
+    budget = _write_committed_budget(tmp_path / "budget.json")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_sdk_parity.py", "--strict", "--json", "--budget", str(budget)],
+    )
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    json.loads(captured.out)
+    assert "new routes lack SDK coverage" in captured.err
+    assert "Run with --allow-missing only as a temporary migration override." in captured.err
+    assert "FAIL" not in captured.out
+
+
+def test_json_stdout_is_parseable_on_missing_ceiling_failure(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=3, stale_python=0)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=2, max_stale=10)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget, "--json"))
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["budget"]["passing"] is False
+    assert "FAIL: Missing-from-both debt exceeds committed ceiling (3 > 2)." in captured.err
+    assert "FAIL" not in captured.out
+
+
+def test_json_stdout_is_parseable_on_stale_ceiling_failure(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, stale_python=5)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=0, max_stale=4)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget, "--json"))
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["budget"]["passing"] is False
+    assert "FAIL: Stale Python SDK debt exceeds committed ceiling (5 > 4)." in captured.err
+    assert "FAIL" not in captured.out
+
+
+def test_non_json_diagnostics_remain_on_stdout(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, py_cov=75.0, ts_cov=88.0)
+    budget = _write_committed_budget(tmp_path / "budget.json")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_sdk_parity.py", "--strict", "--threshold", "90", "--budget", str(budget)],
+    )
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    assert "FAIL: Coverage below threshold (90.0%)" in captured.out
+    assert captured.err == ""
+
+    _patch_report(monkeypatch, missing=0, stale_python=5)
+    over_budget = _write_committed_budget(tmp_path / "budget2.json", max_missing=0, max_stale=4)
+    monkeypatch.setattr(sys, "argv", _strict_argv(over_budget))
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    assert "FAIL: Stale Python SDK debt exceeds committed ceiling (5 > 4)." in captured.out
+    assert captured.err == ""
+
+
+# ---------------------------------------------------------------------------
+# Below-ceiling --tighten advisory (output-only)
+# ---------------------------------------------------------------------------
+
+
+def test_below_ceiling_advisory_suggests_tighten(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, stale_python=3)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=0, max_stale=10)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget))
+    assert check_sdk_parity.main() == 0
+    captured = capsys.readouterr()
+    assert (
+        "Advisory: current debt is below the committed ceilings "
+        "(missing_from_both 0/0 | stale_python 3/10); "
+        "run --tighten to bank this progress" in captured.out
+    )
+    assert captured.err == ""
+
+
+def test_no_advisory_at_exact_committed_ceiling(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, stale_python=10)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=0, max_stale=10)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget))
+    assert check_sdk_parity.main() == 0
+    captured = capsys.readouterr()
+    assert "run --tighten to bank this progress" not in captured.out
+    assert captured.err == ""
+
+
+def test_no_advisory_when_over_ceiling(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, stale_python=11)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=0, max_stale=10)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget))
+    assert check_sdk_parity.main() == 1
+    captured = capsys.readouterr()
+    assert "run --tighten to bank this progress" not in captured.out
+
+
+def test_advisory_is_absent_from_json_mode_output(monkeypatch, tmp_path, capsys):
+    _patch_report(monkeypatch, missing=0, stale_python=3)
+    budget = _write_committed_budget(tmp_path / "budget.json", max_missing=0, max_stale=10)
+    monkeypatch.setattr(sys, "argv", _strict_argv(budget, "--json"))
+    assert check_sdk_parity.main() == 0
+    captured = capsys.readouterr()
+    json.loads(captured.out)
+    assert "run --tighten to bank this progress" not in captured.out
+    assert captured.err == ""
