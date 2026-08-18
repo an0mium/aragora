@@ -113,12 +113,26 @@ def test_kimi_k3_runtime_metadata_and_soak_boundary() -> None:
     assert not spec.is_under_soak(today=date(2026, 7, 30))
 
 
+def test_qwen38_max_runtime_metadata_and_soak_boundary() -> None:
+    spec = CATALOG["qwen3.8-max"]
+
+    assert spec.direct_id == "qwen3.8-max"
+    assert spec.openrouter_id == "qwen/qwen3.8-max"
+    assert (spec.input_per_mtok, spec.output_per_mtok) == (2.0, 6.0)
+    assert spec.context_window == 1_000_000
+    assert spec.max_output_tokens == 131_072
+    assert spec.release_date == date(2026, 8, 3)
+    assert spec.soak_until == date(2026, 8, 17)
+    assert spec.is_under_soak(today=date(2026, 8, 16))
+    assert not spec.is_under_soak(today=date(2026, 8, 17))
+
+
 # ---------------------------------------------------------------------------
 # Mirror-consistency enforcement
 # ---------------------------------------------------------------------------
 
 
-def _approx_pair(actual_in: float, actual_out: float, spec) -> None:
+def _approx_pair(actual_in: float | Decimal, actual_out: float | Decimal, spec) -> None:
     assert float(actual_in) == pytest.approx(spec.input_per_mtok), (
         f"{spec.canonical_id}: input {actual_in} != catalog {spec.input_per_mtok}"
     )

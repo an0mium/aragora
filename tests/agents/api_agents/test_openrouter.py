@@ -294,6 +294,7 @@ class TestOpenRouterModelFallback:
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert len(OPENROUTER_FALLBACK_MODELS) > 0
+        assert "qwen/qwen3.8-max" in OPENROUTER_FALLBACK_MODELS
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
         assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
 
@@ -547,7 +548,7 @@ class TestQwenAgent:
         agent = QwenAgent()
 
         assert agent.name == "qwen"
-        assert "qwen" in agent.model
+        assert agent.model == "qwen/qwen3.8-max"
         assert agent.agent_type == "qwen"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
@@ -569,8 +570,7 @@ class TestQwenMaxAgent:
         agent = QwenMaxAgent()
 
         assert agent.name == "qwen-max"
-        assert "qwen" in agent.model
-        assert "max" in agent.model
+        assert agent.model == "qwen/qwen3.8-max"
         assert agent.agent_type == "qwen-max"
 
 

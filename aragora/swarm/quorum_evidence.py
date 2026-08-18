@@ -2796,27 +2796,22 @@ def default_linter(
 
 
 def default_poster(repo: str, pr: int, body: str) -> None:
-    import os
-    import tempfile
-
-    path = ""
-    try:
-        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
-            path = fh.name
-            fh.write(body)
-        proc = merge_quorum_io.run(
-            ["gh", "pr", "comment", str(pr), "--repo", repo, "--body-file", path],
-            env=merge_quorum_io.aragora_env(),
-            timeout=60,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"gh pr comment failed: {(proc.stderr or '').strip()[:200]}")
-    finally:
-        if path:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+    proc = merge_quorum_io.run(
+        [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{repo}/issues/{pr}/comments",
+            "--input",
+            "-",
+        ],
+        env=merge_quorum_io.aragora_env(),
+        timeout=60,
+        input_text=json.dumps({"body": body}),
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"gh api comment post failed: {(proc.stderr or '').strip()[:200]}")
 
 
 def resolve_author(default: str = "local") -> str:
@@ -3562,6 +3557,52 @@ def _validate_prepared_item_families(
         seen.add(family)
 
 
+_SETTLEMENT_CONTEXT_FIELDS = frozenset(
+    (
+        "has_real_required_failure",
+        "has_real_required_pending",
+        "is_draft",
+        "merge_state_status",
+        "mergeable",
+        "pr_state",
+    )
+)
+
+
+def _settlement_stability_problem(context: dict[str, Any]) -> str:
+    """Return the live-state reason that forbids countable evidence posting.
+
+    Dependency-injected legacy callers that disclose none of the settlement
+    fields preserve their historical behavior. The canonical context fetcher
+    always discloses all fields and therefore enforces the complete gate.
+    """
+    disclosed = _SETTLEMENT_CONTEXT_FIELDS.intersection(context)
+    if not disclosed:
+        return ""
+    missing = sorted(_SETTLEMENT_CONTEXT_FIELDS - context.keys())
+    if missing:
+        return f"settlement-stability context incomplete ({', '.join(missing)})"
+    if str(context.get("pr_state") or "").upper() != "OPEN":
+        return f"PR state is {str(context.get('pr_state') or 'unknown').upper()}"
+    if context.get("is_draft") is not False:
+        return "PR is draft or draft state is unknown"
+    if str(context.get("mergeable") or "").upper() != "MERGEABLE":
+        return f"mergeable is {str(context.get('mergeable') or 'unknown').upper()}"
+    merge_state = str(context.get("merge_state_status") or "").upper()
+    if merge_state not in {"BLOCKED", "CLEAN"}:
+        return f"mergeStateStatus is {merge_state or 'UNKNOWN'}"
+    if context.get("has_real_required_failure") is not False:
+        return "a non-quorum required check is failing or required-check state is unknown"
+    if context.get("has_real_required_pending") is not False:
+        return "a non-quorum required check is pending or required-check state is unknown"
+    if (
+        context.get("context_source") == "rest"
+        and context.get("required_checks_disclosed") is not True
+    ):
+        return "required-check set is unavailable through the REST fallback"
+    return ""
+
+
 def apply_prepared_evidence(
     *,
     repo: str,
@@ -3655,6 +3696,14 @@ def apply_prepared_evidence(
         )
         return outcome
 
+    stability_problem = _settlement_stability_problem(ctx)
+    if stability_problem:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            f"head is not settlement-stable ({stability_problem}); prepared only"
+        )
+        return outcome
+
     relinted_items: list[EvidenceItem] = []
     for item in outcome.items:
         lint = linter(pr, head_sha, head_committed_at, author, item.body, env or {})
@@ -3710,7 +3759,8 @@ def apply_prepared_evidence(
         return outcome
 
     try:
-        recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
+        recheck_context = context_fetcher(repo, pr) or {}
+        recheck_head = str(recheck_context.get("head_sha") or "").strip()
         recheck_tier = tier_fetcher(repo, pr)
     except Exception as exc:
         outcome.action = "prepare"
@@ -3720,12 +3770,14 @@ def apply_prepared_evidence(
         _record_review_adjudication_if_applicable(outcome)
         return outcome
     recheck_action, recheck_reason = decide_action(recheck_tier, apply)
-    if recheck_head != head_sha or recheck_action != "post":
+    recheck_stability_problem = _settlement_stability_problem(recheck_context)
+    if recheck_head != head_sha or recheck_action != "post" or recheck_stability_problem:
         outcome.action = "prepare"
         outcome.action_reason = (
             f"head/tier changed before posting "
             f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
-            f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
+            f"tier {tier}->{recheck_tier}); prepared only: "
+            f"{recheck_stability_problem or recheck_reason}"
         )
         _record_review_adjudication_if_applicable(outcome)
         return outcome

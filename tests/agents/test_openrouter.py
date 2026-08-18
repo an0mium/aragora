@@ -43,6 +43,7 @@ class TestFallbackModelChain:
         """Test Qwen models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.8-max"] == "deepseek/deepseek-v4-pro"
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
         assert (
             OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
@@ -55,6 +56,8 @@ class TestFallbackModelChain:
 
         assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-max"] == "deepseek/deepseek-v4-pro"
         assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.7-max"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-235b-a22b"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.5-plus-02-15"] == "deepseek/deepseek-v4-pro"
         assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-5"
         assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-5"
 
@@ -532,7 +535,9 @@ class TestSamplingParamStripOnFallback:
         from aragora.models.compat import strip_sampling_params
 
         payload = {"model": "moonshotai/kimi-k2.7-code", "temperature": 0.7, "top_p": 0.9}
-        strip_sampling_params(payload, payload["model"])
+        model = payload["model"]
+        assert isinstance(model, str)
+        strip_sampling_params(payload, model)
         assert payload["temperature"] == 0.7, "non-Claude routing must be unchanged"
         assert payload["top_p"] == 0.9
 
@@ -550,7 +555,9 @@ class TestSamplingParamStripOnFallback:
         assert "temperature" in payload, "guard-rail: self.model is the wrong key"
 
         # Keying off the payload's own model strips them correctly.
-        strip_sampling_params(payload, payload["model"])
+        model = payload["model"]
+        assert isinstance(model, str)
+        strip_sampling_params(payload, model)
         assert "temperature" not in payload
         assert "top_p" not in payload
 

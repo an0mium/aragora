@@ -425,8 +425,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Qwen
     "qwen": ModelProfile(
-        model_id="qwen3-max",
-        display_name="Qwen3 Max",
+        model_id="qwen3.8-max",
+        display_name="Qwen 3.8 Max",
         provider="alibaba",
         capabilities={
             ModelCapability.REASONING: 0.92,
@@ -441,9 +441,9 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
             ModelCapability.FACTUAL_ACCURACY: 0.84,
         },
-        max_context_tokens=262000,
-        max_output_tokens=8192,
-        cost_input_per_1k=0.0012,
+        max_context_tokens=1_000_000,
+        max_output_tokens=131_072,
+        cost_input_per_1k=0.002,
         cost_output_per_1k=0.006,
         avg_latency_ms=700,
         reliability_score=0.93,

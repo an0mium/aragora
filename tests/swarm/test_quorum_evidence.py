@@ -3132,6 +3132,31 @@ def test_collect_missing_head_raises() -> None:
         collect_evidence(repo="o/r", pr=1, families=["claude"], author="me", apply=True, **fakes)
 
 
+def test_default_poster_uses_rest_issue_comment_endpoint(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(qe.merge_quorum_io, "run", fake_run)
+
+    qe.default_poster("o/r", 17, "prepared evidence body")
+
+    assert captured["args"] == [
+        "gh",
+        "api",
+        "--method",
+        "POST",
+        "repos/o/r/issues/17/comments",
+        "--input",
+        "-",
+    ]
+    assert json.loads(captured["input_text"]) == {"body": "prepared evidence body"}
+    assert captured["timeout"] == 60
+
+
 def _prepared_body(family: str, verdict: str = "PASS") -> str:
     return f"Verdict: {verdict}\n\n{family} body\n"
 
@@ -3160,6 +3185,28 @@ def _prepared_outcome_file(
     path = tmp_path / "prepared.json"
     path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
     return path
+
+
+def _stable_apply_context(**overrides) -> dict:
+    context = {
+        "head_sha": HEAD,
+        "head_committed_at": COMMITTED,
+        "has_real_required_failure": False,
+        "has_real_required_pending": False,
+        "is_draft": False,
+        "pr_state": "OPEN",
+        "mergeable": "MERGEABLE",
+        "merge_state_status": "CLEAN",
+        "context_source": "graphql",
+        "required_checks_disclosed": True,
+    }
+    context.update(overrides)
+    return context
+
+
+def _counting_prepared_lint(pr, head_sha, head_committed_at, author, body, env) -> dict:
+    family = "claude" if "claude body" in body else "grok"
+    return {"would_count": True, "counted_reviewer_ids": [family], "problems": []}
 
 
 def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> None:
@@ -3200,6 +3247,73 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+@pytest.mark.parametrize(
+    ("override", "reason"),
+    [
+        ({"is_draft": True}, "draft"),
+        ({"pr_state": "CLOSED"}, "PR state"),
+        ({"mergeable": "UNKNOWN"}, "mergeable"),
+        ({"merge_state_status": "BEHIND"}, "mergeStateStatus"),
+        ({"has_real_required_failure": True}, "required check is failing"),
+        ({"has_real_required_pending": True}, "required check is pending"),
+        (
+            {"context_source": "rest", "required_checks_disclosed": False},
+            "required-check set is unavailable",
+        ),
+    ],
+)
+def test_apply_prepared_evidence_rejects_unstable_live_context(
+    tmp_path, override: dict, reason: str
+) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: _stable_apply_context(**override),
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: pytest.fail("unstable evidence must not be relinted"),
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert reason in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_prepared_evidence_rechecks_full_stability_before_posting(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    contexts = iter(
+        [
+            _stable_apply_context(),
+            _stable_apply_context(merge_state_status="BEHIND"),
+        ]
+    )
+    posted: list[str] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: next(contexts),
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_counting_prepared_lint,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "mergeStateStatus is BEHIND" in outcome.action_reason
+    assert posted == []
 
 
 def test_apply_prepared_evidence_recomputes_exact_head_adjudication(
