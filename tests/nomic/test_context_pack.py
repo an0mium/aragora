@@ -228,6 +228,31 @@ async def test_oversized_configured_file_fails_before_artifacts(clean_repository
     assert not (clean_repository / ".nomic").exists()
 
 
+@pytest.mark.parametrize(
+    ("explicit_budget", "environment_budget"),
+    [(-1, None), (0, "0"), (0, "-1")],
+    ids=["explicit-negative", "environment-zero", "environment-negative"],
+)
+@pytest.mark.asyncio
+async def test_non_positive_context_budget_fails_before_artifacts(
+    clean_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    explicit_budget: int,
+    environment_budget: str | None,
+) -> None:
+    if environment_budget is not None:
+        monkeypatch.setenv("ARAGORA_NOMIC_MAX_CONTEXT_BYTES", environment_budget)
+
+    with pytest.raises(RepositoryStateError, match="byte budget must be a positive integer"):
+        await NomicContextBuilder(
+            clean_repository,
+            max_context_bytes=explicit_budget,
+            full_corpus=False,
+        ).build_context_pack(profile=load_nomic_repository_profile(clean_repository))
+
+    assert not (clean_repository / ".nomic").exists()
+
+
 @pytest.mark.parametrize("delimiter", ["\t", "\n", "\r"], ids=["tab", "newline", "carriage-return"])
 @pytest.mark.asyncio
 async def test_manifest_delimiter_in_tracked_evidence_path_fails_before_artifacts(
@@ -469,11 +494,16 @@ async def test_self_consistent_forged_rlm_summary_is_rejected(clean_repository: 
 
 @pytest.mark.asyncio
 async def test_build_index_uses_git_tracked_files(clean_repository: Path) -> None:
+    (clean_repository / "staged.py").write_text("staged = True\n", encoding="utf-8")
+    git(clean_repository, "add", "staged.py")
     (clean_repository / "untracked.py").write_text("untracked = True\n", encoding="utf-8")
+    (clean_repository / "IGNORED.md").write_text("ignored\n", encoding="utf-8")
     index = await NomicContextBuilder(clean_repository, full_corpus=False).build_index()
 
     assert index.get_file("src/app.py") is not None
+    assert index.get_file("staged.py") is not None
     assert index.get_file("untracked.py") is None
+    assert index.get_file("IGNORED.md") is None
 
 
 @pytest.mark.asyncio

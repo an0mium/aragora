@@ -223,11 +223,9 @@ class NomicContextBuilder:
                         "git",
                         "-C",
                         str(self._aragora_path),
-                        "ls-tree",
-                        "-r",
+                        "ls-files",
                         "-z",
-                        "--name-only",
-                        "HEAD",
+                        "--cached",
                     ],
                     capture_output=True,
                     check=False,
@@ -356,6 +354,8 @@ class NomicContextBuilder:
     ) -> ContextPack:
         """Build and atomically publish a clean, commit-addressed planning context pack."""
         root = self._aragora_path.resolve()
+        if self._max_context_bytes <= 0:
+            raise RepositoryStateError("context pack byte budget must be a positive integer")
         revision = assert_clean_revision(root)
         normalized_objective = objective.strip()
         resolved_profile = profile or load_nomic_repository_profile(root, config_path)
