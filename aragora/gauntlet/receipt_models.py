@@ -19,7 +19,7 @@ import json
 import uuid
 
 from aragora.agents.failure_semantics import all_responses_are_failures
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from datetime import datetime, timezone
 from html import escape
 from typing import TYPE_CHECKING, Any
@@ -737,10 +737,15 @@ class DecisionReceipt:
     signature_key_id: str | None = None
     signed_at: str | None = None  # ISO format timestamp
 
-    def __post_init__(self):
-        """Calculate artifact hash if not provided."""
+    # New evidence-linked receipts initialize their schema and decision hash.
+    # Deserialized receipts disable only that path so absent or altered evidence
+    # integrity fields survive loading and can be rejected by verification.
+    _initialize_evidence_integrity: InitVar[bool] = True
+
+    def __post_init__(self, _initialize_evidence_integrity: bool):
+        """Normalize evidence and initialize integrity fields for new receipts."""
         self.evidence_references = normalize_evidence_references(self.evidence_references)
-        if (
+        if _initialize_evidence_integrity and (
             self.evidence_references
             or self.decision_payload is not None
             or self.decision_payload_hash
@@ -2372,6 +2377,7 @@ class DecisionReceipt:
             signature_algorithm=data.get("signature_algorithm"),
             signature_key_id=data.get("signature_key_id"),
             signed_at=data.get("signed_at"),
+            _initialize_evidence_integrity=False,
         )
 
     def to_markdown(self, include_provenance: bool = True, include_evidence: bool = True) -> str:
