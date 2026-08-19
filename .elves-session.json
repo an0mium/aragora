@@ -1,7 +1,7 @@
 {
   "session_id": "elves-2026-08-19-aws-retirement-migration-9391",
   "version": "1.12.0",
-  "status": "staging",
+  "status": "staged",
   "branch": "codex/aws-retirement-migration-9391",
   "base_sha": "6955ab420ed959dcce9cece4120b298453adc9c3",
   "collision_tripwire": "6955ab420ed959dcce9cece4120b298453adc9c3",
@@ -9,7 +9,8 @@
   "survival_guide_path": "docs/elves/aws-retirement-migration-9391/survival-guide.md",
   "learnings_path": "docs/elves/aws-retirement-migration-9391/learnings.md",
   "execution_log_path": "docs/elves/aws-retirement-migration-9391/execution-log.md",
-  "pr_number": null,
+  "pr_number": 9800,
+  "staging_plan_head": "80c53f71b9fff14e6657f3f209402f50f50f948b",
   "lease": {
     "lease_id": "803c32bd-760",
     "work_id": "issue:9391",

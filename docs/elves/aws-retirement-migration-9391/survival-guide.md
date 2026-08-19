@@ -82,7 +82,7 @@ leave AWS workflow/governance retirement for a separate exact-scope Tier-4 PR af
 - [x] Execution log initialized
 - [x] Dedicated branch/worktree created
 - [x] Lease claimed and no conflicting live owner found
-- [ ] Draft PR opened and recorded
+- [x] Draft PR opened and recorded
 - [x] Focused preflight completed; constraints recorded
 - [x] Run mode and non-negotiables recorded
 - [x] Stop Gate initialized with `Stop allowed right now: no` unless a real stop condition already
@@ -91,14 +91,15 @@ leave AWS workflow/governance retirement for a separate exact-scope Tier-4 PR af
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** Launch-ready
 
 **Active batch:** none; launch boundary
 
-**What was just finished:** live authority, architecture, collision, runner, credentials, and
-focused-test preflight were grounded from current main.
+**What was just finished:** staging artifacts were committed and pushed; draft PR #9800 is open
+with `operator-review-required`, and #9391 is now the migration ledger. Re-read the live PR head at
+launch because the final staging-receipt commit follows the initial plan commit.
 
-**Single next action:** finish the staging commit/PR, then launch Batch 1 from a fresh call.
+**Single next action:** launch Batch 1 from a fresh call using the recorded launch prompt.
 
 ## Active Compute
 
@@ -144,7 +145,7 @@ notification: pr-comment
 - **Learnings:** `docs/elves/aws-retirement-migration-9391/learnings.md`
 - **Execution log:** `docs/elves/aws-retirement-migration-9391/execution-log.md`
 - **Branch:** `codex/aws-retirement-migration-9391`
-- **PR:** pending
+- **PR:** #9800
 - **Plan hash at staging:** `321c235e2f7a45d9ba779a4e342d2d83111773f07de059fb4d1d0b78fecb9a8e`
 
 ## Known Baseline

@@ -2,20 +2,23 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-08-19 09:16 America/Chicago
-- **Current phase:** Staging
+- **Last updated:** 2026-08-19 09:22 America/Chicago
+- **Current phase:** Launch-ready
 - **Active batch:** none
 - **Last completed batch:** none
 - **Next exact batch:** Batch 1: Provider-neutral secret custody
-- **Active PR:** pending
+- **Active PR:** #9800
 - **Docs promoted:** none
 - **Elves Report:** not generated
 
 ## Session Setup: 2026-08-19 09:10 America/Chicago
 
-**Phase:** staging in progress
+**Phase:** staging complete
 
 **Branch:** `codex/aws-retirement-migration-9391`
+
+**PR:** #9800, draft, `operator-review-required`; verify the live exact head at launch after the
+final staging-receipt push.
 
 **Worktree:** `$HOME/.codex/worktrees/aws-retirement-migration-9391-20260819/aragora`
 
@@ -73,6 +76,8 @@ infer exact-head settlement or merge authority.
 - Supabase CLI authenticated: PASS.
 - Hetzner and Cloudflare auth: unavailable; live canary Batch 5 gated.
 - No paid or long-running resource started.
+- Issue #9391 was re-titled as the AWS-retirement/provider-neutral migration ledger. The complete
+  original incident body remains preserved under its historical section.
 
 **Decision notes:**
 
@@ -82,5 +87,22 @@ infer exact-head settlement or merge authority.
   exact-head human settlement before merge.
 - Do not create paid Hetzner infrastructure without a named existing target or explicit budget.
 
-**Next:** commit and push staging artifacts, open the draft PR, reframe #9391 as the migration
-ledger, record the PR number and plan hash, then stop at the mandatory fresh-launch boundary.
+**Launch readiness:** READY after the issue ledger is updated and this receipt commit is pushed.
+
+**Launch prompt:**
+
+> The run is staged. Start now. Use
+> `$HOME/.codex/worktrees/aws-retirement-migration-9391-20260819/aragora` and read
+> `docs/elves/aws-retirement-migration-9391/survival-guide.md` first, followed by
+> `.elves-session.json`, learnings, plan, and execution log. Set the Stop Gate to no, re-read
+> steering, renew lease `803c32bd-760`, verify the live PR #9800 head matches the checked-out and
+> remote branch tip, recheck current-main overlap and runner health, and
+> create `elves/pre-batch-1`. Execute Batches 1-4 through implementation, validation, independent
+> non-countable review, documentation, commit, and push. Then attempt Batch 5 only with an existing
+> authorized target and live Hetzner/Cloudflare/Supabase access; otherwise record the exact access
+> blocker and continue to Batch 6. Do not attempt AWS recovery, touch workflows or protected
+> governance, create paid infrastructure, collect quorum evidence, settle, merge, or modify the two
+> stale contingency worktrees. There is no hard stop.
+
+**Next:** commit/push this final staging receipt, poll PR checks, then stop at the mandatory
+fresh-launch boundary.
