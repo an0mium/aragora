@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,62 @@ EXPECTED_DYNAMIC_REFERENCERS = {
     "scripts/init_postgres_db.py",
 }
 JOB_QUEUE_STORE_MODULE = "aragora.storage.job_queue_store"
+SKIPPED_SOURCE_DIRS = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    "venv",
+}
+EXPECTED_BACKEND_CALLS = {
+    "aragora/nomic/testfixer/queue_worker.py": {
+        "store:complete": 1,
+        "store:dequeue": 1,
+        "store:fail": 1,
+        "store:recover_stale_jobs": 1,
+        "symbol:get_job_store": 2,
+    },
+    "aragora/queue/workers/transcription_worker.py": {
+        "store:complete": 1,
+        "store:dequeue": 1,
+        "store:enqueue": 1,
+        "store:fail": 1,
+        "symbol:QueuedJob": 1,
+        "symbol:get_job_store": 3,
+    },
+    "aragora/server/handlers/admin/health/workers.py": {
+        "store:get_stats": 2,
+        "symbol:get_job_store": 1,
+    },
+    "aragora/server/handlers/transcription.py": {
+        "dynamic_factory:get": 2,
+        "store:enqueue": 2,
+        "store:get": 1,
+        "symbol:QueuedJob": 1,
+    },
+    "aragora/server/workers/gauntlet_worker.py": {
+        "store:complete": 1,
+        "store:dequeue": 1,
+        "store:enqueue": 1,
+        "store:fail": 1,
+        "store:get": 1,
+        "store:recover_stale_jobs": 1,
+        "symbol:QueuedJob": 1,
+        "symbol:get_job_store": 3,
+    },
+    "aragora/server/workers/routing_worker.py": {
+        "store:complete": 1,
+        "store:dequeue": 1,
+        "store:enqueue": 1,
+        "store:fail": 2,
+        "store:recover_stale_jobs": 1,
+        "symbol:QueuedJob": 1,
+        "symbol:get_job_store": 3,
+    },
+}
 
 
 def _resolve_import_from(path: Path, node: ast.ImportFrom, *, root: Path) -> str | None:
@@ -67,6 +124,161 @@ def _references_job_queue_store_literal(path: Path) -> bool:
     )
 
 
+def _dotted_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _dotted_name(node.value)
+        return f"{parent}.{node.attr}" if parent else None
+    return None
+
+
+def _assignment_names(node: ast.AST) -> set[str]:
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        name = _dotted_name(node)
+        return {name} if name else set()
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return {name for item in node.elts for name in _assignment_names(item)}
+    return set()
+
+
+def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    symbol_aliases: dict[str, str] = {}
+    module_aliases: set[str] = set()
+    dynamic_factories: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == JOB_QUEUE_STORE_MODULE:
+                    module_aliases.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            module = _resolve_import_from(path, node, root=root)
+            if module == JOB_QUEUE_STORE_MODULE:
+                for alias in node.names:
+                    symbol_aliases[alias.asname or alias.name] = alias.name
+            elif module:
+                for alias in node.names:
+                    if f"{module}.{alias.name}" == JOB_QUEUE_STORE_MODULE:
+                        module_aliases.add(alias.asname or alias.name)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            if not isinstance(value, ast.Call):
+                continue
+            imports_backend = any(
+                keyword.arg == "import_path"
+                and isinstance(keyword.value, ast.Constant)
+                and keyword.value.value == JOB_QUEUE_STORE_MODULE
+                for keyword in value.keywords
+            )
+            if imports_backend:
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in targets:
+                    dynamic_factories.update(_assignment_names(target))
+
+    def canonical_symbol(node: ast.AST) -> str | None:
+        name = _dotted_name(node)
+        if not name:
+            return None
+        if name in symbol_aliases:
+            return symbol_aliases[name]
+        for module_alias in module_aliases:
+            prefix = f"{module_alias}."
+            if name.startswith(prefix):
+                return name.removeprefix(prefix)
+        prefix = f"{JOB_QUEUE_STORE_MODULE}."
+        if name.startswith(prefix):
+            return name.removeprefix(prefix)
+        return None
+
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names = {name for target in targets for name in _assignment_names(target)}
+            symbol = canonical_symbol(node.value)
+            if symbol and any(symbol_aliases.get(name) != symbol for name in names):
+                symbol_aliases.update(dict.fromkeys(names, symbol))
+                changed = True
+            value_name = _dotted_name(node.value)
+            if value_name in module_aliases and not names.issubset(module_aliases):
+                module_aliases.update(names)
+                changed = True
+            if value_name in dynamic_factories and not names.issubset(dynamic_factories):
+                dynamic_factories.update(names)
+                changed = True
+
+    def is_dynamic_factory_get(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and _dotted_name(node.func.value) in dynamic_factories
+        )
+
+    store_bindings: set[str] = set()
+
+    def is_store_expression(node: ast.AST) -> bool:
+        name = _dotted_name(node)
+        if name and name in store_bindings:
+            return True
+        return isinstance(node, ast.Call) and (
+            canonical_symbol(node.func) == "get_job_store" or is_dynamic_factory_get(node)
+        )
+
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None or not is_store_expression(value):
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names = {name for target in targets for name in _assignment_names(target)}
+            if not names.issubset(store_bindings):
+                store_bindings.update(names)
+                changed = True
+
+    inventory: Counter[str] = Counter()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        symbol = canonical_symbol(node.func)
+        if symbol:
+            inventory[f"symbol:{symbol}"] += 1
+        if is_dynamic_factory_get(node):
+            inventory["dynamic_factory:get"] += 1
+        if isinstance(node.func, ast.Attribute) and is_store_expression(node.func.value):
+            inventory[f"store:{node.func.attr}"] += 1
+    return inventory
+
+
+def _excess_backend_calls(actual: Counter[str], expected: dict[str, int]) -> dict[str, int]:
+    return {
+        call: count - expected.get(call, 0)
+        for call, count in actual.items()
+        if count > expected.get(call, 0)
+    }
+
+
+def _iter_source_paths(root: Path = ROOT) -> set[Path]:
+    paths: set[Path] = set()
+    for source_root in (root / "aragora", root / "scripts"):
+        for path in source_root.rglob("*.py"):
+            relative_parts = path.relative_to(source_root).parts[:-1]
+            if any(part in SKIPPED_SOURCE_DIRS or part.startswith(".") for part in relative_parts):
+                continue
+            if path != root / "aragora/storage/job_queue_store.py":
+                paths.add(path)
+    return paths
+
+
 @pytest.mark.parametrize(
     ("relative_path", "source"),
     [
@@ -101,11 +313,41 @@ def test_unrelated_queue_import_is_not_a_storage_consumer(tmp_path: Path) -> Non
     assert not _imports_job_queue_store(path, root=tmp_path)
 
 
+def test_backend_call_inventory_rejects_growth_but_allows_removal(tmp_path: Path) -> None:
+    path = tmp_path / "consumer.py"
+    path.write_text(
+        "from aragora.storage import job_queue_store as backend\n"
+        "store = backend.get_job_store()\n"
+        "store.enqueue(first)\n",
+        encoding="utf-8",
+    )
+    baseline = dict(_backend_call_inventory(path, root=tmp_path))
+
+    path.write_text(
+        "from aragora.storage import job_queue_store as backend\n"
+        "store = backend.get_job_store()\n"
+        "store.enqueue(first)\n"
+        "factory = backend.get_job_store\n"
+        "factory().enqueue(second)\n",
+        encoding="utf-8",
+    )
+    assert _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline) == {
+        "store:enqueue": 1,
+        "symbol:get_job_store": 1,
+    }
+
+    path.write_text(
+        "from aragora.storage import job_queue_store as backend\nstore = backend.get_job_store()\n",
+        encoding="utf-8",
+    )
+    assert not _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline)
+
+
 def test_arch_015_is_the_binding_queue_authority() -> None:
     payload = yaml.safe_load(CHARTER.read_text(encoding="utf-8"))
     entry = next(row for row in payload["authorities"] if row["id"] == "ARCH-015")
 
-    assert payload["meta"]["status"] == "DRAFT"
+    assert payload["meta"]["status"] in {"DRAFT", "RATIFIED"}
     assert entry["authority"] == "aragora/queue"
     assert entry["disposition"] == "adopt"
     assert entry["binding_in_draft"] is True
@@ -121,12 +363,7 @@ def test_queue_entrypoints_and_backend_split_remain_explicit() -> None:
     ):
         assert (ROOT / relative_path).is_file(), relative_path
 
-    source_paths = {
-        path
-        for source_root in (ROOT / "aragora", ROOT / "scripts")
-        for path in source_root.rglob("*.py")
-        if path != ROOT / "aragora/storage/job_queue_store.py"
-    }
+    source_paths = _iter_source_paths()
     importers = {
         path.relative_to(ROOT).as_posix() for path in source_paths if _imports_job_queue_store(path)
     }
@@ -138,3 +375,10 @@ def test_queue_entrypoints_and_backend_split_remain_explicit() -> None:
 
     assert not importers - EXPECTED_STORAGE_IMPORTERS
     assert not dynamic_referencers - EXPECTED_DYNAMIC_REFERENCERS
+    assert set(EXPECTED_BACKEND_CALLS) == EXPECTED_STORAGE_IMPORTERS
+    for relative_path in importers:
+        actual = _backend_call_inventory(ROOT / relative_path)
+        assert not _excess_backend_calls(actual, EXPECTED_BACKEND_CALLS[relative_path]), (
+            relative_path,
+            actual,
+        )

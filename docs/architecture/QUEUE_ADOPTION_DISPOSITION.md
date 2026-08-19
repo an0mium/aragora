@@ -21,9 +21,9 @@ no runtime migration.
 - The focused `tests/queue/` suite covers job contracts, Redis streams,
   retries, status tracking, tracing, and workers.
 
-The earlier ARCH-015 note cited the default-on GauntletWorker as proof that
-`aragora.queue` was the sole implementation. Current main is different:
-GauntletWorker and several related workers use
+The earlier ARCH-015 note inaccurately cited the default-on GauntletWorker as
+proof that `aragora.queue` was the sole implementation. GauntletWorker and
+several related workers have instead used
 `aragora/storage/job_queue_store.py` directly. The startup wiring remains live
 in `aragora/server/startup/workers.py`, but it proves a backend split, not a
 single implementation.
@@ -35,9 +35,10 @@ status, retry, and worker-facing API. New durable server-job producers and job
 types enter through this package.
 
 `aragora/storage/job_queue_store.py` is a bounded current persistence backend,
-not a second public authority. Its existing static importers and dynamic module
-references are baselined by the conformance test. Consumer removals are allowed,
-but a new consumer file fails the test. Existing consumers may remain until a
+not a second public authority. Its existing static importers, dynamic module
+references, and per-file backend call counts are baselined by the conformance
+test. Consumer and call-site removals are allowed, but a new consumer file or an
+added backend call fails the test. Existing consumers may remain until a
 separately reviewed migration places the backend behind `aragora.queue`.
 
 The following concerns remain distinct:
@@ -55,12 +56,14 @@ re-export recorded by CHR-P4A-004.
 ## Verification
 
 `tests/docs/test_queue_authority.py` pins the machine-readable ARCH-015 state,
-the decision-record link, the live entrypoints, and the allowed static-import and
-dynamic-reference consumer files. It resolves absolute and relative imports,
-allows consumer removal, and fails on authority drift or a new consumer; it never
-mutates the charter or baseline. ARCH-015's `binding_in_draft` authority is
-enforced by this focused test, not by `scripts/check_charter_compliance.py`, whose
-draft-binding logic applies only to `CHR-*` registry entries.
+the decision-record link, the live entrypoints, the allowed static-import and
+dynamic-reference consumer files, and each consumer's direct backend call
+inventory. It resolves absolute and relative imports, ignores vendored and cache
+trees, allows consumer or call-site removal, and fails on authority drift or new
+backend use; it never mutates the charter or baseline. ARCH-015's
+`binding_in_draft` authority is enforced by this focused test, not by
+`scripts/check_charter_compliance.py`, whose draft-binding logic applies only to
+`CHR-*` registry entries.
 
 ## Provenance
 
