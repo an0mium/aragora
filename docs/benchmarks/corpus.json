@@ -15,11 +15,16 @@
     "verified": "Autonomy has already landed a merged PR closing this issue, attested by the `closedByPullRequestsReferences` GraphQL edge. Primary proof surface; gates `truth_success_rate_verified`.",
     "in_progress": "Issue is OPEN at corpus authoring time, bounded, and has been dispatched at least once to the autonomous boss loop (a recorded `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). Autonomy is on the hook to resolve it. Excluded from `truth_success_rate_verified` until it graduates."
   },
+  "revision_evidence": {
+    "normalization_receipt": "docs/benchmarks/evidence/tw-01-bounded-execution-v1/rev-7/normalization-receipt.json",
+    "bootstrap_metrics": "docs/benchmarks/evidence/tw-01-bounded-execution-v1/rev-7/bootstrap-metrics.jsonl",
+    "scope": "Historical bootstrap provenance only; no revision-7 execution success is claimed."
+  },
   "revision_log": [
     {
       "revision": 7,
       "recorded_on": "2026-08-19",
-      "change": "Restock the exhausted corpus with five OPEN missing-test-coverage issues (#5749, #5751, #5753, #5754, #5755). Each has one recorded historical worker_outcome, an existing source module, an absent declared test target explicitly marked as a new file, and an accepted current sanitizer result. Retire all eight closed rev-6 in-progress members rather than count already-resolved work as fresh proof. Membership becomes 10: five historical verified members plus five fresh in-progress members."
+      "change": "Restock the exhausted corpus with five OPEN missing-test-coverage issues (#5749, #5751, #5753, #5754, #5755). Each has one recorded historical worker_outcome, an existing source module, an absent declared test target explicitly marked as a new file, and an accepted current sanitizer result. Retire all eight closed rev-6 in-progress members rather than expand the fixed historical verified control cohort with work completed before the rev-7 launch. Membership becomes 10: five historical verified members plus five current in-progress members. Tracked revision_evidence makes the bootstrap inputs auditable and explicitly claims no fresh rev-7 success."
     },
     {
       "revision": 6,
@@ -405,35 +410,35 @@
   "retired_in_revision_7": [
     {
       "issue_id": 5426,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #7517 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     },
     {
       "issue_id": 5427,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #7516 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     },
     {
       "issue_id": 5839,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #7796 before the rev-7 launch. Retired instead of promoted because this benchmark-maintenance issue is outside the single missing-test-coverage execution class used by rev-7."
     },
     {
       "issue_id": 5844,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #7789 before the rev-7 launch. Retired instead of promoted because this documentation-reconciliation issue is outside the single missing-test-coverage execution class used by rev-7."
     },
     {
       "issue_id": 5182,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #8103 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     },
     {
       "issue_id": 5183,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #8102 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     },
     {
       "issue_id": 5184,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #8097 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     },
     {
       "issue_id": 5186,
-      "reason": "Closed before rev-7; retired from in_progress because it cannot produce fresh execution evidence."
+      "reason": "Graduated through merged PR #8100 before the rev-7 launch. Retired instead of promoted so the verified control cohort remains the original five rev-5 members and pre-launch work does not expand the rev-7 proof denominator."
     }
   ]
 }

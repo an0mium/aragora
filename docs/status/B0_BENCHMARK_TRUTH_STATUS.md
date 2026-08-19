@@ -1,6 +1,6 @@
 # B0 Benchmark Truth Status
 
-Last updated: 2026-08-19T14:53:21Z
+Last updated: 2026-08-19T15:19:55Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -22,6 +22,8 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 - Corpus-scoped scorecard pointer: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/latest.json`
 - Revision-scoped truth pointer: `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-7/latest.json`
 - Revision-scoped scorecard pointer: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-7/latest.json`
+
+Bootstrap provenance note: this publication uses the tracked historical slice at `docs/benchmarks/evidence/tw-01-bounded-execution-v1/rev-7/bootstrap-metrics.jsonl`. The five proxy successes belong to the retained verified control cohort; the five in-progress failures predate issue-body normalization. This is reproducible bootstrap state, not fresh revision-7 autonomy proof. The first bounded post-merge recurrence must replace it.
 
 ## Truth Metrics
 
@@ -63,3 +65,16 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 ## Rescue Counts By Type
 
 - none
+
+## Previous Published Artifact
+
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-7/scorecard-20260819T145321Z.json`
+- Previous generated_at: `2026-08-19T14:53:21Z`
+
+## Deltas
+
+- Merged-only rate (`merged_only_rate`): 0.0000
+- No-rescue truth success rate (`no_rescue_truth_success_rate`): 0.0000
+- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): 0.0000
+- Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.0000
+- Unique issues attempted (`unique_issues_attempted`): 0.0000
