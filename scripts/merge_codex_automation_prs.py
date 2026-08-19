@@ -241,9 +241,29 @@ def select_mergeable_prs(
     return decisions
 
 
-def _merge_pr(repo_root: Path, repo: str, number: int, head_sha: str = "") -> None:
-    # This path does not track the head SHA, so an armed halt blocks it outright:
-    # an exact-head waiver cannot be matched without a head to match against.
+def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
+    head_proc = _run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "headRefOid",
+            "--jq",
+            ".headRefOid",
+        ],
+        cwd=repo_root,
+    )
+    head_sha = head_proc.stdout.strip()
+    if head_proc.returncode != 0 or not head_sha:
+        raise RuntimeError(
+            head_proc.stderr.strip()
+            or head_proc.stdout.strip()
+            or f"failed to resolve exact head for #{number}"
+        )
     assert_merge_allowed(number, head_sha)
     proc = _run(
         [
@@ -255,6 +275,8 @@ def _merge_pr(repo_root: Path, repo: str, number: int, head_sha: str = "") -> No
             repo,
             "--squash",
             "--admin",
+            "--match-head-commit",
+            head_sha,
             "--delete-branch=false",
         ],
         cwd=repo_root,

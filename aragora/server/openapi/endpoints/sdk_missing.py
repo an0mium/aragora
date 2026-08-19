@@ -126,44 +126,6 @@ SDK_MISSING_ENDPOINTS: dict = {
             "responses": {"200": _ok_response("Reply sent", _obj)},
         },
     },
-    # --- verification (additional) ---
-    "/api/verification/proofs": {
-        "get": {
-            "tags": ["Verification"],
-            "summary": "List verification proofs",
-            "description": "Return stored verification proofs and associated metadata for prior verification runs.",
-            "operationId": "listVerificationProofs",
-            "responses": {"200": _ok_response("Proofs list", _arr_obj)},
-        },
-    },
-    "/api/verification/validate": {
-        "post": {
-            "tags": ["Verification"],
-            "summary": "Validate claims",
-            "description": "Validate supplied claims or evidence and return a verification result payload.",
-            "operationId": "createVerificationValidate",
-            "responses": {"200": _ok_response("Validation result", _obj)},
-        },
-    },
-    # --- calibration ---
-    "/api/calibration/curve": {
-        "get": {
-            "tags": ["Calibration"],
-            "summary": "Get calibration curve",
-            "description": "Fetch calibration-curve data used to evaluate model or agent confidence quality.",
-            "operationId": "getCalibrationCurve",
-            "responses": {"200": _ok_response("Calibration curve data", _obj)},
-        },
-    },
-    "/api/calibration/history": {
-        "get": {
-            "tags": ["Calibration"],
-            "summary": "Get calibration history",
-            "description": "List historical calibration measurements and snapshots for supported agents or systems.",
-            "operationId": "getCalibrationHistory",
-            "responses": {"200": _ok_response("Calibration history", _arr_obj)},
-        },
-    },
     # --- flips ---
     "/api/flips/{flip_id}": {
         "get": {
@@ -301,16 +263,6 @@ SDK_MISSING_ENDPOINTS: dict = {
                 }
             ],
             "responses": {"200": _ok_response("Match details", _obj)},
-        },
-    },
-    # --- quotas ---
-    "/api/quotas/request-increase": {
-        "post": {
-            "tags": ["Quotas"],
-            "summary": "Request quota increase",
-            "description": "Submit a quota increase request for review.",
-            "operationId": "createQuotaIncreaseRequest",
-            "responses": {"200": _ok_response("Request submitted", _obj)},
         },
     },
     # --- reputation ---

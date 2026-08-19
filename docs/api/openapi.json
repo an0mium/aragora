@@ -47518,118 +47518,6 @@
         "x-aragora-stability": "stable"
       }
     },
-    "/api/patterns": {
-      "get": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "List pattern templates",
-        "description": "Get list of available workflow pattern templates.",
-        "parameters": [
-          {
-            "name": "category",
-            "in": "query",
-            "description": "Filter by pattern category",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tags",
-            "in": "query",
-            "description": "Filter by tags (comma-separated)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of pattern templates",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatternTemplateList"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/patterns": {
-      "get": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "List pattern templates",
-        "operationId": "listPatterns",
-        "description": "Get list of available workflow pattern templates.",
-        "parameters": [
-          {
-            "name": "category",
-            "in": "query",
-            "description": "Filter by pattern category",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tags",
-            "in": "query",
-            "description": "Filter by tags (comma-separated)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of pattern templates",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatternTemplateList"
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/patterns/{pattern_id}": {
       "get": {
         "tags": [
@@ -47789,846 +47677,6 @@
                       "code": "NOT_FOUND",
                       "resource_type": "debate",
                       "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/patterns/hive-mind": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create Hive Mind workflow",
-        "description": "Create a workflow from the Hive Mind pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "task": {
-                    "type": "string",
-                    "description": "Task to analyze"
-                  },
-                  "agents": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Agent names to include"
-                  },
-                  "consensus_mode": {
-                    "type": "string",
-                    "enum": [
-                      "majority",
-                      "weighted",
-                      "unanimous"
-                    ],
-                    "default": "majority"
-                  },
-                  "consensus_threshold": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.7
-                  },
-                  "include_dissent": {
-                    "type": "boolean",
-                    "default": true
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from Hive Mind pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/patterns/hive-mind": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create Hive Mind workflow",
-        "operationId": "createPatternsHiveMind",
-        "description": "Create a workflow from the Hive Mind pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "task": {
-                    "type": "string",
-                    "description": "Task to analyze"
-                  },
-                  "agents": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Agent names to include"
-                  },
-                  "consensus_mode": {
-                    "type": "string",
-                    "enum": [
-                      "majority",
-                      "weighted",
-                      "unanimous"
-                    ],
-                    "default": "majority"
-                  },
-                  "consensus_threshold": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.7
-                  },
-                  "include_dissent": {
-                    "type": "boolean",
-                    "default": true
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from Hive Mind pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/patterns/map-reduce": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create MapReduce workflow",
-        "description": "Create a workflow from the MapReduce pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "split_strategy": {
-                    "type": "string",
-                    "enum": [
-                      "chunks",
-                      "lines",
-                      "sentences",
-                      "paragraphs"
-                    ],
-                    "default": "chunks"
-                  },
-                  "chunk_size": {
-                    "type": "integer",
-                    "minimum": 100,
-                    "maximum": 100000,
-                    "default": 4000
-                  },
-                  "map_agent": {
-                    "type": "string",
-                    "description": "Agent for map phase"
-                  },
-                  "reduce_agent": {
-                    "type": "string",
-                    "description": "Agent for reduce phase"
-                  },
-                  "map_prompt": {
-                    "type": "string",
-                    "description": "Custom map prompt template"
-                  },
-                  "reduce_prompt": {
-                    "type": "string",
-                    "description": "Custom reduce prompt template"
-                  },
-                  "parallel_limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 20,
-                    "default": 5
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from MapReduce pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/patterns/map-reduce": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create MapReduce workflow",
-        "operationId": "createPatternsMapReduce",
-        "description": "Create a workflow from the MapReduce pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "split_strategy": {
-                    "type": "string",
-                    "enum": [
-                      "chunks",
-                      "lines",
-                      "sentences",
-                      "paragraphs"
-                    ],
-                    "default": "chunks"
-                  },
-                  "chunk_size": {
-                    "type": "integer",
-                    "minimum": 100,
-                    "maximum": 100000,
-                    "default": 4000
-                  },
-                  "map_agent": {
-                    "type": "string",
-                    "description": "Agent for map phase"
-                  },
-                  "reduce_agent": {
-                    "type": "string",
-                    "description": "Agent for reduce phase"
-                  },
-                  "map_prompt": {
-                    "type": "string",
-                    "description": "Custom map prompt template"
-                  },
-                  "reduce_prompt": {
-                    "type": "string",
-                    "description": "Custom reduce prompt template"
-                  },
-                  "parallel_limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 20,
-                    "default": 5
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from MapReduce pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/patterns/review-cycle": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create Review Cycle workflow",
-        "description": "Create a workflow from the Review Cycle pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "task": {
-                    "type": "string",
-                    "description": "Task to accomplish"
-                  },
-                  "draft_agent": {
-                    "type": "string",
-                    "description": "Agent for drafting phase"
-                  },
-                  "review_agent": {
-                    "type": "string",
-                    "description": "Agent for review phase"
-                  },
-                  "max_iterations": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 10,
-                    "default": 3
-                  },
-                  "convergence_threshold": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.85
-                  },
-                  "review_criteria": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Criteria for review"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from Review Cycle pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/patterns/review-cycle": {
-      "post": {
-        "tags": [
-          "Patterns"
-        ],
-        "summary": "Create Review Cycle workflow",
-        "operationId": "createPatternsReviewCycle",
-        "description": "Create a workflow from the Review Cycle pattern template.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Custom workflow name"
-                  },
-                  "task": {
-                    "type": "string",
-                    "description": "Task to accomplish"
-                  },
-                  "draft_agent": {
-                    "type": "string",
-                    "description": "Agent for drafting phase"
-                  },
-                  "review_agent": {
-                    "type": "string",
-                    "description": "Agent for review phase"
-                  },
-                  "max_iterations": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 10,
-                    "default": 3
-                  },
-                  "convergence_threshold": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.85
-                  },
-                  "review_criteria": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Criteria for review"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Workflow created from Review Cycle pattern",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
                       "trace_id": "req_abc123xyz"
                     }
                   }
@@ -104222,22 +103270,84 @@
         },
         "responses": {
           "200": {
-            "description": "Integration configured",
+            "description": "Integration configuration updated",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "configured": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
                     }
-                  }
+                  },
+                  "required": [
+                    "integration"
+                  ]
                 }
               }
             }
@@ -104370,6 +103480,89 @@
                       "support_url": "https://github.com/synaptent/aragora/issues"
                     }
                   }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Integration configuration created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
                 }
               }
             }
@@ -141183,250 +140376,6 @@
         "x-aragora-stability": "stable"
       }
     },
-    "/api/devices/apple/shortcuts": {
-      "post": {
-        "tags": [
-          "Devices",
-          "Apple"
-        ],
-        "summary": "Handle Apple Shortcuts request",
-        "description": "API endpoint for Apple Shortcuts integration.\n\nAllows Apple Shortcuts to:\n- Start debates\n- Get debate status\n- Submit votes\n- Get summaries",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "action"
-                ],
-                "properties": {
-                  "action": {
-                    "type": "string",
-                    "enum": [
-                      "start_debate",
-                      "get_status",
-                      "vote",
-                      "summarize"
-                    ]
-                  },
-                  "params": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Shortcuts response",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "result": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required or token invalid",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "missing_token": {
-                    "summary": "No authentication token",
-                    "value": {
-                      "error": "Authentication required",
-                      "code": "AUTH_REQUIRED",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_token": {
-                    "summary": "Invalid or expired token",
-                    "value": {
-                      "error": "Invalid or expired authentication token",
-                      "code": "INVALID_TOKEN",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/devices/apple/shortcuts": {
-      "post": {
-        "tags": [
-          "Devices",
-          "Apple"
-        ],
-        "summary": "Handle Apple Shortcuts request",
-        "description": "API endpoint for Apple Shortcuts integration.\n\nAllows Apple Shortcuts to:\n- Start debates\n- Get debate status\n- Submit votes\n- Get summaries",
-        "operationId": "handleAppleShortcuts",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "action"
-                ],
-                "properties": {
-                  "action": {
-                    "type": "string",
-                    "enum": [
-                      "start_debate",
-                      "get_status",
-                      "vote",
-                      "summarize"
-                    ]
-                  },
-                  "params": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Shortcuts response",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "result": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Authentication required or token invalid",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "missing_token": {
-                    "summary": "No authentication token",
-                    "value": {
-                      "error": "Authentication required",
-                      "code": "AUTH_REQUIRED",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_token": {
-                    "summary": "Invalid or expired token",
-                    "value": {
-                      "error": "Invalid or expired authentication token",
-                      "code": "INVALID_TOKEN",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/v1/onboarding/flow": {
       "get": {
         "tags": [
@@ -157855,47 +156804,6 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/verification/proofs": {
-      "get": {
-        "tags": [
-          "Verification"
-        ],
-        "summary": "List verification proofs",
-        "description": "Return stored verification proofs and associated metadata for prior verification runs.",
-        "responses": {
-          "200": {
-            "description": "Proofs list",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
     "/api/v1/verification/proofs": {
       "get": {
         "tags": [
@@ -157937,44 +156845,6 @@
         "x-aragora-stability": "stable"
       }
     },
-    "/api/verification/validate": {
-      "post": {
-        "tags": [
-          "Verification"
-        ],
-        "summary": "Validate claims",
-        "description": "Validate supplied claims or evidence and return a verification result payload.",
-        "responses": {
-          "200": {
-            "description": "Validation result",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
     "/api/v1/verification/validate": {
       "post": {
         "tags": [
@@ -158011,164 +156881,6 @@
           }
         },
         "x-aragora-stability": "stable"
-      }
-    },
-    "/api/calibration/curve": {
-      "get": {
-        "tags": [
-          "Calibration"
-        ],
-        "summary": "Get calibration curve",
-        "description": "Fetch calibration-curve data used to evaluate model or agent confidence quality.",
-        "responses": {
-          "200": {
-            "description": "Calibration curve data",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/calibration/curve": {
-      "get": {
-        "tags": [
-          "Calibration"
-        ],
-        "summary": "Get calibration curve",
-        "description": "Fetch calibration-curve data used to evaluate model or agent confidence quality.",
-        "operationId": "getCalibrationCurve",
-        "responses": {
-          "200": {
-            "description": "Calibration curve data",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/calibration/history": {
-      "get": {
-        "tags": [
-          "Calibration"
-        ],
-        "summary": "Get calibration history",
-        "description": "List historical calibration measurements and snapshots for supported agents or systems.",
-        "responses": {
-          "200": {
-            "description": "Calibration history",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/calibration/history": {
-      "get": {
-        "tags": [
-          "Calibration"
-        ],
-        "summary": "Get calibration history",
-        "description": "List historical calibration measurements and snapshots for supported agents or systems.",
-        "operationId": "getCalibrationHistory",
-        "responses": {
-          "200": {
-            "description": "Calibration history",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-aragora-stability": "experimental"
       }
     },
     "/api/flips/{flip_id}": {
@@ -159065,44 +157777,6 @@
           }
         },
         "x-aragora-stability": "stable"
-      }
-    },
-    "/api/quotas/request-increase": {
-      "post": {
-        "tags": [
-          "Quotas"
-        ],
-        "summary": "Request quota increase",
-        "description": "Submit a quota increase request for review.",
-        "responses": {
-          "200": {
-            "description": "Request submitted",
-            "headers": {
-              "X-Request-ID": {
-                "description": "Unique request identifier for tracing and debugging",
-                "schema": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "X-Response-Time": {
-                "description": "Server processing time in milliseconds",
-                "schema": {
-                  "type": "integer"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
       }
     },
     "/api/v1/quotas/request-increase": {
@@ -205605,71 +204279,6 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/slos": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Monitoring"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "description": "Response data"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false,
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/slos": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Monitoring"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "description": "Response data"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false,
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/slo/status": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -208958,71 +207567,7 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/v1/memory/tier": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Memory"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/v1/memory/vacuum": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Memory"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/memory": {
       "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -215498,38 +214043,6 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/v1/knowledge/mound/graph": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Knowledge"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "description": "Response data"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false,
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/v1/knowledge/mound/graph/{param}/lineage": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -217448,38 +215961,6 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": false,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/chat/knowledge/channel": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Bots"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
         "x-aragora-stability": "experimental"
       }
     },
@@ -225010,124 +223491,6 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": false,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/review-queue": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "deleted": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/review-queue": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "deleted": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
         "x-aragora-stability": "experimental"
       }
     },
@@ -245482,38 +243845,6 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/v1/debates/public": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "description": "Response data"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false,
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/v1/debates/public/{param}/og": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -249747,38 +248078,6 @@
             "description": "Path parameter: param"
           }
         ],
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/shared": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
         "x-aragora-stability": "experimental"
       }
     },
@@ -255388,6 +253687,2161 @@
             "description": "Path parameter: param"
           }
         ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/admin/credits/{org_id}": {
+      "get": {
+        "summary": "GET /api/admin/credits/{org_id}",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/credits/{org_id}/adjust": {
+      "post": {
+        "summary": "POST /api/admin/credits/{org_id}/adjust",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/credits/{org_id}/expiring": {
+      "get": {
+        "summary": "GET /api/admin/credits/{org_id}/expiring",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/credits/{org_id}/issue": {
+      "post": {
+        "summary": "POST /api/admin/credits/{org_id}/issue",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/credits/{org_id}/transactions": {
+      "get": {
+        "summary": "GET /api/admin/credits/{org_id}/transactions",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/costs/recommendations/{recommendation_id}": {
+      "get": {
+        "summary": "GET /api/costs/recommendations/{recommendation_id}",
+        "description": "Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Costs"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "recommendation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: recommendation_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/email/daily-digest": {
+      "get": {
+        "summary": "GET /api/email/daily-digest",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Email"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/email/sender-profile": {
+      "get": {
+        "summary": "GET /api/email/sender-profile",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Email"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/actions": {
+      "post": {
+        "summary": "POST /api/inbox/actions",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/bulk-actions": {
+      "post": {
+        "summary": "POST /api/inbox/bulk-actions",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/command": {
+      "get": {
+        "summary": "GET /api/inbox/command",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/daily-digest": {
+      "get": {
+        "summary": "GET /api/inbox/daily-digest",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/reprioritize": {
+      "post": {
+        "summary": "POST /api/inbox/reprioritize",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/inbox/sender-profile": {
+      "get": {
+        "summary": "GET /api/inbox/sender-profile",
+        "description": "Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Inbox"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/integrations/status": {
+      "get": {
+        "summary": "GET /api/integrations/status",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/integrations/{type}": {
+      "get": {
+        "summary": "GET /api/integrations/{type}",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "put": {
+        "summary": "PUT /api/integrations/{type}",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: type"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Integration configuration updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Integration configuration created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "integration": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "number"
+                        },
+                        "updated_at": {
+                          "type": "number"
+                        },
+                        "notify_on_consensus": {
+                          "type": "boolean"
+                        },
+                        "notify_on_debate_end": {
+                          "type": "boolean"
+                        },
+                        "notify_on_error": {
+                          "type": "boolean"
+                        },
+                        "notify_on_leaderboard": {
+                          "type": "boolean"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messages_sent": {
+                          "type": "integer"
+                        },
+                        "errors_24h": {
+                          "type": "integer"
+                        },
+                        "last_activity": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "last_error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "workspace_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "enabled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "integration"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "patch": {
+        "summary": "PATCH /api/integrations/{type}",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: type"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "delete": {
+        "summary": "DELETE /api/integrations/{type}",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/integrations/{type}/test": {
+      "post": {
+        "summary": "POST /api/integrations/{type}/test",
+        "description": "Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Integrations"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: type"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/authorize": {
+      "post": {
+        "summary": "POST /api/payments/authorize",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/capture": {
+      "post": {
+        "summary": "POST /api/payments/capture",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/charge": {
+      "post": {
+        "summary": "POST /api/payments/charge",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/customer": {
+      "post": {
+        "summary": "POST /api/payments/customer",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/customer/{customer_id}": {
+      "get": {
+        "summary": "GET /api/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "put": {
+        "summary": "PUT /api/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "delete": {
+        "summary": "DELETE /api/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/refund": {
+      "post": {
+        "summary": "POST /api/payments/refund",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/subscription": {
+      "post": {
+        "summary": "POST /api/payments/subscription",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/subscription/{subscription_id}": {
+      "get": {
+        "summary": "GET /api/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "put": {
+        "summary": "PUT /api/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      },
+      "delete": {
+        "summary": "DELETE /api/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/transaction/{transaction_id}": {
+      "get": {
+        "summary": "GET /api/payments/transaction/{transaction_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: transaction_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/void": {
+      "post": {
+        "summary": "POST /api/payments/void",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/webhook/authnet": {
+      "post": {
+        "summary": "POST /api/payments/webhook/authnet",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/payments/webhook/stripe": {
+      "post": {
+        "summary": "POST /api/payments/webhook/stripe",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "deprecated": true,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/v1/admin/credits/{org_id}": {
+      "get": {
+        "summary": "GET /api/v1/admin/credits/{org_id}",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/credits/{org_id}/adjust": {
+      "post": {
+        "summary": "POST /api/v1/admin/credits/{org_id}/adjust",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/credits/{org_id}/expiring": {
+      "get": {
+        "summary": "GET /api/v1/admin/credits/{org_id}/expiring",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/credits/{org_id}/issue": {
+      "post": {
+        "summary": "POST /api/v1/admin/credits/{org_id}/issue",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/credits/{org_id}/transactions": {
+      "get": {
+        "summary": "GET /api/v1/admin/credits/{org_id}/transactions",
+        "description": "Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: org_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/payments/customer/{customer_id}": {
+      "get": {
+        "summary": "GET /api/v1/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      },
+      "put": {
+        "summary": "PUT /api/v1/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/payments/customer/{customer_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: customer_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/payments/subscription/{subscription_id}": {
+      "get": {
+        "summary": "GET /api/v1/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      },
+      "put": {
+        "summary": "PUT /api/v1/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/payments/subscription/{subscription_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: subscription_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/payments/transaction/{transaction_id}": {
+      "get": {
+        "summary": "GET /api/v1/payments/transaction/{transaction_id}",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: transaction_id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/payments/webhook/authnet": {
+      "post": {
+        "summary": "POST /api/v1/payments/webhook/authnet",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false,
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/payments/webhook/stripe": {
+      "post": {
+        "summary": "POST /api/v1/payments/webhook/stripe",
+        "description": "Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.",
+        "tags": [
+          "Payments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false,
         "x-aragora-stability": "experimental"
       }
     }

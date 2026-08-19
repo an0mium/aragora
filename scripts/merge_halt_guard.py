@@ -45,6 +45,7 @@ import datetime as dt
 import json
 import os
 import re
+import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,8 +54,52 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 _FULL_SHA = re.compile(r"[0-9a-f]{40}")
 
-DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
-DEFAULT_WAIVER_FILE = _REPO_ROOT / ".aragora" / "merge_executor.waiver"
+
+def _shared_checkout_root(repo_root: Path) -> Path:
+    """Return the primary checkout root for a normal or linked worktree.
+
+    Main-health automation arms one repository-wide halt. A linked worktree
+    must therefore consult the primary checkout's marker rather than its own
+    private ``.aragora`` directory. Malformed linked-worktree metadata raises
+    at import time so merge entry points fail closed.
+    """
+    dot_git = repo_root / ".git"
+    try:
+        mode = os.stat(dot_git).st_mode
+    except FileNotFoundError:
+        return repo_root
+    except OSError as exc:
+        raise RuntimeError(f"could not inspect git metadata at {dot_git}: {exc}") from exc
+
+    if stat.S_ISDIR(mode):
+        return repo_root
+    if not stat.S_ISREG(mode):
+        raise RuntimeError(f"git metadata at {dot_git} is neither a file nor directory")
+
+    try:
+        marker = dot_git.read_text(encoding="utf-8").strip()
+        prefix = "gitdir:"
+        if not marker.lower().startswith(prefix):
+            raise ValueError("missing gitdir marker")
+        git_dir = Path(marker[len(prefix) :].strip())
+        if not git_dir.is_absolute():
+            git_dir = (repo_root / git_dir).resolve()
+        common_raw = (git_dir / "commondir").read_text(encoding="utf-8").strip()
+        if not common_raw:
+            raise ValueError("empty commondir")
+        common_dir = Path(common_raw)
+        if not common_dir.is_absolute():
+            common_dir = (git_dir / common_dir).resolve()
+        if not (common_dir / "objects").is_dir():
+            raise ValueError(f"invalid common git directory {common_dir}")
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"could not resolve shared git state from {dot_git}: {exc}") from exc
+    return common_dir.parent
+
+
+SHARED_REPO_ROOT = _shared_checkout_root(_REPO_ROOT)
+DEFAULT_HALT_FILE = SHARED_REPO_ROOT / ".aragora" / "merge_executor.halt"
+DEFAULT_WAIVER_FILE = SHARED_REPO_ROOT / ".aragora" / "merge_executor.waiver"
 
 # Merge-capable scripts that must route through this guard. The companion test
 # asserts this list matches reality, so a new merge path cannot be added without
@@ -124,12 +169,15 @@ def _waiver_applies(waiver: dict, *, pr: int, head_sha: str, now: dt.datetime) -
         waiver_pr = int(waiver["pr"])
         waiver_head = str(waiver["head_sha"]).strip().lower()
         actor = str(waiver["actor"]).strip()
+        scope = str(waiver["scope"]).strip()
         expires_raw = str(waiver["expires_at"]).strip()
     except (KeyError, TypeError, ValueError) as exc:
         return False, f"waiver is missing or malformed required fields ({exc})"
 
     if not actor:
         return False, "waiver has an empty actor"
+    if scope != "single-pr":
+        return False, f"waiver scope must be 'single-pr', got {scope!r}"
     if waiver_pr != pr:
         return False, f"waiver is for PR #{waiver_pr}, not #{pr}"
 
@@ -151,7 +199,7 @@ def _waiver_applies(waiver: dict, *, pr: int, head_sha: str, now: dt.datetime) -
     except ValueError:
         return False, f"waiver expires_at is not ISO-8601 ({expires_raw!r})"
     if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=dt.timezone.utc)
+        return False, "waiver expires_at must include an explicit timezone"
     if expires <= now:
         return False, f"waiver expired at {expires.isoformat()}"
 

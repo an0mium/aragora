@@ -97,6 +97,44 @@ def test_exact_head_waiver_allows_merge(halt: Path, waiver_path: Path) -> None:
     assert decision.waiver_actor == "scarmani"
 
 
+def test_waiver_requires_single_pr_scope(halt: Path, waiver_path: Path) -> None:
+    _write_waiver(waiver_path, scope="all")
+    decision = _evaluate(halt, waiver_path)
+    assert not decision.allowed
+    assert "single-pr" in decision.reason
+
+
+def test_waiver_requires_timezone_aware_expiry(halt: Path, waiver_path: Path) -> None:
+    _write_waiver(waiver_path, expires_at="2026-07-11T12:00:00")
+    decision = _evaluate(halt, waiver_path)
+    assert not decision.allowed
+    assert "timezone" in decision.reason
+
+
+def test_linked_worktree_uses_primary_checkout_state(tmp_path: Path) -> None:
+    primary = tmp_path / "primary"
+    common = primary / ".git"
+    git_dir = common / "worktrees" / "worker"
+    (common / "objects").mkdir(parents=True)
+    git_dir.mkdir(parents=True)
+    (git_dir / "commondir").write_text("../..\n", encoding="utf-8")
+
+    worker = tmp_path / "worker"
+    worker.mkdir()
+    (worker / ".git").write_text(f"gitdir: {git_dir}\n", encoding="utf-8")
+
+    assert guard._shared_checkout_root(worker) == primary
+
+
+def test_malformed_linked_worktree_metadata_fails_closed(tmp_path: Path) -> None:
+    worker = tmp_path / "worker"
+    worker.mkdir()
+    (worker / ".git").write_text("not-a-gitdir\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="could not resolve shared git state"):
+        guard._shared_checkout_root(worker)
+
+
 def test_waiver_for_a_different_pr_does_not_apply(halt: Path, waiver_path: Path) -> None:
     _write_waiver(waiver_path, pr=9111)
     assert not _evaluate(halt, waiver_path).allowed

@@ -414,6 +414,7 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "openclaw/runtime",
         "pipeline_telemetry",
         # Read-only analytics/informational endpoints (no mutations)
+        "agents/matches_stats",
         "agents/recommendations",
         "debate_stats",
         "feature_flags",

@@ -49,6 +49,7 @@ from aragora.swarm.auto_merge_green import (  # noqa: E402
     context_from_gh,
     decide_auto_merge,
 )
+from scripts.merge_halt_guard import DEFAULT_HALT_FILE  # noqa: E402
 
 
 def _load_amqg() -> Any:
@@ -71,7 +72,6 @@ _amqg = _load_amqg()
 DEFAULT_MAX_MERGES = 1
 
 DEFAULT_RECEIPT_DIR = _REPO_ROOT / ".aragora" / "merge_executor" / "receipts"
-DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
 DEFAULT_DISARM_FILE = _REPO_ROOT / ".aragora" / "merge_executor.disarm"
 
 # REST check-runs conclusions that make a required check on main "red".
