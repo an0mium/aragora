@@ -2,9 +2,9 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-08-19 09:22 America/Chicago
-- **Current phase:** Launch-ready
-- **Active batch:** none
+- **Last updated:** 2026-08-19 09:31 America/Chicago
+- **Current phase:** Launched; pre-Batch-1 gates
+- **Active batch:** Batch 1: Provider-neutral secret custody
 - **Last completed batch:** none
 - **Next exact batch:** Batch 1: Provider-neutral secret custody
 - **Active PR:** #9800
@@ -106,3 +106,32 @@ infer exact-head settlement or merge authority.
 
 **Next:** commit/push this final staging receipt, poll PR checks, then stop at the mandatory
 fresh-launch boundary.
+
+## Launch: 2026-08-19 09:31 America/Chicago
+
+The operator launched the finite run, supplied exact PR head
+`a9b5de83502426ff83415e64b9b27dc562161e1d`, and removed any hard deadline. The Stop Gate is
+now `no`; checkpoints do not permit stopping. Pre-Batch-1 gates are in progress before any product
+edit.
+
+**Pre-Batch-1 gates:**
+
+- Steering: no matched lane and no messages; no receipt required.
+- Lease: renewed lease `803c32bd-760` through `2026-08-19T22:32:38Z` for the recorded owner.
+- Exact head: checkout, `origin/codex/aws-retirement-migration-9391`, and PR #9800 all matched
+  `a9b5de83502426ff83415e64b9b27dc562161e1d`.
+- Main overlap: `origin/main` remained `6955ab420ed959dcce9cece4120b298453adc9c3`, the merge base;
+  there was no new overlap to reconcile.
+- Runner floor: five online `aragora` runners, all idle at the check.
+- PR required checks: `lint`, `typecheck`, `sdk-parity`, `Generate & Validate`,
+  `TypeScript SDK Type Check`, and `aragora-merge-quorum` all passed on the staged head.
+- Main health: the non-required scheduled `Uptime Monitor` is red because the retired AWS-backed
+  production endpoint returns Cloudflare 522. This is the known migration trigger, not a required
+  main check and not authority to attempt AWS recovery.
+- Rollback tag: the exact requested local name `elves/pre-batch-1` was already occupied by unrelated
+  historical commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96`. It was preserved. Created and pushed the
+  run-qualified tag `elves/aws-retirement-migration-9391/pre-batch-1` at the verified PR head.
+
+**Decision:** proceed with Batch 1. The only red live signal is non-required AWS uptime noise that
+the approved migration is designed to replace; all required branch checks and the runner floor are
+healthy.

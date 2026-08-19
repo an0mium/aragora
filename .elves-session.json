@@ -1,10 +1,10 @@
 {
   "session_id": "elves-2026-08-19-aws-retirement-migration-9391",
   "version": "1.12.0",
-  "status": "staged",
+  "status": "in_progress",
   "branch": "codex/aws-retirement-migration-9391",
   "base_sha": "6955ab420ed959dcce9cece4120b298453adc9c3",
-  "collision_tripwire": "6955ab420ed959dcce9cece4120b298453adc9c3",
+  "collision_tripwire": "a9b5de83502426ff83415e64b9b27dc562161e1d",
   "plan_path": "docs/plans/aws-retirement-migration-9391.md",
   "survival_guide_path": "docs/elves/aws-retirement-migration-9391/survival-guide.md",
   "learnings_path": "docs/elves/aws-retirement-migration-9391/learnings.md",
@@ -18,9 +18,9 @@
   },
   "continuation_guard": {
     "remaining_batches": 6,
-    "stop_allowed": true,
-    "checkpoint_is_stop": true,
-    "next_required_action": "Fresh launch call: renew lease, re-read steering, verify exact head, tag elves/pre-batch-1, and start Batch 1"
+    "stop_allowed": false,
+    "checkpoint_is_stop": false,
+    "next_required_action": "Write the Batch 1 contract and pre-implementation survey, then implement provider-neutral mounted-directory secret custody"
   },
   "test_baseline": {
     "passed": 125,
@@ -29,9 +29,13 @@
     "status": "captured",
     "scope": "tests/config/test_secrets.py tests/gauntlet/test_odr_signing.py tests/scripts/test_verify_receipt.py"
   },
-  "current_batch": null,
+  "current_batch": {
+    "id": 1,
+    "name": "Provider-neutral secret custody",
+    "status": "in_progress"
+  },
   "batches": [
-    {"id": 1, "name": "Provider-neutral secret custody", "status": "planned", "commit": null, "rollback_tag": "elves/pre-batch-1", "started_at": null, "completed_at": null},
+    {"id": 1, "name": "Provider-neutral secret custody", "status": "in_progress", "commit": null, "rollback_tag": "elves/aws-retirement-migration-9391/pre-batch-1", "started_at": "2026-08-19T14:31:39Z", "completed_at": null},
     {"id": 2, "name": "Non-AWS ODR signing", "status": "planned", "commit": null, "rollback_tag": "elves/pre-batch-2", "started_at": null, "completed_at": null},
     {"id": 3, "name": "Canary deployment pack", "status": "planned", "commit": null, "rollback_tag": "elves/pre-batch-3", "started_at": null, "completed_at": null},
     {"id": 4, "name": "External canary verifier", "status": "planned", "commit": null, "rollback_tag": "elves/pre-batch-4", "started_at": null, "completed_at": null},

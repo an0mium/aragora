@@ -43,10 +43,11 @@ leave AWS workflow/governance retirement for a separate exact-scope Tier-4 PR af
 ## Stop Gate
 
 - **Planned batches remaining:** 6
-- **Stop allowed right now:** yes
-- **Why:** staging and launch must occur in separate calls under the Elves protocol.
-- **Next required action:** receive the fresh launch prompt, set the gate to no, renew the lease,
-  re-read steering, verify exact head, and start Batch 1.
+- **Stop allowed right now:** no
+- **Why:** the operator launched the finite run; Batches 1-6 remain and only a genuine blocker can
+  halt the run. Missing live credentials blocks Batch 5 only.
+- **Next required action:** write the Batch 1 contract and pre-implementation survey, then
+  implement provider-neutral mounted-directory secret custody.
 
 ## Effort Standard
 
@@ -85,21 +86,21 @@ leave AWS workflow/governance retirement for a separate exact-scope Tier-4 PR af
 - [x] Draft PR opened and recorded
 - [x] Focused preflight completed; constraints recorded
 - [x] Run mode and non-negotiables recorded
-- [x] Stop Gate initialized with `Stop allowed right now: no` unless a real stop condition already
-  applies; the mandatory staging boundary is that condition, so the current value is yes.
+- [x] Stop Gate transitioned to `Stop allowed right now: no` on the fresh launch call.
 - [x] Launch prompt prepared
 
 ## Current Phase
 
-**Status:** Launch-ready
+**Status:** Launched; Batch 1 contract and survey
 
-**Active batch:** none; launch boundary
+**Active batch:** Batch 1: Provider-neutral secret custody
 
-**What was just finished:** staging artifacts were committed and pushed; draft PR #9800 is open
-with `operator-review-required`, and #9391 is now the migration ledger. Re-read the live PR head at
-launch because the final staging-receipt commit follows the initial plan commit.
+**What was just finished:** steering was empty, lease `803c32bd-760` was renewed, checked-out,
+remote, and PR tips all matched `a9b5de83502426ff83415e64b9b27dc562161e1d`; main remained at
+the staged base with no overlap, five runners were online, and all six required PR checks were
+green. The non-required scheduled AWS uptime monitor remains red on the retired API endpoint.
 
-**Single next action:** launch Batch 1 from a fresh call using the recorded launch prompt.
+**Single next action:** record the Batch 1 contract and pre-implementation survey, then implement.
 
 ## Active Compute
 
@@ -126,7 +127,9 @@ Cloudflare tunnel, or paid deployment was created.
 
 **Risk:** `SecretManager` is a shared security surface; run regression-focused consumer review.
 
-**Rollback tag:** `elves/pre-batch-1`
+**Rollback tag:** `elves/aws-retirement-migration-9391/pre-batch-1` (the unqualified local tag was
+already occupied by unrelated historical commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96` and was
+preserved)
 
 ## Tool Configuration
 
