@@ -77,6 +77,8 @@ BLOCKED_MARKER_PROBE_NAME = "blocked-marker-probe.bin"
 # gh 2.96.0, 2026-08-18): before verifier initialization a dead network
 # surfaces as the Sigstore verifier-init failure, after it as Go net
 # dial/lookup text. Message-only classification; never an exit-class input.
+# The verifier-init marker also matches a stale or corrupt local TUF cache,
+# so `network` can name a cache state; every class stays blocked either way.
 PROBE_NETWORK_STDERR_MARKERS = (
     "no valid sigstore verifiers could be initialized",
     "dial tcp",
@@ -88,6 +90,18 @@ PROBE_NETWORK_STDERR_MARKERS = (
     "tls handshake",
     "context deadline exceeded",
     "temporary failure in name resolution",
+)
+# Corporate-MITM trust failures on the attestations-API read, pinned live
+# 2026-08-18 with the byte-exact production argv (gh 2.96.0). The crypto/tls
+# umbrella prefix is load-bearing: an untrusted interceptor reports unknown
+# authority even when its certificate is expired, so a `certificate has
+# expired` literal can never be pinned against a MITM; the umbrella covers
+# that trusted-but-expired shape instead. Kept separate from the network
+# markers because a trust failure is a persistent runner configuration
+# state, so its wording must not promise that a retry clears it.
+PROBE_TLS_TRUST_STDERR_MARKERS = (
+    "tls: failed to verify certificate",
+    "x509: certificate signed by unknown authority",
 )
 # Pre-publish attestation lag ladder; mirrors the workflow's post-publish
 # retry step (4 attempts, 5/10/20s waits), blocked class only.
@@ -454,13 +468,16 @@ def _is_absent_attestation_stderr(stderr: str, marker: str) -> bool:
 
 def _probe_transient_class(stderr: str) -> str | None:
     """Message-only hint for a probe stderr that matched no absent-attestation
-    shape: an HTTP 403 answer or a network/Sigstore transport death never
-    carried a verification verdict, so attributing it to marker drift would
-    misdirect the operator. Anything unrecognized is genuine drift, and the
-    caller's fail-closed blocked exit is identical for every class."""
+    shape: an HTTP 403 answer, a TLS certificate-verification failure, or a
+    network/Sigstore transport death never carried a verification verdict,
+    so attributing it to marker drift would misdirect the operator. Anything
+    unrecognized is genuine drift, and the caller's fail-closed blocked exit
+    is identical for every class."""
     lowered = stderr.lower()
     if "http 403" in lowered:
         return "http-403"
+    if any(marker in lowered for marker in PROBE_TLS_TRUST_STDERR_MARKERS):
+        return "tls-trust"
     if any(marker in lowered for marker in PROBE_NETWORK_STDERR_MARKERS):
         return "network"
     return None
@@ -651,6 +668,10 @@ def _rule_suite_binding(repository: str, head_sha: str, *, admin_reads: str) -> 
 
 
 def _admin_gated_notes(report: dict[str, Any]) -> list[str]:
+    # `_append_step_summary` dedupes on the exact bytes of the rendered
+    # block, so these note strings must stay static for a given report
+    # state; rewording them would make blocked-class retries append a
+    # duplicate block instead of deduping.
     notes: list[str] = []
     setting = report.get("immutability_setting")
     if isinstance(setting, str) and setting.startswith("unreadable"):
@@ -916,10 +937,20 @@ def cmd_preflight(args: argparse.Namespace) -> int:
             transient = _probe_transient_class(probe_stderr)
             if transient == "http-403":
                 raise Blocked(
-                    f"blocked-marker probe was answered with HTTP 403 (transient "
-                    f"rate-limit/permission class), so no live no-attestation "
-                    f"error shape was observed; retry when the attestations API "
-                    f"answers reads; observed: {probe_stderr[:300]}"
+                    f"blocked-marker probe was answered with HTTP 403, so no "
+                    f"live no-attestation error shape was observed; a "
+                    f"rate-limited read clears on retry, but a token-permission "
+                    f"403 persists until this token can read the attestations "
+                    f"API; observed: {probe_stderr[:300]}"
+                )
+            if transient == "tls-trust":
+                raise Blocked(
+                    f"blocked-marker probe failed TLS certificate verification "
+                    f"toward the attestations API before any verification "
+                    f"verdict (corporate-proxy interception or an untrusted or "
+                    f"expired chain); this persists until the runner trusts "
+                    f"the presented chain, so repair the runner trust store or "
+                    f"proxy configuration; observed: {probe_stderr[:300]}"
                 )
             if transient == "network":
                 raise Blocked(

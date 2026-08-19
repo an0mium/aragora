@@ -1876,24 +1876,24 @@ def test_envelope_preflight_validates_blocked_marker_against_live_gh(monkeypatch
 def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch, tmp_path, capsys
 ):
-    """A probe answered by HTTP 403 or killed in the network/Sigstore
-    transport never observed a verification verdict, so the blocked report
-    must name the transient cause instead of claiming marker drift. The
-    exit class is message-only cosmetics: every class stays blocked
-    pre-publication with the observed stderr embedded and no per-asset
-    verification attempted, and an unrecognized shape still reads as
-    genuine drift."""
+    """A probe answered by HTTP 403, failed by TLS certificate
+    verification, or killed in the network/Sigstore transport never
+    observed a verification verdict, so the blocked report must name the
+    observed cause instead of claiming marker drift: network shapes as the
+    transient infrastructure class, TLS-trust and HTTP 403 shapes without
+    any transience promise (a corporate-MITM trust failure and a
+    token-permission 403 persist until the runner/token configuration
+    changes). The exit class is message-only cosmetics: every class stays
+    blocked pre-publication with the observed stderr embedded and no
+    per-asset verification attempted, and an unrecognized shape still
+    reads as genuine drift."""
     module = _load_envelope_helper()
     identity, args = _preflight_fixture(module, tmp_path)
     head = args.head_sha
     monkeypatch.setattr(module, "_sleep", lambda _delay: None)
     monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
     transient_shapes = {
-        "HTTP 403": (
-            b"Error: HTTP 403: API rate limit exceeded (https://api.github.com/"
-            b"repos/synaptent/aragora/attestations/sha256:ab12?per_page=30)"
-        ),
-        # Both live network shapes (gh 2.96.0, observed 2026-08-18): transport
+        # Live network shapes (gh 2.96.0, observed 2026-08-18): transport
         # death before verifier initialization, and a post-init API dial
         # failure whose stderr carries the attestations path but no HTTP 404.
         "no valid Sigstore verifiers could be initialized": (
@@ -1917,8 +1917,65 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
         assert observed in report["reason"], observed
         assert state["probe_calls"] == 1, observed
         assert state["asset_attempts"] == {}, observed
+    # TLS-trust failures (corporate-MITM interception, untrusted or expired
+    # chains), pinned live 2026-08-18 against the byte-exact production argv
+    # (gh 2.96.0): an untrusted interceptor reports unknown authority even
+    # when its own certificate is expired, so the expired-chain shape rides
+    # on the crypto/tls umbrella prefix. These are persistent runner
+    # configuration states, so their wording promises no transience.
+    tls_trust_shapes = {
+        "x509: certificate signed by unknown authority": (
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": tls: failed to verify '
+            b"certificate: x509: certificate signed by unknown authority"
+        ),
+        "tls: failed to verify certificate": (
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": tls: failed to verify '
+            b"certificate: x509: certificate has expired or is not yet valid: "
+            b"current time 2026-08-18T12:00:00Z is after 2026-08-17T18:40:37Z"
+        ),
+    }
+    for observed, stderr in tls_trust_shapes.items():
+        fake_run, state = _preflight_gh_stub(module, probe_stderr=stderr)
+        monkeypatch.setattr(module, "_run_gh", fake_run)
+        assert module.cmd_preflight(args) == module.EXIT_BLOCKED, observed
+        report = json.loads(capsys.readouterr().out)
+        assert report["status"] == "blocked", observed
+        assert "failed TLS certificate verification" in report["reason"], observed
+        assert "persists until the runner trusts" in report["reason"], observed
+        assert "transient" not in report["reason"], observed
+        assert "neither the" not in report["reason"], observed
+        assert "observed:" in report["reason"], observed
+        assert observed in report["reason"], observed
+        assert state["probe_calls"] == 1, observed
+        assert state["asset_attempts"] == {}, observed
+    # HTTP 403 is named without any transience promise: a rate-limited read
+    # clears on retry, but a token-permission 403 persists until the token
+    # can read the attestations API, and calling it transient would
+    # misdirect the operator toward waiting out a permission gap.
+    fake_run, state = _preflight_gh_stub(
+        module,
+        probe_stderr=(
+            b"Error: HTTP 403: API rate limit exceeded (https://api.github.com/"
+            b"repos/synaptent/aragora/attestations/sha256:ab12?per_page=30)"
+        ),
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "HTTP 403" in report["reason"]
+    assert "transient" not in report["reason"]
+    assert "rate-limited read clears on retry" in report["reason"]
+    assert "persists until" in report["reason"]
+    assert "neither the" not in report["reason"]
+    assert "observed:" in report["reason"]
+    assert state["probe_calls"] == 1
+    assert state["asset_attempts"] == {}
     # Boundary: an unrecognized shape (HTTP 500 here) is NOT transient-classed;
-    # it keeps the marker-drift wording so genuine drift is never soft-pedaled.
+    # it keeps the marker-drift wording, byte-unchanged, so genuine drift is
+    # never soft-pedaled.
     fake_run, state = _preflight_gh_stub(
         module, probe_stderr=b"attestation lookup failed: HTTP 500"
     )
@@ -1928,6 +1985,8 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     assert report["status"] == "blocked"
     assert "transient" not in report["reason"]
     assert "neither the" in report["reason"]
+    assert "runner gh reports a missing attestation with neither the" in report["reason"]
+    assert "would hard-fail instead of retrying" in report["reason"]
     assert state["asset_attempts"] == {}
 
 
