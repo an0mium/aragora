@@ -74,13 +74,11 @@ NO_ATTESTATIONS_MARKER = "no attestations"
 ATTESTATIONS_API_PATH_MARKER = "/attestations/sha256:"
 BLOCKED_MARKER_PROBE_NAME = "blocked-marker-probe.bin"
 # Transient transport shapes for `_probe_transient_class` (observed live on
-# gh 2.96.0, 2026-08-18): before verifier initialization a dead network
-# surfaces as the Sigstore verifier-init failure, after it as Go net
-# dial/lookup text. Message-only classification; never an exit-class input.
-# The verifier-init marker also matches a stale or corrupt local TUF cache,
-# so `network` can name a cache state; every class stays blocked either way.
+# gh 2.96.0, 2026-08-18): after verifier initialization a dead network
+# surfaces as Go net dial/lookup text on the attestations-API read, so a
+# connectivity retry genuinely clears this class. Message-only
+# classification; never an exit-class input.
 PROBE_NETWORK_STDERR_MARKERS = (
-    "no valid sigstore verifiers could be initialized",
     "dial tcp",
     "proxyconnect",
     "no such host",
@@ -91,6 +89,14 @@ PROBE_NETWORK_STDERR_MARKERS = (
     "context deadline exceeded",
     "temporary failure in name resolution",
 )
+# A dead Sigstore verifier initialization, pinned live 2026-08-19 with the
+# byte-exact production argv (gh 2.96.0): gh swallows the underlying cause,
+# so unreachable TUF surfaces, TLS interception toward them, and a stale or
+# corrupt local TUF cache (`~/.cache/gh/.sigstore`) all emit this same bare
+# line. The corrupt-cache case reproduces it even with full connectivity
+# (gh never re-bootstraps the cache), so unlike the network class this
+# wording must never promise that a connectivity retry clears it.
+PROBE_VERIFIER_INIT_STDERR_MARKERS = ("no valid sigstore verifiers could be initialized",)
 # Corporate-MITM trust failures on the attestations-API read, pinned live
 # 2026-08-18 with the byte-exact production argv (gh 2.96.0). The crypto/tls
 # umbrella prefix is load-bearing: an untrusted interceptor reports unknown
@@ -468,16 +474,22 @@ def _is_absent_attestation_stderr(stderr: str, marker: str) -> bool:
 
 def _probe_transient_class(stderr: str) -> str | None:
     """Message-only hint for a probe stderr that matched no absent-attestation
-    shape: an HTTP 403 answer, a TLS certificate-verification failure, or a
-    network/Sigstore transport death never carried a verification verdict,
-    so attributing it to marker drift would misdirect the operator. Anything
-    unrecognized is genuine drift, and the caller's fail-closed blocked exit
-    is identical for every class."""
+    shape: an HTTP 403 answer, a TLS certificate-verification failure, a dead
+    Sigstore verifier initialization, or a network transport death never
+    carried a verification verdict, so attributing it to marker drift would
+    misdirect the operator. Anything unrecognized is genuine drift, and the
+    caller's fail-closed blocked exit is identical for every class."""
     lowered = stderr.lower()
     if "http 403" in lowered:
         return "http-403"
     if any(marker in lowered for marker in PROBE_TLS_TRUST_STDERR_MARKERS):
         return "tls-trust"
+    # Before the network markers: gh currently swallows the verifier-init
+    # cause, but a gh that starts appending it (dial/TLS text) must keep the
+    # no-transience classification instead of degrading to the network
+    # class's retry-on-connectivity promise.
+    if any(marker in lowered for marker in PROBE_VERIFIER_INIT_STDERR_MARKERS):
+        return "verifier-init"
     if any(marker in lowered for marker in PROBE_NETWORK_STDERR_MARKERS):
         return "network"
     return None
@@ -951,6 +963,16 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                     f"expired chain); this persists until the runner trusts "
                     f"the presented chain, so repair the runner trust store or "
                     f"proxy configuration; observed: {probe_stderr[:300]}"
+                )
+            if transient == "verifier-init":
+                raise Blocked(
+                    f"blocked-marker probe could not initialize the Sigstore "
+                    f"verifier; gh swallows the underlying cause, and a stale "
+                    f"or corrupt local TUF cache reproduces this even with "
+                    f"full connectivity, so clear or repair the runner's "
+                    f"Sigstore TUF cache or restore its TUF reachability "
+                    f"instead of waiting on a connectivity retry; "
+                    f"observed: {probe_stderr[:300]}"
                 )
             if transient == "network":
                 raise Blocked(
