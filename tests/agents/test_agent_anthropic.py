@@ -379,7 +379,7 @@ class TestAnthropicModelMapping:
         """Test fallback agent upgrades legacy Anthropic IDs to the frontier.
 
         The OPENROUTER_MODEL_MAP intentionally routes every legacy Claude ID
-        to the current frontier (Opus 4.8) via OpenRouter so weaker historical
+        to the current frontier (Opus 5) via OpenRouter so weaker historical
         models are transparently upgraded and a missing direct-provider key
         never blocks functionality.
         """
@@ -390,7 +390,7 @@ class TestAnthropicModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "anthropic/claude-opus-4.8"
+            assert fallback.model == "anthropic/claude-opus-5"
 
 
 if __name__ == "__main__":

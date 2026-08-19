@@ -3750,7 +3750,7 @@
                     "providers": {
                       "anthropic": {
                         "available": true,
-                        "model": "claude-opus-4-8"
+                        "model": "claude-opus-5"
                       },
                       "openai": {
                         "available": true,
@@ -263945,7 +263945,7 @@
               "type": "string"
             },
             "example": [
-              "claude-opus-4-8",
+              "claude-opus-5",
               "gpt-4o",
               "gemini-pro"
             ]
@@ -263955,7 +263955,7 @@
           "num_agents": 3,
           "num_rounds": 9,
           "model_types": [
-            "claude-opus-4-8",
+            "claude-opus-5",
             "gpt-4o",
             "gemini-pro"
           ]

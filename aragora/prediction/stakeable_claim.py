@@ -47,6 +47,16 @@ def _require_enabled() -> None:
         raise RuntimeError(f"Prediction markets are disabled. Set {_ENV_FLAG}=1 to enable.")
 
 
+def _parse_datetime(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
@@ -215,14 +225,17 @@ class InMemoryStakeableClaimStore:
         _require_enabled()
         if not isinstance(grace, timedelta):
             grace = timedelta(seconds=float(grace))
+        if grace < timedelta(0):
+            raise ValueError(f"grace must be non-negative, got {grace!r}")
         cutoff = before_dt or datetime.now(tz=UTC)
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.replace(tzinfo=UTC)
         expired_ids: list[str] = []
         for claim in self._claims.values():
             if claim.resolution_status != ResolutionStatus.OPEN:
                 continue
-            try:
-                exp_dt = datetime.fromisoformat(claim.expiry)
-            except ValueError:
+            exp_dt = _parse_datetime(claim.expiry)
+            if exp_dt is None:
                 # Quarantine, never a silent skip (#8777): a malformed expiry
                 # can neither qualify events (resolver fails closed on it) nor
                 # ever sweep, so skipping leaves a permanent zombie claim.
@@ -235,8 +248,6 @@ class InMemoryStakeableClaimStore:
                     claim.expiry,
                 )
                 continue
-            if exp_dt.tzinfo is None:
-                exp_dt = exp_dt.replace(tzinfo=UTC)
             if exp_dt + grace < cutoff:
                 claim.resolution_status = ResolutionStatus.EXPIRED
                 expired_ids.append(claim.claim_id)

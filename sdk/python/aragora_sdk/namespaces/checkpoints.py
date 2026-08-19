@@ -292,6 +292,27 @@ class CheckpointsAPI:
             params={"compare_to": compare_to},
         )
 
+    def compare_km_checkpoints(self, checkpoint_a: str, checkpoint_b: str) -> dict[str, Any]:
+        """
+        Compare two named Knowledge Mound checkpoints directly.
+
+        Uses the documented POST /api/v1/km/checkpoints/compare contract
+        (body: checkpoint_a, checkpoint_b).
+
+        Args:
+            checkpoint_a: First checkpoint name.
+            checkpoint_b: Second checkpoint name.
+
+        Returns:
+            Dict with checkpoint_a, checkpoint_b, additions, deletions,
+            modifications, and details.
+        """
+        return self._client._request(
+            "POST",
+            "/api/v1/km/checkpoints/compare",
+            json={"checkpoint_a": checkpoint_a, "checkpoint_b": checkpoint_b},
+        )
+
     def restore_km(self, name: str) -> dict[str, Any]:
         """
         Restore a Knowledge Mound checkpoint.
@@ -466,6 +487,18 @@ class AsyncCheckpointsAPI:
             "GET",
             f"/api/v1/km/checkpoints/{name}/compare",
             params={"compare_to": compare_to},
+        )
+
+    async def compare_km_checkpoints(self, checkpoint_a: str, checkpoint_b: str) -> dict[str, Any]:
+        """Compare two named Knowledge Mound checkpoints directly.
+
+        Uses the documented POST /api/v1/km/checkpoints/compare contract
+        (body: checkpoint_a, checkpoint_b).
+        """
+        return await self._client._request(
+            "POST",
+            "/api/v1/km/checkpoints/compare",
+            json={"checkpoint_a": checkpoint_a, "checkpoint_b": checkpoint_b},
         )
 
     async def restore_km(self, name: str) -> dict[str, Any]:

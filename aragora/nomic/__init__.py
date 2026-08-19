@@ -123,6 +123,19 @@ from aragora.nomic.meta_planner import (
     PrioritizedGoal,
 )
 
+# Generic repository planning profiles and commit-addressed context packs
+from aragora.nomic.repository_profile import (
+    ContextEvidenceReference,
+    ContextPack,
+    EvaluationCriterion,
+    NomicProfileError,
+    NomicRepositoryProfile,
+    RepositoryRevision,
+    RepositoryStateError,
+    assert_clean_revision,
+    load_nomic_repository_profile,
+)
+
 # Self-correction (cross-cycle pattern analysis)
 from aragora.nomic.self_correction import (
     CorrectionReport,
@@ -657,6 +670,16 @@ __all__ = [
     "MetaPlannerConfig",
     "PrioritizedGoal",
     "PlanningContext",
+    # Generic repository planning
+    "EvaluationCriterion",
+    "NomicRepositoryProfile",
+    "RepositoryRevision",
+    "ContextEvidenceReference",
+    "ContextPack",
+    "NomicProfileError",
+    "RepositoryStateError",
+    "assert_clean_revision",
+    "load_nomic_repository_profile",
     # Branch coordination
     "BranchCoordinator",
     "BranchCoordinatorConfig",

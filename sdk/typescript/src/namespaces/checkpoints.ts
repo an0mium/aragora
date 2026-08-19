@@ -202,6 +202,21 @@ export class CheckpointsAPI {
   }
 
   /**
+   * Compare two named Knowledge Mound checkpoints directly.
+   *
+   * Uses the documented POST /api/v1/km/checkpoints/compare contract
+   * (body: checkpoint_a, checkpoint_b).
+   */
+  async compareKMCheckpoints(
+    checkpointA: string,
+    checkpointB: string
+  ): Promise<CheckpointComparison> {
+    return this.client.request('POST', '/api/v1/km/checkpoints/compare', {
+      body: { checkpoint_a: checkpointA, checkpoint_b: checkpointB },
+    });
+  }
+
+  /**
    * Restore a Knowledge Mound checkpoint.
    */
   async restoreKM(name: string): Promise<{ restored: boolean }> {

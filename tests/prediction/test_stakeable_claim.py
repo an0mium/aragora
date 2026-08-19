@@ -254,6 +254,32 @@ class TestStoreHappyPaths:
         expired = store.expire_stale(cutoff)
         assert "far" in expired
 
+    def test_expire_stale_rejects_negative_grace(self):
+        store = InMemoryStakeableClaimStore()
+        store.add(_make_claim("negative-grace", expiry=_past_expiry(1)))
+
+        with pytest.raises(ValueError, match="non-negative"):
+            store.expire_stale(grace=-1)
+
+    def test_expire_stale_accepts_z_suffix_expiry(self):
+        store = InMemoryStakeableClaimStore()
+        expiry = _past_expiry(2).replace("+00:00", "Z")
+        store.add(_make_claim("z-expiry", expiry=expiry))
+
+        expired = store.expire_stale()
+
+        assert expired == ["z-expiry"]
+        assert store.get("z-expiry").resolution_status == ResolutionStatus.EXPIRED
+
+    def test_expire_stale_treats_naive_cutoff_as_utc(self):
+        store = InMemoryStakeableClaimStore()
+        store.add(_make_claim("naive-cutoff", expiry=_past_expiry(2)))
+        cutoff = datetime.now(tz=UTC).replace(tzinfo=None)
+
+        expired = store.expire_stale(cutoff)
+
+        assert expired == ["naive-cutoff"]
+
 
 # ---------------------------------------------------------------------------
 # InMemoryStakeableClaimStore — error paths

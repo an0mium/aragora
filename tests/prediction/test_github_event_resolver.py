@@ -70,6 +70,13 @@ class TestCanResolve:
         )
         assert r.can_resolve(claim, event)
 
+    def test_can_resolve_without_event_matches_legacy_adapter_surface(self):
+        r = GitHubEventResolver()
+        assert r.can_resolve(_open_claim(question_type=QuestionType.PR_MERGE))
+        assert r.can_resolve(_open_claim(question_type=QuestionType.ISSUE_CLOSE))
+        assert r.can_resolve(_open_claim(question_type=QuestionType.CI_PASS))
+        assert not r.can_resolve(_open_claim(question_type=QuestionType.DEPENDENCY_RELEASE))
+
     def test_target_ref_mismatch_returns_false(self):
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#1")
@@ -837,6 +844,29 @@ class TestTerminalTimestampAllowlist:
         assert result.resolved is True
         assert result.resolution_value is True
 
+    def test_terminal_timestamp_overrides_backdated_occurred_at(self):
+        r = GitHubEventResolver()
+        claim = StakeableClaim(
+            claim_id="terminal-wins",
+            question="Will a/b#44 merge?",
+            question_type=QuestionType.PR_MERGE,
+            target_ref="a/b#44",
+            expiry=_NOW.isoformat(),
+        )
+        event = GitHubEventPayload(
+            event_type="pull_request",
+            action="closed",
+            target_ref="a/b#44",
+            occurred_at=(_NOW - timedelta(hours=1)).isoformat(),
+            merged=True,
+            raw={"merged_at": (_NOW + timedelta(hours=1)).isoformat()},
+        )
+
+        result = r.resolve_from_event(claim, event)
+
+        assert result.resolved is False
+        assert "after claim expiry" in result.evidence
+
     def test_completed_at_accepted_for_ci(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="a/b@main")
@@ -868,3 +898,10 @@ class TestRunAttemptFailClosed:
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
         assert "lacks run_attempt" in result.evidence
+
+
+class TestAdapterCompatibility:
+    def test_resolve_method_exists_and_fails_closed_without_event(self):
+        r = GitHubEventResolver()
+        with pytest.raises(NotImplementedError, match="resolve_from_event"):
+            r.resolve(_open_claim())

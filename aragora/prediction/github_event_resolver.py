@@ -126,7 +126,7 @@ class GitHubEventResolver:
         suffix = ref[sep_idx + 1 :].strip()
         return f"{prefix}{ref[sep_idx]}{suffix}"
 
-    def can_resolve(self, claim: StakeableClaim, event: GitHubEventPayload) -> bool:
+    def can_resolve(self, claim: StakeableClaim, event: GitHubEventPayload | None = None) -> bool:
         """Return True if *event* could update *claim*'s resolution state.
 
         ``target_ref`` on both the claim and the event is normalized via
@@ -135,10 +135,23 @@ class GitHubEventResolver:
         """
         if claim.question_type not in self._EVENT_TYPES:
             return False
+        if event is None:
+            return True
         return event.event_type in self._EVENT_TYPES[
             claim.question_type
         ] and self._normalize_target_ref(event.target_ref) == self._normalize_target_ref(
             claim.target_ref
+        )
+
+    def resolve(self, claim: StakeableClaim) -> tuple[bool, str]:  # pragma: no cover
+        """Fail closed for callers using the legacy adapter surface.
+
+        This adapter requires caller-supplied event evidence. Use
+        :meth:`resolve_from_event` for settlement.
+        """
+        raise NotImplementedError(
+            "GitHubEventResolver.resolve requires a GitHubEventPayload; "
+            "call resolve_from_event(claim, event) with pre-fetched event data."
         )
 
     def resolve_from_event(
@@ -270,13 +283,17 @@ class GitHubEventResolver:
 
     @staticmethod
     def _parse_event_time(event: GitHubEventPayload) -> datetime | None:
-        raw_time = event.occurred_at or event.raw.get("occurred_at")
+        raw_time: object = ""
+        # Terminal-action timestamps are authoritative when present. This
+        # prevents a generic, backdated occurred_at value from bypassing the
+        # event-time expiry gate.
+        for key in GitHubEventResolver._TERMINAL_TIME_KEYS.get(event.event_type, ()):
+            candidate = event.raw.get(key)
+            if candidate:
+                raw_time = candidate
+                break
         if not raw_time:
-            for key in GitHubEventResolver._TERMINAL_TIME_KEYS.get(event.event_type, ()):
-                candidate = event.raw.get(key)
-                if candidate:
-                    raw_time = candidate
-                    break
+            raw_time = event.occurred_at or event.raw.get("occurred_at")
         if not isinstance(raw_time, str) or not raw_time:
             return None
         return GitHubEventResolver._parse_datetime(raw_time)
