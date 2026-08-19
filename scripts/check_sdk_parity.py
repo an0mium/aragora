@@ -1012,6 +1012,19 @@ def main() -> int:
                         f"{advisory_target['missing_from_both_sdks_max']} | stale_python<="
                         f"{advisory_target['stale_python_sdk_paths_max']}"
                     )
+                if budget_passing and (
+                    current_missing < committed.max_missing_from_both
+                    or current_stale < committed.max_stale_python
+                ):
+                    # Ceilings never decay on their own, so unbanked slack after a
+                    # real paydown stays silently consumable until someone tightens.
+                    print(
+                        "Advisory: current debt is below the committed ceilings "
+                        f"(missing_from_both {current_missing}/"
+                        f"{committed.max_missing_from_both} "
+                        f"| stale_python {current_stale}/{committed.max_stale_python}); "
+                        "run --tighten to bank this progress as the new ceilings."
+                    )
         else:
             budget_block["skipped"] = "handler routes unavailable in this environment"
             if not args.json:
@@ -1025,43 +1038,55 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2))
 
+    # In --json mode stdout must stay exactly one parseable JSON document
+    # (sdk-parity.yml redirects it into an artifact), so every human
+    # diagnostic below is routed to stderr instead.
+    diagnostics = sys.stderr if args.json else sys.stdout
+
     if budget_failure_rc is not None:
         if budget_failure_msg:
-            print(f"\n{budget_failure_msg}", file=sys.stderr if args.json else sys.stdout)
+            print(f"\n{budget_failure_msg}", file=diagnostics)
         return budget_failure_rc
 
     # Strict mode: fail if gaps exceed threshold
     if args.strict:
         if not handler_result.available:
             print(
-                "\nSKIP: Handler route extraction unavailable; strict parity enforcement skipped."
+                "\nSKIP: Handler route extraction unavailable; strict parity enforcement skipped.",
+                file=diagnostics,
             )
             return 0
         py_cov = report["summary"]["python_sdk_coverage_pct"]
         ts_cov = report["summary"]["typescript_sdk_coverage_pct"]
         if py_cov < args.threshold or ts_cov < args.threshold:
-            print(f"\nFAIL: Coverage below threshold ({args.threshold}%)")
+            print(f"\nFAIL: Coverage below threshold ({args.threshold}%)", file=diagnostics)
             return 1
         missing = report["summary"]["routes_missing_from_both_sdks"]
         if len(new_missing) > 0 and not args.allow_missing:
             print(
                 f"\nFAIL: {len(new_missing)} new routes lack SDK coverage "
-                f"(total missing: {missing})."
+                f"(total missing: {missing}).",
+                file=diagnostics,
             )
-            print("Run with --allow-missing only as a temporary migration override.")
+            print(
+                "Run with --allow-missing only as a temporary migration override.",
+                file=diagnostics,
+            )
             return 1
         if committed is not None and budget_passing is False:
             current = budget_block["current_missing_from_both_sdks"]
             if current > committed.max_missing_from_both:
                 print(
                     "\nFAIL: Missing-from-both debt exceeds committed ceiling "
-                    f"({current} > {committed.max_missing_from_both})."
+                    f"({current} > {committed.max_missing_from_both}).",
+                    file=diagnostics,
                 )
                 return 1
             stale = budget_block["current_stale_python_sdk_paths"]
             print(
                 "\nFAIL: Stale Python SDK debt exceeds committed ceiling "
-                f"({stale} > {committed.max_stale_python})."
+                f"({stale} > {committed.max_stale_python}).",
+                file=diagnostics,
             )
             return 1
 
