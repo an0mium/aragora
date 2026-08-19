@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import copy
 import json
+from argparse import Namespace
+from pathlib import Path
+
+import pytest
 
 from aragora.cli.commands.verify import (
     _inline_artifact_hash,
     _inline_decision_payload_hash,
     _verify_receipt,
+    cmd_verify,
 )
 from aragora.gauntlet.receipt_models import (
     DecisionReceipt,
@@ -49,6 +54,23 @@ def receipt(**overrides) -> DecisionReceipt:
     }
     values.update(overrides)
     return DecisionReceipt(**values)
+
+
+def assert_cli_rejects(
+    data: dict[str, object],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(json.dumps(data), encoding="utf-8")
+
+    exit_code = cmd_verify(
+        Namespace(receipt_path=str(receipt_path), output_format="json", verbose=False)
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result["valid"] is False
 
 
 def test_schema_13_round_trip_and_markdown_links() -> None:
@@ -133,7 +155,29 @@ def test_cli_inline_hashes_match_canonical_recipe() -> None:
     assert _verify_receipt(data)["valid"] is True
 
 
-def test_schema_downgrade_is_detected() -> None:
+def test_removed_decision_hash_is_preserved_and_rejected_by_object_and_cli(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    original = receipt(
+        evidence_references=[evidence("ev-a", "ROADMAP.md")],
+        decision_payload={"goals": [{"title": "Goal"}]},
+    )
+    data = original.to_dict()
+    del data["decision_payload_hash"]
+
+    restored = DecisionReceipt.from_dict(data)
+
+    assert restored.schema_version == "1.3"
+    assert restored.decision_payload_hash is None
+    assert not restored.verify_integrity()
+    assert_cli_rejects(data, tmp_path, capsys)
+
+
+def test_schema_downgrade_is_preserved_and_rejected_by_object_and_cli(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     original = receipt(
         evidence_references=[evidence("ev-a", "ROADMAP.md")],
         decision_payload={"goals": [{"title": "Goal"}]},
@@ -141,7 +185,12 @@ def test_schema_downgrade_is_detected() -> None:
     data = original.to_dict()
     data["schema_version"] = "1.2"
 
-    assert _verify_receipt(data)["valid"] is False
+    restored = DecisionReceipt.from_dict(data)
+
+    assert restored.schema_version == "1.2"
+    assert restored.decision_payload_hash == original.decision_payload_hash
+    assert not restored.verify_integrity()
+    assert_cli_rejects(data, tmp_path, capsys)
 
 
 def test_legacy_receipts_remain_byte_and_hash_compatible() -> None:
