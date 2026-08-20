@@ -1,10 +1,12 @@
 """Focused tests for scripts/preflight_mypy.sh.
 
-The gate reads COMMITTED state only (a three-dot ``<base>...HEAD`` diff), so
-staged, unstaged, or untracked python edits are never type-checked. These
-tests pin the committed-diff behavior byte-for-byte (stdout, exit codes, and
-the exact mypy argv captured via a PATH shim) and prove the advisory stderr
-disclosure for uncommitted python changes never alters that behavior.
+The gate selects files from COMMITTED state only (a three-dot
+``<base>...HEAD`` diff), so python edits outside that diff (staged, unstaged,
+or untracked) are never type-checked; files inside the diff are passed to
+mypy, which reads their working-tree content. These tests pin the
+committed-diff behavior byte-for-byte (stdout, exit codes, and the exact mypy
+argv captured via a PATH shim) and prove the advisory stderr disclosure for
+uncommitted python changes never alters that behavior.
 """
 
 from __future__ import annotations
@@ -182,6 +184,33 @@ def test_non_python_dirty_files_do_not_disclose(tmp_path: Path) -> None:
     assert proc.stdout == SKIP_STDOUT
     assert proc.stderr == ""
     assert not argv_out.exists()
+
+
+def test_dirty_file_inside_committed_diff_is_not_named_in_disclosure(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _commit_python_pair(repo)
+    env, argv_out = _shim_env(tmp_path)
+    # scripts/foo.py is selected by the committed diff and mypy reads its
+    # working-tree content, so it IS checked (dirty edits included) and must
+    # not be reported as unchecked; only pkg.py is genuinely outside the gate.
+    (repo / "scripts" / "foo.py").write_text("y = 2\ny2 = 5\n", encoding="utf-8")
+    (repo / "pkg.py").write_text("x = 1\nx5 = 5\n", encoding="utf-8")
+
+    proc = _preflight(repo, env)
+
+    assert proc.returncode == 0
+    assert proc.stdout == (
+        "preflight_mypy: origin/main...HEAD changed python files:\n"
+        "  scripts/foo.py\n"
+        "  tests/test_foo.py\n"
+        "\n"
+    )
+    assert proc.stderr == DISCLOSURE_HEADER + "  pkg.py\n" + DISCLOSURE_FOOTER
+    assert argv_out.read_text(encoding="utf-8").splitlines() == [
+        "--pretty",
+        "scripts/foo.py",
+        "tests/test_foo.py",
+    ]
 
 
 def test_committed_diff_with_dirty_tree_keeps_committed_behavior_identical(
