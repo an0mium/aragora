@@ -171,6 +171,14 @@ def test_missing_claim_results_file_exits_1(
 # -- Transitive impact set --
 
 
+def test_parser_exposes_transitive_impact_flag() -> None:
+    from aragora.cli.parser import build_parser
+
+    parser = build_parser()
+    assert parser.parse_args(["decay-monitor"]).transitive_impact is False
+    assert parser.parse_args(["decay-monitor", "--transitive-impact"]).transitive_impact is True
+
+
 _UNIT_WITH_CLAIM_YAML = """\
 code_unit_id: test.unit.beta
 version: "1.0"

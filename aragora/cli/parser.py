@@ -785,6 +785,11 @@ def _add_decay_monitor_parser(subparsers) -> None:
         metavar="JSONL",
         help="Optional JSONL/JSON file of ClaimResult dicts (DIC-14 verifier output)",
     )
+    p.add_argument(
+        "--transitive-impact",
+        action="store_true",
+        help="Include units impacted by failed, stale, or verifier-error claims",
+    )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
 

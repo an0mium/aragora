@@ -132,7 +132,7 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
                 logger.warning("unit %s skipped: %s", data.get("code_unit_id", "?"), exc)
 
     # Transitive impact set — exposes compute_decay_impact_set via the CLI.
-    # Active only when the caller sets transitive_impact=True in the namespace.
+    # Active only when the caller passes --transitive-impact.
     # No dependency edges are wired from manifests (single-hop impact only in
     # this slice); multi-hop edge loading is DIC-20 follow-up scope.
     transitive_impact_set: set[str] = set()
