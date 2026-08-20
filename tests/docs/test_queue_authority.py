@@ -63,6 +63,7 @@ EXPECTED_BACKEND_CALLS = {
         "store:get": 1,
         "symbol:QueuedJob": 1,
     },
+    "aragora/server/initialization.py": {},
     "aragora/server/workers/gauntlet_worker.py": {
         "store:complete": 1,
         "store:dequeue": 1,
@@ -82,6 +83,7 @@ EXPECTED_BACKEND_CALLS = {
         "symbol:QueuedJob": 1,
         "symbol:get_job_store": 3,
     },
+    "scripts/init_postgres_db.py": {},
 }
 
 
@@ -144,7 +146,7 @@ def _assignment_names(node: ast.AST) -> set[str]:
 
 def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    symbol_aliases: dict[str, str] = {}
+    symbol_aliases: dict[str, set[str]] = {}
     module_aliases: set[str] = set()
     dynamic_factories: set[str] = set()
 
@@ -157,7 +159,7 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
             module = _resolve_import_from(path, node, root=root)
             if module == JOB_QUEUE_STORE_MODULE:
                 for alias in node.names:
-                    symbol_aliases[alias.asname or alias.name] = alias.name
+                    symbol_aliases.setdefault(alias.asname or alias.name, set()).add(alias.name)
             elif module:
                 for alias in node.names:
                     if f"{module}.{alias.name}" == JOB_QUEUE_STORE_MODULE:
@@ -177,20 +179,24 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
                 for target in targets:
                     dynamic_factories.update(_assignment_names(target))
 
-    def canonical_symbol(node: ast.AST) -> str | None:
+    def symbol_candidates(node: ast.AST) -> set[str]:
         name = _dotted_name(node)
         if not name:
-            return None
+            return set()
         if name in symbol_aliases:
             return symbol_aliases[name]
         for module_alias in module_aliases:
             prefix = f"{module_alias}."
             if name.startswith(prefix):
-                return name.removeprefix(prefix)
+                return {name.removeprefix(prefix)}
         prefix = f"{JOB_QUEUE_STORE_MODULE}."
         if name.startswith(prefix):
-            return name.removeprefix(prefix)
-        return None
+            return {name.removeprefix(prefix)}
+        return set()
+
+    def canonical_symbol(node: ast.AST) -> str | None:
+        candidates = symbol_candidates(node)
+        return next(iter(candidates)) if len(candidates) == 1 else None
 
     changed = True
     while changed:
@@ -200,10 +206,12 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
                 continue
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             names = {name for target in targets for name in _assignment_names(target)}
-            symbol = canonical_symbol(node.value)
-            if symbol and any(symbol_aliases.get(name) != symbol for name in names):
-                symbol_aliases.update(dict.fromkeys(names, symbol))
-                changed = True
+            candidates = symbol_candidates(node.value)
+            for name in names:
+                aliases = symbol_aliases.setdefault(name, set())
+                previous_size = len(aliases)
+                aliases.update(candidates)
+                changed |= len(aliases) != previous_size
             value_name = _dotted_name(node.value)
             if value_name in module_aliases and not names.issubset(module_aliases):
                 module_aliases.update(names)
@@ -249,9 +257,11 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        symbol = canonical_symbol(node.func)
-        if symbol:
-            inventory[f"symbol:{symbol}"] += 1
+        candidates = symbol_candidates(node.func)
+        if len(candidates) == 1:
+            inventory[f"symbol:{next(iter(candidates))}"] += 1
+        elif candidates:
+            inventory[f"symbol_conflict:{_dotted_name(node.func)}"] += 1
         if is_dynamic_factory_get(node):
             inventory["dynamic_factory:get"] += 1
         if isinstance(node.func, ast.Attribute) and is_store_expression(node.func.value):
@@ -343,6 +353,49 @@ def test_backend_call_inventory_rejects_growth_but_allows_removal(tmp_path: Path
     assert not _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline)
 
 
+def test_dynamic_reference_inventory_rejects_new_backend_calls(tmp_path: Path) -> None:
+    path = tmp_path / "consumer.py"
+    path.write_text(
+        "factory = loader(import_path='aragora.storage.job_queue_store')\n"
+        "factory.get().enqueue(first)\n",
+        encoding="utf-8",
+    )
+    baseline = dict(_backend_call_inventory(path, root=tmp_path))
+
+    path.write_text(
+        "factory = loader(import_path='aragora.storage.job_queue_store')\n"
+        "factory.get().enqueue(first)\n"
+        "factory.get().enqueue(second)\n",
+        encoding="utf-8",
+    )
+
+    assert _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline) == {
+        "dynamic_factory:get": 1,
+        "store:enqueue": 1,
+    }
+
+    path.write_text(
+        "factory = loader(import_path='aragora.storage.job_queue_store')\n",
+        encoding="utf-8",
+    )
+    assert not _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline)
+
+
+def test_conflicting_symbol_aliases_terminate_deterministically(tmp_path: Path) -> None:
+    path = tmp_path / "consumer.py"
+    path.write_text(
+        "from aragora.storage.job_queue_store import QueuedJob, get_job_store\n"
+        "factory = get_job_store\n"
+        "factory = QueuedJob\n"
+        "factory()\n",
+        encoding="utf-8",
+    )
+
+    expected = Counter({"symbol_conflict:factory": 1})
+    assert _backend_call_inventory(path, root=tmp_path) == expected
+    assert _backend_call_inventory(path, root=tmp_path) == expected
+
+
 def test_arch_015_is_the_binding_queue_authority() -> None:
     payload = yaml.safe_load(CHARTER.read_text(encoding="utf-8"))
     entry = next(row for row in payload["authorities"] if row["id"] == "ARCH-015")
@@ -375,8 +428,9 @@ def test_queue_entrypoints_and_backend_split_remain_explicit() -> None:
 
     assert not importers - EXPECTED_STORAGE_IMPORTERS
     assert not dynamic_referencers - EXPECTED_DYNAMIC_REFERENCERS
-    assert set(EXPECTED_BACKEND_CALLS) == EXPECTED_STORAGE_IMPORTERS
-    for relative_path in importers:
+    expected_consumers = EXPECTED_STORAGE_IMPORTERS | EXPECTED_DYNAMIC_REFERENCERS
+    assert set(EXPECTED_BACKEND_CALLS) == expected_consumers
+    for relative_path in importers | dynamic_referencers:
         actual = _backend_call_inventory(ROOT / relative_path)
         assert not _excess_backend_calls(actual, EXPECTED_BACKEND_CALLS[relative_path]), (
             relative_path,
