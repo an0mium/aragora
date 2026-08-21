@@ -663,9 +663,9 @@ def main():
         markdown = generate_markdown(report)
         docs_path.write_text(markdown)
 
-        # Update baseline
+        # Update baseline (single integer plus LF, matching the committed convention)
         baseline_path = tests_dir / ".skip_baseline"
-        baseline_path.write_text(str(report["total"]))
+        baseline_path.write_text(f"{report['total']}\n")
         _emit_output(
             "\n".join(
                 [
