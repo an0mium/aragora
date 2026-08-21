@@ -75,7 +75,7 @@ def test_main_default_summary_uses_pipe_safe_emitter(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    emitted = []
+    emitted: list[str] = []
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
 
