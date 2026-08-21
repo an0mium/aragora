@@ -33,7 +33,7 @@ try:
     WEAVIATE_AVAILABLE = True
 except ImportError:
     WEAVIATE_AVAILABLE = False
-    weaviate = None
+    weaviate = None  # type: ignore[assignment]
 
     class _FallbackWeaviateConnectionError(Exception):
         """Fallback exception when Weaviate is not available."""

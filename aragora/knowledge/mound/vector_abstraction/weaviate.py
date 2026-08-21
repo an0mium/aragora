@@ -61,6 +61,10 @@ class WeaviateVectorStore(BaseVectorStore):
         await store.connect()
     """
 
+    # Initialized by BaseVectorStore.__init__; annotated here because the
+    # changed-file mypy hook runs with --follow-imports=skip and cannot see it.
+    _connected: bool
+
     def __init__(self, config: VectorStoreConfig):
         """Initialize Weaviate store."""
         if not WEAVIATE_AVAILABLE:
@@ -262,7 +266,9 @@ class WeaviateVectorStore(BaseVectorStore):
                 )
                 ids.append(item_id)
 
-        return ids
+        # Items without an explicit "id" append None here; preserved as-is, the
+        # cast only records the declared contract.
+        return cast("list[str]", ids)
 
     async def delete(
         self,

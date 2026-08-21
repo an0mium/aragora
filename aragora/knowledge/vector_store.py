@@ -120,7 +120,9 @@ class KnowledgeVectorConfig:
             api_key=os.getenv("WEAVIATE_API_KEY"),
             collection_name=os.getenv("WEAVIATE_KNOWLEDGE_COLLECTION", "KnowledgeNodes"),
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
-            default_workspace=workspace_id or os.getenv("ARAGORA_WORKSPACE", "default"),
+            default_workspace=(
+                workspace_id if workspace_id else os.getenv("ARAGORA_WORKSPACE", "default")
+            ),
         )
 
 
@@ -150,7 +152,9 @@ class KnowledgeVectorStore:
         self.config = config or KnowledgeVectorConfig.from_env(workspace_id)
         self.workspace_id = workspace_id or self.config.default_workspace
         self._client: Any | None = None
-        self._collection: Any | None = None
+        # Typed Any (not Any | None): connect() must run before use, and the
+        # unconnected AttributeError is part of the existing error contract.
+        self._collection: Any = None
         self._connected = False
 
     @property
