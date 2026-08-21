@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
@@ -40,10 +41,14 @@ logger = logging.getLogger(__name__)
 
 # Check for weaviate library
 try:
-    import weaviate  # noqa: F401
-    from weaviate.classes.config import Configure, DataType, Property  # noqa: F401
-    from weaviate.classes.data import DataObject  # noqa: F401
-    from weaviate.classes.query import Filter, MetadataQuery  # noqa: F401
+    # weaviate's package __init__ calls a bare warnings.simplefilter("default")
+    # (and its transitive imports register more filters), globally rewriting the
+    # ambient warning policy; the scoped guard confines that to this import.
+    with warnings.catch_warnings():
+        import weaviate  # noqa: F401
+        from weaviate.classes.config import Configure, DataType, Property  # noqa: F401
+        from weaviate.classes.data import DataObject  # noqa: F401
+        from weaviate.classes.query import Filter, MetadataQuery  # noqa: F401
 
     WEAVIATE_AVAILABLE = True
 except ImportError:
