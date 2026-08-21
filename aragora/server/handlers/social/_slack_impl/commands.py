@@ -20,7 +20,7 @@ from aragora.utils.public_urls import public_receipt_url
 try:
     from aragora.server.storage import get_debates_db
 except ImportError:  # pragma: no cover - optional dependency for tests
-    get_debates_db = None
+    get_debates_db = None  # type: ignore[assignment]
 
 from .config import (
     ARAGORA_API_BASE_URL,

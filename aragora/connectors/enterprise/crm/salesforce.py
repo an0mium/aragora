@@ -423,7 +423,7 @@ class SalesforceConnector(EnterpriseConnector):
         refresh_token = await self.credentials.get_credential("SALESFORCE_REFRESH_TOKEN")
 
         # Try OAuth2 refresh first
-        if all([client_id, client_secret, refresh_token]):
+        if client_id and client_secret and refresh_token:
             return await self._refresh_oauth_token(client_id, client_secret, refresh_token)
 
         # Fall back to username/password flow

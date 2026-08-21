@@ -74,7 +74,7 @@ try:
     AUDIT_AVAILABLE = True
 except ImportError:
     AUDIT_AVAILABLE = False
-    audit_data = None
+    audit_data = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
