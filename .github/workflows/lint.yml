@@ -143,6 +143,12 @@ jobs:
       - name: Enforce workflow pip install policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_pip_install_policy.py
 
+      - name: Enforce aragora-verify dependency policy
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_aragora_verify_dependency_policy.py
+
+      - name: Enforce Boundary 2 module-edge policy
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/ci/check_boundary_edges.py
+
       - name: Enforce self-hosted checkout integrity policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_checkout_integrity_policy.py
 
@@ -183,19 +189,26 @@ jobs:
             echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          if [[ "$IN_SCOPE" == "true" ]]; then
-            if [[ "$WORKER_RESULT" != "success" ]]; then
-              echo "::error::Lint concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+          case "$IN_SCOPE" in
+            true)
+              if [[ "$WORKER_RESULT" != "success" ]]; then
+                echo "::error::Lint concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+                exit 1
+              fi
+              echo "Lint passed."
+              ;;
+            false)
+              if [[ "$WORKER_RESULT" != "skipped" ]]; then
+                echo "::error::Lint was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+                exit 1
+              fi
+              echo "Lint not required — no Python-relevant changes."
+              ;;
+            *)
+              echo "::error::Change classification produced invalid IN_SCOPE value '$IN_SCOPE' (expected exactly 'true' or 'false'). Failing closed."
               exit 1
-            fi
-            echo "Lint passed."
-            exit 0
-          fi
-          if [[ "$WORKER_RESULT" != "skipped" ]]; then
-            echo "::error::Lint was out of scope but concluded '$WORKER_RESULT'. Failing closed."
-            exit 1
-          fi
-          echo "Lint not required — no Python-relevant changes."
+              ;;
+          esac
 
   connector-exception-hygiene:
     runs-on: ubuntu-latest
@@ -483,19 +496,26 @@ jobs:
             echo "::error::Change classification concluded '$CLASSIFIER_RESULT'; its scope verdict cannot be trusted. Failing closed."
             exit 1
           fi
-          if [[ "$IN_SCOPE" == "true" ]]; then
-            if [[ "$WORKER_RESULT" != "success" ]]; then
-              echo "::error::Type check concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+          case "$IN_SCOPE" in
+            true)
+              if [[ "$WORKER_RESULT" != "success" ]]; then
+                echo "::error::Type check concluded '$WORKER_RESULT' (expected 'success'). Failing closed."
+                exit 1
+              fi
+              echo "Type check passed."
+              ;;
+            false)
+              if [[ "$WORKER_RESULT" != "skipped" ]]; then
+                echo "::error::Type check was out of scope but concluded '$WORKER_RESULT'. Failing closed."
+                exit 1
+              fi
+              echo "Type check not required — no Python-relevant changes."
+              ;;
+            *)
+              echo "::error::Change classification produced invalid IN_SCOPE value '$IN_SCOPE' (expected exactly 'true' or 'false'). Failing closed."
               exit 1
-            fi
-            echo "Type check passed."
-            exit 0
-          fi
-          if [[ "$WORKER_RESULT" != "skipped" ]]; then
-            echo "::error::Type check was out of scope but concluded '$WORKER_RESULT'. Failing closed."
-            exit 1
-          fi
-          echo "Type check not required — no Python-relevant changes."
+              ;;
+          esac
 
   typecheck-core:
     runs-on: ubuntu-latest
