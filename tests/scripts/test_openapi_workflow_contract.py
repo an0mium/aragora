@@ -1877,11 +1877,12 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch, tmp_path, capsys
 ):
     """A probe answered by HTTP 403, failed by TLS certificate
-    verification, or killed in the network/Sigstore transport never
-    observed a verification verdict, so the blocked report must name the
-    observed cause instead of claiming marker drift: network shapes as the
-    transient infrastructure class, TLS-trust and HTTP 403 shapes without
-    any transience promise (a corporate-MITM trust failure and a
+    verification, dead at Sigstore verifier initialization, or killed in
+    the network transport never observed a verification verdict, so the
+    blocked report must name the observed cause instead of claiming marker
+    drift: network shapes as the transient infrastructure class, TLS-trust,
+    verifier-init, and HTTP 403 shapes without any transience promise (a
+    corporate-MITM trust failure, a stale or corrupt local TUF cache, and a
     token-permission 403 persist until the runner/token configuration
     changes). The exit class is message-only cosmetics: every class stays
     blocked pre-publication with the observed stderr embedded and no
@@ -1893,12 +1894,9 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch.setattr(module, "_sleep", lambda _delay: None)
     monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
     transient_shapes = {
-        # Live network shapes (gh 2.96.0, observed 2026-08-18): transport
-        # death before verifier initialization, and a post-init API dial
-        # failure whose stderr carries the attestations path but no HTTP 404.
-        "no valid Sigstore verifiers could be initialized": (
-            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
-        ),
+        # Live network shape (gh 2.96.0, observed 2026-08-18): a post-init
+        # API dial failure whose stderr carries the attestations path but
+        # no HTTP 404. A connectivity retry genuinely clears this class.
         "connection refused": (
             b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
             b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
@@ -1917,6 +1915,32 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
         assert observed in report["reason"], observed
         assert state["probe_calls"] == 1, observed
         assert state["asset_attempts"] == {}, observed
+    # Sigstore verifier-init death, pinned live 2026-08-19 with the
+    # byte-exact production argv (gh 2.96.0): dead TUF surfaces, TLS
+    # interception toward them, and a stale or corrupt local TUF cache all
+    # emit this same bare line, and the corrupt-cache case reproduces it
+    # with FULL connectivity (gh never self-heals the cache), so this
+    # wording must not promise that a connectivity retry clears it.
+    observed = "no valid Sigstore verifiers could be initialized"
+    fake_run, state = _preflight_gh_stub(
+        module,
+        probe_stderr=(
+            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
+        ),
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "could not initialize the Sigstore verifier" in report["reason"]
+    assert "stale or corrupt local TUF cache" in report["reason"]
+    assert "even with full connectivity" in report["reason"]
+    assert "transient" not in report["reason"]
+    assert "neither the" not in report["reason"]
+    assert "observed:" in report["reason"]
+    assert observed in report["reason"]
+    assert state["probe_calls"] == 1
+    assert state["asset_attempts"] == {}
     # TLS-trust failures (corporate-MITM interception, untrusted or expired
     # chains), pinned live 2026-08-18 against the byte-exact production argv
     # (gh 2.96.0): an untrusted interceptor reports unknown authority even
@@ -1950,6 +1974,32 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
         assert observed in report["reason"], observed
         assert state["probe_calls"] == 1, observed
         assert state["asset_attempts"] == {}, observed
+    # Precedence guard: one stderr carrying BOTH a TLS-trust marker and
+    # network markers (an untrusted HTTPS proxy fails exactly this way:
+    # proxyconnect plus the crypto/tls umbrella text in one line) must keep
+    # classifying as the persistent TLS-trust runner state, never as the
+    # transient network class, so a `_probe_transient_class` reorder that
+    # checks the network markers first fails here instead of shipping.
+    combined = "tls-trust must win over network"
+    fake_run, state = _preflight_gh_stub(
+        module,
+        probe_stderr=(
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
+            b"tls: failed to verify certificate: x509: certificate signed "
+            b"by unknown authority"
+        ),
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED, combined
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked", combined
+    assert "failed TLS certificate verification" in report["reason"], combined
+    assert "persists until the runner trusts" in report["reason"], combined
+    assert "transient" not in report["reason"], combined
+    assert "observed:" in report["reason"], combined
+    assert state["probe_calls"] == 1, combined
+    assert state["asset_attempts"] == {}, combined
     # HTTP 403 is named without any transience promise: a rate-limited read
     # clears on retry, but a token-permission 403 persists until the token
     # can read the attestations API, and calling it transient would
