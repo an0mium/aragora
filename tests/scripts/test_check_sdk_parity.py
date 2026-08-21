@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -802,3 +803,51 @@ def test_advisory_is_absent_from_json_mode_output(monkeypatch, tmp_path, capsys)
     json.loads(captured.out)
     assert "run --tighten to bank this progress" not in captured.out
     assert captured.err == ""
+
+
+# ---------------------------------------------------------------------------
+# Import-time DeprecationWarning hygiene on the stderr diagnostics stream
+# ---------------------------------------------------------------------------
+
+
+def test_representative_invocation_stderr_free_of_deprecation_warnings():
+    """The production argv must not leak import-time DeprecationWarnings.
+
+    The handler-import cascade only happens on a real run, so this drives the
+    script as a subprocess with the committed baseline/budget files. Only
+    DeprecationWarning lines are asserted; other stderr diagnostics remain
+    allowed.
+    """
+    script = PROJECT_ROOT / "scripts" / "check_sdk_parity.py"
+    baseline = PROJECT_ROOT / "scripts" / "baselines" / "check_sdk_parity.json"
+    budget = PROJECT_ROOT / "scripts" / "baselines" / "check_sdk_parity_budget.json"
+    # Neutralize ambient AWS credentials and warning overrides so the run is
+    # deterministic across dev machines and CI runners.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AWS_")}
+    env.pop("PYTHONWARNINGS", None)
+    env["AWS_EC2_METADATA_DISABLED"] = "true"
+    env.setdefault("ARAGORA_SECRETS_STRICT", "false")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--strict",
+            "--baseline",
+            str(baseline),
+            "--budget",
+            str(budget),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+        env=env,
+        timeout=600,
+        check=False,
+    )
+    # rc 0 (green) and rc 1 (budget breach) are both completed runs; anything
+    # else, or a traceback, means the checker itself broke.
+    assert proc.returncode in (0, 1), proc.stderr
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert proc.stdout.strip(), "checker produced no report on stdout"
+    deprecation_lines = [line for line in proc.stderr.splitlines() if "DeprecationWarning" in line]
+    assert deprecation_lines == [], "\n".join(deprecation_lines)
