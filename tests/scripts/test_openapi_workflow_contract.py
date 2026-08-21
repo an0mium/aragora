@@ -1507,6 +1507,86 @@ def test_envelope_verification_argv_and_read_only_guard():
     module.require_read_only_argv(["gh", "release", "verify", tag])
 
 
+def test_envelope_run_gh_command_is_static_for_the_authority_closure_scanner():
+    """closure-member workflow openapi.yml invokes this helper statically, so
+    the fail-closed Tier-4 authority-closure scanner walks every subprocess
+    call in this file including function bodies. A parameter-forwarded argv
+    has no static program token ("dynamic subprocess command is forbidden")
+    and breaks the closure build at every ref containing the file; the helper
+    must present a statically resolvable command AND introduce zero closure
+    helper edges (gh is external; no literal repo helper paths)."""
+    import scripts.generate_contract_drift_inventory as drift_inventory
+
+    edges = drift_inventory._subprocess_helper_edges(
+        ROOT, "scripts/openapi_release_envelope.py", include_function_bodies=True
+    )
+    assert edges == []
+
+
+def test_envelope_run_gh_preserves_caller_argv_and_rejects_non_bare_program(monkeypatch):
+    """Static command reconstruction must not change execution semantics: for
+    every production argv shape the executed command stays byte-identical to
+    the caller's read-only argv with unchanged subprocess options. Any argv
+    whose program token is not exactly "gh" would silently execute different
+    bytes than the caller requested once the command is rebuilt around the
+    literal program name, so path forms fail closed before execution."""
+    module = _load_envelope_helper()
+    executed: list[list[str]] = []
+    sentinel = subprocess.CompletedProcess(args=["gh"], returncode=0, stdout=b"", stderr=b"")
+
+    def fake_run(argv, **kwargs):
+        executed.append(list(argv))
+        assert kwargs == {"capture_output": True, "check": False}
+        return sentinel
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    head = "a" * 40
+    tag = f"openapi-envelope-{head}"
+    signer = "synaptent/aragora/.github/workflows/openapi.yml"
+    production_shapes = [
+        [
+            "gh",
+            "api",
+            "-H",
+            module.API_VERSION_HEADER,
+            f"repos/synaptent/aragora/releases/tags/{tag}",
+        ],
+        [
+            "gh",
+            "api",
+            "-H",
+            module.API_VERSION_HEADER,
+            "repos/synaptent/aragora/actions/artifacts",
+            "--paginate",
+            "--slurp",
+        ],
+        ["gh", "release", "download", tag, "--repo", "synaptent/aragora", "--dir", "/tmp/scratch"],
+        ["gh", "release", "verify", "--help"],
+        module.release_verify_argv(tag, repository="synaptent/aragora"),
+        module.release_verify_asset_argv(
+            tag, "/tmp/x/manifest.json", repository="synaptent/aragora"
+        ),
+        module.attestation_verify_argv(
+            "/tmp/x/manifest.json",
+            repository="synaptent/aragora",
+            head_sha=head,
+            signer_workflow=signer,
+        ),
+    ]
+    for argv in production_shapes:
+        result = module._run_gh(argv)
+        assert result is sentinel
+        assert executed[-1] == argv
+    assert len(executed) == len(production_shapes)
+    # Path-form programs pass require_read_only_argv (basename check) but must
+    # be rejected here: rebuilding around literal "gh" would otherwise execute
+    # a different program than the caller named.
+    for hostile_program in ("/usr/bin/gh", "./gh", "bin/gh"):
+        with pytest.raises(ValueError):
+            module._run_gh([hostile_program, "api", "repos/synaptent/aragora/releases"])
+    assert len(executed) == len(production_shapes)
+
+
 def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
     # dry-run: deterministic fixture bytes, byte-identical across invocations.
     runs = [
