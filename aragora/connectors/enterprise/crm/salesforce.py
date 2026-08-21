@@ -431,7 +431,7 @@ class SalesforceConnector(EnterpriseConnector):
         password = await self.credentials.get_credential("SALESFORCE_PASSWORD")
         security_token = await self.credentials.get_credential("SALESFORCE_SECURITY_TOKEN")
 
-        if all([client_id, client_secret, username, password]):
+        if client_id and client_secret and username and password:
             return await self._password_auth(
                 client_id, client_secret, username, password, security_token
             )
@@ -553,7 +553,7 @@ class SalesforceConnector(EnterpriseConnector):
         import urllib.parse
 
         encoded_query = urllib.parse.quote(soql)
-        endpoint = f"/query/?q={encoded_query}"
+        endpoint: str | None = f"/query/?q={encoded_query}"
 
         while endpoint:
             data = await self._api_request(endpoint)

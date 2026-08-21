@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs
 
 from aragora.config import DEFAULT_ROUNDS
@@ -482,7 +482,7 @@ Reply in thread to add suggestions to ongoing debates
         try:
             # Call the debate engine directly instead of HTTP self-call.
             # Self-calls hit auth middleware which rejects the API token format.
-            from aragora.agents.base import create_agent
+            from aragora.agents.base import AgentType, create_agent
             from aragora.core import Environment
             from aragora.debate.orchestrator import Arena, DebateProtocol
             from aragora.cli.commands.quickstart import _detect_agents
@@ -506,7 +506,7 @@ Reply in thread to add suggestions to ongoing debates
             for i, (agent_type, model) in enumerate(detected[:3]):
                 agents.append(
                     create_agent(
-                        agent_type,
+                        cast(AgentType, agent_type),
                         name=f"agent-{i}",
                         role=roles[i % len(roles)],
                         model=model,
