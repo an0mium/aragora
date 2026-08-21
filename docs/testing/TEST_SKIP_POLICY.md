@@ -65,8 +65,10 @@ The `skip-audit` job in `.github/workflows/test.yml`:
 
 1. Counts current skip markers
 2. Compares against baseline (`tests/.skip_baseline`)
-3. **Warns** if count increases by 1-5
-4. **Fails** if count increases by >5
+3. **Fails** iff the count exceeds the baseline by more than 2 (`THRESHOLD=2`; there is no larger warn-then-fail band)
+4. **Warns** (annotation only; the job still passes) if the count increases by 1-2, and emits a notice suggesting a baseline update when the count decreases
+
+> Provenance: reauthenticated 2026-08-21 from the live `skip-audit` job in `.github/workflows/test.yml` on main `605a6f6131` (`THRESHOLD=2`, fails iff `CURRENT - BASELINE > 2`; the job is skipped on draft PRs).
 
 ### Updating the Baseline
 

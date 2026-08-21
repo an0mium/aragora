@@ -1,6 +1,6 @@
 # Test Skip Burndown
 
-Last updated: 2026-08-19
+Last updated: 2026-08-21
 
 This file tracks intentional test-skip debt reduction so `tests/.skip_baseline`
 stays actionable and does not hide regressions.
@@ -23,12 +23,16 @@ stays actionable and does not hide regressions.
 | Category | Count | Weekly target |
 |---|---:|---:|
 | `integration_dependency` | 29 | hold |
-| `uncategorized` | 20 | — |
+| `uncategorized` | 20 | -2 (until categorized or removed) |
 | `missing_feature` | 17 | -2 |
 | `optional_dependency` | 9 | -1 |
 | `platform_specific` | 6 | hold |
 | `performance` | 4 | hold |
-| `known_bug` | 1 | — |
+| `known_bug` | 1 | 0 (hold until bug fixed) |
+
+> Provenance: `uncategorized` weekly target (-2/week until categorized or removed) assigned by the operator (questionnaire 2026-08-19, question 3).
+
+> Provenance: `known_bug` weekly target (0/week, hold until the bug is fixed) assigned by the operator (questionnaire 2026-08-19, question 3).
 
 ## Highest-Skip Files
 

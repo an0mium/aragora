@@ -328,7 +328,7 @@ def find_module_level_importorskip(tree: ast.AST, file_path: str) -> SkipMarker 
 
 def parse_test_file(file_path: Path) -> list[SkipMarker]:
     """Parse a single test file and extract all skip markers."""
-    markers = []
+    markers: list[SkipMarker] = []
 
     try:
         content = file_path.read_text(encoding="utf-8")
