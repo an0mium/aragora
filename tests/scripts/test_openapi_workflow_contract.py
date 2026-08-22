@@ -1587,6 +1587,24 @@ def test_envelope_run_gh_preserves_caller_argv_and_rejects_non_bare_program(monk
     assert len(executed) == len(production_shapes)
 
 
+def test_envelope_is_a_tier4_authority_dependency_in_both_classifiers():
+    """closure-member workflow openapi.yml invokes this helper statically, so
+    the helper is an authority-closure member. The fail-closed closure build
+    rejects any member classifying below Tier 4 and enforces per-member parity
+    between the canonical classifier and the merge-train mirror, so the exact
+    file path must be a dependency-prefix entry in both."""
+    from aragora.cli.commands import review_queue
+    from scripts import tier4_merge_train
+
+    path = "scripts/openapi_release_envelope.py"
+    assert path in review_queue.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+    assert path in tier4_merge_train.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+    assert tier4_merge_train.matches_serialized_path(path) == path
+    tier, name, _reason = review_queue._classify_model_review_tier([path])
+    assert tier == 4
+    assert name == "tier_4_preapproval_required"
+
+
 def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
     # dry-run: deterministic fixture bytes, byte-identical across invocations.
     runs = [
