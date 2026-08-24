@@ -300,7 +300,7 @@ def test_webhook_routes_registration_and_public_surface_match_baseline() -> None
         "_workflow_patterns_handler",
     ]
     registry_entry = dict(ADMIN_HANDLER_REGISTRY)["_webhook_handler"]
-    assert registry_entry.resolve() is module.WebhookHandler
+    assert getattr(registry_entry, "resolve")() is module.WebhookHandler
 
 
 def test_package_shim_has_no_dynamic_file_loader() -> None:
@@ -309,7 +309,9 @@ def test_package_shim_has_no_dynamic_file_loader() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         package = __import__(PACKAGE_NAME, fromlist=["_webhooks_module"])
 
-    source = Path(package.__file__).read_text(encoding="utf-8")
+    module_file = package.__file__
+    assert module_file is not None
+    source = Path(module_file).read_text(encoding="utf-8")
     assert "spec_from_file_location" not in source
     assert "module_from_spec" not in source
     assert "exec_module" not in source
