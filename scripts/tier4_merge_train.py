@@ -536,6 +536,7 @@ CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES: tuple[str, ...] = (
     "scripts/generate_sdk_types.py",
     "scripts/gh_app_env.py",
     "scripts/guard_repo_clean.py",
+    "scripts/openapi_release_envelope.py",
     "scripts/pre_release_check.py",
     "scripts/reconcile_status_docs.py",
     "scripts/run_pip_audit_gate.py",

@@ -436,7 +436,14 @@ def require_read_only_argv(argv: list[str]) -> None:
 
 def _run_gh(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
     require_read_only_argv(argv)
-    return subprocess.run(argv, capture_output=True, check=False)
+    # The Tier-4 authority-closure scanner forbids dynamic subprocess
+    # commands, so the executed command is rebuilt around the literal program
+    # name. That is only byte-identical to the caller's argv when argv[0] is
+    # exactly "gh"; path forms (accepted by the basename guard above) would
+    # silently execute a different program token and are rejected instead.
+    if argv[0] != "gh":
+        raise ValueError(f"gh must be invoked by bare program name, not {argv[0]!r}")
+    return subprocess.run(["gh", *argv[1:]], capture_output=True, check=False)
 
 
 def _gh_api_json(endpoint: str, *, paginate: bool = False, admin_gated: bool = False) -> Any:
