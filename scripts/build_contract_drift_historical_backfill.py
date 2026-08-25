@@ -49,6 +49,12 @@ PR_9320_BASE_SHA = "14d1ef53e23c5466c0491ed93f72752944c78cd4"
 PR_9320_HEAD_SHA = "aba6b14c94eca3a9c825b1a303ea67684d5f8daa"
 PR_9320_MERGE_SHA = "0b28f68b9f4d204ae14814169093723ea84c1364"
 PR_9320_FIRST_PARENT_SHA = "e448b840dad03ee28accd218c14a27fa8b87c7b4"
+PR_9320_HEAD_TREE_SHA = "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a"
+PR_9320_MERGE_TREE_SHA = "79c1c374eed261c42468dc526d837e726e73425a"
+PR_9320_FIRST_PARENT_PATCH_BYTE_LENGTH = 6054
+PR_9320_FIRST_PARENT_PATCH_SHA256 = (
+    "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+)
 PR_9320_SUPERSEDED_RELEASE_API_ID = 363450207
 PR_9320_SUPERSEDED_RELEASE_TAG = "backfill-0b28f68b9f4d204ae14814169093723ea84c1364"
 VALID_METHODS = frozenset(
@@ -1172,18 +1178,35 @@ def validate_payload(payload: Any) -> dict[str, Any]:
         or first_parent_sha != PR_9320_FIRST_PARENT_SHA
     ):
         _fail("historical pull request does not match the frozen PR #9320 exact pair")
-    _require_sha(historical.get("head_tree_sha"), label="historical head tree SHA")
-    _require_sha(historical.get("merge_tree_sha"), label="historical merge tree SHA")
+    head_tree_sha = _require_sha(historical.get("head_tree_sha"), label="historical head tree SHA")
+    merge_tree_sha = _require_sha(
+        historical.get("merge_tree_sha"),
+        label="historical merge tree SHA",
+    )
     _require_string(historical.get("actor"), label="historical merge actor")
     _require_string(historical.get("merged_at"), label="historical merged_at")
-    _require_positive_int(
+    patch_byte_length = _require_positive_int(
         historical.get("first_parent_patch_byte_length"),
         label="historical first-parent patch byte length",
     )
-    _require_sha256(
+    patch_sha256 = _require_sha256(
         historical.get("first_parent_patch_sha256"),
         label="historical first-parent patch digest",
     )
+    # The --verify-dir chain reaches this validator with no git access, so the
+    # derived historical values are bound to the frozen PR #9320 constants here;
+    # build_payload independently recomputes the same four values from immutable
+    # git before any capsule bytes are written.
+    if head_tree_sha != PR_9320_HEAD_TREE_SHA:
+        _fail("historical head tree does not match the frozen PR #9320 evidence")
+    if merge_tree_sha != PR_9320_MERGE_TREE_SHA:
+        _fail("historical merge tree does not match the frozen PR #9320 evidence")
+    if patch_byte_length != PR_9320_FIRST_PARENT_PATCH_BYTE_LENGTH:
+        _fail(
+            "historical first-parent patch byte length does not match the frozen PR #9320 evidence"
+        )
+    if patch_sha256 != PR_9320_FIRST_PARENT_PATCH_SHA256:
+        _fail("historical first-parent patch digest does not match the frozen PR #9320 evidence")
     changed_files = historical.get("changed_files")
     if not isinstance(changed_files, list) or not changed_files:
         _fail("historical changed-file list is missing")

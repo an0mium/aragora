@@ -439,6 +439,11 @@ def _git_subcommand(argv: list[str]) -> str:
                 raise ValueError(f"unsupported git -c configuration rejected: {argv[index + 1]}")
             index += 2
             continue
+        if item == "--config-env" or item.startswith("--config-env="):
+            # Environment-sourced equivalent of -c: it can set any config key
+            # (including command-executing ones) and would otherwise fall
+            # through the generic option skip, bypassing the -c allowlist.
+            raise ValueError(f"unsupported git --config-env rejected: {item}")
         if item.startswith("--git-dir=") or item.startswith("--work-tree="):
             index += 1
             continue

@@ -261,3 +261,51 @@ future call site.
 Behavior is proven by the guard allowlist tests in
 `tests/scripts/test_check_contract_drift_ratchet.py` (command-executing pair rejection,
 fail-closed variants, exact call-site argv acceptance, and literal-set pinning).
+
+## Verify-dir binding: frozen derived-evidence constants (fail-closed)
+
+The `--verify-dir` chain (`_verify_directory` → `validate_capsule_bytes` → `validate_payload`)
+runs with no git access, so it previously only format-checked the four derived historical values
+(`head_tree_sha`, `merge_tree_sha`, `first_parent_patch_byte_length`,
+`first_parent_patch_sha256`) that `build_payload` recomputes against immutable git at build time.
+A self-consistent capsule directory (manifest and checksums matching tampered payload bytes)
+therefore verified with false historical evidence.
+
+`validate_payload` now binds all four values to frozen constants, mirroring the exact-pair and
+supersedes precedents:
+
+- `historical_pull_request.head_tree_sha` must equal
+  `e5c6c3d07a918cf43fffed6d4a9f472bc10a674a` (`PR_9320_HEAD_TREE_SHA`, the tree of PR head
+  `aba6b14c…`).
+- `historical_pull_request.merge_tree_sha` must equal
+  `79c1c374eed261c42468dc526d837e726e73425a` (`PR_9320_MERGE_TREE_SHA`, the tree of squash merge
+  `0b28f68b…`).
+- `historical_pull_request.first_parent_patch_byte_length` must equal `6054`
+  (`PR_9320_FIRST_PARENT_PATCH_BYTE_LENGTH`).
+- `historical_pull_request.first_parent_patch_sha256` must equal
+  `7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4`
+  (`PR_9320_FIRST_PARENT_PATCH_SHA256`).
+
+Each constant was re-derived from immutable git (`rev-parse <sha>^{tree}` and the exact frozen
+patch argv) and verified equal to the canonical fixture before pinning. The capsule schema pins
+the same four values as `const` in its `historical_pull_request` region. Any divergence is
+rejected fail-closed with `... does not match the frozen PR #9320 evidence`; the canonical
+frozen-value capsule still builds and verifies. Behavior is proven by the
+`test_verify_dir_*` and `test_schema_historical_region_*` tests in
+`tests/scripts/test_build_contract_drift_historical_backfill.py`.
+
+## Read-only git guard: `--config-env` rejection (fail-closed)
+
+`git --config-env=<key>=<envvar>` (and the two-token `--config-env <key>=<envvar>` spelling) is
+the environment-sourced equivalent of `-c`: it sets arbitrary config keys, including
+command-executing ones such as `core.pager`, `core.fsmonitor`, or `diff.external`, from inherited
+environment variables. The joined form previously fell through the guard's generic option skip as
+a plain `--`-prefixed token, bypassing the `-c` allowlist entirely; the separate form was only
+rejected incidentally when its value token was misclassified as the subcommand.
+
+`_git_subcommand` now rejects both spellings explicitly before the generic option skip,
+fail-closed with `unsupported git --config-env rejected: <token>`. No call site in the checker
+uses `--config-env`, so the exact historical-receipt patch argv remains accepted unchanged.
+Behavior is proven by `test_read_only_git_guard_rejects_config_env_joined_form` and
+`test_read_only_git_guard_rejects_config_env_separate_form` in
+`tests/scripts/test_check_contract_drift_ratchet.py`.

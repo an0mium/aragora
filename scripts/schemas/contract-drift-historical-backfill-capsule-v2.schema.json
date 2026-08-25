@@ -104,13 +104,15 @@
           "minItems": 1,
           "type": "array"
         },
-        "first_parent_patch_byte_length": {"minimum": 1, "type": "integer"},
-        "first_parent_patch_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "first_parent_patch_byte_length": {"const": 6054},
+        "first_parent_patch_sha256": {
+          "const": "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+        },
         "first_parent_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
         "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
-        "head_tree_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "head_tree_sha": {"const": "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a"},
         "merge_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
-        "merge_tree_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "merge_tree_sha": {"const": "79c1c374eed261c42468dc526d837e726e73425a"},
         "merged_at": {"minLength": 1, "type": "string"},
         "pr": {"minimum": 1, "type": "integer"}
       },
