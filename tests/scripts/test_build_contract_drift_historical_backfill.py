@@ -452,6 +452,134 @@ def test_schema_supersedes_region_rejects_wrong_identity(payload: dict[str, Any]
     assert list(validator.iter_errors(missing_id))
 
 
+def _write_self_consistent_capsule(
+    tmp_path: Path,
+    payload: dict[str, Any],
+    **overrides: Any,
+) -> Path:
+    # Assemble the three asset byte streams directly, bypassing build/validate,
+    # so the directory is internally consistent (manifest and checksums match
+    # the tampered payload bytes) while carrying false historical evidence —
+    # the exact capsule shape --verify-dir must reject without git access.
+    document = copy.deepcopy(payload)
+    document["historical_pull_request"].update(overrides)
+    payload_bytes = backfill._canonical_json_bytes(document)
+    historical = document["historical_pull_request"]
+    release = document["release"]
+    manifest_bytes = backfill._canonical_json_bytes(
+        {
+            "asset_names": list(backfill.EXPECTED_ASSET_NAMES),
+            "first_parent_sha": historical["first_parent_sha"],
+            "merge_sha": historical["merge_sha"],
+            "payload_byte_length": len(payload_bytes),
+            "payload_sha256": backfill._sha256(payload_bytes),
+            "pr": historical["pr"],
+            "release_api_id": release["release_api_id"],
+            "schema": backfill.MANIFEST_SCHEMA,
+            "tag_name": release["tag_name"],
+        }
+    )
+    checksums_bytes = (
+        f"{backfill._sha256(manifest_bytes)}  manifest.json\n"
+        f"{backfill._sha256(payload_bytes)}  payload.json\n"
+    ).encode("ascii")
+    capsule_dir = tmp_path / "capsule"
+    capsule_dir.mkdir()
+    (capsule_dir / "manifest.json").write_bytes(manifest_bytes)
+    (capsule_dir / "payload.json").write_bytes(payload_bytes)
+    (capsule_dir / "checksums.txt").write_bytes(checksums_bytes)
+    return capsule_dir
+
+
+def test_verify_dir_rejects_wrong_head_tree_sha(payload: dict[str, Any], tmp_path: Path) -> None:
+    capsule_dir = _write_self_consistent_capsule(tmp_path, payload, head_tree_sha=MERGE_TREE_SHA)
+    with pytest.raises(ValueError, match="frozen PR #9320 evidence"):
+        backfill._verify_directory(capsule_dir)
+
+
+def test_verify_dir_rejects_wrong_merge_tree_sha(payload: dict[str, Any], tmp_path: Path) -> None:
+    capsule_dir = _write_self_consistent_capsule(tmp_path, payload, merge_tree_sha=HEAD_TREE_SHA)
+    with pytest.raises(ValueError, match="frozen PR #9320 evidence"):
+        backfill._verify_directory(capsule_dir)
+
+
+def test_verify_dir_rejects_wrong_first_parent_patch_byte_length(
+    payload: dict[str, Any], tmp_path: Path
+) -> None:
+    capsule_dir = _write_self_consistent_capsule(
+        tmp_path, payload, first_parent_patch_byte_length=6055
+    )
+    with pytest.raises(ValueError, match="frozen PR #9320 evidence"):
+        backfill._verify_directory(capsule_dir)
+
+
+def test_verify_dir_rejects_wrong_first_parent_patch_sha256(
+    payload: dict[str, Any], tmp_path: Path
+) -> None:
+    capsule_dir = _write_self_consistent_capsule(
+        tmp_path, payload, first_parent_patch_sha256=backfill._sha256(b"tampered")
+    )
+    with pytest.raises(ValueError, match="frozen PR #9320 evidence"):
+        backfill._verify_directory(capsule_dir)
+
+
+def test_verify_dir_accepts_canonical_frozen_value_fixture(
+    payload: dict[str, Any],
+    assets: dict[str, bytes],
+    tmp_path: Path,
+) -> None:
+    assert backfill.PR_9320_HEAD_TREE_SHA == HEAD_TREE_SHA
+    assert backfill.PR_9320_MERGE_TREE_SHA == MERGE_TREE_SHA
+    assert backfill.PR_9320_FIRST_PARENT_PATCH_BYTE_LENGTH == 6054
+    assert backfill.PR_9320_FIRST_PARENT_PATCH_SHA256 == PATCH_SHA256
+    historical = payload["historical_pull_request"]
+    # build_payload recomputed these four values against immutable git before
+    # validating, so equality with the frozen constants is git-grounded here,
+    # not self-referential.
+    assert historical["head_tree_sha"] == backfill.PR_9320_HEAD_TREE_SHA
+    assert historical["merge_tree_sha"] == backfill.PR_9320_MERGE_TREE_SHA
+    assert (
+        historical["first_parent_patch_byte_length"]
+        == backfill.PR_9320_FIRST_PARENT_PATCH_BYTE_LENGTH
+    )
+    assert historical["first_parent_patch_sha256"] == backfill.PR_9320_FIRST_PARENT_PATCH_SHA256
+    capsule_dir = tmp_path / "capsule"
+    backfill.write_capsule(capsule_dir, assets)
+    result = backfill._verify_directory(capsule_dir)
+    assert result["status"] == "pass"
+    assert result["pr"] == 9320
+
+
+def test_schema_historical_region_pins_frozen_derived_evidence() -> None:
+    schema = json.loads((ROOT / backfill.CAPSULE_SCHEMA_PATH).read_text(encoding="utf-8"))
+    historical = schema["properties"]["historical_pull_request"]
+    assert historical["additionalProperties"] is False
+    assert set(historical["required"]) == set(historical["properties"])
+    assert historical["properties"]["head_tree_sha"]["const"] == HEAD_TREE_SHA
+    assert historical["properties"]["merge_tree_sha"]["const"] == MERGE_TREE_SHA
+    assert historical["properties"]["first_parent_patch_byte_length"]["const"] == 6054
+    assert historical["properties"]["first_parent_patch_sha256"]["const"] == PATCH_SHA256
+
+
+def test_schema_historical_region_rejects_wrong_derived_evidence(
+    payload: dict[str, Any],
+) -> None:
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((ROOT / backfill.CAPSULE_SCHEMA_PATH).read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema["properties"]["historical_pull_request"])
+    assert not list(validator.iter_errors(copy.deepcopy(payload["historical_pull_request"])))
+
+    for field, wrong in (
+        ("head_tree_sha", MERGE_TREE_SHA),
+        ("merge_tree_sha", HEAD_TREE_SHA),
+        ("first_parent_patch_byte_length", 6055),
+        ("first_parent_patch_sha256", backfill._sha256(b"tampered")),
+    ):
+        tampered = copy.deepcopy(payload["historical_pull_request"])
+        tampered[field] = wrong
+        assert list(validator.iter_errors(tampered)), field
+
+
 def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
     result = backfill.ratchet.build_accepted_result(
         mode="receipt",

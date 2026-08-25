@@ -4377,6 +4377,31 @@ def test_read_only_git_config_literal_allowlist_matches_call_sites():
     )
 
 
+def test_read_only_git_guard_rejects_config_env_joined_form():
+    # --config-env=<name>=<envvar> is git's environment-sourced equivalent of
+    # -c (including command-executing keys) and slips past the generic option
+    # skip as a plain "--" token, bypassing the -c allowlist entirely.
+    for argv in (
+        ["git", "--config-env=core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env=core.fsmonitor=EVIL_MONITOR", "status", "--porcelain=v1"],
+        ["git", "--config-env=diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_rejects_config_env_separate_form():
+    # The two-token spelling must be rejected as --config-env fail-closed, not
+    # merely misclassified when its value token falls through as a subcommand.
+    for argv in (
+        ["git", "--config-env", "core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env", "diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+        ["git", "--config-env", "core.fsmonitor=EVIL_MONITOR", "rev-parse", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
 def test_read_only_git_scrubs_config_without_scrubbing_gh(
     monkeypatch: pytest.MonkeyPatch,
 ):
