@@ -238,3 +238,26 @@ well-formed release shape:
 Builder validation and the schema both reject wrong or missing supersedes identity fail-closed;
 the correct frozen identity passes. Behavior is proven by the supersedes tests in
 `tests/scripts/test_build_contract_drift_historical_backfill.py`.
+
+## Read-only git guard: `-c` allowlist (fail-closed)
+
+The Tier-4 read-only subprocess guard in `scripts/check_contract_drift_ratchet.py`
+(`_guard_subprocess_argv` / `_git_subcommand`) no longer skips arbitrary `git -c <key>=<value>`
+pairs while classifying the subcommand. Inline `-c` bypasses the `GIT_CONFIG_GLOBAL=/dev/null` /
+`GIT_CONFIG_NOSYSTEM=1` scrub applied in `_run_read_only`, and config keys such as
+`core.fsmonitor`, `diff.external`, or `core.pager` execute arbitrary commands even under
+read-only subcommands, so a wholesale skip silently voided the read-only invariant for any
+future call site.
+
+- Only the exact `key=value` literals used by this script's own call sites pass:
+  `diff.noprefix=false`, `diff.mnemonicPrefix=false`, `diff.algorithm=myers`, `diff.context=3`
+  (`_READ_ONLY_GIT_CONFIG_LITERALS`).
+- Any other pair — including an allowlisted key with a different value, case variants, or a
+  valueless key — is rejected fail-closed with
+  `unsupported git -c configuration rejected: <pair>` before subcommand classification.
+- The historical-receipt patch call sites (the four `diff.*` literals combined with
+  `--no-ext-diff --no-textconv -O/dev/null`) remain accepted unchanged.
+
+Behavior is proven by the guard allowlist tests in
+`tests/scripts/test_check_contract_drift_ratchet.py` (command-executing pair rejection,
+fail-closed variants, exact call-site argv acceptance, and literal-set pinning).

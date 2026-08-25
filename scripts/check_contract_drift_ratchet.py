@@ -173,6 +173,18 @@ _READ_ONLY_GIT_SUBCOMMANDS = frozenset(
         "status",
     }
 )
+# Inline `-c` bypasses the GIT_CONFIG_GLOBAL/GIT_CONFIG_NOSYSTEM scrub in
+# _run_read_only, and config keys such as core.fsmonitor, diff.external, or
+# core.pager execute arbitrary commands even under read-only subcommands, so
+# only the exact key=value literals used by this script's call sites pass.
+_READ_ONLY_GIT_CONFIG_LITERALS = frozenset(
+    {
+        "diff.algorithm=myers",
+        "diff.context=3",
+        "diff.mnemonicPrefix=false",
+        "diff.noprefix=false",
+    }
+)
 _FORBIDDEN_CALLER_FIELDS = frozenset(
     {
         "actions",
@@ -423,6 +435,8 @@ def _git_subcommand(argv: list[str]) -> str:
         if item == "-c":
             if index + 1 >= len(argv):
                 return ""
+            if argv[index + 1] not in _READ_ONLY_GIT_CONFIG_LITERALS:
+                raise ValueError(f"unsupported git -c configuration rejected: {argv[index + 1]}")
             index += 2
             continue
         if item.startswith("--git-dir=") or item.startswith("--work-tree="):
