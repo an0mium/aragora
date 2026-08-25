@@ -384,6 +384,74 @@ def test_failed_receipt_and_missing_attestation_fail_closed(payload: dict[str, A
         backfill.validate_payload(wrong_pair)
 
 
+def test_supersedes_wrong_identity_fails_closed(payload: dict[str, Any]) -> None:
+    wrong_id = copy.deepcopy(payload)
+    wrong_id["supersedes"]["release_api_id"] = OLD_RELEASE_ID + 1
+    with pytest.raises(ValueError, match="frozen old release"):
+        backfill.validate_payload(wrong_id)
+
+    wrong_tag = copy.deepcopy(payload)
+    wrong_tag["supersedes"]["tag_name"] = f"backfill-{HEAD_SHA}"
+    with pytest.raises(ValueError, match="frozen old release"):
+        backfill.validate_payload(wrong_tag)
+
+    successor_tag = copy.deepcopy(payload)
+    successor_tag["supersedes"]["tag_name"] = f"backfill-v2-{MERGE_SHA}"
+    with pytest.raises(ValueError, match="frozen old release"):
+        backfill.validate_payload(successor_tag)
+
+
+def test_supersedes_missing_identity_fails_closed(payload: dict[str, Any]) -> None:
+    for field in ("release_api_id", "tag_name"):
+        omitted = copy.deepcopy(payload)
+        del omitted["supersedes"][field]
+        with pytest.raises(ValueError, match="incomplete or noncanonical"):
+            backfill.validate_payload(omitted)
+
+    for field, degenerate in (("release_api_id", None), ("tag_name", None), ("tag_name", "")):
+        broken = copy.deepcopy(payload)
+        broken["supersedes"][field] = degenerate
+        with pytest.raises(ValueError):
+            backfill.validate_payload(broken)
+
+
+def test_supersedes_correct_frozen_identity_passes(payload: dict[str, Any]) -> None:
+    assert backfill.PR_9320_SUPERSEDED_RELEASE_API_ID == OLD_RELEASE_ID
+    assert backfill.PR_9320_SUPERSEDED_RELEASE_TAG == f"backfill-{MERGE_SHA}"
+    validated = backfill.validate_payload(copy.deepcopy(payload))
+    assert validated["supersedes"]["release_api_id"] == OLD_RELEASE_ID
+    assert validated["supersedes"]["tag_name"] == f"backfill-{MERGE_SHA}"
+
+
+def test_schema_supersedes_region_pins_frozen_identity() -> None:
+    schema = json.loads((ROOT / backfill.CAPSULE_SCHEMA_PATH).read_text(encoding="utf-8"))
+    supersedes = schema["properties"]["supersedes"]
+    assert supersedes["additionalProperties"] is False
+    assert set(supersedes["required"]) == set(supersedes["properties"])
+    assert supersedes["properties"]["release_api_id"]["const"] == OLD_RELEASE_ID
+    assert supersedes["properties"]["tag_name"]["const"] == f"backfill-{MERGE_SHA}"
+    assert supersedes["properties"]["status"]["const"] == "superseded_historical_evidence"
+
+
+def test_schema_supersedes_region_rejects_wrong_identity(payload: dict[str, Any]) -> None:
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((ROOT / backfill.CAPSULE_SCHEMA_PATH).read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema["properties"]["supersedes"])
+    assert not list(validator.iter_errors(copy.deepcopy(payload["supersedes"])))
+
+    wrong_id = copy.deepcopy(payload["supersedes"])
+    wrong_id["release_api_id"] = OLD_RELEASE_ID + 1
+    assert list(validator.iter_errors(wrong_id))
+
+    wrong_tag = copy.deepcopy(payload["supersedes"])
+    wrong_tag["tag_name"] = f"backfill-v2-{MERGE_SHA}"
+    assert list(validator.iter_errors(wrong_tag))
+
+    missing_id = copy.deepcopy(payload["supersedes"])
+    del missing_id["release_api_id"]
+    assert list(validator.iter_errors(missing_id))
+
+
 def test_real_exact_pair_receipt_source_identity_feeds_builder() -> None:
     result = backfill.ratchet.build_accepted_result(
         mode="receipt",
