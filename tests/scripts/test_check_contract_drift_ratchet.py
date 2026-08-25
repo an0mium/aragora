@@ -4303,6 +4303,80 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
 
 
+def test_read_only_git_guard_rejects_command_executing_config_pairs():
+    # Inline `-c` bypasses the GIT_CONFIG_GLOBAL/NOSYSTEM scrub, and keys such
+    # as core.fsmonitor / diff.external / core.pager execute attacker-chosen
+    # commands even under read-only subcommands.
+    for argv in (
+        ["git", "-c", "core.fsmonitor=/tmp/evil", "status", "--porcelain=v1"],
+        ["git", "-c", "diff.external=/tmp/evil", "diff", "HEAD^", "HEAD"],
+        ["git", "-c", "core.pager=/tmp/evil", "log"],
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_config_allowlist_is_fail_closed():
+    # Only the exact call-site key=value literals pass: an allowlisted key
+    # with a different value, unknown keys, and case variants are all
+    # rejected rather than falling through to the subcommand allowlist.
+    for pair in (
+        "diff.context=99",
+        "diff.algorithm=patience",
+        "diff.noprefix=true",
+        "credential.helper=!/tmp/evil",
+        "core.sshCommand=/tmp/evil",
+        "Diff.Context=3",
+        "diff.context",
+        "",
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(["git", "-c", pair, "status", "--porcelain=v1"])
+
+
+def test_read_only_git_guard_accepts_exact_call_site_patch_argv(tmp_path: Path):
+    # The exact argv shape built by the historical-receipt patch call sites.
+    argv = [
+        "git",
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.algorithm=myers",
+        "-c",
+        "diff.context=3",
+        "-C",
+        str(tmp_path),
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--no-color",
+        "--no-indent-heuristic",
+        "--full-index",
+        "--unified=3",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "-O/dev/null",
+        "base^{tree}",
+        "head^{tree}",
+    ]
+    ratchet._guard_subprocess_argv(argv)
+    assert ratchet._git_subcommand(argv) == "diff"
+
+
+def test_read_only_git_config_literal_allowlist_matches_call_sites():
+    assert ratchet._READ_ONLY_GIT_CONFIG_LITERALS == frozenset(
+        {
+            "diff.algorithm=myers",
+            "diff.context=3",
+            "diff.mnemonicPrefix=false",
+            "diff.noprefix=false",
+        }
+    )
+
+
 def test_read_only_git_scrubs_config_without_scrubbing_gh(
     monkeypatch: pytest.MonkeyPatch,
 ):
