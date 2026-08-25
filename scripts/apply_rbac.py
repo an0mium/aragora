@@ -31,7 +31,7 @@ EXCLUDED_PATHS = {
     "_oauth_impl.py",
     "oauth_wizard.py",
     # Webhooks - verified via signatures/tokens, not RBAC
-    "webhooks.py",
+    "webhook_management.py",
     "email_webhooks.py",
     # Base classes and utilities (not actual endpoints)
     "base.py",

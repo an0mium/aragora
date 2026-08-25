@@ -78,13 +78,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-warnings.warn(
-    "aragora.server.handlers.webhooks.generate_signature is deprecated; "
-    "use aragora.security.webhook_signing.generate_signature instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
-
 # Rate limits for webhook operations
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
 WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
