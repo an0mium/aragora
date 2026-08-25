@@ -9,6 +9,7 @@ to skip a maintained exact-name governance test.
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 import sys
 from types import ModuleType
@@ -318,6 +319,13 @@ def test_quorum_evidence_module_imports_do_not_resolve_below_tier4(
 ) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     tree = _git_text(repo_root, "write-tree").strip()
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_EMAIL": "cdg-test@example.invalid",
+        "GIT_AUTHOR_NAME": "cdg-test",
+        "GIT_COMMITTER_EMAIL": "cdg-test@example.invalid",
+        "GIT_COMMITTER_NAME": "cdg-test",
+    }
     ref = subprocess.run(
         [
             "git",
@@ -332,6 +340,7 @@ def test_quorum_evidence_module_imports_do_not_resolve_below_tier4(
         capture_output=True,
         check=True,
         text=True,
+        env=commit_env,
     ).stdout.strip()
     monkeypatch.setattr(
         generate_contract_drift_inventory,

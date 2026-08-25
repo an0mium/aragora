@@ -1567,6 +1567,13 @@ def test_successor_backfill_execution_paths_join_the_exact_ref_authority_closure
         ["git", "-C", str(repo_root), "write-tree"],
         text=True,
     ).strip()
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_EMAIL": "cdg-test@example.invalid",
+        "GIT_AUTHOR_NAME": "cdg-test",
+        "GIT_COMMITTER_EMAIL": "cdg-test@example.invalid",
+        "GIT_COMMITTER_NAME": "cdg-test",
+    }
     head = subprocess.check_output(
         [
             "git",
@@ -1582,6 +1589,7 @@ def test_successor_backfill_execution_paths_join_the_exact_ref_authority_closure
         ],
         input="temporary successor authority closure fixture\n",
         text=True,
+        env=commit_env,
     ).strip()
     monkeypatch.setattr(gen, "_resolve_full_commit", lambda _repo_root, ref: ref)
     manifest = gen.build_authority_manifest(
