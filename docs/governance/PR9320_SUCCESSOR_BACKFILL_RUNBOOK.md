@@ -222,3 +222,19 @@ If any identity moved, restart from the last safe checkpoint rather than normali
 away. Only after stable equality may the finalizer write a terminal authenticated successor-capsule
 record for the successor boundary. Preparation fixtures, synthetic IDs, or this runbook are not that
 terminal record.
+
+## Supersedes binding (fail-closed)
+
+The capsule `supersedes` plane is bound to the frozen old-release identity rather than any
+well-formed release shape:
+
+- `supersedes.release_api_id` must equal `363450207` exactly
+  (`PR_9320_SUPERSEDED_RELEASE_API_ID` in `scripts/build_contract_drift_historical_backfill.py`).
+- `supersedes.tag_name` must equal `backfill-0b28f68b9f4d204ae14814169093723ea84c1364` exactly
+  (`PR_9320_SUPERSEDED_RELEASE_TAG`, the v1 capsule tag of squash merge `0b28f68b…`).
+- The capsule schema pins the same two values as `const` in its `supersedes` region, so a
+  successor capsule cannot claim an unrelated release as its superseded historical evidence.
+
+Builder validation and the schema both reject wrong or missing supersedes identity fail-closed;
+the correct frozen identity passes. Behavior is proven by the supersedes tests in
+`tests/scripts/test_build_contract_drift_historical_backfill.py`.

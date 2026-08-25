@@ -49,6 +49,8 @@ PR_9320_BASE_SHA = "14d1ef53e23c5466c0491ed93f72752944c78cd4"
 PR_9320_HEAD_SHA = "aba6b14c94eca3a9c825b1a303ea67684d5f8daa"
 PR_9320_MERGE_SHA = "0b28f68b9f4d204ae14814169093723ea84c1364"
 PR_9320_FIRST_PARENT_SHA = "e448b840dad03ee28accd218c14a27fa8b87c7b4"
+PR_9320_SUPERSEDED_RELEASE_API_ID = 363450207
+PR_9320_SUPERSEDED_RELEASE_TAG = "backfill-0b28f68b9f4d204ae14814169093723ea84c1364"
 VALID_METHODS = frozenset(
     {
         "CONNECT",
@@ -1279,11 +1281,15 @@ def validate_payload(payload: Any) -> dict[str, Any]:
         supersedes.get("release_api_id"),
         label="superseded historical release_api_id",
     )
+    if supersedes.get("release_api_id") != PR_9320_SUPERSEDED_RELEASE_API_ID:
+        _fail("superseded historical release_api_id does not match the frozen old release")
     if supersedes.get("release_api_id") == release.get("release_api_id"):
         _fail("successor release reuses the superseded release API ID")
     if supersedes.get("status") != "superseded_historical_evidence":
         _fail("superseded historical release status mismatch")
     _require_string(supersedes.get("tag_name"), label="superseded historical tag")
+    if supersedes.get("tag_name") != PR_9320_SUPERSEDED_RELEASE_TAG:
+        _fail("superseded historical tag does not match the frozen old release")
     _require_string(supersedes.get("reason"), label="superseded historical reason")
     return document
 

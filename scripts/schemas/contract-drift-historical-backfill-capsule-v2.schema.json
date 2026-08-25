@@ -282,9 +282,9 @@
       "additionalProperties": false,
       "properties": {
         "reason": {"minLength": 1, "type": "string"},
-        "release_api_id": {"minimum": 1, "type": "integer"},
+        "release_api_id": {"const": 363450207},
         "status": {"const": "superseded_historical_evidence"},
-        "tag_name": {"minLength": 1, "type": "string"}
+        "tag_name": {"const": "backfill-0b28f68b9f4d204ae14814169093723ea84c1364"}
       },
       "required": ["reason", "release_api_id", "status", "tag_name"],
       "type": "object"
