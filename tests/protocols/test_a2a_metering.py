@@ -150,11 +150,15 @@ class TestCreateMeteringRecord:
     def test_different_inputs_produce_different_hashes(self) -> None:
         enable_agent_metering()
         r1 = create_metering_record(
-            agent_id="ag-1", session_id="sess-1", compute_units=1.0,
+            agent_id="ag-1",
+            session_id="sess-1",
+            compute_units=1.0,
             timestamp="2026-08-25T00:00:00Z",
         )
         r2 = create_metering_record(
-            agent_id="ag-2", session_id="sess-1", compute_units=1.0,
+            agent_id="ag-2",
+            session_id="sess-1",
+            compute_units=1.0,
             timestamp="2026-08-25T00:00:00Z",
         )
         assert r1.content_hash != r2.content_hash

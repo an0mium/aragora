@@ -88,7 +88,9 @@ class AgentMeteringRecord:
     compute_units: float = 0.0
     debate_cost_usd: float = 0.0
     verifier_cost_usd: float = 0.0
-    timestamp: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat().replace("+00:00", "Z"))
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+    )
     schema_version: str = METERING_SCHEMA_VERSION
     content_hash: str = ""
 
