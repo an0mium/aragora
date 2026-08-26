@@ -1293,7 +1293,14 @@ def validate_payload(payload: Any) -> dict[str, Any]:
         repository=repository,
         source_sha=authority["source_sha"],
     )
-    _validate_rule_suite(document.get("rule_suite"), repository=repository, source_sha=merge_sha)
+    # The repository's rule-suite ledger postdates the historical squash merge, so
+    # no passing record for merge_sha can exist; the rule-suite plane binds the
+    # implementation push identity, symmetric with the attestation plane.
+    _validate_rule_suite(
+        document.get("rule_suite"),
+        repository=repository,
+        source_sha=authority["source_sha"],
+    )
 
     supersedes = _require_exact_fields(
         document.get("supersedes"),

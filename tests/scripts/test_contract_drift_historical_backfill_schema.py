@@ -74,6 +74,15 @@ def test_schema_binds_successor_release_attestation_and_disposition() -> None:
     assert disposition["authoritative_for_future_admission"]["const"] is False
 
 
+def test_schema_rule_suite_region_binds_implementation_push_identity() -> None:
+    rule_suite = SCHEMA["properties"]["rule_suite"]["properties"]
+    assert "merged implementation SHA" in rule_suite["after_sha"]["description"]
+    assert rule_suite["after_sha"]["pattern"] == "^[0-9a-f]{40}$"
+    assert rule_suite["ref"]["const"] == "refs/heads/main"
+    assert rule_suite["result"]["const"] == "pass"
+    assert rule_suite["schema"]["const"] == "contract-drift-historical-backfill-rule-suite-v1"
+
+
 def test_schema_requires_complete_method_specific_projection_edges() -> None:
     record = SCHEMA["properties"]["projection"]["properties"]["records"]["items"]
     edge = record["properties"]["operation_edges"]["items"]
