@@ -146,7 +146,7 @@ class TestServerEventSubscriberHandlers:
 
         with (
             patch(
-                "aragora.server.handlers.webhooks.get_webhook_store",
+                "aragora.server.handlers.webhook_management.get_webhook_store",
                 return_value=mock_store,
             ),
             patch(

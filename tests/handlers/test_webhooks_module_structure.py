@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 from pathlib import Path
@@ -362,6 +363,101 @@ def test_webhook_routes_registration_and_public_surface_match_baseline() -> None
     ]
     registry_entry = dict(ADMIN_HANDLER_REGISTRY)["_webhook_handler"]
     assert getattr(registry_entry, "resolve")() is webhook_handler_cls
+
+
+def test_delivery_and_retry_consumers_import_canonically_without_warnings() -> None:
+    """Delivery/retry consumer from-imports target the canonical module silently."""
+    script = textwrap.dedent(
+        """
+        import ast
+        import json
+        from pathlib import Path
+        import sys
+        import warnings
+
+        root = Path(sys.argv[1])
+        consumer_files = json.loads(sys.argv[2])
+        deprecated = "aragora.server.handlers.webhooks"
+        canonical = "aragora.server.handlers.webhook_management"
+
+        webhook_imports = []
+        for rel_path in consumer_files:
+            tree = ast.parse((root / rel_path).read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module in {deprecated, canonical}:
+                    webhook_imports.append(
+                        (rel_path, node.module, [alias.name for alias in node.names])
+                    )
+
+        resolved_homes = set()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            for _, module_name, names in webhook_imports:
+                module = __import__(module_name, fromlist=names)
+                for name in names:
+                    resolved_homes.add(getattr(module, name).__module__)
+
+        relevant = [
+            str(item.message)
+            for item in caught
+            if issubclass(item.category, DeprecationWarning)
+            and str(item.message).startswith(deprecated)
+        ]
+        print(json.dumps({
+            "deprecated_import_sites": sorted(
+                {path for path, module_name, _ in webhook_imports if module_name == deprecated}
+            ),
+            "import_site_count": len(webhook_imports),
+            "relevant_warnings": relevant,
+            "resolved_homes": sorted(resolved_homes),
+            "shim_imported": deprecated in sys.modules,
+        }, sort_keys=True))
+        """
+    )
+    consumer_files = [
+        "aragora/server/event_subscribers.py",
+        "aragora/webhooks/retry_queue.py",
+    ]
+    env = os.environ.copy()
+    env.update(
+        {
+            "ARAGORA_SECRETS_STRICT": "false",
+            "AWS_CONFIG_FILE": "/dev/null",
+            "AWS_EC2_METADATA_DISABLED": "true",
+            "AWS_SHARED_CREDENTIALS_FILE": "/dev/null",
+            "PYTHONPATH": str(REPO_ROOT),
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(REPO_ROOT), json.dumps(consumer_files)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "deprecated_import_sites": [],
+        "import_site_count": 3,
+        "relevant_warnings": [],
+        "resolved_homes": [CANONICAL_MODULE_NAME],
+        "shim_imported": False,
+    }
+
+
+def test_type_checking_webhook_handler_import_targets_canonical_module() -> None:
+    """The handlers package type-checking import names the real class home."""
+    source = (REPO_ROOT / "aragora/server/handlers/__init__.py").read_text(encoding="utf-8")
+    webhook_handler_imports = [
+        node.module
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom)
+        and node.level == 1
+        and any(alias.name == "WebhookHandler" for alias in node.names)
+    ]
+    assert webhook_handler_imports == ["webhook_management"]
 
 
 def test_package_shim_has_no_dynamic_file_loader() -> None:
