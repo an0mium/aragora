@@ -22,6 +22,8 @@ FIRST_PARENT_SHA = "e448b840dad03ee28accd218c14a27fa8b87c7b4"
 HEAD_TREE_SHA = "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a"
 MERGE_TREE_SHA = "79c1c374eed261c42468dc526d837e726e73425a"
 PATCH_SHA256 = "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+IMPLEMENTATION_PUSH_SHA = "057407297d7c7991bddb4cf16185ee3626100dd2"
+IMPLEMENTATION_RULE_SUITE_ID = 3821290531
 OLD_RELEASE_ID = 363450207
 SYNTHETIC_RELEASE_ID = 990000001
 SYNTHETIC_RULE_SUITE_ID = 990000002
@@ -929,6 +931,65 @@ def test_rule_suite_and_projection_edges_are_fail_closed(payload: dict[str, Any]
     missing_edge["projection"]["records"][0]["operation_edges"].clear()
     with pytest.raises(ValueError, match="no method-specific edges"):
         backfill.validate_payload(missing_edge)
+
+
+def test_rule_suite_after_sha_bound_to_historical_merge_fails_closed(
+    payload: dict[str, Any],
+) -> None:
+    # The repository's rule-suite ledger began after the 2026-07-16 historical
+    # squash merge, so no passing record with after_sha == merge_sha ever
+    # existed or can exist; a payload claiming one must be rejected.
+    candidate = copy.deepcopy(payload)
+    candidate["rule_suite"]["after_sha"] = MERGE_SHA
+    with pytest.raises(ValueError, match="rule-suite after SHA mismatch"):
+        backfill.validate_payload(candidate)
+
+
+def test_rule_suite_after_sha_bound_to_implementation_source_validates(
+    payload: dict[str, Any],
+) -> None:
+    candidate = copy.deepcopy(payload)
+    candidate["rule_suite"]["after_sha"] = SOURCE_SHA
+    validated = backfill.validate_payload(candidate)
+    assert validated["rule_suite"]["after_sha"] == validated["authority"]["source_sha"]
+
+
+def test_live_rule_suite_record_normalizes_bare_repository_name() -> None:
+    # Field values from the live passing record for the merged implementation
+    # push (rule-suite ID 3821290531). The raw rule-suites API returns the bare
+    # repository name ("aragora"), so input construction must normalize it to
+    # the owner/name form before validation; raw persisted bytes stay bare.
+    record = {
+        "after_sha": IMPLEMENTATION_PUSH_SHA,
+        "id": IMPLEMENTATION_RULE_SUITE_ID,
+        "ref": "refs/heads/main",
+        "repository_id": 1126097105,
+        "repository_name": "synaptent/aragora",
+        "result": "pass",
+        "schema": backfill.RULE_SUITE_SCHEMA,
+    }
+    validated = backfill._validate_rule_suite(
+        dict(record),
+        repository="synaptent/aragora",
+        source_sha=IMPLEMENTATION_PUSH_SHA,
+    )
+    assert validated == record
+
+    bare = {**record, "repository_name": "aragora"}
+    with pytest.raises(ValueError, match="rule-suite repository mismatch"):
+        backfill._validate_rule_suite(
+            bare,
+            repository="synaptent/aragora",
+            source_sha=IMPLEMENTATION_PUSH_SHA,
+        )
+
+    before_push = {**record, "after_sha": "80671081ec1558aaf63460f39980b43601a7c44d"}
+    with pytest.raises(ValueError, match="rule-suite after SHA mismatch"):
+        backfill._validate_rule_suite(
+            before_push,
+            repository="synaptent/aragora",
+            source_sha=IMPLEMENTATION_PUSH_SHA,
+        )
 
 
 def test_movement_is_fail_closed() -> None:
