@@ -173,6 +173,18 @@ _READ_ONLY_GIT_SUBCOMMANDS = frozenset(
         "status",
     }
 )
+# Inline `-c` bypasses the GIT_CONFIG_GLOBAL/GIT_CONFIG_NOSYSTEM scrub in
+# _run_read_only, and config keys such as core.fsmonitor, diff.external, or
+# core.pager execute arbitrary commands even under read-only subcommands, so
+# only the exact key=value literals used by this script's call sites pass.
+_READ_ONLY_GIT_CONFIG_LITERALS = frozenset(
+    {
+        "diff.algorithm=myers",
+        "diff.context=3",
+        "diff.mnemonicPrefix=false",
+        "diff.noprefix=false",
+    }
+)
 _FORBIDDEN_CALLER_FIELDS = frozenset(
     {
         "actions",
@@ -420,6 +432,18 @@ def _git_subcommand(argv: list[str]) -> str:
         if item == "-C":
             index += 2
             continue
+        if item == "-c":
+            if index + 1 >= len(argv):
+                return ""
+            if argv[index + 1] not in _READ_ONLY_GIT_CONFIG_LITERALS:
+                raise ValueError(f"unsupported git -c configuration rejected: {argv[index + 1]}")
+            index += 2
+            continue
+        if item == "--config-env" or item.startswith("--config-env="):
+            # Environment-sourced equivalent of -c: it can set any config key
+            # (including command-executing ones) and would otherwise fall
+            # through the generic option skip, bypassing the -c allowlist.
+            raise ValueError(f"unsupported git --config-env rejected: {item}")
         if item.startswith("--git-dir=") or item.startswith("--work-tree="):
             index += 1
             continue
@@ -507,8 +531,17 @@ def _run_read_only(
     log_operation: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
     _guard_subprocess_argv(argv)
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
     executable = Path(argv[0]).name
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    if executable == "git":
+        env.update(
+            {
+                "GIT_CONFIG_GLOBAL": os.devnull,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_NO_REPLACE_OBJECTS": "1",
+                "LC_ALL": "C",
+            }
+        )
     try:
         if executable == "git":
             proc = subprocess.run(["git", *argv[1:]], capture_output=True, env=env, check=False)
@@ -4765,6 +4798,10 @@ def build_accepted_result(
     inventory_path: Path,
     as_of: str | None = None,
     source_sha: str | None = None,
+    historical_base_sha: str | None = None,
+    historical_head_sha: str | None = None,
+    historical_merge_sha: str | None = None,
+    historical_first_parent_sha: str | None = None,
 ) -> dict[str, Any]:
     if source_sha is None:
         return _accepted_failure(
@@ -4799,6 +4836,190 @@ def build_accepted_result(
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
+        historical_values = {
+            "base_sha": historical_base_sha,
+            "first_parent_sha": historical_first_parent_sha,
+            "head_sha": historical_head_sha,
+            "merge_sha": historical_merge_sha,
+        }
+        if any(value is not None for value in historical_values.values()):
+            if not all(value is not None for value in historical_values.values()):
+                return _accepted_failure(
+                    "historical receipt requires base, head, merge, and first-parent SHAs together",
+                    "accepted_authority_historical_pair_incomplete",
+                )
+            try:
+                resolved = {
+                    label: _resolve_full_sha(
+                        repo_root,
+                        cast(str, value),
+                        label=f"historical receipt {label}",
+                        operation_log=[],
+                    )
+                    for label, value in historical_values.items()
+                }
+                first_parent = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['merge_sha']}^1",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-first-parent",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                merge_tree = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['merge_sha']}^{{tree}}",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-merge-tree",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                head_tree = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['head_sha']}^{{tree}}",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-head-tree",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                for ancestor, descendant, label in (
+                    (
+                        resolved["base_sha"],
+                        resolved["head_sha"],
+                        "historical receipt base is not an ancestor of the PR head",
+                    ),
+                    (
+                        resolved["base_sha"],
+                        resolved["first_parent_sha"],
+                        "historical receipt base is not an ancestor of the merge first parent",
+                    ),
+                    (
+                        resolved["base_sha"],
+                        resolved["merge_sha"],
+                        "historical receipt base is not an ancestor of the squash merge",
+                    ),
+                ):
+                    if not _is_ancestor(repo_root, ancestor, descendant, []):
+                        raise ValueError(label)
+                semantic_delta = sorted(
+                    _first_parent_semantic_delta(
+                        repo_root,
+                        first_parent_sha=resolved["first_parent_sha"],
+                        merge_sha=resolved["merge_sha"],
+                        pr=0,
+                        operation_log=[],
+                    )
+                )
+                head_semantic_delta = sorted(
+                    _first_parent_semantic_delta(
+                        repo_root,
+                        first_parent_sha=resolved["base_sha"],
+                        merge_sha=resolved["head_sha"],
+                        pr=0,
+                        operation_log=[],
+                    )
+                )
+                patch_args = [
+                    "git",
+                    "-c",
+                    "diff.noprefix=false",
+                    "-c",
+                    "diff.mnemonicPrefix=false",
+                    "-c",
+                    "diff.algorithm=myers",
+                    "-c",
+                    "diff.context=3",
+                    "-C",
+                    str(repo_root),
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-renames",
+                    "--no-color",
+                    "--no-indent-heuristic",
+                    "--full-index",
+                    "--unified=3",
+                    "--src-prefix=a/",
+                    "--dst-prefix=b/",
+                    "-O/dev/null",
+                ]
+                head_patch = _run_read_only(
+                    [
+                        *patch_args,
+                        f"{resolved['base_sha']}^{{tree}}",
+                        f"{resolved['head_sha']}^{{tree}}",
+                    ],
+                    operation_log=[],
+                    resource="historical-receipt-base-head-patch",
+                ).stdout
+                merge_patch = _run_read_only(
+                    [
+                        *patch_args,
+                        f"{resolved['first_parent_sha']}^{{tree}}",
+                        f"{resolved['merge_sha']}^{{tree}}",
+                    ],
+                    operation_log=[],
+                    resource="historical-receipt-first-parent-merge-patch",
+                ).stdout
+            except ValueError as exc:
+                return _accepted_failure(
+                    str(exc),
+                    "accepted_authority_historical_pair_invalid",
+                )
+            if first_parent != resolved["first_parent_sha"]:
+                return _accepted_failure(
+                    "historical receipt merge first parent contradicts the exact pair",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            if head_semantic_delta != semantic_delta:
+                return _accepted_failure(
+                    "historical receipt base/head paths differ from first-parent/merge paths",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            if head_patch != merge_patch:
+                return _accepted_failure(
+                    "historical receipt base/head patch differs from first-parent/merge patch",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            return {
+                "authority": {
+                    "historical_exact_pair": resolved,
+                    "source": "accepted_authority",
+                },
+                "execution": {
+                    **resolved,
+                    "first_parent_patch_byte_length": len(merge_patch),
+                    "first_parent_patch_sha256": _sha256_bytes(merge_patch),
+                    "head_tree_sha": head_tree,
+                    "merge_tree_sha": merge_tree,
+                    "semantic_delta_paths": semantic_delta,
+                    "source_sha": source,
+                },
+                "passing": True,
+                "source_sha": source,
+                "status": "pass",
+            }
         try:
             proc = _run_read_only(
                 ["git", "-C", str(repo_root), "rev-list", "--first-parent", source],
@@ -5409,6 +5630,26 @@ def main() -> int:
     )
     parser.add_argument("--head-ref", default=None, help="Immutable PR head SHA")
     parser.add_argument("--ref", default=None, help="Immutable source SHA for main modes")
+    parser.add_argument(
+        "--historical-base-sha",
+        default=None,
+        help="Exact historical PR base SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-head-sha",
+        default=None,
+        help="Exact historical PR head SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-merge-sha",
+        default=None,
+        help="Exact historical squash-merge SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-first-parent-sha",
+        default=None,
+        help="Exact historical merge first-parent SHA for receipt mode",
+    )
     parser.add_argument("--trusted-bundle", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument(
@@ -5592,6 +5833,10 @@ def main() -> int:
             inventory_path=args.inventory,
             as_of=args.as_of,
             source_sha=args.ref,
+            historical_base_sha=args.historical_base_sha,
+            historical_head_sha=args.historical_head_sha,
+            historical_merge_sha=args.historical_merge_sha,
+            historical_first_parent_sha=args.historical_first_parent_sha,
         )
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1

@@ -19,6 +19,7 @@ from typing import Any, Literal, cast, overload
 import pytest
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
+from tests.scripts._contract_drift_historical_git import ensure_pr_9320_head
 
 if sys.platform == "win32":
     import msvcrt
@@ -4287,6 +4288,8 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         ["git", "merge", "main"],
         ["git", "push", "origin", "HEAD"],
         ["git", "config", "user.name", "unsafe"],
+        ["git", "-c", "diff.context=3", "merge", "main"],
+        ["git", "-c"],
         ["gh", "pr", "merge", "1"],
         ["gh", "run", "rerun", "1"],
         ["gh", "release", "upload", "tag", "asset"],
@@ -4296,7 +4299,139 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         with pytest.raises(ValueError, match="mutating|unsupported"):
             ratchet._guard_subprocess_argv(argv)
     ratchet._guard_subprocess_argv(["git", "status", "--porcelain=v1"])
+    ratchet._guard_subprocess_argv(["git", "-c", "diff.context=3", "diff", "HEAD^", "HEAD"])
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
+
+
+def test_read_only_git_guard_rejects_command_executing_config_pairs():
+    # Inline `-c` bypasses the GIT_CONFIG_GLOBAL/NOSYSTEM scrub, and keys such
+    # as core.fsmonitor / diff.external / core.pager execute attacker-chosen
+    # commands even under read-only subcommands.
+    for argv in (
+        ["git", "-c", "core.fsmonitor=/tmp/evil", "status", "--porcelain=v1"],
+        ["git", "-c", "diff.external=/tmp/evil", "diff", "HEAD^", "HEAD"],
+        ["git", "-c", "core.pager=/tmp/evil", "log"],
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_config_allowlist_is_fail_closed():
+    # Only the exact call-site key=value literals pass: an allowlisted key
+    # with a different value, unknown keys, and case variants are all
+    # rejected rather than falling through to the subcommand allowlist.
+    for pair in (
+        "diff.context=99",
+        "diff.algorithm=patience",
+        "diff.noprefix=true",
+        "credential.helper=!/tmp/evil",
+        "core.sshCommand=/tmp/evil",
+        "Diff.Context=3",
+        "diff.context",
+        "",
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(["git", "-c", pair, "status", "--porcelain=v1"])
+
+
+def test_read_only_git_guard_accepts_exact_call_site_patch_argv(tmp_path: Path):
+    # The exact argv shape built by the historical-receipt patch call sites.
+    argv = [
+        "git",
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.algorithm=myers",
+        "-c",
+        "diff.context=3",
+        "-C",
+        str(tmp_path),
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--no-color",
+        "--no-indent-heuristic",
+        "--full-index",
+        "--unified=3",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "-O/dev/null",
+        "base^{tree}",
+        "head^{tree}",
+    ]
+    ratchet._guard_subprocess_argv(argv)
+    assert ratchet._git_subcommand(argv) == "diff"
+
+
+def test_read_only_git_config_literal_allowlist_matches_call_sites():
+    assert ratchet._READ_ONLY_GIT_CONFIG_LITERALS == frozenset(
+        {
+            "diff.algorithm=myers",
+            "diff.context=3",
+            "diff.mnemonicPrefix=false",
+            "diff.noprefix=false",
+        }
+    )
+
+
+def test_read_only_git_guard_rejects_config_env_joined_form():
+    # --config-env=<name>=<envvar> is git's environment-sourced equivalent of
+    # -c (including command-executing keys) and slips past the generic option
+    # skip as a plain "--" token, bypassing the -c allowlist entirely.
+    for argv in (
+        ["git", "--config-env=core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env=core.fsmonitor=EVIL_MONITOR", "status", "--porcelain=v1"],
+        ["git", "--config-env=diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_rejects_config_env_separate_form():
+    # The two-token spelling must be rejected as --config-env fail-closed, not
+    # merely misclassified when its value token falls through as a subcommand.
+    for argv in (
+        ["git", "--config-env", "core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env", "diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+        ["git", "--config-env", "core.fsmonitor=EVIL_MONITOR", "rev-parse", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_scrubs_config_without_scrubbing_gh(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        calls.append((argv, kwargs["env"]))
+        return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/hostile/global")
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(ratchet.subprocess, "run", fake_run)
+    ratchet._run_read_only(
+        ["git", "status", "--porcelain=v1"],
+        operation_log=[],
+        resource="git-status",
+    )
+    ratchet._run_read_only(
+        ["gh", "api", "--method", "GET", "repos/o/r"],
+        operation_log=[],
+        resource="github-api",
+    )
+    git_env = calls[0][1]
+    assert git_env["GIT_CONFIG_GLOBAL"] == os.devnull
+    assert git_env["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert git_env["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert git_env["LC_ALL"] == "C"
+    gh_env = calls[1][1]
+    assert gh_env["GIT_CONFIG_GLOBAL"] == "/hostile/global"
+    assert "GIT_CONFIG_NOSYSTEM" not in gh_env
 
 
 def _accepted_authority() -> dict[str, Any]:
@@ -4685,10 +4820,13 @@ def _run_accepted_cli(
         command.extend(["--as-of", "2026-04-17", "--strict"])
     if source_ref is not None:
         command.extend(["--ref", source_ref])
+    env = {**os.environ}
+    env.pop("CDG_AUTHORITY_ROOT", None)
     proc = subprocess.run(
         command,
         cwd=repo,
         capture_output=True,
+        env=env,
         text=True,
     )
     return proc, json.loads(proc.stdout)
@@ -6327,7 +6465,9 @@ def _hermetic_repo(
     for rel in _HERMETIC_FILES:
         destination = repo / rel
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes((src / rel).read_bytes())
+        destination.write_bytes(
+            subprocess.check_output(["git", "-C", str(src), "show", f"HEAD:{rel}"])
+        )
     if mutate_base_inventory is not None:
         inventory = json.loads((repo / _HERMETIC_INVENTORY).read_text())
         mutate_base_inventory(inventory)
@@ -7517,6 +7657,41 @@ def _real_authority() -> dict:
     return _real_inventory()["accepted_authority"]
 
 
+def _bound_authority_bytes(binding: dict[str, Any]) -> bytes:
+    authority_root = os.environ.get("CDG_AUTHORITY_ROOT")
+    if authority_root:
+        return (Path(authority_root) / binding["path"]).read_bytes()
+    return (_REPO_ROOT / binding["path"]).read_bytes()
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_committed_authority_while_checker_is_dirty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    authority = _real_authority()
+    checker_binding = next(
+        binding
+        for binding in authority["analyzer_bundle"]["files"]
+        if binding["path"] == "scripts/check_contract_drift_ratchet.py"
+    )
+    live_checker = _REPO_ROOT / checker_binding["path"]
+    if hashlib.sha256(live_checker.read_bytes()).hexdigest() == checker_binding["sha256"]:
+        yield
+        return
+    with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
+        root = Path(temp)
+        for binding in authority["analyzer_bundle"]["files"]:
+            target = root / binding["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                subprocess.check_output(
+                    ["git", "-C", str(_REPO_ROOT), "show", f"HEAD:{binding['path']}"]
+                )
+            )
+        monkeypatch.setenv("CDG_AUTHORITY_ROOT", str(root))
+        yield
+
+
 def _relink_fact(schema: str, value: dict) -> dict:
     return {"fact": value, "sha256": ratchet._fact_digest(schema, value)}
 
@@ -7728,7 +7903,7 @@ def test_corrective_guard_v2_sequence_is_h2_then_h3_repin_merge_then_empty_h4(tm
     assert bootstrap.ANALYZER_SOURCE_SHA == h3["oid"]
     assert bootstrap.BootstrapPolicy().transition_base_sha == CORRECTIVE_BASE_SHA
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -7807,7 +7982,7 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
     # bootstrap policy; the live analyzer bytes are pinned by the accepted
     # authority manifest, which authorized rotations rebind in place.
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -10100,6 +10275,159 @@ def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.
     live_source = inspect.getsource(ratchet._live_witnesses)
     assert "inventory_mod.load_git_docs" in live_source
     assert "inventory_mod.collect_ids" in live_source
+
+
+def test_historical_receipt_mode_supports_the_exact_9320_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["passing"] is True
+    assert result["execution"] == {
+        "base_sha": "14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        "first_parent_sha": "e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        "first_parent_patch_byte_length": 6054,
+        "first_parent_patch_sha256": (
+            "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+        ),
+        "head_sha": "aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        "head_tree_sha": "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a",
+        "merge_sha": "0b28f68b9f4d204ae14814169093723ea84c1364",
+        "merge_tree_sha": "79c1c374eed261c42468dc526d837e726e73425a",
+        "semantic_delta_paths": [
+            "aragora/server/handlers/social/__init__.py",
+            "aragora/server/handlers/social/sharing.py",
+            "tests/handlers/social/test_sharing.py",
+        ],
+        "source_sha": subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+    }
+
+
+def test_historical_receipt_patch_binding_ignores_hostile_git_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
+    global_config = tmp_path / "hostile-gitconfig"
+    global_config.write_text(
+        "[diff]\n"
+        "\tnoprefix = true\n"
+        "\talgorithm = histogram\n"
+        "\tcontext = 19\n"
+        "[core]\n"
+        "\tabbrev = 40\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha=cast(str, PR_9320_FACT["head_sha"]),
+        historical_merge_sha=cast(str, PR_9320_FACT["merge_sha"]),
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["execution"]["first_parent_patch_byte_length"] == 6054
+    assert result["execution"]["first_parent_patch_sha256"] == (
+        "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+    )
+
+
+def test_historical_receipt_mode_fails_closed_on_incomplete_or_mismatched_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    source_sha = subprocess.check_output(
+        ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    incomplete = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+    )
+    assert incomplete["error_code"] == "accepted_authority_historical_pair_incomplete"
+    assert incomplete["passing"] is False
+
+    mismatched = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+    )
+    assert mismatched["error_code"] == "accepted_authority_historical_pair_mismatch"
+    assert mismatched["passing"] is False
+
+    wrong_base = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert wrong_base["error_code"] in {
+        "accepted_authority_historical_pair_invalid",
+        "accepted_authority_historical_pair_mismatch",
+    }
+    assert wrong_base["passing"] is False
 
 
 def test_no_reachable_classification_filtered_or_raw_baseline_fallback():

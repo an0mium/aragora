@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import zipfile
 from datetime import datetime as RealDateTime
@@ -21,11 +22,19 @@ from scripts.verify_contract_drift_workflow_state import (
     VerificationError,
     verify_workflow_state,
 )
+from tests.scripts._contract_drift_historical_git import (
+    PR_9320_HEAD_REF,
+    PR_9320_LOCAL_REF,
+    ensure_pr_9320_head,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXT = (ROOT / ".github/workflows/contract-drift-governance.yml").read_text()
 DOC = yaml.load(TEXT, Loader=yaml.BaseLoader)
 JOBS = DOC["jobs"]
+HISTORICAL_FINALIZER_PATH = (
+    ROOT / ".github/workflows/contract-drift-historical-backfill-finalizer.yml"
+)
 
 LIVE_CHECK_NAMES = (
     "contract-drift-pr-delta",
@@ -33,6 +42,7 @@ LIVE_CHECK_NAMES = (
     "contract-drift-program-trajectory",
 )
 SOURCE_SHA_EXPR = "${{ github.event_name == 'push' && github.event.after || github.sha }}"
+HISTORICAL_SOURCE_SHA_EXPR = "${{ github.event_name == 'workflow_dispatch' && inputs.historical_backfill && github.sha || github.event_name == 'push' && github.event.after || github.sha }}"
 # GitHub Actions app installation id: required-check tuples produced by
 # workflow jobs must carry this app identity, never a third-party app.
 EXPECTED_PR_DELTA_APP_ID = 15368
@@ -64,10 +74,17 @@ GITHUB_RUNNER_ENV_ALLOWLIST = frozenset(
 
 
 def _analyzer_step(job_id: str) -> dict:
-    for step in JOBS[job_id]["steps"]:
-        if "run" in step and "check_contract_drift_ratchet.py" in step["run"]:
-            return step
-    raise AssertionError(f"no analyzer step in {job_id}")
+    matches = [
+        step
+        for step in JOBS[job_id]["steps"]
+        if "run" in step and "check_contract_drift_ratchet.py" in step["run"]
+    ]
+    exact = [
+        step for step in matches if "build_contract_drift_historical_backfill.py" not in step["run"]
+    ]
+    if len(exact) == 1:
+        return exact[0]
+    raise AssertionError(f"expected one analyzer step in {job_id}, found {len(exact)}")
 
 
 def _upload_step(job_id: str) -> dict:
@@ -75,6 +92,24 @@ def _upload_step(job_id: str) -> dict:
         if str(step.get("uses", "")).startswith("actions/upload-artifact@"):
             return step
     raise AssertionError(f"no upload step in {job_id}")
+
+
+def _named_run_step(job_id: str, name: str) -> dict:
+    matches = [
+        step
+        for step in JOBS[job_id]["steps"]
+        if step.get("name") == name and isinstance(step.get("run"), str)
+    ]
+    assert len(matches) == 1, f"expected one {name!r} step in {job_id}, found {len(matches)}"
+    return matches[0]
+
+
+def _historical_finalizer() -> tuple[str, dict[str, Any]]:
+    assert HISTORICAL_FINALIZER_PATH.is_file()
+    text = HISTORICAL_FINALIZER_PATH.read_text(encoding="utf-8")
+    document = yaml.load(text, Loader=yaml.BaseLoader)
+    assert isinstance(document, dict)
+    return text, document
 
 
 def _terminal_step() -> dict:
@@ -197,7 +232,8 @@ def test_pr_admission_is_event_bound_absolute_and_terminal():
     terminal = JOBS["pr-delta"]["steps"][-1]
     assert terminal["if"] == "always()" and "steps.admission.outcome" in terminal["run"]
     receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
-    assert receipt["env"]["SOURCE_SHA"] == program["env"]["SOURCE_SHA"]
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
     assert "needs" not in receipt and "needs" not in program
     assert "--mode program" in str(program) and "continue-on-error" not in str(program)
 
@@ -452,7 +488,13 @@ def test_contract_drift_triggers_pr_main_schedule_dispatch():
     assert DOC["on"]["push"]["branches"] == ["main"]
     schedule = DOC["on"]["schedule"]
     assert schedule and all("cron" in entry for entry in schedule)
-    assert DOC["on"]["workflow_dispatch"] == {}
+    assert set(DOC["on"]["workflow_dispatch"]["inputs"]) == {
+        "historical_backfill",
+        "historical_base_sha",
+        "historical_first_parent_sha",
+        "historical_head_sha",
+        "historical_merge_sha",
+    }
 
 
 def test_contract_drift_pr_has_no_governed_path_filter_gap():
@@ -482,16 +524,21 @@ def test_contract_drift_non_pr_events_resolve_one_sha_for_receipt_and_program():
     reader, expected = _live_fixture()
     result = verify_workflow_state(reader)
     assert result["selection"]["identity"]["run_id"] == expected["run_id"]
-    assert (
-        JOBS["main-receipt"]["env"]["SOURCE_SHA"] == JOBS["program-trajectory"]["env"]["SOURCE_SHA"]
-    )
+    assert JOBS["main-receipt"]["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert JOBS["program-trajectory"]["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
 
 
 def _analyzer_step_text(job: dict) -> str:
-    for step in job["steps"]:
-        if "run" in step and "check_contract_drift_ratchet.py" in step["run"]:
-            return step["run"]
-    raise AssertionError("no analyzer step")
+    matches = [
+        step["run"]
+        for step in job["steps"]
+        if "run" in step
+        and "check_contract_drift_ratchet.py" in step["run"]
+        and "build_contract_drift_historical_backfill.py" not in step["run"]
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    raise AssertionError(f"expected one analyzer step, found {len(matches)}")
 
 
 def test_workflow_runs_paginate_unfiltered_and_filter_locally():
@@ -664,7 +711,12 @@ def test_terminal_aggregator_fails_if_pr_delta_is_skipped_cancelled_or_missing(t
 def test_main_receipt_job_is_distinct_and_successful_when_trajectory_is_red(tmp_path):
     receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
     assert receipt["name"] != program["name"] and "needs" not in receipt
-    env = {"SOURCE_SHA": "b" * 40, "GITHUB_WORKSPACE": str(tmp_path)}
+    env = {
+        "EVENT_NAME": "push",
+        "HISTORICAL_BACKFILL": "false",
+        "SOURCE_SHA": "b" * 40,
+        "GITHUB_WORKSPACE": str(tmp_path),
+    }
     red = _simulate_step(_analyzer_step_text(program), env=env, cwd=tmp_path, stubs={"python3": 17})
     green = _simulate_step(
         _analyzer_step_text(receipt), env=env, cwd=tmp_path, stubs={"python3": 0}
@@ -677,7 +729,16 @@ def test_main_receipt_job_is_distinct_and_successful_when_trajectory_is_red(tmp_
 def test_main_receipt_requires_complete_first_parent_backfill(tmp_path):
     receipt = _analyzer_step_text(JOBS["main-receipt"])
     assert "--mode receipt" in receipt and "--mode program" not in receipt
-    env = {"SOURCE_SHA": "b" * 40, "GITHUB_WORKSPACE": str(tmp_path)}
+    env = {
+        "EVENT_NAME": "workflow_dispatch",
+        "HISTORICAL_BACKFILL": "true",
+        "HISTORICAL_BASE_SHA": "a" * 40,
+        "HISTORICAL_FIRST_PARENT_SHA": "d" * 40,
+        "HISTORICAL_HEAD_SHA": "b" * 40,
+        "HISTORICAL_MERGE_SHA": "c" * 40,
+        "SOURCE_SHA": "b" * 40,
+        "GITHUB_WORKSPACE": str(tmp_path),
+    }
     # An incomplete first-parent backfill is a red receipt analyzer; pipefail
     # preserves that exit through tee, and the success-gated upload withholds
     # the receipt artifact.
@@ -685,6 +746,297 @@ def test_main_receipt_requires_complete_first_parent_backfill(tmp_path):
     assert incomplete.returncode == 3
     assert _upload_step("main-receipt")["if"] == "success()"
     assert "continue-on-error" not in str(JOBS["main-receipt"])
+
+
+def test_historical_backfill_dispatch_is_exact_pair_and_event_disjoint():
+    dispatch = DOC["on"]["workflow_dispatch"]["inputs"]
+    assert dispatch["historical_backfill"]["type"] == "boolean"
+    assert dispatch["historical_backfill"]["default"] == "false"
+    receipt = JOBS["main-receipt"]
+    run = _analyzer_step_text(receipt)
+    env = receipt["env"]
+    assert receipt["if"] == "github.event_name != 'pull_request'"
+    assert env["EVENT_NAME"] == "${{ github.event_name }}"
+    assert "inputs.historical_backfill" in env["HISTORICAL_BACKFILL"]
+    assert env["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert "${EVENT_NAME:-}" in run
+    assert "${HISTORICAL_BACKFILL:-false}" in run
+    for flag, input_name in (
+        ("--historical-base-sha", "historical_base_sha"),
+        ("--historical-head-sha", "historical_head_sha"),
+        ("--historical-merge-sha", "historical_merge_sha"),
+        ("--historical-first-parent-sha", "historical_first_parent_sha"),
+    ):
+        assert flag in run
+        env_name = input_name.upper()
+        assert f"inputs.{input_name}" in env[env_name]
+        assert f"${env_name}" in run
+    assert "FULL_SHA='^[0-9a-f]{40}$'" in run
+    assert "inputs.historical_backfill" in _upload_step("main-receipt")["with"]["name"]
+    assert "contract-drift-main-receipt-analyzer" in _upload_step("main-receipt")["with"]["name"]
+    assert JOBS["program-trajectory"]["if"].endswith("|| !inputs.historical_backfill)")
+
+
+def test_historical_backfill_fetches_the_exact_pull_request_head_before_receipt():
+    fetch = _named_run_step("main-receipt", "Fetch exact historical PR head")
+    assert fetch["if"] == ("github.event_name == 'workflow_dispatch' && inputs.historical_backfill")
+    run = fetch["run"]
+    assert 'HISTORICAL_PR_REF="refs/pull/9320/head"' in run
+    assert 'HISTORICAL_LOCAL_REF="refs/cdg-historical-backfill/9320/head"' in run
+    assert (
+        'git fetch --no-tags --force origin "${HISTORICAL_PR_REF}:${HISTORICAL_LOCAL_REF}"' in run
+    )
+    assert (
+        'test "$(git rev-parse --verify "${HISTORICAL_LOCAL_REF}^{commit}")" = '
+        '"$HISTORICAL_HEAD_SHA"'
+    ) in run
+    assert "github.event.pull_request" not in run
+    assert "refs/heads/" not in run and "refs/tags/" not in run
+
+
+def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=source, check=True)
+    (source / "tracked.txt").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=source, check=True)
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_EMAIL": "cdg-test@example.invalid",
+        "GIT_AUTHOR_NAME": "cdg-test",
+        "GIT_COMMITTER_EMAIL": "cdg-test@example.invalid",
+        "GIT_COMMITTER_NAME": "cdg-test",
+    }
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "base"],
+        cwd=source,
+        env=commit_env,
+        check=True,
+    )
+    base_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+    subprocess.run(["git", "checkout", "-q", "-b", "historical"], cwd=source, check=True)
+    (source / "tracked.txt").write_text("historical\n", encoding="utf-8")
+    subprocess.run(["git", "commit", "-qam", "historical"], cwd=source, env=commit_env, check=True)
+    head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+    subprocess.run(["git", "checkout", "-q", "-B", "main", base_sha], cwd=source, check=True)
+
+    bare = tmp_path / "origin.git"
+    subprocess.run(["git", "clone", "-q", "--bare", str(source), str(bare)], check=True)
+    subprocess.run(
+        ["git", f"--git-dir={bare}", "update-ref", PR_9320_HEAD_REF, head_sha],
+        check=True,
+    )
+    subprocess.run(
+        ["git", f"--git-dir={bare}", "update-ref", "-d", "refs/heads/historical"],
+        check=True,
+    )
+
+    checkout = tmp_path / "checkout"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "-q",
+            "--no-local",
+            "--single-branch",
+            "--branch",
+            "main",
+            f"file://{bare}",
+            str(checkout),
+        ],
+        check=True,
+    )
+    assert (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{head_sha}^{{commit}}"],
+            cwd=checkout,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+    assert ensure_pr_9320_head(checkout, expected_sha=head_sha) == head_sha
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            text=True,
+        ).strip()
+        == head_sha
+    )
+    subprocess.run(
+        ["git", "update-ref", "-d", PR_9320_LOCAL_REF],
+        cwd=checkout,
+        check=True,
+    )
+
+    git_stub_dir = tmp_path / "bin"
+    git_stub_dir.mkdir()
+    git_bin = shutil.which("git")
+    assert git_bin is not None
+    (git_stub_dir / "git").write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${{1:-}}" == "fetch" ]]; then
+  shift
+  args=()
+  for arg in "$@"; do
+    [[ "$arg" == "--no-tags" || "$arg" == "--force" ]] && continue
+    args+=("$arg")
+  done
+  exec {git_bin!r} fetch "${{args[@]}}"
+fi
+exec {git_bin!r} "$@"
+""",
+        encoding="utf-8",
+    )
+    (git_stub_dir / "git").chmod(0o755)
+
+    fetch = _named_run_step("main-receipt", "Fetch exact historical PR head")
+    result = _simulate_step(
+        fetch["run"],
+        env={
+            "HISTORICAL_HEAD_SHA": head_sha,
+            "PATH": f"{git_stub_dir}:{os.environ['PATH']}",
+        },
+        cwd=checkout,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            text=True,
+        ).strip()
+        == head_sha
+    )
+
+
+def test_historical_backfill_finalizes_only_after_the_receipt_job_completed():
+    receipt = JOBS["main-receipt"]
+    assert "build_contract_drift_historical_backfill.py" not in str(receipt)
+    assert DOC["permissions"] == {"checks": "read", "contents": "read"}
+    assert "permissions" not in JOBS["pr-delta"]
+    assert receipt["permissions"] == {
+        "actions": "write",
+        "checks": "read",
+        "contents": "read",
+    }
+
+    upload = _upload_step("main-receipt")
+    assert upload["id"] == "receipt-upload"
+    assert (
+        "format('contract-drift-main-receipt-analyzer-{0}', github.sha)" in upload["with"]["name"]
+    )
+    assert "contract-drift-main-receipt-analyzer.json" in upload["with"]["path"]
+    dispatch = _named_run_step("main-receipt", "Finalize completed historical receipt")
+    assert dispatch["if"] == (
+        "github.event_name == 'workflow_dispatch' && inputs.historical_backfill"
+    )
+    assert dispatch["env"]["ANALYZER_ARTIFACT_ID"] == (
+        "${{ steps.receipt-upload.outputs.artifact-id }}"
+    )
+    dispatch_run = dispatch["run"]
+    assert "/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100&page=1" in dispatch_run
+    assert 'select(.name == "contract-drift-main-receipt") | .id' in dispatch_run
+    assert '--argjson artifact_id "$ANALYZER_ARTIFACT_ID"' in dispatch_run
+    assert '--arg source_sha "$SOURCE_SHA"' in dispatch_run
+    assert "producer_identity" in dispatch_run
+    assert "gh api --method POST" in dispatch_run
+    assert (
+        "actions/workflows/contract-drift-historical-backfill-finalizer.yml/dispatches"
+        in dispatch_run
+    )
+    assert 'SOURCE_REF="${GITHUB_REF#refs/heads/}"' in dispatch_run
+    assert 'SOURCE_REF="${GITHUB_REF#refs/tags/}"' in dispatch_run
+    assert '-f ref="$SOURCE_REF"' in dispatch_run
+    assert '-f ref="$SOURCE_SHA"' not in dispatch_run
+
+    text, finalizer = _historical_finalizer()
+    assert finalizer["on"] == {
+        "workflow_dispatch": {
+            "inputs": {
+                "producer_identity": {
+                    "description": (
+                        "Canonical JSON identity of the completed historical receipt producer"
+                    ),
+                    "required": "true",
+                    "type": "string",
+                }
+            }
+        }
+    }
+    jobs = finalizer["jobs"]
+    assert set(jobs) == {"finalize-historical-receipt"}
+    job = jobs["finalize-historical-receipt"]
+    assert job["name"] == "contract-drift-historical-backfill-receipt-finalizer"
+    assert "if" not in job
+    assert job["env"]["PRODUCER_IDENTITY"] == "${{ inputs.producer_identity }}"
+    validate = next(
+        step for step in job["steps"] if step.get("name") == "Validate completed producer identity"
+    )
+    assert (
+        '["artifact_id","job_id","run_attempt","source_sha","workflow_run_id"]' in validate["run"]
+    )
+    assert 'test("^[0-9a-f]{40}$")' in validate["run"]
+    assert "$GITHUB_OUTPUT" in validate["run"]
+
+    checkout = next(
+        step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")
+    )
+    assert checkout["with"]["ref"] == "${{ steps.producer.outputs.source_sha }}"
+    download = next(
+        step
+        for step in job["steps"]
+        if str(step.get("uses", "")).startswith("actions/download-artifact@")
+    )
+    assert download["with"]["artifact-ids"] == "${{ steps.producer.outputs.artifact_id }}"
+    assert download["with"]["github-token"] == "${{ github.token }}"
+    assert download["with"]["merge-multiple"] == "true"
+    assert download["with"]["repository"] == "${{ github.repository }}"
+    assert download["with"]["run-id"] == "${{ steps.producer.outputs.workflow_run_id }}"
+
+    build = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Build completed historical receipt envelope"
+    )
+    assert build["env"]["ANALYZER_ARTIFACT_ID"] == ("${{ steps.producer.outputs.artifact_id }}")
+    assert build["env"]["GH_TOKEN"] == "${{ github.token }}"
+    run = build["run"]
+    assert "for attempt in $(seq 1 30)" in run
+    assert "actions/runs/${PRODUCER_RUN_ID}" in run
+    assert "steps.producer.outputs.source_sha" in run
+    assert ".github/workflows/contract-drift-governance.yml" in run
+    assert '"workflow_dispatch"' in run
+    assert 'test "${RUN_STATUS:-}" = "completed"' in run
+    assert 'test "${RUN_CONCLUSION:-}" = "success"' in run
+    assert "scripts/build_contract_drift_historical_backfill.py" in run
+    assert "--build-receipt-envelope" in run
+    assert "--analyzer-result receipt-input/contract-drift-main-receipt-analyzer.json" in run
+    assert "--output-receipt contract-drift-main-receipt.json" in run
+    assert '--workflow-run-id "$PRODUCER_RUN_ID"' in run
+    assert '--run-attempt "$PRODUCER_RUN_ATTEMPT"' in run
+    assert '--job-id "$PRODUCER_JOB_ID"' in run
+    assert '--artifact-id "$ANALYZER_ARTIFACT_ID"' in run
+    assert '--repository "$GITHUB_REPOSITORY"' in run
+    assert "--github-api" in run
+    assert "artifact_name=" in run and "$GITHUB_OUTPUT" in run
+
+    final_upload = next(
+        step
+        for step in job["steps"]
+        if str(step.get("uses", "")).startswith("actions/upload-artifact@")
+    )
+    assert final_upload["if"] == "success()"
+    assert final_upload["with"]["name"] == "${{ steps.envelope.outputs.artifact_name }}"
+    assert final_upload["with"]["path"] == "contract-drift-main-receipt.json"
+    assert "contract-drift-main-receipt" not in {value["name"] for value in jobs.values()}
+    assert "workflow_run:" not in text
+
+    analyzer = _analyzer_step_text(receipt)
+    assert "tee contract-drift-main-receipt-analyzer.json" in analyzer
+    assert "tee contract-drift-main-receipt.json" not in analyzer
 
 
 def test_program_trajectory_preserves_real_red_exit(tmp_path):
@@ -703,7 +1055,9 @@ def test_program_trajectory_preserves_real_red_exit(tmp_path):
 def test_contract_drift_authoritative_steps_propagate_nonzero_exit(tmp_path):
     env = {
         "BASE_SHA": "a" * 40,
+        "EVENT_NAME": "push",
         "HEAD_SHA": "b" * 40,
+        "HISTORICAL_BACKFILL": "false",
         "SOURCE_SHA": "c" * 40,
         "GITHUB_WORKSPACE": str(tmp_path),
     }
@@ -729,7 +1083,12 @@ def test_every_contract_drift_authoritative_pipeline_enables_pipefail_before_fir
     # Behavioral contrast: the same pipeline without pipefail lets tee's zero
     # exit mask the red analyzer.
     run = _analyzer_step("main-receipt")["run"]
-    env = {"SOURCE_SHA": "d" * 40, "GITHUB_WORKSPACE": str(tmp_path)}
+    env = {
+        "EVENT_NAME": "push",
+        "HISTORICAL_BACKFILL": "false",
+        "SOURCE_SHA": "d" * 40,
+        "GITHUB_WORKSPACE": str(tmp_path),
+    }
     with_pipefail = _simulate_step(run, env=env, cwd=tmp_path, stubs={"python3": 9})
     without = _simulate_step(
         run.replace("set -euo pipefail\n", ""), env=env, cwd=tmp_path, stubs={"python3": 9}
@@ -770,8 +1129,8 @@ def test_pull_request_invokes_only_pr_mode():
     assert "--mode receipt" not in str(JOBS["pr-delta"])
     assert "--mode program" not in str(JOBS["pr-delta"])
     # The two main-only jobs are event-disjoint from PR admission.
-    for job_id in ("main-receipt", "program-trajectory"):
-        assert JOBS[job_id]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["main-receipt"]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["program-trajectory"]["if"].startswith("github.event_name != 'pull_request'")
 
 
 def test_pull_request_uses_immutable_event_base_and_head_shas():
@@ -805,10 +1164,13 @@ def test_synthetic_merge_sha_is_rejected_for_pr_delta():
 def test_push_main_binds_receipt_and_program_to_event_after_sha():
     assert DOC["on"]["push"]["branches"] == ["main"]
     assert "github.event.after" in SOURCE_SHA_EXPR
-    for job_id in ("main-receipt", "program-trajectory"):
-        job = JOBS[job_id]
-        assert job["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
-        assert job["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    receipt = JOBS["main-receipt"]
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    program = JOBS["program-trajectory"]
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
+    assert program["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    for job in (receipt, program):
         assert '--ref "$SOURCE_SHA"' in _analyzer_step_text(job)
 
 
@@ -818,9 +1180,12 @@ def test_schedule_and_dispatch_resolve_main_once_for_both_main_jobs():
     # resolved github.sha, so receipt and trajectory bind one identical SHA.
     assert SOURCE_SHA_EXPR.endswith("|| github.sha }}")
     receipt, program = JOBS["main-receipt"], JOBS["program-trajectory"]
-    assert receipt["env"]["SOURCE_SHA"] == program["env"]["SOURCE_SHA"]
-    assert receipt["steps"][0]["with"]["ref"] == program["steps"][0]["with"]["ref"]
-    assert TEXT.count(SOURCE_SHA_EXPR) == 4
+    assert receipt["env"]["SOURCE_SHA"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert receipt["steps"][0]["with"]["ref"] == HISTORICAL_SOURCE_SHA_EXPR
+    assert program["env"]["SOURCE_SHA"] == SOURCE_SHA_EXPR
+    assert program["steps"][0]["with"]["ref"] == SOURCE_SHA_EXPR
+    assert TEXT.count(SOURCE_SHA_EXPR) == 2
+    assert TEXT.count(HISTORICAL_SOURCE_SHA_EXPR) == 2
 
 
 def test_exact_three_live_check_names_are_separate():
@@ -830,8 +1195,8 @@ def test_exact_three_live_check_names_are_separate():
     outputs = {job_id: _upload_step(job_id)["with"]["path"] for job_id in JOBS}
     assert len(set(outputs.values())) == 3
     for job_id in JOBS:
-        assert artifact_names[job_id].startswith(f"contract-drift-{job_id}-")
-        assert outputs[job_id] == f"contract-drift-{job_id}.json"
+        assert f"contract-drift-{job_id}-" in artifact_names[job_id]
+        assert f"contract-drift-{job_id}.json" in outputs[job_id]
 
 
 def test_terminal_aggregator_fails_when_pr_delta_is_skipped(tmp_path):
@@ -863,7 +1228,12 @@ def test_trajectory_failure_does_not_block_main_receipt(tmp_path):
     for job in JOBS.values():
         needs = job.get("needs", [])
         assert "program-trajectory" not in ([needs] if isinstance(needs, str) else needs)
-    env = {"SOURCE_SHA": "e" * 40, "GITHUB_WORKSPACE": str(tmp_path)}
+    env = {
+        "EVENT_NAME": "push",
+        "HISTORICAL_BACKFILL": "false",
+        "SOURCE_SHA": "e" * 40,
+        "GITHUB_WORKSPACE": str(tmp_path),
+    }
     trajectory = _simulate_step(
         _analyzer_step_text(JOBS["program-trajectory"]),
         env=env,
@@ -886,7 +1256,12 @@ def test_main_receipt_success_does_not_mask_trajectory_failure(tmp_path):
     *_, analyzer, upload = program["steps"]
     assert "check_contract_drift_ratchet.py" in analyzer["run"]
     assert upload["uses"].startswith("actions/upload-artifact@")
-    env = {"SOURCE_SHA": "f" * 40, "GITHUB_WORKSPACE": str(tmp_path)}
+    env = {
+        "EVENT_NAME": "push",
+        "HISTORICAL_BACKFILL": "false",
+        "SOURCE_SHA": "f" * 40,
+        "GITHUB_WORKSPACE": str(tmp_path),
+    }
     receipt = _simulate_step(
         _analyzer_step_text(JOBS["main-receipt"]), env=env, cwd=tmp_path, stubs={"python3": 0}
     )
@@ -900,7 +1275,7 @@ def test_program_red_cannot_mask_or_replace_pr_delta_result():
     # PR admission and program trajectory run on disjoint events, publish
     # differently named artifacts, and satisfy different required contexts.
     assert JOBS["pr-delta"]["if"].startswith("github.event_name == 'pull_request'")
-    assert JOBS["program-trajectory"]["if"] == "github.event_name != 'pull_request'"
+    assert JOBS["program-trajectory"]["if"].startswith("github.event_name != 'pull_request'")
     assert "contract-drift-pr-delta.json" not in str(JOBS["program-trajectory"])
     assert "contract-drift-program-trajectory.json" not in str(JOBS["pr-delta"])
 

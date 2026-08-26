@@ -131,12 +131,16 @@ DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES = frozenset(
     {
         "aragora/config/provider_readiness.py",
         "aragora/swarm/quorum_evidence.py",
+        "scripts/build_contract_drift_historical_backfill.py",
         "scripts/generate_sdk_types.py",
         "scripts/run_pip_audit_gate.py",
     }
 )
 DYNAMIC_INTERNAL_SUBPROCESS_HELPERS = {
     "aragora/swarm/merge_quorum_io.py": ("aragora/cli/main.py",),
+    "scripts/build_contract_drift_historical_backfill.py": (
+        "scripts/generate_contract_drift_inventory.py",
+    ),
     "scripts/pre_release_check.py": (
         "scripts/check_cross_sdk_parity.py",
         "scripts/check_pentest_findings.py",
@@ -1190,6 +1194,17 @@ def _subprocess_helper_edges(
         if isinstance(command, (ast.List, ast.Tuple)) and elements:
             program_index = _subprocess_program_index(elements, static_bindings)
             if program_index is None:
+                bound_helpers = DYNAMIC_INTERNAL_SUBPROCESS_HELPERS.get(source_path)
+                if bound_helpers:
+                    for helper in bound_helpers:
+                        if not (extraction_root / helper).is_file():
+                            raise AuthorityClosureError(
+                                f"bound subprocess wrapper helper is unavailable: "
+                                f"{source_path} -> {helper}"
+                            )
+                        if not _is_measurement_subject(helper):
+                            helpers.add(helper)
+                    continue
                 if source_path in DYNAMIC_EXTERNAL_SUBPROCESS_COMMAND_SOURCES:
                     continue
                 raise AuthorityClosureError(
@@ -1202,6 +1217,17 @@ def _subprocess_helper_edges(
                 while argument_index < len(elements):
                     argument = _command_token(elements[argument_index], static_bindings)
                     if argument is None:
+                        bound_helpers = DYNAMIC_INTERNAL_SUBPROCESS_HELPERS.get(source_path)
+                        if bound_helpers:
+                            for helper in bound_helpers:
+                                if not (extraction_root / helper).is_file():
+                                    raise AuthorityClosureError(
+                                        f"bound subprocess wrapper helper is unavailable: "
+                                        f"{source_path} -> {helper}"
+                                    )
+                                if not _is_measurement_subject(helper):
+                                    helpers.add(helper)
+                            break
                         raise AuthorityClosureError(
                             f"dynamic Python subprocess target is forbidden: {source_path}"
                         )
@@ -1974,6 +2000,19 @@ def _workflow_structure(path: Path) -> dict[str, list[str]]:
         "run_working_directories": run_working_directories,
         "uses": uses,
     }
+
+
+def _workflow_dispatch_references(run: str) -> list[str]:
+    references: set[str] = set()
+    pattern = re.compile(
+        r"(?:^|[\s\"'])"
+        r"repos/\$\{GITHUB_REPOSITORY\}/actions/workflows/"
+        r"([A-Za-z0-9_.-]+\.(?:yml|yaml))/dispatches"
+        r"(?:$|[\s\"'])"
+    )
+    for match in pattern.finditer(_mask_github_expressions(run)):
+        references.add(f".github/workflows/{match.group(1)}")
+    return sorted(references)
 
 
 def _normalize_local_reference(source_path: str, raw_reference: str) -> str | None:
@@ -2936,6 +2975,13 @@ def _workflow_member_edges(extraction_root: Path, source_path: str) -> list[tupl
         structure["run_working_directories"],
         strict=True,
     ):
+        for reference in _workflow_dispatch_references(run):
+            target = extraction_root / reference
+            if not target.is_file():
+                raise AuthorityClosureError(
+                    f"unresolved local workflow dispatch reference: {source_path} -> {reference}"
+                )
+            edges.add((reference, "local_workflow_dispatch"))
         references = set(_run_script_references(extraction_root, source_path, run))
         references.update(
             _working_directory_run_references(
