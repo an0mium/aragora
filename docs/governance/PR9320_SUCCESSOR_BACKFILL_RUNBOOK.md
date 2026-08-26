@@ -135,7 +135,9 @@ Build the final input document with:
 - current exact-ref authority, dependency, inventory, public-symbol, route-boundary, category,
   original-ID, projection-schema, SDK-provenance, and SDK/core/extended partition digests;
 - all `655` projection memberships and all `666` method-specific edges;
-- a new passing rule-suite record for `refs/heads/main`;
+- the passing `refs/heads/main` rule-suite record of the implementation push, with
+  `rule_suite.after_sha == authority_source_sha == IMPLEMENTATION_SHA` and `repository_name`
+  normalized to `synaptent/aragora`;
 - stable attestation identity claims for `actions/attest@v4`;
 - non-precedential `historical_nonconforming` disposition;
 - explicit supersession of release `363450207`.
@@ -188,7 +190,12 @@ the later delegation, passing `source_digest=<merged implementation SHA>`. Requi
 - exact subject SHA-256 values for the three frozen assets.
 
 Run `gh attestation verify` twice per asset. Capture the passing rule-suite ID/result immediately
-and require its repository, `refs/heads/main`, and `after_sha` to match the payload.
+and require `refs/heads/main`, `result=pass`, and `after_sha` equal to the exact merged
+implementation SHA bound by the payload as `authority_source_sha` — never the historical squash
+merge SHA, whose push predates the repository's rule-suite ledger and therefore has no record.
+The raw rule-suites API returns the bare repository name (`aragora`, `repository_id 1126097105`);
+normalize it to `synaptent/aragora` before comparing against the payload while persisting the raw
+bytes unmodified.
 
 ## Finalization checkpoint P6: negative probes
 
@@ -309,3 +316,30 @@ uses `--config-env`, so the exact historical-receipt patch argv remains accepted
 Behavior is proven by `test_read_only_git_guard_rejects_config_env_joined_form` and
 `test_read_only_git_guard_rejects_config_env_separate_form` in
 `tests/scripts/test_check_contract_drift_ratchet.py`.
+
+## Rule-suite binding: implementation push identity (fail-closed)
+
+`validate_payload` previously required `rule_suite.after_sha` to equal the historical squash
+merge SHA `0b28f68b…`. That plane was unsatisfiable: the repository's rule-suite ledger did not
+exist at the 2026-07-16 historical merge (ruleset `20156862` `cdg-boundary-main-evaluation` was
+created `2026-07-31T23:08:36Z`, and the first `refs/heads/main` rule-suite record ever is
+`3525237532` on `2026-08-01`), so no passing record with that `after_sha` ever existed or can
+exist. Only the synthetic fixture record, which reused the merge SHA, masked the defect.
+
+The rule-suite plane now binds the implementation push identity, symmetric with the attestation
+plane: `rule_suite.after_sha` must equal `authority_source_sha` — the exact merged implementation
+SHA whose `refs/heads/main` push produced the passing record — with `ref == refs/heads/main` and
+`result == pass`, fail-closed on any mismatch. The capsule schema documents the same binding on
+`rule_suite.after_sha`. The live implementation push
+`057407297d7c7991bddb4cf16185ee3626100dd2` has passing record ID `3821290531`
+(`before_sha 80671081ec1558aaf63460f39980b43601a7c44d`, `result pass`).
+
+Repository-name normalization is explicit: the raw GitHub rule-suites API returns the bare
+repository name (`"repository_name": "aragora"`, `repository_id 1126097105`), while the builder
+validates the normalized `synaptent/aragora` form. Input construction normalizes the name to the
+`owner/name` form (the preparation fixture does the same); the boundary-capsule precedent
+persists raw API bytes bare and validates fields separately.
+
+Behavior is proven by the rule-suite binding tests in
+`tests/scripts/test_build_contract_drift_historical_backfill.py` and the schema region test in
+`tests/scripts/test_contract_drift_historical_backfill_schema.py`.

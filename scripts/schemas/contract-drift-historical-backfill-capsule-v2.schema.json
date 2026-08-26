@@ -268,7 +268,11 @@
     "rule_suite": {
       "additionalProperties": false,
       "properties": {
-        "after_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "after_sha": {
+          "description": "Exact merged implementation SHA whose refs/heads/main push produced the passing rule-suite record; distinct from the historical squash merge SHA, which predates the repository's rule-suite ledger.",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
         "id": {"minimum": 1, "type": "integer"},
         "ref": {"const": "refs/heads/main"},
         "repository_id": {"minimum": 1, "type": "integer"},

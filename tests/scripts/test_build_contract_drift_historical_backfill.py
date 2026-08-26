@@ -207,7 +207,7 @@ def _input_document() -> dict[str, Any]:
         },
         "repository": "synaptent/aragora",
         "rule_suite": {
-            "after_sha": MERGE_SHA,
+            "after_sha": SOURCE_SHA,
             "id": SYNTHETIC_RULE_SUITE_ID,
             "ref": "refs/heads/main",
             "repository_id": 1126097105,
@@ -293,6 +293,7 @@ def test_fixture_binds_all_semantic_planes(payload: dict[str, Any]) -> None:
     assert payload["release"]["exact_full_sha_tag"] == MERGE_SHA
     assert payload["release"]["tag_target_sha"] == SOURCE_SHA
     assert payload["attestation"]["source_digest"] == SOURCE_SHA
+    assert payload["rule_suite"]["after_sha"] == SOURCE_SHA
     assert (
         payload["historical_pull_request"]["changed_files"]
         == _input_document()["historical_pull_request"]["changed_files"]
