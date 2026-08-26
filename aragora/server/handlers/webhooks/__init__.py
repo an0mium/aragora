@@ -1,5 +1,8 @@
 """Webhook handlers for management APIs and external integrations."""
 
+# Aliased so the deprecation shim adds nothing to the package's public surface.
+from typing import Any as _Any
+
 import importlib as importlib  # Compatibility: historically a public package attribute.
 import warnings as _warnings
 
@@ -9,24 +12,21 @@ from aragora.server.handlers.webhooks.github_app import (
     handle_github_webhook,
 )
 
-# Preserve the package's historical exports and private module hook while
-# loading the implementation through its one canonical module identity.
-WebhookHandler = _webhooks_module.WebhookHandler
-WebhookStore = _webhooks_module.WebhookStore
-WebhookConfig = _webhooks_module.WebhookConfig
-get_webhook_store = _webhooks_module.get_webhook_store
-generate_signature = _webhooks_module.generate_signature
-verify_signature = _webhooks_module.verify_signature
-WEBHOOK_EVENTS = _webhooks_module.WEBHOOK_EVENTS
-RBAC_AVAILABLE = _webhooks_module.RBAC_AVAILABLE
-check_permission = _webhooks_module.check_permission
-validate_webhook_url = _webhooks_module.validate_webhook_url
-
-_warnings.warn(
-    "aragora.server.handlers.webhooks is deprecated as the webhook management "
-    "implementation home; use aragora.server.handlers.webhook_management instead.",
-    DeprecationWarning,
-    stacklevel=2,
+# Management names that historically lived here; their one canonical home is
+# webhook_management, so resolving them through this package warns the caller.
+_DEPRECATED_MANAGEMENT_EXPORTS = frozenset(
+    {
+        "WebhookHandler",
+        "WebhookStore",
+        "WebhookConfig",
+        "get_webhook_store",
+        "generate_signature",
+        "verify_signature",
+        "WEBHOOK_EVENTS",
+        "RBAC_AVAILABLE",
+        "check_permission",
+        "validate_webhook_url",
+    }
 )
 
 __all__ = [
@@ -43,3 +43,18 @@ __all__ = [
     "check_permission",
     "validate_webhook_url",
 ]
+
+
+def __getattr__(name: str) -> _Any:
+    if name in _DEPRECATED_MANAGEMENT_EXPORTS:
+        # Deliberately not cached in module globals: every retired-path import
+        # must see the warning, and the module dict stays access-order-stable.
+        _warnings.warn(
+            "aragora.server.handlers.webhooks is deprecated as the webhook "
+            f"management implementation home; import {name} from "
+            "aragora.server.handlers.webhook_management instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(_webhooks_module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
