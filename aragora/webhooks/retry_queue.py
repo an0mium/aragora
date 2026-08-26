@@ -833,10 +833,15 @@ class WebhookRetryQueue:
 
         try:
             # Import signature generator
+            generate_signature: Callable[[str, str], str] | None
             try:
-                from aragora.server.handlers.webhook_management import generate_signature
+                from aragora.server.handlers.webhook_management import (
+                    generate_signature as _generate_signature,
+                )
+
+                generate_signature = _generate_signature
             except ImportError:
-                generate_signature = None  # type: ignore[assignment]
+                generate_signature = None
 
             # Build headers
             headers = {
@@ -896,10 +901,15 @@ class WebhookRetryQueue:
 
             try:
                 # Import signature generator
+                generate_signature: Callable[[str, str], str] | None
                 try:
-                    from aragora.server.handlers.webhook_management import generate_signature
+                    from aragora.server.handlers.webhook_management import (
+                        generate_signature as _generate_signature,
+                    )
+
+                    generate_signature = _generate_signature
                 except ImportError:
-                    generate_signature = None  # type: ignore[assignment]
+                    generate_signature = None
 
                 # Build headers
                 headers = {
