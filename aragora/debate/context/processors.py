@@ -583,13 +583,11 @@ class ContentProcessor:
                 return "", [], {}
 
             # Track retrieved memory IDs and tiers for outcome updates and analytics
-            retrieved_ids = [
-                getattr(mem, "id", None) for mem in all_memories if getattr(mem, "id", None)
-            ]
+            retrieved_ids = [mem_id for mem in all_memories if (mem_id := getattr(mem, "id", None))]
             retrieved_tiers = {
-                getattr(mem, "id", None): getattr(mem, "tier", None)
+                mem_id: tier
                 for mem in all_memories
-                if getattr(mem, "id", None) and getattr(mem, "tier", None)
+                if (mem_id := getattr(mem, "id", None)) and (tier := getattr(mem, "tier", None))
             }
 
             # Format memories with confidence markers based on consolidation
