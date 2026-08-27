@@ -13,7 +13,9 @@ Two safety invariants (enforced in :mod:`aragora.swarm.quorum_evidence`):
   ``--apply``); Tier 3-4 (and unknown tier) always prepare evidence for an
   operator and never post.
 
-Defaults to a dry run (prepares + lints, prints, posts nothing).
+Defaults to a dry run (prepares + lints, prints, posts nothing). ``--never-post``
+(or ``ARAGORA_EVIDENCE_NEVER_POST=1``) is a hard prepare-only control on top of
+that: it forces prepare at every tier and conflicts loudly with ``--apply``.
 
 Examples
 --------
@@ -86,6 +88,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
     )
     parser.add_argument(
+        "--never-post",
+        dest="never_post",
+        action="store_true",
+        help=(
+            "Hard prepare-only control: force action=prepare at every tier and never "
+            "post (also enabled via ARAGORA_EVIDENCE_NEVER_POST=1). Conflicts with "
+            "--apply."
+        ),
+    )
+    parser.add_argument(
         "--reviewer-timeout",
         dest="reviewer_timeout",
         type=float,
@@ -110,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
+    if args.apply and args.never_post:
+        parser.error(
+            "--never-post conflicts with --apply: the never-post control forbids "
+            "posting at any tier"
+        )
 
     return run_collect_cli(
         repo=args.repo,
@@ -118,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         author=args.author,
         apply=args.apply,
         json_output=args.json_output,
+        never_post=args.never_post,
         prepared_json=args.prepared_json,
         reviewer_timeout_seconds=args.reviewer_timeout,
         overall_timeout_seconds=args.overall_timeout,
