@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
+from aragora.config.settings import AuthSettings, get_settings
 from aragora.server.auth import AuthConfig, check_auth
 from aragora.storage.debate_storage import _escape_like_pattern, DebateStorage
 
@@ -643,8 +644,34 @@ class TestCheckAuthIntegration:
             auth_config.api_token = original_token
 
 
+def _auth_settings_env_names() -> tuple[str, ...]:
+    """Environment variable names AuthSettings reads (alias or prefix + field name)."""
+    prefix = str(AuthSettings.model_config.get("env_prefix") or "")
+    names = []
+    for field_name, field in AuthSettings.model_fields.items():
+        alias = field.validation_alias if isinstance(field.validation_alias, str) else field.alias
+        names.append(alias if isinstance(alias, str) else f"{prefix}{field_name}".upper())
+    return tuple(names)
+
+
 class TestConfigureFromEnv:
     """Test environment variable configuration."""
+
+    @pytest.fixture(autouse=True)
+    def _presettle_auth_settings(self, monkeypatch):
+        """Parse AuthSettings before the test body's env patches take effect.
+
+        AuthConfig.__init__ reads get_settings().auth lazily. A test that ran
+        earlier in the same worker may leave the lru-cached Settings cleared
+        (reset_settings()) or its auth block unparsed; AuthSettings would then
+        be parsed inside this class's patch.dict scope, where ARAGORA_TOKEN_TTL
+        deliberately violates the ge=60 int field and raises ValidationError
+        before configure_from_env() ever runs. Scrub AuthSettings' env inputs
+        and parse it here so the bodies exercise configure_from_env() alone.
+        """
+        for env_name in _auth_settings_env_names():
+            monkeypatch.delenv(env_name, raising=False)
+        _ = get_settings().auth
 
     def test_configure_from_env_token(self):
         """Should load token from environment."""
