@@ -955,7 +955,7 @@ def test_rule_suite_after_sha_bound_to_implementation_source_validates(
     assert validated["rule_suite"]["after_sha"] == validated["authority"]["source_sha"]
 
 
-def test_live_rule_suite_record_normalizes_bare_repository_name() -> None:
+def test_live_rule_suite_record_requires_normalized_repository_name() -> None:
     # Field values from the live passing record for the merged implementation
     # push (rule-suite ID 3821290531). The raw rule-suites API returns the bare
     # repository name ("aragora"), so input construction must normalize it to
