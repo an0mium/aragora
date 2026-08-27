@@ -835,7 +835,7 @@ class WebhookRetryQueue:
             # Import signature generator
             generate_signature: Callable[[str, str], str] | None
             try:
-                from aragora.server.handlers.webhook_management import (
+                from aragora.security.webhook_signing import (
                     generate_signature as _generate_signature,
                 )
 
@@ -903,7 +903,7 @@ class WebhookRetryQueue:
                 # Import signature generator
                 generate_signature: Callable[[str, str], str] | None
                 try:
-                    from aragora.server.handlers.webhook_management import (
+                    from aragora.security.webhook_signing import (
                         generate_signature as _generate_signature,
                     )
 

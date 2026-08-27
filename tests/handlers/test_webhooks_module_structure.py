@@ -438,9 +438,11 @@ def test_delivery_and_retry_consumers_import_canonically_without_warnings() -> N
         check=False,
     )
     assert result.returncode == 0, result.stderr
+    # The retry queue signs via aragora.security.webhook_signing (probed
+    # separately below), so only the event-subscriber store import remains.
     assert json.loads(result.stdout) == {
         "deprecated_import_sites": [],
-        "import_site_count": 3,
+        "import_site_count": 1,
         "relevant_warnings": [],
         "resolved_homes": [CANONICAL_MODULE_NAME],
         "shim_imported": False,
@@ -473,3 +475,123 @@ def test_package_shim_has_no_dynamic_file_loader() -> None:
     assert "module_from_spec" not in source
     assert "exec_module" not in source
     assert package._webhooks_module.__name__ == "aragora.server.handlers.webhook_management"
+
+
+def test_retry_queue_signs_via_security_layer_without_call_time_warnings() -> None:
+    """Retry-queue signing resolves AND CALLS the security-layer signer silently.
+
+    The webhook_management.generate_signature wrapper warns on every call, so a
+    delivery path that imports it stays noisy even when the import itself is
+    warning-free. This probe pins the retry queue's signer imports to the
+    security layer and proves the resolved callable is silent at call time.
+    """
+    script = textwrap.dedent(
+        """
+        import ast
+        import json
+        from pathlib import Path
+        import sys
+        import warnings
+
+        root = Path(sys.argv[1])
+        rel_path = "aragora/webhooks/retry_queue.py"
+        server_prefix = "aragora.server.handlers."
+
+        signer_imports = []
+        tree = ast.parse((root / rel_path).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and any(
+                alias.name == "generate_signature" for alias in node.names
+            ):
+                signer_imports.append(node.module)
+
+        expected_signature = (
+            "sha256=b82fcb791acec57859b989b430a826488ce2e479fdf92326bd0a2e8375a42ba4"
+        )
+        call_results = []
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            for module_name in signer_imports:
+                module = __import__(module_name, fromlist=["generate_signature"])
+                signer = getattr(module, "generate_signature")
+                call_results.append(signer("payload", "secret") == expected_signature)
+
+        relevant = [
+            str(item.message)
+            for item in caught
+            if issubclass(item.category, DeprecationWarning)
+        ]
+        print(json.dumps({
+            "call_results": call_results,
+            "call_time_warnings": relevant,
+            "server_modules_loaded": sorted(
+                name for name in sys.modules if name.startswith(server_prefix)
+            ),
+            "signer_import_modules": sorted(set(signer_imports)),
+            "signer_import_site_count": len(signer_imports),
+        }, sort_keys=True))
+        """
+    )
+    env = os.environ.copy()
+    env.update(
+        {
+            "ARAGORA_SECRETS_STRICT": "false",
+            "AWS_CONFIG_FILE": "/dev/null",
+            "AWS_EC2_METADATA_DISABLED": "true",
+            "AWS_SHARED_CREDENTIALS_FILE": "/dev/null",
+            "PYTHONPATH": str(REPO_ROOT),
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(REPO_ROOT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "call_results": [True, True],
+        "call_time_warnings": [],
+        "server_modules_loaded": [],
+        "signer_import_modules": ["aragora.security.webhook_signing"],
+        "signer_import_site_count": 2,
+    }
+
+
+def test_webhook_suite_patch_targets_bypass_the_deprecation_shim() -> None:
+    """@patch targets in the handler test suite name the canonical module.
+
+    Patching the shim package attribute is a decoy: the implementation reads
+    its own module globals, so a shim-path patch never intercepts anything.
+    """
+    suite_path = REPO_ROOT / "tests/server/handlers/test_webhooks.py"
+    tree = ast.parse(suite_path.read_text(encoding="utf-8"))
+
+    patch_targets = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        func_name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        if func_name != "patch":
+            continue
+        if (
+            node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            patch_targets.append(node.args[0].value)
+
+    shim_targets = [
+        target for target in patch_targets if target.startswith("aragora.server.handlers.webhooks.")
+    ]
+    canonical_targets = [
+        target
+        for target in patch_targets
+        if target.startswith("aragora.server.handlers.webhook_management.")
+    ]
+    assert shim_targets == []
+    assert len(canonical_targets) >= 8
