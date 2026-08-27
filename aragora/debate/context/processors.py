@@ -432,6 +432,13 @@ class ContentProcessor:
         if not use_codebase:
             return None
 
+        if not self._project_root.is_dir():
+            logger.debug(
+                "Codebase context skipped: project root %s is not a directory",
+                self._project_root,
+            )
+            return None
+
         try:
             from aragora.rlm.codebase_context import CodebaseContextBuilder
         except (ImportError, OSError) as exc:
@@ -465,6 +472,13 @@ class ContentProcessor:
             return None
 
         if not context:
+            return None
+
+        # An index with zero files means the root had nothing to map; a
+        # header-only codebase map would be misleading, so emit nothing.
+        index = getattr(self._codebase_context_builder, "_index", None)
+        if index is not None and getattr(index, "total_files", None) == 0:
+            logger.debug("Codebase context skipped: no files indexed")
             return None
 
         return "## ARAGORA CODEBASE MAP\n" + context
