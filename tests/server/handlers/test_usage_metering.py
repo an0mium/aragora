@@ -377,12 +377,14 @@ class TestQuotaIncreaseRequest:
             )
         assert result.status_code == 400
 
-    @pytest.mark.parametrize("bad_limit", ["lots", -5, 0, True])
+    @pytest.mark.parametrize(
+        "bad_limit", ["lots", -5, 0, True, float("nan"), float("inf"), float("-inf")]
+    )
     @pytest.mark.asyncio
     async def test_post_request_increase_rejects_invalid_requested_limit(
         self, metering_handler, mock_http_handler, bad_limit
     ):
-        """requested_limit must be a positive number when provided."""
+        """requested_limit must be a positive finite number when provided."""
         mock_http = mock_http_handler(
             method="POST", body={"resource": "debates", "requested_limit": bad_limit}
         )
@@ -394,6 +396,22 @@ class TestQuotaIncreaseRequest:
         assert result.status_code == 400
         body = parse_handler_response(result)
         assert "requested_limit" in body.get("error", "")
+
+    @pytest.mark.parametrize("bad_resource", ["debates\nfake-entry", "tok\rens", "a\x00b"])
+    @pytest.mark.asyncio
+    async def test_post_request_increase_rejects_control_chars_in_resource(
+        self, metering_handler, mock_http_handler, bad_resource
+    ):
+        """Control characters in 'resource' are rejected (it feeds the audit log)."""
+        mock_http = mock_http_handler(method="POST", body={"resource": bad_resource})
+        with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            result = await metering_handler.handle(
+                self.REQUEST_INCREASE_PATH, {}, mock_http, "POST"
+            )
+        assert result.status_code == 400
+        body = parse_handler_response(result)
+        assert "resource" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_post_request_increase_without_user_store_returns_503(self, mock_http_handler):

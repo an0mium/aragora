@@ -13,6 +13,7 @@ Phase 4.3 Implementation.
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 from datetime import datetime, timezone
 
@@ -738,11 +739,16 @@ class UsageMeteringHandler(SecureHandler):
         if not isinstance(resource, str) or not resource.strip():
             return error_response("Field 'resource' is required", 400)
         resource = resource.strip()
+        # The value feeds the audit log line below; control characters would
+        # allow forged log entries.
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in resource):
+            return error_response("Field 'resource' contains invalid characters", 400)
 
         requested_limit = body.get("requested_limit")
         if requested_limit is not None and (
             isinstance(requested_limit, bool)
             or not isinstance(requested_limit, (int, float))
+            or not math.isfinite(requested_limit)
             or requested_limit <= 0
         ):
             return error_response("Field 'requested_limit' must be a positive number", 400)
