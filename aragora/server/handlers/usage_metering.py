@@ -739,16 +739,20 @@ class UsageMeteringHandler(SecureHandler):
         if not isinstance(resource, str) or not resource.strip():
             return error_response("Field 'resource' is required", 400)
         resource = resource.strip()
-        # The value feeds the audit log line below; control characters would
-        # allow forged log entries.
-        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in resource):
+        # The value feeds the audit log line below; control characters and
+        # unicode line separators would allow forged log entries.
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F or ch in "\u0085\u2028\u2029" for ch in resource):
             return error_response("Field 'resource' contains invalid characters", 400)
+        if len(resource) > 256:
+            return error_response("Field 'resource' exceeds maximum length of 256", 400)
 
         requested_limit = body.get("requested_limit")
+        # isfinite only applies to floats: converting an arbitrary-precision
+        # JSON int to float raises OverflowError, and ints are always finite.
         if requested_limit is not None and (
             isinstance(requested_limit, bool)
             or not isinstance(requested_limit, (int, float))
-            or not math.isfinite(requested_limit)
+            or (isinstance(requested_limit, float) and not math.isfinite(requested_limit))
             or requested_limit <= 0
         ):
             return error_response("Field 'requested_limit' must be a positive number", 400)
@@ -758,6 +762,8 @@ class UsageMeteringHandler(SecureHandler):
             reason = body.get("justification")
         if reason is not None and not isinstance(reason, str):
             return error_response("Field 'reason' must be a string", 400)
+        if reason is not None and len(reason) > 2000:
+            return error_response("Field 'reason' exceeds maximum length of 2000", 400)
 
         request_id = f"qir-{uuid.uuid4().hex}"
         submitted_at = datetime.now(timezone.utc).isoformat()

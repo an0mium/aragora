@@ -397,12 +397,15 @@ class TestQuotaIncreaseRequest:
         body = parse_handler_response(result)
         assert "requested_limit" in body.get("error", "")
 
-    @pytest.mark.parametrize("bad_resource", ["debates\nfake-entry", "tok\rens", "a\x00b"])
+    @pytest.mark.parametrize(
+        "bad_resource",
+        ["debates\nfake-entry", "tok\rens", "a\x00b", "a\u0085b", "a\u2028b", "a\u2029b"],
+    )
     @pytest.mark.asyncio
     async def test_post_request_increase_rejects_control_chars_in_resource(
         self, metering_handler, mock_http_handler, bad_resource
     ):
-        """Control characters in 'resource' are rejected (it feeds the audit log)."""
+        """Control characters and line separators in 'resource' are rejected."""
         mock_http = mock_http_handler(method="POST", body={"resource": bad_resource})
         with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
@@ -412,6 +415,56 @@ class TestQuotaIncreaseRequest:
         assert result.status_code == 400
         body = parse_handler_response(result)
         assert "resource" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_post_request_increase_accepts_huge_integer_limit(
+        self, metering_handler, mock_http_handler
+    ):
+        """Arbitrary-precision JSON ints are valid (ints are always finite, no 500)."""
+        huge = 10**400
+        mock_http = mock_http_handler(
+            method="POST", body={"resource": "debates", "requested_limit": huge}
+        )
+        with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            result = await metering_handler.handle(
+                self.REQUEST_INCREASE_PATH, {}, mock_http, "POST"
+            )
+        assert result.status_code == 200
+        body = parse_handler_response(result)
+        assert body["requested_limit"] == huge
+
+    @pytest.mark.asyncio
+    async def test_post_request_increase_rejects_overlong_resource(
+        self, metering_handler, mock_http_handler
+    ):
+        """resource is length-bounded well below the body-size cap."""
+        mock_http = mock_http_handler(method="POST", body={"resource": "r" * 257})
+        with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            result = await metering_handler.handle(
+                self.REQUEST_INCREASE_PATH, {}, mock_http, "POST"
+            )
+        assert result.status_code == 400
+        body = parse_handler_response(result)
+        assert "resource" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_post_request_increase_rejects_overlong_reason(
+        self, metering_handler, mock_http_handler
+    ):
+        """reason is length-bounded well below the body-size cap."""
+        mock_http = mock_http_handler(
+            method="POST", body={"resource": "debates", "reason": "r" * 2001}
+        )
+        with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            result = await metering_handler.handle(
+                self.REQUEST_INCREASE_PATH, {}, mock_http, "POST"
+            )
+        assert result.status_code == 400
+        body = parse_handler_response(result)
+        assert "reason" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_post_request_increase_without_user_store_returns_503(self, mock_http_handler):
