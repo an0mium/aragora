@@ -5,6 +5,7 @@ Provides billing usage endpoints for ENTERPRISE tier:
 - GET /api/v1/billing/usage - Current usage summary
 - GET /api/v1/billing/usage/breakdown - Detailed breakdown
 - GET /api/v1/billing/limits - Current limits and usage %
+- POST /api/v1/quotas/request-increase - Submit a quota increase request
 
 Phase 4.3 Implementation.
 """
@@ -12,6 +13,8 @@ Phase 4.3 Implementation.
 from __future__ import annotations
 
 import logging
+import math
+import uuid
 from datetime import datetime, timezone
 
 from aragora.billing.models import SubscriptionTier
@@ -61,6 +64,7 @@ class UsageMeteringHandler(SecureHandler):
     ]
 
     _QUOTA_PREFIX = "/api/v1/quotas/"
+    _REQUEST_INCREASE_PATH = "/api/v1/quotas/request-increase"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -109,6 +113,14 @@ class UsageMeteringHandler(SecureHandler):
 
         if path == "/api/v1/quotas/usage" and method == "GET":
             return await self._get_quota_usage(handler, query_params)
+
+        # Action literal: must win over the /api/v1/quotas/{resource} branch
+        # below, otherwise GET would be mis-served as a lookup for the
+        # nonsense resource "request-increase".
+        if path == self._REQUEST_INCREASE_PATH:
+            if method == "POST":
+                return await self._request_quota_increase(handler)
+            return error_response("Method not allowed", 405)
 
         # Dynamic: /api/v1/quotas/{resource}
         if path.startswith(self._QUOTA_PREFIX) and path.count("/") == 4 and method == "GET":
@@ -671,6 +683,112 @@ class UsageMeteringHandler(SecureHandler):
                 "resets_at": status.period_resets_at.isoformat()
                 if status.period_resets_at
                 else None,
+            }
+        )
+
+    @handle_errors("request quota increase")
+    @require_permission("org:billing")
+    async def _request_quota_increase(
+        self,
+        handler,
+        user=None,
+    ) -> HandlerResult:
+        """
+        Submit a quota increase request for review.
+
+        Body Parameters:
+            resource: Resource type the increase applies to (required)
+            requested_limit: Desired new limit, positive number (optional)
+            reason: Why the increase is needed (optional; also accepted as
+                    'justification', the key the python SDK documents)
+
+        Returns:
+            JSON response with the submission receipt:
+            {
+                "request_id": "qir-...",
+                "status": "pending",
+                "resource": "debates",
+                "requested_limit": 500,
+                "reason": "scaling up",
+                "org_id": "org-001",
+                "submitted_by": "user-001",
+                "submitted_at": "2026-01-01T00:00:00+00:00"
+            }
+        """
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+        if not org:
+            return error_response("No organization found", 404)
+
+        body, err = self.read_json_object_or_error(handler)
+        if err:
+            return err
+        if body is None:  # pragma: no cover - read_json_object_or_error guarantees this
+            return error_response("Invalid JSON body", 400)
+
+        resource = body.get("resource")
+        if not isinstance(resource, str) or not resource.strip():
+            return error_response("Field 'resource' is required", 400)
+        resource = resource.strip()
+        # The value feeds the audit log line below; control characters and
+        # unicode line separators would allow forged log entries.
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F or ch in "\u0085\u2028\u2029" for ch in resource):
+            return error_response("Field 'resource' contains invalid characters", 400)
+        if len(resource) > 256:
+            return error_response("Field 'resource' exceeds maximum length of 256", 400)
+
+        requested_limit = body.get("requested_limit")
+        # isfinite only applies to floats: converting an arbitrary-precision
+        # JSON int to float raises OverflowError, and ints are always finite.
+        if requested_limit is not None and (
+            isinstance(requested_limit, bool)
+            or not isinstance(requested_limit, (int, float))
+            or (isinstance(requested_limit, float) and not math.isfinite(requested_limit))
+            or requested_limit <= 0
+        ):
+            return error_response("Field 'requested_limit' must be a positive number", 400)
+
+        reason = body.get("reason")
+        if reason is None:
+            reason = body.get("justification")
+        if reason is not None and not isinstance(reason, str):
+            return error_response("Field 'reason' must be a string", 400)
+        if reason is not None and len(reason) > 2000:
+            return error_response("Field 'reason' exceeds maximum length of 2000", 400)
+
+        request_id = f"qir-{uuid.uuid4().hex}"
+        submitted_at = datetime.now(timezone.utc).isoformat()
+
+        # No persistence layer exists for increase requests yet; the audit
+        # trail is this structured log line until a review workflow lands.
+        logger.info(
+            "Quota increase request %s submitted: org=%s resource=%s requested_limit=%s user=%s",
+            request_id,
+            org.id,
+            resource,
+            requested_limit,
+            user.user_id,
+        )
+
+        return json_response(
+            {
+                "request_id": request_id,
+                "status": "pending",
+                "resource": resource,
+                "requested_limit": requested_limit,
+                "reason": reason,
+                "org_id": org.id,
+                "submitted_by": user.user_id,
+                "submitted_at": submitted_at,
             }
         )
 
