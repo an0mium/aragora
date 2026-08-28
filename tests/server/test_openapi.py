@@ -144,8 +144,8 @@ class TestSDKReferencedEndpointRegistrations:
 
     GET proofs is served at runtime via handlers/verification/verification.py
     ROUTES dispatch; the quotas path is claimed by
-    UsageMeteringHandler.can_handle, though its POST branch is not yet
-    implemented (handle() dispatches only GET there, so POST returns 405).
+    UsageMeteringHandler.can_handle, and its POST branch is served by
+    handle()'s dedicated request-increase action-literal dispatch.
     Both were invisible to the generator, so any aggregate-spec sync dropped
     them and regressed verify_sdk_contracts --strict.
     """
