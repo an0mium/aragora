@@ -139,6 +139,56 @@ class TestEndpoints:
                 assert "responses" in spec, f"{path} {method} missing responses"
 
 
+class TestSDKReferencedEndpointRegistrations:
+    """Live, SDK-referenced, stability-manifest-pinned endpoints must be registered.
+
+    Both endpoints are served at runtime (GET proofs via
+    handlers/verification/verification.py ROUTES dispatch; the quotas path is
+    claimed by UsageMeteringHandler.can_handle) but were invisible to the
+    generator, so any aggregate-spec sync dropped them and regressed
+    verify_sdk_contracts --strict.
+    """
+
+    def test_verification_proofs_get_defined(self):
+        """GET /api/v1/verification/proofs is registered with its served method."""
+        assert "/api/v1/verification/proofs" in ALL_ENDPOINTS
+        endpoint = ALL_ENDPOINTS["/api/v1/verification/proofs"]
+        assert "get" in endpoint
+        assert endpoint["get"]["tags"] == ["Verification"]
+        assert endpoint["get"]["operationId"] == "listVerificationProofs"
+
+    def test_quotas_request_increase_post_defined(self):
+        """POST /api/v1/quotas/request-increase is registered."""
+        assert "/api/v1/quotas/request-increase" in ALL_ENDPOINTS
+        endpoint = ALL_ENDPOINTS["/api/v1/quotas/request-increase"]
+        assert "post" in endpoint
+        assert endpoint["post"]["tags"] == ["Quotas"]
+        assert endpoint["post"]["operationId"] == "createQuotaIncreaseRequest"
+
+    def test_generated_schema_emits_pinned_operations(self):
+        """Generator emits the stability-pinned v1 operations."""
+        schema = generate_openapi_schema()
+        paths = schema["paths"]
+        assert "get" in paths["/api/v1/verification/proofs"]
+        assert "post" in paths["/api/v1/quotas/request-increase"]
+
+    def test_v1_proofs_get_replaces_inferred_post_placeholder(self):
+        """The real GET registration displaces the wrong-method autogen POST."""
+        schema = generate_openapi_schema()
+        entry = schema["paths"]["/api/v1/verification/proofs"]
+        assert "post" not in entry
+        assert entry["get"].get("x-method-inferred") is not True
+        assert entry["get"]["operationId"] == "listVerificationProofs"
+
+    def test_no_unserved_legacy_aliases_emitted(self):
+        """No unversioned aliases: the dispatcher passes raw paths with no
+        legacy<->v1 aliasing and the handlers claim only the v1 literals, so a
+        legacy alias would be a spec-orphan (validate_openapi_routes)."""
+        schema = generate_openapi_schema()
+        assert "/api/verification/proofs" not in schema["paths"]
+        assert "/api/quotas/request-increase" not in schema["paths"]
+
+
 class TestGenerateOpenAPISchema:
     """Tests for schema generation function."""
 

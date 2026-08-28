@@ -62,6 +62,24 @@ VERIFICATION_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    # Registered under the v1 literal only: the runtime dispatcher passes raw
+    # request paths to can_handle with no legacy<->v1 aliasing, and
+    # VerificationHandler.ROUTES claims only the /api/v1/ form, so an
+    # unversioned alias here would document an unserved path.
+    "/api/v1/verification/proofs": {
+        "get": {
+            "tags": ["Verification"],
+            "summary": "List verification proofs",
+            "operationId": "listVerificationProofs",
+            "description": "Return stored verification proofs and associated metadata for prior verification runs.",
+            "responses": {
+                "200": _ok_response(
+                    "Proofs list",
+                    {"type": "array", "items": {"type": "object"}},
+                )
+            },
+        },
+    },
     "/api/debates/capability-probe": {
         "post": {
             "tags": ["Auditing"],

@@ -265,6 +265,21 @@ SDK_MISSING_ENDPOINTS: dict = {
             "responses": {"200": _ok_response("Match details", _obj)},
         },
     },
+    # --- quotas ---
+    # Not an orphan: the path is claimed at runtime by
+    # UsageMeteringHandler.can_handle's dynamic /api/v1/quotas/{resource}
+    # dispatch and is pinned stable in stability_manifest.json. v1 literal
+    # only: the dispatcher passes raw paths with no legacy<->v1 aliasing, so
+    # an unversioned alias would document an unserved path.
+    "/api/v1/quotas/request-increase": {
+        "post": {
+            "tags": ["Quotas"],
+            "summary": "Request quota increase",
+            "description": "Submit a quota increase request for review.",
+            "operationId": "createQuotaIncreaseRequest",
+            "responses": {"200": _ok_response("Request submitted", _obj)},
+        },
+    },
     # --- reputation ---
     "/api/reputation/domain": {
         "get": {
