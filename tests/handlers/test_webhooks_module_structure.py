@@ -595,3 +595,58 @@ def test_webhook_suite_patch_targets_bypass_the_deprecation_shim() -> None:
     ]
     assert shim_targets == []
     assert len(canonical_targets) >= 8
+
+
+def test_shim_path_consumption_is_confined_to_the_designated_shim_test() -> None:
+    """Test-tree shim consumption stays intentional and singular.
+
+    The deprecation shim exists for external callers; inside tests/ only this
+    file exercises the legacy path (the explicit warn-and-delegate probe in
+    test_canonical_module_is_silent_and_package_shim_warns), so any other
+    static shim-path import or shim-path patch target is drift, not coverage.
+    The github_app submodule is a canonical package resident, not shim surface.
+    """
+    deprecated = "aragora.server.handlers.webhooks"
+    native_submodule_prefix = deprecated + ".github_app"
+    designated_files = {"tests/handlers/test_webhooks_module_structure.py"}
+
+    offenders: list[str] = []
+    for path in sorted((REPO_ROOT / "tests").rglob("*.py")):
+        rel_path = path.relative_to(REPO_ROOT).as_posix()
+        if rel_path in designated_files:
+            continue
+        source = path.read_text(encoding="utf-8")
+        if deprecated not in source:
+            continue
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            # An unparseable file cannot import anything.
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.level == 0 and node.module == deprecated:
+                    offenders.append(f"{rel_path}:{node.lineno} from-import")
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == deprecated:
+                        offenders.append(f"{rel_path}:{node.lineno} import")
+            elif isinstance(node, ast.Call):
+                func = node.func
+                func_name = (
+                    func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+                )
+                if func_name != "patch":
+                    continue
+                if (
+                    node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    target = node.args[0].value
+                    if target.startswith(deprecated + ".") and not target.startswith(
+                        native_submodule_prefix + "."
+                    ):
+                        offenders.append(f"{rel_path}:{node.lineno} patch-target {target}")
+
+    assert offenders == []
