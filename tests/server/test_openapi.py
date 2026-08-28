@@ -164,12 +164,17 @@ class TestSDKReferencedEndpointRegistrations:
         _get_proofs returns an object envelope (proofs/filters/limit/total),
         accepts debate_id/proof_type/limit query params, and sits behind
         require_permission — not a bare array on an unauthenticated route.
+        Its degraded z3-unavailable envelope (proofs/available/hint) is
+        documented via optional available/hint properties.
         """
         op = ALL_ENDPOINTS["/api/v1/verification/proofs"]["get"]
         schema = op["responses"]["200"]["content"]["application/json"]["schema"]
         assert schema["type"] == "object"
         assert schema["properties"]["proofs"]["type"] == "array"
         assert {"filters", "limit", "total"} <= set(schema["properties"])
+        # Degraded envelope (z3 unavailable): {proofs, available, hint} only.
+        assert schema["properties"]["available"]["type"] == "boolean"
+        assert schema["properties"]["hint"]["type"] == "string"
         param_names = {p["name"] for p in op["parameters"]}
         assert param_names == {"debate_id", "proof_type", "limit"}
         assert op["security"] == [{"bearerAuth": []}]
@@ -181,6 +186,36 @@ class TestSDKReferencedEndpointRegistrations:
         assert "post" in endpoint
         assert endpoint["post"]["tags"] == ["Quotas"]
         assert endpoint["post"]["operationId"] == "createQuotaIncreaseRequest"
+
+    def test_quotas_request_increase_post_documents_runtime_contract(self):
+        """The quotas POST documents the served contract runtime-true.
+
+        _request_quota_increase (handlers/usage_metering.py) sits behind
+        require_permission("org:billing"), reads a JSON body with required
+        resource plus optional requested_limit/reason (justification accepted
+        as the python SDK's documented alias), and returns the submission
+        receipt echoing the request plus org/submitter/timestamp metadata.
+        """
+        op = ALL_ENDPOINTS["/api/v1/quotas/request-increase"]["post"]
+        assert op["security"] == [{"bearerAuth": []}]
+        body = op["requestBody"]
+        assert body["required"] is True
+        schema = body["content"]["application/json"]["schema"]
+        assert schema["required"] == ["resource"]
+        assert {"resource", "requested_limit", "reason", "justification"} <= set(
+            schema["properties"]
+        )
+        receipt = op["responses"]["200"]["content"]["application/json"]["schema"]
+        assert {
+            "request_id",
+            "status",
+            "resource",
+            "requested_limit",
+            "reason",
+            "org_id",
+            "submitted_by",
+            "submitted_at",
+        } <= set(receipt["properties"])
 
     def test_generated_schema_emits_pinned_operations(self):
         """Generator emits the stability-pinned v1 operations."""

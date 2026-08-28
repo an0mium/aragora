@@ -278,9 +278,65 @@ SDK_MISSING_ENDPOINTS: dict = {
         "post": {
             "tags": ["Quotas"],
             "summary": "Request quota increase",
-            "description": "Submit a quota increase request for review.",
+            "description": (
+                "Submit a quota increase request for review. Requires the org:billing permission."
+            ),
             "operationId": "createQuotaIncreaseRequest",
-            "responses": {"200": _ok_response("Request submitted", _obj)},
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["resource"],
+                            "properties": {
+                                "resource": {
+                                    "type": "string",
+                                    "maxLength": 256,
+                                    "description": "Resource type the increase applies to.",
+                                },
+                                "requested_limit": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "description": "Desired new limit.",
+                                },
+                                "reason": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "description": "Why the increase is needed.",
+                                },
+                                "justification": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "description": (
+                                        "Accepted alias for reason; the key the "
+                                        "python SDK documents."
+                                    ),
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Request submitted",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "request_id": {"type": "string"},
+                            "status": {"type": "string"},
+                            "resource": {"type": "string"},
+                            "requested_limit": {"type": ["number", "null"]},
+                            "reason": {"type": ["string", "null"]},
+                            "org_id": {"type": "string"},
+                            "submitted_by": {"type": "string"},
+                            "submitted_at": {"type": "string"},
+                        },
+                    },
+                )
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     # --- reputation ---

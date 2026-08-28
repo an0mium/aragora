@@ -210437,8 +210437,43 @@
           "Quotas"
         ],
         "summary": "Request quota increase",
-        "description": "Submit a quota increase request for review.",
+        "description": "Submit a quota increase request for review. Requires the org:billing permission.",
         "operationId": "createQuotaIncreaseRequest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resource"
+                ],
+                "properties": {
+                  "resource": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "description": "Resource type the increase applies to."
+                  },
+                  "requested_limit": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Desired new limit."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Why the increase is needed."
+                  },
+                  "justification": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Accepted alias for reason; the key the python SDK documents."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Request submitted",
@@ -210460,12 +210495,49 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "resource": {
+                      "type": "string"
+                    },
+                    "requested_limit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "org_id": {
+                      "type": "string"
+                    },
+                    "submitted_by": {
+                      "type": "string"
+                    },
+                    "submitted_at": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "stable"
       }
     },
@@ -230307,6 +230379,14 @@
                     },
                     "total": {
                       "type": "integer"
+                    },
+                    "available": {
+                      "type": "boolean",
+                      "description": "False when the formal-verification backend (z3) is unavailable; that degraded envelope returns only proofs/available/hint."
+                    },
+                    "hint": {
+                      "type": "string",
+                      "description": "Remediation hint, present only in the degraded (z3-unavailable) envelope."
                     }
                   }
                 }

@@ -51165,7 +51165,7 @@ export interface paths {
         put?: never;
         /**
          * Request quota increase
-         * @description Submit a quota increase request for review.
+         * @description Submit a quota increase request for review. Requires the org:billing permission.
          */
         post: operations["createQuotaIncreaseRequest"];
         delete?: never;
@@ -165532,7 +165532,20 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Resource type the increase applies to. */
+                    resource: string;
+                    /** @description Desired new limit. */
+                    requested_limit?: number;
+                    /** @description Why the increase is needed. */
+                    reason?: string;
+                    /** @description Accepted alias for reason; the key the python SDK documents. */
+                    justification?: string;
+                };
+            };
+        };
         responses: {
             /** @description Request submitted */
             200: {
@@ -165544,7 +165557,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        request_id?: string;
+                        status?: string;
+                        resource?: string;
+                        requested_limit?: number | null;
+                        reason?: string | null;
+                        org_id?: string;
+                        submitted_by?: string;
+                        submitted_at?: string;
+                    };
                 };
             };
         };
@@ -175407,6 +175429,10 @@ export interface operations {
                         filters?: Record<string, never>;
                         limit?: number;
                         total?: number;
+                        /** @description False when the formal-verification backend (z3) is unavailable; that degraded envelope returns only proofs/available/hint. */
+                        available?: boolean;
+                        /** @description Remediation hint, present only in the degraded (z3-unavailable) envelope. */
+                        hint?: string;
                     };
                 };
             };

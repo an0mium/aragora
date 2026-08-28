@@ -108,6 +108,21 @@ VERIFICATION_ENDPOINTS = {
                             "filters": {"type": "object"},
                             "limit": {"type": "integer"},
                             "total": {"type": "integer"},
+                            "available": {
+                                "type": "boolean",
+                                "description": (
+                                    "False when the formal-verification backend "
+                                    "(z3) is unavailable; that degraded envelope "
+                                    "returns only proofs/available/hint."
+                                ),
+                            },
+                            "hint": {
+                                "type": "string",
+                                "description": (
+                                    "Remediation hint, present only in the "
+                                    "degraded (z3-unavailable) envelope."
+                                ),
+                            },
                         },
                     },
                 )
