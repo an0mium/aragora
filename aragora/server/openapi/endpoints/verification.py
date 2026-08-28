@@ -72,12 +72,47 @@ VERIFICATION_ENDPOINTS = {
             "summary": "List verification proofs",
             "operationId": "listVerificationProofs",
             "description": "Return stored verification proofs and associated metadata for prior verification runs.",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "query",
+                    "required": False,
+                    "description": "Filter proofs by debate identifier.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "proof_type",
+                    "in": "query",
+                    "required": False,
+                    "description": "Filter proofs by proof type.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "required": False,
+                    "description": "Maximum number of proofs to return.",
+                    "schema": {"type": "integer", "default": 20},
+                },
+            ],
             "responses": {
                 "200": _ok_response(
                     "Proofs list",
-                    {"type": "array", "items": {"type": "object"}},
+                    {
+                        "type": "object",
+                        "properties": {
+                            "proofs": {
+                                "type": "array",
+                                "items": {"type": "object"},
+                            },
+                            "filters": {"type": "object"},
+                            "limit": {"type": "integer"},
+                            "total": {"type": "integer"},
+                        },
+                    },
                 )
             },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/debates/capability-probe": {

@@ -142,11 +142,12 @@ class TestEndpoints:
 class TestSDKReferencedEndpointRegistrations:
     """Live, SDK-referenced, stability-manifest-pinned endpoints must be registered.
 
-    Both endpoints are served at runtime (GET proofs via
-    handlers/verification/verification.py ROUTES dispatch; the quotas path is
-    claimed by UsageMeteringHandler.can_handle) but were invisible to the
-    generator, so any aggregate-spec sync dropped them and regressed
-    verify_sdk_contracts --strict.
+    GET proofs is served at runtime via handlers/verification/verification.py
+    ROUTES dispatch; the quotas path is claimed by
+    UsageMeteringHandler.can_handle, though its POST branch is not yet
+    implemented (handle() dispatches only GET there, so POST returns 405).
+    Both were invisible to the generator, so any aggregate-spec sync dropped
+    them and regressed verify_sdk_contracts --strict.
     """
 
     def test_verification_proofs_get_defined(self):
@@ -156,6 +157,22 @@ class TestSDKReferencedEndpointRegistrations:
         assert "get" in endpoint
         assert endpoint["get"]["tags"] == ["Verification"]
         assert endpoint["get"]["operationId"] == "listVerificationProofs"
+
+    def test_verification_proofs_get_documents_runtime_contract(self):
+        """The proofs GET documents the runtime envelope, params, and auth.
+
+        _get_proofs returns an object envelope (proofs/filters/limit/total),
+        accepts debate_id/proof_type/limit query params, and sits behind
+        require_permission — not a bare array on an unauthenticated route.
+        """
+        op = ALL_ENDPOINTS["/api/v1/verification/proofs"]["get"]
+        schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+        assert schema["type"] == "object"
+        assert schema["properties"]["proofs"]["type"] == "array"
+        assert {"filters", "limit", "total"} <= set(schema["properties"])
+        param_names = {p["name"] for p in op["parameters"]}
+        assert param_names == {"debate_id", "proof_type", "limit"}
+        assert op["security"] == [{"bearerAuth": []}]
 
     def test_quotas_request_increase_post_defined(self):
         """POST /api/v1/quotas/request-increase is registered."""

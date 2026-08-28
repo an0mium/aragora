@@ -175378,7 +175378,14 @@ export interface operations {
     };
     listVerificationProofs: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filter proofs by debate identifier. */
+                debate_id?: string;
+                /** @description Filter proofs by proof type. */
+                proof_type?: string;
+                /** @description Maximum number of proofs to return. */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -175395,7 +175402,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": {
+                        proofs?: Record<string, never>[];
+                        filters?: Record<string, never>;
+                        limit?: number;
+                        total?: number;
+                    };
                 };
             };
         };

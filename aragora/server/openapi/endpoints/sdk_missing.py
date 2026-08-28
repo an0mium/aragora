@@ -268,7 +268,10 @@ SDK_MISSING_ENDPOINTS: dict = {
     # --- quotas ---
     # Not an orphan: the path is claimed at runtime by
     # UsageMeteringHandler.can_handle's dynamic /api/v1/quotas/{resource}
-    # dispatch and is pinned stable in stability_manifest.json. v1 literal
+    # dispatch and is pinned stable in stability_manifest.json. The POST
+    # branch itself is not yet implemented (handle() dispatches only GET on
+    # that dynamic route, so POST currently returns 405); both SDKs already
+    # expose the call, which is exactly this module's charter. v1 literal
     # only: the dispatcher passes raw paths with no legacy<->v1 aliasing, so
     # an unversioned alias would document an unserved path.
     "/api/v1/quotas/request-increase": {
