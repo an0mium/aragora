@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -226,3 +227,72 @@ class TestPublicNamePreserved:
                 "tok",
                 "loop-1",
             )
+
+    def test_dir_lists_auth_config_before_materialization(self):
+        listing = dir(auth_mod)
+        assert "auth_config" in listing
+        assert "check_auth" in listing
+        assert "get_auth_config" in listing
+
+
+def _alive_cleanup_threads() -> list[threading.Thread]:
+    return [t for t in threading.enumerate() if t.name == "auth-cleanup" and t.is_alive()]
+
+
+class TestFailedConfigurationDoesNotLeak:
+    """AuthConfig.__init__ starts the cleanup thread; a raising configure_from_env
+    (e.g. production mode without a token) must not leak one thread per retry,
+    and must not cache a half-configured singleton."""
+
+    def test_failed_configure_leaves_no_cleanup_thread_cold_process(self):
+        # Subprocess: the session autouse fixture suppresses cleanup-thread
+        # starts in-process, so the leak is only observable in a cold process.
+        env = _poisoned_env()
+        env[_POISON_VAR] = "3600"
+        env["ARAGORA_ENV"] = "production"  # configure_from_env raises: no token
+        code = (
+            "import threading, sys\n"
+            "import aragora.server.auth as auth_mod\n"
+            "for attempt in range(2):\n"
+            "    try:\n"
+            "        auth_mod.get_auth_config()\n"
+            "    except Exception:\n"
+            "        pass\n"
+            "    else:\n"
+            "        sys.exit(3)  # configure unexpectedly succeeded\n"
+            "leaked = [t for t in threading.enumerate()\n"
+            "          if t.name == 'auth-cleanup' and t.is_alive()]\n"
+            "sys.exit(4 if leaked else 0)\n"
+        )
+        proc = _run_python(code, env)
+        assert proc.returncode == 0, (
+            f"failed configuration leaked cleanup threads or unexpectedly succeeded; "
+            f"rc={proc.returncode}\nstdout={proc.stdout}\nstderr={proc.stderr}"
+        )
+
+    def test_failed_configure_reaps_thread_and_does_not_cache(self, monkeypatch):
+        real_configure = auth_mod.AuthConfig.configure_from_env
+        monkeypatch.setattr(auth_mod, "_auth_config", None)
+
+        def _boom(self):
+            raise auth_mod.AuthenticationError("configure boom")
+
+        monkeypatch.setattr(auth_mod.AuthConfig, "configure_from_env", _boom)
+        baseline = len(_alive_cleanup_threads())
+
+        for _ in range(2):
+            with pytest.raises(auth_mod.AuthenticationError, match="configure boom"):
+                auth_mod.get_auth_config()
+
+        assert len(_alive_cleanup_threads()) == baseline, (
+            "failed configuration leaked auth-cleanup threads"
+        )
+
+        # Recovery: once the environment is sane, first use succeeds and caches.
+        monkeypatch.setattr(auth_mod.AuthConfig, "configure_from_env", real_configure)
+        cfg = auth_mod.get_auth_config()
+        assert isinstance(cfg, auth_mod.AuthConfig)
+        assert auth_mod.get_auth_config() is cfg
+        # Reap the recovered instance's thread; teardown restores the session
+        # singleton, discarding this instance.
+        cfg.stop_cleanup_thread()

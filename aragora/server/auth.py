@@ -661,7 +661,14 @@ def get_auth_config() -> AuthConfig:
             cfg = _auth_config
             if cfg is None:
                 cfg = AuthConfig()
-                cfg.configure_from_env()
+                try:
+                    cfg.configure_from_env()
+                except BaseException:
+                    # __init__ already started the cleanup thread; reap it so a
+                    # failing configuration (e.g. production mode without a
+                    # token) cannot leak one thread per first-use retry.
+                    cfg.stop_cleanup_thread()
+                    raise
                 _auth_config = cfg
     return cfg
 
@@ -684,6 +691,10 @@ def __getattr__(name: str) -> AuthConfig:
     if name == "auth_config":
         return get_auth_config()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted({*globals(), "auth_config"})
 
 
 def check_auth(
