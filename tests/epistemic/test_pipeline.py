@@ -110,7 +110,9 @@ class TestPipelineResult:
         result = evaluate_and_quarantine(_unit())
         assert result.decay_signal.code_unit_id == "unit.pipeline.test"
 
-    def test_quarantine_decision_code_unit_id_matches(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_quarantine_decision_code_unit_id_matches(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(_FLAG, "1")
         result = evaluate_and_quarantine(_unit())
         assert result.quarantine_decision.code_unit_id == "unit.pipeline.test"
@@ -121,12 +123,16 @@ class TestPipelineResult:
         assert "decay_signal" in d
         assert "quarantine_decision" in d
 
-    def test_to_dict_decay_signal_has_integrity_score(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_to_dict_decay_signal_has_integrity_score(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(_FLAG, "1")
         d = evaluate_and_quarantine(_unit()).to_dict()
         assert "integrity_score" in d["decay_signal"]
 
-    def test_to_dict_quarantine_decision_has_policy_action(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_to_dict_quarantine_decision_has_policy_action(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(_FLAG, "1")
         d = evaluate_and_quarantine(_unit()).to_dict()
         assert "policy_action" in d["quarantine_decision"]

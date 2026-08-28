@@ -112,9 +112,7 @@ def evaluate_and_quarantine(
         When ``ARAGORA_EPISTEMIC_PIPELINE_ENABLED`` is not set.
     """
     if not epistemic_pipeline_enabled():
-        raise RuntimeError(
-            f"{_FLAG} is not set; set it to '1' to enable the epistemic pipeline"
-        )
+        raise RuntimeError(f"{_FLAG} is not set; set it to '1' to enable the epistemic pipeline")
 
     from .decay_monitor import evaluate_unit
     from .quarantine_policy import apply_quarantine_policy
