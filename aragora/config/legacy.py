@@ -210,7 +210,9 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
             SecretNotFoundError,
             get_secret,
             get_secret_presence,
+            is_critical_secret,
             is_secret_presence_available,
+            is_strict_mode,
         )
     except ImportError:
         for var in env_vars:
@@ -220,13 +222,18 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     else:
         for var in env_vars:
             presence = get_secret_presence(var)
-            if presence.source == "blocked_by_strict_mode" and required:
-                raise SecretNotFoundError(var)
             if not is_secret_presence_available(presence):
                 continue
-            value = os.getenv(var) if presence.source == "env" else get_secret(var)
+            if presence.source == "env" and not required:
+                value = os.getenv(var)
+            else:
+                value = get_secret(var)
             if value and value.strip():
                 return value.strip()
+        if required and is_strict_mode():
+            for var in env_vars:
+                if is_critical_secret(var):
+                    raise SecretNotFoundError(var)
 
     if required:
         var_names = " or ".join(env_vars)
