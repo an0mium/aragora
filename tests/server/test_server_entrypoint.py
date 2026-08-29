@@ -8,6 +8,7 @@ import pytest
 from aragora.server.__main__ import (
     LOCAL_DEMO_HANDLER_TIERS,
     _configure_runtime_environment,
+    _detect_api_keys,
 )
 
 
@@ -65,6 +66,18 @@ def test_explicit_handler_tiers_are_not_overwritten(monkeypatch):
     _configure_runtime_environment(True, [], logging.getLogger("test"))
 
     assert os.environ["ARAGORA_HANDLER_TIERS"] == "core,extended"
+
+
+def test_detect_api_keys_accepts_mounted_custody(tmp_path, monkeypatch):
+    from aragora.config.secrets import SecretManager, SecretsConfig
+
+    secret_path = tmp_path / "OPENAI_API_KEY"
+    secret_path.write_text("mounted-openai-key", encoding="utf-8")
+    secret_path.chmod(0o600)
+    manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+    monkeypatch.setattr("aragora.config.secrets._manager", manager)
+
+    assert _detect_api_keys() == ["OPENAI_API_KEY"]
 
 
 def test_api_key_mode_leaves_demo_defaults_unset(monkeypatch):
