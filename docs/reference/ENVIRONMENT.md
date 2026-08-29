@@ -458,7 +458,7 @@ explicitly if you need consistent pooling across subsystems.
 | `ARAGORA_API_URL` | Optional | API base URL for CLI/SDK clients | `http://localhost:8080` |
 | `ARAGORA_ENV` | Recommended | `development` or `production` | `development` |
 | `ARAGORA_ENVIRONMENT` | Optional | Alias used by billing/auth | `development` |
-| `ARAGORA_API_TOKEN` | Optional | Enable token auth | Disabled |
+| `ARAGORA_API_TOKEN` | Optional | Enable token auth; strict production/staging requires this value in managed custody | Disabled |
 | `ARAGORA_TOKEN_TTL` | Optional | Token lifetime (seconds) | `3600` |
 | `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
 | `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
