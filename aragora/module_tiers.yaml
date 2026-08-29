@@ -655,7 +655,7 @@ modules:
   - name: governance
     tier: experimental
     py_files: 2
-    importer_count: 2
+    importer_count: 3
     test_file_count: 1
   - name: maintenance
     tier: experimental

@@ -282,12 +282,26 @@ _MERGE_INVOCATIONS = (
 PACKAGE_MERGE_PATHS = {
     "aragora/swarm/merge_arbiter.py",
     "aragora/missions/live_gate.py",
+    # Found by the openai reviewer at head 6ef96ac: `_run_gh(["pr", "merge", ...])`
+    # plus an `--admin` fallback. The first widened scan MISSED it because the
+    # pattern required a literal "gh" in the argv, which the wrapper supplies.
+    "aragora/ralph/github_control.py",
 }
 
 # Matched by the argv pattern but not a `gh pr merge` execution — re-checked, not assumed.
 PACKAGE_NON_MERGE_MENTIONS = {
     # A subcommand allowlist: "pr" is an allowed `gh` subcommand, never invoked here.
     "aragora/utils/subprocess_runner.py",
+    # DESTRUCTIVE_COMMANDS policy denylist — names the command to REQUIRE a flag.
+    "aragora/agents/devops/agent.py",
+}
+
+# Same, for scripts/. Each re-checked at the source line rather than assumed.
+SCRIPT_NON_MERGE_MENTIONS = {
+    # ACTIVE_PROCESS_COMMAND_PATTERNS: matches RUNNING processes, executes nothing.
+    "fable_goal_cycle.py",
+    # Appends to report["suggested_commands"] — emits a string for the operator.
+    "settle_one_pr.py",
 }
 
 
@@ -376,6 +390,14 @@ _EXCLUSION_EVIDENCE = {
 # The execution-shaped forms: an argv list handed to a runner. A script that only
 # interpolates a command into a *string* may still be merely reporting it, which is
 # the distinction between settle_one_pr.py (reports) and settle_tier4_pr.py (runs).
+# Discovery-only: adjacent "pr","merge" with no literal "gh" (the wrapper prepends
+# it). Requiring "gh" is what hid aragora/ralph/github_control.py. Kept OUT of
+# _MERGE_INVOCATIONS' execution-shaped prefix because it also matches non-executing
+# tuples such as fable_goal_cycle's ACTIVE_PROCESS_COMMAND_PATTERNS.
+_ARGV_PR_MERGE_ANY = re.compile(r'"pr"\s*,\s*(?:\n\s*)?"merge"', re.S)
+
+_MERGE_INVOCATIONS = _MERGE_INVOCATIONS + (_ARGV_PR_MERGE_ANY,)
+
 _EXECUTION_SHAPED = _MERGE_INVOCATIONS[:2]
 
 

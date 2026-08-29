@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 _GITHUB_URL_RE = re.compile(r"https://github\.com/[^\s]+")
 
 
+from aragora.governance.merge_halt import MergeHalted, assert_merge_allowed
+
+
 class GitHubControlError(RuntimeError):
     """Raised when a GitHub control operation cannot be completed."""
 
@@ -254,6 +257,17 @@ class GitHubControl:
                 action="blocked",
                 detail="Required checks are not green.",
             )
+
+        # #9216: a real merge path (plain squash plus an --admin fallback), so it
+        # must consult the main-red halt. No head SHA is available here, which
+        # means a waiver can never apply (waivers require a full 40-char SHA on
+        # both sides) — an armed halt blocks this path outright. That is stricter
+        # than the waivable paths, which is the safe direction.
+        _pr_digits = re.findall(r"\d+", str(pr_ref or ""))
+        try:
+            assert_merge_allowed(int(_pr_digits[-1]) if _pr_digits else 0, "")
+        except MergeHalted as exc:
+            return GitHubMergeResult(merged=False, action="blocked", detail=str(exc))
 
         normal = self._run_gh(
             ["pr", "merge", pr_ref, "--squash"],
