@@ -627,6 +627,28 @@ class TestSecretManagerAWS:
         assert manager.get("OPENAI_API_KEY", strict=False) == "last-known-value"
         assert manager.presence("OPENAI_API_KEY", strict=False).source == "aws"
 
+    def test_failover_success_replaces_stale_cache_after_transient_primary_error(self):
+        manager = SecretManager(SecretsConfig(use_aws=True, aws_regions=["primary", "secondary"]))
+        manager._cached_secrets = {"OPENAI_API_KEY": "stale-value"}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+        primary = MagicMock()
+        primary.get_secret_value.side_effect = OSError("temporary network outage")
+        secondary = MagicMock()
+        secondary.get_secret_value.return_value = {
+            "SecretString": json.dumps({"OPENAI_API_KEY": "fresh-value"})
+        }
+
+        with patch.object(
+            manager,
+            "_get_aws_client",
+            side_effect=lambda region: primary if region == "primary" else secondary,
+        ):
+            manager.refresh()
+
+        assert manager.get("OPENAI_API_KEY", strict=False) == "fresh-value"
+
     def test_missing_aws_secret_clears_stale_cache(self):
         manager = SecretManager(SecretsConfig(use_aws=True))
         manager._cached_secrets = {"OPENAI_API_KEY": "revoked-value"}
@@ -657,6 +679,16 @@ class TestSecretManagerAWS:
             manager.refresh()
 
         assert manager.get("OPENAI_API_KEY", strict=False) is None
+
+    def test_blank_managed_value_falls_back_to_env_when_non_strict(self):
+        manager = SecretManager(SecretsConfig(use_aws=True))
+        manager._cached_secrets = {"OPENAI_API_KEY": ""}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "env-value"}, clear=True):
+            assert manager.get("OPENAI_API_KEY", strict=False) == "env-value"
 
     def test_fallback_to_env_when_not_in_aws(self):
         """Falls back to environment when secret not in AWS cache."""
