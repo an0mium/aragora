@@ -200,6 +200,8 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
 
     Raises:
         ValueError: If required=True and no valid key found
+        SecretNotFoundError: If strict mode requires managed custody for a missing key
+        SecretSourceError: If explicitly configured custody is unsafe
 
     Example:
         >>> api_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
