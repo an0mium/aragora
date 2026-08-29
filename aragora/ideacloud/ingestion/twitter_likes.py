@@ -61,7 +61,7 @@ class TwitterLikesIngestor(BaseIdeaIngestor):
         from aragora.ideacloud.ingestion.x_api import fetch_live_entries, is_api_source
 
         if is_api_source(source):
-            entries = await fetch_live_entries(self.source_type, str(source))
+            entries, self._pending_commit = await fetch_live_entries(self.source_type, str(source))
             api_nodes = [
                 node
                 for entry in entries

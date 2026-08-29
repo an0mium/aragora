@@ -71,7 +71,7 @@ class TestIsApiSource:
 class TestFetchLiveEntries:
     def test_fetches_across_pages(self, tmp_path):
         connector = FakeConnector([[_entry("3"), _entry("2")], [_entry("1")]])
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark",
                 "api:",
@@ -80,19 +80,23 @@ class TestFetchLiveEntries:
             )
         )
         assert [e["tweetId"] for e in entries] == ["3", "2", "1"]
+        assert commit is not None  # feed exhausted -> safe to advance
 
     def test_stops_at_seen_id_and_updates_state(self, tmp_path):
         state_path = tmp_path / "state.json"
         state_path.write_text(json.dumps({"twitter_bookmark": {"seen_ids": ["2"]}}))
         connector = FakeConnector([[_entry("4"), _entry("3"), _entry("2"), _entry("1")]])
 
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:", connector=connector, state_path=state_path
             )
         )
 
         assert [e["tweetId"] for e in entries] == ["4", "3"]
+        # State advances only when the caller commits (post-vault-write)
+        assert json.loads(state_path.read_text()) == {"twitter_bookmark": {"seen_ids": ["2"]}}
+        commit()
         state = json.loads(state_path.read_text())
         # State advances under the user-scoped key (legacy key read as seed)
         assert state["twitter_bookmark:42"]["seen_ids"][:2] == ["4", "3"]
@@ -101,7 +105,7 @@ class TestFetchLiveEntries:
 
     def test_respects_max_items_suffix(self, tmp_path):
         connector = FakeConnector([[_entry(str(i)) for i in range(9, -1, -1)]])
-        entries = asyncio.run(
+        entries, _commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark",
                 "api:3",
@@ -119,13 +123,14 @@ class TestFetchLiveEntries:
         # Two pages; seen id "1" is beyond the cap of 2
         connector = FakeConnector([[_entry("9"), _entry("8")], [_entry("7"), _entry("1")]])
 
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:2", connector=connector, state_path=state_path
             )
         )
 
         assert [e["tweetId"] for e in entries] == ["9", "8"]
+        assert commit is None
         state = json.loads(state_path.read_text())
         # State unchanged: "9"/"8" must NOT be seen, so the next (bigger) run
         # can still fetch "7" before bridging to "1"
@@ -137,13 +142,14 @@ class TestFetchLiveEntries:
         state_path = tmp_path / "state.json"
         connector = FakeConnector([[_entry("9"), _entry("8")], [_entry("7")]])
 
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:2", connector=connector, state_path=state_path
             )
         )
 
         assert [e["tweetId"] for e in entries] == ["9", "8"]
+        commit()
         state = json.loads(state_path.read_text())
         assert state["twitter_bookmark:42"]["seen_ids"][:2] == ["9", "8"]
 
@@ -154,13 +160,14 @@ class TestFetchLiveEntries:
         state_path.write_text(json.dumps({"twitter_bookmark": {"seen_ids": ["1"]}}))
         connector = FakeConnector([[_entry("9"), _entry("8")], None])
 
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:", connector=connector, state_path=state_path
             )
         )
 
         assert [e["tweetId"] for e in entries] == ["9", "8"]
+        assert commit is None
         state = json.loads(state_path.read_text())
         assert state["twitter_bookmark"]["seen_ids"] == ["1"]
 
@@ -168,22 +175,56 @@ class TestFetchLiveEntries:
         """Seen-ids are stored per authenticated user (legacy key read as seed)."""
         state_path = tmp_path / "state.json"
         connector = FakeConnector([[_entry("5")]], user_id="42")
-        asyncio.run(
+        _entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:", connector=connector, state_path=state_path
             )
         )
+        commit()
         state = json.loads(state_path.read_text())
         assert state["twitter_bookmark:42"]["seen_ids"] == ["5"]
 
         # A different user does not inherit user 42's seen set
         connector_other = FakeConnector([[_entry("5")]], user_id="77")
-        entries = asyncio.run(
+        entries, _commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:", connector=connector_other, state_path=state_path
             )
         )
         assert [e["tweetId"] for e in entries] == ["5"]
+
+    def test_mid_final_page_truncation_is_not_exhaustion(self, tmp_path):
+        """Cap hit mid-way through the LAST page (no next_token) is still a
+        truncation — the dropped remainder of that page must stay fetchable."""
+        state_path = tmp_path / "state.json"
+        state_path.write_text(json.dumps({"twitter_bookmark": {"seen_ids": ["0"]}}))
+        connector = FakeConnector([[_entry("9"), _entry("8"), _entry("7")]])
+
+        entries, commit = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:2", connector=connector, state_path=state_path
+            )
+        )
+
+        assert [e["tweetId"] for e in entries] == ["9", "8"]
+        assert commit is None  # "7" was dropped; advancing would skip it forever
+
+    def test_ingestor_defers_commit_until_commit_ingest(self, monkeypatch, tmp_path):
+        """ingest() stages the state advance; commit_ingest() runs it once."""
+        calls = []
+
+        async def fake_fetch(source_type, source, **kwargs):
+            return [_entry("21")], lambda: calls.append("committed")
+
+        monkeypatch.setattr("aragora.ideacloud.ingestion.x_api.fetch_live_entries", fake_fetch)
+        ingestor = TwitterBookmarksIngestor()
+        nodes = asyncio.run(ingestor.ingest("api:"))
+        assert len(nodes) == 1
+        assert calls == []  # not yet committed
+        ingestor.commit_ingest()
+        assert calls == ["committed"]
+        ingestor.commit_ingest()  # idempotent: runs once
+        assert calls == ["committed"]
 
     def test_invalid_api_suffix_raises(self, tmp_path):
         connector = FakeConnector([[_entry("5")]])
@@ -199,23 +240,25 @@ class TestFetchLiveEntries:
 
     def test_no_token_returns_empty(self, tmp_path):
         connector = FakeConnector([], user_id=None)
-        entries = asyncio.run(
+        entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_like", "api:", connector=connector, state_path=tmp_path / "s.json"
             )
         )
         assert entries == []
+        assert commit is None
 
     def test_state_is_per_source_type(self, tmp_path):
         state_path = tmp_path / "state.json"
         connector = FakeConnector([[_entry("7")]])
-        asyncio.run(
+        _entries, commit = asyncio.run(
             fetch_live_entries(
                 "twitter_bookmark", "api:", connector=connector, state_path=state_path
             )
         )
+        commit()
         connector_likes = FakeConnector([[_entry("7")]])
-        likes = asyncio.run(
+        likes, _commit = asyncio.run(
             fetch_live_entries(
                 "twitter_like", "api:", connector=connector_likes, state_path=state_path
             )
@@ -228,7 +271,7 @@ class TestIngestorApiMode:
     def test_bookmarks_api_mode_maps_nodes(self, monkeypatch, tmp_path):
         async def fake_fetch(source_type, source, **kwargs):
             assert source_type == "twitter_bookmark"
-            return [_entry("11", "Adversarial review beats vibes #decisions")]
+            return [_entry("11", "Adversarial review beats vibes #decisions")], None
 
         monkeypatch.setattr("aragora.ideacloud.ingestion.x_api.fetch_live_entries", fake_fetch)
         nodes = asyncio.run(TwitterBookmarksIngestor().ingest("api:"))
@@ -240,7 +283,7 @@ class TestIngestorApiMode:
     def test_likes_api_mode_sets_source_type(self, monkeypatch, tmp_path):
         async def fake_fetch(source_type, source, **kwargs):
             assert source_type == "twitter_like"
-            return [_entry("12")]
+            return [_entry("12")], None
 
         monkeypatch.setattr("aragora.ideacloud.ingestion.x_api.fetch_live_entries", fake_fetch)
         nodes = asyncio.run(TwitterLikesIngestor().ingest("api:"))

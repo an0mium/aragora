@@ -79,14 +79,16 @@ if ! [[ "${MAX_ITEMS}" =~ ^[0-9]+$ ]]; then
     echo "--max-items must be numeric" >&2
     exit 2
 fi
-# REPO_ROOT is interpolated into a bash -lc string inside the plist; refuse
-# paths that could break out of the quoting.
-case "${REPO_ROOT}" in
-    *'"'*|*'$'*|*'`'*|*'&'*|*'<'*|*'>'*)
-        echo "repo root contains shell/XML metacharacters unsafe for the plist: ${REPO_ROOT}" >&2
-        exit 2
-        ;;
-esac
+# REPO_ROOT and LOG_PATH are interpolated into the plist (bash -lc string /
+# XML); refuse values that could break out of the quoting.
+for interpolated in "${REPO_ROOT}" "${LOG_PATH}"; do
+    case "${interpolated}" in
+        *'"'*|*'$'*|*'`'*|*'&'*|*'<'*|*'>'*)
+            echo "path contains shell/XML metacharacters unsafe for the plist: ${interpolated}" >&2
+            exit 2
+            ;;
+    esac
+done
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 mkdir -p "$(dirname "${PLIST_PATH}")"

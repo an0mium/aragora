@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,28 @@ def _load_state(path: Path) -> dict[str, Any]:
 
 def _save_state(path: Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    # Atomic replace: a crash mid-write must not corrupt state.json (a
+    # corrupted file reads as first-run and triggers a duplicate refetch).
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _make_state_commit(
+    path: Path, state_key: str, source_type: str, newest_ids: list[str]
+) -> Callable[[], None]:
+    """Deferred seen-id advance, run only after entries are durably ingested."""
+
+    def commit() -> None:
+        # Re-read at commit time: another source_type's commit may have
+        # written the file since the fetch loaded it.
+        latest = _load_state(path)
+        prior_now = latest.get(state_key) or latest.get(source_type) or {}
+        merged = newest_ids + list(prior_now.get("seen_ids", []))
+        latest[state_key] = {"seen_ids": merged[:SEEN_IDS_KEPT]}
+        _save_state(path, latest)
+
+    return commit
 
 
 async def fetch_live_entries(
@@ -73,7 +95,7 @@ async def fetch_live_entries(
     *,
     connector: Any = None,
     state_path: str | Path | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], Callable[[], None] | None]:
     """Fetch new bookmark/like entries from the X API in export-entry shape.
 
     Args:
@@ -83,7 +105,11 @@ async def fetch_live_entries(
         state_path: Override for the incremental-sync state file.
 
     Returns:
-        Entries newest-first, stopping at the first id seen in a prior run.
+        ``(entries, commit)``: entries newest-first, stopping at the first id
+        seen in a prior run, and a deferred state-advance callback (or None
+        when state must not advance). Callers invoke ``commit()`` only AFTER
+        the entries are durably ingested — advancing seen-ids before the
+        vault write would let a crash in between drop entries forever.
     """
     max_items = _parse_max_items(source)
     path = Path(state_path) if state_path else STATE_PATH
@@ -100,7 +126,7 @@ async def fetch_live_entries(
             "(run scripts/x_oauth_setup.py) — data-export --file mode still works",
             Path(".aragora/x_intake/oauth.json").resolve(),
         )
-        return []
+        return [], None
 
     fetch_page = (
         connector.fetch_bookmarks_page
@@ -120,6 +146,7 @@ async def fetch_live_entries(
     pagination_token: str | None = None
     hit_seen = False
     fetch_failed = False
+    truncated_mid_page = False
     while len(entries) < max_items and not hit_seen:
         page, pagination_token = await fetch_page(user_id, pagination_token)
         if page is None:
@@ -129,13 +156,16 @@ async def fetch_live_entries(
             break
         if not page:
             break
-        for entry in page:
+        for index, entry in enumerate(page):
             tweet_id = str(entry.get("tweetId") or "")
             if tweet_id and tweet_id in seen_ids:
                 hit_seen = True
                 break
             entries.append(entry)
             if len(entries) >= max_items:
+                # Anything left on this page was dropped — even with no
+                # next_token this is a truncation, not exhaustion.
+                truncated_mid_page = index + 1 < len(page)
                 break
         if not pagination_token:
             break
@@ -145,13 +175,12 @@ async def fetch_live_entries(
     # has no prior state to protect (first run for this user). A truncated or
     # failed fetch must not advance state, or the gap behind this run's
     # entries would be skipped forever.
-    feed_exhausted = not pagination_token and not fetch_failed
+    feed_exhausted = not pagination_token and not fetch_failed and not truncated_mid_page
     reached_continuity = hit_seen or feed_exhausted or not seen_ids
+    commit: Callable[[], None] | None = None
     if entries and reached_continuity and not (fetch_failed and seen_ids):
         newest_ids = [str(e.get("tweetId")) for e in entries if e.get("tweetId")]
-        merged = newest_ids + list(prior.get("seen_ids", []))
-        state[state_key] = {"seen_ids": merged[:SEEN_IDS_KEPT]}
-        _save_state(path, state)
+        commit = _make_state_commit(path, state_key, source_type, newest_ids)
     elif entries:
         logger.warning(
             "%s fetch stopped early (%s) before reaching previously seen ids; "
@@ -167,4 +196,4 @@ async def fetch_live_entries(
         source_type,
         hit_seen,
     )
-    return entries
+    return entries, commit

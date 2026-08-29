@@ -551,13 +551,18 @@ class TwitterConnector(BaseConnector):
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.get(url, params=params, headers=headers)
                 if response.status_code == 401 and attempt == 0:
-                    tokens = await store.refresh(tokens)
+                    # refresh_rejected re-reads under the cross-process lock,
+                    # so a concurrent refresher's rotated pair is reused
+                    # instead of burning a second rotation.
+                    tokens = await store.refresh_rejected(tokens)
                     if tokens is None:
                         return None
                     continue
                 response.raise_for_status()
                 return response.json()
-            except httpx.HTTPError as exc:
+            except (httpx.HTTPError, ValueError) as exc:
+                # ValueError covers json.JSONDecodeError on a non-JSON 200 —
+                # must honor the (None, None) failure contract, not raise.
                 logger.warning("X user-context request failed: %s", exc)
                 return None
         return None

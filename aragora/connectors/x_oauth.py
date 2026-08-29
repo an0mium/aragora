@@ -150,6 +150,19 @@ class XOAuthTokenStore:
         logger.info("X OAuth token refreshed (expires in %ss)", data.get("expires_in"))
         return refreshed
 
+    async def refresh_rejected(self, stale: XOAuthTokens) -> XOAuthTokens | None:
+        """Refresh after the API rejected ``stale`` (e.g. a 401), under lock.
+
+        Re-reads the store first: if another process already rotated the pair
+        while we held a stale copy, its tokens are returned without burning a
+        second rotation (X rotates the refresh token on every refresh).
+        """
+        with self._flock():
+            current = self.load()
+            if current and current.access_token and current.access_token != stale.access_token:
+                return current
+            return await self.refresh(current or stale)
+
     async def get_valid(self) -> XOAuthTokens | None:
         """Return a non-expired token pair, refreshing (under lock) if needed."""
         tokens = self.load()
