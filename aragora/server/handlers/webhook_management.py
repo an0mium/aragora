@@ -184,6 +184,8 @@ class WebhookHandler(SecureHandler):
         "/api/v1/webhooks/bulk",
         "/api/v1/webhooks/pause-all",
         "/api/v1/webhooks/resume-all",
+        "/api/v1/webhook-configs",
+        "/api/v1/webhook-configs/{webhook_id}",
     ]
 
     @staticmethod
@@ -195,7 +197,11 @@ class WebhookHandler(SecureHandler):
     @staticmethod
     def can_handle(path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith(("/api/v1/webhooks", "/api/v1/webhook-configs"))
+        return (
+            path.startswith("/api/v1/webhooks")
+            or path == "/api/v1/webhook-configs"
+            or path.startswith("/api/v1/webhook-configs/")
+        )
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
