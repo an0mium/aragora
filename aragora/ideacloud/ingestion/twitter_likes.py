@@ -62,13 +62,13 @@ class TwitterLikesIngestor(BaseIdeaIngestor):
 
         if is_api_source(source):
             entries = await fetch_live_entries(self.source_type, str(source))
-            nodes = [
+            api_nodes = [
                 node
                 for entry in entries
                 if (node := _like_entry_to_node({"like": entry}, source_type=self.source_type))
             ]
-            logger.info("Ingested %d likes from X API", len(nodes))
-            return nodes
+            logger.info("Ingested %d likes from X API", len(api_nodes))
+            return api_nodes
 
         path = Path(source)
         if not path.exists():

@@ -51,11 +51,11 @@ class TwitterBookmarksIngestor(BaseIdeaIngestor):
 
         if is_api_source(source):
             entries = await fetch_live_entries(self.source_type, str(source))
-            nodes = [
+            api_nodes = [
                 node for entry in entries if (node := _bookmark_entry_to_node({"bookmark": entry}))
             ]
-            logger.info("Ingested %d bookmarks from X API", len(nodes))
-            return nodes
+            logger.info("Ingested %d bookmarks from X API", len(api_nodes))
+            return api_nodes
 
         path = Path(source)
         if not path.exists():
