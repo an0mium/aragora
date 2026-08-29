@@ -15,7 +15,10 @@ from aragora.migrations.runner import apply_migrations
 def wait_for_database(database_url: str, timeout_seconds: float) -> None:
     parsed = urlsplit(database_url)
     host = parsed.hostname
-    port = parsed.port or 5432
+    try:
+        port = parsed.port or 5432
+    except ValueError as exc:
+        raise RuntimeError("DATABASE_URL has an invalid network port") from exc
     if not host:
         raise RuntimeError("DATABASE_URL has no network host")
     deadline = time.monotonic() + max(0.0, timeout_seconds)
