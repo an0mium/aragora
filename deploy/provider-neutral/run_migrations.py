@@ -4,17 +4,42 @@
 from __future__ import annotations
 
 import os
+import socket
 import sys
+import time
+from urllib.parse import urlsplit
 
-from aragora.config.secrets import hydrate_env_from_secrets
+from aragora.config.secrets import SecretManager, SecretsConfig
 from aragora.migrations.runner import apply_migrations
 
 
+def wait_for_database(database_url: str, timeout_seconds: float) -> None:
+    parsed = urlsplit(database_url)
+    host = parsed.hostname
+    port = parsed.port or 5432
+    if not host:
+        raise RuntimeError("DATABASE_URL has no network host")
+    deadline = time.monotonic() + max(0.0, timeout_seconds)
+    while True:
+        try:
+            with socket.create_connection((host, port), timeout=2.0):
+                return
+        except OSError as exc:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("database did not become reachable before timeout") from exc
+            time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+
+
 def main() -> int:
-    hydrated = hydrate_env_from_secrets(["DATABASE_URL"], overwrite=True)
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url or "DATABASE_URL" not in hydrated:
+    manager = SecretManager(SecretsConfig.from_env())
+    directory_fd = manager._open_secrets_directory()  # noqa: SLF001
+    try:
+        database_url = manager._read_mounted_secret(directory_fd, "DATABASE_URL")  # noqa: SLF001
+    finally:
+        os.close(directory_fd)
+    if not database_url:
         raise RuntimeError("DATABASE_URL was not loaded from managed custody")
+    wait_for_database(database_url, float(os.environ.get("ARAGORA_DB_WAIT_SECONDS", "60")))
     applied = apply_migrations(database_url=database_url)
     sys.stdout.write(f"Applied {len(applied)} migration(s)\n")
     return 0

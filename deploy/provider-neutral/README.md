@@ -12,9 +12,10 @@ values. `ARAGORA_IMAGE` must include an exact `@sha256:` digest. Bindings defaul
 to loopback (`127.0.0.1:18080` and `127.0.0.1:18765`); an authorized reverse
 proxy or tunnel may expose a canary hostname later.
 
-Create `ARAGORA_SECRETS_DIR_HOST` as a dedicated service-owned directory with
-mode `0700`. Each file must be a regular, single-link, owner-readable file with
-mode no broader than `0600`. Required fixed filenames:
+Create `ARAGORA_SECRETS_DIR_HOST` as a directory owned by the dedicated runtime
+UID/GID (defaults `1000:1000`) with mode `0700`. Each file must have the same
+UID/GID, be regular and single-link, and use mode no broader than `0600`.
+Required fixed filenames:
 
 - `DATABASE_URL`
 - `REDIS_URL`
@@ -26,9 +27,9 @@ mode no broader than `0600`. Required fixed filenames:
   `OPENROUTER_API_KEY`
 
 Never place values in Compose, an env file, command arguments, logs, or this
-repository. The app container runs as UID/GID `1000:1000`; the mounted directory
-and files must be readable by that dedicated service identity (or by root only
-if the runtime securely remaps custody to UID 1000 before container start).
+repository. `ARAGORA_RUNTIME_UID` and `ARAGORA_RUNTIME_GID` must match the
+service identity that owns the directory and files; the validator defaults both
+to `1000` and rejects root-owned custody that the non-root container cannot read.
 
 ## Offline preflight
 
@@ -38,7 +39,9 @@ set -a
 set +a
 python3 scripts/validate_provider_neutral_canary.py \
   --image "$ARAGORA_IMAGE" \
-  --secrets-dir "$ARAGORA_SECRETS_DIR_HOST"
+  --secrets-dir "$ARAGORA_SECRETS_DIR_HOST" \
+  --runtime-uid "$ARAGORA_RUNTIME_UID" \
+  --runtime-gid "$ARAGORA_RUNTIME_GID"
 docker compose \
   --env-file /private/operator/canary.env \
   -f deploy/provider-neutral/docker-compose.canary.yml \

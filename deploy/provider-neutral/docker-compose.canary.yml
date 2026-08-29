@@ -2,7 +2,7 @@ name: aragora-provider-neutral-canary
 
 x-aragora-common: &aragora-common
   image: ${ARAGORA_IMAGE:?Set ARAGORA_IMAGE to an immutable @sha256 digest}
-  user: "1000:1000"
+  user: "${ARAGORA_RUNTIME_UID:-1000}:${ARAGORA_RUNTIME_GID:-1000}"
   environment:
     ARAGORA_ENV: production
     ARAGORA_SECRETS_DIR: /run/secrets/aragora
@@ -11,6 +11,7 @@ x-aragora-common: &aragora-common
     ARAGORA_ALLOWED_ORIGINS: ${ARAGORA_ALLOWED_ORIGINS:?Set the canary origin}
     ARAGORA_CANONICAL_STORE_PERSIST: "1"
     ARAGORA_STORE_DIR: /app/data/.aragora_beads
+    ARAGORA_DB_WAIT_SECONDS: ${ARAGORA_DB_WAIT_SECONDS:-60}
     SKIP_MIGRATIONS: "1"
   volumes:
     - ${ARAGORA_SECRETS_DIR_HOST:?Set an absolute protected secrets directory}:/run/secrets/aragora:ro
@@ -32,10 +33,10 @@ services:
     <<: *aragora-common
     profiles: ["migrate"]
     restart: "no"
-    command: ["python", "/opt/aragora-canary/run_migrations.py"]
+    command: ["python", "/app/run_migrations.py"]
     volumes:
       - ${ARAGORA_SECRETS_DIR_HOST:?Set an absolute protected secrets directory}:/run/secrets/aragora:ro
-      - ./run_migrations.py:/opt/aragora-canary/run_migrations.py:ro
+      - ./run_migrations.py:/app/run_migrations.py:ro
       - aragora-canary-data:/app/data
       - aragora-canary-logs:/app/logs
 
