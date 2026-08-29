@@ -411,6 +411,7 @@ class SecretManager:
     def __init__(self, config: SecretsConfig | None = None):
         self.config = config or SecretsConfig.from_env()
         self._aws_clients: dict[str, Any] = {}
+        self._last_aws_load_succeeded = False
         self._cached_secrets: dict[str, str] = {}
         self._cached_secret_sources: dict[str, str] = {}
         self._cache_timestamp: float = 0.0
@@ -548,6 +549,16 @@ class SecretManager:
         """Load enabled sources and merge them in custody-precedence order."""
         mounted_secrets = self._load_from_mounted_directory() if self.config.secrets_dir else {}
         aws_secrets = self._load_from_aws() if self.config.use_aws else {}
+        if aws_secrets:
+            self._last_aws_load_succeeded = True
+        if self.config.use_aws and not self._last_aws_load_succeeded:
+            aws_secrets = {
+                name: value
+                for name, value in self._cached_secrets.items()
+                if self._cached_secret_sources.get(name) == "aws"
+            }
+            if aws_secrets:
+                logger.warning("Preserving last known AWS secret cache after refresh failure")
         combined = {**aws_secrets, **mounted_secrets}
         sources = {name: "aws" for name in aws_secrets}
         sources.update({name: "mounted_file" for name in mounted_secrets})
@@ -672,6 +683,7 @@ class SecretManager:
 
     def _load_from_aws(self) -> dict[str, str]:
         """Load secrets from AWS Secrets Manager."""
+        self._last_aws_load_succeeded = False
         if not self.config.use_aws:
             return {}
 
@@ -703,6 +715,7 @@ class SecretManager:
                     len(secrets),
                     region,
                 )
+                self._last_aws_load_succeeded = True
                 return secrets
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse secrets JSON from AWS (region=%s): %s", region, e)
