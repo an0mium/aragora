@@ -329,7 +329,13 @@ def _calls_assert_merge_allowed(path: Path) -> bool:
             continue
         func = node.func
         name = getattr(func, "id", None) or getattr(func, "attr", None)
-        if name == "assert_merge_allowed":
+        # Both are the guard's public entry points: assert_merge_allowed raises,
+        # evaluate returns a decision. Accepting evaluate is only safe because a
+        # behavioural test proves the caller ACTS on it — see
+        # tests/ralph/test_github_control.py::TestHaltedMergeResolvesItsOwnHead,
+        # which fails if the block path stops returning "blocked". A structural
+        # check alone cannot tell a consulted decision from an ignored one.
+        if name in {"assert_merge_allowed", "evaluate"}:
             return True
     return False
 

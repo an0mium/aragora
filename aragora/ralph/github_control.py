@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 _GITHUB_URL_RE = re.compile(r"https://github\.com/[^\s]+")
 
 
-from aragora.governance.merge_halt import MergeHalted, assert_merge_allowed
+from aragora.governance.merge_halt import evaluate
 
 
 class GitHubControlError(RuntimeError):
@@ -265,20 +265,32 @@ class GitHubControl:
             )
 
         # #9216: a real merge path (plain squash plus an --admin fallback), so it
-        # must consult the main-red halt. head_sha is threaded from the caller's
-        # gate snapshot so a legitimate exact-head waiver can actually apply here;
-        # without it an armed halt would be unwaivable on this path, which is safe
-        # but breaks incident response. Absent a head the waiver simply cannot
-        # match (full 40-char SHA required on both sides) and the halt blocks.
+        # must consult the main-red halt.
+        #
+        # Threading head_sha at each call site left supervisor.py and
+        # tranche_integrate.py unwaivable — evaluate(pr, "") can never match a
+        # waiver, since both sides must be a full 40-char SHA — and would leave the
+        # next new caller unwaivable too. So resolve the head here when we lack it.
+        # Only do that when the halt actually blocks us, otherwise every merge pays
+        # an extra gh round-trip for nothing. If the lookup fails we stay blocked,
+        # which is fail-closed.
         _pr_digits = re.findall(r"\d+", str(pr_ref or ""))
-        try:
-            assert_merge_allowed(int(_pr_digits[-1]) if _pr_digits else 0, head_sha or "")
-        except MergeHalted as exc:
-            return GitHubMergeResult(merged=False, action="blocked", detail=str(exc))
+        _pr_number = int(_pr_digits[-1]) if _pr_digits else 0
 
-        # Bind the merge to the head the guard authorized. Without this the head
-        # can change between assert_merge_allowed and the merge itself, letting an
-        # unwaived head land under an armed halt (TOCTOU).
+        decision = evaluate(_pr_number, head_sha or "")
+        if not decision.allowed and not head_sha:
+            try:
+                head_sha = _optional_text(self._pr_view(pr_ref).get("headRefOid"))
+            except (GitHubControlError, OSError, ValueError):
+                head_sha = None
+            if head_sha:
+                decision = evaluate(_pr_number, head_sha)
+        if not decision.allowed:
+            return GitHubMergeResult(merged=False, action="blocked", detail=decision.reason)
+
+        # Bind the merge to the head the guard authorized. Without this the head can
+        # change between the check and the merge itself, letting an unwaived head
+        # land under an armed halt (TOCTOU).
         _head_args = ["--match-head-commit", head_sha] if head_sha else []
         normal = self._run_gh(
             ["pr", "merge", pr_ref, "--squash", *_head_args],
