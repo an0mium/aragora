@@ -12546,7 +12546,7 @@ export interface paths {
         /**
          * Get domain reputation scores
          * @deprecated
-         * @description Return domain-level reputation scores or reputation summaries.
+         * @description Return domain-level reputation scores or reputation summaries. Requires the critiques:read permission.
          */
         get: operations["listReputationDomain"];
         put?: never;
@@ -12567,7 +12567,7 @@ export interface paths {
         /**
          * Get reputation history
          * @deprecated
-         * @description List historical reputation events or score snapshots.
+         * @description List historical reputation events or score snapshots. Requires the critiques:read permission.
          */
         get: operations["listReputationHistory"];
         put?: never;
@@ -52338,7 +52338,7 @@ export interface paths {
         };
         /**
          * Get domain reputation scores
-         * @description Return domain-level reputation scores or reputation summaries.
+         * @description Return domain-level reputation scores or reputation summaries. Requires the critiques:read permission.
          */
         get: operations["getReputationDomain"];
         put?: never;
@@ -52358,7 +52358,7 @@ export interface paths {
         };
         /**
          * Get reputation history
-         * @description List historical reputation events or score snapshots.
+         * @description List historical reputation events or score snapshots. Requires the critiques:read permission.
          */
         get: operations["getReputationHistory"];
         put?: never;
@@ -82557,7 +82557,13 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        total_agents?: number;
+                        avg_elo?: number;
+                        max_elo?: number;
+                        min_elo?: number;
+                        total_matches?: number;
+                    };
                 };
             };
         };
@@ -87872,7 +87878,12 @@ export interface operations {
     };
     listReputationDomain: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Domain token matched against agent names. */
+                domain: string;
+                /** @description Maximum reputations to return. */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -87889,14 +87900,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        domain?: string;
+                        reputations?: {
+                            agent?: string;
+                            score?: number;
+                            vote_weight?: number;
+                            proposal_acceptance_rate?: number;
+                            critique_value?: number;
+                            debates_participated?: number;
+                        }[];
+                        count?: number;
+                    };
                 };
             };
         };
     };
     listReputationHistory: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Restrict snapshots to a single agent. */
+                agent?: string;
+                /** @description ISO-8601 lower bound; invalid values are a 400. */
+                start_date?: string;
+                /** @description ISO-8601 upper bound; invalid values are a 400. */
+                end_date?: string;
+                /** @description Maximum snapshots to return. */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -87913,7 +87944,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": {
+                        history?: {
+                            timestamp?: string;
+                            agent?: string;
+                            reputation?: number;
+                            event?: string;
+                        }[];
+                        count?: number;
+                    };
                 };
             };
         };
@@ -152150,7 +152189,13 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        total_agents?: number;
+                        avg_elo?: number;
+                        max_elo?: number;
+                        min_elo?: number;
+                        total_matches?: number;
+                    };
                 };
             };
         };
@@ -167911,7 +167956,12 @@ export interface operations {
     };
     getReputationDomain: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Domain token matched against agent names. */
+                domain: string;
+                /** @description Maximum reputations to return. */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -167928,14 +167978,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        domain?: string;
+                        reputations?: {
+                            agent?: string;
+                            score?: number;
+                            vote_weight?: number;
+                            proposal_acceptance_rate?: number;
+                            critique_value?: number;
+                            debates_participated?: number;
+                        }[];
+                        count?: number;
+                    };
                 };
             };
         };
     };
     getReputationHistory: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Restrict snapshots to a single agent. */
+                agent?: string;
+                /** @description ISO-8601 lower bound; invalid values are a 400. */
+                start_date?: string;
+                /** @description ISO-8601 upper bound; invalid values are a 400. */
+                end_date?: string;
+                /** @description Maximum snapshots to return. */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -167952,7 +168022,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": {
+                        history?: {
+                            timestamp?: string;
+                            agent?: string;
+                            reputation?: number;
+                            event?: string;
+                        }[];
+                        count?: number;
+                    };
                 };
             };
         };
