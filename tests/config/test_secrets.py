@@ -619,11 +619,30 @@ class TestSecretManagerAWS:
         manager._cache_timestamp = time.time()
         manager._initialized = True
 
-        with patch.object(manager, "_get_aws_client", return_value=None):
+        client = MagicMock()
+        client.get_secret_value.side_effect = OSError("temporary network outage")
+        with patch.object(manager, "_get_aws_client", return_value=client):
             manager.refresh()
 
         assert manager.get("OPENAI_API_KEY", strict=False) == "last-known-value"
         assert manager.presence("OPENAI_API_KEY", strict=False).source == "aws"
+
+    def test_missing_aws_secret_clears_stale_cache(self):
+        manager = SecretManager(SecretsConfig(use_aws=True))
+        manager._cached_secrets = {"OPENAI_API_KEY": "revoked-value"}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+        client = MagicMock()
+        client.get_secret_value.side_effect = ClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "missing"}},
+            "GetSecretValue",
+        )
+
+        with patch.object(manager, "_get_aws_client", return_value=client):
+            manager.refresh()
+
+        assert manager.get("OPENAI_API_KEY", strict=False) is None
 
     def test_successful_empty_aws_refresh_replaces_stale_cache(self):
         manager = SecretManager(SecretsConfig(use_aws=True))
