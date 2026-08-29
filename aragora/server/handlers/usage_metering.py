@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import math
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 
@@ -740,8 +741,11 @@ class UsageMeteringHandler(SecureHandler):
             return error_response("Field 'resource' is required", 400)
         resource = resource.strip()
         # The value feeds the audit log line below; control characters and
-        # unicode line separators would allow forged log entries.
-        if any(ord(ch) < 0x20 or ord(ch) == 0x7F or ch in "\u0085\u2028\u2029" for ch in resource):
+        # unicode line separators would allow forged log entries. Category Cc
+        # covers C0, DEL, and C1 (e.g. U+009B bare CSI, a terminal-escape
+        # vector when logs are viewed in terminals); LS/PS are separators
+        # outside Cc.
+        if any(unicodedata.category(ch) == "Cc" or ch in "\u2028\u2029" for ch in resource):
             return error_response("Field 'resource' contains invalid characters", 400)
         if len(resource) > 256:
             return error_response("Field 'resource' exceeds maximum length of 256", 400)

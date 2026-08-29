@@ -399,7 +399,20 @@ class TestQuotaIncreaseRequest:
 
     @pytest.mark.parametrize(
         "bad_resource",
-        ["debates\nfake-entry", "tok\rens", "a\x00b", "a\u0085b", "a\u2028b", "a\u2029b"],
+        [
+            "debates\nfake-entry",
+            "tok\rens",
+            "a\x00b",
+            "a\u0085b",
+            "a\u2028b",
+            "a\u2029b",
+            # C1 controls: not caught by an ord()<0x20/DEL check. U+009B is a
+            # bare CSI, a terminal-escape vector when logs are viewed in
+            # terminals.
+            "a\x80b",
+            "a\x9bb",
+            "a\x9fb",
+        ],
     )
     @pytest.mark.asyncio
     async def test_post_request_increase_rejects_control_chars_in_resource(
