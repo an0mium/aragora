@@ -58,23 +58,24 @@ class FakeTransport:
             )
         if path.endswith("/.well-known/aragora-odr-signing-key"):
             return Response(200, {"X-Aragora-Key-Id": self.key_id}, self.pem.encode("utf-8"))
-        if method == "POST" and path.endswith("/api/v1/webhooks"):
-            assert payload["events"] == ["test.event"]
-            assert payload["platform"] == "generic"
-            self.callback_url = payload["webhook_url"]
+        if method == "POST" and path.endswith("/api/v1/webhook-configs"):
+            assert payload["events"] == ["*"]
+            self.callback_url = payload["url"]
             return self._response(
                 201,
                 {
-                    "subscription": {
+                    "webhook": {
                         "id": self.webhook_id,
-                        "webhook_url": self.callback_url,
-                    },
-                    "secret": "must-not-appear-in-report",
+                        "url": self.callback_url,
+                        "secret": "must-not-appear-in-report",
+                    }
                 },
             )
-        if method == "GET" and path.endswith(f"/api/v1/webhooks/{self.webhook_id}"):
-            return self._response(200, {"id": self.webhook_id, "webhook_url": self.callback_url})
-        if method == "DELETE" and path.endswith(f"/api/v1/webhooks/{self.webhook_id}"):
+        if method == "GET" and path.endswith(f"/api/v1/webhook-configs/{self.webhook_id}"):
+            return self._response(
+                200, {"webhook": {"id": self.webhook_id, "url": self.callback_url}}
+            )
+        if method == "DELETE" and path.endswith(f"/api/v1/webhook-configs/{self.webhook_id}"):
             return self._response(204)
         return self._response(404)
 
@@ -227,7 +228,7 @@ def test_webhook_auth_rejection_is_recorded(tmp_path: Path) -> None:
 
     class RejectingTransport(FakeTransport):
         def request(self, method, url, *, headers=None, payload=None):
-            if method == "POST" and url.endswith("/api/v1/webhooks"):
+            if method == "POST" and url.endswith("/api/v1/webhook-configs"):
                 assert headers == {"Authorization": f"Bearer {TOKEN}"}
                 return self._response(401, {"error": "Authentication required"})
             return super().request(method, url, headers=headers, payload=payload)
@@ -246,7 +247,7 @@ def test_failed_read_reports_cleanup_status(tmp_path: Path) -> None:
 
     class ReadFailTransport(FakeTransport):
         def request(self, method, url, *, headers=None, payload=None):
-            if method == "GET" and "/api/v1/webhooks/" in url:
+            if method == "GET" and "/api/v1/webhook-configs/" in url:
                 return self._response(500)
             return super().request(method, url, headers=headers, payload=payload)
 
