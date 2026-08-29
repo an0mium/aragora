@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 _GITHUB_URL_RE = re.compile(r"https://github\.com/[^\s]+")
+_FULL_HEAD_SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 
 from aragora.governance.merge_halt import evaluate
@@ -58,8 +59,8 @@ class GitHubGateSnapshot:
     required_checks_source: str | None
     disposition: str
     blocker_detail: str | None = None
-    # Optional so existing constructors keep working; threaded into merge_pr so an
-    # exact-head waiver can apply on this path (#9216).
+    # Optional for snapshot construction compatibility; merge_pr rejects a missing
+    # value so checks, halt authorization, and the merge stay exact-head bound.
     head_sha: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -72,6 +73,7 @@ class GitHubGateSnapshot:
             "review_decision": self.review_decision,
             "merge_state_status": self.merge_state_status,
             "merge_commit_sha": self.merge_commit_sha,
+            "head_sha": self.head_sha,
             "required_checks": [item.to_dict() for item in self.required_checks],
             "advisory_checks": [item.to_dict() for item in self.advisory_checks],
             "required_checks_green": self.required_checks_green,
@@ -264,34 +266,29 @@ class GitHubControl:
                 detail="Required checks are not green.",
             )
 
-        # #9216: a real merge path (plain squash plus an --admin fallback), so it
-        # must consult the main-red halt.
-        #
-        # Threading head_sha at each call site left supervisor.py and
-        # tranche_integrate.py unwaivable — evaluate(pr, "") can never match a
-        # waiver, since both sides must be a full 40-char SHA — and would leave the
-        # next new caller unwaivable too. So resolve the head here when we lack it.
-        # Only do that when the halt actually blocks us, otherwise every merge pays
-        # an extra gh round-trip for nothing. If the lookup fails we stay blocked,
-        # which is fail-closed.
+        # The caller must bind this merge to the exact head whose required checks
+        # produced ``required_checks_green``. Resolving a new head here would mix a
+        # stale gate result with a fresh commit and reintroduce the TOCTOU this
+        # contract exists to prevent.
+        normalized_head = str(head_sha or "").strip().lower()
+        if not _FULL_HEAD_SHA_RE.fullmatch(normalized_head):
+            return GitHubMergeResult(
+                merged=False,
+                action="blocked",
+                detail="A full 40-character PR head SHA from the gate snapshot is required.",
+            )
+
+        # #9216: this is a real merge path (plain squash plus an --admin fallback),
+        # so the main-red halt must authorize that same exact head.
         _pr_digits = re.findall(r"\d+", str(pr_ref or ""))
         _pr_number = int(_pr_digits[-1]) if _pr_digits else 0
-
-        decision = evaluate(_pr_number, head_sha or "")
-        if not decision.allowed and not head_sha:
-            try:
-                head_sha = _optional_text(self._pr_view(pr_ref).get("headRefOid"))
-            except (GitHubControlError, OSError, ValueError):
-                head_sha = None
-            if head_sha:
-                decision = evaluate(_pr_number, head_sha)
+        decision = evaluate(_pr_number, normalized_head)
         if not decision.allowed:
             return GitHubMergeResult(merged=False, action="blocked", detail=decision.reason)
 
-        # Bind the merge to the head the guard authorized. Without this the head can
-        # change between the check and the merge itself, letting an unwaived head
-        # land under an armed halt (TOCTOU).
-        _head_args = ["--match-head-commit", head_sha] if head_sha else []
+        # Bind both merge attempts to the head the gate checked and the halt
+        # authorized. GitHub rejects the command if the PR moves in the meantime.
+        _head_args = ["--match-head-commit", normalized_head]
         normal = self._run_gh(
             ["pr", "merge", pr_ref, "--squash", *_head_args],
             raise_on_error=False,

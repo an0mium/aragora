@@ -9,6 +9,8 @@ import pytest
 
 from aragora.ralph.github_control import GitHubControl, GitHubControlError
 
+_HEAD_SHA = "a" * 40
+
 
 def _completed_process(
     *,
@@ -458,12 +460,21 @@ class TestGitHubControlMerge:
             "https://github.com/org/repo/pull/88",
             required_checks_green=True,
             allow_admin=True,
+            head_sha=_HEAD_SHA,
         )
 
         assert result.merged is True
         assert result.used_admin is False
         called = mock_run.call_args.args[0]
-        assert called == ["gh", "pr", "merge", "https://github.com/org/repo/pull/88", "--squash"]
+        assert called == [
+            "gh",
+            "pr",
+            "merge",
+            "https://github.com/org/repo/pull/88",
+            "--squash",
+            "--match-head-commit",
+            _HEAD_SHA,
+        ]
 
     @patch("aragora.ralph.github_control.subprocess.run")
     def test_merge_pr_falls_back_to_admin_when_needed(self, mock_run, tmp_path: Path) -> None:
@@ -479,6 +490,7 @@ class TestGitHubControlMerge:
             "https://github.com/org/repo/pull/88",
             required_checks_green=True,
             allow_admin=True,
+            head_sha=_HEAD_SHA,
         )
 
         assert result.merged is True
@@ -490,6 +502,8 @@ class TestGitHubControlMerge:
             "https://github.com/org/repo/pull/88",
             "--squash",
             "--admin",
+            "--match-head-commit",
+            _HEAD_SHA,
         ]
 
     @patch("aragora.ralph.github_control.subprocess.run")
@@ -501,6 +515,7 @@ class TestGitHubControlMerge:
             "https://github.com/org/repo/pull/88",
             required_checks_green=True,
             allow_admin=True,
+            head_sha=_HEAD_SHA,
         )
 
         assert result.merged is False
@@ -546,18 +561,52 @@ class TestMergeIsBoundToTheAuthorizedHead:
         assert argv[argv.index("--match-head-commit") + 1] == head
 
     @patch("aragora.ralph.github_control.subprocess.run")
-    def test_merge_without_a_known_head_omits_the_flag(self, mock_run, tmp_path: Path) -> None:
-        """No head means no pin to add — and the halt already blocks unwaivably."""
-        mock_run.return_value = _completed_process(returncode=0, stdout="merged")
-
-        control = GitHubControl(repo_root=tmp_path)
-        control.merge_pr(
-            "https://github.com/org/repo/pull/42",
-            required_checks_green=True,
-            allow_admin=False,
+    def test_head_change_rejection_does_not_fall_back_to_admin(
+        self, mock_run, tmp_path: Path, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.ralph.github_control.evaluate",
+            lambda *_a, **_k: SimpleNamespace(allowed=True, reason="no halt"),
+        )
+        mock_run.return_value = _completed_process(
+            returncode=1,
+            stderr="Pull request head branch was modified",
         )
 
-        assert "--match-head-commit" not in list(mock_run.call_args[0][0])
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.merge_pr(
+            "https://github.com/org/repo/pull/42",
+            required_checks_green=True,
+            allow_admin=True,
+            head_sha=_HEAD_SHA,
+        )
+
+        assert result.merged is False
+        assert result.action == "merge_failed"
+        assert mock_run.call_count == 1
+        assert list(mock_run.call_args.args[0])[-2:] == ["--match-head-commit", _HEAD_SHA]
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    @pytest.mark.parametrize("head_sha", [None, "", "abc123", "g" * 40, "a" * 39, "a" * 41])
+    def test_merge_without_a_full_snapshot_head_fails_closed(
+        self, mock_run, tmp_path: Path, head_sha: str | None, monkeypatch
+    ) -> None:
+        evaluate = MagicMock()
+        monkeypatch.setattr("aragora.ralph.github_control.evaluate", evaluate)
+
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.merge_pr(
+            "https://github.com/org/repo/pull/42",
+            required_checks_green=True,
+            allow_admin=True,
+            head_sha=head_sha,
+        )
+
+        assert result.merged is False
+        assert result.action == "blocked"
+        assert "full 40-character" in result.detail
+        evaluate.assert_not_called()
+        mock_run.assert_not_called()
 
 
 def test_halt_and_disarm_markers_share_one_root() -> None:
@@ -573,17 +622,11 @@ def test_halt_and_disarm_markers_share_one_root() -> None:
     assert merge_executor.DEFAULT_DISARM_FILE.parent == merge_executor.DEFAULT_HALT_FILE.parent
 
 
-class TestHaltedMergeResolvesItsOwnHead:
-    """#9216: callers that omit head_sha must still be able to use a waiver.
-
-    Threading the head at each call site left supervisor.py and
-    tranche_integrate.py unwaivable, and would leave the next new caller
-    unwaivable too. merge_pr therefore resolves the head itself — but only when
-    the halt actually blocks, so an unhalted merge pays no extra round-trip.
-    """
+class TestSnapshotHeadAuthorization:
+    """#9216: checks, halt authorization, and merge share one exact head."""
 
     @patch("aragora.ralph.github_control.subprocess.run")
-    def test_blocked_merge_resolves_the_head_and_reevaluates(
+    def test_armed_exact_head_waiver_merges_that_head(
         self, mock_run, tmp_path: Path, monkeypatch
     ) -> None:
         head = "b" * 40
@@ -591,29 +634,27 @@ class TestHaltedMergeResolvesItsOwnHead:
 
         def fake_evaluate(pr: int, head_sha: str, **_kw):
             seen.append(head_sha)
-            allowed = head_sha == head  # a waiver exists, but only for the real head
+            allowed = head_sha == head
             return SimpleNamespace(allowed=allowed, reason="halted" if not allowed else "ok")
 
         monkeypatch.setattr("aragora.ralph.github_control.evaluate", fake_evaluate)
-        mock_run.side_effect = [
-            _completed_process(stdout=json.dumps({"headRefOid": head})),  # _pr_view
-            _completed_process(returncode=0, stdout="merged"),  # the merge
-        ]
+        mock_run.return_value = _completed_process(returncode=0, stdout="merged")
 
         control = GitHubControl(repo_root=tmp_path)
         result = control.merge_pr(
             "https://github.com/org/repo/pull/42",
             required_checks_green=True,
             allow_admin=False,
+            head_sha=head,
         )
 
-        assert seen == ["", head], f"expected a re-evaluation after resolving the head: {seen}"
+        assert seen == [head]
         assert result.merged is True
         argv = list(mock_run.call_args[0][0])
         assert "--match-head-commit" in argv and head in argv
 
     @patch("aragora.ralph.github_control.subprocess.run")
-    def test_unhalted_merge_does_not_pay_for_a_head_lookup(
+    def test_unhalted_merge_is_still_pinned_to_the_snapshot_head(
         self, mock_run, tmp_path: Path, monkeypatch
     ) -> None:
         monkeypatch.setattr(
@@ -627,6 +668,35 @@ class TestHaltedMergeResolvesItsOwnHead:
             "https://github.com/org/repo/pull/42",
             required_checks_green=True,
             allow_admin=False,
+            head_sha=_HEAD_SHA,
         )
 
-        assert mock_run.call_count == 1, "an unhalted merge must not fetch the head"
+        assert mock_run.call_count == 1
+        assert list(mock_run.call_args.args[0])[-2:] == ["--match-head-commit", _HEAD_SHA]
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_normal_and_admin_attempts_use_the_same_snapshot_head(
+        self, mock_run, tmp_path: Path, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.ralph.github_control.evaluate",
+            lambda *_a, **_k: SimpleNamespace(allowed=True, reason="no halt"),
+        )
+        mock_run.side_effect = [
+            _completed_process(returncode=1, stderr="repository rules require admin"),
+            _completed_process(returncode=0, stdout="merged"),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.merge_pr(
+            "https://github.com/org/repo/pull/42",
+            required_checks_green=True,
+            allow_admin=True,
+            head_sha=_HEAD_SHA,
+        )
+
+        assert result.merged is True
+        assert result.used_admin is True
+        for call in mock_run.call_args_list:
+            argv = list(call.args[0])
+            assert argv[-2:] == ["--match-head-commit", _HEAD_SHA]

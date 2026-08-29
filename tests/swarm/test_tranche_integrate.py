@@ -791,12 +791,14 @@ def test_execute_lane_merge_reuses_github_control_and_closes_registry() -> None:
         branch="feat-branch",
         registry=registry,
         required_checks_green=True,
+        head_sha="a" * 40,
     )
 
     github.merge_pr.assert_called_once_with(
         "https://github.com/org/repo/pull/42",
         required_checks_green=True,
         allow_admin=False,
+        head_sha="a" * 40,
     )
     registry.close.assert_called_once_with("feat-branch", outcome="merged")
     assert result["merged"] is True
@@ -1004,6 +1006,7 @@ async def test_integrate_lane_publishes_branch_before_gate_assessment() -> None:
         required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
         advisory_checks=[],
         required_checks_green=True,
+        head_sha="a" * 40,
         to_dict=lambda: {"required_checks_green": True},
         state="OPEN",
         base_branch="main",
@@ -1223,6 +1226,7 @@ async def test_integrate_lane_returns_merge_and_cascade_payload() -> None:
             required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
             advisory_checks=[],
             required_checks_green=True,
+            head_sha="a" * 40,
             to_dict=lambda: {"required_checks_green": True},
             state="OPEN",
             base_branch="main",
@@ -1279,6 +1283,12 @@ async def test_integrate_lane_returns_merge_and_cascade_payload() -> None:
     assert result["cascade_report"]["downstream"][0]["action"] == "retargeted"
     store.record_integration_decision.assert_called_once()
     registry.close.assert_called_once_with("feat-a", outcome="merged")
+    github.merge_pr.assert_called_once_with(
+        "https://github.com/org/repo/pull/42",
+        required_checks_green=True,
+        allow_admin=False,
+        head_sha="a" * 40,
+    )
     assert run_state.lane_states["lane-a"].status == "completed"
     assert run_state.lane_states["lane-b"].status == "waiting_for_merge"
 
@@ -1313,6 +1323,7 @@ async def test_integrate_lane_uses_manifest_low_risk_metadata_for_auto_merge() -
         required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
         advisory_checks=[],
         required_checks_green=True,
+        head_sha="a" * 40,
         to_dict=lambda: {"required_checks_green": True},
         state="OPEN",
         base_branch="main",
@@ -1385,6 +1396,7 @@ async def test_integrate_lane_sensitive_scope_does_not_auto_merge_even_when_appr
         required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
         advisory_checks=[],
         required_checks_green=True,
+        head_sha="a" * 40,
         to_dict=lambda: {"required_checks_green": True},
         state="OPEN",
         base_branch="main",
@@ -1441,6 +1453,7 @@ async def test_integrate_lane_flat_default_skips_cascade_without_downstream_lane
         required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
         advisory_checks=[],
         required_checks_green=True,
+        head_sha="a" * 40,
         to_dict=lambda: {"required_checks_green": True},
         state="OPEN",
         base_branch="main",
