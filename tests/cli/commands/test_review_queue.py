@@ -18,10 +18,12 @@ from aragora.cli.commands.review_queue import (
     LARGE_DIFF_THRESHOLD,
     MODEL_REVIEW_QUEUE_CAP,
     PARKED_LABELS,
+    PROXY_GROUNDING_DISCLOSURE,
     QueueItem,
     ReviewPacket,
     _build_merge_authorization_packet,
     _build_model_review_quorum,
+    _lint_evidence_comment,
     _build_packet,
     _build_queue,
     _classify_pr,
@@ -1690,7 +1692,10 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
         assert quorum["verdict"] == "admin_squash_allowed"
         assert quorum["admin_squash_allowed"] is True
-        assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
+        # gemini is advisory-only (roster record): its review may be present but
+        # it never appears in counted ids (#9363 openai [P2] — packet consumers
+        # read counted_model_families as "counts toward quorum").
+        assert set(quorum["counted_reviewer_ids"]) == {"claude", "openai"}
 
     def test_single_western_frontier_signal_satisfies_tier_two_quorum(self) -> None:
         # Tiered gate: Tier 2 settles on ONE western-frontier (openai/codex) signal
@@ -1871,6 +1876,272 @@ class TestModelReviewQuorum:
         assert quorum["unresolved_dissent"] is True
         assert quorum["status"] == "unresolved_dissent"
         assert quorum["admin_squash_allowed"] is False
+
+    def test_advisory_only_dogfood_does_not_satisfy_required_leg(self) -> None:
+        # #9363 round-4 [P2]: a gemini-attributed dogfood item must not satisfy
+        # the required adversarial-dogfood leg at Tier 1+ (roster record:
+        # advisory-only families never count FOR).
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Claude independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+            _family_dogfood_comment("gemini"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
+        # Contrast: the same dogfood item from a counting (Chinese-routed at
+        # Tier 2) family satisfies the leg.
+        pr["comments"][-1] = _family_dogfood_comment("deepseek")
+        satisfied = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert satisfied["status"] == "satisfied"
+
+    def test_advisory_only_protocol_payload_dissent_does_not_block(self) -> None:
+        # #9363 round-4 [P2]: a {"agent": "gemini", ...} dissenting view arriving
+        # via the merge-protocol payload (or a stale prepared artifact) must not
+        # block — only the comments path was filtered before.
+        protocol = _executed_protocol()
+        protocol["dissenting_views"] = [
+            {
+                "agent": "gemini:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            },
+            # Live protocol payloads use the AgentRegistry name ("gemini-cli"),
+            # which must canonicalize to the same advisory-only family
+            # (#9363 round-5 [P2]).
+            {
+                "agent": "gemini-cli:maintainability",
+                "position": "request_changes",
+                "reason": "[P1] fabricated blocking claim",
+            },
+        ]
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol=protocol,
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+
+    def test_advisory_only_blocking_severity_review_recorded_as_advisory_view(self) -> None:
+        # #9363 round-4 [P3]: a [P1]-backed gemini CHANGES-REQUESTED never blocks
+        # but must not vanish from the merge packet — it is preserved as an
+        # advisory view.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Gemini independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] fabricated blocking claim."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["dissenting_views"] == []
+        assert quorum["status"] == "satisfied"
+        advisory_agents = [str(view.get("agent", "")) for view in quorum["advisory_views"]]
+        assert "gemini" in advisory_agents
+        gemini_view = quorum["advisory_views"][advisory_agents.index("gemini")]
+        assert gemini_view["blocking"] is False
+        assert gemini_view["highest_severity"] == "P1"
+        assert any(
+            "advisory finding from gemini" in reason and "advisory-only family" in reason
+            for reason in quorum["reasons"]
+        )
+
+    def test_advisory_only_family_excluded_from_emitted_counted_ids(self) -> None:
+        # #9363 round-5 openai [P2]: the packet's counted_reviewer_ids /
+        # counted_model_families are consumed by downstream automation as
+        # "counts toward quorum" — an advisory-only family must not appear
+        # there even when its review is grounded and positive. The review
+        # itself stays visible in reviewer_signals.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Gemini independent model review\nCurrent head: {head}\nVerdict: approve."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert "gemini" not in quorum["counted_reviewer_ids"]
+        assert "gemini" not in quorum["counted_model_families"]
+        signal_families = {
+            str(signal.get("reviewer_id", "")) for signal in quorum["reviewer_signals"]
+        }
+        assert "gemini" in signal_families
+
+    def test_evidence_lint_advisory_only_family_would_not_count(self) -> None:
+        # #9363 round-5 openai [P2]: a grounded gemini PASS must lint as
+        # would_count=False with the no-counted-family problems, matching the
+        # "never count" roster contract, so prepared-evidence tooling cannot
+        # treat gemini as a countable family.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9363",
+            head_sha=head,
+            head_committed_at="2026-07-23T00:00:00Z",
+            body=(
+                "## Gemini independent model review\n"
+                f"Current head: {head}\n"
+                "PR: #9363.\n"
+                "Verdict: approve.\n"
+                "Focused adversarial dogfood passed."
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert result["counted_model_families"] == []
+        assert "no_counted_model_family" in result["problems"]
+
+    @staticmethod
+    def _proxy_lint_body(head: str, *, disclosure: str) -> str:
+        return (
+            "## Claude independent model review\n\n"
+            "Reviewer: claude (anthropic) — independent adversarial model review via "
+            "local VibeProxy Anthropic Messages transport (model: claude-opus-5), "
+            "grounded on the exact PR head.\n"
+            f"Head: {head[:7]} ({head}).\n"
+            "PR: #9505.\n"
+            "Model family: claude\n"
+            f"{disclosure}"
+            "\nVerdict: PASS\nNo findings.\n\ndogfood: yes\n"
+        )
+
+    @pytest.mark.parametrize(
+        "disclosure",
+        [
+            "",  # hand-posted proxy body with no disclosure at all
+            # Non-canonical grounding value: the exact line is required.
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            "Transport grounding: trust me\n",
+        ],
+    )
+    def test_evidence_lint_rejects_proxy_body_without_exact_disclosure(
+        self, disclosure: str
+    ) -> None:
+        # In-process demotion cannot protect against re-posting composed text
+        # by hand; the lint must fail these closed on its own.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is False
+        assert "proxy_transport_grounding_undisclosed" in result["problems"]
+
+    def test_evidence_lint_counts_disclosed_proxy_transport_body(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        disclosure = (
+            "Reviewer harness: local VibeProxy Anthropic Messages transport\n"
+            f"Transport grounding: {PROXY_GROUNDING_DISCLOSURE}\n"
+        )
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=self._proxy_lint_body(head, disclosure=disclosure),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
+        assert result["counted_model_families"] == ["claude"]
+
+    def test_evidence_lint_ignores_vibeproxy_mention_in_findings(self) -> None:
+        # Transport classification keys on the reviewer/harness disclosure lines,
+        # not on prose: a grounded CLI review DISCUSSING VibeProxy still counts.
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        result = _lint_evidence_comment(
+            pr="9505",
+            head_sha=head,
+            head_committed_at="2026-08-15T00:00:00Z",
+            body=(
+                "## Claude independent model review\n\n"
+                "Reviewer: claude (anthropic) — independent adversarial model review "
+                "via claude CLI, grounded on the exact PR head.\n"
+                f"Head: {head[:7]} ({head}).\n"
+                "PR: #9505.\n"
+                "Model family: claude\n"
+                "\nVerdict: PASS\n"
+                "- [P3] the VibeProxy fallback comment could cite the policy doc\n"
+                "\ndogfood: yes\n"
+            ),
+            author="an0mium",
+            source="test",
+        )
+        assert "proxy_transport_grounding_undisclosed" not in result["problems"]
+        assert result["would_count"] is True
 
     def test_severity_gated_explicit_p2_blocker_still_blocks(
         self,
@@ -3871,6 +4142,39 @@ class TestParentheticalModelFamily:
         assert _normalize_model_family("nous-hermes") == "hermes"
         # Multi-word alias with a trailing parenthetical still resolves.
         assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("zhipu", "glm"),
+            ("z-ai", "glm"),
+            ("hy3", "tencent"),
+            ("hunyuan", "tencent"),
+            ("seed", "bytedance"),
+            ("seed-2.0", "bytedance"),
+            ("seed-2.0 (doubao)", "bytedance"),
+            ("doubao", "bytedance"),
+            ("bytedance-seed", "bytedance"),
+        ],
+    )
+    def test_chinese_family_aliases_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family(value) == expected
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("z-ai/glm-5.2", "glm"),
+            ("minimax/minimax-m3", "minimax"),
+            ("tencent/hy3", "tencent"),
+            ("bytedance-seed/seed-2.0-lite", "bytedance"),
+        ],
+    )
+    def test_chinese_reviewer_ids_normalize(self, value: str, expected: str) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_reviewer_id
+
+        assert _normalize_model_reviewer_id(value) == expected
 
     def test_unknown_leading_token_still_unknown(self) -> None:
         from aragora.cli.commands.review_queue import _normalize_model_family

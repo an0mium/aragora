@@ -398,6 +398,10 @@ class ReviewQueueHandler(BaseHandler):
     ROUTES = [
         "/api/review-queue/*",
         "/api/v1/review-queue/*",
+        # Exact literals for spec-documented operations (wildcards above are
+        # invisible to the OpenAPI route validator's orphan check).
+        "/api/review-queue/triage-metrics",
+        "/api/v1/review-queue/triage-metrics",
     ]
 
     ROUTE_PREFIXES = [

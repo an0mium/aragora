@@ -56,6 +56,29 @@ def test_append_preserves_alias_disclosure_and_hash_chain(tmp_path: Path) -> Non
     assert load_records(path) == [first, second]
 
 
+def test_append_round_trips_unexpected_alias_family(tmp_path: Path) -> None:
+    path = tmp_path / "calls.jsonl"
+    record = BurninRecorder(path).append(
+        CallOutcome(
+            family="openai",
+            requested_model="gpt-5.4-mini-2026-03-17",
+            resolved_model="gpt-5.4-mini-2026-03-17",
+            response_model="gpt-5.4-mini-2026-03-17",
+            alias_source="ARAGORA_VIBEPROXY_MODEL_MAP",
+            alias_family="openai",
+            latency_ms=10,
+            ok=True,
+        )
+    )
+
+    assert record["alias_disclosure"]["family"] == "openai"
+    assert record["alias_disclosure"]["preserved"] is False
+    assert record["clean"] is False
+    assert record["error_class"] == "family_identity_error"
+    assert record["identity_errors"] == ["unexpected_alias_family"]
+    assert load_records(path) == [record]
+
+
 def test_family_mismatch_is_recorded_fail_closed(tmp_path: Path) -> None:
     record = BurninRecorder(tmp_path / "calls.jsonl").append(
         CallOutcome(
@@ -89,6 +112,42 @@ def test_alias_requires_disclosure() -> None:
     assert identity_ok is False
     assert alias_ok is False
     assert errors == ("missing_alias_disclosure",)
+
+
+def test_owner_bound_unknown_response_model_fails_closed() -> None:
+    identity_ok, alias_ok, errors = verify_family_identity(
+        family="kimi",
+        requested_model="kimi-k2",
+        resolved_model="k2",
+        response_model="k2",
+        alias_source="VibeProxy /v1/models owned_by=moonshot",
+        alias_family="kimi",
+        ok=True,
+    )
+
+    assert identity_ok is False
+    assert alias_ok is True
+    assert errors == (
+        "resolved_model_family_mismatch",
+        "response_model_family_mismatch",
+    )
+
+
+def test_owner_binding_cannot_override_known_cross_family_response() -> None:
+    identity_ok, alias_ok, errors = verify_family_identity(
+        family="grok",
+        requested_model="grok-3-mini-fast",
+        resolved_model="gpt-5.5",
+        response_model="gpt-5.5",
+        alias_source="VibeProxy /v1/models owned_by=xai",
+        alias_family="grok",
+        ok=True,
+    )
+
+    assert identity_ok is False
+    assert alias_ok is True
+    assert "resolved_model_family_mismatch" in errors
+    assert "response_model_family_mismatch" in errors
 
 
 def test_refuses_to_append_to_damaged_log(tmp_path: Path) -> None:
