@@ -155,7 +155,12 @@ class AuthConfig:
 
         _logger = logging.getLogger(__name__)
 
-        from aragora.config.secrets import SecretNotFoundError, SecretSourceError, get_secret
+        from aragora.config.secrets import (
+            SecretNotFoundError,
+            SecretSourceError,
+            get_secret,
+            is_strict_mode,
+        )
 
         custody_error: Exception | None = None
         try:
@@ -167,6 +172,7 @@ class AuthConfig:
             os.getenv("ARAGORA_ENV") or os.getenv("ARAGORA_ENVIRONMENT") or "development"
         ).lower()
         is_production = env_mode in ("production", "prod", "staging", "stage")
+        auth_required = is_production or is_strict_mode()
 
         if isinstance(custody_error, SecretSourceError):
             raise AuthenticationError(
@@ -175,8 +181,8 @@ class AuthConfig:
         if self.api_token:
             self.enabled = True
             _logger.info("Authentication enabled (API token configured)")
-        elif is_production:
-            # In production, auth is mandatory
+        elif auth_required:
+            # In production or explicit strict mode, auth is mandatory
             _logger.error(
                 "SECURITY ERROR: production/staging mode has no ARAGORA_API_TOKEN in "
                 "allowed custody. Authentication is required. Configure ARAGORA_SECRETS_DIR "
