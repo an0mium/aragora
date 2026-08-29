@@ -30,7 +30,10 @@ if str(_REPO_ROOT) not in sys.path:
 
 from aragora.config.secrets import SecretManager, SecretsConfig
 from aragora.gauntlet.odr_signing import compute_key_id
-from scripts.validate_provider_neutral_canary import validate_image
+from scripts.validate_provider_neutral_canary import (
+    validate_image,
+    validate_secrets_directory,
+)
 
 
 @dataclass(frozen=True)
@@ -427,11 +430,25 @@ def run_verification(args: argparse.Namespace, client: Transport | None = None) 
         }
     transport = client or UrlLibTransport()
     checks: dict[str, dict[str, Any]] = {"inputs": {"ok": True}}
+    runtime_uid = int(getattr(args, "runtime_uid", os.geteuid()))
+    runtime_gid = int(getattr(args, "runtime_gid", os.getegid()))
     headers: dict[str, str] | None = None
     try:
-        token = _load_auth_token(args.secrets_dir)
-        headers = _authorization(token)
-        checks["custody"] = {"ok": True, "source": "mounted_file"}
+        custody_errors, _present_names = validate_secrets_directory(
+            args.secrets_dir,
+            runtime_uid=runtime_uid,
+            runtime_gid=runtime_gid,
+        )
+        if custody_errors:
+            checks["custody"] = {
+                "ok": False,
+                "error_type": "CustodyValidationError",
+                "errors": custody_errors,
+            }
+        else:
+            token = _load_auth_token(args.secrets_dir)
+            headers = _authorization(token)
+            checks["custody"] = {"ok": True, "source": "mounted_file"}
     except Exception as exc:  # noqa: BLE001 - every failure must reach the artifact
         checks["custody"] = _failed_check(exc)
 
@@ -508,6 +525,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--secrets-dir", required=True)
     parser.add_argument("--receipt-file", required=True)
     parser.add_argument("--persistence-state", required=True)
+    parser.add_argument("--runtime-uid", type=int, default=1000)
+    parser.add_argument("--runtime-gid", type=int, default=1000)
     parser.add_argument("--output", required=True)
     return parser
 

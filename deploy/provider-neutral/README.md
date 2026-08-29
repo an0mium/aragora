@@ -88,6 +88,8 @@ python -m scripts.verify_provider_neutral_canary \
   --observed-image-digest "$OBSERVED_IMAGE" \
   --database-proof-id "$DATABASE_PROOF_ID" \
   --secrets-dir "$ARAGORA_SECRETS_DIR_HOST" \
+  --runtime-uid "$ARAGORA_RUNTIME_UID" \
+  --runtime-gid "$ARAGORA_RUNTIME_GID" \
   --receipt-file "$SIGNED_RECEIPT_FILE" \
   --persistence-state "$CANARY_VERIFIER_STATE" \
   --output "$CANARY_VERIFIER_BEFORE_REPORT"
@@ -114,6 +116,8 @@ python -m scripts.verify_provider_neutral_canary \
   --observed-image-digest "$OBSERVED_IMAGE" \
   --database-proof-id "$DATABASE_PROOF_ID" \
   --secrets-dir "$ARAGORA_SECRETS_DIR_HOST" \
+  --runtime-uid "$ARAGORA_RUNTIME_UID" \
+  --runtime-gid "$ARAGORA_RUNTIME_GID" \
   --receipt-file "$SIGNED_RECEIPT_FILE" \
   --persistence-state "$CANARY_VERIFIER_STATE" \
   --output "$CANARY_VERIFIER_AFTER_REPORT"

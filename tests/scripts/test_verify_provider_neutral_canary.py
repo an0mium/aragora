@@ -18,6 +18,7 @@ from aragora.gauntlet.odr_signing import (
     sign_odr_receipt,
 )
 from scripts.verify_provider_neutral_canary import Response, _write_state, run_verification
+from scripts.validate_provider_neutral_canary import _PROVIDER_FILES, _REQUIRED_FILES
 from tests.gauntlet.test_odr_signing import _valid_odr
 
 IMAGE = "ghcr.io/synaptent/aragora@sha256:" + "a" * 64
@@ -103,12 +104,29 @@ class FakeTransport:
         return self._response(404)
 
 
+class PersistenceForbiddenTransport(FakeTransport):
+    def request(self, method, url, *, headers=None, payload=None):
+        if "/api/v1/webhook-configs" in url:
+            raise AssertionError("persistence network method called without valid custody")
+        return super().request(method, url, headers=headers, payload=payload)
+
+
 def _args(tmp_path: Path, receipt_path: Path, phase: str) -> argparse.Namespace:
     secret_dir = tmp_path / "secrets"
     secret_dir.mkdir(mode=0o700, exist_ok=True)
-    token_path = secret_dir / "canary-auth-token"
-    token_path.write_text(TOKEN, encoding="utf-8")
-    token_path.chmod(0o600)
+    secret_dir.chmod(0o700)
+    for name in _REQUIRED_FILES:
+        value = "managed-test-value"
+        if name == "canary-auth-token":
+            value = TOKEN
+        elif name == "ARAGORA_API_TOKEN":
+            value = "different-bootstrap-value"
+        path = secret_dir / name
+        path.write_text(value, encoding="utf-8")
+        path.chmod(0o600)
+    provider_path = secret_dir / sorted(_PROVIDER_FILES)[0]
+    provider_path.write_text("managed-provider-value", encoding="utf-8")
+    provider_path.chmod(0o600)
     return argparse.Namespace(
         phase=phase,
         base_url="https://canary.example.invalid",
@@ -120,6 +138,8 @@ def _args(tmp_path: Path, receipt_path: Path, phase: str) -> argparse.Namespace:
         receipt_file=str(receipt_path),
         persistence_state=str(tmp_path / "persistence.json"),
         output=str(tmp_path / f"{phase}.json"),
+        runtime_uid=os.geteuid(),
+        runtime_gid=os.getegid(),
     )
 
 
@@ -357,22 +377,13 @@ def test_missing_token_is_recorded_in_failed_artifact(tmp_path: Path) -> None:
 
     assert report["ok"] is False
     assert report["checks"]["custody"]["ok"] is False
-    assert report["checks"]["custody"]["error_type"] in {
-        "RuntimeError",
-        "SecretNotFoundError",
-    }
+    assert report["checks"]["custody"]["error_type"] == "CustodyValidationError"
 
 
 def test_auth_failure_skips_persistence_network(tmp_path: Path) -> None:
     key, receipt_path = _receipt(tmp_path)
     args = _args(tmp_path, receipt_path, "before-restart")
     (Path(args.secrets_dir) / "canary-auth-token").unlink()
-
-    class PersistenceForbiddenTransport(FakeTransport):
-        def request(self, method, url, *, headers=None, payload=None):
-            if "/api/v1/webhook-configs" in url:
-                raise AssertionError("persistence network method called without authentication")
-            return super().request(method, url, headers=headers, payload=payload)
 
     report = run_verification(args, PersistenceForbiddenTransport(public_key_pem(key)))
 
@@ -381,6 +392,64 @@ def test_auth_failure_skips_persistence_network(tmp_path: Path) -> None:
         "ok": False,
         "error_type": "AuthUnavailable",
     }
+
+
+def test_missing_database_custody_file_blocks_auth_and_persistence(
+    tmp_path: Path, monkeypatch
+) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    (Path(args.secrets_dir) / "DATABASE_URL").unlink()
+    monkeypatch.setattr(
+        verifier,
+        "_load_auth_token",
+        lambda _path: (_ for _ in ()).throw(AssertionError("auth must not be loaded")),
+    )
+
+    transport = PersistenceForbiddenTransport(public_key_pem(key))
+    report = run_verification(args, transport)
+
+    assert report["checks"]["custody"]["error_type"] == "CustodyValidationError"
+    assert report["checks"]["custody"]["errors"] == ["missing required custody file: DATABASE_URL"]
+    assert report["checks"]["persistence"]["error_type"] == "AuthUnavailable"
+    assert not transport.auth_headers
+    assert "managed-test-value" not in json.dumps(report)
+
+
+def test_missing_provider_custody_file_blocks_persistence(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    for name in _PROVIDER_FILES:
+        provider_path = Path(args.secrets_dir) / name
+        if provider_path.exists():
+            provider_path.unlink()
+
+    transport = PersistenceForbiddenTransport(public_key_pem(key))
+    report = run_verification(args, transport)
+
+    assert report["checks"]["custody"]["error_type"] == "CustodyValidationError"
+    assert report["checks"]["custody"]["errors"] == [
+        "at least one managed AI provider key file is required"
+    ]
+    assert report["checks"]["persistence"]["error_type"] == "AuthUnavailable"
+    assert not transport.auth_headers
+    assert "managed-provider-value" not in json.dumps(report)
+
+
+def test_custody_ownership_mismatch_blocks_persistence(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    args.runtime_uid = os.geteuid() + 1
+    args.runtime_gid = os.getegid() + 1
+
+    transport = PersistenceForbiddenTransport(public_key_pem(key))
+    report = run_verification(args, transport)
+
+    custody = report["checks"]["custody"]
+    assert custody["error_type"] == "CustodyValidationError"
+    assert custody["errors"] == ["custody directory ownership does not match runtime UID/GID"]
+    assert report["checks"]["persistence"]["error_type"] == "AuthUnavailable"
+    assert not transport.auth_headers
 
 
 def test_transport_exception_is_recorded_without_secret_text(tmp_path: Path) -> None:
