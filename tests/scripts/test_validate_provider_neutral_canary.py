@@ -48,6 +48,22 @@ def test_relative_secret_directory_fails_closed() -> None:
     assert "must be absolute" in str(report["errors"])
 
 
+def test_custody_directory_requires_0700(tmp_path: Path) -> None:
+    secret_dir = _valid_secret_dir(tmp_path)
+    secret_dir.chmod(0o755)
+
+    report = build_report(PINNED_IMAGE, str(secret_dir))
+
+    assert report["ok"] is False
+    assert "permissions must be 0700" in str(report["errors"])
+
+
+def test_filesystem_root_is_rejected() -> None:
+    report = build_report(PINNED_IMAGE, os.path.sep)
+    assert report["ok"] is False
+    assert "must not be the filesystem root" in str(report["errors"])
+
+
 def test_runtime_identity_must_match_custody_owner(tmp_path: Path) -> None:
     secret_dir = _valid_secret_dir(tmp_path)
     report = build_report(
@@ -147,6 +163,22 @@ def test_migration_runner_does_not_print_database_url(monkeypatch, capsys, tmp_p
     output = capsys.readouterr().out
     assert "Applied 2 migration(s)" in output
     assert database_url not in output
+
+
+def test_migration_runner_defaults_invalid_wait_seconds(monkeypatch, tmp_path, capsys) -> None:
+    run_migrations = _load_migration_module()
+    database_url = "postgresql://user:secret@example.invalid/aragora"
+    _patch_migration_manager(monkeypatch, run_migrations, tmp_path, database_url)
+    waits: list[float] = []
+    monkeypatch.setenv("ARAGORA_DB_WAIT_SECONDS", "invalid")
+    monkeypatch.setattr(
+        run_migrations, "wait_for_database", lambda _url, timeout: waits.append(timeout)
+    )
+    monkeypatch.setattr(run_migrations, "apply_migrations", lambda **kwargs: [])
+
+    assert run_migrations.main() == 0
+    assert waits == [60.0]
+    assert "Applied 0 migration(s)" in capsys.readouterr().out
 
 
 def test_database_wait_uses_parsed_host_without_credentials(monkeypatch) -> None:

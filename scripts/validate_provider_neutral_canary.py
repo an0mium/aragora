@@ -50,6 +50,8 @@ def _open_directory(path: Path, runtime_uid: int, runtime_gid: int) -> int:
     if os.name != "posix" or os.open not in os.supports_dir_fd:
         raise RuntimeError("canary custody validation requires POSIX descriptor safety")
     components = [part for part in str(path).split(os.path.sep) if part]
+    if not components:
+        raise RuntimeError("ARAGORA_SECRETS_DIR_HOST must not be the filesystem root")
     if any(part in {".", ".."} for part in components):
         raise RuntimeError("ARAGORA_SECRETS_DIR_HOST must not contain dot components")
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
@@ -73,6 +75,9 @@ def _open_directory(path: Path, runtime_uid: int, runtime_gid: int) -> int:
             if final and (metadata.st_uid != runtime_uid or metadata.st_gid != runtime_gid):
                 os.close(next_fd)
                 raise RuntimeError("custody directory ownership does not match runtime UID/GID")
+            if final and mode != 0o700:
+                os.close(next_fd)
+                raise RuntimeError("custody directory permissions must be 0700")
             os.close(current_fd)
             current_fd = next_fd
         return current_fd
