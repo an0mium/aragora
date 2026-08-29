@@ -201,6 +201,19 @@ def test_database_wait_uses_parsed_host_without_credentials(monkeypatch) -> None
     assert calls == [(("db.example", 5433), 2.0)]
 
 
+def test_database_wait_rejects_invalid_port_without_reflecting_url() -> None:
+    run_migrations = _load_migration_module()
+    database_url = "postgresql://user:secret@db.example:invalid/app"
+
+    try:
+        run_migrations.wait_for_database(database_url, 1)
+    except RuntimeError as exc:
+        assert "invalid network port" in str(exc)
+        assert database_url not in str(exc)
+    else:
+        raise AssertionError("invalid database port was accepted")
+
+
 def test_compose_runs_digest_built_migration_module() -> None:
     import yaml
 
