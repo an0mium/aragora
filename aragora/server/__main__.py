@@ -28,6 +28,12 @@ _PROVIDER_API_KEYS = (
 )
 
 
+def _hydrate_runtime_secrets() -> None:
+    from aragora.config.secrets import hydrate_env_from_secrets
+
+    hydrate_env_from_secrets(overwrite=True)
+
+
 def _detect_api_keys() -> list[str]:
     from aragora.config.secrets import get_secret_presence, is_secret_presence_available
 
@@ -196,6 +202,7 @@ Production deployment with multiple workers:
     import logging
 
     _logger = logging.getLogger(__name__)
+    _hydrate_runtime_secrets()
     _api_keys = _detect_api_keys()
 
     # Apply runtime defaults before starting any workers.
