@@ -461,7 +461,7 @@ class SecretManager:
             raise SecretSourceError(
                 "ARAGORA_SECRETS_DIR could not be opened without following symlinks"
             ) from exc
-        except Exception:
+        except SecretSourceError:
             os.close(current_fd)
             raise
 
