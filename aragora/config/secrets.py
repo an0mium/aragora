@@ -558,7 +558,11 @@ class SecretManager:
         aws_secrets = self._load_from_aws() if self.config.use_aws else {}
         if aws_secrets:
             self._last_aws_load_succeeded = True
-        if self.config.use_aws and self._last_aws_load_transient_failure:
+        if (
+            self.config.use_aws
+            and self._last_aws_load_transient_failure
+            and not self._last_aws_load_succeeded
+        ):
             aws_secrets = {
                 name: value
                 for name, value in self._cached_secrets.items()
@@ -724,6 +728,7 @@ class SecretManager:
                     region,
                 )
                 self._last_aws_load_succeeded = True
+                self._last_aws_load_transient_failure = False
                 return secrets
             except json.JSONDecodeError as e:
                 logger.error("Failed to parse secrets JSON from AWS (region=%s): %s", region, e)
@@ -873,7 +878,7 @@ class SecretManager:
 
         # 1. Check the merged managed-source cache first.
         managed_value, managed_source = self._cached_entry(name)
-        if managed_value is not None:
+        if managed_value is not None and managed_value.strip():
             self._log_access(name, managed_source, True)
             return managed_value
 
