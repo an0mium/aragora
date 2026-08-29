@@ -437,22 +437,23 @@ class SecretManager:
         try:
             for index, component in enumerate(components):
                 next_fd = os.open(component, flags | os.O_NOFOLLOW, dir_fd=current_fd)
-                component_stat = os.fstat(next_fd)
-                component_mode = stat.S_IMODE(component_stat.st_mode)
-                is_final = index == len(components) - 1
-                if not stat.S_ISDIR(component_stat.st_mode):
+                try:
+                    component_stat = os.fstat(next_fd)
+                    component_mode = stat.S_IMODE(component_stat.st_mode)
+                    is_final = index == len(components) - 1
+                    if not stat.S_ISDIR(component_stat.st_mode):
+                        raise SecretSourceError("ARAGORA_SECRETS_DIR must identify a directory")
+                    if component_stat.st_uid not in trusted_uids:
+                        raise SecretSourceError(
+                            "ARAGORA_SECRETS_DIR components must have trusted ownership"
+                        )
+                    if component_mode & 0o022 and (is_final or not component_mode & stat.S_ISVTX):
+                        raise SecretSourceError(
+                            "ARAGORA_SECRETS_DIR components must not be writable by peers"
+                        )
+                except (OSError, SecretSourceError):
                     os.close(next_fd)
-                    raise SecretSourceError("ARAGORA_SECRETS_DIR must identify a directory")
-                if component_stat.st_uid not in trusted_uids:
-                    os.close(next_fd)
-                    raise SecretSourceError(
-                        "ARAGORA_SECRETS_DIR components must have trusted ownership"
-                    )
-                if component_mode & 0o022 and (is_final or not component_mode & stat.S_ISVTX):
-                    os.close(next_fd)
-                    raise SecretSourceError(
-                        "ARAGORA_SECRETS_DIR components must not be writable by peers"
-                    )
+                    raise
                 os.close(current_fd)
                 current_fd = next_fd
             return current_fd
@@ -539,13 +540,6 @@ class SecretManager:
         sources = {name: "aws" for name in aws_secrets}
         sources.update({name: "mounted_file" for name in mounted_secrets})
         return combined, sources
-
-    def _cached_source(self, name: str) -> str:
-        """Return cache provenance, including compatibility for pre-seeded tests."""
-        source = self._cached_secret_sources.get(name)
-        if source:
-            return source
-        return "aws" if self.config.use_aws else "mounted_file"
 
     def _cached_entry(self, name: str) -> tuple[str | None, str]:
         """Return one coherent value/source snapshot across concurrent refreshes."""
@@ -1110,7 +1104,12 @@ def hydrate_env_from_secrets(
                 manager._log_access(name, f"hydrate_{source}", True)
             elif use_strict and is_critical_secret(name):
                 manager._log_access(name, "hydrate_env_blocked", False)
-                if overwrite:
+                if overwrite and name in os.environ:
+                    logger.warning(
+                        "SECURITY: Removing critical secret '%s' from the process environment "
+                        "because strict managed custody is enabled.",
+                        name,
+                    )
                     os.environ.pop(name, None)
                 continue
             else:
