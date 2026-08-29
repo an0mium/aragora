@@ -95,21 +95,21 @@ def test_item_fields() -> None:
 class TestFlagGating:
     def test_skips_when_flag_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
-        r = asyncio.get_event_loop().run_until_complete(
+        r = asyncio.run(
             ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(_r())
         )
         assert r.claims_ingested == 0 and r.skipped == 1
 
     def test_proceeds_when_flag_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
-        r = asyncio.get_event_loop().run_until_complete(
+        r = asyncio.run(
             ExecutableClaimAdapter(mound=_mound("y")).ingest_claim_result(_r())
         )
         assert r.claims_ingested == 1 and r.knowledge_item_ids == ["y"]
 
     def test_bypass_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
-        r = asyncio.get_event_loop().run_until_complete(
+        r = asyncio.run(
             ExecutableClaimAdapter(mound=_mound()).ingest_claim_result(_r(), require_enabled=False)
         )
         assert r.claims_ingested == 1
@@ -121,7 +121,7 @@ class TestFlagGating:
 class TestBatch:
     def test_skips_batch(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
-        r = asyncio.get_event_loop().run_until_complete(
+        r = asyncio.run(
             ExecutableClaimAdapter(mound=_mound()).ingest_claim_results(
                 [_r(cid=f"c{i}") for i in range(3)]
             )
@@ -132,7 +132,7 @@ class TestBatch:
         monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
         bad = MagicMock()
         bad.store = AsyncMock(side_effect=RuntimeError("down"))
-        r = asyncio.get_event_loop().run_until_complete(
+        r = asyncio.run(
             ExecutableClaimAdapter(mound=bad).ingest_claim_results([_r()])
         )
         assert r.claims_ingested == 0 and "down" in r.errors[0]
@@ -140,7 +140,7 @@ class TestBatch:
 
 def test_no_mound_returns_generated_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
-    r = asyncio.get_event_loop().run_until_complete(
+    r = asyncio.run(
         ExecutableClaimAdapter().ingest_claim_result(_r(), require_enabled=False)
     )
     assert r.claims_ingested == 1 and r.knowledge_item_ids[0].startswith("claim_km_")
