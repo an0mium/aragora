@@ -179,6 +179,27 @@ class IntakeBridgeDispatch:
                 discovered=[f"intake feature {feature.id} parked: {self.decomposer_name} raised"],
             )
 
+        selected_ids = {subtask.id for subtask in subtasks}
+        truncated_ids = {subtask.id for subtask in all_subtasks} - selected_ids
+        broken_dependencies = sorted(
+            {
+                dependency
+                for subtask in subtasks
+                for dependency in subtask.dependencies
+                if dependency in truncated_ids
+            }
+        )
+        if broken_dependencies:
+            return Handoff(
+                success=False,
+                terminal=True,
+                parked_kind=PARK_KIND_DECOMPOSITION,
+                blocked_reason=(
+                    "max_children truncation would remove required dependencies: "
+                    + ", ".join(broken_dependencies)
+                ),
+            )
+
         children = self._child_features(feature, subtasks)
         discovered = []
         if len(all_subtasks) > len(subtasks):

@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import subprocess
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .intake import is_intake_feature
 from .ledger import DEFAULT_LEASE_TTL, Ledger, LedgerCorruptError, select_for
 from .orchestrator import Dispatch, Handoff
 from .state import (
@@ -66,11 +68,9 @@ class BranchMaterializer:
     name for the worker to set as ``metadata.branch``.
 
     Idempotent across crash-retries: a ledger-recorded branch is adopted (and
-    re-created if the ref was deleted). A colliding hint that sits exactly at
-    the base head is our own crash orphan — adopted, no litter. A colliding
-    hint with foreign commits gets one deterministic content-derived suffix;
-    if that is also taken by foreign work, fail closed (the worker returns the
-    child to AWAITING_CLAIM, bounded by the existing park accounting).
+    re-created if the ref was deleted). A plain colliding hint is never adopted;
+    only this materializer's deterministic suffixed namespace can identify a
+    crash orphan at the base head. Foreign commits fail closed.
     """
 
     def __init__(
@@ -176,7 +176,13 @@ class BranchMaterializer:
 def _run_git(cmd: list[str], cwd: Path) -> str:
     try:
         proc = subprocess.run(
-            cmd, cwd=cwd, text=True, capture_output=True, check=False, timeout=120
+            cmd,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+            env={**os.environ, "LC_ALL": "C", "LANG": "C"},
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"{cmd[0]} timed out after {exc.timeout}s") from exc
@@ -347,6 +353,10 @@ def _run_worker_fenced(
         if unit is None:
             break
         feature = state.get(unit)
+
+        if is_intake_feature(feature):
+            yield_back(unit, "intake decomposition is orchestrator-owned")
+            continue
 
         # A branch-hinted child needs its branch materialized before dispatch
         # (#8773). A worker with no git capability yields it back untouched.

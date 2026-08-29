@@ -198,6 +198,28 @@ def test_intake_surfaces_max_children_truncation():
     assert any("truncated from 5 to 2" in note for note in handoff.discovered)
 
 
+def test_intake_fails_closed_when_truncation_removes_dependency():
+    subtasks = [
+        SubTask(
+            id="kept",
+            title="Kept",
+            description="Depends on omitted work",
+            dependencies=["omitted"],
+        ),
+        SubTask(id="omitted", title="Omitted", description="Required first"),
+    ]
+    bridge = IntakeBridgeDispatch(
+        _refusing_inner, decompose=lambda goal, paths: subtasks, max_children=1
+    )
+
+    handoff = bridge(_intake_feature())
+
+    assert handoff.success is False
+    assert handoff.terminal is True
+    assert "omitted" in handoff.blocked_reason
+    assert handoff.follow_ups == []
+
+
 def test_tick_converts_intake_into_children_instead_of_parking(tmp_path):
     state_path = _seeded_state(tmp_path)
     bridge = IntakeBridgeDispatch(_refusing_inner, decompose=_two_subtasks)

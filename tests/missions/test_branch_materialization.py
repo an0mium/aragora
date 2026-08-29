@@ -666,6 +666,29 @@ class _RecordingGate:
         return True
 
 
+def test_swarm_yields_intake_to_orchestrator_without_losing_followups(tmp_path):
+    state_path = tmp_path / "state.json"
+    intake = Feature(
+        id="mission-intake",
+        description=GOAL,
+        milestone="mission",
+        metadata={"kind": "intake"},
+    )
+    MissionState(
+        mission_id="mission-e2e",
+        goal=GOAL,
+        milestones=["mission"],
+        features=[intake],
+    ).save(state_path)
+    bridge = IntakeBridgeDispatch(lambda feature: Handoff(success=True), decompose=_two_subtasks)
+
+    result = run_worker(state_path, tmp_path / "ledger.json", "w1", bridge)
+
+    assert result.awaiting_claim == ["mission-intake"]
+    assert result.done == []
+    assert MissionState.load(state_path).get("mission-intake").status == Status.PENDING
+
+
 def test_full_chain_seed_decompose_claim_executable(tmp_path):
     """The whole point of #8773: fresh seed -> auto-drain decomposes ->
     worker claims -> branch exists -> metadata.branch set -> the real
