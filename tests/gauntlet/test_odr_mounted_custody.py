@@ -32,6 +32,22 @@ def test_long_path_style_secret_identifier_is_not_key_material(monkeypatch) -> N
     assert _secret_id_contains_key_material(secret_id) is False
 
 
+def test_explicit_argument_bypasses_mounted_default(monkeypatch) -> None:
+    import aragora.gauntlet.odr_signing as signing
+
+    monkeypatch.setattr(
+        signing,
+        "_load_pem_secret_from_aws",
+        lambda secret_id, explicitly_named: (
+            "aws-pem" if secret_id == "explicit-id" and explicitly_named else None
+        ),
+    )
+    monkeypatch.setattr(signing, "_load_pem_from_mounted_custody", lambda: "mounted-pem")
+    monkeypatch.setattr(signing, "load_private_key_from_pem", lambda pem: pem)
+
+    assert load_signing_key_from_secrets(secret_name="explicit-id") == "aws-pem"
+
+
 def test_explicit_secret_identifier_is_redacted_on_failure(monkeypatch) -> None:
     from aragora.config.secrets import SecretManager, SecretsConfig
 
