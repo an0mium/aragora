@@ -4433,7 +4433,111 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update debate metadata
+         * @deprecated
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title?: string;
+                        tags?: string[];
+                        /** @enum {string} */
+                        status?: "active" | "paused" | "concluded" | "archived";
+                        metadata?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Update result with the updated debate summary */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            debate_id?: string;
+                            updated_fields?: string[];
+                            debate?: {
+                                id?: string;
+                                title?: string;
+                                status?: string;
+                                tags?: string[];
+                            };
+                        };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/debates/{id}": {
@@ -4465,7 +4569,11 @@ export interface paths {
         delete: operations["deleteDebateV1"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update debate metadata
+         * @description Update debate metadata. Supported fields: title, tags, status (active, paused, concluded, archived), and custom metadata. Use status='archived' for soft-delete.
+         */
+        patch: operations["patchDebateV1"];
         trace?: never;
     };
     "/api/debates/slug/{slug}": {
@@ -6252,7 +6360,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List batch requests
+         * @description List submitted debate batches, optionally filtered by status.
+         */
+        get: operations["listDebateBatchesV1"];
         put?: never;
         /**
          * Submit batch debates
@@ -18154,75 +18266,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pattern templates
-         * @deprecated
-         * @description Get list of available workflow pattern templates.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by pattern category */
-                    category?: string;
-                    /** @description Filter by tags (comma-separated) */
-                    tags?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of pattern templates */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PatternTemplateList"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pattern templates
-         * @description Get list of available workflow pattern templates.
-         */
-        get: operations["listPatterns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/patterns/{pattern_id}": {
         parameters: {
             query?: never;
@@ -18296,300 +18339,6 @@ export interface paths {
         get: operations["getPattern"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/hive-mind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Hive Mind workflow
-         * @deprecated
-         * @description Create a workflow from the Hive Mind pattern template.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Custom workflow name */
-                        name?: string;
-                        /** @description Task to analyze */
-                        task?: string;
-                        /** @description Agent names to include */
-                        agents?: string[];
-                        /**
-                         * @default majority
-                         * @enum {string}
-                         */
-                        consensus_mode?: "majority" | "weighted" | "unanimous";
-                        /** @default 0.7 */
-                        consensus_threshold?: number;
-                        /** @default true */
-                        include_dissent?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow created from Hive Mind pattern */
-                201: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/hive-mind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Hive Mind workflow
-         * @description Create a workflow from the Hive Mind pattern template.
-         */
-        post: operations["createPatternsHiveMind"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/map-reduce": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create MapReduce workflow
-         * @deprecated
-         * @description Create a workflow from the MapReduce pattern template.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Custom workflow name */
-                        name?: string;
-                        /**
-                         * @default chunks
-                         * @enum {string}
-                         */
-                        split_strategy?: "chunks" | "lines" | "sentences" | "paragraphs";
-                        /** @default 4000 */
-                        chunk_size?: number;
-                        /** @description Agent for map phase */
-                        map_agent?: string;
-                        /** @description Agent for reduce phase */
-                        reduce_agent?: string;
-                        /** @description Custom map prompt template */
-                        map_prompt?: string;
-                        /** @description Custom reduce prompt template */
-                        reduce_prompt?: string;
-                        /** @default 5 */
-                        parallel_limit?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow created from MapReduce pattern */
-                201: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/map-reduce": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create MapReduce workflow
-         * @description Create a workflow from the MapReduce pattern template.
-         */
-        post: operations["createPatternsMapReduce"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/patterns/review-cycle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Review Cycle workflow
-         * @deprecated
-         * @description Create a workflow from the Review Cycle pattern template.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Custom workflow name */
-                        name?: string;
-                        /** @description Task to accomplish */
-                        task?: string;
-                        /** @description Agent for drafting phase */
-                        draft_agent?: string;
-                        /** @description Agent for review phase */
-                        review_agent?: string;
-                        /** @default 3 */
-                        max_iterations?: number;
-                        /** @default 0.85 */
-                        convergence_threshold?: number;
-                        /** @description Criteria for review */
-                        review_criteria?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Workflow created from Review Cycle pattern */
-                201: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Workflow"];
-                    };
-                };
-                /** @description Bad request - Invalid input or malformed JSON */
-                400: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/patterns/review-cycle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Review Cycle workflow
-         * @description Create a workflow from the Review Cycle pattern template.
-         */
-        post: operations["createPatternsReviewCycle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -37573,106 +37322,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/devices/apple/shortcuts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Handle Apple Shortcuts request
-         * @deprecated
-         * @description API endpoint for Apple Shortcuts integration.
-         *
-         *     Allows Apple Shortcuts to:
-         *     - Start debates
-         *     - Get debate status
-         *     - Submit votes
-         *     - Get summaries
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        action: "start_debate" | "get_status" | "vote" | "summarize";
-                        params?: Record<string, never>;
-                    };
-                };
-            };
-            responses: {
-                /** @description Shortcuts response */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            result?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Unauthorized - Authentication required or token invalid */
-                401: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/devices/apple/shortcuts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Handle Apple Shortcuts request
-         * @description API endpoint for Apple Shortcuts integration.
-         *
-         *     Allows Apple Shortcuts to:
-         *     - Start debates
-         *     - Get debate status
-         *     - Submit votes
-         *     - Get summaries
-         */
-        post: operations["handleAppleShortcuts"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/onboarding/flow": {
         parameters: {
             query?: never;
@@ -39263,50 +38912,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/verification/proofs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List verification proofs
-         * @deprecated
-         * @description Return stored verification proofs and associated metadata for prior verification runs.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Proofs list */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>[];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/verification/proofs": {
         parameters: {
             query?: never;
@@ -39327,50 +38932,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/verification/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate claims
-         * @deprecated
-         * @description Validate supplied claims or evidence and return a verification result payload.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Validation result */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/verification/validate": {
         parameters: {
             query?: never;
@@ -39385,134 +38946,6 @@ export interface paths {
          * @description Validate supplied claims or evidence and return a verification result payload.
          */
         post: operations["createVerificationValidate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/calibration/curve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration curve
-         * @deprecated
-         * @description Fetch calibration-curve data used to evaluate model or agent confidence quality.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration curve data */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/calibration/curve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration curve
-         * @description Fetch calibration-curve data used to evaluate model or agent confidence quality.
-         */
-        get: operations["getCalibrationCurve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/calibration/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration history
-         * @deprecated
-         * @description List historical calibration measurements and snapshots for supported agents or systems.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Calibration history */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>[];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/calibration/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get calibration history
-         * @description List historical calibration measurements and snapshots for supported agents or systems.
-         */
-        get: operations["getCalibrationHistory"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -40225,50 +39658,6 @@ export interface paths {
         get: operations["getMatch"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/quotas/request-increase": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request quota increase
-         * @deprecated
-         * @description Submit a quota increase request for review.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Request submitted */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -41777,6 +41166,46 @@ export interface paths {
          * @description Get receipt statistics.
          */
         get: operations["getReceiptStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/receipts/signing-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get ODR signing public key
+         * @description Return the Ed25519 public key (PEM) used to sign Open Decision Receipts on this deployment, with the derived key id. Public trust anchor for offline verification via aragora-verify; no authentication required. Also served as raw PEM at /.well-known/aragora-odr-signing-key. Returns 404 when no signing key is configured.
+         */
+        get: operations["getReceiptSigningKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/.well-known/aragora-odr-signing-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get ODR signing public key (raw PEM)
+         * @description Well-known alias of /api/v2/receipts/signing-key serving the Ed25519 public key as raw PEM (application/x-pem-file). Unauthenticated by design. Returns 404 when no signing key is configured.
+         */
+        get: operations["getReceiptSigningKeyWellKnown"];
         put?: never;
         post?: never;
         delete?: never;
@@ -47227,7 +46656,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -47254,54 +46707,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/export/batch/{param}/status": {
@@ -47311,10 +46720,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -47333,68 +46740,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/export/batch/{param}/results": {
@@ -47404,10 +46763,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -47426,68 +46783,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/export/batch/{param}/stream": {
@@ -47497,10 +46806,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -47519,68 +46826,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/slug": {
@@ -47617,54 +46876,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/export": {
@@ -47704,60 +46919,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/followups": {
@@ -47797,60 +46962,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/forks": {
@@ -47890,60 +47005,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/decision-integrity": {
@@ -47983,60 +47048,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/positions": {
@@ -48076,60 +47091,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/costs": {
@@ -48169,60 +47134,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debate-this": {
@@ -48259,54 +47174,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/analytics/consensus": {
@@ -48343,54 +47214,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/analytics/trends": {
@@ -48427,54 +47254,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/archive/batch": {
@@ -48511,54 +47294,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/archived": {
@@ -48595,54 +47334,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/compare": {
@@ -48679,54 +47374,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/health": {
@@ -48736,10 +47387,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -48755,62 +47404,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/import": {
@@ -48847,54 +47454,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/statistics": {
@@ -48904,10 +47467,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -48923,62 +47484,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/stream": {
@@ -48988,10 +47507,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -49007,62 +47524,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/debates/{param}/events": {
@@ -49102,60 +47577,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/agents/configs": {
@@ -53405,10 +51830,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -53424,40 +51847,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/debate-topic": {
@@ -53497,29 +51900,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/status": {
@@ -53529,10 +51910,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -53548,40 +51927,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/start": {
@@ -53621,29 +51980,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/stop": {
@@ -53683,29 +52020,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/pause": {
@@ -53745,29 +52060,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/resume": {
@@ -53807,29 +52100,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/config": {
@@ -53841,31 +52112,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -53901,10 +52148,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -53920,40 +52165,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/pulse/scheduler/analytics": {
@@ -53963,10 +52188,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -53982,40 +52205,20 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/analytics/consensus-quality": {
@@ -59607,89 +57810,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/slos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/slos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/slo/status": {
         parameters: {
             query?: never;
@@ -60818,34 +58938,7 @@ export interface paths {
             };
         };
         put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -60885,31 +58978,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -60923,34 +58992,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -60993,31 +59035,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -61057,37 +59075,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -61133,34 +59121,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -61235,37 +59196,7 @@ export interface paths {
             };
         };
         put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -61308,34 +59239,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -61406,32 +59310,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -61495,29 +59374,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -61530,34 +59387,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -61587,32 +59417,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -61625,31 +59430,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -61676,29 +59457,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -61740,60 +59499,8 @@ export interface paths {
             };
         };
         put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -61832,54 +59539,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63290,6 +60951,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/memory/store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/memory/compact": {
         parameters: {
             query?: never;
@@ -63324,29 +61025,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63386,29 +61065,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63448,29 +61105,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63510,29 +61145,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63572,29 +61185,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63634,29 +61225,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63696,29 +61265,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63758,29 +61305,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63820,29 +61345,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63882,29 +61385,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -63944,29 +61425,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64009,32 +61468,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64074,91 +61508,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/memory/tier": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64198,91 +61548,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/memory": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64325,32 +61591,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64393,32 +61634,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -64461,14 +61677,30 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/memory/continuum/{memory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /** Autogenerated placeholder (spec pending) */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    /** @description Path parameter: param */
-                    param: string;
+                    /** @description Path parameter: memory_id */
+                    memory_id: string;
                 };
                 cookie?: never;
             };
@@ -65055,29 +62287,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65090,10 +62300,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -65109,37 +62317,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65179,29 +62367,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65214,10 +62380,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -65233,37 +62397,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65276,10 +62420,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -65295,37 +62437,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65365,29 +62487,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65427,29 +62527,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -65462,10 +62540,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -65481,37 +62557,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -66954,12 +64010,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -66975,66 +64030,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -67047,9 +64053,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -67065,60 +64070,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -67180,6 +64142,95 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{param}/calibration-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agents/{param}/calibration-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -69720,7 +66771,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -69750,32 +66828,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -69788,7 +66841,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -69815,29 +66892,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -70215,29 +67270,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -70277,29 +67310,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -72167,46 +69178,6 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/knowledge/mound/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/knowledge/mound/graph": {
         parameters: {
             query?: never;
             header?: never;
@@ -74609,46 +71580,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/chat/knowledge/channel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -80048,9 +76979,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -80066,12 +76996,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -80097,54 +77030,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/integrations/available": {
@@ -80154,9 +77043,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -80172,312 +77060,23 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/integrations/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/integrations/{param}/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/api/v1/integrations/zapier/apps": {
         parameters: {
             query?: never;
             header?: never;
@@ -80511,8 +77110,64 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{param}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        delete: {
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/zapier/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -80528,12 +77183,41 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            deleted?: boolean;
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80546,7 +77230,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -80573,29 +77281,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80608,7 +77294,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -80635,29 +77345,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80697,29 +77385,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80732,10 +77398,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -80751,37 +77415,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80794,7 +77438,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -80821,29 +77489,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80883,29 +77529,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -80918,10 +77542,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -80937,37 +77559,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -81007,29 +77609,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -81069,29 +77649,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -83868,136 +80426,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/review-queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/review-queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/review-queue/{param}": {
         parameters: {
             query?: never;
@@ -84038,35 +80466,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84109,32 +80509,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84590,10 +80965,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -84609,37 +80982,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84652,10 +81005,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -84671,37 +81022,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84741,29 +81072,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84803,29 +81112,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -84865,54 +81152,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/webhooks/bulk": {
@@ -84949,54 +81192,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/webhooks/pause-all": {
@@ -85033,54 +81232,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/webhooks/resume-all": {
@@ -85117,54 +81272,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/codebase/scan": {
@@ -87465,37 +83576,7 @@ export interface paths {
             };
         };
         put?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -87538,34 +83619,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -87606,29 +83660,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87668,29 +83700,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87730,29 +83740,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87792,29 +83780,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87827,10 +83793,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -87849,40 +83813,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87925,32 +83866,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -87993,32 +83909,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -88802,9 +84693,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -88820,60 +84710,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -88887,29 +84734,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -88935,29 +84760,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -88971,29 +84774,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -89019,29 +84800,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -89054,9 +84813,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -89072,12 +84830,55 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -89131,112 +84932,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflows/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
     "/api/v1/workflows/executions": {
         parameters: {
             query?: never;
@@ -89244,9 +84939,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -89262,12 +84956,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -89318,29 +85015,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/workflow/pattern-templates": {
@@ -91183,31 +86858,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -91234,29 +86885,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91295,54 +86924,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91355,31 +86938,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -91406,29 +86965,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91441,31 +86978,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -91492,29 +87005,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91553,54 +87044,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91613,31 +87058,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -91664,29 +87085,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91725,54 +87124,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91785,31 +87138,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -91836,29 +87165,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91900,60 +87207,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -91995,60 +87250,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -93296,9 +88499,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -93314,12 +88516,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -93345,54 +88550,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/scim/v2/Groups": {
@@ -93402,9 +88563,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /** Autogenerated placeholder (spec pending) */
-        put: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -93420,12 +88580,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -93451,54 +88614,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/approvals": {
@@ -101141,10 +96260,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101160,37 +96277,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101203,10 +96300,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101222,37 +96317,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101292,29 +96367,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101327,7 +96380,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -101357,32 +96437,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101395,7 +96450,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -101422,29 +96501,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101487,32 +96544,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101552,29 +96584,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101587,7 +96597,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /**
          * Autogenerated placeholder (spec pending)
@@ -101617,32 +96654,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101655,7 +96667,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -101682,29 +96718,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101717,13 +96731,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101739,40 +96751,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101785,10 +96774,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101804,37 +96791,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101847,13 +96814,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101869,40 +96834,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101915,10 +96857,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101934,37 +96874,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -101977,13 +96897,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -101999,40 +96917,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102045,10 +96940,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -102064,37 +96957,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102137,32 +97010,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102202,29 +97050,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102237,13 +97063,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -102259,40 +97083,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102305,10 +97106,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -102324,37 +97123,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102367,13 +97146,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -102389,40 +97166,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102435,10 +97189,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -102454,37 +97206,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -102894,8 +97626,9 @@ export interface paths {
         };
         put?: never;
         /**
-         * Autogenerated placeholder (spec pending)
+         * Initialize onboarding flow
          * @deprecated
+         * @description Start a new onboarding flow for the authenticated user. Optionally specify a use case, quick-start profile, or a step to skip to.
          */
         post: {
             parameters: {
@@ -102904,19 +97637,81 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Pre-defined use case for personalized onboarding
+                         * @enum {string}
+                         */
+                        use_case?: "team_decisions" | "architecture_review" | "security_audit" | "policy_review" | "vendor_selection" | "technical_planning" | "compliance" | "general";
+                        /**
+                         * @description Quick-start profile for immediate value
+                         * @enum {string}
+                         */
+                        quick_start_profile?: "developer" | "security" | "executive" | "product" | "compliance" | "sme";
+                        /**
+                         * @description Step to skip forward to
+                         * @enum {string}
+                         */
+                        skip_to_step?: "welcome" | "use_case" | "organization" | "team_invite" | "template_select" | "first_debate" | "receipt_review" | "completion";
+                    };
+                };
+            };
             responses: {
-                /** @description OK */
+                /** @description Onboarding flow initialized */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
+                            flow_id?: string;
+                            current_step?: string;
+                            use_case?: string | null;
+                            quick_start_profile?: string | null;
+                            recommended_templates?: components["schemas"]["StarterTemplate"][];
+                            message?: string;
                         };
+                    };
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -103149,31 +97944,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         /** Autogenerated placeholder (spec pending) */
         put: {
             parameters: {
@@ -103197,31 +97968,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -103388,60 +98135,10 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /** Autogenerated placeholder (spec pending) */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/rbac/permissions": {
@@ -107197,46 +101894,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/debates/public": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/debates/public/{param}/og": {
         parameters: {
             query?: never;
@@ -107317,32 +101974,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -107385,32 +102017,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -107669,7 +102276,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         /** Autogenerated placeholder (spec pending) */
         put: {
             parameters: {
@@ -107693,31 +102324,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -107732,29 +102339,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -108894,31 +103479,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Response data */
-                            data?: Record<string, never>;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
@@ -108945,29 +103506,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -109006,54 +103545,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -109092,54 +103585,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -109178,54 +103625,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -109264,54 +103665,8 @@ export interface paths {
             };
         };
         put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -111964,10 +106319,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -111983,37 +106336,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112026,10 +106359,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /** Autogenerated placeholder (spec pending) */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -112045,37 +106376,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
+                            /** @description Response data */
+                            data?: Record<string, never>;
                             success?: boolean;
                         };
                     };
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112115,29 +106426,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112177,29 +106466,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112301,29 +106568,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112363,29 +106608,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            deleted?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112409,46 +106632,6 @@ export interface paths {
                     /** @description Path parameter: param */
                     param: string;
                 };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/shared": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
@@ -114734,7 +108917,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
@@ -114761,34 +108971,7 @@ export interface paths {
                 };
             };
         };
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -114802,7 +108985,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         /** Autogenerated placeholder (spec pending) */
         put: {
             parameters: {
@@ -114826,31 +109033,7 @@ export interface paths {
                 };
             };
         };
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -115031,35 +109214,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
@@ -115105,32 +109260,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -115173,35 +109303,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Autogenerated placeholder (spec pending)
-         * @deprecated
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /**
          * Autogenerated placeholder (spec pending)
          * @deprecated
@@ -115247,32 +109349,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Autogenerated placeholder (spec pending) */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Path parameter: param */
-                    param: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
+        put?: never;
         /** Autogenerated placeholder (spec pending) */
         post: {
             parameters: {
@@ -118597,6 +112674,2059 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/credits/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/admin/credits/{org_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/credits/{org_id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/admin/credits/{org_id}/adjust
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/credits/{org_id}/expiring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/admin/credits/{org_id}/expiring
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/credits/{org_id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/admin/credits/{org_id}/issue
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/credits/{org_id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/admin/credits/{org_id}/transactions
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/costs/recommendations/{recommendation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/costs/recommendations/{recommendation_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/costs/routes.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: recommendation_id */
+                    recommendation_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/email/daily-digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/email/daily-digest
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/email/sender-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/email/sender-profile
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/inbox/actions
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/bulk-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/inbox/bulk-actions
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/inbox/command
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/daily-digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/inbox/daily-digest
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/reprioritize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/inbox/reprioritize
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/sender-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/inbox/sender-profile
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/inbox_command.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/integrations/status
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/integrations/{type}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: type */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        /**
+         * PUT /api/integrations/{type}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: type */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Integration configuration updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            integration: {
+                                type: string;
+                                enabled: boolean;
+                                created_at?: number;
+                                updated_at?: number;
+                                notify_on_consensus?: boolean;
+                                notify_on_debate_end?: boolean;
+                                notify_on_error?: boolean;
+                                notify_on_leaderboard?: boolean;
+                                settings?: {
+                                    [key: string]: unknown;
+                                };
+                                messages_sent?: number;
+                                errors_24h?: number;
+                                last_activity?: number | null;
+                                last_error?: string | null;
+                                user_id?: string | null;
+                                workspace_id?: string | null;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Integration configuration created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            integration: {
+                                type: string;
+                                enabled: boolean;
+                                created_at?: number;
+                                updated_at?: number;
+                                notify_on_consensus?: boolean;
+                                notify_on_debate_end?: boolean;
+                                notify_on_error?: boolean;
+                                notify_on_leaderboard?: boolean;
+                                settings?: {
+                                    [key: string]: unknown;
+                                };
+                                messages_sent?: number;
+                                errors_24h?: number;
+                                last_activity?: number | null;
+                                last_error?: string | null;
+                                user_id?: string | null;
+                                workspace_id?: string | null;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * DELETE /api/integrations/{type}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: type */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * PATCH /api/integrations/{type}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: type */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/integrations/{type}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/integrations/{type}/test
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/features/integrations.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: type */
+                    type: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/authorize
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/capture
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/charge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/charge
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/customer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/customer
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/customer/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/payments/customer/{customer_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        /**
+         * PUT /api/payments/customer/{customer_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * DELETE /api/payments/customer/{customer_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/refund
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/subscription
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/subscription/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/payments/subscription/{subscription_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        /**
+         * PUT /api/payments/subscription/{subscription_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * DELETE /api/payments/subscription/{subscription_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/transaction/{transaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/payments/transaction/{transaction_id}
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: transaction_id */
+                    transaction_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/void
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/webhook/authnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/webhook/authnet
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/webhook/stripe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/payments/webhook/stripe
+         * @deprecated
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/credits/{org_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/admin/credits/{org_id}
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/credits/{org_id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/v1/admin/credits/{org_id}/adjust
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/credits/{org_id}/expiring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/admin/credits/{org_id}/expiring
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/credits/{org_id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/v1/admin/credits/{org_id}/issue
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/credits/{org_id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/admin/credits/{org_id}/transactions
+         * @description Served route registered by aragora/server/handlers/admin/credits.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: org_id */
+                    org_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/customer/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/payments/customer/{customer_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        /**
+         * PUT /api/v1/payments/customer/{customer_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * DELETE /api/v1/payments/customer/{customer_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: customer_id */
+                    customer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/subscription/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/payments/subscription/{subscription_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        /**
+         * PUT /api/v1/payments/subscription/{subscription_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * DELETE /api/v1/payments/subscription/{subscription_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: subscription_id */
+                    subscription_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/transaction/{transaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /api/v1/payments/transaction/{transaction_id}
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: transaction_id */
+                    transaction_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/webhook/authnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/v1/payments/webhook/authnet
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/webhook/stripe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /api/v1/payments/webhook/stripe
+         * @description Served route registered by aragora/server/handlers/payments/plans.py. Auto-generated from wired route registration; detailed contract pending.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            responses: {
+                /** @description Success */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -121633,7 +117763,7 @@ export interface components {
          *       "num_agents": 3,
          *       "num_rounds": 9,
          *       "model_types": [
-         *         "claude-opus-4-7",
+         *         "claude-opus-5",
          *         "gpt-4o",
          *         "gemini-pro"
          *       ]
@@ -121653,7 +117783,7 @@ export interface components {
             /**
              * @description Model types to use
              * @example [
-             *       "claude-opus-4-7",
+             *       "claude-opus-5",
              *       "gpt-4o",
              *       "gemini-pro"
              *     ]
@@ -124117,6 +120247,106 @@ export interface operations {
             };
         };
     };
+    patchDebateV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    tags?: string[];
+                    /** @enum {string} */
+                    status?: "active" | "paused" | "concluded" | "archived";
+                    metadata?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Update result with the updated debate summary */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        updated_fields?: string[];
+                        debate?: {
+                            id?: string;
+                            title?: string;
+                            status?: string;
+                            tags?: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getDebateBySlug: {
         parameters: {
             query?: never;
@@ -126129,6 +122359,51 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDebateBatchesV1: {
+        parameters: {
+            query?: {
+                /** @description Maximum batches to return. */
+                limit?: number;
+                /** @description Filter by batch status (pending, processing, completed, ...). */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batch list */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batches?: Record<string, never>[];
+                        count?: number;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -134249,35 +130524,6 @@ export interface operations {
             };
         };
     };
-    listPatterns: {
-        parameters: {
-            query?: {
-                /** @description Filter by pattern category */
-                category?: string;
-                /** @description Filter by tags (comma-separated) */
-                tags?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of pattern templates */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatternTemplateList"];
-                };
-            };
-        };
-    };
     getPattern: {
         parameters: {
             query?: never;
@@ -134304,180 +130550,6 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsHiveMind: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to analyze */
-                    task?: string;
-                    /** @description Agent names to include */
-                    agents?: string[];
-                    /**
-                     * @default majority
-                     * @enum {string}
-                     */
-                    consensus_mode?: "majority" | "weighted" | "unanimous";
-                    /** @default 0.7 */
-                    consensus_threshold?: number;
-                    /** @default true */
-                    include_dissent?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Hive Mind pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsMapReduce: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /**
-                     * @default chunks
-                     * @enum {string}
-                     */
-                    split_strategy?: "chunks" | "lines" | "sentences" | "paragraphs";
-                    /** @default 4000 */
-                    chunk_size?: number;
-                    /** @description Agent for map phase */
-                    map_agent?: string;
-                    /** @description Agent for reduce phase */
-                    reduce_agent?: string;
-                    /** @description Custom map prompt template */
-                    map_prompt?: string;
-                    /** @description Custom reduce prompt template */
-                    reduce_prompt?: string;
-                    /** @default 5 */
-                    parallel_limit?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from MapReduce pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createPatternsReviewCycle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Custom workflow name */
-                    name?: string;
-                    /** @description Task to accomplish */
-                    task?: string;
-                    /** @description Agent for drafting phase */
-                    draft_agent?: string;
-                    /** @description Agent for review phase */
-                    review_agent?: string;
-                    /** @default 3 */
-                    max_iterations?: number;
-                    /** @default 0.85 */
-                    convergence_threshold?: number;
-                    /** @description Criteria for review */
-                    review_criteria?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Workflow created from Review Cycle pattern */
-            201: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workflow"];
-                };
-            };
-            /** @description Bad request - Invalid input or malformed JSON */
-            400: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -152274,16 +148346,65 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Integration configured */
+            /** @description Integration configuration updated */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        type?: string;
-                        configured?: boolean;
-                        message?: string;
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Integration configuration created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        integration: {
+                            type: string;
+                            enabled: boolean;
+                            created_at?: number;
+                            updated_at?: number;
+                            notify_on_consensus?: boolean;
+                            notify_on_debate_end?: boolean;
+                            notify_on_error?: boolean;
+                            notify_on_leaderboard?: boolean;
+                            settings?: {
+                                [key: string]: unknown;
+                            };
+                            messages_sent?: number;
+                            errors_24h?: number;
+                            last_activity?: number | null;
+                            last_error?: string | null;
+                            user_id?: string | null;
+                            workspace_id?: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
@@ -164631,54 +160752,6 @@ export interface operations {
             };
         };
     };
-    handleAppleShortcuts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    action: "start_debate" | "get_status" | "vote" | "summarize";
-                    params?: Record<string, never>;
-                };
-            };
-        };
-        responses: {
-            /** @description Shortcuts response */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        result?: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Unauthorized - Authentication required or token invalid */
-            401: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getOnboardingFlow: {
         parameters: {
             query?: {
@@ -171077,54 +167150,6 @@ export interface operations {
             };
         };
     };
-    getCalibrationCurve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration curve data */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    getCalibrationHistory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Calibration history */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-        };
-    };
     getFlip: {
         parameters: {
             query?: never;
@@ -173752,6 +169777,106 @@ export interface operations {
             };
             /** @description Unauthorized - Authentication required or token invalid */
             401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getReceiptSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signing public key */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        algorithm?: string;
+                        key_id?: string;
+                        public_key_pem?: string;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getReceiptSigningKeyWellKnown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PEM-encoded Ed25519 public key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-pem-file": string;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;

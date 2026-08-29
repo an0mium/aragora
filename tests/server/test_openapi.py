@@ -139,6 +139,108 @@ class TestEndpoints:
                 assert "responses" in spec, f"{path} {method} missing responses"
 
 
+class TestSDKReferencedEndpointRegistrations:
+    """Live, SDK-referenced, stability-manifest-pinned endpoints must be registered.
+
+    GET proofs is served at runtime via handlers/verification/verification.py
+    ROUTES dispatch; the quotas path is claimed by
+    UsageMeteringHandler.can_handle, and its POST branch is served by
+    handle()'s dedicated request-increase action-literal dispatch.
+    Both were invisible to the generator, so any aggregate-spec sync dropped
+    them and regressed verify_sdk_contracts --strict.
+    """
+
+    def test_verification_proofs_get_defined(self):
+        """GET /api/v1/verification/proofs is registered with its served method."""
+        assert "/api/v1/verification/proofs" in ALL_ENDPOINTS
+        endpoint = ALL_ENDPOINTS["/api/v1/verification/proofs"]
+        assert "get" in endpoint
+        assert endpoint["get"]["tags"] == ["Verification"]
+        assert endpoint["get"]["operationId"] == "listVerificationProofs"
+
+    def test_verification_proofs_get_documents_runtime_contract(self):
+        """The proofs GET documents the runtime envelope, params, and auth.
+
+        _get_proofs returns an object envelope (proofs/filters/limit/total),
+        accepts debate_id/proof_type/limit query params, and sits behind
+        require_permission — not a bare array on an unauthenticated route.
+        Its degraded z3-unavailable envelope (proofs/available/hint) is
+        documented via optional available/hint properties.
+        """
+        op = ALL_ENDPOINTS["/api/v1/verification/proofs"]["get"]
+        schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+        assert schema["type"] == "object"
+        assert schema["properties"]["proofs"]["type"] == "array"
+        assert {"filters", "limit", "total"} <= set(schema["properties"])
+        # Degraded envelope (z3 unavailable): {proofs, available, hint} only.
+        assert schema["properties"]["available"]["type"] == "boolean"
+        assert schema["properties"]["hint"]["type"] == "string"
+        param_names = {p["name"] for p in op["parameters"]}
+        assert param_names == {"debate_id", "proof_type", "limit"}
+        assert op["security"] == [{"bearerAuth": []}]
+
+    def test_quotas_request_increase_post_defined(self):
+        """POST /api/v1/quotas/request-increase is registered."""
+        assert "/api/v1/quotas/request-increase" in ALL_ENDPOINTS
+        endpoint = ALL_ENDPOINTS["/api/v1/quotas/request-increase"]
+        assert "post" in endpoint
+        assert endpoint["post"]["tags"] == ["Quotas"]
+        assert endpoint["post"]["operationId"] == "createQuotaIncreaseRequest"
+
+    def test_quotas_request_increase_post_documents_runtime_contract(self):
+        """The quotas POST documents the served contract runtime-true.
+
+        _request_quota_increase (handlers/usage_metering.py) sits behind
+        require_permission("org:billing"), reads a JSON body with required
+        resource plus optional requested_limit/reason (justification accepted
+        as the python SDK's documented alias), and returns the submission
+        receipt echoing the request plus org/submitter/timestamp metadata.
+        """
+        op = ALL_ENDPOINTS["/api/v1/quotas/request-increase"]["post"]
+        assert op["security"] == [{"bearerAuth": []}]
+        body = op["requestBody"]
+        assert body["required"] is True
+        schema = body["content"]["application/json"]["schema"]
+        assert schema["required"] == ["resource"]
+        assert {"resource", "requested_limit", "reason", "justification"} <= set(
+            schema["properties"]
+        )
+        receipt = op["responses"]["200"]["content"]["application/json"]["schema"]
+        assert {
+            "request_id",
+            "status",
+            "resource",
+            "requested_limit",
+            "reason",
+            "org_id",
+            "submitted_by",
+            "submitted_at",
+        } <= set(receipt["properties"])
+
+    def test_generated_schema_emits_pinned_operations(self):
+        """Generator emits the stability-pinned v1 operations."""
+        schema = generate_openapi_schema()
+        paths = schema["paths"]
+        assert "get" in paths["/api/v1/verification/proofs"]
+        assert "post" in paths["/api/v1/quotas/request-increase"]
+
+    def test_v1_proofs_get_replaces_inferred_post_placeholder(self):
+        """The real GET registration displaces the wrong-method autogen POST."""
+        schema = generate_openapi_schema()
+        entry = schema["paths"]["/api/v1/verification/proofs"]
+        assert "post" not in entry
+        assert entry["get"].get("x-method-inferred") is not True
+        assert entry["get"]["operationId"] == "listVerificationProofs"
+
+    def test_no_unserved_legacy_aliases_emitted(self):
+        """No unversioned aliases: the dispatcher passes raw paths with no
+        legacy<->v1 aliasing and the handlers claim only the v1 literals, so a
+        legacy alias would be a spec-orphan (validate_openapi_routes)."""
+        schema = generate_openapi_schema()
+        assert "/api/verification/proofs" not in schema["paths"]
+        assert "/api/quotas/request-increase" not in schema["paths"]
+
+
 class TestGenerateOpenAPISchema:
     """Tests for schema generation function."""
 

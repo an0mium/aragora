@@ -66,7 +66,11 @@ def _node_base_images(dockerfile: str) -> list[str]:
 
 
 def test_frontend_container_images_use_supported_node_lts() -> None:
-    for relative_path in ("deploy/Dockerfile.frontend", "aragora/live/Dockerfile"):
+    # deploy/Dockerfile.frontend is the single frontend image definition. The old
+    # aragora/live/Dockerfile was deleted because it could never build: its
+    # file:../../sdk/typescript dependency resolves outside an aragora/live-scoped
+    # build context. Keep this list in sync if another frontend image is ever added.
+    for relative_path in ("deploy/Dockerfile.frontend",):
         dockerfile = (ROOT / relative_path).read_text(encoding="utf-8")
         node_images = _node_base_images(dockerfile)
 
