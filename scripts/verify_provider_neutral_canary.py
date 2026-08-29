@@ -132,7 +132,7 @@ def _check_build(client: Transport, base_url: str, expected_sha: str) -> dict[st
     payload = _json(response) if response.status == 200 else {}
     actual = str(payload.get("sha") or "")
     return {
-        "ok": response.status == 200 and bool(actual) and actual.startswith(expected_sha),
+        "ok": response.status == 200 and actual == expected_sha,
         "status": response.status,
         "expected_sha": expected_sha,
         "actual_sha": actual,
@@ -224,7 +224,7 @@ def _persistence_before(
         "POST",
         _url(base_url, endpoint),
         headers=headers,
-        payload={"url": callback_url, "events": ["*"], "name": f"canary-{marker}"},
+        payload={"url": callback_url, "events": ["canary_probe"], "name": f"canary-{marker}"},
     )
     if response.status == 404:
         endpoint = "/api/v1/webhooks"

@@ -59,7 +59,9 @@ class FakeTransport:
         if path.endswith("/.well-known/aragora-odr-signing-key"):
             return Response(200, {"X-Aragora-Key-Id": self.key_id}, self.pem.encode("utf-8"))
         if method == "POST" and path.endswith("/api/v1/webhook-configs"):
-            assert payload["events"] == ["*"]
+            assert set(payload) == {"url", "events", "name"}
+            assert payload["events"] == ["canary_probe"]
+            assert payload["name"].startswith("canary-")
             self.callback_url = payload["url"]
             return self._response(
                 201,
@@ -184,9 +186,9 @@ def test_legacy_webhook_fallback_persists_selected_endpoint(tmp_path: Path) -> N
     ]
 
 
-def test_wrong_build_sha_fails_closed(tmp_path: Path) -> None:
+def test_non_exact_build_sha_fails_closed(tmp_path: Path) -> None:
     key, receipt_path = _receipt(tmp_path)
-    transport = FakeTransport(public_key_pem(key), build_sha="c" * 40)
+    transport = FakeTransport(public_key_pem(key), build_sha=SHA + "-unexpected-suffix")
 
     report = run_verification(_args(tmp_path, receipt_path, "before-restart"), transport)
 
@@ -274,6 +276,19 @@ def test_invalid_auth_token_is_recorded(tmp_path: Path) -> None:
     token_path = Path(args.secrets_dir) / "canary-auth-token"
     token_path.write_text("server-bootstrap-token", encoding="utf-8")
     token_path.chmod(0o600)
+
+    report = run_verification(args, FakeTransport(public_key_pem(key)))
+
+    assert report["ok"] is False
+    assert report["checks"]["custody"]["error_type"] == "RuntimeError"
+
+
+def test_bootstrap_token_reuse_is_rejected(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    bootstrap_path = Path(args.secrets_dir) / "ARAGORA_API_TOKEN"
+    bootstrap_path.write_text(TOKEN, encoding="utf-8")
+    bootstrap_path.chmod(0o600)
 
     report = run_verification(args, FakeTransport(public_key_pem(key)))
 
