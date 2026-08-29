@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Run Aragora migrations after loading DATABASE_URL from mounted custody."""
+"""Run migrations after reading only DATABASE_URL from mounted custody."""
 
 from __future__ import annotations
 

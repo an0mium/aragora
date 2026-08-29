@@ -102,14 +102,9 @@ def test_rejects_open_permissions_and_symlink(tmp_path: Path) -> None:
 
 
 def _load_migration_module():
-    import importlib.util
+    from aragora.ops import provider_neutral_migrations
 
-    path = Path(__file__).resolve().parents[2] / "deploy/provider-neutral/run_migrations.py"
-    spec = importlib.util.spec_from_file_location("provider_neutral_run_migrations", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return provider_neutral_migrations
 
 
 def _patch_migration_manager(monkeypatch, run_migrations, tmp_path, database_url):
@@ -174,7 +169,7 @@ def test_database_wait_uses_parsed_host_without_credentials(monkeypatch) -> None
     assert calls == [(("db.example", 5433), 2.0)]
 
 
-def test_compose_mounts_migration_script_under_existing_app_path() -> None:
+def test_compose_runs_digest_built_migration_module() -> None:
     import yaml
 
     compose_path = (
@@ -182,7 +177,11 @@ def test_compose_mounts_migration_script_under_existing_app_path() -> None:
     )
     compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
     migrate = compose["services"]["migrate"]
-    assert migrate["command"] == ["python", "/app/run_migrations.py"]
-    assert "./run_migrations.py:/app/run_migrations.py:ro" in migrate["volumes"]
+    assert migrate["command"] == [
+        "python",
+        "-m",
+        "aragora.ops.provider_neutral_migrations",
+    ]
+    assert all("run_migrations.py" not in volume for volume in migrate["volumes"])
     assert compose["x-aragora-common"]["read_only"] is True
     assert compose["x-aragora-common"]["user"].startswith("${ARAGORA_RUNTIME_UID")
