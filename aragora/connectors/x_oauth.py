@@ -15,10 +15,13 @@ Environment variables ``X_OAUTH2_ACCESS_TOKEN`` / ``X_OAUTH2_REFRESH_TOKEN`` /
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import logging
 import os
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,7 +78,7 @@ class XOAuthTokenStore:
         )
 
     def save(self, tokens: XOAuthTokens) -> None:
-        """Persist tokens (0600) — must run immediately after every rotation."""
+        """Persist tokens (0600 from creation) — runs after every rotation."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "access_token": tokens.access_token,
@@ -83,11 +86,27 @@ class XOAuthTokenStore:
             "client_id": tokens.client_id,
             "expires_at": tokens.expires_at,
         }
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        # O_CREAT with 0600 so the file never exists world-readable, even
+        # briefly; O_TRUNC covers rewrites of an existing file.
+        fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2)
+
+    @contextlib.contextmanager
+    def _flock(self) -> Iterator[None]:
+        """Cross-process exclusive lock: X rotates the refresh token on every
+        refresh, so a CLI run racing the launchd digest could persist a stale
+        pair and strand the grant. All refresh decisions happen under this
+        lock, re-reading the file first."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.path.with_suffix(self.path.suffix + ".lock")
+        fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT, 0o600)
         try:
-            self.path.chmod(0o600)
-        except OSError:  # pragma: no cover - platform-dependent
-            pass
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
     async def refresh(self, tokens: XOAuthTokens) -> XOAuthTokens | None:
         """Refresh the access token; persists the rotated pair on success."""
@@ -132,10 +151,16 @@ class XOAuthTokenStore:
         return refreshed
 
     async def get_valid(self) -> XOAuthTokens | None:
-        """Return a non-expired token pair, refreshing if needed."""
+        """Return a non-expired token pair, refreshing (under lock) if needed."""
         tokens = self.load()
         if tokens is None:
             return None
         if tokens.is_expired or not tokens.access_token:
-            return await self.refresh(tokens)
+            with self._flock():
+                # Another process may have refreshed while we waited for the
+                # lock — reload and only refresh if still needed.
+                tokens = self.load() or tokens
+                if not (tokens.is_expired or not tokens.access_token):
+                    return tokens
+                return await self.refresh(tokens)
         return tokens

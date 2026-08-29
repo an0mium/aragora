@@ -86,6 +86,12 @@ def main() -> int:
         help="Localhost port of the registered callback URI (default: %(default)s)",
     )
     parser.add_argument(
+        "--wait-seconds",
+        type=int,
+        default=300,
+        help="How long to wait for the browser consent callback (default: %(default)s)",
+    )
+    parser.add_argument(
         "--token-path",
         default=".aragora/x_intake/oauth.json",
         help="Where to store the token pair",
@@ -124,13 +130,13 @@ def main() -> int:
     print(authorize)
     print(f"\nWaiting for the callback on {redirect_uri} ...")
 
-    deadline = time.time() + 300
+    deadline = time.time() + args.wait_seconds
     while _CallbackHandler.code is None and time.time() < deadline:
         time.sleep(0.5)
     server.shutdown()
 
     if not _CallbackHandler.code:
-        print("Timed out waiting for authorization (5 min).", file=sys.stderr)
+        print(f"Timed out waiting for authorization ({args.wait_seconds}s).", file=sys.stderr)
         return 1
 
     body = urllib.parse.urlencode(

@@ -75,6 +75,18 @@ if ! [[ "${INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]; then
     echo "interval must be numeric" >&2
     exit 2
 fi
+if ! [[ "${MAX_ITEMS}" =~ ^[0-9]+$ ]]; then
+    echo "--max-items must be numeric" >&2
+    exit 2
+fi
+# REPO_ROOT is interpolated into a bash -lc string inside the plist; refuse
+# paths that could break out of the quoting.
+case "${REPO_ROOT}" in
+    *'"'*|*'$'*|*'`'*|*'&'*|*'<'*|*'>'*)
+        echo "repo root contains shell/XML metacharacters unsafe for the plist: ${REPO_ROOT}" >&2
+        exit 2
+        ;;
+esac
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 mkdir -p "$(dirname "${PLIST_PATH}")"

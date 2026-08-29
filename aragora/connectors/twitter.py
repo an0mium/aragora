@@ -574,8 +574,12 @@ class TwitterConnector(BaseConnector):
         user_id: str,
         pagination_token: str | None = None,
         max_results: int = 100,
-    ) -> tuple[list[dict], str | None]:
-        """Fetch one page of the user's bookmarks (newest-bookmarked first)."""
+    ) -> tuple[list[dict] | None, str | None]:
+        """Fetch one page of the user's bookmarks (newest-bookmarked first).
+
+        Returns ``(None, None)`` on a failed request — callers must treat that
+        differently from ``([], None)``, which means the feed is exhausted.
+        """
         return await self._fetch_engagement_page(
             TWITTER_BOOKMARKS_URL.format(user_id=user_id), pagination_token, max_results
         )
@@ -585,8 +589,12 @@ class TwitterConnector(BaseConnector):
         user_id: str,
         pagination_token: str | None = None,
         max_results: int = 100,
-    ) -> tuple[list[dict], str | None]:
-        """Fetch one page of the user's liked tweets (newest-liked first)."""
+    ) -> tuple[list[dict] | None, str | None]:
+        """Fetch one page of the user's liked tweets (newest-liked first).
+
+        Returns ``(None, None)`` on a failed request — callers must treat that
+        differently from ``([], None)``, which means the feed is exhausted.
+        """
         return await self._fetch_engagement_page(
             TWITTER_LIKED_URL.format(user_id=user_id), pagination_token, max_results
         )
@@ -596,8 +604,8 @@ class TwitterConnector(BaseConnector):
         url: str,
         pagination_token: str | None,
         max_results: int,
-    ) -> tuple[list[dict], str | None]:
-        """Shared pager returning (export-shaped entries, next_token)."""
+    ) -> tuple[list[dict] | None, str | None]:
+        """Shared pager: (entries, next_token); (None, None) = request failed."""
         params: dict[str, str | int] = {
             "max_results": min(max(1, max_results), 100),
             "tweet.fields": "created_at,author_id,public_metrics,lang",
@@ -608,8 +616,9 @@ class TwitterConnector(BaseConnector):
             params["pagination_token"] = pagination_token
 
         data = await self._user_context_get(url, params)
-        if not data:
-            return [], None
+        if data is None:
+            # Failed request (network/429/5xx/auth) — NOT feed exhaustion
+            return None, None
 
         users = {u["id"]: u for u in (data.get("includes") or {}).get("users", [])}
         entries: list[dict] = []

@@ -94,9 +94,10 @@ class TestFetchLiveEntries:
 
         assert [e["tweetId"] for e in entries] == ["4", "3"]
         state = json.loads(state_path.read_text())
-        assert state["twitter_bookmark"]["seen_ids"][:2] == ["4", "3"]
+        # State advances under the user-scoped key (legacy key read as seed)
+        assert state["twitter_bookmark:42"]["seen_ids"][:2] == ["4", "3"]
         # Previously seen ids are retained behind the new ones
-        assert "2" in state["twitter_bookmark"]["seen_ids"]
+        assert "2" in state["twitter_bookmark:42"]["seen_ids"]
 
     def test_respects_max_items_suffix(self, tmp_path):
         connector = FakeConnector([[_entry(str(i)) for i in range(9, -1, -1)]])
@@ -144,7 +145,57 @@ class TestFetchLiveEntries:
 
         assert [e["tweetId"] for e in entries] == ["9", "8"]
         state = json.loads(state_path.read_text())
-        assert state["twitter_bookmark"]["seen_ids"][:2] == ["9", "8"]
+        assert state["twitter_bookmark:42"]["seen_ids"][:2] == ["9", "8"]
+
+    def test_fetch_failure_does_not_advance_state(self, tmp_path):
+        """A failed page request (None) is not feed exhaustion — the continuity
+        guard must not mark this run's entries seen over the unfetched gap."""
+        state_path = tmp_path / "state.json"
+        state_path.write_text(json.dumps({"twitter_bookmark": {"seen_ids": ["1"]}}))
+        connector = FakeConnector([[_entry("9"), _entry("8")], None])
+
+        entries = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:", connector=connector, state_path=state_path
+            )
+        )
+
+        assert [e["tweetId"] for e in entries] == ["9", "8"]
+        state = json.loads(state_path.read_text())
+        assert state["twitter_bookmark"]["seen_ids"] == ["1"]
+
+    def test_state_scoped_by_user_id(self, tmp_path):
+        """Seen-ids are stored per authenticated user (legacy key read as seed)."""
+        state_path = tmp_path / "state.json"
+        connector = FakeConnector([[_entry("5")]], user_id="42")
+        asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:", connector=connector, state_path=state_path
+            )
+        )
+        state = json.loads(state_path.read_text())
+        assert state["twitter_bookmark:42"]["seen_ids"] == ["5"]
+
+        # A different user does not inherit user 42's seen set
+        connector_other = FakeConnector([[_entry("5")]], user_id="77")
+        entries = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:", connector=connector_other, state_path=state_path
+            )
+        )
+        assert [e["tweetId"] for e in entries] == ["5"]
+
+    def test_invalid_api_suffix_raises(self, tmp_path):
+        connector = FakeConnector([[_entry("5")]])
+        with pytest.raises(ValueError, match="invalid api source"):
+            asyncio.run(
+                fetch_live_entries(
+                    "twitter_bookmark",
+                    "api:5OO",
+                    connector=connector,
+                    state_path=tmp_path / "s.json",
+                )
+            )
 
     def test_no_token_returns_empty(self, tmp_path):
         connector = FakeConnector([], user_id=None)

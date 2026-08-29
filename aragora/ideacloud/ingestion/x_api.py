@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,9 @@ logger = logging.getLogger(__name__)
 
 API_SOURCE_PREFIX = "api:"
 DEFAULT_MAX_ITEMS = 200
-STATE_PATH = Path(".aragora/x_intake/state.json")
+# CWD-relative by default (the CLI and digest job run from the repo root);
+# override with ARAGORA_X_INTAKE_STATE for other working directories.
+STATE_PATH = Path(os.environ.get("ARAGORA_X_INTAKE_STATE", ".aragora/x_intake/state.json"))
 # Enough remembered ids to bridge the overlap window between runs
 SEEN_IDS_KEPT = 300
 
@@ -41,9 +44,13 @@ def is_api_source(source: Any) -> bool:
 
 def _parse_max_items(source: str) -> int:
     suffix = source.strip()[len(API_SOURCE_PREFIX) :].strip()
+    if not suffix:
+        return DEFAULT_MAX_ITEMS
     if suffix.isdigit():
         return max(1, int(suffix))
-    return DEFAULT_MAX_ITEMS
+    # A typo like 'api:5OO' silently capping at the default would interact
+    # badly with the continuity guard — fail loudly instead.
+    raise ValueError(f"invalid api source {source!r}: expected 'api:' or 'api:<max_items>'")
 
 
 def _load_state(path: Path) -> dict[str, Any]:
@@ -89,8 +96,9 @@ async def fetch_live_entries(
     user_id = await connector.get_authenticated_user_id()
     if not user_id:
         logger.warning(
-            "X live ingestion unavailable: no user-context token "
-            "(run scripts/x_oauth_setup.py) — data-export --file mode still works"
+            "X live ingestion unavailable: no user-context token at %s "
+            "(run scripts/x_oauth_setup.py) — data-export --file mode still works",
+            Path(".aragora/x_intake/oauth.json").resolve(),
         )
         return []
 
@@ -100,14 +108,25 @@ async def fetch_live_entries(
         else connector.fetch_liked_page
     )
 
+    # State is scoped per authenticated user so switching OAuth accounts
+    # against the same checkout cannot cross-contaminate seen-id sets.
+    # Legacy (pre-user-scoped) state is read as a fallback seed.
+    state_key = f"{source_type}:{user_id}"
     state = _load_state(path)
-    seen_ids = set((state.get(source_type) or {}).get("seen_ids", []))
+    prior = state.get(state_key) or state.get(source_type) or {}
+    seen_ids = set(prior.get("seen_ids", []))
 
     entries: list[dict[str, Any]] = []
     pagination_token: str | None = None
     hit_seen = False
+    fetch_failed = False
     while len(entries) < max_items and not hit_seen:
         page, pagination_token = await fetch_page(user_id, pagination_token)
+        if page is None:
+            # Request failure is NOT feed exhaustion — never treat it as
+            # continuity or the guard would advance state over a gap.
+            fetch_failed = True
+            break
         if not page:
             break
         for entry in page:
@@ -122,22 +141,24 @@ async def fetch_live_entries(
             break
 
     # Continuity guard: advancing seen_ids is only safe when this run bridged
-    # to the previous seen set (hit_seen) or exhausted the feed. If max_items
-    # truncated the fetch mid-gap, advancing state would permanently skip the
-    # items between this run's oldest entry and the old seen set.
-    reached_continuity = hit_seen or not pagination_token or not seen_ids
-    if entries and reached_continuity:
+    # to the previous seen set (hit_seen), genuinely exhausted the feed, or
+    # has no prior state to protect (first run for this user). A truncated or
+    # failed fetch must not advance state, or the gap behind this run's
+    # entries would be skipped forever.
+    feed_exhausted = not pagination_token and not fetch_failed
+    reached_continuity = hit_seen or feed_exhausted or not seen_ids
+    if entries and reached_continuity and not (fetch_failed and seen_ids):
         newest_ids = [str(e.get("tweetId")) for e in entries if e.get("tweetId")]
-        merged = newest_ids + [i for i in (state.get(source_type) or {}).get("seen_ids", [])]
-        state[source_type] = {"seen_ids": merged[:SEEN_IDS_KEPT]}
+        merged = newest_ids + list(prior.get("seen_ids", []))
+        state[state_key] = {"seen_ids": merged[:SEEN_IDS_KEPT]}
         _save_state(path, state)
     elif entries:
         logger.warning(
-            "%s fetch hit max_items=%d before reaching previously seen ids; "
-            "state not advanced — re-run with a higher cap (e.g. 'api:%d') to close the gap",
+            "%s fetch stopped early (%s) before reaching previously seen ids; "
+            "state not advanced — re-run%s to close the gap",
             source_type,
-            max_items,
-            max_items * 2,
+            "request failure" if fetch_failed else f"max_items={max_items}",
+            "" if fetch_failed else f" with a higher cap (e.g. 'api:{max_items * 2}')",
         )
 
     logger.info(
