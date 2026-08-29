@@ -92,8 +92,10 @@ class XOAuthTokenStore:
             "expires_at": tokens.expires_at,
         }
         # O_CREAT with 0600 so the file never exists world-readable, even
-        # briefly; O_TRUNC covers rewrites of an existing file.
+        # briefly; fchmod covers rewrites of a pre-existing file whose mode
+        # was looser (the create-time 0600 only applies to new files).
         fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2)
 
