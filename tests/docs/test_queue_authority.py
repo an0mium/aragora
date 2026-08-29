@@ -168,6 +168,18 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
             value = node.value
             if not isinstance(value, ast.Call):
                 continue
+            call_name = _dotted_name(value.func)
+            imports_module_alias = (
+                call_name is not None
+                and (call_name == "import_module" or call_name.endswith(".import_module"))
+                and bool(value.args)
+                and isinstance(value.args[0], ast.Constant)
+                and value.args[0].value == JOB_QUEUE_STORE_MODULE
+            )
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if imports_module_alias:
+                for target in targets:
+                    module_aliases.update(_assignment_names(target))
             imports_backend = any(
                 keyword.arg == "import_path"
                 and isinstance(keyword.value, ast.Constant)
@@ -175,7 +187,6 @@ def _backend_call_inventory(path: Path, *, root: Path = ROOT) -> Counter[str]:
                 for keyword in value.keywords
             )
             if imports_backend:
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                 for target in targets:
                     dynamic_factories.update(_assignment_names(target))
 
@@ -376,6 +387,35 @@ def test_dynamic_reference_inventory_rejects_new_backend_calls(tmp_path: Path) -
 
     path.write_text(
         "factory = loader(import_path='aragora.storage.job_queue_store')\n",
+        encoding="utf-8",
+    )
+    assert not _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline)
+
+
+def test_positional_import_module_inventory_rejects_new_backend_calls(tmp_path: Path) -> None:
+    path = tmp_path / "consumer.py"
+    path.write_text(
+        "import importlib\n"
+        "backend = importlib.import_module('aragora.storage.job_queue_store')\n"
+        "backend.get_job_store().enqueue(first)\n",
+        encoding="utf-8",
+    )
+    baseline = dict(_backend_call_inventory(path, root=tmp_path))
+
+    path.write_text(
+        "import importlib\n"
+        "backend = importlib.import_module('aragora.storage.job_queue_store')\n"
+        "backend.get_job_store().enqueue(first)\n"
+        "backend.get_job_store().enqueue(second)\n",
+        encoding="utf-8",
+    )
+    assert _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline) == {
+        "store:enqueue": 1,
+        "symbol:get_job_store": 1,
+    }
+
+    path.write_text(
+        "import importlib\nbackend = importlib.import_module('aragora.storage.job_queue_store')\n",
         encoding="utf-8",
     )
     assert not _excess_backend_calls(_backend_call_inventory(path, root=tmp_path), baseline)
