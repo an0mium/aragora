@@ -1290,17 +1290,17 @@ class TestNonInteractiveMfaGuard:
 
 
 @pytest.mark.asyncio
-async def test_rotation_monitor_survives_strict_hydration_failure():
+@pytest.mark.parametrize("failing_phase", ["refresh", "hydrate"])
+async def test_rotation_monitor_survives_custody_failure(failing_phase):
     from aragora.security.aws_key_rotation import RotationMonitor
 
     rotator = MagicMock()
     rotator.check_secrets_due.return_value = []
     monitor = RotationMonitor(rotator=rotator)
+    refresh_error = SecretSourceError("unsafe mount") if failing_phase == "refresh" else None
+    hydrate_error = SecretNotFoundError("ARAGORA_API_TOKEN") if failing_phase == "hydrate" else None
     with (
-        patch("aragora.config.secrets.refresh_secrets"),
-        patch(
-            "aragora.config.secrets.hydrate_env_from_secrets",
-            side_effect=SecretNotFoundError("ARAGORA_API_TOKEN"),
-        ),
+        patch("aragora.config.secrets.refresh_secrets", side_effect=refresh_error),
+        patch("aragora.config.secrets.hydrate_env_from_secrets", side_effect=hydrate_error),
     ):
         await monitor._check_and_reload()

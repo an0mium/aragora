@@ -335,7 +335,7 @@ Primary AI provider API keys. At least one is required.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_API_TOKEN` | Optional | API authentication token | Disabled |
+| `ARAGORA_API_TOKEN` | Optional | API authentication token; strict production/staging requires managed custody | Disabled |
 | `ARAGORA_TOKEN_TTL` | Optional | Token lifetime (seconds) | `3600` |
 | `ARAGORA_API_KEY` | Optional | Alternative API key | - |
 | `ARAGORA_AUTH_REQUIRED` | Optional | Require authentication | - |
