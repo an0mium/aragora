@@ -1194,6 +1194,10 @@ class TestStrictMode:
         assert "GOOGLE_API_KEY" in MANAGED_SECRETS
         assert "GOOGLE_API_KEY" in CRITICAL_SECRETS
 
+    def test_api_access_token_is_critical_and_managed(self):
+        assert "ARAGORA_API_TOKEN" in MANAGED_SECRETS
+        assert "ARAGORA_API_TOKEN" in CRITICAL_SECRETS
+
     def test_global_presence_helpers(self):
         """Module-level presence helpers report sources without values."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "router-secret"}, clear=True):
