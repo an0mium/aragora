@@ -1,7 +1,7 @@
 {
   "session_id": "codex-merge-snapshot-provenance-9677-20260829",
   "version": "1.12.0",
-  "status": "staging",
+  "status": "staged",
   "branch": "codex/merge-snapshot-provenance-9677",
   "base_branch": "main",
   "base_sha": "953c501c2147026c2c996c3f95001580e326ec52",
@@ -14,7 +14,7 @@
   "survival_guide_path": "docs/elves/merge-snapshot-provenance-9677/survival-guide.md",
   "learnings_path": "docs/elves/merge-snapshot-provenance-9677/learnings.md",
   "execution_log_path": "docs/elves/merge-snapshot-provenance-9677/execution-log.md",
-  "pr_number": null,
+  "pr_number": 9874,
   "merge_policy": "user-merges",
   "run_mode": "finite",
   "continuation_guard": {
@@ -33,7 +33,7 @@
   "current_batch": {
     "id": 0,
     "name": "Session setup",
-    "status": "in_progress"
+    "status": "complete"
   },
   "batches": [
     {

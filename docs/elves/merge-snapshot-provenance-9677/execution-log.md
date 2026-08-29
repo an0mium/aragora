@@ -2,24 +2,24 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-08-29 18:00 America/Chicago
-- **Current phase:** Staging
-- **Active batch:** Batch 0: session setup
-- **Last completed batch:** none yet
+- **Last updated:** 2026-08-29 18:03 America/Chicago
+- **Current phase:** Launch-ready staging boundary
+- **Active batch:** none; waiting for explicit launch
+- **Last completed batch:** Batch 0: session setup
 - **Next exact batch:** Batch 1: Carry exact decision heads through all three merge paths
-- **Active PR:** not created yet
+- **Active PR:** #9874 (draft)
 - **Docs promoted this run:** none
 - **Latest Elves Report:** not generated
 
 ## Session Setup: 2026-08-29 17:42 America/Chicago
 
-**Phase:** Staging in progress
+**Phase:** Staging complete
 **Plan:** `docs/elves/merge-snapshot-provenance-9677/plan.md`
 **Survival guide:** `docs/elves/merge-snapshot-provenance-9677/survival-guide.md`
 **Learnings:** `docs/elves/merge-snapshot-provenance-9677/learnings.md`
 **Execution log:** `docs/elves/merge-snapshot-provenance-9677/execution-log.md`
 **Branch:** `codex/merge-snapshot-provenance-9677`
-**PR:** not created yet
+**PR:** #9874 (draft)
 **Run mode:** finite | **User returns:** unknown; assume eight hours after launch
 **Checkpoint semantics:** mandatory staging boundary | **Actual stop conditions:** staging complete now; final draft readiness or genuine blocker after launch
 **Active compute at launch:** none
@@ -64,7 +64,9 @@
 - A stale generic preflight started by the earlier `--help` probe was also stopped by exact PID;
   no product files changed.
 
-**Launch readiness:** pending Batch 0 push, draft PR creation, and PR-number reconciliation.
+**Launch readiness:** READY. Batch 0 commit `d27214efd5` was pushed, draft PR #9874 was opened,
+the PR number is reconciled into the run state, and the mandatory staging Stop Gate permits this
+call to end. No product files were edited.
 
 ## Batch 1 Contract: 2026-08-29 17:42 America/Chicago
 

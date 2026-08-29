@@ -80,7 +80,7 @@ These are not valid reasons to stop the launched run while planned work remains:
 - [x] Execution log initialized
 - [x] Dedicated branch and worktree created from fresh main
 - [x] Branch lease claimed; no same-object lane collision found
-- [ ] Draft PR opened and recorded
+- [x] Draft PR #9874 opened and recorded
 - [x] Preflight executed; scoped gates are green and ambient repo-wide warnings are recorded
 - [x] Run mode, non-negotiables, and merge policy recorded
 - [x] Stop Gate initialized with `Stop allowed right now: no` for post-launch execution; the mandatory staging boundary remains `yes`
@@ -88,13 +88,13 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** Launch-ready staging boundary
 
-**Active batch:** Batch 0: session setup
+**Active batch:** Batch 0: session setup complete
 
-**What was just finished:** Fresh-main branch, dedicated worktree, lease, plan, baseline, scoped static gates, and bounded Elves preflight were established.
+**What was just finished:** Batch 0 was committed and pushed, and draft PR #9874 was opened from the isolated fresh-main branch.
 
-**Single next action:** push Batch 0, open the draft PR, record its number, then stop at the launch boundary.
+**Single next action:** the user sends the launch prompt below; the launched run then renews the lease and begins Batch 1.
 
 ## Active Compute
 
@@ -151,7 +151,7 @@ notification: PR comment only at final readiness if authorized by the run state
 - **Learnings:** `docs/elves/merge-snapshot-provenance-9677/learnings.md`
 - **Execution log:** `docs/elves/merge-snapshot-provenance-9677/execution-log.md`
 - **Branch:** `codex/merge-snapshot-provenance-9677`
-- **PR number:** not created yet
+- **PR number:** #9874
 - **Plan hash at session start:** `be693b42e00277e0e7fdb3d7cfa4501474e7d724e2d0cf27a24855ca0c1f1e55`
 
 ## Collision and Live-State Notes
