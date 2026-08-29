@@ -502,7 +502,12 @@ class MissionOrchestrator:
         state = MissionState.load(self.state_path)
         changed = False
         for feat in state.features:
-            if feat.status in {Status.PENDING, Status.IN_PROGRESS}:
+            if feat.status in {
+                Status.PENDING,
+                Status.IN_PROGRESS,
+                Status.AWAITING_CLAIM,
+                Status.PARKED,
+            }:
                 state.mark_blocked(feat.id, reason)
                 changed = True
         if changed:

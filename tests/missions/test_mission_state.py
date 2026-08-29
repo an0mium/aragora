@@ -292,17 +292,20 @@ def test_public_tick_reconciles_default_sibling_ledger(tmp_path):
     assert final.get("f2").status == Status.COMPLETED
 
 
-def test_corrupt_sibling_ledger_blocks_open_work(tmp_path):
+def test_corrupt_sibling_ledger_blocks_all_open_work(tmp_path):
     p = tmp_path / "state.json"
     lp = tmp_path / "ledger.json"
-    _mission(2).save(p)
+    state = _mission(4)
+    state.get("f2").status = Status.IN_PROGRESS
+    state.get("f3").status = Status.AWAITING_CLAIM
+    state.get("f4").status = Status.PARKED
+    state.save(p)
     lp.write_text("{not valid json", encoding="utf-8")
 
     assert MissionOrchestrator(p).tick(lambda feat: Handoff(success=True)) is False
 
     final = MissionState.load(p)
-    assert final.get("f1").status == Status.BLOCKED
-    assert final.get("f2").status == Status.BLOCKED
+    assert all(feature.status == Status.BLOCKED for feature in final.features)
     assert "ledger reconcile failed closed" in final.get("f1").notes
 
 
