@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol, Sequence
@@ -73,16 +74,7 @@ class RepairDebateResult:
             "spec_id": self.spec_id,
             "consensus_reached": self.consensus_reached,
             "recommended_action": self.recommended_action,
-            "receipt": {
-                "receipt_id": self.receipt.receipt_id,
-                "debate_id": self.receipt.debate_id,
-                "question": self.receipt.question,
-                "convergence_barrier": self.receipt.convergence_barrier,
-                "checksum": self.receipt.checksum,
-                "cruxes": [c.to_dict() for c in self.receipt.cruxes],
-                "agents": self.receipt.agents,
-                "metadata": self.receipt.metadata,
-            },
+            "receipt": self.receipt.to_dict(),
             "agent_evaluations": self.agent_evaluations,
         }
 
@@ -118,9 +110,9 @@ def run_repair_debate(
     context: dict[str, Any] = {
         "code_unit_id": spec.code_unit_id,
         "repair_kind": spec.repair_kind,
-        "linked_claims": spec.linked_claims,
-        "linked_crux_ids": spec.linked_crux_ids,
-        "validation_commands": spec.validation_commands,
+        "linked_claims": list(spec.linked_claims),
+        "linked_crux_ids": list(spec.linked_crux_ids),
+        "validation_commands": list(spec.validation_commands),
     }
 
     evaluations: list[dict[str, Any]] = []
@@ -160,7 +152,12 @@ def _collect_crux_entries(
     entries_by_id: dict[str, CruxEntry] = {}
 
     for ev in evaluations:
-        for cand in ev.get("crux_candidates", []):
+        candidates = ev.get("crux_candidates") or []
+        if not isinstance(candidates, list):
+            continue
+        for cand in candidates:
+            if not isinstance(cand, dict):
+                continue
             cid = str(cand.get("crux_id") or "")
             if not cid:
                 continue
@@ -205,9 +202,12 @@ def _score_or_default(candidate: dict[str, Any], key: str, default: float = 0.5)
     if value is None:
         return default
     try:
-        return float(value)
+        score = float(value)
     except (TypeError, ValueError):
         return default
+    if not math.isfinite(score):
+        return default
+    return min(1.0, max(0.0, score))
 
 
 def _build_receipt(

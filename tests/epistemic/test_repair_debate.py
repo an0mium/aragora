@@ -94,6 +94,26 @@ class _NamedCruxAgent:
         }
 
 
+class _MalformedCandidatesAgent:
+    name = "mock-malformed-candidates"
+
+    def __init__(self, candidates) -> None:
+        self.candidates = candidates
+
+    def evaluate(self, spec, context):
+        return {"supports_repair": False, "crux_candidates": self.candidates}
+
+
+class _ContextMutatingAgent:
+    name = "mock-context-mutator"
+
+    def evaluate(self, spec, context):
+        context["linked_claims"].append("mutated-claim")
+        context["linked_crux_ids"].append("mutated-crux")
+        context["validation_commands"].append("rm -rf ignored")
+        return {"supports_repair": False, "crux_candidates": []}
+
+
 # ---------------------------------------------------------------------------
 # Flag gate
 # ---------------------------------------------------------------------------
@@ -216,6 +236,13 @@ class TestReceipt:
         result = run_repair_debate(spec, [_SupportAgent()])
         assert result.receipt.rounds == 1
 
+    def test_result_serialization_preserves_complete_receipt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(spec, [_SupportAgent()])
+        assert result.to_dict()["receipt"] == result.receipt.to_dict()
+
 
 # ---------------------------------------------------------------------------
 # Crux entry propagation
@@ -271,6 +298,48 @@ class TestCruxPropagation:
         assert shared.load_bearing_score == 0.0
         assert shared.uncertainty_score == 0.5
         assert shared.resolution_impact == 0.5
+
+    @pytest.mark.parametrize(
+        ("scores", "expected"),
+        [
+            ({"load_bearing_score": float("nan")}, 0.5),
+            ({"load_bearing_score": float("inf")}, 0.5),
+            ({"load_bearing_score": -0.25}, 0.0),
+            ({"load_bearing_score": 1.25}, 1.0),
+        ],
+    )
+    def test_non_finite_scores_default_and_finite_scores_are_clamped(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        scores: dict[str, float],
+        expected: float,
+    ) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(spec, [_NamedCruxAgent("agent-a", **scores)])
+        shared = next(crux for crux in result.receipt.cruxes if crux.crux_id == "crux.shared")
+        assert shared.load_bearing_score == expected
+        json.dumps(result.receipt.to_dict(), allow_nan=False)
+
+    @pytest.mark.parametrize("candidates", [None, "not-a-list", ["not-a-dict"]])
+    def test_malformed_crux_candidates_are_treated_as_empty(
+        self, monkeypatch: pytest.MonkeyPatch, candidates
+    ) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(spec, [_MalformedCandidatesAgent(candidates)])
+        assert {crux.crux_id for crux in result.receipt.cruxes} == set(spec.linked_crux_ids)
+
+    def test_agent_cannot_mutate_repair_spec_through_context(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        spec = _spec(monkeypatch)
+        original_claims = list(spec.linked_claims)
+        original_crux_ids = list(spec.linked_crux_ids)
+        original_commands = list(spec.validation_commands)
+        result = run_repair_debate(spec, [_ContextMutatingAgent()])
+        assert spec.linked_claims == original_claims
+        assert spec.linked_crux_ids == original_crux_ids
+        assert spec.validation_commands == original_commands
+        assert all(crux.affected_claims == original_claims for crux in result.receipt.cruxes)
 
     def test_crux_affected_claims_match_spec(self, monkeypatch: pytest.MonkeyPatch) -> None:
         spec = _spec(monkeypatch)
