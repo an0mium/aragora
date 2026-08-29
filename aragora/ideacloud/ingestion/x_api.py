@@ -121,11 +121,24 @@ async def fetch_live_entries(
         if not pagination_token:
             break
 
-    if entries:
+    # Continuity guard: advancing seen_ids is only safe when this run bridged
+    # to the previous seen set (hit_seen) or exhausted the feed. If max_items
+    # truncated the fetch mid-gap, advancing state would permanently skip the
+    # items between this run's oldest entry and the old seen set.
+    reached_continuity = hit_seen or not pagination_token or not seen_ids
+    if entries and reached_continuity:
         newest_ids = [str(e.get("tweetId")) for e in entries if e.get("tweetId")]
         merged = newest_ids + [i for i in (state.get(source_type) or {}).get("seen_ids", [])]
         state[source_type] = {"seen_ids": merged[:SEEN_IDS_KEPT]}
         _save_state(path, state)
+    elif entries:
+        logger.warning(
+            "%s fetch hit max_items=%d before reaching previously seen ids; "
+            "state not advanced — re-run with a higher cap (e.g. 'api:%d') to close the gap",
+            source_type,
+            max_items,
+            max_items * 2,
+        )
 
     logger.info(
         "Fetched %d new %s entries from X API (stopped at seen id: %s)",

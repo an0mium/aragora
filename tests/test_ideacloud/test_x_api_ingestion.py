@@ -110,6 +110,42 @@ class TestFetchLiveEntries:
         )
         assert len(entries) == 3
 
+    def test_truncated_run_does_not_advance_state(self, tmp_path):
+        """A max_items-capped run that never bridges to the seen set must not
+        mark its entries seen — otherwise the gap behind them is skipped forever."""
+        state_path = tmp_path / "state.json"
+        state_path.write_text(json.dumps({"twitter_bookmark": {"seen_ids": ["1"]}}))
+        # Two pages; seen id "1" is beyond the cap of 2
+        connector = FakeConnector([[_entry("9"), _entry("8")], [_entry("7"), _entry("1")]])
+
+        entries = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:2", connector=connector, state_path=state_path
+            )
+        )
+
+        assert [e["tweetId"] for e in entries] == ["9", "8"]
+        state = json.loads(state_path.read_text())
+        # State unchanged: "9"/"8" must NOT be seen, so the next (bigger) run
+        # can still fetch "7" before bridging to "1"
+        assert state["twitter_bookmark"]["seen_ids"] == ["1"]
+
+    def test_first_run_truncation_advances_state(self, tmp_path):
+        """With no prior seen set there is no gap to protect; the capped first
+        run establishes the baseline."""
+        state_path = tmp_path / "state.json"
+        connector = FakeConnector([[_entry("9"), _entry("8")], [_entry("7")]])
+
+        entries = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:2", connector=connector, state_path=state_path
+            )
+        )
+
+        assert [e["tweetId"] for e in entries] == ["9", "8"]
+        state = json.loads(state_path.read_text())
+        assert state["twitter_bookmark"]["seen_ids"][:2] == ["9", "8"]
+
     def test_no_token_returns_empty(self, tmp_path):
         connector = FakeConnector([], user_id=None)
         entries = asyncio.run(
