@@ -425,6 +425,21 @@ class TestSecretManagerMountedFiles:
 
         assert any(entry["source"] == "hydrate_mounted_file" for entry in manager.get_access_log())
 
+    def test_strict_hydration_overwrites_env_with_managed_value_by_default(self, tmp_path):
+        self._write_secret(tmp_path, "OPENAI_API_KEY", "mounted-value")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(
+                os.environ,
+                {"ARAGORA_ENV": "production", "OPENAI_API_KEY": "raw-env-value"},
+                clear=True,
+            ),
+        ):
+            hydrated = hydrate_env_from_secrets(["OPENAI_API_KEY"], overwrite=False)
+            assert hydrated == {"OPENAI_API_KEY": "mounted-value"}
+            assert os.environ["OPENAI_API_KEY"] == "mounted-value"
+
     @pytest.mark.parametrize("configured", ["relative/secrets", ""])
     def test_directory_must_be_absolute(self, configured):
         """Relative or empty configured paths fail closed before fallback."""
@@ -537,7 +552,8 @@ class TestSecretManagerMountedFiles:
         with patch.dict(os.environ, {}, clear=True):
             assert manager.get("UNMANAGED_SECRET", strict=False) is None
 
-    def test_strict_hydration_rejects_critical_env_fallback(self, tmp_path, caplog):
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_strict_hydration_removes_critical_env_fallback(self, tmp_path, caplog, overwrite):
         """Settings hydration cannot reintroduce raw critical env values."""
         manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
         with (
@@ -548,14 +564,11 @@ class TestSecretManagerMountedFiles:
                 clear=True,
             ),
         ):
-            with pytest.raises(SecretNotFoundError):
-                hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=True)
-            with pytest.raises(SecretNotFoundError):
-                hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=False)
-            assert os.environ["JWT_SECRET_KEY"] == "raw-env-value"
+            assert hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=overwrite) == {}
+            assert "JWT_SECRET_KEY" not in os.environ
 
         assert any(entry["source"] == "hydrate_env_blocked" for entry in manager.get_access_log())
-        assert "exists only in the process environment" in caplog.text
+        assert "Removing critical secret 'JWT_SECRET_KEY'" in caplog.text
         assert "raw-env-value" not in caplog.text
 
     def test_untrusted_intermediate_directory_permissions_are_rejected(self, tmp_path):
@@ -676,6 +689,7 @@ class TestSecretManagerAWS:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {"OPENAI_API_KEY": "aws-secret-value"}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
         manager._cache_timestamp = time.time()
         manager._initialized = True
 
@@ -688,6 +702,17 @@ class TestSecretManagerAWS:
             critical=True,
             managed=True,
         )
+
+    def test_presence_reports_unknown_preseeded_cache_provenance(self):
+        manager = SecretManager(SecretsConfig(use_aws=True))
+        manager._cached_secrets = {"OPENAI_API_KEY": "preseeded-value"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        presence = manager.presence("OPENAI_API_KEY")
+
+        assert presence.source == "managed_cache"
+        assert presence.available is True
 
     def test_presence_treats_blank_env_as_missing(self):
         """Blank environment values are not usable secret presence."""

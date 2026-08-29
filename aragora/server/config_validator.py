@@ -135,12 +135,16 @@ class ConfigValidator:
         errors: list[str] = []
         warnings: list[str] = []
         secret_values: dict[str, str | None] = {}
+        secret_source_errors: set[str] = set()
 
         def _secret_value(name: str) -> str | None:
             if name not in secret_values:
                 try:
                     secret_values[name] = get_secret(name)
-                except (SecretNotFoundError, SecretSourceError, OSError, RuntimeError, ValueError):
+                except SecretSourceError:
+                    secret_values[name] = None
+                    secret_source_errors.add(name)
+                except (SecretNotFoundError, OSError, RuntimeError, ValueError):
                     secret_values[name] = None
             return secret_values[name]
 
@@ -153,7 +157,12 @@ class ConfigValidator:
         if is_production:
             for var in cls.PRODUCTION_REQUIRED:
                 if not _secret_value(var):
-                    errors.append(f"Missing required configuration in production/staging: {var}")
+                    if var in secret_source_errors:
+                        errors.append(f"Invalid managed custody configuration for {var}")
+                    else:
+                        errors.append(
+                            f"Missing required configuration in production/staging: {var}"
+                        )
 
             # SECURITY: Check for insecure development-only variables in production
             for var, description in cls.INSECURE_DEV_ONLY_VARS.items():
@@ -220,7 +229,7 @@ class ConfigValidator:
 
         # Check database configuration in production
         if is_production:
-            db_url = os.getenv("DATABASE_URL", "")
+            db_url = _secret_value("DATABASE_URL")
             if db_url:
                 # Ensure PostgreSQL is used in production (not SQLite)
                 if "sqlite" in db_url.lower():
