@@ -1296,6 +1296,7 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
   Existing production/staging deployments that rely on AWS custody must set `ARAGORA_USE_SECRETS_MANAGER=true` explicitly before upgrading, or configure `ARAGORA_SECRETS_DIR`.
   `ARAGORA_SECRET_NAME` still falls back to `aragora/production` when Secrets Manager is enabled.
 - Mounted secret paths must resolve to owner-readable regular files with mode `0400` or `0600`; symlinks, hard links, and platform-default `0444`/`0644` modes are rejected.
+- `ARAGORA_ENV` or `ARAGORA_ENVIRONMENT` values `production`, `prod`, `staging`, and `stage` enable strict custody and mandatory managed `ARAGORA_API_TOKEN` authentication.
 - Use `python3 -m aragora.cli.main secrets health --json` to verify source status without printing secret values.
 
 ## Knowledge System
