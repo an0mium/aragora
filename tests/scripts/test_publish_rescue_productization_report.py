@@ -69,6 +69,9 @@ def test_build_published_report_links_existing_issue_and_updates_map(
     )
 
     assert payload["summary"]["linked_issue_count"] == 1
+    assert payload["source"]["status"] == "available"
+    assert payload["source"]["event_count"] == 2
+    assert len(payload["source"]["sha256"]) == 64
     assert payload["issue_drafts"] == []
     assert payload["issue_linkage_results"] == [
         {
@@ -225,6 +228,89 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
     assert "generated_at" in payload
     assert payload["summary"]["repeated_class_count"] == 1
     assert not publish_dir.exists()
+
+
+def test_main_missing_ledger_fails_closed_without_publishing(tmp_path: Path, capsys) -> None:
+    ledger_path = tmp_path / "missing" / "rescue_events.jsonl"
+    productization_map_path = tmp_path / "rescue_productization.json"
+    mod.write_productization_map_payload(
+        productization_map_path,
+        {"schema_version": 1, "entries": []},
+    )
+    publish_dir = tmp_path / "published"
+
+    exit_code = mod.main(
+        [
+            "--path",
+            str(ledger_path),
+            "--productization-map",
+            str(productization_map_path),
+            "--publish-dir",
+            str(publish_dir),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 2
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "rescue_ledger_missing"
+    assert payload["error"]["path"] == str(ledger_path.resolve())
+    assert not publish_dir.exists()
+
+
+def test_main_malformed_ledger_fails_closed_without_publishing(tmp_path: Path, capsys) -> None:
+    ledger_path = tmp_path / "rescue_events.jsonl"
+    ledger_path.write_text('{"event_type":"manual_merge"}\n', encoding="utf-8")
+    productization_map_path = tmp_path / "rescue_productization.json"
+    mod.write_productization_map_payload(
+        productization_map_path,
+        {"schema_version": 1, "entries": []},
+    )
+    publish_dir = tmp_path / "published"
+
+    exit_code = mod.main(
+        [
+            "--path",
+            str(ledger_path),
+            "--productization-map",
+            str(productization_map_path),
+            "--publish-dir",
+            str(publish_dir),
+            "--dry-run",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 2
+    assert payload["error"]["code"] == "rescue_ledger_malformed"
+    assert "line 1" in payload["error"]["detail"]
+    assert not publish_dir.exists()
+
+
+def test_existing_empty_ledger_is_a_valid_zero_observation(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "rescue_events.jsonl"
+    ledger_path.touch()
+    productization_map_path = tmp_path / "rescue_productization.json"
+    mod.write_productization_map_payload(
+        productization_map_path,
+        {"schema_version": 1, "entries": []},
+    )
+
+    payload = mod.build_published_report(
+        ledger_path=ledger_path,
+        productization_map_path=productization_map_path,
+        repo="synaptent/aragora",
+        generated_at="2026-08-29T23:30:00Z",
+    )
+
+    assert payload["source"] == {
+        "status": "available",
+        "event_count": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    }
+    assert payload["summary"]["total_unique_classes"] == 0
 
 
 def test_home_relative_path_collapses_home_rooted_path(monkeypatch, tmp_path):
