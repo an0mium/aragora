@@ -288,6 +288,20 @@ class TestGetApiKey:
             result = get_api_key("FIRST_KEY_LEGACY", "SECOND_KEY_LEGACY")
             assert result == "first-value"
 
+    def test_optional_probe_returns_mounted_key(self, tmp_path):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretManager, SecretsConfig
+
+        secret_path = tmp_path / "OPENROUTER_API_KEY"
+        secret_path.write_text("mounted-openrouter-key", encoding="utf-8")
+        secret_path.chmod(0o600)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True),
+        ):
+            assert get_api_key("OPENROUTER_API_KEY", required=False) == "mounted-openrouter-key"
+
 
 class TestValidateDbPath:
     """Test validate_db_path security function."""

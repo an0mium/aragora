@@ -182,13 +182,13 @@ from aragora.config.env_helpers import (
 
 
 def get_api_key(*env_vars: str, required: bool = True) -> str | None:
-    """Get and validate API key from environment variables or AWS Secrets Manager.
+    """Get and validate an API key from managed custody or the environment.
 
     Checks each variable in order, returning the first valid
     (non-empty, non-whitespace) value found. Strips whitespace from the result.
 
     Priority order:
-    1. AWS Secrets Manager (if ARAGORA_USE_SECRETS_MANAGER=true)
+    1. Configured managed custody
     2. Environment variables
 
     Args:
@@ -210,16 +210,16 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     # "critical secret found in environment" warning from value retrieval.
     if not required:
         try:
-            from aragora.config.secrets import get_secret, get_secret_presence
+            from aragora.config.secrets import (
+                get_secret,
+                get_secret_presence,
+                is_secret_presence_available,
+            )
 
             for var in env_vars:
                 presence = get_secret_presence(var)
-                if presence.source == "aws":
+                if is_secret_presence_available(presence):
                     value = get_secret(var)
-                    if value and value.strip():
-                        return value.strip()
-                elif presence.source == "env":
-                    value = os.getenv(var)
                     if value and value.strip():
                         return value.strip()
             return None
