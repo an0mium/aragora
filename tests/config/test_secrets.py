@@ -672,6 +672,33 @@ class TestSecretManagerAWS:
             result = manager.get("DUAL_SECRET")
             assert result == "aws_value"
 
+    def test_refresh_preserves_last_known_aws_cache_on_outage(self):
+        manager = SecretManager(SecretsConfig(use_aws=True))
+        manager._cached_secrets = {"OPENAI_API_KEY": "last-known-value"}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.object(manager, "_get_aws_client", return_value=None):
+            manager.refresh()
+
+        assert manager.get("OPENAI_API_KEY", strict=False) == "last-known-value"
+        assert manager.presence("OPENAI_API_KEY", strict=False).source == "aws"
+
+    def test_successful_empty_aws_refresh_replaces_stale_cache(self):
+        manager = SecretManager(SecretsConfig(use_aws=True))
+        manager._cached_secrets = {"OPENAI_API_KEY": "stale-value"}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "aws"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+        client = MagicMock()
+        client.get_secret_value.return_value = {"SecretString": "{}"}
+
+        with patch.object(manager, "_get_aws_client", return_value=client):
+            manager.refresh()
+
+        assert manager.get("OPENAI_API_KEY", strict=False) is None
+
     def test_fallback_to_env_when_not_in_aws(self):
         """Falls back to environment when secret not in AWS cache."""
         config = SecretsConfig(use_aws=True)
