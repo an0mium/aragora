@@ -356,6 +356,7 @@ class TestConfigValidator:
         for name, value in {
             "ARAGORA_API_TOKEN": "mounted-api-token-value",
             "DATABASE_URL": "postgresql://mounted",
+            "REDIS_URL": "redis://mounted",
             "ANTHROPIC_API_KEY": "mounted-anthropic-key",
         }.items():
             path = tmp_path / name
@@ -364,12 +365,17 @@ class TestConfigValidator:
         manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
         with (
             patch("aragora.config.secrets._manager", manager),
-            patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True),
+            patch.dict(
+                os.environ,
+                {"ARAGORA_ENV": "production", "ARAGORA_INSTANCE_COUNT": "2"},
+                clear=True,
+            ),
         ):
             result = ConfigValidator.validate_all()
 
         assert not any("ARAGORA_API_TOKEN" in error for error in result.errors)
         assert not any("DATABASE_URL" in error for error in result.errors)
+        assert not any("REDIS_URL" in error for error in result.errors)
         assert not any("LLM API key" in error for error in result.errors)
 
     def test_production_validates_mounted_database_url(self, tmp_path):
