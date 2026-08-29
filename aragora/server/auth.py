@@ -148,16 +148,23 @@ class AuthConfig:
         """Configure from environment variables.
 
         Auth is enabled when ARAGORA_API_TOKEN is set.
-        In production mode (ARAGORA_ENV=production), auth is mandatory -
-        the server will refuse to start without a configured API token.
+        In production or staging mode, auth is mandatory and the server will
+        refuse to start without a configured API token in allowed custody.
         """
         import logging
 
         _logger = logging.getLogger(__name__)
 
-        self.api_token = os.getenv("ARAGORA_API_TOKEN")
-        env_mode = os.getenv("ARAGORA_ENV", "development").lower()
-        is_production = env_mode == "production"
+        from aragora.config.secrets import SecretNotFoundError, get_secret
+
+        try:
+            self.api_token = get_secret("ARAGORA_API_TOKEN")
+        except SecretNotFoundError:
+            self.api_token = None
+        env_mode = (
+            os.getenv("ARAGORA_ENV") or os.getenv("ARAGORA_ENVIRONMENT") or "development"
+        ).lower()
+        is_production = env_mode in ("production", "prod", "staging", "stage")
 
         if self.api_token:
             self.enabled = True
@@ -165,13 +172,13 @@ class AuthConfig:
         elif is_production:
             # In production, auth is mandatory
             _logger.error(
-                "SECURITY ERROR: ARAGORA_ENV=production but ARAGORA_API_TOKEN not set. "
-                "Authentication is required in production mode. "
-                "Set ARAGORA_API_TOKEN or use ARAGORA_ENV=development for testing."
+                "SECURITY ERROR: production/staging mode has no ARAGORA_API_TOKEN in "
+                "allowed custody. Authentication is required. Configure ARAGORA_SECRETS_DIR "
+                "or AWS Secrets Manager, or use development mode for testing."
             )
             raise AuthenticationError(
-                "Authentication required in production mode. "
-                "Set ARAGORA_API_TOKEN environment variable."
+                "Authentication required in production/staging mode. "
+                "Configure ARAGORA_API_TOKEN in allowed managed custody."
             )
         else:
             _logger.warning(

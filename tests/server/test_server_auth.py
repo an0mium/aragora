@@ -6,6 +6,7 @@ revocation, and rate limiting.
 """
 
 import hashlib
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -13,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.server.auth import AuthConfig, check_auth, generate_shareable_link
+from aragora.server.auth import AuthenticationError, AuthConfig, check_auth, generate_shareable_link
 
 
 # =============================================================================
@@ -718,6 +719,31 @@ class TestAuthConfiguration:
                 config.configure_from_env()
 
         assert config.enabled is False
+
+    @pytest.mark.parametrize("env_name", ["ARAGORA_ENV", "ARAGORA_ENVIRONMENT"])
+    @pytest.mark.parametrize("env_value", ["production", "prod", "staging", "stage"])
+    def test_configure_requires_managed_auth_for_strict_modes(self, env_name, env_value):
+        config = AuthConfig()
+        with patch.dict(os.environ, {env_name: env_value}, clear=True):
+            with pytest.raises(AuthenticationError):
+                config.configure_from_env()
+
+    def test_configure_uses_mounted_api_token_in_production(self, tmp_path):
+        from aragora.config.secrets import SecretManager, SecretsConfig
+
+        secret_path = tmp_path / "ARAGORA_API_TOKEN"
+        secret_path.write_text("mounted-token", encoding="utf-8")
+        secret_path.chmod(0o600)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        config = AuthConfig()
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True),
+        ):
+            config.configure_from_env()
+
+        assert config.enabled is True
+        assert config.api_token == "mounted-token"
 
     def test_configure_ttl_from_env(self):
         """Should load TTL from environment."""
