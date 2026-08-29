@@ -141,6 +141,7 @@ def _check_build(client: Transport, base_url: str, expected_sha: str) -> dict[st
 
 def _check_signing_keys(client: Transport, base_url: str) -> tuple[dict[str, Any], Any]:
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
     envelope_response = client.request("GET", _url(base_url, "/api/v2/receipts/signing-key"))
     pem_response = client.request("GET", _url(base_url, "/.well-known/aragora-odr-signing-key"))
@@ -153,6 +154,8 @@ def _check_signing_keys(client: Transport, base_url: str) -> tuple[dict[str, Any
     envelope = _json(envelope_response)
     pem = pem_response.body.decode("utf-8")
     public_key = serialization.load_pem_public_key(pem.encode("utf-8"))
+    if not isinstance(public_key, Ed25519PublicKey):
+        raise RuntimeError("signing key endpoint did not return an Ed25519 public key")
     key_id = compute_key_id(public_key)
     envelope_pem = str(envelope.get("public_key_pem") or "")
     response_headers = {name.lower(): value for name, value in pem_response.headers.items()}
