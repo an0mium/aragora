@@ -337,6 +337,24 @@ class TestGetApiKey:
             with pytest.raises(SecretNotFoundError):
                 get_api_key("OPENROUTER_API_KEY")
 
+    def test_strict_required_alias_uses_later_mounted_key(self, tmp_path):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretManager, SecretsConfig
+
+        secret_path = tmp_path / "GOOGLE_API_KEY"
+        secret_path.write_text("mounted-key", encoding="utf-8")
+        secret_path.chmod(0o600)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(
+                os.environ,
+                {"ARAGORA_ENV": "production", "GEMINI_API_KEY": "blocked-key"},
+                clear=True,
+            ),
+        ):
+            assert get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY") == "mounted-key"
+
     def test_optional_non_strict_probe_does_not_warn_for_env_key(self, caplog):
         from aragora.config.legacy import get_api_key
 
@@ -347,6 +365,25 @@ class TestGetApiKey:
         ):
             assert get_api_key("OPENROUTER_API_KEY", required=False) == "env-key"
         assert "Critical secret 'OPENROUTER_API_KEY' loaded" not in caplog.text
+
+    def test_required_non_strict_env_key_keeps_security_warning(self, caplog):
+        from aragora.config.legacy import get_api_key
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_SECRETS_STRICT": "false", "OPENROUTER_API_KEY": "env-key"},
+            clear=True,
+        ):
+            assert get_api_key("OPENROUTER_API_KEY") == "env-key"
+        assert "Critical secret 'OPENROUTER_API_KEY' loaded" in caplog.text
+
+    def test_required_strict_missing_critical_key_raises_secret_error(self):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretNotFoundError
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
+            with pytest.raises(SecretNotFoundError):
+                get_api_key("OPENROUTER_API_KEY")
 
 
 class TestValidateDbPath:

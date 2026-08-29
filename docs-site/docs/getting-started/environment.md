@@ -1282,6 +1282,7 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 | `ARAGORA_ENCRYPTION_REQUIRED` | Optional | Fail if encryption unavailable | `false` (auto `true` in production) |
 | `ARAGORA_AUDIT_SIGNING_KEY` | Optional | Key for signing audit log entries | - |
 | `ARAGORA_METRICS_TOKEN` | Optional | Auth token for metrics endpoint | - |
+| `ARAGORA_SECRETS_DIR` | Optional | Absolute directory containing protected managed-secret files | - |
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager secret name | - |
 | `ARAGORA_USE_SECRETS_MANAGER` | Optional | Enable AWS Secrets Manager loading | `false`; auto-enabled only in detected AWS-managed runtimes |
 | `ARAGORA_SECRETS_STRICT` | Optional | Block critical-secret env fallback | `false` locally, auto in prod/staging |
@@ -1292,8 +1293,9 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 - `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` should **never** be set in production - webhooks will fail-closed if verification is unavailable
 - Webhook verification requires: Slack (signing secret), Discord (PyNaCl + public key), Teams/Google Chat (PyJWT)
 - Secrets Manager is auto-enabled only in detected AWS-managed runtimes; production or staging names alone do not trigger AWS.
-  In other runtimes, set `ARAGORA_USE_SECRETS_MANAGER=true` to opt in.
+  Existing production/staging deployments that rely on AWS custody must set `ARAGORA_USE_SECRETS_MANAGER=true` explicitly before upgrading, or configure `ARAGORA_SECRETS_DIR`.
   `ARAGORA_SECRET_NAME` still falls back to `aragora/production` when Secrets Manager is enabled.
+- Mounted secret paths must resolve to owner-readable regular files with mode `0400` or `0600`; symlinks, hard links, and platform-default `0444`/`0644` modes are rejected.
 - Use `python3 -m aragora.cli.main secrets health --json` to verify source status without printing secret values.
 
 ## Knowledge System
