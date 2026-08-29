@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import scripts.verify_provider_neutral_canary as verifier
@@ -16,6 +19,8 @@ from tests.gauntlet.test_odr_signing import _valid_odr
 IMAGE = "ghcr.io/synaptent/aragora@sha256:" + "a" * 64
 SHA = "b" * 40
 TOKEN = "ara_private_canary_token_123456"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "scripts" / "verify_provider_neutral_canary.py"
 
 
 class FakeTransport:
@@ -109,6 +114,24 @@ def _receipt(tmp_path: Path):
     return key, receipt_path
 
 
+def test_direct_help_entrypoint_from_repo_root() -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = ""
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--help"],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "--phase" in result.stdout
+    assert "--persistence-state" in result.stdout
+
+
 def test_before_and_after_restart_proof(tmp_path: Path) -> None:
     key, receipt_path = _receipt(tmp_path)
     transport = FakeTransport(public_key_pem(key))
@@ -173,6 +196,26 @@ def test_missing_token_is_recorded_in_failed_artifact(tmp_path: Path) -> None:
     assert report["checks"]["custody"]["error_type"] in {
         "RuntimeError",
         "SecretNotFoundError",
+    }
+
+
+def test_auth_failure_skips_persistence_network(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    (Path(args.secrets_dir) / "canary-auth-token").unlink()
+
+    class PersistenceForbiddenTransport(FakeTransport):
+        def request(self, method, url, *, headers=None, payload=None):
+            if "/api/v1/webhook-configs" in url:
+                raise AssertionError("persistence network method called without authentication")
+            return super().request(method, url, headers=headers, payload=payload)
+
+    report = run_verification(args, PersistenceForbiddenTransport(public_key_pem(key)))
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"] == {
+        "ok": False,
+        "error_type": "AuthUnavailable",
     }
 
 

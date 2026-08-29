@@ -73,6 +73,59 @@ WebSocket upgrade, persistence, both signing-key endpoints, a signed receipt,
 offline signature verification, and the exact running image digest. Repeat the
 same proof after one canary restart.
 
+## Restart verifier
+
+Run the verifier from the repository root. Module invocation is preferred;
+direct execution with `python scripts/verify_provider_neutral_canary.py` is
+also supported. Before restarting the canary, run:
+
+```bash
+python -m scripts.verify_provider_neutral_canary \
+  --phase before-restart \
+  --base-url "$CANARY_ORIGIN" \
+  --expected-sha "$EXPECTED_SHA" \
+  --expected-image-digest "$ARAGORA_IMAGE" \
+  --observed-image-digest "$OBSERVED_IMAGE" \
+  --database-proof-id "$DATABASE_PROOF_ID" \
+  --secrets-dir "$ARAGORA_SECRETS_DIR_HOST" \
+  --receipt-file "$SIGNED_RECEIPT_FILE" \
+  --persistence-state "$CANARY_VERIFIER_STATE" \
+  --output "$CANARY_VERIFIER_BEFORE_REPORT"
+```
+
+`CANARY_ORIGIN` must be an HTTPS origin without a path, `EXPECTED_SHA` must be
+the exact 40-character commit SHA, both image arguments must be immutable
+digest references, and `DATABASE_PROOF_ID` must identify the verified external
+database snapshot or export without containing a secret. The receipt must be a
+signed ODR receipt. The secrets directory must satisfy the custody rules above,
+including a `canary-auth-token` distinct from `ARAGORA_API_TOKEN`.
+
+The before phase creates a durable `canary_probe` webhook configuration and
+writes its identifier, callback marker, and endpoint to the owner-only state
+file. Preserve that state file, restart exactly the canary API process without
+changing its database or webhook store, wait for health to recover, then run:
+
+```bash
+python -m scripts.verify_provider_neutral_canary \
+  --phase after-restart \
+  --base-url "$CANARY_ORIGIN" \
+  --expected-sha "$EXPECTED_SHA" \
+  --expected-image-digest "$ARAGORA_IMAGE" \
+  --observed-image-digest "$OBSERVED_IMAGE" \
+  --database-proof-id "$DATABASE_PROOF_ID" \
+  --secrets-dir "$ARAGORA_SECRETS_DIR_HOST" \
+  --receipt-file "$SIGNED_RECEIPT_FILE" \
+  --persistence-state "$CANARY_VERIFIER_STATE" \
+  --output "$CANARY_VERIFIER_AFTER_REPORT"
+```
+
+The after phase must read the same durable configuration and then delete it.
+Creation/read failures after an ID is returned trigger immediate best-effort
+deletion, and a state-write failure also deletes the created configuration. A
+failed or interrupted after phase requires operator confirmation that the
+recorded webhook ID was deleted before the state file is discarded; any failed
+delete status keeps the verification report failed.
+
 ## Rollback
 
 Record the previous immutable image digest, database snapshot/export identity,

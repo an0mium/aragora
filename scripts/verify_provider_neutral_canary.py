@@ -22,6 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+
 from aragora.config.secrets import SecretManager, SecretsConfig
 from aragora.gauntlet.odr_signing import compute_key_id
 from scripts.validate_provider_neutral_canary import validate_image
@@ -346,12 +351,12 @@ def run_verification(args: argparse.Namespace, client: Transport | None = None) 
         }
     transport = client or UrlLibTransport()
     checks: dict[str, dict[str, Any]] = {"inputs": {"ok": True}}
+    headers: dict[str, str] | None = None
     try:
         token = _load_auth_token(args.secrets_dir)
         headers = _authorization(token)
         checks["custody"] = {"ok": True, "source": "mounted_file"}
     except Exception as exc:  # noqa: BLE001 - every failure must reach the artifact
-        headers = {}
         checks["custody"] = _failed_check(exc)
 
     try:
@@ -376,14 +381,19 @@ def run_verification(args: argparse.Namespace, client: Transport | None = None) 
         )
     except Exception as exc:  # noqa: BLE001
         checks["receipt"] = _failed_check(exc)
-    try:
-        checks["persistence"] = (
-            _persistence_before(transport, args.base_url, headers, Path(args.persistence_state))
-            if args.phase == "before-restart"
-            else _persistence_after(transport, args.base_url, headers, Path(args.persistence_state))
-        )
-    except Exception as exc:  # noqa: BLE001
-        checks["persistence"] = _failed_check(exc)
+    if headers is None:
+        checks["persistence"] = {"ok": False, "error_type": "AuthUnavailable"}
+    else:
+        try:
+            checks["persistence"] = (
+                _persistence_before(transport, args.base_url, headers, Path(args.persistence_state))
+                if args.phase == "before-restart"
+                else _persistence_after(
+                    transport, args.base_url, headers, Path(args.persistence_state)
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            checks["persistence"] = _failed_check(exc)
     try:
         checks["websocket"] = (
             _check_websocket(args.base_url) if client is None else {"ok": True, "mode": "test"}
