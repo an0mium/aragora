@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import argparse
 import json
 import os
@@ -130,6 +132,90 @@ def test_direct_help_entrypoint_from_repo_root() -> None:
     assert result.returncode == 0, result.stderr
     assert "--phase" in result.stdout
     assert "--persistence-state" in result.stdout
+
+
+def _mock_websocket_exchange(monkeypatch, nonce: bytes, response_chunks: list[bytes]):
+    class FakeSocket:
+        def __init__(self, chunks: list[bytes]) -> None:
+            self.chunks = list(chunks)
+            self.sent = b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def sendall(self, request: bytes) -> None:
+            self.sent = request
+
+        def recv(self, size: int) -> bytes:
+            if not self.chunks:
+                return b""
+            chunk = self.chunks.pop(0)
+            result = chunk[:size]
+            if len(chunk) > size:
+                self.chunks.insert(0, chunk[size:])
+            return result
+
+    raw = FakeSocket([])
+    secured = FakeSocket(response_chunks)
+
+    class FakeTLSContext:
+        def wrap_socket(self, sock, *, server_hostname):
+            assert sock is raw
+            assert server_hostname == "canary.example.invalid"
+            return secured
+
+    monkeypatch.setattr(verifier.os, "urandom", lambda size: nonce)
+    monkeypatch.setattr(
+        verifier.socket,
+        "create_connection",
+        lambda address, timeout: raw,
+    )
+    monkeypatch.setattr(verifier.ssl, "create_default_context", FakeTLSContext)
+    result = verifier._check_websocket("https://canary.example.invalid")
+    return result, secured.sent
+
+
+def test_websocket_validates_complete_rfc6455_handshake(monkeypatch) -> None:
+    nonce = b"0123456789abcdef"
+    key = base64.b64encode(nonce).decode("ascii")
+    accept = base64.b64encode(
+        hashlib.sha1(
+            (key + verifier._WEBSOCKET_GUID).encode("ascii"), usedforsecurity=False
+        ).digest()
+    )
+    response = (
+        b"HTTP/1.1 101 Switching Protocols\r\n"
+        b"uPgRaDe: WebSocket\r\n"
+        b"cOnNeCtIoN: keep-alive, UpGrAdE\r\n"
+        b"sEc-WeBsOcKeT-aCcEpT: " + accept + b"\r\n\r\nignored-body"
+    )
+
+    result, request = _mock_websocket_exchange(
+        monkeypatch, nonce, [response[:25], response[25:71], response[71:]]
+    )
+
+    assert result == {
+        "ok": True,
+        "status_line": "HTTP/1.1 101 Switching Protocols",
+        "url": "wss://canary.example.invalid/ws",
+    }
+    assert b"Origin: https://canary.example.invalid\r\n" in request
+
+
+def test_websocket_rejects_forged_101_accept(monkeypatch) -> None:
+    response = (
+        b"HTTP/1.1 101 Switching Protocols\r\n"
+        b"Upgrade: websocket\r\n"
+        b"Connection: upgrade\r\n"
+        b"Sec-WebSocket-Accept: AAAAAAAAAAAAAAAAAAAAAAAAAAAA\r\n\r\n"
+    )
+
+    result, _request = _mock_websocket_exchange(monkeypatch, b"0123456789abcdef", [response])
+
+    assert result["ok"] is False
 
 
 def test_before_and_after_restart_proof(tmp_path: Path) -> None:

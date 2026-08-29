@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import hmac
 import json
 import os
@@ -290,6 +291,10 @@ def _persistence_after(
     }
 
 
+_WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+_MAX_WEBSOCKET_HEADER_BYTES = 8192
+
+
 def _check_websocket(base_url: str) -> dict[str, Any]:
     parsed = urllib.parse.urlsplit(base_url)
     host = parsed.hostname
@@ -297,6 +302,9 @@ def _check_websocket(base_url: str) -> dict[str, Any]:
         raise RuntimeError("canary URL has no hostname")
     port = parsed.port or 443
     key = base64.b64encode(os.urandom(16)).decode("ascii")
+    expected_accept = base64.b64encode(
+        hashlib.sha1((key + _WEBSOCKET_GUID).encode("ascii"), usedforsecurity=False).digest()
+    )
     request = (
         f"GET /ws HTTP/1.1\r\nHost: {parsed.netloc}\r\n"
         "Connection: Upgrade\r\nUpgrade: websocket\r\n"
@@ -307,14 +315,40 @@ def _check_websocket(base_url: str) -> dict[str, Any]:
         with ssl.create_default_context().wrap_socket(raw, server_hostname=host) as secured:
             secured.sendall(request)
             response = bytearray()
-            while b"\r\n" not in response and len(response) < 8192:
-                chunk = secured.recv(min(1024, 8192 - len(response)))
+            header_terminator = b"\r\n\r\n"
+            while header_terminator not in response and len(response) < _MAX_WEBSOCKET_HEADER_BYTES:
+                chunk = secured.recv(min(1024, _MAX_WEBSOCKET_HEADER_BYTES - len(response)))
                 if not chunk:
                     break
                 response.extend(chunk)
-            status_line = bytes(response).split(b"\r\n", 1)[0]
+
+    header_block, terminator, _remainder = bytes(response).partition(header_terminator)
+    header_lines = header_block.split(b"\r\n")
+    status_line = header_lines[0] if header_lines else b""
+    status_parts = status_line.split()
+    status_ok = (
+        len(status_parts) >= 2
+        and status_parts[0].startswith(b"HTTP/")
+        and status_parts[1] == b"101"
+    )
+    response_headers: dict[bytes, bytes] = {}
+    for line in header_lines[1:]:
+        name, separator, value = line.partition(b":")
+        if separator:
+            response_headers[name.strip().lower()] = value.strip()
+    connection_tokens = {
+        token.strip().lower() for token in response_headers.get(b"connection", b"").split(b",")
+    }
+    accept = response_headers.get(b"sec-websocket-accept", b"")
+    ok = (
+        bool(terminator)
+        and status_ok
+        and response_headers.get(b"upgrade", b"").lower() == b"websocket"
+        and b"upgrade" in connection_tokens
+        and hmac.compare_digest(accept, expected_accept)
+    )
     return {
-        "ok": b" 101 " in status_line,
+        "ok": ok,
         "status_line": status_line.decode("ascii", errors="replace")[:80],
         "url": f"wss://{parsed.netloc}/ws",
     }
