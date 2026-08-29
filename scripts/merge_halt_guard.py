@@ -26,6 +26,7 @@ from aragora.governance.merge_halt import (  # noqa: F401,E402
     DEFAULT_WAIVER_FILE,
     MERGE_CAPABLE_SCRIPTS,
     NON_MERGE_MENTIONS,
+    SHARED_REPO_ROOT,
     HaltDecision,
     MergeHalted,
     assert_merge_allowed,

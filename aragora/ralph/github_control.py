@@ -276,8 +276,12 @@ class GitHubControl:
         except MergeHalted as exc:
             return GitHubMergeResult(merged=False, action="blocked", detail=str(exc))
 
+        # Bind the merge to the head the guard authorized. Without this the head
+        # can change between assert_merge_allowed and the merge itself, letting an
+        # unwaived head land under an armed halt (TOCTOU).
+        _head_args = ["--match-head-commit", head_sha] if head_sha else []
         normal = self._run_gh(
-            ["pr", "merge", pr_ref, "--squash"],
+            ["pr", "merge", pr_ref, "--squash", *_head_args],
             raise_on_error=False,
             timeout=30,
         )
@@ -292,7 +296,7 @@ class GitHubControl:
         stderr = (normal.stderr or normal.stdout or "").strip()
         if allow_admin and _looks_like_admin_override_candidate(stderr):
             admin = self._run_gh(
-                ["pr", "merge", pr_ref, "--squash", "--admin"],
+                ["pr", "merge", pr_ref, "--squash", "--admin", *_head_args],
                 raise_on_error=False,
                 timeout=30,
             )
