@@ -205,43 +205,25 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
         >>> api_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         >>> optional_key = get_api_key("BACKUP_KEY", required=False)
     """
-    # Optional provider probes are used for fallback availability checks. They
-    # should treat strict-mode env-blocked secrets as absent without emitting the
-    # "critical secret found in environment" warning from value retrieval.
-    if not required:
-        try:
-            from aragora.config.secrets import (
-                get_secret,
-                get_secret_presence,
-                is_secret_presence_available,
-            )
-
-            for var in env_vars:
-                presence = get_secret_presence(var)
-                if is_secret_presence_available(presence):
-                    value = get_secret(var)
-                    if value and value.strip():
-                        return value.strip()
-            return None
-        except ImportError:
-            pass  # secrets module not available, fall through to env vars
-
-    # Try AWS Secrets Manager first (if enabled).
     try:
-        from aragora.config.secrets import get_secret
-
+        from aragora.config.secrets import (
+            get_secret,
+            get_secret_presence,
+            is_secret_presence_available,
+        )
+    except ImportError:
         for var in env_vars:
+            value = os.getenv(var)
+            if value and value.strip():
+                return value.strip()
+    else:
+        for var in env_vars:
+            presence = get_secret_presence(var)
+            if not is_secret_presence_available(presence):
+                continue
             value = get_secret(var)
             if value and value.strip():
                 return value.strip()
-    except ImportError:
-        pass  # secrets module not available, fall through to env vars
-
-    # Fall back to environment variables
-    for var in env_vars:
-        value = os.getenv(var)
-        if value and value.strip():
-            return value.strip()
 
     if required:
         var_names = " or ".join(env_vars)

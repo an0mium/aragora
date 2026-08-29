@@ -369,6 +369,12 @@ class TestSecretManagerMountedFiles:
         with pytest.raises(SecretSourceError, match="absolute"):
             manager.get("SENTRY_DSN", strict=False)
 
+    @pytest.mark.parametrize("configured", ["/var/./run/secrets", "/var/run/../secrets"])
+    def test_directory_rejects_dot_components(self, configured):
+        manager = SecretManager(SecretsConfig(secrets_dir=configured))
+        with pytest.raises(SecretSourceError, match="dot components"):
+            manager.get("SENTRY_DSN", strict=False)
+
     def test_directory_symlink_is_rejected(self, tmp_path):
         """No component of the configured directory may be a symlink."""
         target = tmp_path / "target"

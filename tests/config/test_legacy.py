@@ -302,6 +302,29 @@ class TestGetApiKey:
         ):
             assert get_api_key("OPENROUTER_API_KEY", required=False) == "mounted-openrouter-key"
 
+    def test_required_alias_lookup_skips_missing_first_name(self, tmp_path):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretManager, SecretsConfig
+
+        secret_path = tmp_path / "GOOGLE_API_KEY"
+        secret_path.write_text("mounted-google-key", encoding="utf-8")
+        secret_path.chmod(0o600)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True),
+        ):
+            assert get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY") == "mounted-google-key"
+
+    def test_optional_probe_propagates_unsafe_mount(self):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretManager, SecretSourceError, SecretsConfig
+
+        manager = SecretManager(SecretsConfig(secrets_dir="relative/secrets"))
+        with patch("aragora.config.secrets._manager", manager):
+            with pytest.raises(SecretSourceError):
+                get_api_key("OPENROUTER_API_KEY", required=False)
+
 
 class TestValidateDbPath:
     """Test validate_db_path security function."""

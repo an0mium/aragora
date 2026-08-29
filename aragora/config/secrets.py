@@ -429,6 +429,8 @@ class SecretManager:
         flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
         trusted_uids = {0, os.geteuid()}
         components = [part for part in configured.split(os.path.sep) if part]
+        if any(component in {".", ".."} for component in components):
+            raise SecretSourceError("ARAGORA_SECRETS_DIR must not contain dot components")
         current_fd = os.open(os.path.sep, flags)
         try:
             for index, component in enumerate(components):
