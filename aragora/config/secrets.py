@@ -412,6 +412,7 @@ class SecretManager:
         self.config = config or SecretsConfig.from_env()
         self._aws_clients: dict[str, Any] = {}
         self._last_aws_load_succeeded = False
+        self._last_aws_load_transient_failure = False
         self._cached_secrets: dict[str, str] = {}
         self._cached_secret_sources: dict[str, str] = {}
         self._cache_timestamp: float = 0.0
@@ -551,7 +552,7 @@ class SecretManager:
         aws_secrets = self._load_from_aws() if self.config.use_aws else {}
         if aws_secrets:
             self._last_aws_load_succeeded = True
-        if self.config.use_aws and not self._last_aws_load_succeeded:
+        if self.config.use_aws and self._last_aws_load_transient_failure:
             aws_secrets = {
                 name: value
                 for name, value in self._cached_secrets.items()
@@ -684,6 +685,7 @@ class SecretManager:
     def _load_from_aws(self) -> dict[str, str]:
         """Load secrets from AWS Secrets Manager."""
         self._last_aws_load_succeeded = False
+        self._last_aws_load_transient_failure = False
         if not self.config.use_aws:
             return {}
 
@@ -735,16 +737,34 @@ class SecretManager:
                     if error_code == "AccessDeniedException":
                         logger.warning("Access denied to AWS Secrets Manager (region=%s)", region)
                         continue
+                    if error_code in {
+                        "InternalServiceError",
+                        "RequestTimeout",
+                        "ServiceUnavailable",
+                        "ThrottlingException",
+                    }:
+                        self._last_aws_load_transient_failure = True
                     logger.error(
                         "AWS Secrets Manager error (region=%s): %s: %s", region, error_code, e
                     )
                 else:
+                    self._last_aws_load_transient_failure = True
                     logger.error(
                         "AWS/botocore error (region=%s): %s: %s", region, type(e).__name__, e
                     )
                 continue
-            except (OSError, RuntimeError, ValueError, KeyError) as e:
-                # Catch remaining non-boto exceptions (e.g., config errors, network)
+            except OSError as e:
+                last_error = e
+                self._last_aws_load_transient_failure = True
+                logger.error(
+                    "Unexpected error loading secrets (region=%s): %s: %s",
+                    region,
+                    type(e).__name__,
+                    e,
+                )
+                continue
+            except (RuntimeError, ValueError, KeyError) as e:
+                # Catch remaining non-boto exceptions (e.g., config errors)
                 last_error = e
                 logger.error(
                     "Unexpected error loading secrets (region=%s): %s: %s",
