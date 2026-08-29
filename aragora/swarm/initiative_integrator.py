@@ -26,6 +26,7 @@ from aragora.swarm.campaign import (
     save_campaign_manifest,
 )
 from aragora.swarm.merge_arbiter import (
+    resolve_pr_head,
     REQUIRED_CHECKS,
     ArbiterOperationalError,
     _classify_required_checks,
@@ -425,7 +426,10 @@ class InitiativeIntegrator:
                     "pr_number": pr_number,
                     "pr_url": row.get("pr_url"),
                 }
-            merged, reason = _merge_pr(pr_number, self.repo)
+            # _merge_pr refuses an unbound merge (#9216), so resolve the head the
+            # checks were evaluated against and pass it through.
+            head_sha = resolve_pr_head(pr_number, self.repo)
+            merged, reason = _merge_pr(pr_number, self.repo, head_sha)
             if not merged:
                 return {
                     "mode": "initiative-promote",

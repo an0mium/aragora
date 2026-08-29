@@ -277,12 +277,20 @@ class TestInitiativeIntegrator:
             patch(
                 "aragora.swarm.initiative_integrator._merge_pr", return_value=(True, "merged")
             ) as merge_pr,
+            patch(
+                "aragora.swarm.initiative_integrator.resolve_pr_head",
+                return_value="c" * 40,
+            ) as resolve_head,
         ):
             payload = integrator.promote()
 
         assert payload["action"] == "merged"
         assert payload["project_id"] == "proj-001"
-        merge_pr.assert_called_once_with(2001, integrator.repo)
+        # #9216: the merge must be bound to the exact head, so the integrator
+        # resolves it and threads it through rather than merging whatever HEAD
+        # happens to be at merge time.
+        resolve_head.assert_called_once_with(2001, integrator.repo)
+        merge_pr.assert_called_once_with(2001, integrator.repo, "c" * 40)
 
     def test_promote_promotes_draft_slice_when_dependency_clear(self, tmp_path: Path) -> None:
         manifest_path = _manifest_path(

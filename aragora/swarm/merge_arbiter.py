@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import subprocess
 import time
@@ -409,6 +410,24 @@ def _promote_draft(pr_number: int, repo: str) -> bool:
     return result.returncode == 0
 
 
+_FULL_HEAD_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+def resolve_pr_head(pr_number: int, repo: str) -> str | None:
+    """Return the PR's current head SHA, or None if it cannot be resolved."""
+    result = _run_gh(
+        ["pr", "view", str(pr_number), "--repo", repo, "--json", "headRefOid"],
+        timeout=20,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        head = str((json.loads(result.stdout or "{}") or {}).get("headRefOid") or "").strip()
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return None
+    return head.lower() or None
+
+
 def _merge_pr(
     pr_number: int,
     repo: str,
@@ -419,8 +438,15 @@ def _merge_pr(
     # to False and it runs in a long-lived loop), so it must consult the main-red
     # halt like every other merge path. Without this the arbiter merges straight
     # through an armed halt, which is exactly how #9115/#9111 landed.
+    # Same exact-head contract as GitHubControl.merge_pr: the head that produced
+    # this PR's check verdict is the only head we may merge. Resolving a fresh one
+    # here would pair a stale gate result with a new commit — the TOCTOU the
+    # contract exists to prevent — so an unbound call is refused outright.
+    normalized_head = str(head_sha or "").strip().lower()
+    if not _FULL_HEAD_SHA_RE.fullmatch(normalized_head):
+        return False, "a full 40-character PR head SHA is required to merge"
     try:
-        assert_merge_allowed(pr_number, head_sha or "")
+        assert_merge_allowed(pr_number, normalized_head)
     except MergeHalted as exc:
         return False, str(exc)
     args = [
@@ -433,8 +459,7 @@ def _merge_pr(
         "--squash",
         "--delete-branch",
     ]
-    if head_sha:
-        args.extend(["--match-head-commit", head_sha])
+    args.extend(["--match-head-commit", normalized_head])
     result = _run_gh(args, write_op=True)
     if result.returncode != 0:
         reason = result.stderr.strip() or "unknown error"
