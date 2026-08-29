@@ -172,6 +172,7 @@ def test_harvest_queue_executes_merge_for_merge_now_pr(
         disposition = "merge_now"
         required_checks_green = True
         head_branch = "codex/example-branch"
+        head_sha = "a" * 40
 
         def to_dict(self) -> dict[str, object]:
             return {
@@ -219,10 +220,14 @@ def test_harvest_queue_executes_merge_for_merge_now_pr(
             *,
             required_checks_green: bool,
             allow_admin: bool,
+            head_sha: str | None = None,
         ) -> _FakeMergeResult:
             assert pr_ref == "https://github.com/org/repo/pull/42"
             assert required_checks_green is True
             assert allow_admin is True
+            # The caller must thread the snapshot's head through so an exact-head
+            # waiver can apply on this merge path (#9216).
+            assert head_sha == "a" * 40
             return _FakeMergeResult()
 
     monkeypatch.setattr("aragora.swarm.tranche_queue.GitHubControl", _FakeGitHubControl)

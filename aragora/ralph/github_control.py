@@ -58,6 +58,9 @@ class GitHubGateSnapshot:
     required_checks_source: str | None
     disposition: str
     blocker_detail: str | None = None
+    # Optional so existing constructors keep working; threaded into merge_pr so an
+    # exact-head waiver can apply on this path (#9216).
+    head_sha: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -185,6 +188,7 @@ class GitHubControl:
         state = str(view.get("state", "")).strip().upper()
         draft = bool(view.get("isDraft", False))
         head_branch = _optional_text(view.get("headRefName"))
+        head_sha = _optional_text(view.get("headRefOid"))
         base_branch = _optional_text(view.get("baseRefName"))
         review_decision = _optional_text(view.get("reviewDecision"))
         merge_state_status = _optional_text(view.get("mergeStateStatus"))
@@ -231,6 +235,7 @@ class GitHubControl:
             state=state,
             draft=draft,
             head_branch=head_branch,
+            head_sha=head_sha,
             base_branch=base_branch,
             review_decision=review_decision,
             merge_state_status=merge_state_status,
@@ -250,6 +255,7 @@ class GitHubControl:
         *,
         required_checks_green: bool,
         allow_admin: bool,
+        head_sha: str | None = None,
     ) -> GitHubMergeResult:
         if not required_checks_green:
             return GitHubMergeResult(
@@ -259,13 +265,14 @@ class GitHubControl:
             )
 
         # #9216: a real merge path (plain squash plus an --admin fallback), so it
-        # must consult the main-red halt. No head SHA is available here, which
-        # means a waiver can never apply (waivers require a full 40-char SHA on
-        # both sides) — an armed halt blocks this path outright. That is stricter
-        # than the waivable paths, which is the safe direction.
+        # must consult the main-red halt. head_sha is threaded from the caller's
+        # gate snapshot so a legitimate exact-head waiver can actually apply here;
+        # without it an armed halt would be unwaivable on this path, which is safe
+        # but breaks incident response. Absent a head the waiver simply cannot
+        # match (full 40-char SHA required on both sides) and the halt blocks.
         _pr_digits = re.findall(r"\d+", str(pr_ref or ""))
         try:
-            assert_merge_allowed(int(_pr_digits[-1]) if _pr_digits else 0, "")
+            assert_merge_allowed(int(_pr_digits[-1]) if _pr_digits else 0, head_sha or "")
         except MergeHalted as exc:
             return GitHubMergeResult(merged=False, action="blocked", detail=str(exc))
 
@@ -444,6 +451,7 @@ class GitHubControl:
                         "state",
                         "isDraft",
                         "headRefName",
+                        "headRefOid",
                         "baseRefName",
                         "reviewDecision",
                         "mergeStateStatus",
