@@ -32,6 +32,7 @@ Key management (per the post-incident security architecture):
 from __future__ import annotations
 
 import base64
+import binascii
 import copy
 import hashlib
 import logging
@@ -136,7 +137,20 @@ def _secret_id_contains_key_material(secret_id: str) -> bool:
     if "-----BEGIN" in secret_id or "PRIVATE KEY" in secret_id or "\n" in secret_id:
         return True
     compact = secret_id.strip()
-    return len(compact) >= 64 and bool(re.fullmatch(r"[A-Za-z0-9+/=_-]+", compact))
+    if not compact or not re.fullmatch(r"[A-Za-z0-9+/_=-]+", compact):
+        return False
+    try:
+        decoded = base64.b64decode(compact, altchars=b"-_", validate=True)
+    except (ValueError, binascii.Error):
+        return False
+    if b"-----BEGIN" in decoded or b"PRIVATE KEY" in decoded:
+        return True
+    try:
+        _, _, serialization, _ = _load_ed25519()
+        serialization.load_der_private_key(decoded, password=None)
+    except (OdrSigningError, ValueError, TypeError):
+        return False
+    return True
 
 
 def _load_pem_from_mounted_custody() -> str | None:
