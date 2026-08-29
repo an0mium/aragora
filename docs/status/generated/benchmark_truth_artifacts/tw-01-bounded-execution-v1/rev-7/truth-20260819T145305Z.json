@@ -1,15 +1,9 @@
 {
-  "evidence_scope": {
-    "fresh_revision_execution": false,
-    "kind": "historical_bootstrap",
-    "normalization_receipt": "docs/benchmarks/evidence/tw-01-bounded-execution-v1/rev-7/normalization-receipt.json",
-    "note": "Verified truth reflects the retained historical control cohort. The five in-progress outcomes predate normalization; no revision-7 execution success is claimed."
-  },
   "corpus": {
     "corpus_id": "tw-01-bounded-execution-v1",
     "in_progress_expected_count": 5,
     "issue_count": 10,
-    "manifest_sha256": "92c5df0190008beeac174319c621a9042fe9d5637d43ee6111d1b757a8079a35",
+    "manifest_sha256": "b2c58fbba2506973300b635a6f6ae895f81f1f63bfce8987372257e847fe42e7",
     "membership_issue_numbers": [
       5185,
       5187,
@@ -57,7 +51,7 @@
     "blocked_not_dispatch_bounded": 5,
     "blocked_validation_target_missing": 5
   },
-  "generated_at": "2026-08-19T15:19:45Z",
+  "generated_at": "2026-08-19T14:53:05Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 5,
     "in_progress_expected_count": 5,
@@ -334,7 +328,7 @@
       "truth_success": false
     }
   ],
-  "metrics_file": "docs/benchmarks/evidence/tw-01-bounded-execution-v1/rev-7/bootstrap-metrics.jsonl",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
     "merged_only_rate": 0.5,
     "no_rescue_truth_success_rate": 0.5,
