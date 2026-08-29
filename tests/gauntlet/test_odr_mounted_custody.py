@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 
 from aragora.gauntlet.odr_signing import (
@@ -12,7 +14,7 @@ from aragora.gauntlet.odr_signing import (
 
 
 def test_one_line_encoded_key_is_rejected_without_reflection(monkeypatch) -> None:
-    encoded_key = "A" * 88
+    encoded_key = base64.b64encode(b"-----BEGIN PRIVATE KEY-----raw-material").decode()
     monkeypatch.setenv(SIGNING_KEY_SECRET_ENV, encoded_key)
     monkeypatch.delenv("ARAGORA_SECRETS_DIR", raising=False)
     monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "true")
@@ -21,6 +23,13 @@ def test_one_line_encoded_key_is_rejected_without_reflection(monkeypatch) -> Non
         load_signing_key_from_secrets()
 
     assert encoded_key not in str(exc.value)
+
+
+def test_long_path_style_secret_identifier_is_not_key_material(monkeypatch) -> None:
+    from aragora.gauntlet.odr_signing import _secret_id_contains_key_material
+
+    secret_id = "aragora/production/odr-signing-key-rotation-2026-08-29-primary"
+    assert _secret_id_contains_key_material(secret_id) is False
 
 
 def test_explicit_secret_identifier_is_redacted_on_failure(monkeypatch) -> None:
