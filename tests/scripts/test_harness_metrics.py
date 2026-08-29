@@ -95,6 +95,27 @@ def test_duplicate_pr_observations_are_monotone_and_conflicts_are_excluded() -> 
     assert summary["external_progress_per_cycle"] is None
 
 
+def test_github_metadata_top_level_number_joins_pr_inventory() -> None:
+    github_record = {
+        "number": 101,
+        "mergedAt": "2026-08-21T00:00:00Z",
+        "headRefName": "conductor-a",
+        "author": {"login": "codex"},
+    }
+    github_event = harness_metrics.normalize_event(github_record, "github")
+    ledger_event = harness_metrics.normalize_event(_event(), "ledger")
+
+    assert github_event is not None
+    assert ledger_event is not None
+    assert github_event.pr_number == ledger_event.pr_number == 101
+    assert harness_metrics.summarize_group([github_event], "conductor-a")["merged_pr_count"] == 1
+
+    summary = harness_metrics.summarize_group([ledger_event, github_event], "conductor-a")
+    assert summary["merged_pr_count"] == 1
+    assert summary["rounds_to_merge_average"] == 1.0
+    assert summary["token_cost_per_merged_pr"] == 2.5
+
+
 def test_cli_is_offline_deterministic_and_emits_one_json_and_one_table(
     tmp_path: Path, capsys: object
 ) -> None:

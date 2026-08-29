@@ -95,7 +95,7 @@ def _positive_int(value: Any) -> int | None:
 
 
 def _pr_number(record: dict[str, Any]) -> int | None:
-    value = _first(record, "pr_number", "pr", "target_pr", "direct_pr_merged")
+    value = _first(record, "pr_number", "pr", "target_pr", "direct_pr_merged", "number")
     if isinstance(value, dict):
         value = value.get("number") or value.get("pr")
     if isinstance(value, str):
