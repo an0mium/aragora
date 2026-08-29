@@ -152,6 +152,10 @@ class PlanningContext:
     test_failures: list[str] = field(default_factory=list)
     user_feedback: list[str] = field(default_factory=list)
     recent_changes: list[str] = field(default_factory=list)
+    # Externally supplied candidate goals the debate must evaluate and rank.
+    # Unlike recent_issues (background context, capped at 5 in the topic),
+    # every candidate is rendered into the debate topic.
+    candidate_goals: list[str] = field(default_factory=list)
     # Cross-cycle learning
     historical_learnings: list[HistoricalLearning] = field(default_factory=list)
     past_failures_to_avoid: list[str] = field(default_factory=list)
@@ -222,6 +226,9 @@ class MetaPlanner:
     def __init__(self, config: MetaPlannerConfig | None = None) -> None:
         self.config = config or MetaPlannerConfig()
         self._agent: Any | None = None
+        # Receipt from the most recent planning debate, for callers that
+        # persist it as a file artifact (KM ingestion is fire-and-forget).
+        self.last_receipt: Any | None = None
         self._feedback_loop = None
         try:
             from aragora.debate.selection_feedback import SelectionFeedbackLoop
@@ -1440,6 +1447,7 @@ class MetaPlanner:
             from aragora.gauntlet.receipt_models import DecisionReceipt
 
             receipt = DecisionReceipt.from_debate_result(result)
+            self.last_receipt = receipt
             logger.info(
                 "meta_planner_receipt_generated receipt_id=%s verdict=%s",
                 receipt.receipt_id,
