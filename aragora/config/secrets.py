@@ -358,6 +358,11 @@ class SecretsConfig:
             use_aws = use_flag.lower() in ("true", "1", "yes")
         else:
             use_aws = bool(_env_text("AWS_EXECUTION_ENV") or _env_text("AWS_LAMBDA_FUNCTION_NAME"))
+        if is_strict_mode() and not secrets_dir and not use_aws:
+            logger.warning(
+                "Strict secrets mode is enabled but no managed custody backend is configured. "
+                "Set ARAGORA_SECRETS_DIR or explicitly enable AWS Secrets Manager."
+            )
 
         primary_region = _env_text("AWS_REGION") or _env_text("AWS_DEFAULT_REGION") or "us-east-1"
         raw_regions = _env_text("ARAGORA_SECRET_REGIONS")
@@ -1110,13 +1115,13 @@ def hydrate_env_from_secrets(
                 manager._log_access(name, f"hydrate_{source}", True)
             elif use_strict and is_critical_secret(name):
                 manager._log_access(name, "hydrate_env_blocked", False)
-                if overwrite and name in os.environ:
-                    logger.warning(
-                        "SECURITY: Removing critical secret '%s' from the process environment "
-                        "because strict managed custody is enabled.",
+                if name in os.environ:
+                    logger.error(
+                        "SECURITY: Critical secret '%s' exists only in the process environment "
+                        "while strict managed custody is enabled.",
                         name,
                     )
-                    os.environ.pop(name, None)
+                    raise SecretNotFoundError(name)
                 continue
             else:
                 value = os.environ.get(name)
