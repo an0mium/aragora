@@ -728,11 +728,14 @@ class TestAuthConfiguration:
             with pytest.raises(AuthenticationError):
                 config.configure_from_env()
 
-    def test_configure_rejects_env_only_token_in_production(self):
+    @pytest.mark.parametrize(
+        "env", [{"ARAGORA_ENV": "production"}, {"ARAGORA_SECRETS_STRICT": "true"}]
+    )
+    def test_configure_rejects_env_only_token_in_strict_mode(self, env):
         config = AuthConfig()
         with patch.dict(
             os.environ,
-            {"ARAGORA_ENV": "production", "ARAGORA_API_TOKEN": "raw-env-token"},
+            {**env, "ARAGORA_API_TOKEN": "raw-env-token"},
             clear=True,
         ):
             with pytest.raises(AuthenticationError):
