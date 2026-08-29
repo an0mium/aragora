@@ -463,10 +463,10 @@ class SecretManager:
             os.close(current_fd)
             raise
 
-    def _read_mounted_secret(self, directory_fd: int, name: str) -> str | None:
-        """Read one managed secret through a validated no-follow descriptor."""
-        if name not in MANAGED_SECRETS or os.path.basename(name) != name:
-            raise SecretSourceError("Refusing an unmanaged mounted-secret filename")
+    def _read_protected_file(self, directory_fd: int, name: str) -> str | None:
+        """Read one fixed-name custody file through a validated descriptor."""
+        if not name or os.path.basename(name) != name or name in {".", ".."}:
+            raise SecretSourceError("Refusing an unsafe mounted-secret filename")
 
         flags = (
             os.O_RDONLY
@@ -512,6 +512,12 @@ class SecretManager:
             return value
         finally:
             os.close(fd)
+
+    def _read_mounted_secret(self, directory_fd: int, name: str) -> str | None:
+        """Read one managed secret through a validated no-follow descriptor."""
+        if name not in MANAGED_SECRETS:
+            raise SecretSourceError("Refusing an unmanaged mounted-secret filename")
+        return self._read_protected_file(directory_fd, name)
 
     def _load_from_mounted_directory(self) -> dict[str, str]:
         """Load present managed filenames from the configured protected directory."""
