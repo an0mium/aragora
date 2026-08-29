@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+import scripts.verify_provider_neutral_canary as verifier
 from aragora.gauntlet.odr_signing import (
     generate_signing_key,
     public_key_pem,
@@ -58,21 +59,21 @@ class FakeTransport:
         if path.endswith("/.well-known/aragora-odr-signing-key"):
             return Response(200, {"X-Aragora-Key-Id": self.key_id}, self.pem.encode("utf-8"))
         if method == "POST" and path.endswith("/api/v1/webhooks"):
-            self.callback_url = payload["url"]
+            assert payload["events"] == ["test.event"]
+            assert payload["platform"] == "generic"
+            self.callback_url = payload["webhook_url"]
             return self._response(
                 201,
                 {
-                    "webhook": {
+                    "subscription": {
                         "id": self.webhook_id,
-                        "url": self.callback_url,
-                        "secret": "must-not-appear-in-report",
-                    }
+                        "webhook_url": self.callback_url,
+                    },
+                    "secret": "must-not-appear-in-report",
                 },
             )
         if method == "GET" and path.endswith(f"/api/v1/webhooks/{self.webhook_id}"):
-            return self._response(
-                200, {"webhook": {"id": self.webhook_id, "url": self.callback_url}}
-            )
+            return self._response(200, {"id": self.webhook_id, "webhook_url": self.callback_url})
         if method == "DELETE" and path.endswith(f"/api/v1/webhooks/{self.webhook_id}"):
             return self._response(204)
         return self._response(404)
@@ -258,6 +259,31 @@ def test_failed_read_reports_cleanup_status(tmp_path: Path) -> None:
     persistence = report["checks"]["persistence"]
     assert persistence["read_status"] == 500
     assert persistence["cleanup_status"] == 204
+
+
+def test_state_write_failure_cleans_up_created_subscription(tmp_path: Path, monkeypatch) -> None:
+    key, receipt_path = _receipt(tmp_path)
+
+    class CleanupTrackingTransport(FakeTransport):
+        deleted = False
+
+        def request(self, method, url, *, headers=None, payload=None):
+            if method == "DELETE":
+                self.deleted = True
+            return super().request(method, url, headers=headers, payload=payload)
+
+    transport = CleanupTrackingTransport(public_key_pem(key))
+    monkeypatch.setattr(
+        verifier,
+        "_write_state",
+        lambda *args: (_ for _ in ()).throw(OSError("state unavailable")),
+    )
+
+    report = run_verification(_args(tmp_path, receipt_path, "before-restart"), transport)
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"]["error_type"] == "OSError"
+    assert transport.deleted is True
 
 
 def test_after_restart_delete_failure_is_recorded(tmp_path: Path) -> None:

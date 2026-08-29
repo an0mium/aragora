@@ -142,7 +142,8 @@ def _check_signing_keys(client: Transport, base_url: str) -> tuple[dict[str, Any
     public_key = serialization.load_pem_public_key(pem.encode("utf-8"))
     key_id = compute_key_id(public_key)
     envelope_pem = str(envelope.get("public_key_pem") or "")
-    header_key_id = pem_response.headers.get("X-Aragora-Key-Id", "")
+    response_headers = {name.lower(): value for name, value in pem_response.headers.items()}
+    header_key_id = response_headers.get("x-aragora-key-id", "")
     ok = (
         envelope.get("algorithm") == "Ed25519"
         and envelope.get("key_id") == key_id
@@ -204,24 +205,35 @@ def _persistence_before(
         "POST",
         _url(base_url, "/api/v1/webhooks"),
         headers=headers,
-        payload={"url": callback_url, "events": ["*"], "name": f"canary-{marker}"},
+        payload={
+            "webhook_url": callback_url,
+            "events": ["test.event"],
+            "platform": "generic",
+            "name": f"canary-{marker}",
+        },
     )
     payload = _json(response) if response.status == 201 else {}
-    webhook_value = payload.get("webhook")
-    webhook: dict[str, Any] = webhook_value if isinstance(webhook_value, dict) else {}
-    webhook_id = str(webhook.get("id") or "")
+    subscription_value = payload.get("subscription")
+    subscription: dict[str, Any] = (
+        subscription_value if isinstance(subscription_value, dict) else {}
+    )
+    webhook_id = str(subscription.get("id") or "")
     if not webhook_id:
         return {"ok": False, "create_status": response.status}
     read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
-    read_payload = _json(read) if read.status == 200 else {}
-    stored_value = read_payload.get("webhook")
-    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
-    ok = read.status == 200 and stored.get("url") == callback_url
+    stored = _json(read) if read.status == 200 else {}
+    ok = read.status == 200 and stored.get("webhook_url") == callback_url
     if ok:
-        _write_state(
-            state_path,
-            {"webhook_id": webhook_id, "callback_url": callback_url, "marker": marker},
-        )
+        try:
+            _write_state(
+                state_path,
+                {"webhook_id": webhook_id, "callback_url": callback_url, "marker": marker},
+            )
+        except Exception:
+            client.request(
+                "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+            )
+            raise
         return {"ok": True, "create_status": response.status, "read_status": read.status}
     cleanup = client.request(
         "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
@@ -241,10 +253,8 @@ def _persistence_after(
     webhook_id = str(state.get("webhook_id") or "")
     callback_url = str(state.get("callback_url") or "")
     read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
-    read_payload = _json(read) if read.status == 200 else {}
-    stored_value = read_payload.get("webhook")
-    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
-    persisted = read.status == 200 and stored.get("url") == callback_url
+    stored = _json(read) if read.status == 200 else {}
+    persisted = read.status == 200 and stored.get("webhook_url") == callback_url
     deleted = client.request(
         "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
     )
@@ -271,7 +281,13 @@ def _check_websocket(base_url: str) -> dict[str, Any]:
     with socket.create_connection((host, port), timeout=10) as raw:
         with ssl.create_default_context().wrap_socket(raw, server_hostname=host) as secured:
             secured.sendall(request)
-            status_line = secured.recv(1024).split(b"\r\n", 1)[0]
+            response = bytearray()
+            while b"\r\n" not in response and len(response) < 8192:
+                chunk = secured.recv(min(1024, 8192 - len(response)))
+                if not chunk:
+                    break
+                response.extend(chunk)
+            status_line = bytes(response).split(b"\r\n", 1)[0]
     return {
         "ok": b" 101 " in status_line,
         "status_line": status_line.decode("ascii", errors="replace")[:80],
