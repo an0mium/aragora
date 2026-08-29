@@ -38,7 +38,11 @@ def main() -> int:
         os.close(directory_fd)
     if not database_url:
         raise RuntimeError("DATABASE_URL was not loaded from managed custody")
-    wait_for_database(database_url, float(os.environ.get("ARAGORA_DB_WAIT_SECONDS", "60")))
+    try:
+        wait_seconds = float(os.environ.get("ARAGORA_DB_WAIT_SECONDS", "60"))
+    except ValueError:
+        wait_seconds = 60.0
+    wait_for_database(database_url, wait_seconds)
     applied = apply_migrations(database_url=database_url)
     sys.stdout.write(f"Applied {len(applied)} migration(s)\n")
     return 0
