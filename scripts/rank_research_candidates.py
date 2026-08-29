@@ -77,7 +77,11 @@ def extract_candidates(brief_path: Path) -> list[str]:
 
 
 async def rank(
-    candidates: list[str], objective: str, max_goals: int, quick: bool
+    candidates: list[str],
+    objective: str,
+    max_goals: int,
+    quick: bool,
+    agents: list[str] | None = None,
 ) -> tuple[list[dict], object | None]:
     from aragora.nomic.meta_planner import (
         MetaPlanner,
@@ -86,6 +90,8 @@ async def rank(
     )
 
     config = MetaPlannerConfig(max_goals=max_goals, quick_mode=quick)
+    if agents:
+        config.agents = agents
     planner = MetaPlanner(config=config)
     goals = await planner.prioritize_work(
         objective=objective,
@@ -107,6 +113,11 @@ def main() -> int:
     )
     parser.add_argument("--max-goals", type=int, default=10)
     parser.add_argument("--quick", action="store_true", help="Heuristic only, no debate")
+    parser.add_argument(
+        "--agents",
+        default=None,
+        help="Comma-separated agent types for the debate (default: MetaPlanner defaults)",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path(".aragora/research_intake"))
     args = parser.parse_args()
 
@@ -119,7 +130,10 @@ def main() -> int:
         return 2
     print(f"extracted {len(candidates)} candidates from {args.brief}")
 
-    goals, receipt = asyncio.run(rank(candidates, args.objective, args.max_goals, args.quick))
+    agents = [a.strip() for a in args.agents.split(",")] if args.agents else None
+    goals, receipt = asyncio.run(
+        rank(candidates, args.objective, args.max_goals, args.quick, agents)
+    )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
