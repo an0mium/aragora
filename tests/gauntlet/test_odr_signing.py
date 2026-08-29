@@ -298,6 +298,25 @@ def test_invalid_mounted_key_fails_before_aws_fallback(
     assert called["value"] is False
 
 
+def test_missing_mounted_key_does_not_fallback_to_aws(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ARAGORA_SECRETS_DIR", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "true")
+    called = {"value": False}
+
+    def unexpected_aws(*args, **kwargs):
+        called["value"] = True
+        raise AssertionError("AWS fallback used")
+
+    monkeypatch.setattr("aragora.gauntlet.odr_signing._load_pem_secret_from_aws", unexpected_aws)
+
+    with pytest.raises(OdrSigningError, match="mounted ODR signing key is missing"):
+        load_signing_key_from_secrets()
+
+    assert called["value"] is False
+
+
 def test_invalid_mounted_pem_does_not_fallback_to_aws(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
