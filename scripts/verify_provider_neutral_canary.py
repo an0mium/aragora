@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hmac
 import json
 import os
 import re
@@ -44,6 +45,11 @@ class Transport(Protocol):
     ) -> Response: ...
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class UrlLibTransport:
     def request(
         self,
@@ -60,9 +66,11 @@ class UrlLibTransport:
             request_headers["Content-Type"] = "application/json"
         request = urllib.request.Request(url, data=body, headers=request_headers, method=method)
         try:
-            with urllib.request.urlopen(
-                request, timeout=20, context=ssl.create_default_context()
-            ) as resp:
+            opener = urllib.request.build_opener(
+                urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+                _NoRedirectHandler(),
+            )
+            with opener.open(request, timeout=20) as resp:
                 return Response(resp.status, dict(resp.headers.items()), resp.read())
         except urllib.error.HTTPError as exc:
             return Response(exc.code, dict(exc.headers.items()), exc.read())
@@ -87,10 +95,15 @@ def _load_auth_token(secrets_dir: str) -> str:
     directory_fd = manager._open_secrets_directory()  # noqa: SLF001
     try:
         token = manager._read_protected_file(directory_fd, "canary-auth-token")  # noqa: SLF001
+        bootstrap_token = manager._read_protected_file(  # noqa: SLF001
+            directory_fd, "ARAGORA_API_TOKEN"
+        )
     finally:
         os.close(directory_fd)
     if not token:
         raise RuntimeError("canary-auth-token is missing from mounted custody")
+    if bootstrap_token and hmac.compare_digest(token, bootstrap_token):
+        raise RuntimeError("canary-auth-token must differ from the server bootstrap token")
     if not token.startswith("ara_") and token.count(".") != 2:
         raise RuntimeError("canary-auth-token must be a user JWT or ara_ API key")
     return token
@@ -203,26 +216,23 @@ def _persistence_before(
     callback_url = f"https://example.invalid/aragora-canary/{marker}"
     response = client.request(
         "POST",
-        _url(base_url, "/api/v1/webhooks"),
+        _url(base_url, "/api/v1/webhook-configs"),
         headers=headers,
-        payload={
-            "webhook_url": callback_url,
-            "events": ["test.event"],
-            "platform": "generic",
-            "name": f"canary-{marker}",
-        },
+        payload={"url": callback_url, "events": ["*"], "name": f"canary-{marker}"},
     )
     payload = _json(response) if response.status == 201 else {}
-    subscription_value = payload.get("subscription")
-    subscription: dict[str, Any] = (
-        subscription_value if isinstance(subscription_value, dict) else {}
-    )
-    webhook_id = str(subscription.get("id") or "")
+    webhook_value = payload.get("webhook")
+    webhook: dict[str, Any] = webhook_value if isinstance(webhook_value, dict) else {}
+    webhook_id = str(webhook.get("id") or "")
     if not webhook_id:
         return {"ok": False, "create_status": response.status}
-    read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
-    stored = _json(read) if read.status == 200 else {}
-    ok = read.status == 200 and stored.get("webhook_url") == callback_url
+    read = client.request(
+        "GET", _url(base_url, f"/api/v1/webhook-configs/{webhook_id}"), headers=headers
+    )
+    read_payload = _json(read) if read.status == 200 else {}
+    stored_value = read_payload.get("webhook")
+    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
+    ok = read.status == 200 and stored.get("url") == callback_url
     if ok:
         try:
             _write_state(
@@ -231,12 +241,12 @@ def _persistence_before(
             )
         except Exception:
             client.request(
-                "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+                "DELETE", _url(base_url, f"/api/v1/webhook-configs/{webhook_id}"), headers=headers
             )
             raise
         return {"ok": True, "create_status": response.status, "read_status": read.status}
     cleanup = client.request(
-        "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+        "DELETE", _url(base_url, f"/api/v1/webhook-configs/{webhook_id}"), headers=headers
     )
     return {
         "ok": False,
@@ -252,11 +262,15 @@ def _persistence_after(
     state = json.loads(state_path.read_text(encoding="utf-8"))
     webhook_id = str(state.get("webhook_id") or "")
     callback_url = str(state.get("callback_url") or "")
-    read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
-    stored = _json(read) if read.status == 200 else {}
-    persisted = read.status == 200 and stored.get("webhook_url") == callback_url
+    read = client.request(
+        "GET", _url(base_url, f"/api/v1/webhook-configs/{webhook_id}"), headers=headers
+    )
+    read_payload = _json(read) if read.status == 200 else {}
+    stored_value = read_payload.get("webhook")
+    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
+    persisted = read.status == 200 and stored.get("url") == callback_url
     deleted = client.request(
-        "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+        "DELETE", _url(base_url, f"/api/v1/webhook-configs/{webhook_id}"), headers=headers
     )
     return {
         "ok": persisted and deleted.status in {200, 204},

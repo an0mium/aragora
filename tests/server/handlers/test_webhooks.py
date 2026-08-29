@@ -235,6 +235,13 @@ class TestRouteRegistration:
         assert WebhookHandler.can_handle("/api/v1/webhooks/wh-001") is True
         assert WebhookHandler.can_handle("/api/v1/webhooks/wh-001/test") is True
 
+    def test_can_handle_durable_canary_alias(self):
+        assert WebhookHandler.can_handle("/api/v1/webhook-configs") is True
+        assert WebhookHandler.can_handle("/api/v1/webhook-configs/wh-001") is True
+        assert WebhookHandler._normalize_path("/api/v1/webhook-configs/wh-001") == (
+            "/api/v1/webhooks/wh-001"
+        )
+
     def test_can_handle_rejects_non_webhook_path(self):
         assert WebhookHandler.can_handle("/api/v1/debates") is False
         assert WebhookHandler.can_handle("/api/v1/backups") is False
