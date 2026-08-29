@@ -12,8 +12,8 @@
 
 | Metric | Value | Source | Command |
 |---|---|---|---|
-| Python files under aragora/ | `4311` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
-| Python lines of code under aragora/ | `1995217` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
+| Python files under aragora/ | `4312` | `aragora/` | `git ls-files aragora \| grep -E '\.py$' \| wc -l` |
+| Python lines of code under aragora/ | `1995218` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
 | Top-level modules under aragora/ | `146` | `aragora/` | `git ls-files aragora \| awk -F/ 'NF>2 {print $2}' \| sort -u \| wc -l` |
 | Test files (test_*.py under tests/) | `5552` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
 | Test functions (class + module level) | `226052` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
