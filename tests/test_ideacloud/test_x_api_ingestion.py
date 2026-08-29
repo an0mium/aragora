@@ -193,6 +193,21 @@ class TestFetchLiveEntries:
         )
         assert [e["tweetId"] for e in entries] == ["5"]
 
+    def test_first_run_fetch_failure_does_not_advance_state(self, tmp_path):
+        """Even with no prior state, a failed fetch must not baseline the
+        partial page — the next complete run must reach what this one missed."""
+        state_path = tmp_path / "state.json"
+        connector = FakeConnector([[_entry("9"), _entry("8")], None])
+
+        entries, commit = asyncio.run(
+            fetch_live_entries(
+                "twitter_bookmark", "api:", connector=connector, state_path=state_path
+            )
+        )
+
+        assert [e["tweetId"] for e in entries] == ["9", "8"]
+        assert commit is None
+
     def test_mid_final_page_truncation_is_not_exhaustion(self, tmp_path):
         """Cap hit mid-way through the LAST page (no next_token) is still a
         truncation — the dropped remainder of that page must stay fetchable."""

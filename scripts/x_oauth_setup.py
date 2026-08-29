@@ -94,7 +94,10 @@ def main() -> int:
     parser.add_argument(
         "--token-path",
         default=".aragora/x_intake/oauth.json",
-        help="Where to store the token pair",
+        help=(
+            "Where to store the token pair. If you change this, set "
+            "ARAGORA_X_OAUTH_TOKEN_PATH to the same value so ingestion finds it"
+        ),
     )
     args = parser.parse_args()
     redirect_uri = f"http://127.0.0.1:{args.redirect_port}/callback"

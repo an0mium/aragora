@@ -178,7 +178,10 @@ async def fetch_live_entries(
     feed_exhausted = not pagination_token and not fetch_failed and not truncated_mid_page
     reached_continuity = hit_seen or feed_exhausted or not seen_ids
     commit: Callable[[], None] | None = None
-    if entries and reached_continuity and not (fetch_failed and seen_ids):
+    # A failed fetch never advances state — even on a first run, marking the
+    # partial page seen would stop the next (complete) run short of the items
+    # this one failed to reach.
+    if entries and reached_continuity and not fetch_failed:
         newest_ids = [str(e.get("tweetId")) for e in entries if e.get("tweetId")]
         commit = _make_state_commit(path, state_key, source_type, newest_ids)
     elif entries:

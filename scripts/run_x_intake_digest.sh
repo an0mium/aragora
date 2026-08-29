@@ -40,8 +40,9 @@ for source in twitter-bookmarks twitter-likes; do
 done
 
 digest_file="${DIGEST_DIR}/digest-${stamp}.md"
+# --limit: the CLI defaults to 20, which would silently truncate the digest
 if ! "${ARAGORA_PYTHON}" -m aragora.cli.main ideacloud list --vault "${VAULT}" \
-    > "${digest_file}" 2>/dev/null; then
+    --limit 100000 > "${digest_file}" 2>/dev/null; then
     log "WARN ideacloud list failed; digest file may be empty"
 fi
 

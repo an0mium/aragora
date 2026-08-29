@@ -15,20 +15,25 @@ Environment variables ``X_OAUTH2_ACCESS_TOKEN`` / ``X_OAUTH2_REFRESH_TOKEN`` /
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import fcntl
 import json
 import logging
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
-DEFAULT_TOKEN_PATH = Path(".aragora/x_intake/oauth.json")
+# CWD-relative by default; override with ARAGORA_X_OAUTH_TOKEN_PATH (must
+# match any custom --token-path given to scripts/x_oauth_setup.py).
+DEFAULT_TOKEN_PATH = Path(
+    os.environ.get("ARAGORA_X_OAUTH_TOKEN_PATH", ".aragora/x_intake/oauth.json")
+)
 
 __all__ = ["XOAuthTokenStore", "XOAuthTokens"]
 
@@ -92,17 +97,25 @@ class XOAuthTokenStore:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2)
 
-    @contextlib.contextmanager
-    def _flock(self) -> Iterator[None]:
+    @contextlib.asynccontextmanager
+    async def _flock(self) -> AsyncIterator[None]:
         """Cross-process exclusive lock: X rotates the refresh token on every
         refresh, so a CLI run racing the launchd digest could persist a stale
         pair and strand the grant. All refresh decisions happen under this
-        lock, re-reading the file first."""
+        lock, re-reading the file first.
+
+        Acquired non-blocking with async backoff — a blocking LOCK_EX would
+        pin the event loop, deadlocking two coroutines in the same loop."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         lock_path = self.path.with_suffix(self.path.suffix + ".lock")
         fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT, 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    await asyncio.sleep(0.2)
             yield
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
@@ -157,7 +170,7 @@ class XOAuthTokenStore:
         while we held a stale copy, its tokens are returned without burning a
         second rotation (X rotates the refresh token on every refresh).
         """
-        with self._flock():
+        async with self._flock():
             current = self.load()
             if current and current.access_token and current.access_token != stale.access_token:
                 return current
@@ -169,7 +182,7 @@ class XOAuthTokenStore:
         if tokens is None:
             return None
         if tokens.is_expired or not tokens.access_token:
-            with self._flock():
+            async with self._flock():
                 # Another process may have refreshed while we waited for the
                 # lock — reload and only refresh if still needed.
                 tokens = self.load() or tokens
