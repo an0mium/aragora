@@ -23,6 +23,9 @@ Required fixed filenames:
 - `ARAGORA_JWT_SECRET`
 - `ARAGORA_ENCRYPTION_KEY`
 - `odr-signing-key.pem`
+- `canary-auth-token` containing a short-lived user JWT or database-backed
+  `ara_` API key with webhook create/read/delete permissions (never the server's
+  raw `ARAGORA_API_TOKEN` bootstrap value)
 - at least one supported provider key such as `ANTHROPIC_API_KEY` or
   `OPENROUTER_API_KEY`
 

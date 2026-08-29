@@ -9,12 +9,12 @@ from aragora.gauntlet.odr_signing import (
     public_key_pem,
     sign_odr_receipt,
 )
-from scripts.verify_provider_neutral_canary import Response, run_verification
+from scripts.verify_provider_neutral_canary import Response, _write_state, run_verification
 from tests.gauntlet.test_odr_signing import _valid_odr
 
 IMAGE = "ghcr.io/synaptent/aragora@sha256:" + "a" * 64
 SHA = "b" * 40
-TOKEN = "private-canary-token"
+TOKEN = "ara_private_canary_token_123456"
 
 
 class FakeTransport:
@@ -81,7 +81,7 @@ class FakeTransport:
 def _args(tmp_path: Path, receipt_path: Path, phase: str) -> argparse.Namespace:
     secret_dir = tmp_path / "secrets"
     secret_dir.mkdir(mode=0o700, exist_ok=True)
-    token_path = secret_dir / "ARAGORA_API_TOKEN"
+    token_path = secret_dir / "canary-auth-token"
     token_path.write_text(TOKEN, encoding="utf-8")
     token_path.chmod(0o600)
     return argparse.Namespace(
@@ -139,7 +139,6 @@ def test_image_or_database_identity_mismatch_fails_closed(tmp_path: Path) -> Non
     transport = FakeTransport(public_key_pem(key))
     args = _args(tmp_path, receipt_path, "before-restart")
     args.observed_image_digest = "ghcr.io/synaptent/aragora@sha256:" + "d" * 64
-    args.database_proof_id = ""
 
     report = run_verification(args, transport)
 
@@ -161,7 +160,7 @@ def test_signing_key_endpoint_mismatch_fails_closed(tmp_path: Path) -> None:
 def test_missing_token_is_recorded_in_failed_artifact(tmp_path: Path) -> None:
     key, receipt_path = _receipt(tmp_path)
     args = _args(tmp_path, receipt_path, "before-restart")
-    (Path(args.secrets_dir) / "ARAGORA_API_TOKEN").unlink()
+    (Path(args.secrets_dir) / "canary-auth-token").unlink()
 
     report = run_verification(args, FakeTransport(public_key_pem(key)))
 
@@ -178,7 +177,7 @@ def test_transport_exception_is_recorded_without_secret_text(tmp_path: Path) -> 
 
     class BrokenTransport:
         def request(self, *args, **kwargs):
-            raise OSError("network failed with private-canary-token")
+            raise OSError(f"network failed with {TOKEN}")
 
     report = run_verification(_args(tmp_path, receipt_path, "before-restart"), BrokenTransport())
 
@@ -186,3 +185,24 @@ def test_transport_exception_is_recorded_without_secret_text(tmp_path: Path) -> 
     serialized = json.dumps(report)
     assert "OSError" in serialized
     assert TOKEN not in serialized
+
+
+def test_http_origin_is_rejected_before_token_use(tmp_path: Path) -> None:
+    _, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    args.base_url = "http://canary.example.invalid"
+
+    class UnusedTransport:
+        def request(self, *args, **kwargs):
+            raise AssertionError("invalid HTTP origin reached the network")
+
+    report = run_verification(args, UnusedTransport())
+
+    assert report["ok"] is False
+    assert report["checks"]["inputs"]["ok"] is False
+
+
+def test_report_file_is_owner_only(tmp_path: Path) -> None:
+    output = tmp_path / "report.json"
+    _write_state(output, {"ok": False})
+    assert output.stat().st_mode & 0o777 == 0o600

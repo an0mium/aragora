@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
+import re
+import socket
 import ssl
-import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -21,6 +23,7 @@ from typing import Any, Protocol
 
 from aragora.config.secrets import SecretManager, SecretsConfig
 from aragora.gauntlet.odr_signing import compute_key_id
+from scripts.validate_provider_neutral_canary import validate_image
 
 
 @dataclass(frozen=True)
@@ -79,15 +82,17 @@ def _json(response: Response) -> dict[str, Any]:
     return value
 
 
-def _load_api_token(secrets_dir: str) -> str:
+def _load_auth_token(secrets_dir: str) -> str:
     manager = SecretManager(SecretsConfig(secrets_dir=secrets_dir))
     directory_fd = manager._open_secrets_directory()  # noqa: SLF001
     try:
-        token = manager._read_mounted_secret(directory_fd, "ARAGORA_API_TOKEN")  # noqa: SLF001
+        token = manager._read_protected_file(directory_fd, "canary-auth-token")  # noqa: SLF001
     finally:
         os.close(directory_fd)
     if not token:
-        raise RuntimeError("ARAGORA_API_TOKEN is missing from mounted custody")
+        raise RuntimeError("canary-auth-token is missing from mounted custody")
+    if not token.startswith("ara_") and token.count(".") != 2:
+        raise RuntimeError("canary-auth-token must be a user JWT or ara_ API key")
     return token
 
 
@@ -244,25 +249,62 @@ def _persistence_after(
 
 
 def _check_websocket(base_url: str) -> dict[str, Any]:
-    scheme = "wss" if base_url.startswith("https://") else "ws"
     parsed = urllib.parse.urlsplit(base_url)
-    ws_url = f"{scheme}://{parsed.netloc}/ws"
-    script = Path(__file__).resolve().parent / "verify_websocket.sh"
-    result = subprocess.run(
-        [str(script), ws_url], capture_output=True, text=True, timeout=15, check=False
-    )
-    return {"ok": result.returncode == 0, "returncode": result.returncode, "url": ws_url}
+    host = parsed.hostname
+    if not host:
+        raise RuntimeError("canary URL has no hostname")
+    port = parsed.port or 443
+    key = base64.b64encode(os.urandom(16)).decode("ascii")
+    request = (
+        f"GET /ws HTTP/1.1\r\nHost: {parsed.netloc}\r\n"
+        "Connection: Upgrade\r\nUpgrade: websocket\r\n"
+        f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
+        f"Origin: {base_url.rstrip('/')}\r\n\r\n"
+    ).encode("ascii")
+    with socket.create_connection((host, port), timeout=10) as raw:
+        with ssl.create_default_context().wrap_socket(raw, server_hostname=host) as secured:
+            secured.sendall(request)
+            status_line = secured.recv(1024).split(b"\r\n", 1)[0]
+    return {
+        "ok": b" 101 " in status_line,
+        "status_line": status_line.decode("ascii", errors="replace")[:80],
+        "url": f"wss://{parsed.netloc}/ws",
+    }
 
 
 def _failed_check(exc: Exception) -> dict[str, Any]:
     return {"ok": False, "error_type": type(exc).__name__}
 
 
+def _validate_inputs(args: argparse.Namespace) -> list[str]:
+    errors: list[str] = []
+    parsed = urllib.parse.urlsplit(args.base_url)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.path not in {"", "/"}:
+        errors.append("base_url must be an HTTPS origin without a path")
+    if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
+        errors.append("expected_sha must be a full 40-character lowercase commit SHA")
+    for name in ("expected_image_digest", "observed_image_digest"):
+        if validate_image(str(getattr(args, name))):
+            errors.append(f"{name} must be a non-placeholder immutable image digest reference")
+    if not re.fullmatch(r"[A-Za-z0-9._:/-]{3,200}", args.database_proof_id):
+        errors.append("database_proof_id must be a non-secret snapshot/export identifier")
+    return errors
+
+
 def run_verification(args: argparse.Namespace, client: Transport | None = None) -> dict[str, Any]:
+    input_errors = _validate_inputs(args)
+    if input_errors:
+        return {
+            "ok": False,
+            "phase": args.phase,
+            "base_url": args.base_url,
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "checks": {"inputs": {"ok": False, "errors": input_errors}},
+        }
     transport = client or UrlLibTransport()
-    checks: dict[str, dict[str, Any]] = {}
+    checks: dict[str, dict[str, Any]] = {"inputs": {"ok": True}}
     try:
-        token = _load_api_token(args.secrets_dir)
+        token = _load_auth_token(args.secrets_dir)
         headers = _authorization(token)
         checks["custody"] = {"ok": True, "source": "mounted_file"}
     except Exception as exc:  # noqa: BLE001 - every failure must reach the artifact
