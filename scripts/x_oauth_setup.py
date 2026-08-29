@@ -10,7 +10,7 @@ Prereqs (once, at https://developer.x.com):
   1. Create a project + app (Free tier works for owned reads).
   2. In the app's "User authentication settings": enable OAuth 2.0,
      type "Native App" (public client), and add the callback URL
-     http://127.0.0.1:8721/callback
+     http://127.0.0.1:8765/callback (or pass --redirect-port)
   3. Copy the OAuth 2.0 Client ID.
 
 The script requests scopes: tweet.read users.read bookmark.read like.read
@@ -45,7 +45,7 @@ if str(REPO_ROOT) not in sys.path:
 
 AUTH_URL = "https://x.com/i/oauth2/authorize"
 TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
-REDIRECT_URI = "http://127.0.0.1:8721/callback"
+DEFAULT_PORT = 8765  # matches the callback registered on the X app
 SCOPES = "tweet.read users.read bookmark.read like.read offline.access"
 
 
@@ -80,11 +80,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--client-id", required=True, help="OAuth 2.0 Client ID of your X app")
     parser.add_argument(
+        "--redirect-port",
+        type=int,
+        default=DEFAULT_PORT,
+        help="Localhost port of the registered callback URI (default: %(default)s)",
+    )
+    parser.add_argument(
         "--token-path",
         default=".aragora/x_intake/oauth.json",
         help="Where to store the token pair",
     )
     args = parser.parse_args()
+    redirect_uri = f"http://127.0.0.1:{args.redirect_port}/callback"
 
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
     challenge = (
@@ -100,7 +107,7 @@ def main() -> int:
             {
                 "response_type": "code",
                 "client_id": args.client_id,
-                "redirect_uri": REDIRECT_URI,
+                "redirect_uri": redirect_uri,
                 "scope": SCOPES,
                 "state": state,
                 "code_challenge": challenge,
@@ -109,13 +116,13 @@ def main() -> int:
         )
     )
 
-    server = http.server.HTTPServer(("127.0.0.1", 8721), _CallbackHandler)
+    server = http.server.HTTPServer(("127.0.0.1", args.redirect_port), _CallbackHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
     print("Open this URL in your browser and authorize the app:\n")
     print(authorize)
-    print("\nWaiting for the callback on http://127.0.0.1:8721/callback ...")
+    print(f"\nWaiting for the callback on {redirect_uri} ...")
 
     deadline = time.time() + 300
     while _CallbackHandler.code is None and time.time() < deadline:
@@ -131,7 +138,7 @@ def main() -> int:
             "grant_type": "authorization_code",
             "code": _CallbackHandler.code,
             "client_id": args.client_id,
-            "redirect_uri": REDIRECT_URI,
+            "redirect_uri": redirect_uri,
             "code_verifier": verifier,
         }
     ).encode()
