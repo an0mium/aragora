@@ -1157,7 +1157,7 @@ def hydrate_env_from_secrets(
             ):
                 continue
             value: str | None
-            if name in cached_secrets:
+            if name in cached_secrets and cached_secrets[name].strip():
                 value = cached_secrets[name]
                 source = cached_sources.get(name, "managed_cache")
                 manager._log_access(name, f"hydrate_{source}", True)
