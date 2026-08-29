@@ -207,6 +207,7 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     """
     try:
         from aragora.config.secrets import (
+            SecretNotFoundError,
             get_secret,
             get_secret_presence,
             is_secret_presence_available,
@@ -219,9 +220,11 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     else:
         for var in env_vars:
             presence = get_secret_presence(var)
+            if presence.source == "blocked_by_strict_mode" and required:
+                raise SecretNotFoundError(var)
             if not is_secret_presence_available(presence):
                 continue
-            value = get_secret(var)
+            value = os.getenv(var) if presence.source == "env" else get_secret(var)
             if value and value.strip():
                 return value.strip()
 

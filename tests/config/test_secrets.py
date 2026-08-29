@@ -469,7 +469,7 @@ class TestSecretManagerMountedFiles:
         with patch.dict(os.environ, {}, clear=True):
             assert manager.get("UNMANAGED_SECRET", strict=False) is None
 
-    def test_strict_hydration_removes_critical_env_fallback(self, tmp_path):
+    def test_strict_hydration_removes_critical_env_fallback(self, tmp_path, caplog):
         """Settings hydration cannot reintroduce raw critical env values."""
         manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
         with (
@@ -485,6 +485,8 @@ class TestSecretManagerMountedFiles:
             assert "JWT_SECRET_KEY" not in os.environ
 
         assert any(entry["source"] == "hydrate_env_blocked" for entry in manager.get_access_log())
+        assert "Removing critical secret 'JWT_SECRET_KEY'" in caplog.text
+        assert "raw-env-value" not in caplog.text
 
     def test_untrusted_intermediate_directory_permissions_are_rejected(self, tmp_path):
         """Every non-sticky writable ancestor is rejected, not only the leaf."""
@@ -507,6 +509,32 @@ class TestSecretManagerMountedFiles:
         manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
         with pytest.raises(SecretSourceError):
             manager.get("OPENAI_API_KEY", strict=False)
+
+    def test_directory_fstat_failure_closes_opened_descriptors(self, tmp_path):
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        real_open = os.open
+        real_close = os.close
+        opened: list[int] = []
+        closed: list[int] = []
+
+        def tracked_open(*args, **kwargs):
+            fd = real_open(*args, **kwargs)
+            opened.append(fd)
+            return fd
+
+        def tracked_close(fd):
+            closed.append(fd)
+            real_close(fd)
+
+        with (
+            patch("aragora.config.secrets.os.open", side_effect=tracked_open),
+            patch("aragora.config.secrets.os.fstat", side_effect=OSError("fstat failed")),
+            patch("aragora.config.secrets.os.close", side_effect=tracked_close),
+            pytest.raises(SecretSourceError),
+        ):
+            manager.get("OPENAI_API_KEY", strict=False)
+
+        assert sorted(opened) == sorted(closed)
 
 
 class TestSecretManagerAWS:
