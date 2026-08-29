@@ -35,21 +35,21 @@ def _reject_unexpected_query_params(request: Request) -> None:
         raise HTTPException(status_code=400, detail="Invalid query")
 
 
-def _openapi_operation_paths(app: Any) -> list[str]:
-    """Return one path entry per OpenAPI operation exposed by a FastAPI app."""
+def _openapi_operations(app: Any) -> set[tuple[str, str]]:
+    """Return normalized ``(method, path)`` pairs from the canonical schema."""
     openapi = getattr(app, "openapi", None)
     if not callable(openapi):
-        return []
+        return set()
 
     spec = openapi()
     if not isinstance(spec, dict):
-        return []
+        return set()
 
     paths = spec.get("paths", {})
     if not isinstance(paths, dict):
-        return []
+        return set()
 
-    operation_paths: list[str] = []
+    operations: set[tuple[str, str]] = set()
     for path, path_item in paths.items():
         if not isinstance(path, str) or not isinstance(path_item, dict):
             continue
@@ -59,8 +59,52 @@ def _openapi_operation_paths(app: Any) -> list[str]:
                 and method.lower() in _HTTP_METHODS
                 and isinstance(operation, dict)
             ):
-                operation_paths.append(path)
-    return operation_paths
+                operations.add((method.lower(), path))
+    return operations
+
+
+def _openapi_operation_paths(app: Any) -> list[str]:
+    """Return one path entry per OpenAPI operation exposed by a FastAPI app."""
+    return [path for _method, path in sorted(_openapi_operations(app))]
+
+
+def _schema_hidden_operations(app: Any) -> set[tuple[str, str]]:
+    """Return operations registered outside the canonical OpenAPI schema."""
+    operations: set[tuple[str, str]] = set()
+    pending = list(getattr(app, "routes", ()) or ())
+    seen: set[int] = set()
+
+    while pending:
+        route = pending.pop()
+        route_id = id(route)
+        if route_id in seen:
+            continue
+        seen.add(route_id)
+
+        effective_candidates = getattr(route, "effective_candidates", None)
+        if callable(effective_candidates):
+            pending.extend(effective_candidates())
+            continue
+
+        child_routes = getattr(route, "routes", None)
+        if child_routes:
+            pending.extend(child_routes)
+
+        if getattr(route, "include_in_schema", True) is not False:
+            continue
+
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None)
+        if not isinstance(path, str) or not methods:
+            continue
+        if isinstance(methods, str):
+            methods = (methods,)
+
+        for method in methods:
+            if isinstance(method, str) and method.lower() in _HTTP_METHODS:
+                operations.add((method.lower(), path))
+
+    return operations
 
 
 def _legacy_flat_route_paths(app: Any) -> list[str]:
@@ -74,9 +118,10 @@ def _legacy_flat_route_paths(app: Any) -> list[str]:
 
 
 def _rbac_coverage_route_paths(app: Any) -> list[str]:
-    operation_paths = _openapi_operation_paths(app)
-    if operation_paths:
-        return operation_paths
+    openapi_operations = _openapi_operations(app)
+    if openapi_operations:
+        operations = openapi_operations | _schema_hidden_operations(app)
+        return [path for _method, path in sorted(operations)]
     return _legacy_flat_route_paths(app)
 
 
@@ -135,8 +180,9 @@ async def get_rbac_coverage(
 
     # ----- Endpoint coverage -----
     # FastAPI 0.137 preserves included routers as a tree, so app.routes no
-    # longer reliably exposes every included API route. Count public OpenAPI
-    # operations first, with a guarded route-list fallback for older test doubles.
+    # longer reliably exposes every included API route. Count OpenAPI operations
+    # first, add registered schema-hidden operations, and retain a guarded
+    # route-list fallback for older test doubles.
     endpoint_paths: list[str] = []
     try:
         endpoint_paths = _rbac_coverage_route_paths(request.app)
