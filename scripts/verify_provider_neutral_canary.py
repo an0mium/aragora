@@ -222,9 +222,16 @@ def _persistence_before(
             state_path,
             {"webhook_id": webhook_id, "callback_url": callback_url, "marker": marker},
         )
-    else:
-        client.request("DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
-    return {"ok": ok, "create_status": response.status, "read_status": read.status}
+        return {"ok": True, "create_status": response.status, "read_status": read.status}
+    cleanup = client.request(
+        "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+    )
+    return {
+        "ok": False,
+        "create_status": response.status,
+        "read_status": read.status,
+        "cleanup_status": cleanup.status,
+    }
 
 
 def _persistence_after(
