@@ -1099,12 +1099,23 @@ def hydrate_env_from_secrets(
             cached_secrets = dict(manager._cached_secrets)
             cached_sources = dict(manager._cached_secret_sources)
         use_strict = is_strict_mode()
+        if use_strict:
+            blocked_names = [
+                name
+                for name in target_names
+                if is_critical_secret(name) and name not in cached_secrets and name in os.environ
+            ]
+            if blocked_names:
+                for name in blocked_names:
+                    manager._log_access(name, "hydrate_env_blocked", False)
+                    logger.error(
+                        "SECURITY: Critical secret '%s' exists only in the process environment "
+                        "while strict managed custody is enabled.",
+                        name,
+                    )
+                raise SecretNotFoundError(blocked_names[0])
         for name in target_names:
-            if (
-                not overwrite
-                and os.environ.get(name)
-                and not (use_strict and is_critical_secret(name))
-            ):
+            if not overwrite and os.environ.get(name):
                 continue
             value: str | None
             if name in cached_secrets:

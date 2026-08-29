@@ -227,7 +227,12 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
             if presence.source == "env" and not required:
                 value = os.getenv(var)
             else:
-                value = get_secret(var)
+                try:
+                    value = get_secret(var)
+                except SecretNotFoundError:
+                    if required:
+                        raise
+                    continue
             if value and value.strip():
                 return value.strip()
         if required and is_strict_mode():
