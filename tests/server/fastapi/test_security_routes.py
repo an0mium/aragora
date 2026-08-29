@@ -3,8 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
+from starlette.routing import Route
 
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi.dependencies.auth import require_authenticated
@@ -120,6 +122,38 @@ def test_rbac_coverage_counts_schema_hidden_registered_operations():
     assert data["coverage_percent"] == 66.7
 
 
+def test_schema_hidden_operations_omit_implicit_head_for_get_route():
+    async def hidden_get(request):
+        return None
+
+    route = Route(
+        "/api/v2/hidden-get",
+        hidden_get,
+        methods=["GET"],
+        include_in_schema=False,
+    )
+
+    assert security._schema_hidden_operations(SimpleNamespace(routes=[route])) == {
+        ("get", "/api/v2/hidden-get")
+    }
+
+
+def test_schema_hidden_operations_preserve_head_only_route():
+    async def hidden_head(request):
+        return None
+
+    route = Route(
+        "/api/v2/hidden-head",
+        hidden_head,
+        methods=["HEAD"],
+        include_in_schema=False,
+    )
+
+    assert security._schema_hidden_operations(SimpleNamespace(routes=[route])) == {
+        ("head", "/api/v2/hidden-head")
+    }
+
+
 def test_rbac_coverage_deduplicates_schema_and_registered_operations(monkeypatch):
     app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
 
@@ -140,6 +174,46 @@ def test_rbac_coverage_retains_legacy_flat_route_fallback():
     app = SimpleNamespace(routes=[SimpleNamespace(path="/api/v2/legacy", methods={"GET"})])
 
     assert security._rbac_coverage_route_paths(app) == ["/api/v2/legacy"]
+
+
+def test_rbac_coverage_fails_closed_when_openapi_generation_raises():
+    app = SimpleNamespace(
+        openapi=MagicMock(side_effect=RuntimeError("generation failed")),
+        routes=[SimpleNamespace(path="/api/v2/legacy", methods={"GET"})],
+    )
+
+    with pytest.raises(RuntimeError, match="generation failed"):
+        security._rbac_coverage_route_paths(app)
+
+
+def test_rbac_coverage_fails_closed_when_openapi_schema_is_malformed():
+    app = SimpleNamespace(
+        openapi=lambda: [],
+        routes=[SimpleNamespace(path="/api/v2/legacy", methods={"GET"})],
+    )
+
+    with pytest.raises(RuntimeError, match="malformed schema"):
+        security._rbac_coverage_route_paths(app)
+
+
+def test_rbac_coverage_endpoint_maps_openapi_failure_to_unavailable():
+    app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+    app.include_router(security.router)
+    app.state.context = {"rbac_checker": MagicMock(list_assignments=lambda: [])}
+    app.dependency_overrides[require_authenticated] = lambda: AuthorizationContext(
+        user_id="user-1",
+        org_id="org-1",
+        workspace_id="ws-1",
+        roles={"admin"},
+        permissions={"*"},
+    )
+    app.openapi = MagicMock(side_effect=RuntimeError("generation failed"))
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/api/v2/security/rbac-coverage")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "RBAC coverage unavailable"}
 
 
 def test_encryption_status_maps_tls_failures_to_degraded(

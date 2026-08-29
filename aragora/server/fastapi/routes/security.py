@@ -43,11 +43,11 @@ def _openapi_operations(app: Any) -> set[tuple[str, str]]:
 
     spec = openapi()
     if not isinstance(spec, dict):
-        return set()
+        raise RuntimeError("OpenAPI generation returned a malformed schema")
 
     paths = spec.get("paths", {})
     if not isinstance(paths, dict):
-        return set()
+        raise RuntimeError("OpenAPI generation returned malformed paths")
 
     operations: set[tuple[str, str]] = set()
     for path, path_item in paths.items():
@@ -100,9 +100,17 @@ def _schema_hidden_operations(app: Any) -> set[tuple[str, str]]:
         if isinstance(methods, str):
             methods = (methods,)
 
-        for method in methods:
-            if isinstance(method, str) and method.lower() in _HTTP_METHODS:
-                operations.add((method.lower(), path))
+        normalized_methods = {
+            method.lower()
+            for method in methods
+            if isinstance(method, str) and method.lower() in _HTTP_METHODS
+        }
+        if "get" in normalized_methods:
+            # Starlette adds HEAD to GET routes; it is not a separate declared operation.
+            normalized_methods.discard("head")
+
+        for method in normalized_methods:
+            operations.add((method, path))
 
     return operations
 
@@ -118,11 +126,12 @@ def _legacy_flat_route_paths(app: Any) -> list[str]:
 
 
 def _rbac_coverage_route_paths(app: Any) -> list[str]:
+    if not callable(getattr(app, "openapi", None)):
+        return _legacy_flat_route_paths(app)
+
     openapi_operations = _openapi_operations(app)
-    if openapi_operations:
-        operations = openapi_operations | _schema_hidden_operations(app)
-        return [path for _method, path in sorted(operations)]
-    return _legacy_flat_route_paths(app)
+    operations = openapi_operations | _schema_hidden_operations(app)
+    return [path for _method, path in sorted(operations)]
 
 
 def _is_unprotected_endpoint_path(path: str) -> bool:
@@ -186,8 +195,9 @@ async def get_rbac_coverage(
     endpoint_paths: list[str] = []
     try:
         endpoint_paths = _rbac_coverage_route_paths(request.app)
-    except (RuntimeError, TypeError, AttributeError):
-        endpoint_paths = []
+    except (RuntimeError, TypeError, AttributeError) as exc:
+        logger.error("Unable to compute RBAC coverage from OpenAPI: %s", exc)
+        raise HTTPException(status_code=503, detail="RBAC coverage unavailable") from exc
 
     # Heuristic: endpoints behind RBAC middleware are "protected".
     # The RBAC middleware protects all /api/v2/* routes except health.
