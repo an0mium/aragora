@@ -728,6 +728,22 @@ class TestAuthConfiguration:
             with pytest.raises(AuthenticationError):
                 config.configure_from_env()
 
+    def test_configure_rejects_env_only_token_in_production(self):
+        config = AuthConfig()
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "ARAGORA_API_TOKEN": "raw-env-token"},
+            clear=True,
+        ):
+            with pytest.raises(AuthenticationError):
+                config.configure_from_env()
+
+    def test_configure_rejects_invalid_explicit_custody_in_development(self):
+        config = AuthConfig()
+        with patch.dict(os.environ, {"ARAGORA_SECRETS_DIR": "relative/path"}, clear=True):
+            with pytest.raises(AuthenticationError, match="Invalid .* custody"):
+                config.configure_from_env()
+
     def test_configure_uses_mounted_api_token_in_production(self, tmp_path):
         from aragora.config.secrets import SecretManager, SecretsConfig
 
