@@ -77,9 +77,7 @@ def cmd_secrets_health(args: argparse.Namespace) -> int:
     else:
         _print_presence_table(payload)
 
-    if args.require_all and any(
-        presence.source in {"missing", "blocked_by_strict_mode"} for presence in presences
-    ):
+    if args.require_all and any(not presence.available for presence in presences):
         return 1
     return 0
 

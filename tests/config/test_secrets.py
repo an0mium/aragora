@@ -14,6 +14,7 @@ Tests cover:
 
 import json
 import os
+from pathlib import Path
 import time
 from unittest.mock import MagicMock, patch
 
@@ -27,6 +28,7 @@ from aragora.config.secrets import (
     MANAGED_SECRETS,
     SecretPresence,
     SecretManager,
+    SecretSourceError,
     SecretsConfig,
     _fail_fast_mfa_prompter,
     _has_controlling_tty,
@@ -37,7 +39,9 @@ from aragora.config.secrets import (
     get_secret,
     get_secret_presence,
     get_secret_presence_report,
+    hydrate_env_from_secrets,
     is_critical_secret,
+    is_secret_presence_available,
     is_secret_usable,
     is_strict_mode,
     get_secret_manager,
@@ -51,6 +55,7 @@ class TestSecretsConfig:
     def test_default_values(self):
         """Config has sensible defaults."""
         config = SecretsConfig()
+        assert config.secrets_dir is None
         assert config.aws_region == "us-east-1"
         assert config.secret_name == "aragora/production"
         assert config.use_aws is False
@@ -66,6 +71,34 @@ class TestSecretsConfig:
             assert config.aws_region == "us-east-1"
             assert config.secret_name == "aragora/production"
             assert config.use_aws is False
+
+    def test_mounted_directory_disables_production_auto_aws(self, tmp_path):
+        """A mounted source prevents implicit production AWS probing."""
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "ARAGORA_SECRETS_DIR": str(tmp_path)},
+            clear=True,
+        ):
+            config = SecretsConfig.from_env()
+
+        assert config.secrets_dir == str(tmp_path)
+        assert config.use_aws is False
+
+    def test_mounted_directory_allows_explicit_aws(self, tmp_path):
+        """AWS can remain an explicit secondary source with mounted files."""
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "production",
+                "ARAGORA_SECRETS_DIR": str(tmp_path),
+                "ARAGORA_USE_SECRETS_MANAGER": "true",
+            },
+            clear=True,
+        ):
+            config = SecretsConfig.from_env()
+
+        assert config.secrets_dir == str(tmp_path)
+        assert config.use_aws is True
 
     def test_from_env_defaults_to_use_aws_in_production(self):
         """Production-like environments auto-enable AWS Secrets Manager."""
@@ -208,6 +241,205 @@ class TestSecretManager:
 
         with patch.dict(os.environ, {}, clear=True):
             assert manager.is_configured("UNCONFIGURED_SECRET") is False
+
+
+class TestSecretManagerMountedFiles:
+    """Tests for protected mounted-directory secret custody."""
+
+    @staticmethod
+    def _write_secret(
+        directory: Path,
+        name: str,
+        value: str | bytes,
+        mode: int = 0o600,
+    ) -> Path:
+        path = directory / name
+        payload = value.encode() if isinstance(value, str) else value
+        path.write_bytes(payload)
+        path.chmod(mode)
+        return path
+
+    def test_mounted_file_precedes_explicit_aws_and_environment(self, tmp_path):
+        """Mounted custody wins while AWS remains an explicit secondary source."""
+        self._write_secret(tmp_path, "OPENAI_API_KEY", "mounted-value")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path), use_aws=True))
+
+        with (
+            patch.object(manager, "_load_from_aws", return_value={"OPENAI_API_KEY": "aws-value"}),
+            patch.dict(os.environ, {"OPENAI_API_KEY": "env-value"}, clear=True),
+        ):
+            assert manager.get("OPENAI_API_KEY") == "mounted-value"
+
+        assert manager.presence("OPENAI_API_KEY", strict=False).source == "mounted_file"
+        assert manager.get_access_log()[0]["source"] == "mounted_file"
+
+    def test_missing_mounted_file_falls_back_to_explicit_aws_then_environment(self, tmp_path):
+        """The configured secondary and local fallback order remains intact."""
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path), use_aws=True))
+        with (
+            patch.object(manager, "_load_from_aws", return_value={"OPENAI_API_KEY": "aws-value"}),
+            patch.dict(
+                os.environ,
+                {"OPENAI_API_KEY": "env-value", "SENTRY_DSN": "env-sentry-value"},
+                clear=True,
+            ),
+        ):
+            assert manager.get("OPENAI_API_KEY", strict=False) == "aws-value"
+            assert manager.get("SENTRY_DSN", strict=False) == "env-sentry-value"
+
+    def test_strict_mode_accepts_mounted_critical_secret(self, tmp_path):
+        """Protected mounted files satisfy strict production custody."""
+        self._write_secret(tmp_path, "JWT_SECRET_KEY", "mounted-jwt-value")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
+            assert manager.get("JWT_SECRET_KEY") == "mounted-jwt-value"
+            presence = manager.presence("JWT_SECRET_KEY")
+            assert presence.available is True
+            assert manager.is_usable("JWT_SECRET_KEY") is True
+
+        assert presence.source == "mounted_file"
+        assert is_secret_presence_available(presence) is True
+        assert any(entry["source"] == "usable_mounted_file" for entry in manager.get_access_log())
+
+    def test_strict_mode_rejects_env_when_file_is_absent(self, tmp_path):
+        """An empty valid directory does not weaken critical-secret strict mode."""
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "JWT_SECRET_KEY": "env-value"},
+            clear=True,
+        ):
+            with pytest.raises(SecretNotFoundError):
+                manager.get("JWT_SECRET_KEY")
+
+    def test_refresh_reloads_rotated_mounted_secret(self, tmp_path):
+        """Manual refresh observes atomic secret rotation at the same filename."""
+        secret_path = self._write_secret(tmp_path, "OPENAI_API_KEY", "first-value")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+
+        assert manager.get("OPENAI_API_KEY", strict=False) == "first-value"
+        secret_path.write_text("rotated-value", encoding="utf-8")
+        secret_path.chmod(0o600)
+        manager.refresh()
+
+        assert manager.get("OPENAI_API_KEY", strict=False) == "rotated-value"
+
+    def test_hydration_uses_mounted_value_and_records_source(self, tmp_path):
+        """Legacy hydration inherits mounted custody with truthful audit provenance."""
+        self._write_secret(tmp_path, "SENTRY_DSN", "mounted-sentry-value")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            hydrated = hydrate_env_from_secrets(["SENTRY_DSN"])
+            assert hydrated == {"SENTRY_DSN": "mounted-sentry-value"}
+            assert os.environ["SENTRY_DSN"] == "mounted-sentry-value"
+
+        assert any(entry["source"] == "hydrate_mounted_file" for entry in manager.get_access_log())
+
+    @pytest.mark.parametrize("configured", ["relative/secrets", ""])
+    def test_directory_must_be_absolute(self, configured):
+        """Relative or empty configured paths fail closed before fallback."""
+        manager = SecretManager(SecretsConfig(secrets_dir=configured or "."))
+        with pytest.raises(SecretSourceError, match="absolute"):
+            manager.get("SENTRY_DSN", strict=False)
+
+    def test_directory_symlink_is_rejected(self, tmp_path):
+        """No component of the configured directory may be a symlink."""
+        target = tmp_path / "target"
+        target.mkdir(mode=0o700)
+        link = tmp_path / "secrets-link"
+        link.symlink_to(target, target_is_directory=True)
+
+        manager = SecretManager(SecretsConfig(secrets_dir=str(link)))
+        with pytest.raises(SecretSourceError, match="without following symlinks"):
+            manager.get("SENTRY_DSN", strict=False)
+
+    def test_group_writable_directory_is_rejected(self, tmp_path):
+        """The configured directory itself may not be writable by peers."""
+        tmp_path.chmod(0o770)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        try:
+            with pytest.raises(SecretSourceError, match="writable by group"):
+                manager.get("SENTRY_DSN", strict=False)
+        finally:
+            tmp_path.chmod(0o700)
+
+    @pytest.mark.parametrize(
+        ("value", "mode", "message"),
+        [
+            ("too-open", 0o640, "owner-only"),
+            ("executable", 0o700, "owner-only"),
+            ("\n", 0o600, "must not be empty"),
+            (b"\xff\xfe", 0o600, "UTF-8"),
+            (b"x" * (64 * 1024 + 1), 0o600, "size limit"),
+        ],
+    )
+    def test_invalid_file_content_or_permissions_fail_closed(
+        self, tmp_path, value, mode, message, caplog
+    ):
+        """Unsafe permissions and malformed values never fall through to env."""
+        self._write_secret(tmp_path, "OPENAI_API_KEY", value, mode=mode)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "fallback-must-not-win"}, clear=True):
+            with pytest.raises(SecretSourceError, match=message) as exc_info:
+                manager.get("OPENAI_API_KEY", strict=False)
+
+        assert "fallback-must-not-win" not in str(exc_info.value)
+        assert "fallback-must-not-win" not in caplog.text
+
+    def test_symlink_hardlink_and_nonregular_secret_files_are_rejected(self, tmp_path):
+        """Only one-link regular files may provide mounted values."""
+        outside = tmp_path / "outside"
+        outside.write_text("outside-value", encoding="utf-8")
+        outside.chmod(0o600)
+
+        symlink_dir = tmp_path / "symlink"
+        symlink_dir.mkdir(mode=0o700)
+        (symlink_dir / "OPENAI_API_KEY").symlink_to(outside)
+        with pytest.raises(SecretSourceError):
+            SecretManager(SecretsConfig(secrets_dir=str(symlink_dir))).get(
+                "OPENAI_API_KEY", strict=False
+            )
+
+        hardlink_dir = tmp_path / "hardlink"
+        hardlink_dir.mkdir(mode=0o700)
+        os.link(outside, hardlink_dir / "OPENAI_API_KEY")
+        with pytest.raises(SecretSourceError, match="single-link"):
+            SecretManager(SecretsConfig(secrets_dir=str(hardlink_dir))).get(
+                "OPENAI_API_KEY", strict=False
+            )
+
+        nonregular_dir = tmp_path / "nonregular"
+        nonregular_dir.mkdir(mode=0o700)
+        (nonregular_dir / "OPENAI_API_KEY").mkdir(mode=0o700)
+        with pytest.raises(SecretSourceError, match="single-link"):
+            SecretManager(SecretsConfig(secrets_dir=str(nonregular_dir))).get(
+                "OPENAI_API_KEY", strict=False
+            )
+
+    def test_invalid_mounted_file_does_not_fallback_to_aws(self, tmp_path):
+        """An unsafe primary source fails before any secondary network lookup."""
+        self._write_secret(tmp_path, "OPENAI_API_KEY", "unsafe", mode=0o644)
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path), use_aws=True))
+
+        with patch.object(manager, "_load_from_aws") as load_from_aws:
+            with pytest.raises(SecretSourceError, match="owner-only"):
+                manager.get("OPENAI_API_KEY", strict=False)
+
+        load_from_aws.assert_not_called()
+
+    def test_unmanaged_filenames_are_ignored(self, tmp_path):
+        """Directory loading never treats arbitrary filenames as secrets."""
+        self._write_secret(tmp_path, "UNMANAGED_SECRET", "must-be-ignored")
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+
+        with patch.dict(os.environ, {}, clear=True):
+            assert manager.get("UNMANAGED_SECRET", strict=False) is None
 
 
 class TestSecretManagerAWS:
