@@ -439,6 +439,14 @@ CONSTRAINTS:
 {chr(10).join(f"- {c}" for c in constraints) if constraints else "- None specified"}
 
 """
+    candidate_goals = getattr(context, "candidate_goals", None)
+    if candidate_goals:
+        topic += f"""
+CANDIDATE GOALS (externally supplied — evaluate and rank ALL of these against the objective;
+reject candidates that do not survive scrutiny and say why):
+{chr(10).join(f"{i}. {goal}" for i, goal in enumerate(candidate_goals, 1))}
+"""
+
     if context.recent_issues:
         topic += f"""
 RECENT ISSUES:
