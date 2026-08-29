@@ -22,7 +22,7 @@ import hmac
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
 from aragora.security.webhook_signing import generate_signature as _generate_signature
 from aragora.server.handlers.base import (
@@ -74,16 +74,9 @@ try:
     AUDIT_AVAILABLE = True
 except ImportError:
     AUDIT_AVAILABLE = False
-    audit_data = None
+    audit_data = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
-
-warnings.warn(
-    "aragora.server.handlers.webhooks.generate_signature is deprecated; "
-    "use aragora.security.webhook_signing.generate_signature instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 # Rate limits for webhook operations
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
@@ -405,7 +398,7 @@ class WebhookHandler(SecureHandler):
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return await self._handle_get_dead_letter(delivery_id, handler)
+            return await self._handle_get_dead_letter(cast(str, delivery_id), handler)
 
         # GET /api/webhooks/queue/stats - get queue statistics
         if path == "/api/v1/webhooks/queue/stats":
@@ -416,7 +409,7 @@ class WebhookHandler(SecureHandler):
             webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_get_webhook(webhook_id, handler)
+            return self._handle_get_webhook(cast(str, webhook_id), handler)
 
         # GET /api/webhooks - list all webhooks
         if path == "/api/v1/webhooks":
@@ -510,21 +503,21 @@ The webhook secret is only returned once on creation - save it securely.""",
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return await self._handle_retry_dead_letter(delivery_id, handler)
+            return await self._handle_retry_dead_letter(cast(str, delivery_id), handler)
 
         # POST /api/v1/webhooks/:id/test
         if path.endswith("/test") and path.count("/") == 5:
             webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_test_webhook(webhook_id, handler)
+            return self._handle_test_webhook(cast(str, webhook_id), handler)
 
         # POST /api/webhooks - register new webhook
         if path == "/api/v1/webhooks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_register_webhook(body, handler)
+            return self._handle_register_webhook(cast(dict[str, Any], body), handler)
 
         return None
 
@@ -569,14 +562,14 @@ The webhook secret is only returned once on creation - save it securely.""",
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return await self._handle_delete_dead_letter(delivery_id, handler)
+            return await self._handle_delete_dead_letter(cast(str, delivery_id), handler)
 
         # DELETE /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
             webhook_id, err = self.extract_path_param(path, 4, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_delete_webhook(webhook_id, handler)
+            return self._handle_delete_webhook(cast(str, webhook_id), handler)
 
         return None
 
@@ -593,7 +586,9 @@ The webhook secret is only returned once on creation - save it securely.""",
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_update_webhook(webhook_id, body, handler)
+            return self._handle_update_webhook(
+                cast(str, webhook_id), cast(dict[str, Any], body), handler
+            )
 
         return None
 
@@ -801,7 +796,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Audit log: webhook deleted
         if AUDIT_AVAILABLE and audit_data:
             audit_data(
-                user_id=user.user_id if user else "anonymous",
+                user_id=cast(str, user.user_id) if user else "anonymous",
                 resource_type="webhook",
                 resource_id=webhook_id,
                 action="delete",
@@ -882,13 +877,15 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Audit log: webhook updated
         if AUDIT_AVAILABLE and audit_data:
             audit_data(
-                user_id=user.user_id if user else "anonymous",
+                user_id=cast(str, user.user_id) if user else "anonymous",
                 resource_type="webhook",
                 resource_id=webhook_id,
                 action="update",
             )
 
-        return json_response({"webhook": updated.to_dict(include_secret=False)})
+        return json_response(
+            {"webhook": cast(WebhookConfig, updated).to_dict(include_secret=False)}
+        )
 
     def _handle_test_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/:id/test - send test event."""
@@ -1142,7 +1139,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             user = self.get_current_user(handler)
             if AUDIT_AVAILABLE and audit_data:
                 audit_data(
-                    user_id=user.user_id if user else "anonymous",
+                    user_id=cast(str, user.user_id) if user else "anonymous",
                     resource_type="webhook_delivery",
                     resource_id=delivery_id,
                     action="retry",
@@ -1182,7 +1179,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             user = self.get_current_user(handler)
             if AUDIT_AVAILABLE and audit_data:
                 audit_data(
-                    user_id=user.user_id if user else "anonymous",
+                    user_id=cast(str, user.user_id) if user else "anonymous",
                     resource_type="webhook_delivery",
                     resource_id=delivery_id,
                     action="delete",

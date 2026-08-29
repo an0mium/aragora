@@ -265,6 +265,80 @@ SDK_MISSING_ENDPOINTS: dict = {
             "responses": {"200": _ok_response("Match details", _obj)},
         },
     },
+    # --- quotas ---
+    # Not an orphan: the path is claimed at runtime by
+    # UsageMeteringHandler.can_handle's dynamic /api/v1/quotas/{resource}
+    # dispatch and is pinned stable in stability_manifest.json. The POST
+    # branch is served: handle() dispatches this action literal to
+    # _request_quota_increase ahead of the dynamic {resource} branch; both
+    # SDKs already expose the call, which is exactly this module's charter.
+    # v1 literal only: the dispatcher passes raw paths with no legacy<->v1
+    # aliasing, so an unversioned alias would document an unserved path.
+    "/api/v1/quotas/request-increase": {
+        "post": {
+            "tags": ["Quotas"],
+            "summary": "Request quota increase",
+            "description": (
+                "Submit a quota increase request for review. Requires the org:billing permission."
+            ),
+            "operationId": "createQuotaIncreaseRequest",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["resource"],
+                            "properties": {
+                                "resource": {
+                                    "type": "string",
+                                    "maxLength": 256,
+                                    "description": "Resource type the increase applies to.",
+                                },
+                                "requested_limit": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "description": "Desired new limit.",
+                                },
+                                "reason": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "description": "Why the increase is needed.",
+                                },
+                                "justification": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "description": (
+                                        "Accepted alias for reason; the key the "
+                                        "python SDK documents."
+                                    ),
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Request submitted",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "request_id": {"type": "string"},
+                            "status": {"type": "string"},
+                            "resource": {"type": "string"},
+                            "requested_limit": {"type": ["number", "null"]},
+                            "reason": {"type": ["string", "null"]},
+                            "org_id": {"type": "string"},
+                            "submitted_by": {"type": "string"},
+                            "submitted_at": {"type": "string"},
+                        },
+                    },
+                )
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     # --- reputation ---
     "/api/reputation/domain": {
         "get": {

@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -1531,6 +1532,92 @@ def test_dynamic_conventional_root_binding_fails_closed(tmp_path: Path):
         gen._subprocess_helper_edges(tmp_path, "scripts/runner.py")
 
 
+def test_historical_backfill_builder_binds_its_inventory_generator_helper() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    assert gen._subprocess_helper_edges(
+        repo_root,
+        "scripts/build_contract_drift_historical_backfill.py",
+        include_function_bodies=True,
+    ) == [
+        (
+            "scripts/generate_contract_drift_inventory.py",
+            "literal_subprocess_helper",
+        )
+    ]
+
+
+def test_literal_workflow_dispatch_reference_is_discovered() -> None:
+    run = (
+        "gh api --method POST "
+        '"repos/${GITHUB_REPOSITORY}/actions/workflows/'
+        'contract-drift-historical-backfill-finalizer.yml/dispatches" '
+        '-f ref="$SOURCE_REF"'
+    )
+    assert gen._workflow_dispatch_references(run) == [
+        ".github/workflows/contract-drift-historical-backfill-finalizer.yml"
+    ]
+
+
+def test_successor_backfill_execution_paths_join_the_exact_ref_authority_closure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    tree = subprocess.check_output(
+        ["git", "-C", str(repo_root), "write-tree"],
+        text=True,
+    ).strip()
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_EMAIL": "cdg-test@example.invalid",
+        "GIT_AUTHOR_NAME": "cdg-test",
+        "GIT_COMMITTER_EMAIL": "cdg-test@example.invalid",
+        "GIT_COMMITTER_NAME": "cdg-test",
+    }
+    head = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "commit-tree",
+            tree,
+            "-p",
+            subprocess.check_output(
+                ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+                text=True,
+            ).strip(),
+        ],
+        input="temporary successor authority closure fixture\n",
+        text=True,
+        env=commit_env,
+    ).strip()
+    monkeypatch.setattr(gen, "_resolve_full_commit", lambda _repo_root, ref: ref)
+    manifest = gen.build_authority_manifest(
+        repo_root,
+        head,
+        scratch_root=tmp_path,
+    )
+    files = {entry["path"]: entry for entry in manifest["repo_files"]}
+    assert ".github/workflows/contract-drift-governance.yml" in files
+    assert ".github/workflows/contract-drift-historical-backfill-finalizer.yml" in files
+    assert "scripts/build_contract_drift_historical_backfill.py" in files
+    assert "scripts/generate_contract_drift_inventory.py" in files
+    assert {
+        "from": ".github/workflows/contract-drift-governance.yml",
+        "kind": "local_workflow_dispatch",
+    } in files[".github/workflows/contract-drift-historical-backfill-finalizer.yml"][
+        "incoming_edges"
+    ]
+    assert {
+        "from": ".github/workflows/contract-drift-historical-backfill-finalizer.yml",
+        "kind": "workflow_run_executable",
+    } in files["scripts/build_contract_drift_historical_backfill.py"]["incoming_edges"]
+    assert {
+        "from": "scripts/build_contract_drift_historical_backfill.py",
+        "kind": "literal_subprocess_helper",
+    } in files["scripts/generate_contract_drift_inventory.py"]["incoming_edges"]
+
+
 def test_dynamic_python_executable_fails_closed_even_with_static_module(tmp_path: Path):
     _write_text(tmp_path / "scripts/helper.py", "# helper\n")
     with pytest.raises(gen.AuthorityClosureError, match="dynamic workflow run command"):
@@ -2702,23 +2789,35 @@ def test_sdk_partition_has_exact_75_core_523_extended_and_pinned_digests():
 
 def test_original_descriptor_and_provenance_are_identical_across_authority_transitions():
     authority = _accepted_authority()
-    result = ratchet.compare_accepted_authorities(
-        authority, copy.deepcopy(authority), repo_root=REPO_ROOT
-    )
-    assert result["status"] == "pass"
-    assert result["added_original_record_ids"] == []
-    assert result["removed_original_record_ids"] == []
-    # A transition that touches one ratified literal is rejected outright.
-    hostile = copy.deepcopy(authority)
-    record = hostile["canonical_artifacts"]["original_cohort"]["original_records"][0]
-    record["exact_historical_literal_record"] += "/renamed"
-    with pytest.raises(ValueError):
-        ratchet.compare_accepted_authorities(authority, hostile, repo_root=REPO_ROOT)
-    # Swapping the analyzer bundle is an authority change, not a transition.
-    rebundled = copy.deepcopy(authority)
-    rebundled["analyzer_bundle"]["files"][0]["sha256"] = "f" * 64
-    with pytest.raises(ValueError):
-        ratchet.compare_accepted_authorities(authority, rebundled, repo_root=REPO_ROOT)
+    with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
+        authority_root = Path(temp)
+        for binding in authority["analyzer_bundle"]["files"]:
+            target = authority_root / binding["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                subprocess.check_output(
+                    ["git", "-C", str(REPO_ROOT), "show", f"HEAD:{binding['path']}"]
+                )
+            )
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setenv("CDG_AUTHORITY_ROOT", str(authority_root))
+            result = ratchet.compare_accepted_authorities(
+                authority, copy.deepcopy(authority), repo_root=REPO_ROOT
+            )
+            assert result["status"] == "pass"
+            assert result["added_original_record_ids"] == []
+            assert result["removed_original_record_ids"] == []
+            # A transition that touches one ratified literal is rejected outright.
+            hostile = copy.deepcopy(authority)
+            record = hostile["canonical_artifacts"]["original_cohort"]["original_records"][0]
+            record["exact_historical_literal_record"] += "/renamed"
+            with pytest.raises(ValueError):
+                ratchet.compare_accepted_authorities(authority, hostile, repo_root=REPO_ROOT)
+            # Swapping the analyzer bundle is an authority change, not a transition.
+            rebundled = copy.deepcopy(authority)
+            rebundled["analyzer_bundle"]["files"][0]["sha256"] = "f" * 64
+            with pytest.raises(ValueError):
+                ratchet.compare_accepted_authorities(authority, rebundled, repo_root=REPO_ROOT)
 
 
 def test_operation_projection_has_one_membership_per_655_originals():
