@@ -287,7 +287,7 @@ class ConfigValidator:
         # Check Redis configuration for production multi-instance deployments
         # In-memory rate limiting and session storage don't work across instances
         if is_production:
-            redis_url = os.getenv("REDIS_URL")
+            redis_url = _secret_value("REDIS_URL")
             instance_count = os.getenv("ARAGORA_INSTANCE_COUNT", "1")
 
             # Check if running multiple instances without Redis
