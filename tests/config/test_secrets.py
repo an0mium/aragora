@@ -13,6 +13,7 @@ Tests cover:
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 import time
@@ -100,11 +101,13 @@ class TestSecretsConfig:
         assert config.secrets_dir == str(tmp_path)
         assert config.use_aws is True
 
-    def test_production_name_does_not_auto_enable_retired_aws(self):
+    def test_production_name_does_not_auto_enable_retired_aws(self, caplog):
         """Provider-neutral production never probes AWS solely from its env name."""
+        caplog.set_level(logging.WARNING, logger="aragora.config.secrets")
         with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
             config = SecretsConfig.from_env()
             assert config.use_aws is False
+        assert "no managed custody backend is configured" in caplog.text
 
     def test_aragora_environment_alias_enables_strict_mode(self):
         with patch.dict(os.environ, {"ARAGORA_ENVIRONMENT": "production"}, clear=True):
@@ -529,7 +532,7 @@ class TestSecretManagerMountedFiles:
         with patch.dict(os.environ, {}, clear=True):
             assert manager.get("UNMANAGED_SECRET", strict=False) is None
 
-    def test_strict_hydration_removes_critical_env_fallback(self, tmp_path, caplog):
+    def test_strict_hydration_rejects_critical_env_fallback(self, tmp_path, caplog):
         """Settings hydration cannot reintroduce raw critical env values."""
         manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
         with (
@@ -540,12 +543,12 @@ class TestSecretManagerMountedFiles:
                 clear=True,
             ),
         ):
-            hydrated = hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=True)
-            assert hydrated == {}
-            assert "JWT_SECRET_KEY" not in os.environ
+            with pytest.raises(SecretNotFoundError):
+                hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=True)
+            assert os.environ["JWT_SECRET_KEY"] == "raw-env-value"
 
         assert any(entry["source"] == "hydrate_env_blocked" for entry in manager.get_access_log())
-        assert "Removing critical secret 'JWT_SECRET_KEY'" in caplog.text
+        assert "exists only in the process environment" in caplog.text
         assert "raw-env-value" not in caplog.text
 
     def test_untrusted_intermediate_directory_permissions_are_rejected(self, tmp_path):
