@@ -46,7 +46,7 @@ from typing import Any, cast
 logger = logging.getLogger(__name__)
 
 _MAX_MOUNTED_SECRET_BYTES = 64 * 1024
-_AVAILABLE_SECRET_SOURCES = frozenset({"mounted_file", "aws", "env"})
+_AVAILABLE_SECRET_SOURCES = frozenset({"mounted_file", "aws", "managed_cache", "env"})
 
 
 def _mfa_prompt_allowed(*, isatty: bool, env: Mapping[str, str] | None = None) -> bool:
@@ -440,7 +440,10 @@ class SecretManager:
             raise SecretSourceError("ARAGORA_SECRETS_DIR must not identify the filesystem root")
         if any(component in {".", ".."} for component in components):
             raise SecretSourceError("ARAGORA_SECRETS_DIR must not contain dot components")
-        current_fd = os.open(os.path.sep, flags)
+        try:
+            current_fd = os.open(os.path.sep, flags)
+        except OSError as exc:
+            raise SecretSourceError("Filesystem root could not be opened safely") from exc
         try:
             for index, component in enumerate(components):
                 next_fd = os.open(component, flags | os.O_NOFOLLOW, dir_fd=current_fd)
@@ -520,6 +523,8 @@ class SecretManager:
             if not value.strip():
                 raise SecretSourceError(f"Mounted secret '{name}' must not be empty")
             return value
+        except OSError as exc:
+            raise SecretSourceError(f"Mounted secret '{name}' could not be read safely") from exc
         finally:
             os.close(fd)
 
@@ -554,7 +559,7 @@ class SecretManager:
             value = self._cached_secrets.get(name)
             source = self._cached_secret_sources.get(name)
             if source is None:
-                source = "aws" if self.config.use_aws else "mounted_file"
+                source = "managed_cache"
             return value, source
 
     def _is_cache_expired(self) -> bool:
@@ -573,7 +578,7 @@ class SecretManager:
         entry = {
             "timestamp": time.time(),
             "secret_name": secret_name,
-            "source": source,  # "aws", "env", "default"
+            "source": source,  # managed backend, env, default, or failure classification
             "success": success,
         }
         with self._lock:
@@ -879,6 +884,7 @@ class SecretManager:
         Sources are:
         - ``mounted_file``: available from a protected mounted file.
         - ``aws``: available from the current Secrets Manager cache.
+        - ``managed_cache``: available from a pre-seeded cache with unknown provenance.
         - ``env``: available from process environment and allowed by mode.
         - ``blocked_by_strict_mode``: present in env but strict mode forbids using it.
         - ``missing``: unavailable from both AWS cache and env.
@@ -1099,40 +1105,27 @@ def hydrate_env_from_secrets(
             cached_secrets = dict(manager._cached_secrets)
             cached_sources = dict(manager._cached_secret_sources)
         use_strict = is_strict_mode()
-        if use_strict:
-            blocked_names = [
-                name
-                for name in target_names
-                if is_critical_secret(name) and name not in cached_secrets and name in os.environ
-            ]
-            if blocked_names:
-                for name in blocked_names:
-                    manager._log_access(name, "hydrate_env_blocked", False)
-                    logger.error(
-                        "SECURITY: Critical secret '%s' exists only in the process environment "
-                        "while strict managed custody is enabled.",
-                        name,
-                    )
-                raise SecretNotFoundError(blocked_names[0])
         for name in target_names:
-            if not overwrite and os.environ.get(name):
+            if (
+                not overwrite
+                and os.environ.get(name)
+                and not (use_strict and is_critical_secret(name))
+            ):
                 continue
             value: str | None
             if name in cached_secrets:
                 value = cached_secrets[name]
-                source = cached_sources.get(
-                    name, "aws" if manager.config.use_aws else "mounted_file"
-                )
+                source = cached_sources.get(name, "managed_cache")
                 manager._log_access(name, f"hydrate_{source}", True)
             elif use_strict and is_critical_secret(name):
                 manager._log_access(name, "hydrate_env_blocked", False)
                 if name in os.environ:
-                    logger.error(
-                        "SECURITY: Critical secret '%s' exists only in the process environment "
-                        "while strict managed custody is enabled.",
+                    logger.warning(
+                        "SECURITY: Removing critical secret '%s' from the process environment "
+                        "because strict managed custody is enabled.",
                         name,
                     )
-                    raise SecretNotFoundError(name)
+                    os.environ.pop(name, None)
                 continue
             else:
                 value = os.environ.get(name)
