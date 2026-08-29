@@ -184,8 +184,6 @@ class WebhookHandler(SecureHandler):
         "/api/v1/webhooks/bulk",
         "/api/v1/webhooks/pause-all",
         "/api/v1/webhooks/resume-all",
-        "/api/v1/webhook-configs",
-        "/api/v1/webhook-configs/{webhook_id}",
     ]
 
     @staticmethod

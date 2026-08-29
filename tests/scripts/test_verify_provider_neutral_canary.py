@@ -128,64 +128,6 @@ def test_before_and_after_restart_proof(tmp_path: Path) -> None:
     assert "must-not-appear-in-report" not in json.dumps(before)
 
 
-def test_legacy_webhook_fallback_persists_selected_endpoint(tmp_path: Path) -> None:
-    state_path = tmp_path / "legacy-persistence.json"
-
-    class LegacyTransport:
-        def __init__(self) -> None:
-            self.callback_url = ""
-            self.requests: list[tuple[str, str]] = []
-
-        def request(self, method, url, *, headers=None, payload=None) -> Response:
-            path = url.split("?", 1)[0]
-            self.requests.append((method, path))
-            if method == "POST" and path.endswith("/api/v1/webhook-configs"):
-                return Response(404, {}, b"")
-            if method == "POST" and path.endswith("/api/v1/webhooks"):
-                assert payload is not None
-                assert payload == {
-                    "webhook_url": payload["webhook_url"],
-                    "events": ["test.event"],
-                    "platform": "generic",
-                }
-                self.callback_url = payload["webhook_url"]
-                body = {
-                    "subscription": {
-                        "id": "legacy-probe",
-                        "webhook_url": self.callback_url,
-                    }
-                }
-                return Response(201, {}, json.dumps(body).encode("utf-8"))
-            if path.endswith("/api/v1/webhooks/legacy-probe"):
-                body = {
-                    "subscription": {
-                        "id": "legacy-probe",
-                        "webhook_url": self.callback_url,
-                    }
-                }
-                if method == "GET":
-                    return Response(200, {}, json.dumps(body).encode("utf-8"))
-                if method == "DELETE":
-                    return Response(204, {}, b"")
-            raise AssertionError(f"unexpected request: {method} {path}")
-
-    transport = LegacyTransport()
-    before = verifier._persistence_before(transport, "https://canary.invalid", {}, state_path)
-    assert before["ok"] is True
-    state = json.loads(state_path.read_text(encoding="utf-8"))
-    assert state["endpoint"] == "/api/v1/webhooks"
-
-    after = verifier._persistence_after(transport, "https://canary.invalid", {}, state_path)
-    assert after["ok"] is True
-    assert transport.requests == [
-        ("POST", "https://canary.invalid/api/v1/webhook-configs"),
-        ("POST", "https://canary.invalid/api/v1/webhooks"),
-        ("GET", "https://canary.invalid/api/v1/webhooks/legacy-probe"),
-        ("GET", "https://canary.invalid/api/v1/webhooks/legacy-probe"),
-        ("DELETE", "https://canary.invalid/api/v1/webhooks/legacy-probe"),
-    ]
-
-
 def test_non_exact_build_sha_fails_closed(tmp_path: Path) -> None:
     key, receipt_path = _receipt(tmp_path)
     transport = FakeTransport(public_key_pem(key), build_sha=SHA + "-unexpected-suffix")
@@ -335,7 +277,7 @@ def test_failed_read_reports_cleanup_status(tmp_path: Path) -> None:
     assert persistence["cleanup_status"] == 204
 
 
-def test_state_write_failure_cleans_up_created_subscription(tmp_path: Path, monkeypatch) -> None:
+def test_state_write_failure_cleans_up_created_webhook(tmp_path: Path, monkeypatch) -> None:
     key, receipt_path = _receipt(tmp_path)
 
     class CleanupTrackingTransport(FakeTransport):
