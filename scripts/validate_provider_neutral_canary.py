@@ -55,28 +55,30 @@ def _open_directory(path: Path, runtime_uid: int, runtime_gid: int) -> int:
         raise RuntimeError("ARAGORA_SECRETS_DIR_HOST must not contain dot components")
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
     trusted_ancestor_uids = {0, os.geteuid(), runtime_uid}
-    current_fd = os.open(os.path.sep, flags)
+    try:
+        current_fd = os.open(os.path.sep, flags)
+    except OSError as exc:
+        raise RuntimeError("filesystem root could not be opened safely") from exc
     try:
         for index, component in enumerate(components):
             next_fd = os.open(component, flags | os.O_NOFOLLOW, dir_fd=current_fd)
-            metadata = os.fstat(next_fd)
-            mode = stat.S_IMODE(metadata.st_mode)
-            final = index == len(components) - 1
-            if not stat.S_ISDIR(metadata.st_mode):
+            try:
+                metadata = os.fstat(next_fd)
+                mode = stat.S_IMODE(metadata.st_mode)
+                final = index == len(components) - 1
+                if not stat.S_ISDIR(metadata.st_mode):
+                    raise RuntimeError("ARAGORA_SECRETS_DIR_HOST is not a directory")
+                if metadata.st_uid not in trusted_ancestor_uids:
+                    raise RuntimeError("custody path component has untrusted ownership")
+                if mode & 0o022 and (final or not mode & stat.S_ISVTX):
+                    raise RuntimeError("custody path component is writable by peers")
+                if final and (metadata.st_uid != runtime_uid or metadata.st_gid != runtime_gid):
+                    raise RuntimeError("custody directory ownership does not match runtime UID/GID")
+                if final and mode != 0o700:
+                    raise RuntimeError("custody directory permissions must be 0700")
+            except (OSError, RuntimeError):
                 os.close(next_fd)
-                raise RuntimeError("ARAGORA_SECRETS_DIR_HOST is not a directory")
-            if metadata.st_uid not in trusted_ancestor_uids:
-                os.close(next_fd)
-                raise RuntimeError("custody path component has untrusted ownership")
-            if mode & 0o022 and (final or not mode & stat.S_ISVTX):
-                os.close(next_fd)
-                raise RuntimeError("custody path component is writable by peers")
-            if final and (metadata.st_uid != runtime_uid or metadata.st_gid != runtime_gid):
-                os.close(next_fd)
-                raise RuntimeError("custody directory ownership does not match runtime UID/GID")
-            if final and mode != 0o700:
-                os.close(next_fd)
-                raise RuntimeError("custody directory permissions must be 0700")
+                raise
             os.close(current_fd)
             current_fd = next_fd
         return current_fd

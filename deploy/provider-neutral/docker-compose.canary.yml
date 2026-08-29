@@ -34,10 +34,6 @@ services:
     profiles: ["migrate"]
     restart: "no"
     command: ["python", "-m", "aragora.ops.provider_neutral_migrations"]
-    volumes:
-      - ${ARAGORA_SECRETS_DIR_HOST:?Set an absolute protected secrets directory}:/run/secrets/aragora:ro
-      - aragora-canary-data:/app/data
-      - aragora-canary-logs:/app/logs
 
   api:
     <<: *aragora-common
