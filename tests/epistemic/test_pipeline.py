@@ -216,7 +216,7 @@ class TestFailClosed:
             claim_results=results,
             code_unit_class="live_dispatch",
         )
-        # live_dispatch fails closed at 0.6; 4 failed claims → integrity ≤ 0.4
+        # live_dispatch fails closed at 0.6; 4 failed claims → integrity 0.0
         assert result.quarantine_decision.fail_closed
 
     def test_fail_closed_sets_live_swap_blocked(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -227,7 +227,20 @@ class TestFailClosed:
             _unit(claims=claim_ids),
             claim_results=results,
             code_unit_class="live_dispatch",
+            request_live_swap=True,
         )
+        assert result.quarantine_decision.live_swap_blocked
+
+    def test_healthy_unit_live_swap_blocked_when_not_allowlisted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(_FLAG, "1")
+        result = evaluate_and_quarantine(
+            _unit(),
+            code_unit_class="live_dispatch",
+            request_live_swap=True,
+        )
+        # unit.pipeline.test is not in live_dispatch allowlist → still blocked
         assert result.quarantine_decision.live_swap_blocked
 
 
@@ -254,8 +267,8 @@ class TestCodeUnitClassRouting:
             claim_results=results,
             code_unit_class="demo",
         )
-        # demo threshold is 0.2; 2 failed claims → 0.4 deduction → score ≈ 0.6 → NOT fail_closed
-        # But integrity < 1.0 and decision should escalate beyond report_only
+        # demo threshold is 0.2; 2 failed claims deduct 2×0.30=0.60 → score ≈ 0.4 → NOT fail_closed
+        # integrity < 1.0 and decision should escalate beyond report_only
         assert result.decay_signal.integrity_score < 1.0
 
 

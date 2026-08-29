@@ -47,7 +47,7 @@ def epistemic_pipeline_enabled() -> bool:
     Default is ``False``; :class:`EpistemicPipelineResult` construction
     is always safe regardless of this flag.
     """
-    return os.environ.get(_FLAG, "").lower() in {"1", "true", "yes", "on"}
+    return os.environ.get(_FLAG, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -77,6 +77,7 @@ def evaluate_and_quarantine(
     unresolved_crux_ids: "frozenset[str] | None" = None,
     code_unit_class: str = "default",
     policy: "QuarantinePolicy | None" = None,
+    request_live_swap: bool = False,
 ) -> EpistemicPipelineResult:
     """Chain DIC-20 decay evaluation with DIC-21 quarantine policy in one call.
 
@@ -99,6 +100,12 @@ def evaluate_and_quarantine(
         Override policy; when provided, *code_unit_class* is ignored.
         Passed through to
         :func:`~aragora.epistemic.quarantine_policy.apply_quarantine_policy`.
+    request_live_swap:
+        Forwarded to
+        :func:`~aragora.epistemic.quarantine_policy.apply_quarantine_policy`.
+        When ``True``, units not in the policy allowlist are escalated to
+        at least ``"quarantine"``; units in the allowlist get
+        ``live_swap_blocked=False``.  Default is ``False``.
 
     Returns
     -------
@@ -126,6 +133,7 @@ def evaluate_and_quarantine(
         signal,
         policy=policy,
         code_unit_class=code_unit_class,
+        request_live_swap=request_live_swap,
     )
     return EpistemicPipelineResult(decay_signal=signal, quarantine_decision=decision)
 

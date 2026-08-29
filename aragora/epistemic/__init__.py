@@ -141,6 +141,11 @@ from .followup import (
     propose_followup_for_cruxset,
     propose_followup_for_failed_claim,
 )
+from .pipeline import (
+    EpistemicPipelineResult,
+    epistemic_pipeline_enabled,
+    evaluate_and_quarantine,
+)
 from .quarantine_policy import (
     QuarantineDecision,
     QuarantinePolicy,
@@ -260,6 +265,9 @@ __all__ = [
     "load_proof_units_from_dir",
     "proof_unit_scan_enabled",
     "reset_proof_unit_scan",
+    "EpistemicPipelineResult",
+    "epistemic_pipeline_enabled",
+    "evaluate_and_quarantine",
     "apply_quarantine_policy",
     "build_crux_receipt",
     "crux_gardening_enabled",
