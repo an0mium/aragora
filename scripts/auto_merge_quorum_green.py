@@ -33,6 +33,18 @@ import subprocess
 import sys
 from typing import Any
 
+# Bootstrap the repo root before importing the shared guard: these scripts are
+# invoked as `python3 scripts/<name>.py`, so sys.path[0] is scripts/ and the
+# `scripts` package is not importable without this (the editable install maps
+# only `aragora`). Verified: without it the import dies at startup.
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 from aragora.swarm.auto_merge_green import (
     QUORUM_CHECK,
     apply_merges,
@@ -154,6 +166,10 @@ def _cheaply_promising(view: dict[str, Any]) -> bool:
 
 def _make_merge_fn(repo: str):
     def merge_fn(pr: int, head: str) -> tuple[bool, str]:
+        try:
+            assert_merge_allowed(pr, head)
+        except MergeHalted as exc:
+            return False, str(exc)
         try:
             out = subprocess.run(
                 [

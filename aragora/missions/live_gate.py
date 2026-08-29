@@ -20,6 +20,9 @@ from .state import Feature
 Runner = Callable[[list[str], Path], str]
 
 
+from aragora.governance.merge_halt import MergeHalted, assert_merge_allowed
+
+
 class LiveBossLoopGate:
     """Thin live binding for :class:`aragora.missions.dispatch.FleetGate`."""
 
@@ -203,6 +206,12 @@ class LiveBossLoopGate:
         if not verdict.satisfied:
             return False
         if verdict.tier >= 3:
+            return False
+        # #9216: the live gate performs a real admin-less squash merge, so it is
+        # a merge path and must fail closed while main is halted.
+        try:
+            assert_merge_allowed(int(pr), head or "")
+        except MergeHalted:
             return False
         self.runner(
             [

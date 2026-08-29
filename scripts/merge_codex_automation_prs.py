@@ -18,6 +18,18 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+# Bootstrap the repo root before importing the shared guard: these scripts are
+# invoked as `python3 scripts/<name>.py`, so sys.path[0] is scripts/ and the
+# `scripts` package is not importable without this (the editable install maps
+# only `aragora`). Verified: without it the import dies at startup.
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from scripts.merge_halt_guard import assert_merge_allowed
+
 SAFE_CHECK_CONCLUSIONS = {"success", "neutral", "skipped"}
 SENSITIVE_PATH_TOKENS = (
     "/auth/",
@@ -230,6 +242,29 @@ def select_mergeable_prs(
 
 
 def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
+    head_proc = _run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "headRefOid",
+            "--jq",
+            ".headRefOid",
+        ],
+        cwd=repo_root,
+    )
+    head_sha = head_proc.stdout.strip()
+    if head_proc.returncode != 0 or not head_sha:
+        raise RuntimeError(
+            head_proc.stderr.strip()
+            or head_proc.stdout.strip()
+            or f"failed to resolve exact head for #{number}"
+        )
+    assert_merge_allowed(number, head_sha)
     proc = _run(
         [
             "gh",
@@ -240,6 +275,8 @@ def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
             repo,
             "--squash",
             "--admin",
+            "--match-head-commit",
+            head_sha,
             "--delete-branch=false",
         ],
         cwd=repo_root,

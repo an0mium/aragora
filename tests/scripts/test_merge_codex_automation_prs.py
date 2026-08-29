@@ -3,6 +3,7 @@ from __future__ import annotations
 from scripts.merge_codex_automation_prs import (
     MergeDecision,
     PullRequestSnapshot,
+    _merge_pr,
     select_mergeable_prs,
 )
 
@@ -99,3 +100,26 @@ def test_select_mergeable_prs_skips_non_mergeable_or_unchecked_prs() -> None:
 
     assert _decision(decisions, 1).reason == "not_mergeable"
     assert _decision(decisions, 2).reason == "no_status_checks"
+
+
+def test_merge_pr_binds_guard_and_merge_to_live_exact_head(monkeypatch, tmp_path) -> None:
+    import subprocess
+    import scripts.merge_codex_automation_prs as module
+
+    head = "a" * 40
+    calls: list[list[str]] = []
+    guarded: list[tuple[int, str]] = []
+
+    def fake_run(args, *, cwd, check=False):
+        calls.append(args)
+        if args[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(args, 0, stdout=f"{head}\n", stderr="")
+        return subprocess.CompletedProcess(args, 0, stdout="merged\n", stderr="")
+
+    monkeypatch.setattr(module, "_run", fake_run)
+    monkeypatch.setattr(module, "assert_merge_allowed", lambda pr, sha: guarded.append((pr, sha)))
+
+    _merge_pr(tmp_path, "synaptent/aragora", 123)
+
+    assert guarded == [(123, head)]
+    assert calls[-1][-3:-1] == ["--match-head-commit", head]

@@ -49,6 +49,7 @@ from aragora.swarm.auto_merge_green import (  # noqa: E402
     context_from_gh,
     decide_auto_merge,
 )
+from scripts.merge_halt_guard import DEFAULT_HALT_FILE, SHARED_REPO_ROOT  # noqa: E402
 
 
 def _load_amqg() -> Any:
@@ -71,8 +72,12 @@ _amqg = _load_amqg()
 DEFAULT_MAX_MERGES = 1
 
 DEFAULT_RECEIPT_DIR = _REPO_ROOT / ".aragora" / "merge_executor" / "receipts"
-DEFAULT_HALT_FILE = _REPO_ROOT / ".aragora" / "merge_executor.halt"
-DEFAULT_DISARM_FILE = _REPO_ROOT / ".aragora" / "merge_executor.disarm"
+# Scoped to the SHARED checkout, exactly like DEFAULT_HALT_FILE. Leaving it
+# worktree-local while the halt moved repo-wide meant a disarm file placed at the
+# primary checkout — where this change teaches operators the markers live — would
+# silently fail to stop a merge_executor running in a linked worktree. That is a
+# fail-open on the strictest control, so both markers must resolve the same way.
+DEFAULT_DISARM_FILE = SHARED_REPO_ROOT / ".aragora" / "merge_executor.disarm"
 
 # REST check-runs conclusions that make a required check on main "red".
 _RED_CONCLUSIONS = frozenset(

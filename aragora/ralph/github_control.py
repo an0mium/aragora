@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 _GITHUB_URL_RE = re.compile(r"https://github\.com/[^\s]+")
 
 
+from aragora.governance.merge_halt import evaluate
+
+
 class GitHubControlError(RuntimeError):
     """Raised when a GitHub control operation cannot be completed."""
 
@@ -55,6 +58,9 @@ class GitHubGateSnapshot:
     required_checks_source: str | None
     disposition: str
     blocker_detail: str | None = None
+    # Optional so existing constructors keep working; threaded into merge_pr so an
+    # exact-head waiver can apply on this path (#9216).
+    head_sha: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -182,6 +188,7 @@ class GitHubControl:
         state = str(view.get("state", "")).strip().upper()
         draft = bool(view.get("isDraft", False))
         head_branch = _optional_text(view.get("headRefName"))
+        head_sha = _optional_text(view.get("headRefOid"))
         base_branch = _optional_text(view.get("baseRefName"))
         review_decision = _optional_text(view.get("reviewDecision"))
         merge_state_status = _optional_text(view.get("mergeStateStatus"))
@@ -228,6 +235,7 @@ class GitHubControl:
             state=state,
             draft=draft,
             head_branch=head_branch,
+            head_sha=head_sha,
             base_branch=base_branch,
             review_decision=review_decision,
             merge_state_status=merge_state_status,
@@ -247,6 +255,7 @@ class GitHubControl:
         *,
         required_checks_green: bool,
         allow_admin: bool,
+        head_sha: str | None = None,
     ) -> GitHubMergeResult:
         if not required_checks_green:
             return GitHubMergeResult(
@@ -255,8 +264,36 @@ class GitHubControl:
                 detail="Required checks are not green.",
             )
 
+        # #9216: a real merge path (plain squash plus an --admin fallback), so it
+        # must consult the main-red halt.
+        #
+        # Threading head_sha at each call site left supervisor.py and
+        # tranche_integrate.py unwaivable — evaluate(pr, "") can never match a
+        # waiver, since both sides must be a full 40-char SHA — and would leave the
+        # next new caller unwaivable too. So resolve the head here when we lack it.
+        # Only do that when the halt actually blocks us, otherwise every merge pays
+        # an extra gh round-trip for nothing. If the lookup fails we stay blocked,
+        # which is fail-closed.
+        _pr_digits = re.findall(r"\d+", str(pr_ref or ""))
+        _pr_number = int(_pr_digits[-1]) if _pr_digits else 0
+
+        decision = evaluate(_pr_number, head_sha or "")
+        if not decision.allowed and not head_sha:
+            try:
+                head_sha = _optional_text(self._pr_view(pr_ref).get("headRefOid"))
+            except (GitHubControlError, OSError, ValueError):
+                head_sha = None
+            if head_sha:
+                decision = evaluate(_pr_number, head_sha)
+        if not decision.allowed:
+            return GitHubMergeResult(merged=False, action="blocked", detail=decision.reason)
+
+        # Bind the merge to the head the guard authorized. Without this the head can
+        # change between the check and the merge itself, letting an unwaived head
+        # land under an armed halt (TOCTOU).
+        _head_args = ["--match-head-commit", head_sha] if head_sha else []
         normal = self._run_gh(
-            ["pr", "merge", pr_ref, "--squash"],
+            ["pr", "merge", pr_ref, "--squash", *_head_args],
             raise_on_error=False,
             timeout=30,
         )
@@ -271,7 +308,7 @@ class GitHubControl:
         stderr = (normal.stderr or normal.stdout or "").strip()
         if allow_admin and _looks_like_admin_override_candidate(stderr):
             admin = self._run_gh(
-                ["pr", "merge", pr_ref, "--squash", "--admin"],
+                ["pr", "merge", pr_ref, "--squash", "--admin", *_head_args],
                 raise_on_error=False,
                 timeout=30,
             )
@@ -430,6 +467,7 @@ class GitHubControl:
                         "state",
                         "isDraft",
                         "headRefName",
+                        "headRefOid",
                         "baseRefName",
                         "reviewDecision",
                         "mergeStateStatus",

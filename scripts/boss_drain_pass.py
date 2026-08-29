@@ -41,6 +41,18 @@ from aragora.swarm.boss_drain import (
 from aragora.swarm.drain_pass import DrainPassPolicy
 from aragora.swarm.drain_policy import DrainAction, DrainPolicy
 
+# Bootstrap the repo root before importing the shared guard: these scripts are
+# invoked as `python3 scripts/<name>.py`, so sys.path[0] is scripts/ and the
+# `scripts` package is not importable without this (the editable install maps
+# only `aragora`). Verified: without it the import dies at startup.
+import sys as _sys
+from pathlib import Path as _Path
+
+if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+
 # Single-sourced from boss_drain so the proxy gate and the repair prompt can't drift.
 _REQUIRED = set(REQUIRED_CHECK_NAMES)
 
@@ -229,6 +241,11 @@ def make_execute_fn(
             if not _settle_authorized(repo, pr):  # re-confirm authority at apply time
                 return False
             head = (view_pr(repo, pr) or {}).get("headRefOid", "")
+            try:
+                assert_merge_allowed(pr, head)
+            except MergeHalted as exc:
+                print(f"  {exc}")
+                return False
             cmd = ["gh", "pr", "merge", str(pr), "--repo", repo, "--squash"]
             if head:
                 cmd += ["--match-head-commit", head]

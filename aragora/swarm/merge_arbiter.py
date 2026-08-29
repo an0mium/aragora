@@ -73,6 +73,9 @@ AUTOMATION_REVIEWER_LOGINS = resolve_trusted_authors(
 )
 
 
+from aragora.governance.merge_halt import MergeHalted, assert_merge_allowed
+
+
 @dataclass
 class MergeArbiterConfig:
     """Configuration for the merge arbiter polling loop."""
@@ -412,6 +415,14 @@ def _merge_pr(
     head_sha: str | None = None,
 ) -> tuple[bool, str]:
     """Squash-merge a PR with admin override.  Returns (success, reason)."""
+    # #9216: this is an admin-squash, daemon-driven merge path (dry_run defaults
+    # to False and it runs in a long-lived loop), so it must consult the main-red
+    # halt like every other merge path. Without this the arbiter merges straight
+    # through an armed halt, which is exactly how #9115/#9111 landed.
+    try:
+        assert_merge_allowed(pr_number, head_sha or "")
+    except MergeHalted as exc:
+        return False, str(exc)
     args = [
         "pr",
         "merge",
