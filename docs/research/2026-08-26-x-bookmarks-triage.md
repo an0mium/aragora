@@ -119,6 +119,29 @@ Documented so the decision is auditable; none of these produce follow-ups.
 - From the 2026-08-29 refresh, reviewed and not surviving: Applied Compute Kimi K3 RL infra, Sapient PRAXIST (reasoning architecture, chat-only register), justrach/codegraff Zig harness (harness landscape, chat-only), induction_labs Intrinsically Curious Agents, ShawnSYFeng RL-alternatives series, Alexander Yue browser-use RL environments, BixBench3 (computational biology), Skoorbkaz Conscious-Turing paper, MTSlive interviews (Tworek, deepfates), Riccardo De Santi actfl paper (arXiv 2606.08802 — revisit only if control-theoretic planning becomes roadmap-relevant).
 - Likes (first page only, Aug 29): all social/off-topic; no candidates. Full likes history flows through the pipeline once export/API ingestion lands.
 
+## Ranking debate outcome (2026-08-29) — recorded honestly
+
+The dogfooding run happened: all 14 candidates were rendered uncapped into a MetaPlanner debate
+(`scripts/rank_research_candidates.py … --agents claude,codex`) via the new `candidate_goals` path.
+The outcome was a **failed consensus, and the receipt says so**:
+
+- The claude CLI agent failed with `401 OAuth access token has been revoked` (the known
+  profile-expiry failure mode), degrading the debate to effectively one participant.
+- Round 2 revision hit the 600s phase timeout; consensus was not reached (confidence 0.0)
+  and goal parsing fell back to heuristics.
+- Receipt: [`receipts/2026-08-29-x-intake-ranking-receipt.json`](receipts/2026-08-29-x-intake-ranking-receipt.json)
+  (verdict `FAIL`, receipt_id `2ecd2231-f415-4d89-abff-726166909606`,
+  sha256 `29d3453cb9cc0708408e724eca998f14f446d8835db002082da93615b62dee49`); run record
+  [`receipts/2026-08-29-x-intake-ranking-run.json`](receipts/2026-08-29-x-intake-ranking-run.json).
+
+Consequence: the per-candidate verdicts in this brief remain **analyst verdicts, not
+debate-settled ones** — exactly what the receipt-preserving posture requires us to say. Re-run
+after restoring claude CLI auth (`claude login`, or once API-key agents are reachable again):
+
+```bash
+python3 scripts/rank_research_candidates.py docs/research/2026-08-26-x-bookmarks-triage.md --agents claude,codex --max-goals 10
+```
+
 ## Rules of the road for this brief
 
 1. Nothing here carries `boss-ready`. Nothing here is canonical. Nothing here adds a track.

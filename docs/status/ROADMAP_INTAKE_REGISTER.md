@@ -53,26 +53,26 @@ When an agent or human is asked to "make this plan permanent / durable":
 ## Register — X bookmark triage intake (2026-08-26 session)
 
 Source brief: [`docs/research/2026-08-26-x-bookmarks-triage.md`](../research/2026-08-26-x-bookmarks-triage.md).
-Issue numbers are filled in as the `research-intake` issues are filed; none carry `boss-ready`.
+All `research-intake` issues filed 2026-08-29 (#9860–#9871); none carry `boss-ready`. Ranking receipt (verdict FAIL/no-consensus, preserved honestly): [`docs/research/receipts/2026-08-29-x-intake-ranking-receipt.json`](../research/receipts/2026-08-29-x-intake-ranking-receipt.json).
 
 | Item | Source | Status | Destination | Tracking |
 |---|---|---|---|---|
-| **X intake pipeline** (live bookmarks + likes ingestion via OAuth2 user-context on the existing ideacloud ingestors; recurring digest job; debate-ranked triage) | X bookmark triage session | In progress | `docs/research/2026-08-26-x-bookmarks-triage.md` + `docs/FEATURE_GAP_LIST.md` rows | issues pending (this session) |
-| **MetaPlanner `candidate_goals`** (first-class externally supplied candidate list for debate ranking; removes the 5-item `recent_issues` cap) | X bookmark triage session | In progress | code PR (this session) | issue pending |
-| **Anthropic multiagent-patterns evidence** (THESIS.md citation + reviewer-independence field in receipt profile) | bookmark: J4X_Security Aug 16 | Adopted | [`2026-08-26-anthropic-multiagent-patterns-brief.md`](../research/2026-08-26-anthropic-multiagent-patterns-brief.md) | issue pending |
+| **X intake pipeline** (live bookmarks + likes ingestion via OAuth2 user-context on the existing ideacloud ingestors; recurring digest job; debate-ranked triage) | X bookmark triage session | Shipped in PR | PR [#9859](https://github.com/synaptent/aragora/pull/9859) | [#9860](https://github.com/synaptent/aragora/issues/9860) |
+| **MetaPlanner `candidate_goals`** (first-class externally supplied candidate list for debate ranking; removes the 5-item `recent_issues` cap) | X bookmark triage session | Shipped in PR | PR [#9859](https://github.com/synaptent/aragora/pull/9859) | — |
+| **Anthropic multiagent-patterns evidence** (THESIS.md citation + reviewer-independence field in receipt profile) | bookmark: J4X_Security Aug 16 | Adopted | [`2026-08-26-anthropic-multiagent-patterns-brief.md`](../research/2026-08-26-anthropic-multiagent-patterns-brief.md) | [#9862](https://github.com/synaptent/aragora/issues/9862) |
 | **Trained confidence model pattern (Simile)** for ODR-5 calibrated confidence | bookmark: simile_ai Aug 25 | Adopted | [`2026-08-26-simile-confidence-model-brief.md`](../research/2026-08-26-simile-confidence-model-brief.md) → feeds [#8229](https://github.com/synaptent/aragora/issues/8229) | via ODR-5 #8229 |
 | **YC QM comparison** (Chief-of-Staff-stage competitor; receipt-story gap) | bookmark: ycombinator Jul 31 | Adopted | [`2026-08-26-yc-qm-brief.md`](../research/2026-08-26-yc-qm-brief.md) + `COMPARISON_MATRIX.md` row | this session |
-| **Prime Agent harness attestation** (receipts attesting self-modifying-harness changes; verifiers-v1 vs benchmark-truth) | bookmark: PrimeIntellect Aug 5 / Jul 12 | Adopted — investigation | issue body | issue pending |
-| **buzz identity model** (agent+human cryptographic identity vs ODR-2 signing identity) | bookmark: jack Jul 22 | Adopted — investigation | issue body | issue pending |
-| **Not Diamond routing comparison** (vs #8233 decision-stakes routing / Pareto router) | bookmark: tomas_hk Aug 4 | Adopted — investigation | issue body → feeds [#8233](https://github.com/synaptent/aragora/issues/8233) | issue pending |
-| **OmniRoute + open-weight quorum widening** (incl. Apodex 1.1, GLM-5.3 as candidate reviewer families) | bookmarks: trending_repos Aug 1, Apodex Aug 24, Zai Aug 14 | Adopted — investigation | issue body | issue pending |
-| **Open-Kritt reviewer signal** (AGPL review required before integration) | bookmark: pritipatelfgoo Aug 15 | Adopted — investigation | issue body | issue pending |
-| **Alibaba structured-context pattern** (vs Knowledge Mound attributable context packing) | bookmark: omarsar0 Aug 25 | Adopted — investigation | issue body | issue pending |
-| **Grok Agent-Tools x_search** (investigate current xAI API; Live Search is deprecated) | triage session derivative | Adopted — investigation | issue body | issue pending |
-| **DeepMind verifier-metric critique** (audit TruthScorer + cross-verification against it) | bookmark: marfinxx Aug 26 (refresh pass) | Adopted — investigation | issue body | issue pending |
-| **Agent skill/memory evolution patterns** (Google skill-library paper + Recuris; folded with Alibaba context item) | bookmarks: dair_ai Aug 28, LingYang_PU Aug 26 (refresh pass) | Adopted — investigation | issue body | issue pending |
-| **RSI-Exam benchmark** (external executable yardstick for Nomic-loop self-improvement claims) | bookmark: HuaxiuYaoML Aug 27 (refresh pass) | Adopted — investigation | issue body | issue pending |
-| **Receipt confidence-feature logging** (Simile pattern stage 1: frozen feature vector in every receipt) | deep-dive derivative (Simile brief) | Adopted | issue body → feeds [#8229](https://github.com/synaptent/aragora/issues/8229) | issue pending |
+| **Prime Agent harness attestation** (receipts attesting self-modifying-harness changes; verifiers-v1 vs benchmark-truth) | bookmark: PrimeIntellect Aug 5 / Jul 12 | Adopted — investigation | issue body | [#9871](https://github.com/synaptent/aragora/issues/9871) |
+| **buzz identity model** (agent+human cryptographic identity vs ODR-2 signing identity) | bookmark: jack Jul 22 | Adopted — investigation | issue body | [#9863](https://github.com/synaptent/aragora/issues/9863) |
+| **Not Diamond routing comparison** (vs #8233 decision-stakes routing / Pareto router) | bookmark: tomas_hk Aug 4 | Adopted — investigation | issue body → feeds [#8233](https://github.com/synaptent/aragora/issues/8233) | [#9864](https://github.com/synaptent/aragora/issues/9864) |
+| **OmniRoute + open-weight quorum widening** (incl. Apodex 1.1, GLM-5.3 as candidate reviewer families) | bookmarks: trending_repos Aug 1, Apodex Aug 24, Zai Aug 14 | Adopted — investigation | issue body | [#9866](https://github.com/synaptent/aragora/issues/9866) |
+| **Open-Kritt reviewer signal** (AGPL review required before integration) | bookmark: pritipatelfgoo Aug 15 | Adopted — investigation | issue body | [#9865](https://github.com/synaptent/aragora/issues/9865) |
+| **Alibaba structured-context pattern** (vs Knowledge Mound attributable context packing) | bookmark: omarsar0 Aug 25 | Adopted — investigation | issue body | folded into [#9867](https://github.com/synaptent/aragora/issues/9867) |
+| **Grok Agent-Tools x_search** (investigate current xAI API; Live Search is deprecated) | triage session derivative | Adopted — investigation | issue body | [#9861](https://github.com/synaptent/aragora/issues/9861) |
+| **DeepMind verifier-metric critique** (audit TruthScorer + cross-verification against it) | bookmark: marfinxx Aug 26 (refresh pass) | Adopted — investigation | issue body | [#9868](https://github.com/synaptent/aragora/issues/9868) |
+| **Agent skill/memory evolution patterns** (Google skill-library paper + Recuris; folded with Alibaba context item) | bookmarks: dair_ai Aug 28, LingYang_PU Aug 26 (refresh pass) | Adopted — investigation | issue body | [#9867](https://github.com/synaptent/aragora/issues/9867) |
+| **RSI-Exam benchmark** (external executable yardstick for Nomic-loop self-improvement claims) | bookmark: HuaxiuYaoML Aug 27 (refresh pass) | Adopted — investigation | issue body | [#9869](https://github.com/synaptent/aragora/issues/9869) |
+| **Receipt confidence-feature logging** (Simile pattern stage 1: frozen feature vector in every receipt) | deep-dive derivative (Simile brief) | Adopted | issue body → feeds [#8229](https://github.com/synaptent/aragora/issues/8229) | [#9870](https://github.com/synaptent/aragora/issues/9870) |
 
 ## Open planning epics (index, 2026-06-26)
 
