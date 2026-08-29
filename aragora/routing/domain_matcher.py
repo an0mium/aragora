@@ -16,7 +16,11 @@ import re
 import time
 from typing import TYPE_CHECKING
 
-from aragora.config.secrets import get_secret_presence, is_secret_presence_available
+from aragora.config.secrets import (
+    get_secret,
+    get_secret_presence,
+    is_secret_presence_available,
+)
 from aragora.models.compat import first_text_block
 
 if TYPE_CHECKING:
@@ -418,7 +422,10 @@ class DomainDetector:
             try:
                 import anthropic
 
-                self._client = anthropic.Anthropic()
+                api_key = get_secret("ANTHROPIC_API_KEY")
+                self._client = (
+                    anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+                )
             except (ImportError, ValueError, OSError, RuntimeError) as e:
                 logger.warning("Failed to create Anthropic client: %s", e)
                 self.use_llm = False

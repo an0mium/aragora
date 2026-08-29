@@ -290,6 +290,41 @@ def test_availability_helpers_accept_mounted_custody(monkeypatch, module_name, h
     assert helper("OPENROUTER_API_KEY") is True
 
 
+def test_stream_executor_honors_strict_presence(monkeypatch):
+    from aragora.server.stream import debate_executor
+
+    blocked = SecretPresence(
+        name="OPENROUTER_API_KEY",
+        source="blocked_by_strict_mode",
+        critical=True,
+        managed=True,
+    )
+    monkeypatch.setattr(debate_executor, "get_secret_presence", lambda _name: blocked)
+    assert debate_executor._openrouter_key_available() is False
+
+
+def test_domain_detector_passes_mounted_key_to_sdk(monkeypatch):
+    import anthropic
+
+    from aragora.routing import domain_matcher
+
+    mounted = SecretPresence(
+        name="ANTHROPIC_API_KEY",
+        source="mounted_file",
+        critical=True,
+        managed=True,
+    )
+    client = MagicMock()
+    constructor = MagicMock(return_value=client)
+    monkeypatch.setattr(domain_matcher, "get_secret_presence", lambda _name: mounted)
+    monkeypatch.setattr(domain_matcher, "get_secret", lambda _name: "mounted-key")
+    monkeypatch.setattr(anthropic, "Anthropic", constructor)
+
+    detector = domain_matcher.DomainDetector()
+    assert detector.client is client
+    constructor.assert_called_once_with(api_key="mounted-key")
+
+
 class TestSecretManagerMountedFiles:
     """Tests for protected mounted-directory secret custody."""
 

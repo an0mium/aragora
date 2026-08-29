@@ -25,7 +25,11 @@ from aragora.config import (
     MAX_CONCURRENT_DEBATES,
     MAX_ROUNDS,
 )
-from aragora.config.secrets import get_secret_presence, is_secret_presence_available
+from aragora.config.secrets import (
+    get_secret,
+    get_secret_presence,
+    is_secret_presence_available,
+)
 from aragora.server.debate_factory import (
     DEFAULT_ENABLE_VERTICALS,
     DebateConfig,
@@ -827,7 +831,8 @@ class DebateController:
         try:
             from anthropic import AsyncAnthropic
 
-            client = AsyncAnthropic()
+            api_key = get_secret("ANTHROPIC_API_KEY")
+            client = AsyncAnthropic(api_key=api_key) if api_key else AsyncAnthropic()
             # Wrap API call with 5 second timeout
             response = await asyncio.wait_for(
                 client.messages.create(
