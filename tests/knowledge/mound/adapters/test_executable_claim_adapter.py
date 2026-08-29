@@ -124,12 +124,29 @@ class TestBatch:
         )
         assert r.claims_ingested == 0 and r.skipped == 3
 
-    def test_store_error_captured(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(
+        "error",
+        [
+            RuntimeError("down"),
+            TypeError("bad store contract"),
+            ValueError("invalid item"),
+            OSError("transport unavailable"),
+        ],
+    )
+    def test_store_error_captured(self, monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
         monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
         bad = MagicMock()
-        bad.store = AsyncMock(side_effect=RuntimeError("down"))
+        bad.store = AsyncMock(side_effect=error)
         r = asyncio.run(ExecutableClaimAdapter(mound=bad).ingest_claim_results([_r()]))
-        assert r.claims_ingested == 0 and "down" in r.errors[0]
+        assert r.claims_ingested == 0 and str(error) in r.errors[0]
+
+    def test_unexpected_store_error_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
+        bad = MagicMock()
+        bad.store = AsyncMock(side_effect=AssertionError("programmer defect"))
+
+        with pytest.raises(AssertionError, match="programmer defect"):
+            asyncio.run(ExecutableClaimAdapter(mound=bad).ingest_claim_results([_r()]))
 
 
 def test_no_mound_returns_generated_id(monkeypatch: pytest.MonkeyPatch) -> None:
