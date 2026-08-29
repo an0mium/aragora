@@ -146,9 +146,11 @@ def _secret_id_contains_key_material(secret_id: str) -> bool:
     if b"-----BEGIN" in decoded or b"PRIVATE KEY" in decoded:
         return True
     try:
+        from cryptography.exceptions import UnsupportedAlgorithm
+
         _, _, serialization, _ = _load_ed25519()
         serialization.load_der_private_key(decoded, password=None)
-    except (OdrSigningError, ValueError, TypeError):
+    except (OdrSigningError, UnsupportedAlgorithm, ValueError, TypeError):
         return False
     return True
 
@@ -289,11 +291,16 @@ def load_signing_key_from_secrets(
     Raw key material is never accepted from an environment variable. The only
     signing environment variable names an AWS compatibility secret.
     """
+    if secret_name:
+        return load_private_key_from_pem(
+            _load_pem_secret_from_aws(secret_name, explicitly_named=True)
+        )
+
     pem = _load_pem_from_mounted_custody()
     if pem is not None:
         return load_private_key_from_pem(pem)
 
-    explicit = secret_name or os.environ.get(SIGNING_KEY_SECRET_ENV)
+    explicit = os.environ.get(SIGNING_KEY_SECRET_ENV)
     name = explicit or DEFAULT_SIGNING_KEY_SECRET
     return load_private_key_from_pem(
         _load_pem_secret_from_aws(name, explicitly_named=bool(explicit))
