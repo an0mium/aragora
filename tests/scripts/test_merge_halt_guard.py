@@ -23,6 +23,7 @@ Three kinds of test here:
 
 from __future__ import annotations
 
+import ast
 import datetime as dt
 import json
 import re
@@ -35,7 +36,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import scripts.merge_halt_guard as guard  # noqa: E402
+# Import the real module, not the scripts/ shim: these tests reach for private
+# helpers (`_shared_checkout_root`) that the shim re-exports by value, so
+# patching the shim would not affect the code under test.
+import aragora.governance.merge_halt as guard  # noqa: E402
 
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -228,7 +232,11 @@ def test_assert_merge_allowed_raises_when_halted(halt: Path, waiver_path: Path) 
 
 
 def test_cli_exits_nonzero_while_halted(halt: Path, waiver_path: Path) -> None:
-    code = guard.main(
+    # The CLI lives in the scripts/ shim, not the library: package code must not
+    # print (ruff T201). Import it here so the operator entry point stays covered.
+    import scripts.merge_halt_guard as cli
+
+    code = cli.main(
         [
             "--pr",
             str(PR),
@@ -260,6 +268,75 @@ _MERGE_INVOCATIONS = (
     re.compile(r'\+=\s*\[\s*"merge"'),
     re.compile(r'\.append\(\s*"merge"\s*\)'),
 )
+
+
+# Merge-capable modules inside the package, and why each is guarded or exempt.
+# The scan below covers aragora/ as well as scripts/ because the first version of
+# this guard globbed only `scripts/*.py` and was therefore structurally blind to
+# `aragora/swarm/merge_arbiter.py` — an admin-squash, daemon-driven merge loop with
+# `dry_run: bool = False` — while merge_halt.py's docstring asserted "every
+# merge-capable entry point calls assert_merge_allowed". A scan that cannot see a
+# whole directory launders the gap as coverage, which is the #9216 bug class itself.
+# Widening it also surfaced `aragora/missions/live_gate.py`, which the review that
+# caught merge_arbiter did not report.
+PACKAGE_MERGE_PATHS = {
+    "aragora/swarm/merge_arbiter.py",
+    "aragora/missions/live_gate.py",
+}
+
+# Matched by the argv pattern but not a `gh pr merge` execution — re-checked, not assumed.
+PACKAGE_NON_MERGE_MENTIONS = {
+    # A subcommand allowlist: "pr" is an allowed `gh` subcommand, never invoked here.
+    "aragora/utils/subprocess_runner.py",
+}
+
+
+def _package_modules_that_merge() -> set[str]:
+    found: set[str] = set()
+    for path in sorted(PROJECT_ROOT.glob("aragora/**/*.py")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        stripped = re.sub(r'"""(?:.|\n)*?"""', "", text)
+        if any(rx.search(stripped) for rx in _MERGE_INVOCATIONS):
+            found.add(str(path.relative_to(PROJECT_ROOT)))
+    return found
+
+
+def _calls_assert_merge_allowed(path: Path) -> bool:
+    """True only if the module actually CALLS the guard.
+
+    A substring check is not enough: `from ... import assert_merge_allowed`
+    contains the name, so a text match stays green when the call site is deleted
+    and only the import remains. Verified by deleting the call from
+    merge_arbiter.py — the substring version still passed. Parse for a Call node.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = getattr(func, "id", None) or getattr(func, "attr", None)
+        if name == "assert_merge_allowed":
+            return True
+    return False
+
+
+def test_package_merge_paths_are_guarded() -> None:
+    """A merge path under aragora/ must consult the halt, same as scripts/."""
+    for rel in sorted(PACKAGE_MERGE_PATHS):
+        assert _calls_assert_merge_allowed(PROJECT_ROOT / rel), (
+            f"{rel} executes a merge but never CALLS assert_merge_allowed — "
+            "the halt does not cover it (#9216). An import alone is not coverage."
+        )
+
+
+def test_package_merge_path_list_is_current() -> None:
+    """Catch a NEW merge path landing anywhere under aragora/ unguarded."""
+    actual = _package_modules_that_merge()
+    unlisted = actual - PACKAGE_MERGE_PATHS - PACKAGE_NON_MERGE_MENTIONS
+    assert not unlisted, (
+        f"module(s) under aragora/ invoke a merge but are unlisted: {sorted(unlisted)}. "
+        "Wire the guard and add them, or record why they are not a merge."
+    )
 
 
 def _scripts_that_merge() -> set[str]:

@@ -56,7 +56,7 @@ from pathlib import Path as _Path
 if str(_Path(__file__).resolve().parent.parent) not in _sys.path:
     _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
-from scripts.merge_halt_guard import MergeHalted, assert_merge_allowed
+from scripts.merge_halt_guard import assert_merge_allowed
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TRIAGE_SCRIPT = REPO_ROOT / "scripts" / "triage_open_prs.py"
