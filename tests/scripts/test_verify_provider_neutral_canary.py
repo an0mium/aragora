@@ -206,3 +206,90 @@ def test_report_file_is_owner_only(tmp_path: Path) -> None:
     output = tmp_path / "report.json"
     _write_state(output, {"ok": False})
     assert output.stat().st_mode & 0o777 == 0o600
+
+
+def test_invalid_auth_token_is_recorded(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "before-restart")
+    token_path = Path(args.secrets_dir) / "canary-auth-token"
+    token_path.write_text("server-bootstrap-token", encoding="utf-8")
+    token_path.chmod(0o600)
+
+    report = run_verification(args, FakeTransport(public_key_pem(key)))
+
+    assert report["ok"] is False
+    assert report["checks"]["custody"]["error_type"] == "RuntimeError"
+
+
+def test_webhook_auth_rejection_is_recorded(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+
+    class RejectingTransport(FakeTransport):
+        def request(self, method, url, *, headers=None, payload=None):
+            if method == "POST" and url.endswith("/api/v1/webhooks"):
+                assert headers == {"Authorization": f"Bearer {TOKEN}"}
+                return self._response(401, {"error": "Authentication required"})
+            return super().request(method, url, headers=headers, payload=payload)
+
+    report = run_verification(
+        _args(tmp_path, receipt_path, "before-restart"),
+        RejectingTransport(public_key_pem(key)),
+    )
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"]["create_status"] == 401
+
+
+def test_failed_read_reports_cleanup_status(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+
+    class ReadFailTransport(FakeTransport):
+        def request(self, method, url, *, headers=None, payload=None):
+            if method == "GET" and "/api/v1/webhooks/" in url:
+                return self._response(500)
+            return super().request(method, url, headers=headers, payload=payload)
+
+    report = run_verification(
+        _args(tmp_path, receipt_path, "before-restart"),
+        ReadFailTransport(public_key_pem(key)),
+    )
+
+    assert report["ok"] is False
+    persistence = report["checks"]["persistence"]
+    assert persistence["read_status"] == 500
+    assert persistence["cleanup_status"] == 204
+
+
+def test_after_restart_delete_failure_is_recorded(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+
+    class DeleteFailTransport(FakeTransport):
+        fail_delete = False
+
+        def request(self, method, url, *, headers=None, payload=None):
+            if self.fail_delete and method == "DELETE":
+                return self._response(500)
+            return super().request(method, url, headers=headers, payload=payload)
+
+    transport = DeleteFailTransport(public_key_pem(key))
+    before_args = _args(tmp_path, receipt_path, "before-restart")
+    assert run_verification(before_args, transport)["ok"] is True
+    transport.fail_delete = True
+    after_args = _args(tmp_path, receipt_path, "after-restart")
+    after_args.persistence_state = before_args.persistence_state
+
+    report = run_verification(after_args, transport)
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"]["delete_status"] == 500
+
+
+def test_corrupt_after_restart_state_is_recorded(tmp_path: Path) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    args = _args(tmp_path, receipt_path, "after-restart")
+    Path(args.persistence_state).write_text("not json", encoding="utf-8")
+
+    report = run_verification(args, FakeTransport(public_key_pem(key)))
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"]["error_type"] == "JSONDecodeError"
