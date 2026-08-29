@@ -265,6 +265,31 @@ def test_secret_presence_availability_is_fail_closed(source, expected):
     assert presence.available is expected
 
 
+@pytest.mark.parametrize(
+    ("module_name", "helper_name"),
+    [
+        ("aragora.cli.review", "_has_api_key"),
+        ("aragora.config.minimal", "_secret_available"),
+        ("aragora.inbox.triage_runner", "_has_api_key"),
+        ("aragora.rlm.bridge", "_secret_configured"),
+        ("aragora.swarm.boss_loop_selection", "_has_api_key"),
+    ],
+)
+def test_availability_helpers_accept_mounted_custody(monkeypatch, module_name, helper_name):
+    import importlib
+
+    module = importlib.import_module(module_name)
+    mounted = SecretPresence(
+        name="OPENROUTER_API_KEY",
+        source="mounted_file",
+        critical=True,
+        managed=True,
+    )
+    monkeypatch.setattr(module, "get_secret_presence", lambda _name: mounted)
+    helper = getattr(module, helper_name)
+    assert helper("OPENROUTER_API_KEY") is True
+
+
 class TestSecretManagerMountedFiles:
     """Tests for protected mounted-directory secret custody."""
 

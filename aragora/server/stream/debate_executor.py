@@ -53,7 +53,11 @@ from aragora.agents.registry import AgentRegistry
 from aragora.agents.spec import AgentSpec
 from aragora.billing.usage import UsageTracker
 from aragora.config import get_api_key
-from aragora.config.secrets import get_secret, get_secret_presence
+from aragora.config.secrets import (
+    get_secret,
+    get_secret_presence,
+    is_secret_presence_available,
+)
 from aragora.pulse.ingestor import (
     HackerNewsIngestor,
     PulseManager,
@@ -134,7 +138,7 @@ def _openrouter_key_available() -> bool:
             return True
     except (ImportError, KeyError, OSError, ValueError):
         pass
-    return get_secret_presence("OPENROUTER_API_KEY", strict=False).source in {"aws", "env"}
+    return is_secret_presence_available(get_secret_presence("OPENROUTER_API_KEY", strict=False))
 
 
 # Check if debate orchestrator is available
