@@ -552,6 +552,23 @@ class TestSecretManagerMountedFiles:
         with patch.dict(os.environ, {}, clear=True):
             assert manager.get("UNMANAGED_SECRET", strict=False) is None
 
+    def test_strict_hydration_removes_env_when_managed_cache_value_is_blank(self, tmp_path):
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path)))
+        manager._cached_secrets = {"OPENAI_API_KEY": ""}
+        manager._cached_secret_sources = {"OPENAI_API_KEY": "mounted_file"}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(
+                os.environ,
+                {"ARAGORA_SECRETS_STRICT": "true", "OPENAI_API_KEY": "raw-env-value"},
+                clear=True,
+            ),
+        ):
+            assert hydrate_env_from_secrets(["OPENAI_API_KEY"], overwrite=True) == {}
+            assert "OPENAI_API_KEY" not in os.environ
+
     @pytest.mark.parametrize("overwrite", [False, True])
     def test_strict_hydration_removes_critical_env_fallback(self, tmp_path, caplog, overwrite):
         """Settings hydration cannot reintroduce raw critical env values."""
