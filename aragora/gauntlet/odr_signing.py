@@ -36,6 +36,7 @@ import copy
 import hashlib
 import logging
 import os
+import re
 from typing import TYPE_CHECKING, Any
 
 from aragora.gauntlet.odr_export import odr_content_digest
@@ -124,15 +125,18 @@ def load_private_key_from_pem(pem: str | bytes) -> Ed25519PrivateKey:
     return key
 
 
-def _secret_id_label(secret_id: str) -> str:
+def _secret_id_label(secret_id: str, *, explicitly_named: bool = False) -> str:
     """Return a log-safe secret identifier label."""
-    if "-----BEGIN" in secret_id or "\n" in secret_id or len(secret_id) > 160:
+    if explicitly_named or _secret_id_contains_key_material(secret_id) or len(secret_id) > 160:
         return "<redacted-secret-id>"
     return secret_id
 
 
 def _secret_id_contains_key_material(secret_id: str) -> bool:
-    return "-----BEGIN" in secret_id or "PRIVATE KEY" in secret_id or "\n" in secret_id
+    if "-----BEGIN" in secret_id or "PRIVATE KEY" in secret_id or "\n" in secret_id:
+        return True
+    compact = secret_id.strip()
+    return len(compact) >= 64 and bool(re.fullmatch(r"[A-Za-z0-9+/=_-]+", compact))
 
 
 def _load_pem_from_mounted_custody() -> str | None:
@@ -150,9 +154,12 @@ def _load_pem_from_mounted_custody() -> str | None:
     try:
         directory_fd = manager._open_secrets_directory()  # noqa: SLF001
         try:
-            return manager._read_protected_file(  # noqa: SLF001
+            pem = manager._read_protected_file(  # noqa: SLF001
                 directory_fd, MOUNTED_SIGNING_KEY_FILENAME
             )
+            if pem is None:
+                raise OdrSigningError("mounted ODR signing key is missing")
+            return pem
         finally:
             os.close(directory_fd)
     except secret_config.SecretSourceError as exc:
@@ -173,7 +180,7 @@ def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False)
     that does not exist is a configuration ERROR (typo, deleted secret) and
     must fail closed, never be treated as "not configured".
     """
-    secret_label = _secret_id_label(secret_id)
+    secret_label = _secret_id_label(secret_id, explicitly_named=explicitly_named)
     if _secret_id_contains_key_material(secret_id):
         raise OdrSigningError(
             "ODR signing key secret identifier appears to contain raw key material; "
