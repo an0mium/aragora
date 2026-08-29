@@ -197,7 +197,7 @@ def _verify_receipt(receipt_path: str, public_key: Any) -> dict[str, Any]:
     }
 
 
-def _write_state(path: Path, state: dict[str, str]) -> None:
+def _write_state(path: Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
     try:
@@ -221,17 +221,33 @@ def _write_state(path: Path, state: dict[str, str]) -> None:
 _WEBHOOK_CONFIGS_ENDPOINT = "/api/v1/webhook-configs"
 
 
+def _webhook_metadata_matches(
+    webhook: dict[str, Any],
+    *,
+    webhook_id: str,
+    expected_url: str,
+    expected_name: str,
+) -> bool:
+    return (
+        webhook.get("id") == webhook_id
+        and webhook.get("url") == expected_url
+        and webhook.get("events") == ["canary_probe"]
+        and webhook.get("name") == expected_name
+    )
+
+
 def _persistence_before(
     client: Transport, base_url: str, headers: dict[str, str], state_path: Path
 ) -> dict[str, Any]:
     marker = uuid.uuid4().hex
     callback_url = f"https://example.invalid/aragora-canary/{marker}"
     endpoint = _WEBHOOK_CONFIGS_ENDPOINT
+    expected_name = f"canary-{marker}"
     response = client.request(
         "POST",
         _url(base_url, endpoint),
         headers=headers,
-        payload={"url": callback_url, "events": ["canary_probe"], "name": f"canary-{marker}"},
+        payload={"url": callback_url, "events": ["canary_probe"], "name": expected_name},
     )
 
     payload = _json(response) if response.status == 201 else {}
@@ -240,18 +256,30 @@ def _persistence_before(
     webhook_id = str(webhook.get("id") or "")
     if not webhook_id:
         return {"ok": False, "create_status": response.status}
+    create_matches = webhook.get("url") == callback_url
     read = client.request("GET", _url(base_url, f"{endpoint}/{webhook_id}"), headers=headers)
     read_payload = _json(read) if read.status == 200 else {}
     stored_value = read_payload.get("webhook")
     stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
-    ok = read.status == 200 and stored.get("url") == callback_url
+    ok = (
+        read.status == 200
+        and create_matches
+        and _webhook_metadata_matches(
+            stored,
+            webhook_id=webhook_id,
+            expected_url=callback_url,
+            expected_name=expected_name,
+        )
+    )
     if ok:
         try:
             _write_state(
                 state_path,
                 {
                     "webhook_id": webhook_id,
-                    "callback_url": callback_url,
+                    "expected_url": callback_url,
+                    "expected_events": ["canary_probe"],
+                    "expected_name": expected_name,
                     "marker": marker,
                     "endpoint": endpoint,
                 },
@@ -274,15 +302,29 @@ def _persistence_after(
 ) -> dict[str, Any]:
     state = json.loads(state_path.read_text(encoding="utf-8"))
     webhook_id = str(state.get("webhook_id") or "")
-    callback_url = str(state.get("callback_url") or "")
     endpoint = str(state.get("endpoint") or "")
     if endpoint != _WEBHOOK_CONFIGS_ENDPOINT:
         raise RuntimeError("persistence state does not select the durable webhook endpoint")
+    marker = str(state.get("marker") or "")
+    expected_url = str(state.get("expected_url") or "")
+    expected_name = str(state.get("expected_name") or "")
     read = client.request("GET", _url(base_url, f"{endpoint}/{webhook_id}"), headers=headers)
     read_payload = _json(read) if read.status == 200 else {}
     stored_value = read_payload.get("webhook")
     stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
-    persisted = read.status == 200 and stored.get("url") == callback_url
+    state_matches = (
+        state.get("expected_events") == ["canary_probe"] and expected_name == f"canary-{marker}"
+    )
+    persisted = (
+        read.status == 200
+        and state_matches
+        and _webhook_metadata_matches(
+            stored,
+            webhook_id=webhook_id,
+            expected_url=expected_url,
+            expected_name=expected_name,
+        )
+    )
     deleted = client.request("DELETE", _url(base_url, f"{endpoint}/{webhook_id}"), headers=headers)
     return {
         "ok": persisted and deleted.status in {200, 204},

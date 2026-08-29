@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import scripts.verify_provider_neutral_canary as verifier
 from aragora.gauntlet.odr_signing import (
     generate_signing_key,
@@ -38,6 +40,10 @@ class FakeTransport:
         self.webhook_id = "probe-123"
         self.callback_url = ""
         self.auth_headers: list[str] = []
+        self.webhook_events: list[str] = []
+        self.webhook_name = ""
+        self.read_overrides: dict[str, object] = {}
+        self.delete_calls = 0
 
     @staticmethod
     def _response(status: int, payload=None, headers=None) -> Response:
@@ -70,6 +76,8 @@ class FakeTransport:
             assert payload["events"] == ["canary_probe"]
             assert payload["name"].startswith("canary-")
             self.callback_url = payload["url"]
+            self.webhook_events = list(payload["events"])
+            self.webhook_name = payload["name"]
             return self._response(
                 201,
                 {
@@ -81,10 +89,16 @@ class FakeTransport:
                 },
             )
         if method == "GET" and path.endswith(f"/api/v1/webhook-configs/{self.webhook_id}"):
-            return self._response(
-                200, {"webhook": {"id": self.webhook_id, "url": self.callback_url}}
-            )
+            webhook: dict[str, object] = {
+                "id": self.webhook_id,
+                "url": self.callback_url,
+                "events": self.webhook_events,
+                "name": self.webhook_name,
+            }
+            webhook.update(self.read_overrides)
+            return self._response(200, {"webhook": webhook})
         if method == "DELETE" and path.endswith(f"/api/v1/webhook-configs/{self.webhook_id}"):
+            self.delete_calls += 1
             return self._response(204)
         return self._response(404)
 
@@ -233,6 +247,12 @@ def test_before_and_after_restart_proof(tmp_path: Path) -> None:
     after = run_verification(after_args, transport)
     assert after["ok"] is True
     assert transport.auth_headers
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["expected_url"] == transport.callback_url
+    assert state["expected_events"] == ["canary_probe"]
+    assert state["expected_name"] == f"canary-{state['marker']}"
+    assert state["webhook_id"] == transport.webhook_id
+    assert state["endpoint"] == "/api/v1/webhook-configs"
     assert TOKEN not in json.dumps(before)
     assert "must-not-appear-in-report" not in json.dumps(before)
 
@@ -245,6 +265,64 @@ def test_non_exact_build_sha_fails_closed(tmp_path: Path) -> None:
 
     assert report["ok"] is False
     assert report["checks"]["build"]["ok"] is False
+
+
+@pytest.mark.parametrize(
+    ("field", "mismatched_value"),
+    [
+        ("events", ["canary_probe", "debate_end"]),
+        ("name", "forged-canary-name"),
+    ],
+)
+def test_before_restart_metadata_mismatch_fails_and_cleans_up(
+    tmp_path: Path, field: str, mismatched_value: object
+) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    transport = FakeTransport(public_key_pem(key))
+    transport.read_overrides[field] = mismatched_value
+    args = _args(tmp_path, receipt_path, "before-restart")
+
+    report = run_verification(args, transport)
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"] == {
+        "ok": False,
+        "create_status": 201,
+        "read_status": 200,
+        "cleanup_status": 204,
+    }
+    assert transport.delete_calls == 1
+    assert not Path(args.persistence_state).exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "mismatched_value"),
+    [
+        ("events", []),
+        ("name", "forged-canary-name"),
+    ],
+)
+def test_after_restart_metadata_mismatch_fails_but_deletes(
+    tmp_path: Path, field: str, mismatched_value: object
+) -> None:
+    key, receipt_path = _receipt(tmp_path)
+    transport = FakeTransport(public_key_pem(key))
+    before_args = _args(tmp_path, receipt_path, "before-restart")
+    assert run_verification(before_args, transport)["ok"] is True
+    transport.read_overrides[field] = mismatched_value
+    transport.delete_calls = 0
+    after_args = _args(tmp_path, receipt_path, "after-restart")
+    after_args.persistence_state = before_args.persistence_state
+
+    report = run_verification(after_args, transport)
+
+    assert report["ok"] is False
+    assert report["checks"]["persistence"] == {
+        "ok": False,
+        "read_status": 200,
+        "delete_status": 204,
+    }
+    assert transport.delete_calls == 1
 
 
 def test_image_or_database_identity_mismatch_fails_closed(tmp_path: Path) -> None:
