@@ -56,10 +56,15 @@ def _pr(*, number: int = 42, head: str = HEAD, comments: list[dict[str, Any]]) -
 
 
 def _comment(
-    body: str, *, author: str = "scarmani", created: str = "2026-08-20T12:00:00Z"
+    body: str,
+    *,
+    author: str = "scarmani",
+    association: str = "MEMBER",
+    created: str = "2026-08-20T12:00:00Z",
 ) -> dict[str, Any]:
     return {
         "author": {"login": author},
+        "authorAssociation": association,
         "body": body,
         "createdAt": created,
         "url": "https://github.com/synaptent/aragora/pull/42#issuecomment-1",
@@ -104,6 +109,74 @@ def test_later_decisive_owner_reply_resolves_ask() -> None:
     )
 
     assert items == []
+
+
+def test_decisive_reply_requires_exact_pr_number() -> None:
+    comments = [
+        _comment(_ask(pr=42)),
+        _comment(
+            f"For PR #425 at exact head {'b' * 40}, I authorize the requested review step.",
+            author="an0mium",
+            created="2026-08-21T12:00:00Z",
+        ),
+    ]
+
+    items = pal.collect_authorizations(
+        [_pr(comments=comments)],
+        now=NOW,
+        operator_logins={"an0mium"},
+        check_loader=_green,
+    )
+
+    assert [item.pr for item in items] == [42]
+    assert (
+        pal._decisive_operator_reply(f"I authorize PR #42 at {HEAD}", pr=425, head="b" * 40)
+        is False
+    )
+
+
+def test_untrusted_authorization_ask_is_ignored(caplog: Any) -> None:
+    items = pal.collect_authorizations(
+        [
+            _pr(
+                comments=[
+                    _comment(
+                        _ask(pr=42),
+                        author="outside-contributor",
+                        association="CONTRIBUTOR",
+                    )
+                ]
+            )
+        ],
+        now=NOW,
+        operator_logins={"an0mium"},
+        check_loader=_green,
+    )
+
+    assert items == []
+    assert "untrusted author" in caplog.text
+
+
+def test_explicitly_trusted_ask_author_is_accepted() -> None:
+    items = pal.collect_authorizations(
+        [
+            _pr(
+                comments=[
+                    _comment(
+                        _ask(pr=42),
+                        author="trusted-review-bot",
+                        association="CONTRIBUTOR",
+                    )
+                ]
+            )
+        ],
+        now=NOW,
+        operator_logins={"an0mium"},
+        trusted_ask_logins={"trusted-review-bot"},
+        check_loader=_green,
+    )
+
+    assert [item.pr for item in items] == [42]
 
 
 def test_head_moved_is_retained_and_ranked_after_current_head() -> None:
@@ -170,6 +243,7 @@ def test_rest_fallback_normalizes_comments_and_candidate_state(monkeypatch: Any)
     }
     comment = {
         "user": {"login": "scarmani"},
+        "author_association": "MEMBER",
         "body": _ask(pr=42),
         "created_at": "2026-08-20T12:00:00Z",
         "html_url": "https://github.com/synaptent/aragora/pull/42#issuecomment-1",
@@ -194,3 +268,35 @@ def test_rest_fallback_normalizes_comments_and_candidate_state(monkeypatch: Any)
     assert prs[0]["mergeable"] == "MERGEABLE"
     assert prs[0]["mergeStateStatus"] == "CLEAN"
     assert prs[0]["comments"][0]["author"]["login"] == "scarmani"
+    assert prs[0]["comments"][0]["authorAssociation"] == "MEMBER"
+
+
+def test_default_cli_writes_nothing(monkeypatch: Any, tmp_path: Path, capsys: Any) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(pal, "load_open_prs", lambda *, repo: [])
+
+    assert pal.main(["--repo", "synaptent/aragora", "--now", "2026-08-29T12:00:00Z"]) == 0
+
+    assert not (tmp_path / ".aragora").exists()
+    assert "# Parked Authorization Ledger" in capsys.readouterr().out
+
+
+def test_explicit_output_writes_packet(monkeypatch: Any, tmp_path: Path) -> None:
+    output = tmp_path / "ledger.md"
+    monkeypatch.setattr(pal, "load_open_prs", lambda *, repo: [])
+
+    assert (
+        pal.main(
+            [
+                "--repo",
+                "synaptent/aragora",
+                "--now",
+                "2026-08-29T12:00:00Z",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    assert output.read_text(encoding="utf-8").startswith("# Parked Authorization Ledger")

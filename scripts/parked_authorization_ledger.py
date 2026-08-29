@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -29,6 +30,7 @@ except ImportError:  # pragma: no cover - import path used by repository tests
 UTC = timezone.utc
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_OPERATOR_LOGINS = ("an0mium",)
+TRUSTED_AUTHOR_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
 GH_TIMEOUT_SECONDS = 60
 NON_QUORUM_REQUIRED_CONTEXTS = {
     "lint",
@@ -54,6 +56,8 @@ DECISIVE_REPLY_MARKERS = (
     "keep this pr parked",
     "close this pr",
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -146,6 +150,7 @@ def _rest_comment(comment: Mapping[str, Any]) -> dict[str, Any]:
     login = user.get("login") if isinstance(user, Mapping) else ""
     return {
         "author": {"login": login},
+        "authorAssociation": comment.get("author_association"),
         "body": comment.get("body"),
         "createdAt": comment.get("created_at"),
         "url": comment.get("html_url"),
@@ -251,6 +256,13 @@ def _author_login(comment: Mapping[str, Any]) -> str:
     return login if isinstance(login, str) else ""
 
 
+def _trusted_ask_author(comment: Mapping[str, Any], *, trusted_logins: set[str]) -> bool:
+    association = comment.get("authorAssociation") or comment.get("author_association")
+    if isinstance(association, str) and association.upper() in TRUSTED_AUTHOR_ASSOCIATIONS:
+        return True
+    return _author_login(comment).lower() in trusted_logins
+
+
 def _looks_like_ask(body: str) -> bool:
     lowered = body.lower()
     return any(marker in lowered for marker in ASK_MARKERS) and bool(_extract_reply_block(body))
@@ -305,7 +317,7 @@ def _comment_time(comment: Mapping[str, Any]) -> datetime | None:
 
 def _decisive_operator_reply(body: str, *, pr: int, head: str) -> bool:
     lowered = body.lower()
-    references_target = f"#{pr}" in body or head in lowered
+    references_target = bool(re.search(rf"#{pr}(?!\d)", body)) or head in lowered
     return references_target and any(marker in lowered for marker in DECISIVE_REPLY_MARKERS)
 
 
@@ -326,7 +338,9 @@ def collect_authorizations(
     now: datetime,
     operator_logins: set[str],
     check_loader: Callable[[int], RequiredCheckSummary],
+    trusted_ask_logins: set[str] | None = None,
 ) -> list[AuthorizationItem]:
+    trusted_logins = {login.lower() for login in (trusted_ask_logins or operator_logins)}
     items: list[AuthorizationItem] = []
     for pr in prs:
         if _is_dependabot_pr(pr):
@@ -339,6 +353,13 @@ def collect_authorizations(
             comment = comments[index]
             body = comment.get("body")
             if not isinstance(body, str) or not _looks_like_ask(body):
+                continue
+            if not _trusted_ask_author(comment, trusted_logins=trusted_logins):
+                logger.warning(
+                    "ignoring authorization ask from untrusted author %r on PR #%s",
+                    _author_login(comment),
+                    pr.get("number"),
+                )
                 continue
             reply = _extract_reply_block(body)
             tier = _extract_tier(reply or body)
@@ -456,6 +477,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--operator-login", action="append", default=[])
+    parser.add_argument("--trusted-ask-login", action="append", default=[])
     parser.add_argument("--now", default=None)
     parser.add_argument("--output", default=None)
     parser.add_argument("--json", action="store_true")
@@ -468,26 +490,27 @@ def main(argv: list[str] | None = None) -> int:
     if now is None:
         raise SystemExit(f"invalid --now timestamp: {args.now}")
     operator_logins = set(args.operator_login or DEFAULT_OPERATOR_LOGINS)
+    trusted_ask_logins = operator_logins | set(args.trusted_ask_login)
     prs = load_open_prs(repo=args.repo)
     items = collect_authorizations(
         prs,
         now=now,
         operator_logins=operator_logins,
         check_loader=lambda pr: load_required_checks(repo=args.repo, pr=pr),
+        trusted_ask_logins=trusted_ask_logins,
     )
     if args.json:
         print(
             json.dumps({"count": len(items), "items": [asdict(item) for item in items]}, indent=2)
         )
         return 0
-    output = (
-        Path(args.output)
-        if args.output
-        else Path(".aragora/founder-decisions")
-        / f"{now.strftime('%Y%m%dT%H%M%SZ')}-parked-authorization-ledger.md"
-    )
+    packet = render_packet(items, repo=args.repo, now=now)
+    if not args.output:
+        print(packet, end="")
+        return 0
+    output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_packet(items, repo=args.repo, now=now), encoding="utf-8")
+    output.write_text(packet, encoding="utf-8")
     print(f"wrote {output} ({len(items)} pending authorizations)")
     return 0
 
