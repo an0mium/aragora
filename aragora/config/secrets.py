@@ -135,6 +135,7 @@ MANAGED_SECRETS = frozenset(
         "JWT_SECRET_KEY",
         "JWT_REFRESH_SECRET",
         "ARAGORA_JWT_SECRET",
+        "ARAGORA_API_TOKEN",
         # Encryption
         "ARAGORA_ENCRYPTION_KEY",
         # Audit signing
@@ -204,6 +205,7 @@ CRITICAL_SECRETS = frozenset(
         "JWT_SECRET_KEY",
         "JWT_REFRESH_SECRET",
         "ARAGORA_JWT_SECRET",
+        "ARAGORA_API_TOKEN",
         # Encryption - Compromise allows data decryption
         "ARAGORA_ENCRYPTION_KEY",
         "ARAGORA_AUDIT_SIGNING_KEY",
