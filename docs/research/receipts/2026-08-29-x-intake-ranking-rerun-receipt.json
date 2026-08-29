@@ -25,8 +25,7 @@
     "reached": false,
     "confidence": 0.0,
     "supporting_agents": [
-      "claude",
-      "codex"
+      "claude"
     ],
     "dissenting_agents": [],
     "method": "majority",
