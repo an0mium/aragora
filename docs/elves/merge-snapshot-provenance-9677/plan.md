@@ -1,0 +1,192 @@
+# Plan: Exact-Head Snapshot Provenance Follow-Up for #9677
+
+## Mission
+
+Fix the three merge-authority paths discovered by the terminal review of PR #9677 without
+modifying that PR. Each path must carry the exact full head SHA that produced its eligibility,
+settlement, or approval decision through to `--match-head-commit`; missing, malformed, changed, or
+unavailable heads must fail closed before a merge subprocess can execute.
+
+This is a fresh-main Tier-4 follow-up. It stops at a validated draft PR ready for exact-head OWNER
+settlement. Only after this follow-up is separately settled and merged may a successor lane
+reconcile current main into #9677, regenerate derived docs, validate, and run a terminal review.
+
+## Starting State
+
+- Fresh base: `origin/main` at `953c501c2147026c2c996c3f95001580e326ec52`.
+- Branch: `codex/merge-snapshot-provenance-9677`.
+- Dedicated worktree: `$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora`.
+- Lease: `906d51fa-4af`, session `codex-merge-snapshot-provenance-9677-20260829`.
+- Baseline: 75 focused tests passed across Codex automation merge, boss drain, and merge arbiter.
+- PR #9677 moved during staging to `13fc8850700927e2e4bd4809f77ddf44f282382e` in another worktree; this run must not touch it.
+
+## Scope
+
+### In Scope
+
+- `scripts/merge_codex_automation_prs.py` and its focused tests.
+- `scripts/boss_drain_pass.py` and focused coverage in `tests/swarm/test_boss_drain.py`.
+- `aragora/swarm/merge_arbiter.py` and its focused tests.
+- Generator-owned metrics/docs mirrors if required by repository drift gates.
+- This plan and temporary Elves run artifacts during execution.
+
+### Out of Scope
+
+- Any edit, commit, push, settlement, evidence collection, or merge on PR #9677.
+- `aragora/governance/merge_halt.py` or the #9677 halt-guard implementation.
+- Workflows, runner labels, protected governance documents, branch protection, or required-check configuration.
+- Quorum evidence, OWNER settlement, ready-for-review transition, or merge of the new PR.
+- New merge subsystems, broad refactors, public API changes, dependencies, and unrelated findings.
+
+## Batch 1: Carry Exact Decision Heads Through All Three Merge Paths
+
+### Contract
+
+**Behaviors**
+
+- The Codex automation merger captures `headRefOid`, files, checks, body, and mergeability in its
+  eligibility snapshot, carries the validated SHA into `MergeDecision`, and passes that SHA to the
+  merge command without a later lookup.
+- Boss drain returns the full exact head from `settle_one_pr.py` authorization and uses that same
+  value for the merge command without a second PR-head lookup.
+- Merge arbiter rejects an absent or malformed head for review matching and merging, and every
+  admin merge is pinned to the exact head evaluated by the arbiter.
+- Every path blocks before its merge subprocess when the trusted head is missing or malformed.
+- A head change after decision time is rejected by GitHub's `--match-head-commit`, never converted
+  into an unpinned or newly authorized merge.
+
+**Build on**
+
+- Existing immutable `PullRequestSnapshot` / `MergeDecision` flow in
+  `scripts/merge_codex_automation_prs.py`.
+- Existing `settle_one_pr.py` report field `head_sha` and the boss drain apply-time authorization
+  check; carry its output instead of replacing it with another lookup.
+- Existing merge-arbiter `headRefOid` flow, exact-head human review/receipt checks, and current
+  `--match-head-commit` support.
+- Existing focused test modules and subprocess mocks; add category tests without weakening or
+  deleting existing coverage.
+
+**Acceptance criteria**
+
+- [ ] Codex automation eligibility data and exact head come from one `gh pr view` snapshot.
+- [ ] Codex automation merge consumes the decision head; no live-head lookup occurs between
+      selection and merge.
+- [ ] Boss drain consumes `head_sha` from the authorized settlement report and never performs a
+      second `view_pr` to choose its merge head.
+- [ ] Merge arbiter rejects missing/malformed heads before approval matching and before `_run_gh`
+      merge execution.
+- [ ] All three merge commands always contain `--match-head-commit <same-full-sha>`.
+- [ ] Tests cover missing/malformed heads, snapshot-to-merge head changes, exact match, and
+      preservation of ordinary eligible/authorized behavior.
+- [ ] Focused tests, Ruff, mypy, `git diff --check`, and relevant drift generators pass.
+- [ ] Mutation break checks demonstrate that removing head propagation or pinning fails the
+      intended tests.
+
+**Blast radius**
+
+- Three merge-authority implementation files and three focused test files; signatures are internal
+  but the behavior is Tier 4 because they can trigger admin merges.
+- Risk: high. A false positive can stop automation; a false negative can merge an unreviewed head.
+  Prefer explicit full-SHA validation and fail-closed results over compatibility fallbacks.
+
+### Tasks
+
+- [ ] Survey every caller/consumer of the modified dataclasses and merge helpers.
+- [ ] Implement exact-head propagation at the decision snapshot boundary in each path.
+- [ ] Add category-level regression tests and targeted mutation checks.
+- [ ] Run focused and cumulative touched-surface validation.
+- [ ] Run generator-owned drift updates only if required by the changed Python/test counts.
+
+### Docs likely touched
+
+- Generator-owned metrics/status mirrors if drift changes.
+- `docs/elves/merge-snapshot-provenance-9677/learnings.md` only for reusable findings.
+
+## Batch 2: Independent Review and Final Draft Readiness
+
+### Contract
+
+**Behaviors**
+
+- A fresh independent reviewer audits the cumulative diff against the invariant:
+  `decision head == approval/settlement head == --match-head-commit head`.
+- All GitHub PR feedback and exact-head checks are read and triaged.
+- Any real P0-P2 finding returns to Batch 1 for one bounded repair; repeated category findings stop
+  the lane for OWNER direction rather than starting an unbounded loop.
+- Operational Elves artifacts are removed before final draft readiness; this plan remains unless
+  cleanup policy is explicitly changed.
+
+**Build on**
+
+- The repository's focused tests, pre-commit/pre-push hooks, automation preflight, and Tier-4
+  reporting gates.
+- Elves final cumulative review and regression-attestation format.
+
+**Acceptance criteria**
+
+- [ ] Fresh cumulative independent review has no unresolved P0-P2 findings.
+- [ ] All focused tests, Ruff, mypy, hooks, drift checks, and `automation_pr_preflight.sh` pass on
+      the exact pushed head.
+- [ ] PR body records exact head, scope, tests, mutation evidence, Tier-4 status, and residual risk.
+- [ ] No unresolved review threads or unreplied actionable bot comments remain.
+- [ ] Survival guide, execution log, and `.elves-session.json` are removed from the final diff;
+      the plan is retained.
+- [ ] Draft PR is reported for exact-head OWNER settlement; no quorum evidence, settlement, ready
+      transition, or merge occurs.
+
+**Blast radius**
+
+- No new product scope. This batch validates, reviews, documents, and cleans operational artifacts.
+- Risk: medium. The main failure mode is incorrectly treating stale review/check evidence as
+  exact-head proof.
+
+## Successor Run: Reconcile #9677 After This Follow-Up Lands
+
+This is intentionally not a batch on the current branch. Begin only after the fresh-main follow-up
+has actually merged and the active owner of #9677 has released its lane.
+
+1. Re-read #9677's live exact head, owner/lease, current main, checks, and current-main overlap.
+2. In a dedicated #9677 worktree, merge current main into the PR branch without rebasing or force
+   pushing, preserving this follow-up and all #9677 halt-guard changes.
+3. Regenerate module tiers, metrics, documentation statistics, and docs-site mirrors.
+4. Run the cumulative focused suite, lint, type checks, hooks, drift checks, and mutation tests.
+5. Run one fresh terminal independent review of the full PR diff.
+6. Stop for exact-head OWNER settlement. Do not collect quorum evidence, settle, or merge without
+   the separately applicable live gate authorization.
+
+## Non-Negotiables
+
+- Do not touch #9677 or its branch during this fresh-main run.
+- Do not resolve a head inside a merge helper after its eligibility/settlement snapshot.
+- Do not allow a missing or malformed head to reach a merge subprocess.
+- Do not edit workflows, protected governance, branch protection, or required-check configuration.
+- Do not collect quorum evidence, settle, mark ready, or merge either PR in this run.
+- Never rebase or force-push; stage specific files only.
+
+## Test Strategy
+
+- **Baseline:** `python3 -m pytest tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py -q --no-header -p no:randomly --timeout=300` (75 passed at staging).
+- **Lint:** `python3 -m ruff check` on the three source files and focused tests.
+- **Typecheck:** `python3 -m mypy` on the three source files.
+- **Structural:** search all relevant callers for head propagation and every merge argv for an
+  unconditional exact-head pin.
+- **Break tests:** temporarily remove each propagation/pin in turn, confirm the corresponding test
+  fails, restore with `apply_patch`, and rerun green.
+- **Pre-push:** repository hooks plus `bash scripts/automation_pr_preflight.sh origin/main HEAD`.
+- **Review:** fresh read-only independent reviewer after the final push.
+
+## Batch Sizing
+
+```yaml
+team-size: 2
+sprint-length: 1 day
+```
+
+## Notes
+
+- This is explicit approval for Tier-4 implementation preparation, not exact-head OWNER settlement
+  or merge authorization.
+- Main's five non-quorum required contexts were green at staging; main quorum was skipped as
+  expected. Recheck live state before every push and readiness claim.
+- #9677 moved from `015c69a...` to `13fc885...` during staging in another lane. Treat that as a
+  strict ownership boundary, not a head to adopt.

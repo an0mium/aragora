@@ -1,0 +1,65 @@
+{
+  "session_id": "codex-merge-snapshot-provenance-9677-20260829",
+  "version": "1.12.0",
+  "status": "staging",
+  "branch": "codex/merge-snapshot-provenance-9677",
+  "base_branch": "main",
+  "base_sha": "953c501c2147026c2c996c3f95001580e326ec52",
+  "collision_tripwire": "953c501c2147026c2c996c3f95001580e326ec52",
+  "worktree": "$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora",
+  "lease_id": "906d51fa-4af",
+  "lease_session_id": "codex-merge-snapshot-provenance-9677-20260829",
+  "plan_path": "docs/elves/merge-snapshot-provenance-9677/plan.md",
+  "plan_hash": "be693b42e00277e0e7fdb3d7cfa4501474e7d724e2d0cf27a24855ca0c1f1e55",
+  "survival_guide_path": "docs/elves/merge-snapshot-provenance-9677/survival-guide.md",
+  "learnings_path": "docs/elves/merge-snapshot-provenance-9677/learnings.md",
+  "execution_log_path": "docs/elves/merge-snapshot-provenance-9677/execution-log.md",
+  "pr_number": null,
+  "merge_policy": "user-merges",
+  "run_mode": "finite",
+  "continuation_guard": {
+    "remaining_batches": 2,
+    "stop_allowed": true,
+    "checkpoint_is_stop": true,
+    "next_required_action": "User sends the staged launch prompt; do not implement product code in the staging call."
+  },
+  "test_baseline": {
+    "passed": 75,
+    "total": 75,
+    "skipped": 0,
+    "status": "captured",
+    "reason": null
+  },
+  "current_batch": {
+    "id": 0,
+    "name": "Session setup",
+    "status": "in_progress"
+  },
+  "batches": [
+    {
+      "id": 1,
+      "name": "Carry exact decision heads through all three merge paths",
+      "status": "pending",
+      "commit": null,
+      "rollback_tag": "elves/pre-batch-1",
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "id": 2,
+      "name": "Independent review and final draft readiness",
+      "status": "pending",
+      "commit": null,
+      "rollback_tag": "elves/pre-batch-2",
+      "started_at": null,
+      "completed_at": null
+    }
+  ],
+  "review_comments": [],
+  "protected_objects": {
+    "pr_9677": {
+      "head_seen_during_staging": "13fc8850700927e2e4bd4809f77ddf44f282382e",
+      "policy": "read-only; another lane owns reconciliation"
+    }
+  }
+}
