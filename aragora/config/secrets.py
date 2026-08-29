@@ -436,6 +436,8 @@ class SecretManager:
         flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0)
         trusted_uids = {0, os.geteuid()}
         components = [part for part in configured.split(os.path.sep) if part]
+        if not components:
+            raise SecretSourceError("ARAGORA_SECRETS_DIR must not identify the filesystem root")
         if any(component in {".", ".."} for component in components):
             raise SecretSourceError("ARAGORA_SECRETS_DIR must not contain dot components")
         current_fd = os.open(os.path.sep, flags)
@@ -1098,7 +1100,11 @@ def hydrate_env_from_secrets(
             cached_sources = dict(manager._cached_secret_sources)
         use_strict = is_strict_mode()
         for name in target_names:
-            if not overwrite and os.environ.get(name):
+            if (
+                not overwrite
+                and os.environ.get(name)
+                and not (use_strict and is_critical_secret(name))
+            ):
                 continue
             value: str | None
             if name in cached_secrets:
