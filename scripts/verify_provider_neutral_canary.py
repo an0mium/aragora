@@ -1,0 +1,352 @@
+#!/usr/bin/env python3
+"""Fail-closed external proof for a provider-neutral Aragora canary."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import ssl
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Protocol
+
+from aragora.config.secrets import SecretManager, SecretsConfig
+from aragora.gauntlet.odr_signing import compute_key_id
+
+
+@dataclass(frozen=True)
+class Response:
+    status: int
+    headers: dict[str, str]
+    body: bytes
+
+
+class Transport(Protocol):
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> Response: ...
+
+
+class UrlLibTransport:
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> Response:
+        request_headers = dict(headers or {})
+        body = None
+        if payload is not None:
+            body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            request_headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(url, data=body, headers=request_headers, method=method)
+        try:
+            with urllib.request.urlopen(
+                request, timeout=20, context=ssl.create_default_context()
+            ) as resp:
+                return Response(resp.status, dict(resp.headers.items()), resp.read())
+        except urllib.error.HTTPError as exc:
+            return Response(exc.code, dict(exc.headers.items()), exc.read())
+
+
+def _url(base_url: str, path: str) -> str:
+    return urllib.parse.urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+
+
+def _json(response: Response) -> dict[str, Any]:
+    try:
+        value = json.loads(response.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("endpoint did not return a JSON object") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError("endpoint did not return a JSON object")
+    return value
+
+
+def _load_api_token(secrets_dir: str) -> str:
+    manager = SecretManager(SecretsConfig(secrets_dir=secrets_dir))
+    directory_fd = manager._open_secrets_directory()  # noqa: SLF001
+    try:
+        token = manager._read_mounted_secret(directory_fd, "ARAGORA_API_TOKEN")  # noqa: SLF001
+    finally:
+        os.close(directory_fd)
+    if not token:
+        raise RuntimeError("ARAGORA_API_TOKEN is missing from mounted custody")
+    return token
+
+
+def _authorization(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _check_health(client: Transport, base_url: str) -> dict[str, Any]:
+    liveness = client.request("GET", _url(base_url, "/healthz"))
+    health = client.request("GET", _url(base_url, "/api/health"))
+    health_payload = _json(health) if health.status == 200 else {}
+    healthy = health_payload.get("status") in {"healthy", "ok"}
+    return {
+        "ok": liveness.status == 200 and health.status == 200 and healthy,
+        "healthz_status": liveness.status,
+        "api_health_status": health.status,
+        "api_health_value": health_payload.get("status"),
+    }
+
+
+def _check_build(client: Transport, base_url: str, expected_sha: str) -> dict[str, Any]:
+    path = "/health/build?" + urllib.parse.urlencode({"verify": expected_sha})
+    response = client.request("GET", _url(base_url, path))
+    payload = _json(response) if response.status == 200 else {}
+    actual = str(payload.get("sha") or "")
+    return {
+        "ok": response.status == 200 and bool(actual) and actual.startswith(expected_sha),
+        "status": response.status,
+        "expected_sha": expected_sha,
+        "actual_sha": actual,
+    }
+
+
+def _check_signing_keys(client: Transport, base_url: str) -> tuple[dict[str, Any], Any]:
+    from cryptography.hazmat.primitives import serialization
+
+    envelope_response = client.request("GET", _url(base_url, "/api/v2/receipts/signing-key"))
+    pem_response = client.request("GET", _url(base_url, "/.well-known/aragora-odr-signing-key"))
+    if envelope_response.status != 200 or pem_response.status != 200:
+        return {
+            "ok": False,
+            "json_status": envelope_response.status,
+            "pem_status": pem_response.status,
+        }, None
+    envelope = _json(envelope_response)
+    pem = pem_response.body.decode("utf-8")
+    public_key = serialization.load_pem_public_key(pem.encode("utf-8"))
+    key_id = compute_key_id(public_key)
+    envelope_pem = str(envelope.get("public_key_pem") or "")
+    header_key_id = pem_response.headers.get("X-Aragora-Key-Id", "")
+    ok = (
+        envelope.get("algorithm") == "Ed25519"
+        and envelope.get("key_id") == key_id
+        and header_key_id == key_id
+        and envelope_pem == pem
+    )
+    return {
+        "ok": ok,
+        "json_status": envelope_response.status,
+        "pem_status": pem_response.status,
+        "key_id": key_id,
+    }, public_key
+
+
+def _verify_receipt(receipt_path: str, public_key: Any) -> dict[str, Any]:
+    receipt = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+    try:
+        from aragora_verify.verifier import verify
+    except ModuleNotFoundError:
+        package_src = Path(__file__).resolve().parents[1] / "aragora-verify" / "src"
+        sys.path.insert(0, str(package_src))
+        from aragora_verify.verifier import verify
+    result = verify(receipt, public_key=public_key)
+    signature = next((check for check in result.checks if check.name == "signature"), None)
+    return {
+        "ok": bool(result.ok and signature is not None and signature.status == "pass"),
+        "receipt_id": receipt.get("receipt_id"),
+        "signature_status": signature.status if signature is not None else "missing",
+    }
+
+
+def _write_state(path: Path, state: dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def _persistence_before(
+    client: Transport, base_url: str, headers: dict[str, str], state_path: Path
+) -> dict[str, Any]:
+    marker = uuid.uuid4().hex
+    callback_url = f"https://example.invalid/aragora-canary/{marker}"
+    response = client.request(
+        "POST",
+        _url(base_url, "/api/v1/webhooks"),
+        headers=headers,
+        payload={"url": callback_url, "events": ["*"], "name": f"canary-{marker}"},
+    )
+    payload = _json(response) if response.status == 201 else {}
+    webhook_value = payload.get("webhook")
+    webhook: dict[str, Any] = webhook_value if isinstance(webhook_value, dict) else {}
+    webhook_id = str(webhook.get("id") or "")
+    if not webhook_id:
+        return {"ok": False, "create_status": response.status}
+    read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
+    read_payload = _json(read) if read.status == 200 else {}
+    stored_value = read_payload.get("webhook")
+    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
+    ok = read.status == 200 and stored.get("url") == callback_url
+    if ok:
+        _write_state(
+            state_path,
+            {"webhook_id": webhook_id, "callback_url": callback_url, "marker": marker},
+        )
+    else:
+        client.request("DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
+    return {"ok": ok, "create_status": response.status, "read_status": read.status}
+
+
+def _persistence_after(
+    client: Transport, base_url: str, headers: dict[str, str], state_path: Path
+) -> dict[str, Any]:
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    webhook_id = str(state.get("webhook_id") or "")
+    callback_url = str(state.get("callback_url") or "")
+    read = client.request("GET", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers)
+    read_payload = _json(read) if read.status == 200 else {}
+    stored_value = read_payload.get("webhook")
+    stored: dict[str, Any] = stored_value if isinstance(stored_value, dict) else {}
+    persisted = read.status == 200 and stored.get("url") == callback_url
+    deleted = client.request(
+        "DELETE", _url(base_url, f"/api/v1/webhooks/{webhook_id}"), headers=headers
+    )
+    return {
+        "ok": persisted and deleted.status in {200, 204},
+        "read_status": read.status,
+        "delete_status": deleted.status,
+    }
+
+
+def _check_websocket(base_url: str) -> dict[str, Any]:
+    scheme = "wss" if base_url.startswith("https://") else "ws"
+    parsed = urllib.parse.urlsplit(base_url)
+    ws_url = f"{scheme}://{parsed.netloc}/ws"
+    script = Path(__file__).resolve().parent / "verify_websocket.sh"
+    result = subprocess.run(
+        [str(script), ws_url], capture_output=True, text=True, timeout=15, check=False
+    )
+    return {"ok": result.returncode == 0, "returncode": result.returncode, "url": ws_url}
+
+
+def _failed_check(exc: Exception) -> dict[str, Any]:
+    return {"ok": False, "error_type": type(exc).__name__}
+
+
+def run_verification(args: argparse.Namespace, client: Transport | None = None) -> dict[str, Any]:
+    transport = client or UrlLibTransport()
+    checks: dict[str, dict[str, Any]] = {}
+    try:
+        token = _load_api_token(args.secrets_dir)
+        headers = _authorization(token)
+        checks["custody"] = {"ok": True, "source": "mounted_file"}
+    except Exception as exc:  # noqa: BLE001 - every failure must reach the artifact
+        headers = {}
+        checks["custody"] = _failed_check(exc)
+
+    try:
+        checks["health"] = _check_health(transport, args.base_url)
+    except Exception as exc:  # noqa: BLE001
+        checks["health"] = _failed_check(exc)
+    try:
+        checks["build"] = _check_build(transport, args.base_url, args.expected_sha)
+    except Exception as exc:  # noqa: BLE001
+        checks["build"] = _failed_check(exc)
+    try:
+        signing, public_key = _check_signing_keys(transport, args.base_url)
+        checks["signing_keys"] = signing
+    except Exception as exc:  # noqa: BLE001
+        public_key = None
+        checks["signing_keys"] = _failed_check(exc)
+    try:
+        checks["receipt"] = (
+            _verify_receipt(args.receipt_file, public_key)
+            if public_key is not None
+            else {"ok": False, "signature_status": "no-public-key"}
+        )
+    except Exception as exc:  # noqa: BLE001
+        checks["receipt"] = _failed_check(exc)
+    try:
+        checks["persistence"] = (
+            _persistence_before(transport, args.base_url, headers, Path(args.persistence_state))
+            if args.phase == "before-restart"
+            else _persistence_after(transport, args.base_url, headers, Path(args.persistence_state))
+        )
+    except Exception as exc:  # noqa: BLE001
+        checks["persistence"] = _failed_check(exc)
+    try:
+        checks["websocket"] = (
+            _check_websocket(args.base_url) if client is None else {"ok": True, "mode": "test"}
+        )
+    except Exception as exc:  # noqa: BLE001
+        checks["websocket"] = _failed_check(exc)
+
+    identity_ok = (
+        args.expected_image_digest == args.observed_image_digest
+        and "@sha256:" in args.expected_image_digest
+        and bool(args.database_proof_id.strip())
+    )
+    checks["identity"] = {
+        "ok": identity_ok,
+        "expected_image_digest": args.expected_image_digest,
+        "observed_image_digest": args.observed_image_digest,
+        "database_proof_id": args.database_proof_id,
+    }
+    return {
+        "ok": all(bool(check.get("ok")) for check in checks.values()),
+        "phase": args.phase,
+        "base_url": args.base_url,
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "checks": checks,
+    }
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--phase", choices=("before-restart", "after-restart"), required=True)
+    parser.add_argument("--base-url", required=True)
+    parser.add_argument("--expected-sha", required=True)
+    parser.add_argument("--expected-image-digest", required=True)
+    parser.add_argument("--observed-image-digest", required=True)
+    parser.add_argument("--database-proof-id", required=True)
+    parser.add_argument("--secrets-dir", required=True)
+    parser.add_argument("--receipt-file", required=True)
+    parser.add_argument("--persistence-state", required=True)
+    parser.add_argument("--output", required=True)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    report = run_verification(args)
+    _write_state(Path(args.output), report)
+    return 0 if report["ok"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
