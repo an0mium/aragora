@@ -1347,3 +1347,20 @@ class TestNonInteractiveMfaGuard:
             assert _has_controlling_tty() is True
             op.assert_called_once()
             cl.assert_called_once_with(7)  # fd is closed, not leaked
+
+
+@pytest.mark.asyncio
+async def test_rotation_monitor_survives_strict_hydration_failure():
+    from aragora.security.aws_key_rotation import RotationMonitor
+
+    rotator = MagicMock()
+    rotator.check_secrets_due.return_value = []
+    monitor = RotationMonitor(rotator=rotator)
+    with (
+        patch("aragora.config.secrets.refresh_secrets"),
+        patch(
+            "aragora.config.secrets.hydrate_env_from_secrets",
+            side_effect=SecretNotFoundError("ARAGORA_API_TOKEN"),
+        ),
+    ):
+        await monitor._check_and_reload()
