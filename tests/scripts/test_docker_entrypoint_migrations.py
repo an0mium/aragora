@@ -7,10 +7,10 @@ def test_docker_entrypoint_invokes_the_migration_cli() -> None:
     entrypoint = (
         Path(__file__).resolve().parents[2] / "deploy/scripts/docker-entrypoint.sh"
     ).read_text(encoding="utf-8")
-    assert (
-        'DATABASE_URL="${ARAGORA_POSTGRES_DSN:-${DATABASE_URL}}" '
-        "python -m aragora.migrations upgrade" in entrypoint
-    )
+    assert 'DATABASE_URL="${ARAGORA_POSTGRES_DSN:-${DATABASE_URL}}"' in entrypoint
+    assert 'ARAGORA_POSTGRES_DSN="$DATABASE_URL"' in entrypoint
+    assert "export DATABASE_URL ARAGORA_POSTGRES_DSN" in entrypoint
+    assert "python -m aragora.migrations upgrade" in entrypoint
     assert 'upgrade --database-url "${' not in entrypoint
     assert "python -m aragora.migrations.runner upgrade" not in entrypoint
 
