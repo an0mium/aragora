@@ -325,6 +325,29 @@ class TestGetApiKey:
             with pytest.raises(SecretSourceError):
                 get_api_key("OPENROUTER_API_KEY", required=False)
 
+    def test_required_strict_block_preserves_secret_error_contract(self):
+        from aragora.config.legacy import get_api_key
+        from aragora.config.secrets import SecretNotFoundError
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", "OPENROUTER_API_KEY": "blocked-key"},
+            clear=True,
+        ):
+            with pytest.raises(SecretNotFoundError):
+                get_api_key("OPENROUTER_API_KEY")
+
+    def test_optional_non_strict_probe_does_not_warn_for_env_key(self, caplog):
+        from aragora.config.legacy import get_api_key
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_SECRETS_STRICT": "false", "OPENROUTER_API_KEY": "env-key"},
+            clear=True,
+        ):
+            assert get_api_key("OPENROUTER_API_KEY", required=False) == "env-key"
+        assert "Critical secret 'OPENROUTER_API_KEY' loaded" not in caplog.text
+
 
 class TestValidateDbPath:
     """Test validate_db_path security function."""
