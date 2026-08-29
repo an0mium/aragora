@@ -372,6 +372,11 @@ class TestSecretManagerMountedFiles:
         with pytest.raises(SecretSourceError, match="absolute"):
             manager.get("SENTRY_DSN", strict=False)
 
+    def test_directory_rejects_filesystem_root(self):
+        manager = SecretManager(SecretsConfig(secrets_dir=os.path.sep))
+        with pytest.raises(SecretSourceError, match="filesystem root"):
+            manager.get("SENTRY_DSN", strict=False)
+
     @pytest.mark.parametrize("configured", ["/var/./run/secrets", "/var/run/../secrets"])
     def test_directory_rejects_dot_components(self, configured):
         manager = SecretManager(SecretsConfig(secrets_dir=configured))
@@ -485,6 +490,8 @@ class TestSecretManagerMountedFiles:
         ):
             with pytest.raises(SecretNotFoundError):
                 hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=True)
+            with pytest.raises(SecretNotFoundError):
+                hydrate_env_from_secrets(["JWT_SECRET_KEY"], overwrite=False)
             assert os.environ["JWT_SECRET_KEY"] == "raw-env-value"
 
         assert any(entry["source"] == "hydrate_env_blocked" for entry in manager.get_access_log())
