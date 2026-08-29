@@ -1026,10 +1026,10 @@ class RotationMonitor:
 
         # Hydrate environment with latest values for hot-reload
         try:
-            from aragora.config.secrets import hydrate_env_from_secrets
+            from aragora.config.secrets import SecretNotFoundError, hydrate_env_from_secrets
 
             hydrate_env_from_secrets(overwrite=True)
-        except (ImportError, RuntimeError, ValueError, OSError) as e:
+        except (SecretNotFoundError, ImportError, RuntimeError, ValueError, OSError) as e:
             logger.debug("Secret hydration skipped: %s", e)
 
     def get_status(self) -> dict[str, Any]:
