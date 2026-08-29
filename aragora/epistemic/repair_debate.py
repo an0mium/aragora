@@ -129,9 +129,9 @@ def run_repair_debate(
         ev["agent"] = agent.name
         evaluations.append(ev)
 
-    crux_entries, seen_ids = _collect_crux_entries(spec, evaluations)
+    crux_entries = _collect_crux_entries(spec, evaluations)
 
-    support_count = sum(1 for ev in evaluations if ev.get("supports_repair"))
+    support_count = sum(1 for ev in evaluations if ev.get("supports_repair") is True)
     consensus = support_count > len(evaluations) / 2
     recommended_action = "proceed_with_repair" if consensus else "request_human_review"
 
@@ -154,46 +154,60 @@ def run_repair_debate(
 def _collect_crux_entries(
     spec: RepairSpec,
     evaluations: list[dict[str, Any]],
-) -> tuple[list[CruxEntry], set[str]]:
+) -> list[CruxEntry]:
     """Build the ordered, deduplicated list of :class:`CruxEntry` objects."""
     crux_entries: list[CruxEntry] = []
-    seen_ids: set[str] = set()
+    entries_by_id: dict[str, CruxEntry] = {}
 
     for ev in evaluations:
         for cand in ev.get("crux_candidates", []):
             cid = str(cand.get("crux_id") or "")
-            if not cid or cid in seen_ids:
+            if not cid:
                 continue
-            seen_ids.add(cid)
-            crux_entries.append(
-                CruxEntry(
-                    crux_id=cid,
-                    statement=str(cand.get("statement") or ""),
-                    load_bearing_score=float(cand.get("load_bearing_score") or 0.5),
-                    uncertainty_score=float(cand.get("uncertainty_score") or 0.5),
-                    contesting_agents=[ev["agent"]],
-                    affected_claims=list(spec.linked_claims),
-                    resolution_impact=float(cand.get("resolution_impact") or 0.5),
-                )
+            existing = entries_by_id.get(cid)
+            if existing is not None:
+                if ev["agent"] not in existing.contesting_agents:
+                    existing.contesting_agents.append(ev["agent"])
+                continue
+            entry = CruxEntry(
+                crux_id=cid,
+                statement=str(cand.get("statement") or ""),
+                load_bearing_score=_score_or_default(cand, "load_bearing_score"),
+                uncertainty_score=_score_or_default(cand, "uncertainty_score"),
+                contesting_agents=[ev["agent"]],
+                affected_claims=list(spec.linked_claims),
+                resolution_impact=_score_or_default(cand, "resolution_impact"),
             )
+            entries_by_id[cid] = entry
+            crux_entries.append(entry)
 
     for crux_id in spec.linked_crux_ids:
-        if crux_id in seen_ids:
+        if crux_id in entries_by_id:
             continue
-        seen_ids.add(crux_id)
-        crux_entries.append(
-            CruxEntry(
-                crux_id=crux_id,
-                statement=f"Unresolved crux from decay signal: {crux_id}",
-                load_bearing_score=0.7,
-                uncertainty_score=0.5,
-                contesting_agents=[],
-                affected_claims=list(spec.linked_claims),
-                resolution_impact=0.5,
-            )
+        entry = CruxEntry(
+            crux_id=crux_id,
+            statement=f"Unresolved crux from decay signal: {crux_id}",
+            load_bearing_score=0.7,
+            uncertainty_score=0.5,
+            contesting_agents=[],
+            affected_claims=list(spec.linked_claims),
+            resolution_impact=0.5,
         )
+        entries_by_id[crux_id] = entry
+        crux_entries.append(entry)
 
-    return crux_entries, seen_ids
+    return crux_entries
+
+
+def _score_or_default(candidate: dict[str, Any], key: str, default: float = 0.5) -> float:
+    """Preserve numeric zeroes and bound malformed agent scores to a neutral default."""
+    value = candidate.get(key, default)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _build_receipt(
@@ -215,11 +229,12 @@ def _build_receipt(
             "debate_id": debate_id,
             "question": question,
             "cruxes": [c.to_dict() for c in crux_entries],
-            "convergence_barrier": convergence_barrier,
+            "convergence_barrier": round(convergence_barrier, 4),
         },
         sort_keys=True,
+        separators=(",", ":"),
     )
-    checksum = hashlib.sha256(checksum_material.encode()).hexdigest()
+    checksum = hashlib.sha256(checksum_material.encode("utf-8")).hexdigest()
 
     return CruxReceipt(
         receipt_id=receipt_id,

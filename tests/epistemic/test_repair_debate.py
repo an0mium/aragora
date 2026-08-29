@@ -7,6 +7,9 @@ All tests run without network access or real LLM keys.
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 import pytest
 
 from aragora.epistemic.decay_monitor import DecayReason, DecaySignal
@@ -66,6 +69,31 @@ class _OpposeAgent:
         return {"supports_repair": False, "crux_candidates": [], "notes": "Needs more evidence."}
 
 
+class _StringSupportAgent:
+    name = "mock-string-support"
+
+    def evaluate(self, spec, context):
+        return {"supports_repair": "false", "crux_candidates": []}
+
+
+class _NamedCruxAgent:
+    def __init__(self, name: str, **scores) -> None:
+        self.name = name
+        self.scores = scores
+
+    def evaluate(self, spec, context):
+        return {
+            "supports_repair": True,
+            "crux_candidates": [
+                {
+                    "crux_id": "crux.shared",
+                    "statement": "Shared concern",
+                    **self.scores,
+                }
+            ],
+        }
+
+
 # ---------------------------------------------------------------------------
 # Flag gate
 # ---------------------------------------------------------------------------
@@ -118,6 +146,12 @@ class TestConsensus:
         result = run_repair_debate(spec, [_SupportAgent(), _OpposeAgent()])
         assert not result.consensus_reached
 
+    def test_truthy_non_boolean_support_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(spec, [_StringSupportAgent()])
+        assert not result.consensus_reached
+        assert result.recommended_action == "request_human_review"
+
     def test_convergence_barrier_zero_on_consensus(self, monkeypatch: pytest.MonkeyPatch) -> None:
         spec = _spec(monkeypatch)
         result = run_repair_debate(spec, [_SupportAgent()])
@@ -140,6 +174,23 @@ class TestReceipt:
         result = run_repair_debate(spec, [_SupportAgent()])
         assert len(result.receipt.checksum) == 64
         assert all(c in "0123456789abcdef" for c in result.receipt.checksum)
+
+    def test_receipt_checksum_uses_canonical_crux_serialization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        spec = _spec(monkeypatch)
+        receipt = run_repair_debate(spec, [_SupportAgent()]).receipt
+        material = {
+            "receipt_id": receipt.receipt_id,
+            "debate_id": receipt.debate_id,
+            "question": receipt.question,
+            "cruxes": [crux.to_dict() for crux in receipt.cruxes],
+            "convergence_barrier": round(receipt.convergence_barrier, 4),
+        }
+        expected = hashlib.sha256(
+            json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        assert receipt.checksum == expected
 
     def test_receipt_links_spec_metadata(self, monkeypatch: pytest.MonkeyPatch) -> None:
         spec = _spec(monkeypatch)
@@ -189,6 +240,37 @@ class TestCruxPropagation:
         result = run_repair_debate(spec, [_SupportAgent(), _SupportAgent()])
         crux_ids = [c.crux_id for c in result.receipt.cruxes]
         assert len(crux_ids) == len(set(crux_ids))
+
+    def test_duplicate_crux_collects_all_contesting_agents(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(
+            spec,
+            [_NamedCruxAgent("agent-a"), _NamedCruxAgent("agent-b")],
+        )
+        shared = next(crux for crux in result.receipt.cruxes if crux.crux_id == "crux.shared")
+        assert shared.contesting_agents == ["agent-a", "agent-b"]
+
+    def test_zero_scores_are_preserved_and_malformed_scores_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        spec = _spec(monkeypatch)
+        result = run_repair_debate(
+            spec,
+            [
+                _NamedCruxAgent(
+                    "agent-a",
+                    load_bearing_score=0.0,
+                    uncertainty_score="high",
+                    resolution_impact=None,
+                )
+            ],
+        )
+        shared = next(crux for crux in result.receipt.cruxes if crux.crux_id == "crux.shared")
+        assert shared.load_bearing_score == 0.0
+        assert shared.uncertainty_score == 0.5
+        assert shared.resolution_impact == 0.5
 
     def test_crux_affected_claims_match_spec(self, monkeypatch: pytest.MonkeyPatch) -> None:
         spec = _spec(monkeypatch)
