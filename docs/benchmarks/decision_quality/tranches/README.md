@@ -42,6 +42,12 @@ cases. One final rule was published within the stated readiness horizon and one
 was published just after it. Both cases use immutable GovInfo Federal Register
 documents, with the outcome answer key kept in the separate hash-bound sidecar.
 
+`science-forecasting-holdout-1` contributes the two science/forecasting holdout
+cases. One sample-return milestone was completed within its recovery horizon
+and one first-flight launch moved beyond its operating horizon. Both cases use
+official NASA publications, with the outcome answer key kept in the separate
+hash-bound sidecar.
+
 Current canonical digests:
 
 - corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
@@ -77,14 +83,18 @@ Policy/compliance holdout tranche:
 - corpus: `e52440953ce0c4b84f9f8ee5da69b278f4814af75971fe91c36279c555a4e5b6`
 - outcome sidecar: `fd3be3aea70c7008e27f9ae96b386726e6fa57c743a7bf4572b5cb41d656de8c`
 
+Science/forecasting holdout tranche:
+
+- corpus: `086c8edba8caae1da3c1478d7910c393bcd131f881ca2f93935cd5ac4d90808c`
+- outcome sidecar: `70c8f4f97affcb26c2b98f646f14f47b13149334e55297942bbb95fe7981c63b`
+
 Each tranche passes the decision-quality corpus validator with
 `--allow-partial`. That flag skips only the final 24-case balance requirement.
 It does not relax source cutoffs, outcome separation, digest binding, or
 per-case semantics.
 
-Together the seven tranches provide twenty-two of the planned 24 cases: four
-development cases in each required domain, plus both holdouts in software
-engineering, business/operations, and policy/compliance.
+Together the eight tranches provide all 24 planned cases: four development and
+two holdout cases in each required domain.
 
 Do not run model inference from a tranche. Counted inference begins only after
 all 24 cases, the scoring contract, prompts, roster, and both corpus digests are
