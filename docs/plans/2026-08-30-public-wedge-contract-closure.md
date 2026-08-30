@@ -89,6 +89,15 @@ rather than a known product defect.
 - This plan only. Public docs change only if the executable contract proves a documented command
   false; no such drift is known at staging.
 
+### Bounded review repair
+
+The first exact-head independent review found one P2: target-installed wheels still inherited host
+site packages, wheel builds could fetch build backends, Kimi was not scrubbed, and startup could
+hydrate a local secure store. The one permitted repair now builds offline with `uv`, installs both
+wheels and their lock-constrained dependency closure into a fresh virtual environment, runs
+`pip check`, disables Secrets Manager, clears every `*_API_KEY`, and redirects secure storage to
+an empty temporary path. Cumulative validation passed; one fresh terminal review remains required.
+
 ### Risk
 
 The main risk is a slow or network-dependent packaging test. Prefer local wheel builds and

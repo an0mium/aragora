@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -42,31 +43,29 @@ _PROVIDER_CREDENTIALS = (
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
     "GROK_API_KEY",
+    "KIMI_API_KEY",
     "MISTRAL_API_KEY",
     "OPENAI_API_KEY",
     "OPENROUTER_API_KEY",
+    "TINKER_API_KEY",
     "XAI_API_KEY",
 )
 
 
-def _offline_subprocess_env() -> dict[str, str]:
+def _offline_subprocess_env(*, secure_store: Path) -> dict[str, str]:
     """Return a fail-closed environment for the zero-key public journey."""
     env = dict(os.environ)
-    for name in (
-        *_PROVIDER_CREDENTIALS,
-        "ARAGORA_API_KEY",
-        "ARAGORA_API_URL",
-        "ARAGORA_ODR_SIGNING_KEY_SECRET",
-        "ARAGORA_USE_SECRETS_MANAGER",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_PROFILE",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN",
-    ):
+    for name in tuple(env):
+        if name.endswith("_API_KEY") or name.startswith("AWS_"):
+            env.pop(name)
+    for name in ("ARAGORA_API_URL", "ARAGORA_ODR_SIGNING_KEY_SECRET"):
         env.pop(name, None)
     env.update(
         {
+            "ARAGORA_API_KEY_BACKEND": "file",
+            "ARAGORA_API_KEY_STORE_PATH": str(secure_store),
             "ARAGORA_OFFLINE": "1",
+            "ARAGORA_USE_SECRETS_MANAGER": "false",
             "AWS_CONFIG_FILE": os.devnull,
             "AWS_EC2_METADATA_DISABLED": "true",
             "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
@@ -104,15 +103,16 @@ def _run_subprocess(
 
 
 def _build_local_wheel(source: Path, wheel_dir: Path, *, env: dict[str, str]) -> Path:
+    uv = shutil.which("uv")
+    assert uv, "uv is required for an offline, isolated local wheel build"
     before = set(wheel_dir.glob("*.whl"))
     _run_subprocess(
         [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "--no-deps",
-            "--wheel-dir",
+            uv,
+            "build",
+            "--offline",
+            "--wheel",
+            "--out-dir",
             str(wheel_dir),
             str(source),
         ],
@@ -125,50 +125,96 @@ def _build_local_wheel(source: Path, wheel_dir: Path, *, env: dict[str, str]) ->
 
 
 @pytest.fixture(scope="module")
-def installed_public_wedge(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, str]]:
+def installed_public_wedge(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[Path, dict[str, str]]:
     """Build and install both public CLIs outside the source checkout."""
     workspace = tmp_path_factory.mktemp("public_wedge_install")
     wheel_dir = workspace / "wheels"
-    install_root = workspace / "site-packages"
+    runtime_root = workspace / "runtime"
+    constraints = workspace / "locked-constraints.txt"
+    secure_store = workspace / "empty-api-key-store.json"
     wheel_dir.mkdir()
-    install_root.mkdir()
 
-    build_env = _offline_subprocess_env()
+    build_env = _offline_subprocess_env(secure_store=secure_store)
     build_env.pop("PYTHONPATH", None)
+    build_env.update({"PIP_NO_INDEX": "1", "UV_OFFLINE": "1", "UV_PYTHON_DOWNLOADS": "never"})
     root_wheel = _build_local_wheel(_REPO_ROOT, wheel_dir, env=build_env)
     verifier_wheel = _build_local_wheel(_REPO_ROOT / "aragora-verify", wheel_dir, env=build_env)
+
+    _run_subprocess(
+        [sys.executable, "-m", "venv", str(runtime_root)],
+        cwd=workspace,
+        env=build_env,
+    )
+    runtime_python = (
+        runtime_root / "Scripts" / "python.exe"
+        if sys.platform == "win32"
+        else runtime_root / "bin" / "python"
+    )
+    uv = shutil.which("uv")
+    assert uv
     _run_subprocess(
         [
-            sys.executable,
-            "-m",
+            uv,
+            "export",
+            "--locked",
+            "--all-extras",
+            "--no-dev",
+            "--no-emit-project",
+            "--no-annotate",
+            "--output-file",
+            str(constraints),
+        ],
+        cwd=_REPO_ROOT,
+        env=build_env,
+    )
+
+    install_env = dict(build_env)
+    for name in ("PIP_NO_INDEX", "UV_OFFLINE"):
+        install_env.pop(name, None)
+    _run_subprocess(
+        [
+            uv,
             "pip",
             "install",
-            "--no-deps",
-            "--target",
-            str(install_root),
+            "--python",
+            str(runtime_python),
+            "--constraint",
+            str(constraints),
             str(root_wheel),
             str(verifier_wheel),
         ],
         cwd=workspace,
-        env=build_env,
+        env=install_env,
+    )
+    _run_subprocess(
+        [str(runtime_python), "-m", "pip", "check"],
+        cwd=workspace,
+        env=install_env,
     )
 
-    runtime_env = _offline_subprocess_env()
-    runtime_env["PYTHONPATH"] = str(install_root)
+    runtime_env = _offline_subprocess_env(secure_store=secure_store)
+    runtime_env.pop("PYTHONPATH", None)
+    runtime_env["PYTHONNOUSERSITE"] = "1"
+    runtime_env["VIRTUAL_ENV"] = str(runtime_root)
+    runtime_env["PATH"] = f"{runtime_python.parent}{os.pathsep}{runtime_env['PATH']}"
     probe = _run_subprocess(
         [
-            sys.executable,
+            str(runtime_python),
             "-c",
-            "import aragora, aragora_verify; print(aragora.__file__); "
-            "print(aragora_verify.__file__)",
+            "import aragora, aragora_verify, sys; print(sys.prefix); "
+            "print(aragora.__file__); print(aragora_verify.__file__)",
         ],
         cwd=workspace,
         env=runtime_env,
     )
-    module_paths = [Path(line).resolve() for line in probe.stdout.splitlines() if line.strip()]
-    assert len(module_paths) == 2
-    assert all(install_root.resolve() in path.parents for path in module_paths), module_paths
-    return install_root, runtime_env
+    paths = [Path(line).resolve() for line in probe.stdout.splitlines() if line.strip()]
+    assert len(paths) == 3
+    assert paths[0] == runtime_root.resolve()
+    assert all(runtime_root.resolve() in path.parents for path in paths[1:]), paths
+    assert not secure_store.exists()
+    return runtime_python, runtime_env
 
 
 def _verify_receipt_file(receipt_path: Path, capsys) -> str:
@@ -264,8 +310,10 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
     tmp_path: Path,
 ) -> None:
     """One installed artifact crosses every documented zero-key receipt seam."""
-    _install_root, runtime_env = installed_public_wedge
+    runtime_python, runtime_env = installed_public_wedge
     assert all(name not in runtime_env for name in _PROVIDER_CREDENTIALS)
+    assert not any(name.endswith("_API_KEY") for name in runtime_env)
+    assert runtime_env["ARAGORA_USE_SECRETS_MANAGER"] == "false"
 
     workdir = tmp_path / "outside-source-checkout"
     workdir.mkdir()
@@ -274,7 +322,7 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
 
     demo = _run_subprocess(
         [
-            sys.executable,
+            str(runtime_python),
             "-m",
             "aragora.cli.main",
             "demo",
@@ -294,7 +342,7 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
     assert receipt_id
     native_verify = _run_subprocess(
         [
-            sys.executable,
+            str(runtime_python),
             "-m",
             "aragora.cli.main",
             "receipt",
@@ -309,7 +357,7 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
 
     _run_subprocess(
         [
-            sys.executable,
+            str(runtime_python),
             "-m",
             "aragora.cli.main",
             "receipt",
@@ -329,7 +377,7 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
     assert odr["source"]["artifact_hash"] == native["artifact_hash"]
 
     standalone = _run_subprocess(
-        [sys.executable, "-m", "aragora_verify", str(odr_path), "--json"],
+        [str(runtime_python), "-m", "aragora_verify", str(odr_path), "--json"],
         cwd=workdir,
         env=runtime_env,
     )
@@ -348,7 +396,7 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
     tampered_path = workdir / "tampered.odr.json"
     tampered_path.write_text(json.dumps(odr), encoding="utf-8")
     tampered = _run_subprocess(
-        [sys.executable, "-m", "aragora_verify", str(tampered_path), "--json"],
+        [str(runtime_python), "-m", "aragora_verify", str(tampered_path), "--json"],
         cwd=workdir,
         env=runtime_env,
         expected=1,
@@ -357,3 +405,4 @@ def test_clean_install_demo_to_standalone_odr_verifier_round_trip(
     assert tampered_result["ok"] is False
     tampered_checks = {check["name"]: check["status"] for check in tampered_result["checks"]}
     assert tampered_checks["schema_conformance"] == "fail"
+    assert not Path(runtime_env["ARAGORA_API_KEY_STORE_PATH"]).exists()
