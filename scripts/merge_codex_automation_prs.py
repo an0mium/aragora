@@ -46,6 +46,7 @@ class PullRequestSnapshot:
     url: str
     changed_files: list[str]
     status_rollup: list[dict[str, Any]]
+    files_snapshot_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -150,30 +151,36 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
                 f"snapshot PR number mismatch: requested #{number}, got #{snapshot_number}"
             )
         files = metadata.get("files")
-        if not isinstance(files, list):
-            raise RuntimeError(f"unexpected files payload for PR #{number}")
         changed_file_count = metadata.get("changedFiles")
-        if (
+        changed_files: list[str] = []
+        files_snapshot_error: str | None = None
+        if not isinstance(files, list):
+            files_snapshot_error = f"unexpected files payload for PR #{number}"
+        elif (
             isinstance(changed_file_count, bool)
             or not isinstance(changed_file_count, int)
             or changed_file_count < 0
             or changed_file_count != len(files)
         ):
-            raise RuntimeError(
+            files_snapshot_error = (
                 f"incomplete or malformed files snapshot for PR #{number}: "
                 f"changedFiles={changed_file_count!r}, returned_entries={len(files)}"
             )
-        changed_files: list[str] = []
-        for index, item in enumerate(files):
-            if not isinstance(item, Mapping):
-                raise RuntimeError(f"malformed file entry for PR #{number} at index {index}")
-            path = item.get("path")
-            if not isinstance(path, str) or not path.strip():
-                raise RuntimeError(
-                    f"malformed file entry for PR #{number} at index {index}: "
-                    "path must be a non-empty string"
-                )
-            changed_files.append(path)
+        else:
+            for index, item in enumerate(files):
+                if not isinstance(item, Mapping):
+                    files_snapshot_error = f"malformed file entry for PR #{number} at index {index}"
+                    break
+                path = item.get("path")
+                if not isinstance(path, str) or not path.strip():
+                    files_snapshot_error = (
+                        f"malformed file entry for PR #{number} at index {index}: "
+                        "path must be a non-empty string"
+                    )
+                    break
+                changed_files.append(path)
+            if files_snapshot_error:
+                changed_files = []
         snapshots.append(
             PullRequestSnapshot(
                 number=snapshot_number,
@@ -186,6 +193,7 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
                 url=str(metadata.get("url", "")),
                 changed_files=changed_files,
                 status_rollup=list(metadata.get("statusCheckRollup") or []),
+                files_snapshot_error=files_snapshot_error,
             )
         )
     return snapshots
@@ -231,6 +239,8 @@ def select_mergeable_prs(
             reason = "not_codex_branch"
         elif not _is_full_head_sha(pr.head_sha):
             reason = "invalid_head_sha"
+        elif pr.files_snapshot_error:
+            reason = "files_snapshot_incomplete"
         elif pr.is_draft:
             reason = "draft"
         elif pr.mergeable != "MERGEABLE":

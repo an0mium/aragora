@@ -418,6 +418,17 @@ class InitiativeIntegrator:
             }
 
         if next_action == "merge":
+            head_sha = str(row.get("head_sha") or "")
+            if not _is_full_head_sha(head_sha):
+                return {
+                    "mode": "initiative-promote",
+                    "initiative_id": manifest.campaign_id,
+                    "project_id": target.project_id,
+                    "action": "blocked",
+                    "pr_number": pr_number,
+                    "pr_url": row.get("pr_url"),
+                    "reason": "PR snapshot missing valid full head SHA",
+                }
             if dry_run:
                 return {
                     "mode": "initiative-promote",
@@ -426,11 +437,12 @@ class InitiativeIntegrator:
                     "action": "would_merge",
                     "pr_number": pr_number,
                     "pr_url": row.get("pr_url"),
+                    "head_sha": head_sha,
                 }
             merged, reason = _merge_pr(
                 pr_number,
                 self.repo,
-                str(row.get("head_sha") or ""),
+                head_sha,
             )
             if not merged:
                 return {

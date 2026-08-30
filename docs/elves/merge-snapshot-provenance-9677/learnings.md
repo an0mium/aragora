@@ -17,6 +17,14 @@
 - 2026-08-30: A pinned merge head does not prove required-check provenance. Fetch the check rollup
   with its `headRefOid` in one response, compare that head to the decision snapshot, and fail closed
   before settlement or merge when they differ.
+- 2026-08-30: A same-head check rollup can contain duplicate names from reruns. Do not reduce it by
+  last-write-wins list order; use the repository's recency-aware reducer so a stale success cannot
+  hide a newer failure, pending run, or unrankable non-success.
+- 2026-08-30: Snapshot corruption for one PR should make that PR explicitly ineligible without
+  hiding later independently inspectable PRs. Keep identity mismatches lane-wide, but carry file
+  completeness errors on the affected snapshot and continue enumeration.
+- 2026-08-30: Dry-run output is still control-plane output. It must not report `would_merge` unless
+  the same valid full snapshot head required by the apply path is present and surfaced in the result.
 
 ## Product and Domain Invariants
 

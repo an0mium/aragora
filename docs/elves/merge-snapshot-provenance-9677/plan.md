@@ -171,6 +171,30 @@ The bounded repair changes only the existing shared check-status seam and its tw
 - [ ] Only after a clean current-head packet: mark ready, recheck live gates, post prepared evidence,
       record OWNER settlement, and merge through the Tier-4 helper.
 
+### Terminal-review repair after `5ff8fdabdf2e6310a4ca978424e54a69bca6f8ce`
+
+The next exact-head dry run remained evidence-free and found three distinct fail-open or
+misleading outcomes. They are batched into one terminal repair rather than another iterative
+review loop:
+
+- Reduce duplicate check names with the established recency-aware fail-closed reducer so an older
+  success cannot overwrite a newer failure or pending result by list order.
+- Treat an incomplete or malformed per-PR file snapshot as that PR's ineligibility without aborting
+  inspection of later PRs in the automation batch; PR-number identity corruption remains lane-wide.
+- Require a valid full snapshot head before initiative-integrator dry-run can report `would_merge`,
+  and include that head in the result.
+
+**Terminal acceptance criteria**
+
+- [x] Duplicate check rows reduce to the newer failure in either input order.
+- [x] A malformed/truncated file snapshot blocks only that PR and a later complete PR remains eligible.
+- [x] Initiative dry-run with a missing or malformed snapshot head reports blocked, not `would_merge`.
+- [x] Each protection has a mutation break test that fails when the protection is removed.
+- [x] Cumulative touched-surface tests pass: 155 passed, 0 skipped; scoped Ruff and mypy pass.
+- [ ] Drift/docs/preflight checks pass on the restored final tree.
+- [ ] One fresh exact-head Claude+OpenAI terminal dry run has no P0-P2 findings.
+- [ ] If that review finds another P0-P2, stop for OWNER direction rather than start another repair loop.
+
 ## Successor Run: Reconcile #9677 After This Follow-Up Lands
 
 This is intentionally not a batch on the current branch. Begin only after the fresh-main follow-up
@@ -191,7 +215,9 @@ has actually merged and the active owner of #9677 has released its lane.
 - Do not resolve a head inside a merge helper after its eligibility/settlement snapshot.
 - Do not allow a missing or malformed head to reach a merge subprocess.
 - Do not edit workflows, protected governance, branch protection, or required-check configuration.
-- Do not collect quorum evidence, settle, mark ready, or merge either PR in this run.
+- Do not mark ready, post evidence, settle, or merge until the final exact-head review and every live
+  non-quorum gate are clean. Thereafter use only the separately authorized Tier-4 OWNER path; never
+  bypass a failing or unstable gate.
 - Never rebase or force-push; stage specific files only.
 
 ## Test Strategy
@@ -215,8 +241,9 @@ sprint-length: 1 day
 
 ## Notes
 
-- This is explicit approval for Tier-4 implementation preparation, not exact-head OWNER settlement
-  or merge authorization.
+- Initial approval covered Tier-4 implementation preparation only. The later OWNER instruction to
+  proceed in the recommended order authorizes exact-head readiness, evidence, settlement, and merge
+  only if the terminal review and every live gate are clean.
 - Main's five non-quorum required contexts were green at staging; main quorum was skipped as
   expected. Recheck live state before every push and readiness claim.
 - #9677 moved from `015c69a...` to `13fc885...` during staging in another lane. Treat that as a

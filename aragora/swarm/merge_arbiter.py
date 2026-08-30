@@ -23,6 +23,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from aragora.config.trusted_authors import resolve_trusted_authors
+from aragora.swarm.auto_merge_green import _reduce_rollup_states
 from aragora.swarm.github_app_auth import gh_subprocess_run
 from aragora.swarm.merge_quorum_io import (
     fetch_evidence_comments,
@@ -347,16 +348,7 @@ def _get_check_status(pr_number: int, repo: str, expected_head_sha: str) -> dict
         return {}
     if not isinstance(checks, list):
         raise ArbiterOperationalError(f"check snapshot rollup for #{pr_number} is not a list")
-    statuses: dict[str, str] = {}
-    for check in checks:
-        if not isinstance(check, dict):
-            continue
-        name = str(check.get("name") or check.get("context") or "").strip()
-        if not name:
-            continue
-        state = check.get("conclusion") or check.get("state") or check.get("status") or ""
-        statuses[name] = str(state).upper()
-    return statuses
+    return _reduce_rollup_states(checks)
 
 
 def _list_pr_reviews(pr_number: int, repo: str) -> list[dict]:

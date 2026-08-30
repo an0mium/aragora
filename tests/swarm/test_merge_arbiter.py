@@ -145,6 +145,32 @@ class TestGetCheckStatus:
             with pytest.raises(CheckSnapshotHeadMismatch, match="head changed"):
                 _get_check_status(1, "owner/repo", HEAD_SHA)
 
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_duplicate_check_rows_cannot_hide_newer_failure(self, reverse: bool):
+        checks = [
+            {
+                "name": "lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "startedAt": "2026-08-30T01:00:00Z",
+                "completedAt": "2026-08-30T01:01:00Z",
+            },
+            {
+                "name": "lint",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "startedAt": "2026-08-30T02:00:00Z",
+                "completedAt": "2026-08-30T02:01:00Z",
+            },
+        ]
+        if reverse:
+            checks.reverse()
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(
+                stdout=json.dumps({"headRefOid": HEAD_SHA, "statusCheckRollup": checks})
+            )
+            assert _get_check_status(1, "owner/repo", HEAD_SHA)["lint"] == "FAILURE"
+
     def test_raises_operational_error_on_failure_without_json(self):
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(returncode=1)

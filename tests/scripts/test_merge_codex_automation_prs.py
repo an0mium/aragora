@@ -50,6 +50,20 @@ def _decision(decisions: list[MergeDecision], number: int) -> MergeDecision:
     raise AssertionError(f"missing decision for PR {number}")
 
 
+def _snapshot_metadata(number: int = 7) -> dict[str, object]:
+    return {
+        "number": number,
+        "title": f"PR {number}",
+        "headRefName": "codex/snapshot",
+        "headRefOid": "a" * 40,
+        "isDraft": False,
+        "mergeable": "MERGEABLE",
+        "body": "## Validation\n- pytest",
+        "url": f"https://example.com/pr/{number}",
+        "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}],
+    }
+
+
 def test_select_mergeable_prs_marks_safe_codex_pr_eligible() -> None:
     decisions = select_mergeable_prs([_pr(1)])
 
@@ -241,7 +255,7 @@ def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
             payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
         else:
             payload = {
-                "number": 7,
+                **_snapshot_metadata(),
                 "changedFiles": changed_file_count,
                 "files": [
                     {"path": f"aragora/file_{index}.py"} for index in range(returned_file_count)
@@ -251,8 +265,10 @@ def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
 
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
-    with pytest.raises(RuntimeError, match="incomplete or malformed files snapshot"):
-        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+    assert "incomplete or malformed files snapshot" in str(snapshots[0].files_snapshot_error)
+    assert _decision(select_mergeable_prs(snapshots), 7).reason == "files_snapshot_incomplete"
 
 
 def test_collect_pull_requests_compares_changed_count_with_raw_file_entries(
@@ -266,7 +282,7 @@ def test_collect_pull_requests_compares_changed_count_with_raw_file_entries(
             payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
         else:
             payload = {
-                "number": 7,
+                **_snapshot_metadata(),
                 "changedFiles": 1,
                 "files": [{"path": "aragora/safe.py"}, {}],
             }
@@ -274,8 +290,10 @@ def test_collect_pull_requests_compares_changed_count_with_raw_file_entries(
 
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
-    with pytest.raises(RuntimeError, match=r"returned_entries=2"):
-        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+    assert "returned_entries=2" in str(snapshots[0].files_snapshot_error)
+    assert _decision(select_mergeable_prs(snapshots), 7).reason == "files_snapshot_incomplete"
 
 
 @pytest.mark.parametrize(
@@ -303,13 +321,19 @@ def test_collect_pull_requests_rejects_malformed_file_entries(
         if args[1:3] == ["pr", "list"]:
             payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
         else:
-            payload = {"number": 7, "changedFiles": 1, "files": [file_entry]}
+            payload = {
+                **_snapshot_metadata(),
+                "changedFiles": 1,
+                "files": [file_entry],
+            }
         return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
 
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
-    with pytest.raises(RuntimeError, match="malformed file entry"):
-        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+    assert "malformed file entry" in str(snapshots[0].files_snapshot_error)
+    assert _decision(select_mergeable_prs(snapshots), 7).reason == "files_snapshot_incomplete"
 
 
 @pytest.mark.parametrize(
@@ -333,7 +357,7 @@ def test_collect_pull_requests_rejects_missing_or_non_list_files_snapshot(
         if args[1:3] == ["pr", "list"]:
             payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
         else:
-            metadata: dict[str, object] = {"number": 7, "changedFiles": 0}
+            metadata = {**_snapshot_metadata(), "changedFiles": 0}
             if include_files:
                 metadata["files"] = files_payload
             payload = metadata
@@ -341,8 +365,55 @@ def test_collect_pull_requests_rejects_missing_or_non_list_files_snapshot(
 
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
-    with pytest.raises(RuntimeError, match="unexpected files payload"):
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+    assert "unexpected files payload" in str(snapshots[0].files_snapshot_error)
+    assert _decision(select_mergeable_prs(snapshots), 7).reason == "files_snapshot_incomplete"
+
+
+def test_malformed_file_snapshot_does_not_hide_later_eligible_pr(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [
+                {"number": 7, "headRefName": "codex/truncated"},
+                {"number": 8, "headRefName": "codex/safe"},
+            ]
+        else:
+            number = int(args[3])
+            payload = {
+                "number": number,
+                "title": f"PR {number}",
+                "headRefName": "codex/truncated" if number == 7 else "codex/safe",
+                "headRefOid": ("a" if number == 7 else "b") * 40,
+                "isDraft": False,
+                "mergeable": "MERGEABLE",
+                "body": "## Validation\n- pytest",
+                "url": f"https://example.com/pr/{number}",
+                "changedFiles": 101 if number == 7 else 1,
+                "files": (
+                    [{"path": f"aragora/file_{index}.py"} for index in range(100)]
+                    if number == 7
+                    else [{"path": "aragora/safe.py"}]
+                ),
+                "statusCheckRollup": [
+                    {"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}
+                ],
+            }
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    decisions = select_mergeable_prs(
         merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+    )
+
+    assert _decision(decisions, 7).reason == "files_snapshot_incomplete"
+    assert _decision(decisions, 8).eligible is True
 
 
 def test_collect_pull_requests_accepts_complete_empty_snapshot_as_not_mergeable(
