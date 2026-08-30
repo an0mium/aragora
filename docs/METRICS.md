@@ -21,7 +21,7 @@
 | CLI top-level command modules | `86` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2912` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
 | OpenAPI operations (HTTP verbs) | `3205` | `docs/api/openapi.json` | `python -c "import json; spec=json.load(open('docs/api/openapi.json')); print(sum(1 for p in spec['paths'].values() for m in p if m.lower() in {'get','post','put','delete','patch','head','options'}))"` |
-| @require_permission decorator calls | `1364` | `aragora/` | `git grep -E '@require_permission\(' -- aragora \| wc -l` |
+| @require_permission decorator calls | `1364` | `aragora/` | `git grep -E '@require_permission\(' -- 'aragora/*.py' \| wc -l` |
 | Unique permission strings | `423` | `aragora/` | `git grep -h -o -E "@require_permission\(['\"][^'\"]+['\"]\)" -- aragora \| sed -E "s/.*['\"]([^'\"]+)['\"].*/\1/" \| sort -u \| wc -l` |
 | Python SDK modules | `198` | `sdk/python/` | `git ls-files sdk/python/aragora_sdk \| grep -E '\.py$' \| grep -v '/__' \| awk -F/ 'NF<=5' \| wc -l` |
 | TypeScript SDK modules | `216` | `sdk/typescript/` | `git ls-files sdk/typescript/src \| grep -E '\.ts$' \| awk -F/ 'NF<=5' \| wc -l` |
