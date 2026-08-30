@@ -129,11 +129,11 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 
 **Acceptance criteria**
 
-- [ ] Fresh cumulative independent review has no unresolved P0-P2 findings.
-- [ ] All focused tests, Ruff, mypy, hooks, drift checks, and `automation_pr_preflight.sh` pass on
+- [x] Fresh cumulative independent review has no unresolved P0-P2 findings.
+- [x] All focused tests, Ruff, mypy, hooks, drift checks, and `automation_pr_preflight.sh` pass on
       the exact pushed head.
-- [ ] PR body records exact head, scope, tests, mutation evidence, Tier-4 status, and residual risk.
-- [ ] No unresolved review threads or unreplied actionable bot comments remain.
+- [x] PR body records exact head, scope, tests, mutation evidence, Tier-4 status, and residual risk.
+- [x] No unresolved review threads or unreplied actionable bot comments remain.
 - [ ] Survival guide, execution log, and `.elves-session.json` are removed from the final diff;
       the plan is retained.
 - [ ] Draft PR is reported for exact-head OWNER settlement; no quorum evidence, settlement, ready

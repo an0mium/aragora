@@ -41,8 +41,8 @@ integrator, the merge arbiter's only direct cross-module consumer.
 
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** the OWNER explicitly authorized exactly one bounded malformed-file-entry repair and terminal rerun
-- **Next required action:** commit and push the validated malformed-entry repair, then obtain one fresh exact-head terminal review
+- **Why:** the exact-head terminal review passed; PR-record reconciliation and operational-artifact cleanup remain
+- **Next required action:** checkpoint the clean terminal review, generate the final report, then remove only the temporary Elves session artifacts
 
 ## Effort Standard
 
@@ -90,17 +90,17 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 2 OWNER-authorized terminal repair in progress
+**Status:** Batch 2 final readiness in progress
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** The collector now compares `changedFiles` with the raw list length before
-parsing, then rejects every entry unless it is a mapping with a non-blank string path. Nine category
-cases reproduce the original fail-open plus malformed entries. Mutation proof covered raw count,
-mapping type, and empty-path guards; 148 cumulative tests and all static/drift gates pass.
+**What was just finished:** Fresh independent review returned PASS with no P0-P3 findings on exact
+product head `e3a76eaacae2729fafe1c0b3623a622e3a172792`. It independently reran 148 tests,
+Ruff, mypy, and diff hygiene, verified every direct merge path remains exact-head-bound, and
+confirmed the malformed-member bypass now fails before selection. The draft PR body is reconciled.
 
-**Single next action:** commit and push only the validated repair and run one fresh independent
-terminal review of the new exact head before cleanup.
+**Single next action:** checkpoint the clean terminal evidence, generate the final Elves report,
+and remove only the survival guide, execution log, and `.elves-session.json` before final handoff.
 
 ## Active Compute
 
@@ -161,7 +161,7 @@ notification: PR comment only at final readiness if authorized by the run state
 - **Execution log:** `docs/elves/merge-snapshot-provenance-9677/execution-log.md`
 - **Branch:** `codex/merge-snapshot-provenance-9677`
 - **PR number:** #9874
-- **Current reconciled plan hash:** `3e01944585d4aa0043cb00f15c724c9e31ea0c64f4592212c77762c07c61470c`
+- **Current reconciled plan hash:** `b7cddd0bcbcb460a2c6895244dd7269f255700e4fc94fbe811c5da579bd4d820`
 
 ## Collision and Live-State Notes
 

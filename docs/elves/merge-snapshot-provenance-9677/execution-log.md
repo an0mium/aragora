@@ -279,4 +279,23 @@ exact-head terminal review. Otherwise leave the draft blocked and split or super
 - Cumulative touched-surface validation: PASS, 148 passed, 0 skipped. Scoped Ruff and four-source
   mypy: PASS. Metrics drift, module-tier drift, docs consistency, and diff hygiene: PASS.
 
+## Clean Exact-Head Terminal Review: 2026-08-29 23:38 America/Chicago
+
+- The bounded repair was committed and pushed as exact product head
+  `e3a76eaacae2729fafe1c0b3623a622e3a172792`; local, remote, and PR tips matched throughout review.
+- One fresh independent read-only terminal review returned PASS with no P0-P3 findings. It
+  independently reran 148 tests, scoped Ruff, four-source mypy, and diff hygiene.
+- The reviewer traced all four direct merge-capable paths and confirmed that the snapshot,
+  settlement, or review SHA is the same full SHA supplied to `--match-head-commit`, with no later
+  resolution. Normal and admin variants remain pinned.
+- The malformed-member regression fails before selection, while the complete
+  `changedFiles=0, files=[]` snapshot remains non-mergeable through `no_changed_files`.
+- All five required non-quorum checks were green on the reviewed product head. Automated quorum
+  was observed but neither collected nor used as authority. PR comments, reviews, and review
+  threads remained empty.
+- Current main remained `5fe51d32c4b4b4cbc2c47b0314a53cb90be2c778` with no overlap in scoped
+  product, test, or metrics files. PR #9677 and its branch were not touched.
+- Regression attestation: all earlier file-snapshot findings are fixed and category-covered;
+  residual risk is intentionally fail-closed operational interruption on malformed GitHub payloads.
+
 <!-- Add newer entries above this line. -->
