@@ -20,6 +20,12 @@ horizon and two standards or rules published after the stated horizon. All
 model-visible evidence is an official pre-cutoff publication; later outcome
 evidence remains in the hash-bound sidecar.
 
+`science-forecasting-1` contributes four science/forecasting development
+cases. It balances two observed outcomes that met the forecast threshold and
+two delayed missions that did not. Model-visible evidence is limited to
+official pre-cutoff NASA or NOAA material; the measured outcomes remain in the
+hash-bound sidecar.
+
 Current canonical digests:
 
 - corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
@@ -35,14 +41,18 @@ Policy/compliance tranche:
 - corpus: `4247cf544b5c12f939517b2267f915559df85b059a164c457a40af74ffd88ea3`
 - outcome sidecar: `0972e27803a6b4b73ed15f553ba8847692c319ee2b882e7b50c84dcf5daea52e`
 
+Science/forecasting tranche:
+
+- corpus: `3f5ea13fac70579c8422b08f820a96a3ebd266e7cd2db174d381a24f47bc491e`
+- outcome sidecar: `f86c8ee9b8ee6694595ebdc11a758569262a20176771bf7f9d7067cdf323e090`
+
 The tranche passes the decision-quality corpus validator with
 `--allow-partial`. That flag skips only the final 24-case balance requirement.
 It does not relax source cutoffs, outcome separation, digest binding, or
 per-case semantics.
 
-Together the three tranches provide twelve of the planned 24 cases: twelve
-development cases, four each in software engineering, business/operations,
-and policy/compliance.
+Together the four tranches provide sixteen of the planned 24 cases: four
+development cases in each required domain.
 
 Do not run model inference from a tranche. Counted inference begins only after
 all 24 cases, the scoring contract, prompts, roster, and both corpus digests are
