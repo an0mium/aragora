@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aragora.core_types import DebateResult
 from aragora.nomic.meta_planner import (
     MetaPlanner,
     MetaPlannerConfig,
@@ -581,7 +582,7 @@ class TestParseGoalsFromDebate:
     def test_preserves_survivor_and_records_sanitized_timeout(self):
         planner = MetaPlanner()
         result = SimpleNamespace(
-            consensus="",
+            consensus="1. Incorrect stale consensus",
             final_response="",
             responses=[],
             participants=["claude", "codex"],
@@ -619,7 +620,7 @@ class TestParseGoalsFromDebate:
     def test_error_and_empty_placeholders_force_truthful_heuristic_fallback(self):
         planner = MetaPlanner()
         result = SimpleNamespace(
-            consensus="",
+            consensus="1. Incorrect stale consensus",
             final_response="",
             responses=[],
             participants=["raises", "empty"],
@@ -641,6 +642,7 @@ class TestParseGoalsFromDebate:
         )
 
         assert goals
+        assert goals[0].description != "Incorrect stale consensus"
         assert goals[0].metadata["decision_source"] == "heuristic_fallback"
         assert goals[0].metadata["substantive_proposers"] == []
         assert [item["error_type"] for item in goals[0].metadata["failure_provenance"]] == [
@@ -713,10 +715,8 @@ class TestParseGoalsFromDebate:
 
     def test_healthy_consensus_stays_primary(self):
         planner = MetaPlanner()
-        result = SimpleNamespace(
-            consensus="1. Consensus-selected goal",
-            final_response="",
-            responses=[],
+        result = DebateResult(
+            final_answer="1. Consensus-selected goal",
             participants=["first", "second"],
             proposals={"first": "1. First idea", "second": "1. Second idea"},
             agent_failures={},
@@ -732,6 +732,34 @@ class TestParseGoalsFromDebate:
         assert [goal.description for goal in goals] == ["Consensus-selected goal"]
         assert goals[0].metadata["decision_source"] == "debate_consensus"
         assert goals[0].metadata["degraded"] is False
+
+    def test_objective_fidelity_preserves_all_failure_provenance(self):
+        planner = MetaPlanner(MetaPlannerConfig(objective_fidelity_threshold=1.0))
+        result = DebateResult(
+            final_answer="1. Incorrect stale consensus",
+            participants=["failed"],
+            proposals={"failed": "[Error generating proposal: timeout]"},
+            agent_failures={
+                "failed": [{"phase": "proposal", "error_type": "timeout", "message": "timed out"}]
+            },
+        )
+
+        parsed = planner._parse_goals_from_debate(
+            result,
+            [Track.CORE],
+            "unrelated objective vocabulary",
+            expected_proposers=["failed"],
+        )
+        goals = planner._enforce_objective_fidelity(
+            "unrelated objective vocabulary",
+            [Track.CORE],
+            parsed,
+        )
+
+        assert goals[0].metadata["decision_source"] == "heuristic_fallback"
+        assert goals[0].metadata["degraded"] is True
+        assert goals[0].metadata["substantive_proposers"] == []
+        assert goals[0].metadata["failure_provenance"][0]["agent"] == "failed"
 
 
 class TestMetaPlannerProposalDegradationIntegration:

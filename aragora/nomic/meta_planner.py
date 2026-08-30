@@ -847,6 +847,11 @@ class MetaPlanner:
         if top_score >= threshold:
             return goals[: self.config.max_goals]
 
+        degradation_metadata = next(
+            (dict(goal.metadata) for goal in goals if goal.metadata.get("degraded")),
+            {},
+        )
+
         constrained_objective = (
             "Maintain strict objective fidelity. "
             f"Objective: {objective}. "
@@ -863,7 +868,10 @@ class MetaPlanner:
                 top_score,
                 recovered_top,
             )
-            return recovered[: self.config.max_goals]
+            recovered = recovered[: self.config.max_goals]
+            for goal in recovered:
+                goal.metadata = dict(degradation_metadata)
+            return recovered
 
         best_track = self._infer_track(objective, available_tracks)
         fallback_goal = PrioritizedGoal(
@@ -876,6 +884,7 @@ class MetaPlanner:
             ),
             estimated_impact="high",
             priority=1,
+            metadata=degradation_metadata,
         )
         logger.warning(
             "meta_planner_objective_fidelity_low score=%.2f threshold=%.2f objective=%s",

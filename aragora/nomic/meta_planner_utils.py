@@ -421,7 +421,10 @@ def parse_goals_from_debate(
     degraded = bool(failures) or bool(expected and len(substantive) != len(expected))
 
     consensus_text = ""
-    if hasattr(debate_result, "consensus") and debate_result.consensus:
+    final_answer = getattr(debate_result, "final_answer", None)
+    if isinstance(final_answer, str) and final_answer.strip():
+        consensus_text = final_answer
+    elif hasattr(debate_result, "consensus") and debate_result.consensus:
         consensus_text = str(debate_result.consensus)
     elif getattr(debate_result, "final_response", None):
         consensus_text = str(debate_result.final_response)
@@ -447,7 +450,7 @@ def parse_goals_from_debate(
                     )
                 ]
             goals.extend(parsed)
-    elif consensus_text:
+    elif consensus_text and not degraded:
         goals = _parse_goal_text(consensus_text, available_tracks)
 
     if not goals:
