@@ -1,8 +1,4 @@
-"""Frozen execution contract for the outcome-backed decision-quality benchmark.
-
-The module is intentionally pure: it validates manifests and recorded results
-without launching models, reading credentials, or mutating benchmark artifacts.
-"""
+"""Pure validation for the frozen outcome-backed decision-quality execution contract."""
 
 from __future__ import annotations
 
@@ -29,18 +25,9 @@ from aragora.evaluation.outcome_backed_scoring import (
 
 MANIFEST_SCHEMA = "outcome-backed-decision-quality-manifest/1.0"
 RESULT_SCHEMA = "outcome-backed-decision-quality-result/1.0"
-CONDITION_IDS = (
-    "claude_single",
-    "openai_single",
-    "gemini_single",
-    "aragora_team",
-)
+CONDITION_IDS = ("claude_single", "openai_single", "gemini_single", "aragora_team")
 MODEL_FAMILIES = ("claude", "openai", "gemini")
-SINGLE_CONDITION_FAMILIES = {
-    "claude_single": "claude",
-    "openai_single": "openai",
-    "gemini_single": "gemini",
-}
+SINGLE_CONDITION_FAMILIES = dict(zip(CONDITION_IDS[:3], MODEL_FAMILIES, strict=True))
 DAILY_COST_CAP_USD = 25.0
 MAX_INFRASTRUCTURE_RETRIES_PER_CALL = 1
 HOLDOUT_REPETITIONS = 2
@@ -48,27 +35,11 @@ HOLDOUT_REPETITIONS = 2
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _MANIFEST_KEYS = frozenset(
-    {
-        "schema_version",
-        "benchmark_id",
-        "revision",
-        "frozen_at",
-        "corpus",
-        "scorer_contract_version",
-        "prompt_sha256",
-        "implementation_sha",
-        "policy",
-        "conditions",
-    }
+    "schema_version benchmark_id revision frozen_at corpus scorer_contract_version "
+    "prompt_sha256 implementation_sha policy conditions".split()
 )
 _CORPUS_KEYS = frozenset(
-    {
-        "visible_sha256",
-        "outcomes_sha256",
-        "case_count",
-        "development_count",
-        "holdout_count",
-    }
+    "visible_sha256 outcomes_sha256 case_count development_count holdout_count".split()
 )
 _PROMPT_KEYS = frozenset({"single", "team_proposal", "team_adversarial", "team_synthesis"})
 _POLICY_KEYS = frozenset(
@@ -77,22 +48,8 @@ _POLICY_KEYS = frozenset(
 _CONDITION_KEYS = frozenset({"condition_id", "kind", "members", "adversarial_rounds", "syntheses"})
 _MEMBER_KEYS = frozenset({"family", "requested_model", "resolved_model", "transport"})
 _RESULT_KEYS = frozenset(
-    {
-        "schema_version",
-        "benchmark_id",
-        "manifest_sha256",
-        "implementation_sha",
-        "case_id",
-        "split",
-        "repetition",
-        "condition_id",
-        "started_at",
-        "completed_at",
-        "calls",
-        "output",
-        "receipt",
-        "error",
-    }
+    "schema_version benchmark_id manifest_sha256 implementation_sha case_id split repetition "
+    "condition_id started_at completed_at calls output receipt error".split()
 )
 _CALL_KEYS = frozenset(
     {"call_id", "role", "family", "requested_model", "resolved_model", "transport", "attempts"}
@@ -531,15 +488,8 @@ def validate_result_batch(
     return dict(sorted(daily_costs.items()))
 
 
-__all__ = [
-    "CONDITION_IDS",
-    "DAILY_COST_CAP_USD",
-    "HOLDOUT_REPETITIONS",
-    "MANIFEST_SCHEMA",
-    "MAX_INFRASTRUCTURE_RETRIES_PER_CALL",
-    "MODEL_FAMILIES",
-    "RESULT_SCHEMA",
-    "validate_benchmark_manifest",
-    "validate_result_batch",
-    "validate_result_record",
-]
+__all__ = (
+    "CONDITION_IDS DAILY_COST_CAP_USD HOLDOUT_REPETITIONS MANIFEST_SCHEMA "
+    "MAX_INFRASTRUCTURE_RETRIES_PER_CALL MODEL_FAMILIES RESULT_SCHEMA "
+    "validate_benchmark_manifest validate_result_batch validate_result_record"
+).split()

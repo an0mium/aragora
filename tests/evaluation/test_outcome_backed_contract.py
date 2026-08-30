@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from typing import Any
 
 import pytest
@@ -152,11 +151,7 @@ def _record(
 
 
 def test_valid_manifest_is_deterministic_and_frozen() -> None:
-    manifest = _manifest()
-
-    assert validate_benchmark_manifest(manifest) == validate_benchmark_manifest(
-        copy.deepcopy(manifest)
-    )
+    assert validate_benchmark_manifest(_manifest()) == validate_benchmark_manifest(_manifest())
 
 
 @pytest.mark.parametrize(
