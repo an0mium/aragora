@@ -202,6 +202,33 @@ class TestBuildDebateTopic:
         assert "Auth bug" in topic
         assert "test_login" in topic
 
+    def test_topic_includes_all_candidate_goals_uncapped(self):
+        """Every externally supplied candidate goal is rendered (no 5-item cap)."""
+        planner = MetaPlanner()
+        candidates = [f"Candidate goal number {i}" for i in range(1, 12)]
+        topic = planner._build_debate_topic(
+            objective="Rank research intake candidates",
+            tracks=[Track.CORE],
+            constraints=[],
+            context=PlanningContext(candidate_goals=candidates),
+        )
+
+        assert "CANDIDATE GOALS" in topic
+        for candidate in candidates:
+            assert candidate in topic
+
+    def test_topic_omits_candidate_block_when_empty(self):
+        """No CANDIDATE GOALS block when none are supplied (backward compat)."""
+        planner = MetaPlanner()
+        topic = planner._build_debate_topic(
+            objective="Improve features",
+            tracks=[Track.QA],
+            constraints=[],
+            context=PlanningContext(),
+        )
+
+        assert "CANDIDATE GOALS" not in topic
+
 
 class TestInferTrack:
     """Tests for _infer_track method."""
