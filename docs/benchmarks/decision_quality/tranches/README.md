@@ -37,6 +37,11 @@ holdout cases. One regulatory return-to-service milestone was met and one
 aircraft delivery milestone was formally delayed. Both cases use immutable SEC
 filings, with the outcome answer key kept in the separate hash-bound sidecar.
 
+`policy-compliance-holdout-1` contributes the two policy/compliance holdout
+cases. One final rule was published within the stated readiness horizon and one
+was published just after it. Both cases use immutable GovInfo Federal Register
+documents, with the outcome answer key kept in the separate hash-bound sidecar.
+
 Current canonical digests:
 
 - corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
@@ -67,14 +72,19 @@ Business/operations holdout tranche:
 - corpus: `26473525c2ab4fbd7298d307292b42859540532aa62e24be08bf934208cd9b1d`
 - outcome sidecar: `e0e44873391ddd2836bc6f4158ed5a82f1c4b1900d132e228ca918eef2657a47`
 
+Policy/compliance holdout tranche:
+
+- corpus: `e52440953ce0c4b84f9f8ee5da69b278f4814af75971fe91c36279c555a4e5b6`
+- outcome sidecar: `fd3be3aea70c7008e27f9ae96b386726e6fa57c743a7bf4572b5cb41d656de8c`
+
 Each tranche passes the decision-quality corpus validator with
 `--allow-partial`. That flag skips only the final 24-case balance requirement.
 It does not relax source cutoffs, outcome separation, digest binding, or
 per-case semantics.
 
-Together the six tranches provide twenty of the planned 24 cases: four
-development cases in each required domain, both software-engineering holdouts,
-and both business/operations holdouts.
+Together the seven tranches provide twenty-two of the planned 24 cases: four
+development cases in each required domain, plus both holdouts in software
+engineering, business/operations, and policy/compliance.
 
 Do not run model inference from a tranche. Counted inference begins only after
 all 24 cases, the scoring contract, prompts, roster, and both corpus digests are
