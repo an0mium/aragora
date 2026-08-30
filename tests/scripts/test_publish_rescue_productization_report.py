@@ -251,11 +251,13 @@ def test_main_missing_ledger_fails_closed_without_publishing(tmp_path: Path, cap
         ]
     )
 
-    payload = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
     assert exit_code == 2
     assert payload["ok"] is False
     assert payload["error"]["code"] == "rescue_ledger_missing"
-    assert payload["error"]["path"] == str(ledger_path.resolve())
+    assert payload["error"]["path"] == mod._repo_stable_path(ledger_path)
+    assert "[rescue_ledger_missing]" in captured.err
     assert not publish_dir.exists()
 
 
@@ -289,6 +291,99 @@ def test_main_malformed_ledger_fails_closed_without_publishing(tmp_path: Path, c
     assert not publish_dir.exists()
 
 
+def test_validator_tolerates_only_torn_trailing_append(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "rescue_events.jsonl"
+    complete = json.dumps(
+        {
+            "event_type": "followup_prompt",
+            "reason": "needs explicit next step",
+        }
+    )
+    ledger_path.write_text(f'{complete}\n{{"event_type":"followup', encoding="utf-8")
+
+    source = mod.validate_rescue_ledger(ledger_path)
+
+    assert source["event_count"] == 1
+    assert source["skipped_trailing_partial_line_count"] == 1
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        '{"event_type":"followup',
+        '{"event_type":"followup\n',
+        "not-json",
+        'not-json\n{"event_type":"followup_prompt","reason":"ok"}\n',
+    ],
+)
+def test_validator_rejects_non_trailing_or_complete_corruption(
+    tmp_path: Path,
+    contents: str,
+) -> None:
+    ledger_path = tmp_path / "rescue_events.jsonl"
+    ledger_path.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(mod.RescueLedgerValidationError) as exc_info:
+        mod.validate_rescue_ledger(ledger_path)
+
+    assert exc_info.value.code == "rescue_ledger_malformed"
+
+
+def test_validator_sanitizes_unreadable_path_detail(tmp_path: Path, monkeypatch) -> None:
+    ledger_path = tmp_path / "rescue_events.jsonl"
+    ledger_path.touch()
+
+    def raise_permission_error(_path: Path) -> bytes:
+        raise PermissionError(13, "Permission denied", str(ledger_path))
+
+    monkeypatch.setattr(Path, "read_bytes", raise_permission_error)
+
+    with pytest.raises(mod.RescueLedgerValidationError) as exc_info:
+        mod.validate_rescue_ledger(ledger_path)
+
+    assert exc_info.value.code == "rescue_ledger_unreadable"
+    assert exc_info.value.detail.count(str(ledger_path)) == 1
+    assert "Permission denied" in exc_info.value.detail
+
+
+def test_report_rejects_ledger_change_during_build(tmp_path: Path, monkeypatch) -> None:
+    ledger = _ledger_with_events(
+        tmp_path,
+        [
+            RescueEvent(
+                event_type="followup_prompt",
+                reason="needs explicit next step",
+            )
+        ],
+    )
+    productization_map_path = tmp_path / "rescue_productization.json"
+    mod.write_productization_map_payload(
+        productization_map_path,
+        {"schema_version": 1, "entries": []},
+    )
+    real_validate = mod.validate_rescue_ledger
+    call_count = 0
+
+    def drifting_validate(path: Path) -> dict[str, object]:
+        nonlocal call_count
+        call_count += 1
+        result = real_validate(path)
+        if call_count > 1:
+            result["sha256"] = "0" * 64
+        return result
+
+    monkeypatch.setattr(mod, "validate_rescue_ledger", drifting_validate)
+
+    with pytest.raises(mod.RescueLedgerValidationError) as exc_info:
+        mod.build_published_report(
+            ledger_path=ledger.path,
+            productization_map_path=productization_map_path,
+            repo="synaptent/aragora",
+        )
+
+    assert exc_info.value.code == "rescue_ledger_changed_during_read"
+
+
 def test_existing_empty_ledger_is_a_valid_zero_observation(tmp_path: Path) -> None:
     ledger_path = tmp_path / "rescue_events.jsonl"
     ledger_path.touch()
@@ -309,6 +404,8 @@ def test_existing_empty_ledger_is_a_valid_zero_observation(tmp_path: Path) -> No
         "status": "available",
         "event_count": 0,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "summary_event_limit": 500,
+        "summary_truncated": False,
     }
     assert payload["summary"]["total_unique_classes"] == 0
 

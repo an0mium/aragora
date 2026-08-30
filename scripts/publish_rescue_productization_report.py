@@ -111,6 +111,38 @@ def _repo_stable_path(path: Path) -> str:
         return _home_relative_path(str(resolved))
 
 
+def _safe_os_error_detail(exc: OSError) -> str:
+    """Describe an IO failure without re-emitting a local absolute path."""
+    return str(exc.strerror or type(exc).__name__)
+
+
+def _is_incomplete_trailing_json_record(
+    *,
+    exc: json.JSONDecodeError,
+    line: str,
+    is_last_nonempty_line: bool,
+    source_ends_with_newline: bool,
+) -> bool:
+    """Recognize only a torn final append, never arbitrary malformed JSON.
+
+    ``RescueEventLedger.record`` writes one JSON object and its newline in two
+    writes. A concurrent snapshot can therefore end inside the final object.
+    Complete lines, earlier lines, and invalid tokens remain hard failures.
+    """
+    if not is_last_nonempty_line or source_ends_with_newline:
+        return False
+    message = exc.msg.lower()
+    if message.startswith("unterminated string"):
+        return True
+    incomplete_messages = (
+        "expecting value",
+        "expecting ',' delimiter",
+        "expecting ':' delimiter",
+        "expecting property name enclosed in double quotes",
+    )
+    return message.startswith(incomplete_messages) and exc.pos >= max(0, len(line.rstrip()) - 1)
+
+
 def validate_rescue_ledger(path: Path) -> dict[str, Any]:
     """Validate the rescue ledger and return provenance for the report.
 
@@ -139,7 +171,9 @@ def validate_rescue_ledger(path: Path) -> dict[str, Any]:
         raise RescueLedgerValidationError(
             code="rescue_ledger_unreadable",
             path=path,
-            detail=f"rescue event ledger is unreadable: {stable_path}: {exc}",
+            detail=(
+                f"rescue event ledger is unreadable: {stable_path}: {_safe_os_error_detail(exc)}"
+            ),
         ) from exc
 
     try:
@@ -151,13 +185,28 @@ def validate_rescue_ledger(path: Path) -> dict[str, Any]:
             detail=f"rescue event ledger is not valid UTF-8: {stable_path}",
         ) from exc
 
+    lines = text.splitlines()
+    nonempty_line_numbers = [
+        line_number for line_number, line in enumerate(lines, start=1) if line.strip()
+    ]
+    last_nonempty_line = nonempty_line_numbers[-1] if nonempty_line_numbers else None
+    source_ends_with_newline = raw.endswith((b"\n", b"\r"))
     event_count = 0
-    for line_number, line in enumerate(text.splitlines(), start=1):
+    skipped_trailing_partial_line = False
+    for line_number, line in enumerate(lines, start=1):
         if not line.strip():
             continue
         try:
             event = json.loads(line)
         except json.JSONDecodeError as exc:
+            if event_count > 0 and _is_incomplete_trailing_json_record(
+                exc=exc,
+                line=line,
+                is_last_nonempty_line=line_number == last_nonempty_line,
+                source_ends_with_newline=source_ends_with_newline,
+            ):
+                skipped_trailing_partial_line = True
+                continue
             raise RescueLedgerValidationError(
                 code="rescue_ledger_malformed",
                 path=path,
@@ -187,11 +236,14 @@ def validate_rescue_ledger(path: Path) -> dict[str, Any]:
             )
         event_count += 1
 
-    return {
+    source = {
         "status": "available",
         "event_count": event_count,
         "sha256": hashlib.sha256(raw).hexdigest(),
     }
+    if skipped_trailing_partial_line:
+        source["skipped_trailing_partial_line_count"] = 1
+    return source
 
 
 def resolve_published_report_path(
@@ -468,6 +520,8 @@ def build_published_report(
 ) -> dict[str, Any]:
     normalized_generated_at = normalize_generated_at(generated_at)
     source = validate_rescue_ledger(ledger_path)
+    source["summary_event_limit"] = recent_limit
+    source["summary_truncated"] = int(source["event_count"]) > recent_limit
     fixtures = _rescue_fixtures()
     initial_report = fixtures.load_rescue_productization_report(
         ledger_path=ledger_path,
@@ -496,6 +550,16 @@ def build_published_report(
         one_off_limit=one_off_limit,
         productization_map_path=productization_map_path,
     )
+    final_source = validate_rescue_ledger(ledger_path)
+    if final_source["sha256"] != source["sha256"]:
+        raise RescueLedgerValidationError(
+            code="rescue_ledger_changed_during_read",
+            path=ledger_path,
+            detail=(
+                "rescue event ledger changed while the report was being built: "
+                f"{_repo_stable_path(ledger_path)}"
+            ),
+        )
     final_issue_drafts = fixtures.build_issue_drafts(final_report)
     return {
         "generated_at": normalized_generated_at,
@@ -584,6 +648,7 @@ def main(argv: list[str] | None = None) -> int:
         error_payload = {"ok": False, "error": exc.to_dict()}
         if args.json:
             print(json.dumps(error_payload, indent=2))
+            print(f"error: [{exc.code}] {exc.detail}", file=sys.stderr)
         else:
             print(f"error: [{exc.code}] {exc.detail}", file=sys.stderr)
         return 2
