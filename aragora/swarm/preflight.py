@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -642,7 +643,7 @@ def _claim_branch_write_lease(
                 "work_id": work_id,
             },
         )
-    except Exception as exc:
+    except (OSError, RuntimeError, sqlite3.Error, ValueError) as exc:
         detail = sanitize_error(str(exc), max_length=4000)
         raise PreflightOperationError(
             stage="branch_write_lease_claim",
@@ -659,7 +660,7 @@ def _claim_branch_write_lease(
 def _release_branch_write_lease(claim: _BranchWriteLease) -> None:
     try:
         claim.store.release_lease(claim.lease_id)
-    except Exception as exc:
+    except (OSError, RuntimeError, sqlite3.Error, ValueError, KeyError) as exc:
         detail = sanitize_error(str(exc), max_length=4000)
         raise PreflightOperationError(
             stage="branch_write_lease_release",

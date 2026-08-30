@@ -270,6 +270,50 @@ def test_branch_write_lease_uses_branch_identity_and_releases(monkeypatch, tmp_p
     assert captured["released"] == "lease-branch-contract"
 
 
+def test_branch_write_lease_wraps_expected_store_failure(monkeypatch, tmp_path: Path) -> None:
+    from aragora.nomic import dev_coordination
+
+    class FailingStore:
+        def __init__(self, *, repo_root: Path) -> None:
+            del repo_root
+
+        def claim_lease(self, **kwargs: object) -> SimpleNamespace:
+            del kwargs
+            raise RuntimeError("coordination store unavailable")
+
+    monkeypatch.setattr(dev_coordination, "DevCoordinationStore", FailingStore)
+
+    with pytest.raises(mod.PreflightOperationError) as exc_info:
+        mod._claim_branch_write_lease(
+            repo_root=tmp_path,
+            branch="preflight/store-failure",
+            worktree_path=tmp_path / "worktree",
+            agent="codex",
+        )
+
+    assert exc_info.value.stage == "branch_write_lease_claim"
+    assert "coordination store unavailable" in exc_info.value.detail
+
+
+def test_branch_write_lease_wraps_unknown_lease_release() -> None:
+    class MissingLeaseStore:
+        def release_lease(self, lease_id: str) -> None:
+            raise KeyError(f"Unknown lease_id: {lease_id}")
+
+    claim = mod._BranchWriteLease(
+        store=MissingLeaseStore(),
+        lease_id="missing-lease",
+        owner_session_id="session-missing-lease",
+        work_id="branch:preflight/missing-lease",
+    )
+
+    with pytest.raises(mod.PreflightOperationError) as exc_info:
+        mod._release_branch_write_lease(claim)
+
+    assert exc_info.value.stage == "branch_write_lease_release"
+    assert "Unknown lease_id" in exc_info.value.detail
+
+
 @pytest.mark.asyncio
 async def test_run_preflight_succeeds_inside_running_event_loop(
     monkeypatch, tmp_path: Path
