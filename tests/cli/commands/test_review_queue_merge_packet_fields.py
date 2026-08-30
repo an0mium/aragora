@@ -117,6 +117,39 @@ class TestNonAdminMergeEligible:
         assert entry["admin_squash_allowed"] is True
         assert entry["non_admin_merge_eligible"] is True
 
+    def test_true_under_operator_review_required_label_hold(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entry = _entry(
+            monkeypatch,
+            quorum=_quorum(),
+            labels=["operator-review-required"],
+            merge_state_status="CLEAN",
+        )
+
+        # The operator hold blocks the admin-squash lane and stays visible in
+        # the sibling keys; the model-level verdict is label-independent (it
+        # must stay True while a compliant parked draft still carries the
+        # label, or the field would be constant-false at packet time).
+        assert entry["operator_review_required"] is True
+        assert entry["admin_squash_allowed"] is False
+        assert any(
+            "operator-review-required" in blocker for blocker in entry["admin_squash_gate_blockers"]
+        )
+        assert entry["non_admin_merge_eligible"] is True
+
+    def test_true_when_merge_state_status_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entry = _entry(monkeypatch, quorum=_quorum(), merge_state_status="")
+
+        # Unavailable mergeStateStatus zeroes only the admin-squash lane; the
+        # model-level verdict does not claim live mergeability.
+        assert entry["admin_squash_allowed"] is False
+        assert any("mergeStateStatus" in blocker for blocker in entry["admin_squash_gate_blockers"])
+        assert entry["non_admin_merge_eligible"] is True
+        assert entry["operator_review_required"] is False
+
     def test_false_when_model_quorum_not_satisfied(self, monkeypatch: pytest.MonkeyPatch) -> None:
         entry = _entry(
             monkeypatch,

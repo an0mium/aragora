@@ -3077,9 +3077,16 @@ def _build_merge_authorization_packet(
             # Non-admin-lane eligibility is the model-level verdict itself
             # (model-quorum satisfied + all effective REQUIRED contexts green +
             # zero unresolved dissent + tier settlement recorded where
-            # required). The live gate below blocks only the admin-squash
-            # lane, so this stays True in blocked_by_live_gate shapes —
-            # settlement Decisions cite this field instead of entry status.
+            # required). It is deliberately independent of admin-squash-lane
+            # live-gate state: it stays True in blocked_by_live_gate shapes,
+            # under an operator-review-required label hold, and when
+            # mergeStateStatus is unavailable. Those holds remain visible and
+            # controlling via the sibling operator_review_required /
+            # admin_squash_allowed / admin_squash_gate_blockers keys; a
+            # label-ANDed variant would read False for every parked draft at
+            # packet time, which is exactly when settlement Decisions consume
+            # it. Decisions cite this field for the model-level verdict and
+            # must still honor the sibling hold keys.
             "non_admin_merge_eligible": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
             "merge_state_status": packet.merge_state_status,
