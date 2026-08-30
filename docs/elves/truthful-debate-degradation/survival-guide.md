@@ -26,6 +26,7 @@ consumers, while preserving substantive surviving work.
 - **Workspace ownership:** dedicated worktree
   `$HOME/.codex/worktrees/truthful-debate-degradation-9872-20260830/aragora`
 - **Branch:** `codex/truthful-debate-degradation-9872-20260830`
+- **Draft PR:** `#9907`
 - **Lane:** `codex-b-truthful-debate-degradation-9872`
 - **Lease:** `3976a551-db6`, work identity `issue:9872`
 - **Branch tip at start:** `0ecbf67178f406351c9741463c6cb8c1f785c802`
@@ -146,7 +147,7 @@ are green. Scrub provider credentials for every product test invocation.
 
 ## PR and Review Rules
 
-- The staging PR number is recorded in `.elves-session.json` after creation.
+- Draft PR #9907 is the sole open campaign PR.
 - Operational session files are temporary and must be removed from the final
   product diff before readiness.
 - Independent review must inspect the exact product head and may not count as

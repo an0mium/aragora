@@ -7,14 +7,14 @@
 - **Active batch:** Batch 1 - MetaPlanner proposer-loss truth (#9872)
 - **Last completed batch:** Batch 0 - campaign staging
 - **Next exact batch:** Batch 1 - MetaPlanner proposer-loss truth (#9872)
-- **Active PR:** not created yet
+- **Active PR:** #9907 (draft)
 - **Docs promoted this run:** none; session documents are temporary operational
   artifacts
 - **Latest Elves Report:** not generated
 
 ## Session Setup: 2026-08-30 18:20 America/Chicago
 
-**Phase:** Staging complete pending docs commit and draft PR
+**Phase:** Staging complete and launch-ready
 
 **Plan:** `docs/elves/truthful-debate-degradation/plan.md`
 
@@ -26,7 +26,7 @@
 
 **Branch:** `codex/truthful-debate-degradation-9872-20260830`
 
-**PR:** not created yet
+**PR:** #9907 (draft)
 
 **Run mode:** open-ended campaign
 
@@ -88,8 +88,10 @@ only the plan's complete/blocked conditions or explicit user stop
 - Session artifacts will be removed from the final product diff; the campaign
   ledger remains uncommitted under `.aragora/conductor_cycles/`.
 
-**Launch readiness:** READY after the staging commit, push, draft PR creation,
-and recording of the resulting exact head and PR number.
+**Launch readiness:** READY. Staging checkpoint
+`6ed6cb6d6e171fd8e0b5c997587ba141e8719be3` was pushed and draft PR #9907
+was created; this metadata update records the handoff before the final staging
+push.
 
 **Launch prompt:**
 

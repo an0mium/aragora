@@ -1,16 +1,16 @@
 {
   "session_id": "elves-2026-08-30-truthful-debate-degradation-9872",
   "version": "1.12.0",
-  "status": "staged",
+  "status": "launch_ready",
   "branch": "codex/truthful-debate-degradation-9872-20260830",
   "base_sha": "0ecbf67178f406351c9741463c6cb8c1f785c802",
-  "collision_tripwire": "0ecbf67178f406351c9741463c6cb8c1f785c802",
+  "collision_tripwire": "6ed6cb6d6e171fd8e0b5c997587ba141e8719be3",
   "plan_path": "docs/elves/truthful-debate-degradation/plan.md",
   "survival_guide_path": "docs/elves/truthful-debate-degradation/survival-guide.md",
   "learnings_path": "docs/elves/truthful-debate-degradation/learnings.md",
   "execution_log_path": "docs/elves/truthful-debate-degradation/execution-log.md",
-  "pr_number": null,
-  "staging_plan_head": null,
+  "pr_number": 9907,
+  "staging_plan_head": "6ed6cb6d6e171fd8e0b5c997587ba141e8719be3",
   "lease": {
     "lease_id": "3976a551-db6",
     "work_id": "issue:9872",
@@ -18,7 +18,7 @@
   },
   "lane": {
     "lane_id": "codex-b-truthful-debate-degradation-9872",
-    "status": "claimed"
+    "status": "active"
   },
   "continuation_guard": {
     "remaining_batches": 7,
