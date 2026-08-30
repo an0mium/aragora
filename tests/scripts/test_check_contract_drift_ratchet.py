@@ -4926,6 +4926,7 @@ def _live_pr_files_probe(
     pr_additions: int = 400,
     pr_deletions: int = 400,
     duplicate_file_ids: bool = False,
+    files_link_header: str | None = None,
     mutate: Any | None = None,
     releases_payload: Any | None = None,
     tag_ref_object: Any | None = None,
@@ -5038,7 +5039,12 @@ def _live_pr_files_probe(
         if "per_page=100&page=" in endpoint:
             page = int(endpoint.rsplit("page=", 1)[1])
             if "/pulls/9999/files" in endpoint:
-                return files[(page - 1) * 100 : page * 100], identity
+                files_identity = (
+                    identity
+                    if files_link_header is None
+                    else dict(identity, link=files_link_header)
+                )
+                return files[(page - 1) * 100 : page * 100], files_identity
             if endpoint.startswith("repos/synaptent/aragora/releases?"):
                 if releases_payload is not None:
                     return (releases_payload if page == 1 else []), identity
@@ -5427,6 +5433,207 @@ def test_pr_files_paginate_to_exhaustion_and_reconcile_changed_files(
         _live_pr_files_probe(
             tmp_path / "dup", monkeypatch, files_count=150, duplicate_file_ids=True
         )
+
+
+def test_zeroed_stats_dropout_accepted_only_under_dual_witness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # PERMANENT GitHub REST stats dropout (the PR #9850 shape): the pulls
+    # endpoint zeroes changed_files/additions/deletions while the files
+    # endpoint enumerates the true disposition. The default files_count=1
+    # exercises the REAL recomputed first-parent semantic delta over the
+    # disposable boundary repository (no injected delta).
+    context, requested = _live_pr_files_probe(
+        tmp_path,
+        monkeypatch,
+        changed_files=0,
+        pr_additions=0,
+        pr_deletions=0,
+    )
+    assert context["authenticated_pr_files"] == {9999: ["fixture.txt"]}
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 0, "deletions": 0}}
+    assert any("/pulls/9999/files?per_page=100&page=1" in e for e in requested)
+    # Multi-page zeroed enumerations still paginate to exhaustion and
+    # reconcile against the (injected) semantic delta.
+    context_multi, requested_multi = _live_pr_files_probe(
+        tmp_path / "multi",
+        monkeypatch,
+        files_count=103,
+        changed_files=0,
+        pr_additions=0,
+        pr_deletions=0,
+    )
+    assert sum(1 for e in requested_multi if "/pulls/9999/files" in e) == 2
+    assert context_multi["authenticated_pr_files"][9999] == sorted(
+        ["fixture.txt", *(f"file-{index}.txt" for index in range(1, 103))]
+    )
+
+
+def test_zeroed_stats_dropout_requires_fully_zeroed_rest_signature(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # changed_files=0 with nonzero REST additions/deletions is NOT the stats
+    # dropout signature; it remains incomplete file discovery.
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        _live_pr_files_probe(
+            tmp_path / "nonzero-stats",
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+        )
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        _live_pr_files_probe(
+            tmp_path / "zero-additions-only",
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+            pr_additions=0,
+        )
+
+
+def test_zeroed_stats_dropout_genuine_truncation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A zeroed-stats PR whose short files page still advertises rel="next"
+    # is a genuinely truncated enumeration, not a curable dropout.
+    with pytest.raises(ValueError, match="ended before an advertised next page"):
+        _live_pr_files_probe(
+            tmp_path,
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+            pr_additions=0,
+            pr_deletions=0,
+            files_link_header='<https://api.github.com/x?per_page=100&page=2>; rel="next"',
+        )
+
+
+def test_zeroed_stats_dropout_witness_binds_semantic_delta_exactly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    observed_zeroed = {"additions": 0, "changed_files": 0, "deletions": 0}
+    # Rename dispositions participate through previous_filename, exactly as
+    # in the downstream VAL-CDG-018 witness.
+    monkeypatch.setattr(
+        ratchet,
+        "_first_parent_semantic_delta",
+        lambda *_args, **_kwargs: {"new.txt", "old.txt"},
+    )
+    operation_log: list[dict[str, Any]] = []
+    ratchet._require_stats_dropout_completeness_witness(
+        repo_root=tmp_path,
+        pr=9850,
+        observed_pr=observed_zeroed,
+        files=[{"filename": "new.txt", "id": 1, "previous_filename": "old.txt"}],
+        first_parent_sha="a" * 40,
+        merge_sha="b" * 40,
+        operation_log=operation_log,
+    )
+    assert [entry["kind"] for entry in operation_log] == ["stats_dropout_witness"]
+    # Both mismatch directions fail closed.
+    monkeypatch.setattr(
+        ratchet,
+        "_first_parent_semantic_delta",
+        lambda *_args, **_kwargs: {"fixture.txt", "foreign.txt"},
+    )
+    with pytest.raises(ValueError, match="does not equal the recomputed first-parent"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    monkeypatch.setattr(ratchet, "_first_parent_semantic_delta", lambda *_args, **_kwargs: set())
+    with pytest.raises(ValueError, match="does not equal the recomputed first-parent"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    # A bool changed_files is not the zeroed dropout signature even though
+    # False == 0 in Python.
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr={"additions": 0, "changed_files": False, "deletions": 0},
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    # Defensive floors: an empty enumeration and noncanonical first-parent
+    # bindings are never curable.
+    with pytest.raises(ValueError, match="file enumeration is empty"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    with pytest.raises(ValueError, match="lacks canonical first-parent bindings"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="953c501c",
+            operation_log=[],
+        )
+
+
+def test_paginated_short_page_with_advertised_next_link_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Link-exhaustion proof: a short page that still advertises rel="next"
+    # is an inconsistent (truncated) enumeration and fails closed; a
+    # rel="prev"-only terminal page remains exhausted.
+    def serve(link: Any) -> Any:
+        identity = {
+            "byte_length": 1,
+            "etag": '"e"',
+            "link": link,
+            "sha256": "0" * 64,
+            "updated_at": None,
+        }
+        return lambda endpoint, *, operation_log: ([{"id": 1}], identity)
+
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        serve('<https://api.github.com/x?per_page=100&page=2>; rel="next"'),
+    )
+    with pytest.raises(ValueError, match="ended before an advertised next page"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/pulls/9850/files", operation_log=[])
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        serve('<https://api.github.com/x?per_page=100&page=1>; rel="prev"'),
+    )
+    records, _identities = ratchet._gh_api_paginated(
+        "repos/synaptent/aragora/pulls/9850/files", operation_log=[]
+    )
+    assert len(records) == 1
+    # A malformed (non-string) Link identity fails closed rather than being
+    # treated as exhausted.
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", serve(7))
+    with pytest.raises(ValueError, match="Link header is malformed"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/pulls/9850/files", operation_log=[])
 
 
 def test_files_api_incomplete_uses_exact_tree_diff_with_pinned_rename_policy(
