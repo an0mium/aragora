@@ -40,9 +40,9 @@ integrator, the merge arbiter's only direct cross-module consumer.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** no
-- **Why:** the OWNER explicitly authorized the exact narrow empty-snapshot repair and terminal rerun
-- **Next required action:** commit and push the P3 completeness correction, then refresh the exact-head terminal review
+- **Stop allowed right now:** yes
+- **Why:** the refreshed exact-head review found another P2; the plan forbids another assumed repair loop
+- **Next required action:** await explicit OWNER authority for the exact malformed-file-entry repair or a separate follow-up decision
 
 ## Effort Standard
 
@@ -90,17 +90,17 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 2 authorized repair in progress
+**Status:** Batch 2 blocked at refreshed terminal review
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** The first terminal review of `eedcdf17c2` found no P0-P2 and independently
-passed the 135-test/static-check set. It found one P3 within the authorized completeness contract:
-missing or null `files` was normalized to `[]`. The correction now requires an explicit list and
-adds missing, null, non-list, and negative-count coverage; 139 cumulative tests and static gates pass.
+**What was just finished:** Exact head `a061859015` passed 139 tests, static gates, hooks, preflight,
+and all five required non-quorum checks. Fresh independent review found another P2: malformed list
+members can be filtered out before `changedFiles` completeness and sensitive-path checks, allowing
+an uninspectable changed file to disappear from the security decision.
 
-**Single next action:** commit and push the bounded P3 correction, re-read this guide, then obtain a
-fresh independent terminal review of the new exact head before any cleanup.
+**Single next action:** record the blocked state and ask the OWNER whether to authorize exactly one
+malformed-entry repair. Do not edit product code, clean operational artifacts, or claim readiness.
 
 ## Active Compute
 
@@ -124,9 +124,10 @@ No active paid or long-running compute.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
 
-**Resolved review sequence:** the P2 empty-snapshot blocker is repaired. The first refreshed review
-found only a P3 completeness gap because missing or null `files` was normalized to an empty list;
-that exact in-scope correction is implemented and awaits a refreshed exact-head review.
+**Blocking finding:** `scripts/merge_codex_automation_prs.py` filters malformed `files` members
+before comparing the resulting paths to `changedFiles`. A payload such as `changedFiles=1` with
+`files=[{"path":"aragora/safe.py"}, {}]` can be accepted after the malformed member disappears.
+The plan forbids another assumed repair after this further P2.
 
 **Rollback tag:** `elves/pre-batch-2-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 

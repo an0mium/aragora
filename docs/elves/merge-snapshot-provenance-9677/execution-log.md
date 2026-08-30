@@ -234,4 +234,25 @@ proof, and receives a new terminal review before cleanup.
   0 skipped. Scoped Ruff, four-source mypy, metrics drift, module-tier drift, docs consistency, and
   diff hygiene: PASS.
 
+## Refreshed Terminal Review Blocker: 2026-08-29 20:21 America/Chicago
+
+- Exact local, remote, and PR head remained `a061859015170033ebc78508ff831a6efa5d33dd`
+  before and after fresh independent review. The PR remained open, draft, `MERGEABLE/CLEAN`, with
+  zero comments, submitted reviews, or review threads.
+- The review independently confirmed 139 tests, Ruff, mypy, diff hygiene, exact-head propagation,
+  all direct consumers, and five green required non-quorum checks. Automated quorum was green but
+  was neither collected nor used as review authority.
+- One new P2 remains: the collector filters `files` list members lacking a truthy `path` and only
+  then compares `changedFiles` with the filtered path count. For example, `changedFiles=1` with
+  `files=[{"path":"aragora/safe.py"}, {}]` is accepted after the malformed second member disappears,
+  so an uninspectable changed file can bypass sensitive-path screening.
+- The exact repair would require `changedFiles == len(files)` and every member to be a mapping with
+  a non-empty string `path` before selection. No product edit was made because the plan explicitly
+  stops on a further P2 instead of assuming another repair loop.
+
+**Exact approval required:** authorize exactly one additional bounded repair in PR #9874 that
+rejects every malformed file entry before selection, compares `changedFiles` with the raw list
+length, adds malformed-entry mutation coverage, reruns all validation, and receives one new
+exact-head terminal review. Otherwise leave the draft blocked and split or supersede the lane.
+
 <!-- Add newer entries above this line. -->
