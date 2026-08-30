@@ -107,3 +107,59 @@ push.
 > inference, touch excluded files, collect evidence, mark ready, settle, or merge
 > until the batch is clean and the plan's normal governed landing sequence permits
 > it.
+
+## 2026-08-30 18:30 America/Chicago - Batch 1 launch
+
+- Renewed lease `3976a551-db6` for `issue:9872`; lane ownership remains this
+  Codex Desktop session.
+- Verified local, remote branch, and PR head at
+  `0ac91dcee2f9d3ab5cb571e64c4239dbf2b03052` before launch.
+- Found `origin/main` had advanced by PR #9905 to
+  `0519d519aac144fe6b434b54961e78c3a20ea68f`.
+- Proved the new main commit touches only the excluded outcome-ledger files and
+  does not overlap Batch 1's MetaPlanner or test paths.
+- Merged current main without conflict and pushed launch head
+  `9d209a614f2ee153a658a307e335255636148951`.
+- Stop Gate is now `no`. No product file has been edited yet.
+
+### Batch 1 product contract
+
+1. An unset proposal timeout preserves current behavior; an explicit timeout is
+   confined to proposal generation.
+2. Structured proposer failures and empty/error-placeholder outputs never count as
+   substantive evidence.
+3. Surviving proposals are parsed in participant order with stable normalized
+   description deduplication; heuristics run only when none survive.
+4. Every returned goal carries additive degradation metadata derived from the
+   expected proposer roster and `DebateResult.agent_failures`.
+5. Legacy receipt reasoning names proposer failure with a sanitized cause.
+6. Healthy full-panel behavior remains unchanged apart from additive metadata.
+
+### Batch 1 implementation and validation
+
+- Product scope: five files, 457 added and 58 removed lines (515 changed lines,
+  approximately the 500-line cap); no excluded file was touched.
+- `MetaPlannerConfig.proposal_timeout_seconds=None` preserves the adaptive Arena
+  timeout. An explicit value is assigned only to `ProposalPhase`.
+- The parser projects sanitized proposal records from
+  `DebateResult.agent_failures`, classifies placeholders with the repository's
+  existing failure-semantics helper, and preserves surviving proposals in the
+  expected participant order.
+- Objective-fidelity recovery is barred from replacing surviving substantive
+  proposals with heuristics.
+- Receipt reasoning is augmented inside MetaPlanner after the existing receipt
+  factory returns, so `aragora/gauntlet/receipt_models.py` remains untouched.
+
+Validation receipts:
+
+- Focused MetaPlanner/proposal suites: `123 passed`.
+- Adjacent generic planner, bridge, receipt, and integration suites: `78 passed`.
+- Ruff format/check and `git diff --check`: pass.
+- Mutation 1 (treat an error placeholder as evidence): required regression failed.
+- Mutation 2 (drop projected failure provenance): required regression failed.
+- Both mutations were restored; the two break tests then passed.
+- Targeted mypy reports two errors on untouched lines. A detached pristine
+  `origin/main` worktree reports the same two errors at the corresponding lines.
+- `make ci-required` stops at repository-wide mypy with 1,744 errors in 468 files;
+  detached pristine `origin/main` has the identical count. No unrelated type debt
+  was changed.

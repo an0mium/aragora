@@ -1,10 +1,10 @@
 {
   "session_id": "elves-2026-08-30-truthful-debate-degradation-9872",
   "version": "1.12.0",
-  "status": "launch_ready",
+  "status": "in_progress",
   "branch": "codex/truthful-debate-degradation-9872-20260830",
-  "base_sha": "0ecbf67178f406351c9741463c6cb8c1f785c802",
-  "collision_tripwire": "6ed6cb6d6e171fd8e0b5c997587ba141e8719be3",
+  "base_sha": "0519d519aac144fe6b434b54961e78c3a20ea68f",
+  "collision_tripwire": "9d209a614f2ee153a658a307e335255636148951",
   "plan_path": "docs/elves/truthful-debate-degradation/plan.md",
   "survival_guide_path": "docs/elves/truthful-debate-degradation/survival-guide.md",
   "learnings_path": "docs/elves/truthful-debate-degradation/learnings.md",
@@ -22,9 +22,9 @@
   },
   "continuation_guard": {
     "remaining_batches": 7,
-    "stop_allowed": true,
-    "checkpoint_is_stop": true,
-    "next_required_action": "Fresh launch: set Stop Gate to no, renew lease 3976a551-db6, create the Batch 1 rollback tag, and implement issue #9872"
+    "stop_allowed": false,
+    "checkpoint_is_stop": false,
+    "next_required_action": "Create the Batch 1 rollback tag, then implement and validate the bounded issue #9872 contract"
   },
   "test_baseline": {
     "passed": 114,
@@ -34,12 +34,12 @@
     "scope": "tests/nomic/test_meta_planner.py tests/debate/phases/test_proposal_phase.py tests/debate/test_proposal_phase.py"
   },
   "current_batch": {
-    "id": 0,
-    "name": "Campaign staging",
-    "status": "complete"
+    "id": 1,
+    "name": "MetaPlanner proposer-loss truth (#9872)",
+    "status": "validation_complete"
   },
   "batches": [
-    {"id": 1, "name": "MetaPlanner proposer-loss truth (#9872)", "status": "planned", "commit": null, "rollback_tag": null},
+    {"id": 1, "name": "MetaPlanner proposer-loss truth (#9872)", "status": "review_pending", "commit": null, "rollback_tag": "elves/truthful-debate-degradation-9872/pre-batch-1"},
     {"id": 2, "name": "Proposal evidence classification", "status": "planned", "commit": null, "rollback_tag": null},
     {"id": 3, "name": "Partial-roster consensus", "status": "planned", "commit": null, "rollback_tag": null},
     {"id": 4, "name": "Deadline and cancellation truth", "status": "planned", "commit": null, "rollback_tag": null},

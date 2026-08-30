@@ -37,14 +37,20 @@
   order. Heuristics are appropriate only when no substantive proposal survives.
 - 2026-08-30: Healthy full-panel behavior remains unchanged except for additive
   metadata.
+- 2026-08-30: Preserving a survivor at the parser is insufficient if a later
+  objective-fidelity step can replace it. The invariant must hold across every
+  post-parse transformation.
+- 2026-08-30: Targeted and repository-wide mypy both fail identically on detached
+  pristine main, so the batch records the baseline without absorbing unrelated
+  type debt.
 
 ## Known Traps
 
 - 2026-08-30: PR #8823 owns `aragora/gauntlet/receipt_models.py`; do not touch it
   while that PR remains open.
-- 2026-08-30: Reviewer/Fable capacity is currently reserved by Codex A. Skip the
-  initial goal consult and do not launch Claude-family review/evidence work until
-  capacity is explicitly free.
+- 2026-08-30: Reviewer/Fable capacity was reserved at launch and was later
+  explicitly released. The initial goal consult remains skipped; exact-head review
+  may proceed after the implementation push.
 
 ## Retired Learnings
 

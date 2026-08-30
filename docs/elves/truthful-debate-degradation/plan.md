@@ -63,35 +63,35 @@ ownership.
 
 ### Tasks
 
-- [ ] Add backward-compatible `MetaPlannerConfig.proposal_timeout_seconds`.
+- [x] Add backward-compatible `MetaPlannerConfig.proposal_timeout_seconds`.
   `None` preserves current behavior; an explicit value applies only to proposal
   generation.
-- [ ] Add additive `PrioritizedGoal.metadata` containing `decision_source`,
+- [x] Add additive `PrioritizedGoal.metadata` containing `decision_source`,
   `degraded`, `expected_proposers`, `substantive_proposers`, and sanitized
   `failure_provenance`.
-- [ ] Parse surviving substantive proposals in participant order, with stable
+- [x] Parse surviving substantive proposals in participant order, with stable
   normalized-description deduplication.
-- [ ] Use heuristic prioritization only when no substantive proposal exists.
-- [ ] Reuse `DebateResult.agent_failures`; do not add a competing failure schema.
-- [ ] Make the initial legacy Decision Receipt reasoning name proposer failure and
+- [x] Use heuristic prioritization only when no substantive proposal exists.
+- [x] Reuse `DebateResult.agent_failures`; do not add a competing failure schema.
+- [x] Make the initial legacy Decision Receipt reasoning name proposer failure and
   sanitized cause without touching `receipt_models.py`.
-- [ ] Add deterministic regression and mutation/break tests.
+- [x] Add deterministic regression and mutation/break tests.
 
 ### Acceptance Criteria
 
-- [ ] One proposer times out while another succeeds: surviving goals are returned,
+- [x] One proposer times out while another succeeds: surviving goals are returned,
   metadata is degraded, and receipt reasoning names the failure.
-- [ ] One proposer raises and one returns empty: neither placeholder nor empty text
+- [x] One proposer raises and one returns empty: neither placeholder nor empty text
   counts as substantive participation.
-- [ ] Every proposer fails: heuristic fallback remains available and is explicitly
+- [x] Every proposer fails: heuristic fallback remains available and is explicitly
   marked as the decision source and degraded.
-- [ ] Full-panel success output is behaviorally unchanged apart from additive
+- [x] Full-panel success output is behaviorally unchanged apart from additive
   metadata.
-- [ ] Unset timeout preserves the existing Arena/proposal behavior; an explicit
+- [x] Unset timeout preserves the existing Arena/proposal behavior; an explicit
   timeout is proposal-only.
-- [ ] Mutation tests fail if failure provenance is dropped or an error placeholder
+- [x] Mutation tests fail if failure provenance is dropped or an error placeholder
   is counted as evidence.
-- [ ] Final product diff is no more than eight files and approximately 500 changed
+- [x] Final product diff is no more than eight files and approximately 500 changed
   lines, excluding generated fixtures and removed session artifacts.
 
 ### Likely Product Files

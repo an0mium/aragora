@@ -29,7 +29,8 @@ consumers, while preserving substantive surviving work.
 - **Draft PR:** `#9907`
 - **Lane:** `codex-b-truthful-debate-degradation-9872`
 - **Lease:** `3976a551-db6`, work identity `issue:9872`
-- **Branch tip at start:** `0ecbf67178f406351c9741463c6cb8c1f785c802`
+- **Branch tip at launch:** `9d209a614f2ee153a658a307e335255636148951`
+- **Fresh-main base at launch:** `0519d519aac144fe6b434b54961e78c3a20ea68f`
 - **Plan hash at session start:** `b2b85bac7780d2fddd68f86315d3a92f`
 - **Merge policy:** Tier 0-2 only, exact-head evidence and OWNER settlement through
   the repository's normal protected helper path; never `--admin`, force, or bypass
@@ -49,11 +50,11 @@ consumers, while preserving substantive surviving work.
 ## Stop Gate
 
 - **Planned batches remaining:** 7
-- **Stop allowed right now:** yes
-- **Why:** Elves requires a fresh launch call after staging; no product batch has
-  begun
-- **Next required action:** in a fresh call, renew the lease, set this gate to no,
-  create `elves/truthful-debate-degradation-9872/pre-batch-1`, and execute Batch 1
+- **Stop allowed right now:** no
+- **Why:** Batch 1 is active and the bounded product contract has not completed
+- **Next required action:** create
+  `elves/truthful-debate-degradation-9872/pre-batch-1`, then implement and validate
+  the issue #9872 contract without leaving the owned file set
 
 After launch, rewrite this gate to `Stop allowed right now: no` while any legal
 batch remains.
@@ -78,15 +79,16 @@ batch remains.
 
 ## Current Phase
 
-**Status:** Launch-ready staging
+**Status:** Batch 1 in progress
 
 **Active batch:** Batch 1 - MetaPlanner proposer-loss truth (#9872)
 
-**What was just finished:** Live overlap and owner proof, exact-main verification,
-lane/lease claim, clean dedicated worktree, and a 114-test deterministic baseline.
+**What was just finished:** The bounded Batch 1 implementation, 201 focused and
+adjacent tests, two mutation kills, lint, targeted type baseline comparison, and a
+pristine-main CI-equivalent comparison.
 
-**Single next action:** Launch Batch 1 from the exact staged branch after re-reading
-steering and renewing lease `3976a551-db6`.
+**Single next action:** Commit and push the validated implementation, re-read this
+guide, run automation preflight, and obtain one exact-head non-countable review.
 
 ## Active Compute
 
