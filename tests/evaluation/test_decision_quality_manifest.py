@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import pytest
 
+import aragora.evaluation.decision_quality_manifest as manifest_module
 from aragora.evaluation.decision_quality_manifest import (
     EXPECTED_CORPUS_SHA256,
     EXPECTED_MANIFEST_SHA256,
@@ -195,3 +196,39 @@ def test_manifest_rejects_nonfinite_roster_values(tmp_path: Path) -> None:
     report = validate_manifest(manifest_path)
 
     assert "invalid_json" in _issue_codes(report)
+
+
+def test_manifest_rejects_json_null_document(tmp_path: Path) -> None:
+    manifest_path = _copy_contract(tmp_path)
+    manifest_path.write_text("null\n", encoding="utf-8")
+
+    report = validate_manifest(manifest_path)
+
+    assert not report.ok
+    assert "invalid_type" in _issue_codes(report)
+
+
+def test_manifest_rejects_json_null_roster(tmp_path: Path) -> None:
+    manifest_path = _copy_contract(tmp_path)
+    (manifest_path.parent / "roster.json").write_text("null\n", encoding="utf-8")
+
+    report = validate_manifest(manifest_path)
+
+    assert not report.ok
+    assert "invalid_type" in _issue_codes(report)
+
+
+def test_manifest_fails_closed_when_scorer_module_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = _copy_contract(tmp_path)
+
+    def unavailable(_name: str) -> object:
+        raise ModuleNotFoundError("scorer unavailable")
+
+    monkeypatch.setattr(manifest_module, "import_module", unavailable)
+
+    report = validate_manifest(manifest_path)
+
+    assert not report.ok
+    assert "scorer_module_unavailable" in _issue_codes(report)

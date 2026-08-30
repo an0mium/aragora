@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ EXPECTED_CORPUS_SHA256 = "3a46198fe33e4cc984cf777c6db7f046e4adb7db10840e775f83e9
 EXPECTED_OUTCOMES_SHA256 = "98702fe5d220d171e77fd0276d5803ec851e46c6900445dd73ccb4cbfdbf194d"
 EXPECTED_PROMPT_SHA256 = "767f6552a17ae179fed027ff1bc2f737d893a1f72859c090b1a5730979439647"
 EXPECTED_ROSTER_SHA256 = "2d7027906c5da8fe137cca2f52773eb2a9b2f2864753884c715774d54df2df71"
+EXPECTED_SCORER_MODULE = "aragora.evaluation.outcome_decision_quality"
 
 EXPECTED_CONDITIONS = (
     "single_claude",
@@ -127,6 +129,9 @@ class DuplicateObjectKeyError(ValueError):
     """Raised when a JSON object repeats a key."""
 
 
+_JSON_LOAD_FAILED = object()
+
+
 @dataclass(frozen=True)
 class ManifestIssue:
     path: str
@@ -191,7 +196,7 @@ def _issue(report: ManifestValidationReport, path: str, code: str, message: str)
     report.issues.append(ManifestIssue(path, code, message))
 
 
-def _load_json(path: Path, report: ManifestValidationReport, issue_path: str) -> Any | None:
+def _load_json(path: Path, report: ManifestValidationReport, issue_path: str) -> Any:
     try:
         return json.loads(
             path.read_text(encoding="utf-8"),
@@ -204,7 +209,7 @@ def _load_json(path: Path, report: ManifestValidationReport, issue_path: str) ->
         _issue(report, issue_path, "invalid_utf8", str(exc))
     except (json.JSONDecodeError, DuplicateObjectKeyError, ValueError) as exc:
         _issue(report, issue_path, "invalid_json", str(exc))
-    return None
+    return _JSON_LOAD_FAILED
 
 
 def _exact_keys(
@@ -295,7 +300,7 @@ def _validate_semantics(manifest: dict[str, Any], report: ManifestValidationRepo
     scorer = _object(manifest.get("scorer"), "$.scorer", _SCORER_KEYS, report)
     if scorer is not None and scorer != {
         "contract_version": "outcome-decision-quality-scorer/1.0",
-        "module": "aragora.evaluation.outcome_decision_quality",
+        "module": EXPECTED_SCORER_MODULE,
         "primary_metrics": list(EXPECTED_PRIMARY_METRICS),
     }:
         _issue(report, "$.scorer", "scorer_contract_mismatch", "exact scorer contract required")
@@ -368,7 +373,10 @@ def _verify_roster(root: Path, spec: Any, report: ManifestValidationReport) -> N
     if roster_path is None:
         return
     roster = _load_json(roster_path, report, "$.roster")
-    if roster is None:
+    if roster is _JSON_LOAD_FAILED:
+        return
+    if not isinstance(roster, dict):
+        _issue(report, "$.roster", "invalid_type", "roster must be an object")
         return
     try:
         digest = canonical_sha256(roster)
@@ -377,6 +385,31 @@ def _verify_roster(root: Path, spec: Any, report: ManifestValidationReport) -> N
         return
     if digest != EXPECTED_ROSTER_SHA256:
         _issue(report, "$.roster.sha256", "artifact_hash_mismatch", digest)
+
+
+def _verify_scorer(manifest: dict[str, Any], report: ManifestValidationReport) -> None:
+    spec = manifest.get("scorer")
+    if not isinstance(spec, dict) or spec.get("module") != EXPECTED_SCORER_MODULE:
+        return
+    try:
+        module = import_module(EXPECTED_SCORER_MODULE)
+    except ImportError as exc:
+        _issue(report, "$.scorer.module", "scorer_module_unavailable", str(exc))
+        return
+    if getattr(module, "SCORER_CONTRACT_VERSION", None) != spec.get("contract_version"):
+        _issue(
+            report,
+            "$.scorer.contract_version",
+            "scorer_runtime_mismatch",
+            "runtime scorer contract version does not match the manifest",
+        )
+    if tuple(getattr(module, "PRIMARY_METRICS", ())) != tuple(spec.get("primary_metrics", ())):
+        _issue(
+            report,
+            "$.scorer.primary_metrics",
+            "scorer_runtime_mismatch",
+            "runtime scorer metrics do not match the manifest",
+        )
 
 
 def _collect_records(
@@ -427,7 +460,7 @@ def _verify_tranches(
             (corpus, spec["corpus_sha256"], f"$.tranches[{index}].corpus_sha256"),
             (sidecar, spec["outcomes_sha256"], f"$.tranches[{index}].outcomes_sha256"),
         ):
-            if value is None:
+            if value is _JSON_LOAD_FAILED:
                 continue
             try:
                 actual = canonical_sha256(value)
@@ -436,19 +469,23 @@ def _verify_tranches(
                 continue
             if actual != expected:
                 _issue(report, path, "tranche_hash_mismatch", actual)
-        cases.extend(
-            _collect_records(corpus, "cases", "case_id", f"$.tranches[{index}]", case_ids, report)
-        )
-        outcomes.extend(
-            _collect_records(
-                sidecar,
-                "outcomes",
-                "case_id",
-                f"$.tranches[{index}]",
-                outcome_ids,
-                report,
+        if corpus is not _JSON_LOAD_FAILED:
+            cases.extend(
+                _collect_records(
+                    corpus, "cases", "case_id", f"$.tranches[{index}]", case_ids, report
+                )
             )
-        )
+        if sidecar is not _JSON_LOAD_FAILED:
+            outcomes.extend(
+                _collect_records(
+                    sidecar,
+                    "outcomes",
+                    "case_id",
+                    f"$.tranches[{index}]",
+                    outcome_ids,
+                    report,
+                )
+            )
 
     report.case_count = len(cases)
     report.outcome_count = len(outcomes)
@@ -488,9 +525,10 @@ def validate_manifest(manifest_path: Path) -> ManifestValidationReport:
     """Validate the exact frozen manifest and every artifact it binds."""
     report = ManifestValidationReport()
     manifest = _load_json(manifest_path, report, "$")
+    if manifest is _JSON_LOAD_FAILED:
+        return report
     if not isinstance(manifest, dict):
-        if manifest is not None:
-            _issue(report, "$", "invalid_type", "manifest must be an object")
+        _issue(report, "$", "invalid_type", "manifest must be an object")
         return report
     try:
         report.manifest_sha256 = canonical_sha256(manifest)
@@ -500,6 +538,7 @@ def validate_manifest(manifest_path: Path) -> ManifestValidationReport:
     if report.manifest_sha256 != EXPECTED_MANIFEST_SHA256:
         _issue(report, "$", "manifest_hash_mismatch", report.manifest_sha256)
     _validate_semantics(manifest, report)
+    _verify_scorer(manifest, report)
 
     root = manifest_path.resolve().parent
     _verify_text_artifact(root, manifest.get("prompt"), EXPECTED_PROMPT_SHA256, "$.prompt", report)
@@ -518,6 +557,7 @@ __all__ = [
     "EXPECTED_MANIFEST_SHA256",
     "EXPECTED_OUTCOMES_SHA256",
     "EXPECTED_PRIMARY_METRICS",
+    "EXPECTED_SCORER_MODULE",
     "EXPECTED_PROMPT_SHA256",
     "EXPECTED_ROSTER_SHA256",
     "EXPECTED_TRANCHES",
