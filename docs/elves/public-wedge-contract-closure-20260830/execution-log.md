@@ -67,3 +67,34 @@
 Stop at the mandatory fresh-launch boundary. On the next user call, re-read the full durable
 packet, set the Stop Gate to `no`, reverify live ownership/head/overlap/main health, create the
 unique rollback tag, and implement Batch 1.
+
+## 2026-08-30 - Batch 1 implementation and validation
+
+- Re-read the full launch packet and operator steering, renewed lease `1f1ea372-286`, and verified
+  the local and remote tips descended only through the self-created staging metadata commit.
+- Refreshed `origin/main`, all required main checks, open-PR changed-file overlap, reviewer
+  reservations, disk, processes, and outbox. Main remained healthy and no PR intersected the
+  expected Batch 1 paths.
+- Created and pushed rollback tag
+  `elves/public-wedge-contract-closure-b1/pre-batch-1` at
+  `68621d77b24572d6517761170a4e25f3614ab36c` without moving the older global tag.
+- Added one composed clean-install contract to `tests/cli/test_receipt_roundtrip.py`. It builds and
+  installs the local root and verifier wheels, clears provider/signing/AWS credentials, runs from
+  outside the checkout, and follows one receipt through offline demo, native verification, ODR
+  export, and standalone JSON verification with receipt/hash continuity checks.
+- The first break mutation changed the unsigned ODR verdict to another non-empty string. The
+  verifier correctly accepted that schema-valid unsigned artifact, demonstrating that unsigned
+  structure validation is not authenticity. Replaced it with removal of required
+  `claim.verdict`; the installed verifier exits 1 and reports schema failure. No product/verifier
+  logic or PR #9015 path was changed.
+- Validation receipts:
+  - new composed contract: 1 passed from locally built and isolated wheels;
+  - root receipt/export/walkthrough/onboarding/verify suites: 126 passed;
+  - standalone verifier CLI/example suites: 8 passed from its `src/` package boundary;
+  - Ruff formatting and lint: passed;
+  - CI-equivalent required gates: lint, shrink-only mypy baseline, version alignment, SDK parity,
+    namespace parity, cross-SDK parity, generated OpenAPI SDK contracts, and route validation all
+    passed.
+- Product scope remains one existing test file, 237 added lines; the durable plan is the only
+  additional final tracked file. Independent review, final cleanup, exact-head CI/evidence,
+  settlement, and landing remain.

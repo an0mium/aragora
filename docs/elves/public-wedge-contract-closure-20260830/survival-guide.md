@@ -16,7 +16,7 @@ behavior unless that contract exposes a concrete defect during implementation.
 ## Run Control
 
 - **Run mode:** finite (Batch 1 only; the persistent campaign continues through fresh-main units)
-- **Stop policy:** staged-launch boundary now; blocker-only after launch
+- **Stop policy:** blocker-only
 - **User intent:** "PLEASE IMPLEMENT THIS PLAN: Aragora Public Wedge Contract-Closure Campaign"
 - **Checkpoint due by:** none
 - **Checkpoint semantics:** none
@@ -56,12 +56,11 @@ behavior unless that contract exposes a concrete defect during implementation.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** yes
-- **Why:** the Elves two-call protocol requires a fresh user launch after staging; product edits are
-  forbidden in this setup call
-- **Next required action:** user sends the short launch prompt recorded below; then set this gate to
-  `no`, re-read steering, renew the lease, verify the collision tripwire, and create the unique
-  rollback tag before product edits
+- **Stop allowed right now:** no
+- **Why:** the fresh launch has arrived and Batch 1 implementation, validation, review, cleanup,
+  settlement, and governed landing remain unfinished
+- **Next required action:** checkpoint the validated implementation, push, re-read this guide,
+  clean operational artifacts, then obtain independent exact-head review
 
 ## Launch Prompt
 
@@ -167,16 +166,15 @@ currently recorded in the Stop Gate permits a final response.
 
 ## Current Phase
 
-**Status:** Launch-ready
+**Status:** In progress
 
 **Active batch:** Batch 1 - Compose the zero-key offline receipt proof
 
-**What was just finished:** The validated staging packet was committed and pushed, and draft PR
-#9903 was opened at staging plan head `ac8d546127bc42de1ced6920fbd5e5194a889c96`.
+**What was just finished:** The one-file composed contract and its structural mutation proof passed
+focused and CI-equivalent validation without changing public behavior or verifier code.
 
-**Single next action:** Receive the user's fresh launch call, set the Stop Gate to `no`, renew the
-lease, recheck steering/head/overlap/main health, create the unique rollback tag, and implement
-Batch 1.
+**Single next action:** Commit and push the validated implementation checkpoint, re-read this
+guide, then remove operational Elves artifacts before terminal review.
 
 ## Next Exact Batch
 
@@ -192,9 +190,9 @@ Batch 1.
 
 **Acceptance criteria:**
 
-- [ ] Every untampered seam exits `0` and retains the same non-empty receipt ID.
-- [ ] The mutated ODR exits `1` through the installed standalone verifier.
-- [ ] No provider transport, excluded path, overlapping file, skip, or test weakening is introduced.
+- [x] Every untampered seam exits `0` and retains the same non-empty receipt ID.
+- [x] The structurally invalid mutated ODR exits `1` through the installed standalone verifier.
+- [x] No provider transport, excluded path, overlapping file, skip, or test weakening is introduced.
 
 **Risk:** Packaging subprocesses could become slow or accidentally resolve PyPI instead of local
 source; use absolute source paths and bounded timeouts.

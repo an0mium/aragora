@@ -1,7 +1,7 @@
 {
   "session_id": "elves-2026-08-30-public-wedge-contract-closure-b1",
   "version": "1.12.0",
-  "status": "staged",
+  "status": "in_progress",
   "owner_session_id": "019f807d-64fd-7502-8043-9c42ec27be88",
   "branch": "codex/public-wedge-contract-closure-b1-20260830",
   "base_sha": "eaaac1a07480b64d3ba4a060fbf36773ae36e589",
@@ -21,9 +21,9 @@
   },
   "continuation_guard": {
     "remaining_batches": 1,
-    "stop_allowed": true,
+    "stop_allowed": false,
     "checkpoint_is_stop": false,
-    "next_required_action": "Receive the fresh launch prompt, set Stop Gate to no, renew the lease, verify local and remote heads descend from the staging plan head with no foreign commit, recheck overlap, create the unique rollback tag, then implement Batch 1"
+    "next_required_action": "Commit and push the validated implementation checkpoint, re-read the survival guide, then remove operational artifacts before exact-head independent review"
   },
   "test_baseline": {
     "passed": 11,
@@ -36,16 +36,16 @@
   "current_batch": {
     "id": 1,
     "name": "Compose the zero-key offline receipt proof",
-    "status": "staged"
+    "status": "in_progress"
   },
   "batches": [
     {
       "id": 1,
       "name": "Compose the zero-key offline receipt proof",
-      "status": "staged",
+      "status": "in_progress",
       "commit": null,
       "rollback_tag": "elves/public-wedge-contract-closure-b1/pre-batch-1",
-      "started_at": null,
+      "started_at": "2026-08-30T22:15:00Z",
       "completed_at": null
     }
   ],

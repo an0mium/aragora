@@ -57,13 +57,13 @@ rather than a known product defect.
 
 ### Tasks
 
-- [ ] Add one deterministic subprocess-based contract in
+- [x] Add one deterministic subprocess-based contract in
   `tests/cli/test_receipt_roundtrip.py` that removes provider credentials and runs the existing
   offline demo, native verifier, ODR exporter, and standalone verifier on one artifact.
-- [ ] Build the root package and `aragora-verify` wheels from the checked-out source, install them
+- [x] Build the root package and `aragora-verify` wheels from the checked-out source, install them
   outside the source tree, and invoke the installed modules from a temporary working directory.
-- [ ] Assert the expected exit-code and receipt-ID continuity contract at every seam.
-- [ ] Add mutation/break coverage proving the installed standalone verifier rejects a tampered ODR
+- [x] Assert the expected exit-code and receipt-ID continuity contract at every seam.
+- [x] Add mutation/break coverage proving the installed standalone verifier rejects a tampered ODR
   derived from that same demo receipt.
 - [ ] Run focused tests, wheel/install smoke validation, repository CI-equivalent gates, and one
   independent non-countable review.
@@ -71,17 +71,17 @@ rather than a known product defect.
 
 ### Acceptance criteria
 
-- [ ] No provider or inference transport is invoked; the test explicitly removes all supported
+- [x] No provider or inference transport is invoked; the test explicitly removes all supported
   provider credential variables.
-- [ ] Demo, native verify, ODR export, and untampered standalone verify each exit `0`.
-- [ ] The native receipt, exported ODR, and verifier JSON report the same non-empty `receipt_id`.
-- [ ] The local source wheels are built and installed outside the repo; the subprocess working
+- [x] Demo, native verify, ODR export, and untampered standalone verify each exit `0`.
+- [x] The native receipt, exported ODR, and verifier JSON report the same non-empty `receipt_id`.
+- [x] The local source wheels are built and installed outside the repo; the subprocess working
   directory is outside the source tree.
-- [ ] Mutating the ODR claim after export makes the installed standalone verifier exit `1` with a
-  failed digest/schema/signature-relevant check rather than accepting the artifact.
-- [ ] Existing focused receipt/export/walkthrough tests remain green and no existing test is
+- [x] Removing the required ODR claim verdict after export makes the installed standalone verifier
+  exit `1` with failed schema conformance rather than accepting the artifact.
+- [x] Existing focused receipt/export/walkthrough tests remain green and no existing test is
   weakened or removed.
-- [ ] Final product diff stays within eight files and roughly 500 changed lines, with no overlap
+- [x] Final product diff stays within eight files and roughly 500 changed lines, with no overlap
   against an active lane or open PR.
 
 ### Docs likely touched

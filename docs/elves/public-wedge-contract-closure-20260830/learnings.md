@@ -37,3 +37,18 @@
   check, not part of Batch 1.
 - Decision-quality, recurring-status, deployment, governance, and merge/evidence work are active
   elsewhere and excluded from the campaign.
+
+## Batch 1 implementation facts
+
+- A schema-valid edit to an unsigned ODR cannot be authenticated: changing the free-form verdict
+  value still verifies because the canonical digest is recomputed and there is no signature to
+  bind it. Batch 1 therefore proves structural fail-closed behavior by removing the required
+  `claim.verdict`; signed authenticity remains journey cell 4 and outside this PR.
+- `aragora-verify` uses a `src/` package layout. Direct package tests require
+  `PYTHONPATH=src`; running them from the monorepo root without that boundary fails collection and
+  is a harness error, not a verifier failure.
+- The composed test builds both local wheels with `--no-deps`, installs them to a temporary target,
+  probes both module paths, and runs every public command from an unrelated temporary directory.
+- Root focused regressions passed 126 tests; standalone verifier CLI/example regressions passed 8.
+- The CI-equivalent required suite passed lint, shrink-only mypy baseline, version alignment, all
+  three SDK parity checks, generated OpenAPI contract verification, and route validation.
