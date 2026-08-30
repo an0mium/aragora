@@ -498,6 +498,7 @@ class TestSecretManagerMountedFiles:
         manager._cached_secret_sources = {"OPENAI_API_KEY": "mounted_file"}
         manager._cache_timestamp = time.time()
         manager._initialized = True
+        manager._managed_sources_healthy = True
         with (
             patch("aragora.config.secrets._manager", manager),
             patch.dict(
@@ -508,6 +509,29 @@ class TestSecretManagerMountedFiles:
         ):
             assert hydrate_env_from_secrets(["OPENAI_API_KEY"], overwrite=True) == {}
             assert "OPENAI_API_KEY" not in os.environ
+
+    def test_strict_hydration_retains_env_after_managed_source_failure(self, tmp_path, caplog):
+        manager = SecretManager(SecretsConfig(secrets_dir=str(tmp_path), use_aws=True))
+        manager._initialized = True
+        manager._managed_sources_healthy = False
+        with (
+            patch("aragora.config.secrets._manager", manager),
+            patch.dict(
+                os.environ,
+                {"ARAGORA_SECRETS_STRICT": "true", "OPENAI_API_KEY": "hydrated-value"},
+                clear=True,
+            ),
+        ):
+            assert hydrate_env_from_secrets(["OPENAI_API_KEY"], overwrite=True) == {}
+            assert os.environ["OPENAI_API_KEY"] == "hydrated-value"
+
+        access_log = manager.get_access_log()
+        assert any(
+            entry["source"] == "hydrate_env_retained_source_unhealthy" for entry in access_log
+        )
+        assert "Retaining previously hydrated critical secret 'OPENAI_API_KEY'" in caplog.text
+        assert "hydrated-value" not in caplog.text
+        assert all("hydrated-value" not in str(entry) for entry in access_log)
 
     @pytest.mark.parametrize("overwrite", [False, True])
     def test_strict_hydration_removes_critical_env_fallback(self, tmp_path, caplog, overwrite):
@@ -641,6 +665,7 @@ class TestSecretManagerAWS:
         with patch.object(manager, "_get_aws_client", return_value=client):
             manager.refresh()
 
+        assert manager._managed_sources_healthy is False
         assert manager.get("OPENAI_API_KEY", strict=False) == "last-known-value"
         assert manager.presence("OPENAI_API_KEY", strict=False).source == "aws"
 

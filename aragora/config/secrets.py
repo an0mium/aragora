@@ -413,6 +413,7 @@ class SecretManager:
         self._aws_clients: dict[str, Any] = {}
         self._last_aws_load_succeeded = False
         self._last_aws_load_transient_failure = False
+        self._managed_sources_healthy = False
         self._cached_secrets: dict[str, str] = {}
         self._cached_secret_sources: dict[str, str] = {}
         self._cache_timestamp: float = 0.0
@@ -548,10 +549,14 @@ class SecretManager:
 
     def _load_managed_sources(self) -> tuple[dict[str, str], dict[str, str]]:
         """Load enabled sources and merge them in custody-precedence order."""
+        self._managed_sources_healthy = False
         mounted_secrets = self._load_from_mounted_directory() if self.config.secrets_dir else {}
         aws_secrets = self._load_from_aws() if self.config.use_aws else {}
         if aws_secrets:
             self._last_aws_load_succeeded = True
+        self._managed_sources_healthy = bool(self.config.secrets_dir or self.config.use_aws) and (
+            not self.config.use_aws or self._last_aws_load_succeeded
+        )
         if (
             self.config.use_aws
             and self._last_aws_load_transient_failure
@@ -1142,6 +1147,7 @@ def hydrate_env_from_secrets(
         with manager._lock:
             cached_secrets = dict(manager._cached_secrets)
             cached_sources = dict(manager._cached_secret_sources)
+            managed_sources_healthy = manager._managed_sources_healthy
         use_strict = is_strict_mode()
         for name in target_names:
             if (
@@ -1157,13 +1163,20 @@ def hydrate_env_from_secrets(
                 manager._log_access(name, f"hydrate_{source}", True)
             elif use_strict and is_critical_secret(name):
                 manager._log_access(name, "hydrate_env_blocked", False)
-                if name in os.environ:
+                if name in os.environ and managed_sources_healthy:
                     logger.warning(
                         "SECURITY: Removing critical secret '%s' from the process environment "
                         "because strict managed custody is enabled.",
                         name,
                     )
                     os.environ.pop(name, None)
+                elif name in os.environ:
+                    manager._log_access(name, "hydrate_env_retained_source_unhealthy", False)
+                    logger.warning(
+                        "SECURITY: Retaining previously hydrated critical secret '%s' because "
+                        "the configured managed source did not load successfully.",
+                        name,
+                    )
                 continue
             else:
                 value = os.environ.get(name)
