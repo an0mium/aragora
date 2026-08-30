@@ -435,7 +435,11 @@ def request_contains_outcome_data(request: dict[str, Any], outcome: dict[str, An
         forbidden.extend(source.values())
     for crux in outcome.get("cruxes", []):
         forbidden.extend((crux.get("crux_id"), crux.get("description")))
-        forbidden.extend(crux.get("aliases", []))
+        # Aliases are intentionally lexical and can occur naturally in the
+        # pre-cutoff packet (for example, "compliance readiness").  Treating
+        # those coincidences as sidecar disclosure makes valid frozen cases
+        # un-runnable.  Stable IDs and full preregistered descriptions remain
+        # forbidden and provide the fail-closed structural markers.
     return any(isinstance(value, str) and value and value in request_text for value in forbidden)
 
 

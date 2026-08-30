@@ -131,6 +131,43 @@ def test_outcome_leakage_detector_rejects_resolution_text(bundle) -> None:
     assert request_contains_outcome_data(request, outcome)
 
 
+def test_outcome_leakage_detector_rejects_preregistered_crux_description(bundle) -> None:
+    case = bundle.cases[0]
+    outcome = next(
+        item for item in bundle.outcomes["outcomes"] if item["case_id"] == case["case_id"]
+    )
+    request = build_model_visible_request(
+        bundle,
+        case,
+        "single_claude",
+        repetition=1,
+        implementation_sha=IMPLEMENTATION_SHA,
+    )
+    request["leak"] = outcome["cruxes"][0]["description"]
+
+    assert request_contains_outcome_data(request, outcome)
+
+
+def test_outcome_leakage_detector_allows_incidental_generic_alias_overlap(bundle) -> None:
+    case = next(
+        item for item in bundle.cases if item["case_id"] == "policy-dev-sec-cyber-disclosure-2023"
+    )
+    outcome = next(
+        item for item in bundle.outcomes["outcomes"] if item["case_id"] == case["case_id"]
+    )
+    request = build_model_visible_request(
+        bundle,
+        case,
+        "single_claude",
+        repetition=1,
+        implementation_sha=IMPLEMENTATION_SHA,
+    )
+
+    assert "compliance readiness" in canonical_json_bytes(request).decode("utf-8")
+    assert "compliance readiness" in outcome["cruxes"][2]["aliases"]
+    assert not request_contains_outcome_data(request, outcome)
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
