@@ -27,6 +27,8 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 - `scripts/merge_codex_automation_prs.py` and its focused tests.
 - `scripts/boss_drain_pass.py` and focused coverage in `tests/swarm/test_boss_drain.py`.
 - `aragora/swarm/merge_arbiter.py` and its focused tests.
+- `aragora/swarm/initiative_integrator.py` and its focused tests, solely because it directly
+  imports the merge-arbiter merge seam and must pass its existing PR snapshot head.
 - Generator-owned metrics/docs mirrors if required by repository drift gates.
 - This plan and temporary Elves run artifacts during execution.
 
@@ -51,6 +53,8 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
   value for the merge command without a second PR-head lookup.
 - Merge arbiter rejects an absent or malformed head for review matching and merging, and every
   admin merge is pinned to the exact head evaluated by the arbiter.
+- The initiative integrator's direct merge-arbiter call carries `headRefOid` from the same
+  integrator snapshot and blocks promotion when that SHA is absent or malformed.
 - Every path blocks before its merge subprocess when the trusted head is missing or malformed.
 - A head change after decision time is rejected by GitHub's `--match-head-commit`, never converted
   into an unpinned or newly authorized merge.
@@ -75,6 +79,7 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
       second `view_pr` to choose its merge head.
 - [ ] Merge arbiter rejects missing/malformed heads before approval matching and before `_run_gh`
       merge execution.
+- [ ] Every direct consumer of the modified merge-arbiter seam passes its validated snapshot head.
 - [ ] All three merge commands always contain `--match-head-commit <same-full-sha>`.
 - [ ] Tests cover missing/malformed heads, snapshot-to-merge head changes, exact match, and
       preservation of ordinary eligible/authorized behavior.
@@ -84,8 +89,8 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 
 **Blast radius**
 
-- Three merge-authority implementation files and three focused test files; signatures are internal
-  but the behavior is Tier 4 because they can trigger admin merges.
+- Three merge-authority implementation files, one direct shared consumer, and four focused test
+  files; signatures are internal but the behavior is Tier 4 because they can trigger admin merges.
 - Risk: high. A false positive can stop automation; a false negative can merge an unreviewed head.
   Prefer explicit full-SHA validation and fail-closed results over compatibility fallbacks.
 
@@ -165,9 +170,9 @@ has actually merged and the active owner of #9677 has released its lane.
 
 ## Test Strategy
 
-- **Baseline:** `python3 -m pytest tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py -q --no-header -p no:randomly --timeout=300` (75 passed at staging).
-- **Lint:** `python3 -m ruff check` on the three source files and focused tests.
-- **Typecheck:** `python3 -m mypy` on the three source files.
+- **Baseline:** `python3 -m pytest tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py -q --no-header -p no:randomly --timeout=300` (75 passed at staging); the cumulative touched-surface run also includes `tests/swarm/test_initiative_integrator.py`.
+- **Lint:** `python3 -m ruff check` on the four source files and focused tests.
+- **Typecheck:** `python3 -m mypy` on the four source files.
 - **Structural:** search all relevant callers for head propagation and every merge argv for an
   unconditional exact-head pin.
 - **Break tests:** temporarily remove each propagation/pin in turn, confirm the corresponding test

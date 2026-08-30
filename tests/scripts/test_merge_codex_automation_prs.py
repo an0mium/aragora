@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+import scripts.merge_codex_automation_prs as merge_codex
 from scripts.merge_codex_automation_prs import (
     MergeDecision,
     PullRequestSnapshot,
@@ -11,6 +18,7 @@ def _pr(
     number: int,
     *,
     head_ref: str = "codex/safe-fix",
+    head_sha: str = "a" * 40,
     is_draft: bool = False,
     mergeable: str = "MERGEABLE",
     body: str = "## Validation\n- pytest -q",
@@ -25,6 +33,7 @@ def _pr(
         number=number,
         title=f"PR {number}",
         head_ref=head_ref,
+        head_sha=head_sha,
         is_draft=is_draft,
         mergeable=mergeable,
         body=body,
@@ -47,6 +56,15 @@ def test_select_mergeable_prs_marks_safe_codex_pr_eligible() -> None:
     decision = _decision(decisions, 1)
     assert decision.eligible is True
     assert decision.reason == "eligible"
+    assert decision.head_sha == "a" * 40
+
+
+@pytest.mark.parametrize("head_sha", ["", "a" * 39, "A" * 40, "not-a-sha"])
+def test_select_mergeable_prs_rejects_missing_or_malformed_head(head_sha: str) -> None:
+    decision = _decision(select_mergeable_prs([_pr(1, head_sha=head_sha)]), 1)
+
+    assert decision.eligible is False
+    assert decision.reason == "invalid_head_sha"
 
 
 def test_select_mergeable_prs_skips_non_codex_draft_and_missing_validation() -> None:
@@ -99,3 +117,134 @@ def test_select_mergeable_prs_skips_non_mergeable_or_unchecked_prs() -> None:
 
     assert _decision(decisions, 1).reason == "not_mergeable"
     assert _decision(decisions, 2).reason == "no_status_checks"
+
+
+def test_collect_pull_requests_uses_one_view_snapshot_for_all_eligibility_data(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head_sha = "b" * 40
+    calls: list[list[str]] = []
+
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        calls.append(args)
+        if args[1:3] == ["pr", "list"]:
+            payload = [
+                {
+                    "number": 7,
+                    "title": "stale discovery title",
+                    "headRefName": "codex/snapshot",
+                    "isDraft": True,
+                    "url": "https://example.com/stale",
+                }
+            ]
+        elif args[1:3] == ["pr", "view"]:
+            payload = {
+                "number": 7,
+                "title": "authoritative title",
+                "headRefName": "codex/snapshot",
+                "headRefOid": head_sha,
+                "isDraft": False,
+                "mergeable": "MERGEABLE",
+                "body": "## Validation\n- pytest",
+                "url": "https://example.com/pr/7",
+                "files": [{"path": "aragora/safe.py"}],
+                "statusCheckRollup": [
+                    {"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}
+                ],
+            }
+        else:  # pragma: no cover - assertion gives a clearer unexpected-call failure
+            raise AssertionError(args)
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+    assert snapshots == [
+        PullRequestSnapshot(
+            number=7,
+            title="authoritative title",
+            head_ref="codex/snapshot",
+            head_sha=head_sha,
+            is_draft=False,
+            mergeable="MERGEABLE",
+            body="## Validation\n- pytest",
+            url="https://example.com/pr/7",
+            changed_files=["aragora/safe.py"],
+            status_rollup=[{"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}],
+        )
+    ]
+    assert [call[1:3] for call in calls] == [["pr", "list"], ["pr", "view"]]
+    assert calls[0][calls[0].index("--json") + 1] == "number,headRefName"
+    view_json_fields = calls[1][calls[1].index("--json") + 1].split(",")
+    assert {
+        "number",
+        "title",
+        "headRefName",
+        "headRefOid",
+        "isDraft",
+        "mergeable",
+        "body",
+        "url",
+        "statusCheckRollup",
+        "files",
+    }.issubset(view_json_fields)
+
+
+def test_collect_pull_requests_rejects_mismatched_snapshot_number(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        payload: object
+        if args[1:3] == ["pr", "list"]:
+            payload = [{"number": 7, "headRefName": "codex/snapshot"}]
+        else:
+            payload = {"number": 8}
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="requested #7, got #8"):
+        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
+@pytest.mark.parametrize("head_sha", ["", "c" * 39, "C" * 40])
+def test_merge_pr_rejects_invalid_head_before_subprocess(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, head_sha: str
+) -> None:
+    def unexpected_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("merge subprocess must not run")
+
+    monkeypatch.setattr(merge_codex, "_run", unexpected_run)
+
+    with pytest.raises(RuntimeError, match="missing or malformed head SHA"):
+        merge_codex._merge_pr(tmp_path, "example/repo", 7, head_sha)
+
+
+def test_merge_pr_pins_admin_merge_to_decision_head(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head_sha = "d" * 40
+    calls: list[list[str]] = []
+
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    merge_codex._merge_pr(tmp_path, "example/repo", 7, head_sha)
+
+    assert len(calls) == 1
+    assert calls[0][1:4] == ["pr", "merge", "7"]
+    match_index = calls[0].index("--match-head-commit")
+    assert calls[0][match_index + 1] == head_sha

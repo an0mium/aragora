@@ -5,22 +5,23 @@
 Prepare a fresh-main Tier-4 PR that fixes the three exact-head snapshot-provenance defects found by
 the terminal review of PR #9677. Carry one trusted full SHA from decision/settlement through the
 merge command in the Codex automation merger, boss drain, and merge arbiter; fail closed on missing,
-malformed, changed, or unavailable heads.
+malformed, changed, or unavailable heads. Propagate that contract through the initiative
+integrator, the merge arbiter's only direct cross-module consumer.
 
 ## Run Control
 
 - **Run mode:** finite
-- **Stop policy:** stage boundary now; after launch, blocker or completed final draft readiness
+- **Stop policy:** continue through Batches 1-2; stop only at completed final draft readiness or a genuine Tier-4/collision blocker
 - **User intent:** "authorize a separate fresh-main PR fixing these three snapshot-provenance paths. After that lands, separately authorize reconciling current main into #9677, regenerate docs, and rerun validation plus terminal review before OWNER settlement."
 - **Checkpoint due by:** none
 - **Checkpoint semantics:** none
 - **May continue after checkpoint:** yes
-- **Actual stop conditions:** staging complete in this call; after launch, final draft readiness or a genuine Tier-4/collision blocker
+- **Actual stop conditions:** final draft readiness or a genuine Tier-4/collision blocker
 - **Workspace ownership:** dedicated worktree at `$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora`
 - **Branch tip at start:** `953c501c2147026c2c996c3f95001580e326ec52`
-- **Lease:** `906d51fa-4af`, session `codex-merge-snapshot-provenance-9677-20260829`
+- **Lease:** `7cb3e7fb-ce5`, session `codex-merge-snapshot-provenance-9677-20260829` (reclaimed after staged lease expired)
 - **Merge policy:** user-merges; implementation authorization is not merge authorization
-- **Final-response policy:** allowed at the mandatory staging boundary; after launch only when the Stop Gate permits it
+- **Final-response policy:** only when the Stop Gate permits it
 - **Batch completion rule:** update execution log and survival guide, commit, push, then re-read this guide before starting later work
 - **Re-read rule:** immediately after every commit and push
 - **Checkpoint rule:** the staging boundary is mandatory now; after launch, a checkpoint is progress evidence and not a stop condition
@@ -38,9 +39,9 @@ malformed, changed, or unavailable heads.
 ## Stop Gate
 
 - **Planned batches remaining:** 2
-- **Stop allowed right now:** yes
-- **Why:** Elves requires a separate staging and launch call; product implementation must not start in this call
-- **Next required action:** user sends the launch prompt recorded below
+- **Stop allowed right now:** no
+- **Why:** the run is launched and Batches 1-2 remain incomplete
+- **Next required action:** implement Batch 1 exact-head propagation and category tests
 
 ## Effort Standard
 
@@ -88,13 +89,13 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Launch-ready staging boundary
+**Status:** Batch 1 implementation
 
-**Active batch:** Batch 0: session setup complete
+**Active batch:** Batch 1: Carry exact decision heads through all three merge paths
 
-**What was just finished:** Batch 0 was committed and pushed, and draft PR #9874 was opened from the isolated fresh-main branch.
+**What was just finished:** Launch recovery verified the unchanged local/remote head, recorded-base ancestry, zero current-main overlap on the six scoped files, and reclaimed the expired lease.
 
-**Single next action:** the user sends the launch prompt below; the launched run then renews the lease and begins Batch 1.
+**Single next action:** survey all consumers, implement one-snapshot head propagation, and add fail-closed tests.
 
 ## Active Compute
 
@@ -109,17 +110,19 @@ No active paid or long-running compute.
 - Bind Codex automation eligibility snapshot to its merge command.
 - Bind boss drain settlement report head to its merge command.
 - Make merge arbiter reject missing/malformed heads and always pin the merge.
+- Pass the initiative integrator's existing PR snapshot head through the shared arbiter seam.
 - Add category tests, focused validation, and mutation break checks.
 
 **Acceptance criteria:**
 
-- [ ] Decision/settlement/approval head equals `--match-head-commit` for all three paths.
+- [ ] Decision/settlement/approval head equals `--match-head-commit` for all three paths and the
+      merge arbiter's direct consumer.
 - [ ] Missing or malformed trusted heads block before any merge subprocess.
 - [ ] Focused tests, Ruff, mypy, drift checks, and mutation checks pass.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
 
-**Rollback tag:** `elves/pre-batch-1`
+**Rollback tag:** `elves/pre-batch-1-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 
 ## Post-Checkpoint Control Loop
 
@@ -137,9 +140,9 @@ After each commit and push:
 ## Tool Configuration
 
 ```yaml
-lint: python3 -m ruff check scripts/merge_codex_automation_prs.py scripts/boss_drain_pass.py aragora/swarm/merge_arbiter.py tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py
-typecheck: python3 -m mypy scripts/merge_codex_automation_prs.py scripts/boss_drain_pass.py aragora/swarm/merge_arbiter.py
-test: python3 -m pytest tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py -q --no-header -p no:randomly --timeout=300
+lint: python3 -m ruff check scripts/merge_codex_automation_prs.py scripts/boss_drain_pass.py aragora/swarm/merge_arbiter.py aragora/swarm/initiative_integrator.py tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py tests/swarm/test_initiative_integrator.py
+typecheck: python3 -m mypy scripts/merge_codex_automation_prs.py scripts/boss_drain_pass.py aragora/swarm/merge_arbiter.py aragora/swarm/initiative_integrator.py
+test: python3 -m pytest tests/scripts/test_merge_codex_automation_prs.py tests/swarm/test_boss_drain.py tests/swarm/test_merge_arbiter.py tests/swarm/test_initiative_integrator.py -q --no-header -p no:randomly --timeout=300
 e2e: not applicable
 review: github-pr-comments plus fresh independent read-only subagent
 notification: PR comment only at final readiness if authorized by the run state
@@ -152,13 +155,13 @@ notification: PR comment only at final readiness if authorized by the run state
 - **Execution log:** `docs/elves/merge-snapshot-provenance-9677/execution-log.md`
 - **Branch:** `codex/merge-snapshot-provenance-9677`
 - **PR number:** #9874
-- **Plan hash at session start:** `be693b42e00277e0e7fdb3d7cfa4501474e7d724e2d0cf27a24855ca0c1f1e55`
+- **Current reconciled plan hash:** `12fce3529f6d147d5704865f7058700b2a1fb51cf19f0f8dfb2e678e62ce609f`
 
 ## Collision and Live-State Notes
 
 - Shared checkout `$HOME/Development/aragora` is dirty and behind; it is read-only for this run.
 - PR #9677 moved during staging to `13fc8850700927e2e4bd4809f77ddf44f282382e` in another worktree. This run does not own that object.
-- Main staging base is `953c501c2147026c2c996c3f95001580e326ec52`; re-fetch before implementation and stop if this branch tip moves unexpectedly.
+- Main staging base is `953c501c2147026c2c996c3f95001580e326ec52`; current main advanced to `ed79c28171dcd285e6edf050286510e8ab18ae16` without touching any of the six scoped source/test files.
 - Main required contexts were green for lint, typecheck, sdk-parity, Generate & Validate, and TypeScript SDK Type Check; main quorum was skipped as expected.
 
 ## Launch Prompt

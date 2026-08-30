@@ -30,6 +30,7 @@ from aragora.swarm.merge_arbiter import (
     ArbiterOperationalError,
     _classify_required_checks,
     _get_check_status,
+    _is_full_head_sha,
     _merge_pr,
     _promote_draft,
     _run_gh,
@@ -101,7 +102,7 @@ def _get_pr_snapshot(
                 "--repo",
                 repo,
                 "--json",
-                "number,url,isDraft,state,headRefName,mergeStateStatus,mergedAt",
+                "number,url,isDraft,state,headRefName,headRefOid,mergeStateStatus,mergedAt",
             ]
         )
     except (RuntimeError, ValueError, TypeError, json.JSONDecodeError):
@@ -127,7 +128,7 @@ def _find_open_pr_for_branch(branch: str, *, repo: str) -> dict[str, Any] | None
                 "--head",
                 normalized,
                 "--json",
-                "number,url,isDraft,state,headRefName,mergeStateStatus,mergedAt",
+                "number,url,isDraft,state,headRefName,headRefOid,mergeStateStatus,mergedAt",
                 "--limit",
                 "10",
             ]
@@ -425,7 +426,11 @@ class InitiativeIntegrator:
                     "pr_number": pr_number,
                     "pr_url": row.get("pr_url"),
                 }
-            merged, reason = _merge_pr(pr_number, self.repo)
+            merged, reason = _merge_pr(
+                pr_number,
+                self.repo,
+                str(row.get("head_sha") or ""),
+            )
             if not merged:
                 return {
                     "mode": "initiative-promote",
@@ -524,6 +529,7 @@ class InitiativeIntegrator:
                 "isDraft": None,
                 "state": "UNKNOWN",
                 "headRefName": project.branch,
+                "headRefOid": None,
                 "mergeStateStatus": "",
                 "mergedAt": None,
             }
@@ -543,6 +549,7 @@ class InitiativeIntegrator:
                         "isDraft": None,
                         "state": "UNKNOWN",
                         "headRefName": branch,
+                        "headRefOid": None,
                         "mergeStateStatus": "",
                         "mergedAt": None,
                     }
@@ -556,6 +563,7 @@ class InitiativeIntegrator:
     ) -> dict[str, Any]:
         snapshot = self._resolve_project_pr_snapshot(project)
         pr_number = _parse_pr_number((snapshot or {}).get("number") or (snapshot or {}).get("url"))
+        head_sha = (snapshot or {}).get("headRefOid")
         try:
             checks = _get_check_status(pr_number, self.repo) if pr_number is not None else {}
         except ArbiterOperationalError:
@@ -586,6 +594,8 @@ class InitiativeIntegrator:
             else:
                 if project.feature_flag_required and not project.feature_flag:
                     promotion_blockers.append("feature flag required before merge")
+                if not _is_full_head_sha(head_sha):
+                    promotion_blockers.append("PR snapshot missing valid full head SHA")
                 if not promotion_blockers and not _is_pr_merged(snapshot):
                     next_action = "merge"
 
@@ -597,6 +607,7 @@ class InitiativeIntegrator:
             "branch": project.branch,
             "pr_url": (snapshot or {}).get("url") or _project_pr_reference(project),
             "pr_number": pr_number,
+            "head_sha": head_sha if _is_full_head_sha(head_sha) else None,
             "pr_draft": bool(snapshot.get("isDraft")) if isinstance(snapshot, dict) else None,
             "pr_state": str((snapshot or {}).get("state") or "").strip() or None,
             "dependencies": [dep.project_id for dep in project.dependencies],

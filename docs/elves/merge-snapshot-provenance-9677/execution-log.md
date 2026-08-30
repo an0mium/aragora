@@ -2,9 +2,9 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-08-29 18:03 America/Chicago
-- **Current phase:** Launch-ready staging boundary
-- **Active batch:** none; waiting for explicit launch
+- **Last updated:** 2026-08-29 19:28 America/Chicago
+- **Current phase:** Batch 1 implementation
+- **Active batch:** Batch 1: Carry exact decision heads through all three merge paths
 - **Last completed batch:** Batch 0: session setup
 - **Next exact batch:** Batch 1: Carry exact decision heads through all three merge paths
 - **Active PR:** #9874 (draft)
@@ -68,6 +68,19 @@
 the PR number is reconciled into the run state, and the mandatory staging Stop Gate permits this
 call to end. No product files were edited.
 
+## Launch Recovery: 2026-08-29 19:28 America/Chicago
+
+**Live evidence:**
+
+- Local HEAD, remote branch, and PR #9874 head all remain `d10570ebc63d31b9f9f85587a95f090d6353aa83`.
+- Local and remote branch tips descend from recorded base `953c501c2147026c2c996c3f95001580e326ec52`.
+- Current main advanced to `ed79c28171dcd285e6edf050286510e8ab18ae16`; no commits since the recorded base touch the six scoped source/test files.
+- No PR- or branch-routed steering lane/message resolved, and this is the only worktree using the branch.
+- Staged lease `906d51fa-4af` expired. With no replacement owner, the same session reclaimed lease `7cb3e7fb-ce5` for the same scoped files.
+- Generic tag `elves/pre-batch-1` already points at unrelated historical commit `17af7a7a590e3e04543e1f0f1b9df2faf039dc96`; collision-safe rollback tag `elves/pre-batch-1-merge-snapshot-provenance-9677` points at the exact pre-implementation head.
+
+**Decision:** Stop Gate set to no. Begin Batch 1; do not adopt current main and do not touch #9677.
+
 ## Batch 1 Contract: 2026-08-29 17:42 America/Chicago
 
 **Behaviors:**
@@ -87,7 +100,43 @@ call to end. No product files were edited.
 
 **Blast radius:**
 
-- Three merge-authority modules and their focused tests; high-risk Tier-4 behavior.
-- Shared interfaces are internal, but every consumer must be surveyed before signatures change.
+- Three merge-authority modules, the initiative integrator's direct shared-seam consumer, and their
+  focused tests; high-risk Tier-4 behavior.
+- The consumer survey found `initiative_integrator.py` importing `_merge_pr` directly. The lease
+  was renewed to cover that module and its tests; no other subsystem was added.
+
+## Batch 1 Implementation and Validation: 2026-08-29 20:04 America/Chicago
+
+**Implementation:**
+
+- Codex automation now builds eligibility, changed-file, check, body, mergeability, and exact-head
+  data from one `gh pr view` snapshot. The immutable decision carries the validated SHA directly to
+  an unconditionally pinned admin merge.
+- Boss drain preserves the exact `head_sha` emitted by a successful authorized settlement report.
+  Missing/malformed provenance or a failed settlement command blocks, and the former second
+  `view_pr` lookup is gone.
+- Merge arbiter requires a lowercase full 40-hex SHA before approval/receipt matching, evaluation,
+  and merge. Changed-head failures are returned without retry or re-resolution.
+- Initiative integrator now requests `headRefOid`, exposes only validated snapshot heads as merge
+  actions, and passes that exact value through the shared arbiter seam. Unknown/fallback snapshots
+  cannot become merge actions.
+
+**Focused validation:**
+
+- Cumulative touched-surface pytest: PASS, 129 passed, 0 skipped.
+- Scoped Ruff: PASS.
+- Scoped mypy across four source files: PASS.
+- `git diff --check`: PASS.
+- Structural consumer survey: PASS; every `_merge_pr` consumer in the modified paths now passes a
+  decision/snapshot head, and no helper re-resolves the head at merge time.
+
+**Mutation proof:**
+
+- Codex merge pin removal: intended pin assertion failed; restored and green.
+- Boss-drain merge pin removal: intended settlement-head argv assertion failed; restored and green.
+- Merge-arbiter pin and invalid-head guard removals: intended tests failed in the delegated lane;
+  both restored and its 70-test suite reran green.
+- Initiative snapshot-head propagation removal: intended direct-consumer call assertion failed;
+  restored and green.
 
 <!-- Add newer entries above this line. -->

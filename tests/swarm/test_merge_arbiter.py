@@ -21,11 +21,15 @@ from aragora.swarm.merge_arbiter import (
     _get_check_status,
     _has_local_settlement_receipt,
     _has_matching_human_approval,
+    _is_full_head_sha,
     _list_candidate_prs,
     _review_counts_as_human_approval,
     _merge_pr,
     _promote_draft,
 )
+
+HEAD_SHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+STALE_HEAD_SHA = "cafebeefcafebeefcafebeefcafebeefcafebeef"
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +61,7 @@ def _pr(
     return {
         "number": number,
         "headRefName": branch,
-        "headRefOid": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        "headRefOid": HEAD_SHA,
         "isDraft": draft,
         "reviewDecision": review_decision,
     }
@@ -135,54 +139,91 @@ class TestGetCheckStatus:
 
 
 class TestHumanSettlement:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (HEAD_SHA, True),
+            (None, False),
+            ("", False),
+            ("deadbeef", False),
+            (HEAD_SHA.upper(), False),
+            (f" {HEAD_SHA}", False),
+            ("g" * 40, False),
+        ],
+    )
+    def test_full_head_sha_validation(self, value, expected):
+        assert _is_full_head_sha(value) is expected
+
     def test_review_counts_as_human_approval(self):
         review = {
             "state": "APPROVED",
-            "commit_id": "deadbeef",
+            "commit_id": HEAD_SHA,
             "user": {"login": "armand", "type": "User"},
         }
-        assert _review_counts_as_human_approval(review, "deadbeef") is True
+        assert _review_counts_as_human_approval(review, HEAD_SHA) is True
 
     def test_review_rejects_automation_logins_and_stale_heads(self):
         bot_login = next(iter(AUTOMATION_REVIEWER_LOGINS))
         bot_review = {
             "state": "APPROVED",
-            "commit_id": "deadbeef",
+            "commit_id": HEAD_SHA,
             "user": {"login": bot_login, "type": "User"},
         }
         stale_review = {
             "state": "APPROVED",
-            "commit_id": "cafebabe",
+            "commit_id": STALE_HEAD_SHA,
             "user": {"login": "armand", "type": "User"},
         }
-        assert _review_counts_as_human_approval(bot_review, "deadbeef") is False
-        assert _review_counts_as_human_approval(stale_review, "deadbeef") is False
+        assert _review_counts_as_human_approval(bot_review, HEAD_SHA) is False
+        assert _review_counts_as_human_approval(stale_review, HEAD_SHA) is False
+
+    @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40])
+    def test_invalid_head_cannot_count_human_approval(self, head_sha):
+        review = {
+            "state": "APPROVED",
+            "commit_id": HEAD_SHA,
+            "user": {"login": "armand", "type": "User"},
+        }
+        with patch("aragora.swarm.merge_arbiter._list_pr_reviews") as list_reviews:
+            assert _has_matching_human_approval(12, "owner/repo", head_sha) is False
+        list_reviews.assert_not_called()
+        assert _review_counts_as_human_approval(review, head_sha) is False
 
     def test_has_matching_human_approval_scans_reviews(self):
         reviews = [
             {
                 "state": "COMMENTED",
-                "commit_id": "deadbeef",
+                "commit_id": HEAD_SHA,
                 "user": {"login": "armand", "type": "User"},
             },
             {
                 "state": "APPROVED",
-                "commit_id": "deadbeef",
+                "commit_id": HEAD_SHA,
                 "user": {"login": "armand", "type": "User"},
             },
         ]
         with patch("aragora.swarm.merge_arbiter._list_pr_reviews", return_value=reviews):
-            assert _has_matching_human_approval(12, "owner/repo", "deadbeef") is True
+            assert _has_matching_human_approval(12, "owner/repo", HEAD_SHA) is True
 
     def test_has_local_settlement_receipt_matches_head_sha(self, tmp_path):
         root = tmp_path / ".aragora" / "review-queue" / "settlements"
         root.mkdir(parents=True)
-        receipt = root / "pr-12-deadbeefdead-approve.json"
+        receipt = root / f"pr-12-{HEAD_SHA[:12]}-approve.json"
         receipt.write_text(
-            json.dumps({"action": "approve", "head_sha": "deadbeefdead1111"}),
+            json.dumps({"action": "approve", "head_sha": HEAD_SHA}),
             encoding="utf-8",
         )
-        assert _has_local_settlement_receipt(12, "deadbeefdead1111", repo_root=tmp_path) is True
+        assert _has_local_settlement_receipt(12, HEAD_SHA, repo_root=tmp_path) is True
+
+    @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40])
+    def test_invalid_head_cannot_match_local_receipt(self, tmp_path, head_sha):
+        root = tmp_path / ".aragora" / "review-queue" / "settlements"
+        root.mkdir(parents=True)
+        (root / f"pr-12-{HEAD_SHA[:12]}-approve.json").write_text(
+            json.dumps({"action": "approve", "head_sha": HEAD_SHA}),
+            encoding="utf-8",
+        )
+        assert _has_local_settlement_receipt(12, head_sha, repo_root=tmp_path) is False
 
 
 class TestClassifyRequiredChecks:
@@ -242,7 +283,7 @@ class TestMergePr:
             success, reason = _merge_pr(
                 12,
                 "owner/repo",
-                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                HEAD_SHA,
             )
         assert success is True
         assert reason == "merged"
@@ -257,10 +298,30 @@ class TestMergePr:
                 "--squash",
                 "--delete-branch",
                 "--match-head-commit",
-                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                HEAD_SHA,
             ],
             write_op=True,
         )
+
+    @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40, "g" * 40])
+    def test_missing_or_malformed_head_blocks_before_merge_subprocess(self, head_sha):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            success, reason = _merge_pr(12, "owner/repo", head_sha)
+        assert success is False
+        assert reason == "missing or malformed full head SHA"
+        mock_gh.assert_not_called()
+
+    def test_changed_head_failure_does_not_retry_or_re_resolve(self):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(
+                returncode=1,
+                stderr="pull request head branch was modified",
+            )
+            success, reason = _merge_pr(12, "owner/repo", HEAD_SHA)
+        assert success is False
+        assert reason == "pull request head branch was modified"
+        mock_gh.assert_called_once()
+        assert mock_gh.call_args.args[0][-2:] == ["--match-head-commit", HEAD_SHA]
 
 
 # ---------------------------------------------------------------------------
@@ -280,9 +341,13 @@ class TestEvaluatePrAllPassing:
             ),
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
             patch(
+                "aragora.swarm.merge_arbiter._has_local_settlement_receipt",
+                return_value=False,
+            ) as mock_receipt,
+            patch(
                 "aragora.swarm.merge_arbiter._has_matching_human_approval",
                 return_value=True,
-            ),
+            ) as mock_approval,
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
             mock_checks.return_value = checks
@@ -290,7 +355,30 @@ class TestEvaluatePrAllPassing:
             result = _evaluate_pr(pr, config)
         assert result.success is True
         assert result.pr_number == 42
+        mock_receipt.assert_called_once_with(42, HEAD_SHA)
+        mock_approval.assert_called_once_with(42, config.repo, HEAD_SHA)
         mock_merge.assert_called_once_with(42, config.repo, pr["headRefOid"])
+
+    @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40])
+    def test_missing_or_malformed_snapshot_head_fails_before_gate_or_merge_calls(self, head_sha):
+        config = MergeArbiterConfig()
+        pr = _pr(42, "codex/bad-head", review_decision="APPROVED")
+        pr["headRefOid"] = head_sha
+        with (
+            patch("aragora.swarm.merge_arbiter._get_required_checks") as required_checks,
+            patch("aragora.swarm.merge_arbiter._get_check_status") as check_status,
+            patch("aragora.swarm.merge_arbiter._has_local_settlement_receipt") as receipt,
+            patch("aragora.swarm.merge_arbiter._has_matching_human_approval") as approval,
+            patch("aragora.swarm.merge_arbiter._merge_pr") as merge_pr,
+        ):
+            result = _evaluate_pr(pr, config)
+        assert result.success is False
+        assert result.reason == "missing or malformed full head SHA in PR snapshot"
+        required_checks.assert_not_called()
+        check_status.assert_not_called()
+        receipt.assert_not_called()
+        approval.assert_not_called()
+        merge_pr.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

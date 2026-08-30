@@ -1,16 +1,16 @@
 {
   "session_id": "codex-merge-snapshot-provenance-9677-20260829",
   "version": "1.12.0",
-  "status": "staged",
+  "status": "in_progress",
   "branch": "codex/merge-snapshot-provenance-9677",
   "base_branch": "main",
   "base_sha": "953c501c2147026c2c996c3f95001580e326ec52",
   "collision_tripwire": "953c501c2147026c2c996c3f95001580e326ec52",
   "worktree": "$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora",
-  "lease_id": "906d51fa-4af",
+  "lease_id": "7cb3e7fb-ce5",
   "lease_session_id": "codex-merge-snapshot-provenance-9677-20260829",
   "plan_path": "docs/elves/merge-snapshot-provenance-9677/plan.md",
-  "plan_hash": "be693b42e00277e0e7fdb3d7cfa4501474e7d724e2d0cf27a24855ca0c1f1e55",
+  "plan_hash": "12fce3529f6d147d5704865f7058700b2a1fb51cf19f0f8dfb2e678e62ce609f",
   "survival_guide_path": "docs/elves/merge-snapshot-provenance-9677/survival-guide.md",
   "learnings_path": "docs/elves/merge-snapshot-provenance-9677/learnings.md",
   "execution_log_path": "docs/elves/merge-snapshot-provenance-9677/execution-log.md",
@@ -19,9 +19,9 @@
   "run_mode": "finite",
   "continuation_guard": {
     "remaining_batches": 2,
-    "stop_allowed": true,
-    "checkpoint_is_stop": true,
-    "next_required_action": "User sends the staged launch prompt; do not implement product code in the staging call."
+    "stop_allowed": false,
+    "checkpoint_is_stop": false,
+    "next_required_action": "Implement Batch 1 exact-head propagation and category tests."
   },
   "test_baseline": {
     "passed": 75,
@@ -31,9 +31,9 @@
     "reason": null
   },
   "current_batch": {
-    "id": 0,
-    "name": "Session setup",
-    "status": "complete"
+    "id": 1,
+    "name": "Carry exact decision heads through all three merge paths",
+    "status": "in_progress"
   },
   "batches": [
     {
@@ -41,8 +41,8 @@
       "name": "Carry exact decision heads through all three merge paths",
       "status": "pending",
       "commit": null,
-      "rollback_tag": "elves/pre-batch-1",
-      "started_at": null,
+      "rollback_tag": "elves/pre-batch-1-merge-snapshot-provenance-9677",
+      "started_at": "2026-08-30T00:28:52Z",
       "completed_at": null
     },
     {

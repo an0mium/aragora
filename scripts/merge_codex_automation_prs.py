@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -29,6 +30,7 @@ SENSITIVE_PATH_TOKENS = (
     ".github/workflows/",
     "deploy",
 )
+FULL_HEAD_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,7 @@ class PullRequestSnapshot:
     number: int
     title: str
     head_ref: str
+    head_sha: str
     is_draft: bool
     mergeable: str
     body: str
@@ -49,6 +52,7 @@ class MergeDecision:
     number: int
     title: str
     head_ref: str
+    head_sha: str
     eligible: bool
     reason: str
     url: str
@@ -96,7 +100,7 @@ def _open_codex_prs(repo_root: Path, repo: str, limit: int) -> list[dict[str, An
             "--limit",
             str(limit),
             "--json",
-            "number,title,headRefName,isDraft,url",
+            "number,headRefName",
         ],
         cwd=repo_root,
     )
@@ -110,7 +114,7 @@ def _open_codex_prs(repo_root: Path, repo: str, limit: int) -> list[dict[str, An
     ]
 
 
-def _pr_metadata(repo_root: Path, repo: str, number: int) -> dict[str, Any]:
+def _pr_snapshot(repo_root: Path, repo: str, number: int) -> dict[str, Any]:
     proc = _run(
         [
             "gh",
@@ -120,7 +124,7 @@ def _pr_metadata(repo_root: Path, repo: str, number: int) -> dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "mergeable,body,statusCheckRollup",
+            "number,title,headRefName,headRefOid,isDraft,mergeable,body,url,files,statusCheckRollup",
         ],
         cwd=repo_root,
     )
@@ -132,31 +136,36 @@ def _pr_metadata(repo_root: Path, repo: str, number: int) -> dict[str, Any]:
     return payload
 
 
-def _pr_changed_files(repo_root: Path, repo: str, number: int) -> list[str]:
-    proc = _run(
-        ["gh", "pr", "diff", str(number), "--repo", repo, "--name-only"],
-        cwd=repo_root,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or f"failed to inspect files for PR #{number}")
-    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-
-
 def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[PullRequestSnapshot]:
     snapshots: list[PullRequestSnapshot] = []
     for pr in _open_codex_prs(repo_root, repo, limit):
         number = int(pr["number"])
-        metadata = _pr_metadata(repo_root, repo, number)
+        metadata = _pr_snapshot(repo_root, repo, number)
+        snapshot_number = metadata.get("number")
+        if isinstance(snapshot_number, bool) or not isinstance(snapshot_number, int):
+            raise RuntimeError(f"missing PR number in snapshot for #{number}")
+        if snapshot_number != number:
+            raise RuntimeError(
+                f"snapshot PR number mismatch: requested #{number}, got #{snapshot_number}"
+            )
+        files = metadata.get("files") or []
+        if not isinstance(files, list):
+            raise RuntimeError(f"unexpected files payload for PR #{number}")
         snapshots.append(
             PullRequestSnapshot(
-                number=number,
-                title=str(pr.get("title", "")),
-                head_ref=str(pr.get("headRefName", "")),
-                is_draft=bool(pr.get("isDraft", False)),
+                number=snapshot_number,
+                title=str(metadata.get("title", "")),
+                head_ref=str(metadata.get("headRefName", "")),
+                head_sha=str(metadata.get("headRefOid", "")),
+                is_draft=bool(metadata.get("isDraft", False)),
                 mergeable=str(metadata.get("mergeable", "")),
                 body=str(metadata.get("body", "") or ""),
-                url=str(pr.get("url", "")),
-                changed_files=_pr_changed_files(repo_root, repo, number),
+                url=str(metadata.get("url", "")),
+                changed_files=[
+                    str(item.get("path", ""))
+                    for item in files
+                    if isinstance(item, dict) and item.get("path")
+                ],
                 status_rollup=list(metadata.get("statusCheckRollup") or []),
             )
         )
@@ -186,6 +195,10 @@ def _has_validation_evidence(body: str) -> bool:
     return "validation" in lowered or "validated" in lowered
 
 
+def _is_full_head_sha(value: str) -> bool:
+    return FULL_HEAD_SHA_RE.fullmatch(value) is not None
+
+
 def select_mergeable_prs(
     pull_requests: list[PullRequestSnapshot],
     *,
@@ -197,6 +210,8 @@ def select_mergeable_prs(
         reason = "eligible"
         if not pr.head_ref.startswith("codex/"):
             reason = "not_codex_branch"
+        elif not _is_full_head_sha(pr.head_sha):
+            reason = "invalid_head_sha"
         elif pr.is_draft:
             reason = "draft"
         elif pr.mergeable != "MERGEABLE":
@@ -219,6 +234,7 @@ def select_mergeable_prs(
                 number=pr.number,
                 title=pr.title,
                 head_ref=pr.head_ref,
+                head_sha=pr.head_sha,
                 eligible=reason == "eligible",
                 reason=reason,
                 url=pr.url,
@@ -229,7 +245,9 @@ def select_mergeable_prs(
     return decisions
 
 
-def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
+def _merge_pr(repo_root: Path, repo: str, number: int, head_sha: str) -> None:
+    if not _is_full_head_sha(head_sha):
+        raise RuntimeError(f"refusing to merge PR #{number}: missing or malformed head SHA")
     proc = _run(
         [
             "gh",
@@ -240,6 +258,8 @@ def _merge_pr(repo_root: Path, repo: str, number: int) -> None:
             repo,
             "--squash",
             "--admin",
+            "--match-head-commit",
+            head_sha,
             "--delete-branch=false",
         ],
         cwd=repo_root,
@@ -299,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         for decision in decisions:
             if not decision.eligible:
                 continue
-            _merge_pr(repo_root, args.repo, decision.number)
+            _merge_pr(repo_root, args.repo, decision.number, decision.head_sha)
             merged_numbers.append(decision.number)
 
     if args.json:

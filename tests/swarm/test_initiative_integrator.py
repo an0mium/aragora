@@ -21,6 +21,9 @@ from aragora.swarm.initiative_store import InitiativeStore
 from aragora.swarm.merge_arbiter import REQUIRED_CHECKS
 from aragora.swarm.spec import SwarmSpec
 
+HEAD_SHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+CHILD_HEAD_SHA = "cafebeefcafebeefcafebeefcafebeefcafebeef"
+
 
 def _bounded_spec(goal: str) -> SwarmSpec:
     return SwarmSpec(
@@ -255,6 +258,7 @@ class TestInitiativeIntegrator:
                     "isDraft": False,
                     "state": "OPEN",
                     "headRefName": "codex/parent",
+                    "headRefOid": HEAD_SHA,
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 }
@@ -264,6 +268,7 @@ class TestInitiativeIntegrator:
                 "isDraft": False,
                 "state": "OPEN",
                 "headRefName": "codex/child",
+                "headRefOid": CHILD_HEAD_SHA,
                 "mergeStateStatus": "CLEAN",
                 "mergedAt": None,
             }
@@ -282,7 +287,49 @@ class TestInitiativeIntegrator:
 
         assert payload["action"] == "merged"
         assert payload["project_id"] == "proj-001"
-        merge_pr.assert_called_once_with(2001, integrator.repo)
+        merge_pr.assert_called_once_with(2001, integrator.repo, HEAD_SHA)
+
+    @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40])
+    def test_promote_blocks_merge_without_valid_snapshot_head(
+        self, tmp_path: Path, head_sha: object
+    ) -> None:
+        manifest_path = _manifest_path(
+            tmp_path,
+            _project(
+                "proj-001",
+                "Missing head slice",
+                status=CampaignProjectStatus.WAITING_FOR_MERGE.value,
+                pr_url="https://github.com/synaptent/aragora/pull/2001",
+            ),
+        )
+        integrator = InitiativeIntegrator(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with (
+            patch.object(
+                integrator,
+                "_resolve_project_pr_snapshot",
+                return_value={
+                    "number": 2001,
+                    "url": "https://github.com/synaptent/aragora/pull/2001",
+                    "isDraft": False,
+                    "state": "OPEN",
+                    "headRefName": "codex/missing-head",
+                    "headRefOid": head_sha,
+                    "mergeStateStatus": "CLEAN",
+                    "mergedAt": None,
+                },
+            ),
+            patch(
+                "aragora.swarm.initiative_integrator._get_check_status",
+                return_value=_all_passing_checks(),
+            ),
+            patch("aragora.swarm.initiative_integrator._merge_pr") as merge_pr,
+        ):
+            payload = integrator.promote()
+
+        assert payload["action"] == "blocked"
+        assert "valid full head SHA" in payload["reason"]
+        merge_pr.assert_not_called()
 
     def test_promote_promotes_draft_slice_when_dependency_clear(self, tmp_path: Path) -> None:
         manifest_path = _manifest_path(
