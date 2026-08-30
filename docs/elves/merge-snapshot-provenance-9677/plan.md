@@ -134,9 +134,9 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
       the exact pushed head.
 - [x] PR body records exact head, scope, tests, mutation evidence, Tier-4 status, and residual risk.
 - [x] No unresolved review threads or unreplied actionable bot comments remain.
-- [ ] Survival guide, execution log, and `.elves-session.json` are removed from the final diff;
+- [x] Survival guide, execution log, and `.elves-session.json` are removed from the final diff;
       the plan is retained.
-- [ ] Draft PR is reported for exact-head OWNER settlement; no quorum evidence, settlement, ready
+- [x] Draft PR is reported for exact-head OWNER settlement; no quorum evidence, settlement, ready
       transition, or merge occurs.
 
 **Blast radius**
