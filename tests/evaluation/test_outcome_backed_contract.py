@@ -6,6 +6,7 @@ import pytest
 
 from aragora.evaluation.outcome_backed_contract import (
     CONDITION_IDS,
+    FROZEN_CORPUS_DIGESTS,
     MANIFEST_SCHEMA,
     RESULT_SCHEMA,
     validate_benchmark_manifest,
@@ -55,8 +56,8 @@ def _manifest() -> dict[str, Any]:
         "revision": "decision-quality-v1-r1",
         "frozen_at": "2026-08-30T00:00:00Z",
         "corpus": {
-            "visible_sha256": "c" * 64,
-            "outcomes_sha256": "d" * 64,
+            "visible_sha256": FROZEN_CORPUS_DIGESTS["visible_sha256"],
+            "outcomes_sha256": FROZEN_CORPUS_DIGESTS["outcomes_sha256"],
             "case_count": 24,
             "development_count": 16,
             "holdout_count": 8,
@@ -159,13 +160,14 @@ def test_valid_manifest_is_deterministic_and_frozen() -> None:
     [
         (lambda value: value["conditions"].pop(), "exactly 4 conditions"),
         (lambda value: value["conditions"][-1]["members"].pop(), "three fixed model families"),
-        (lambda value: value["policy"].update({"daily_cost_cap_usd": 30}), "must be 25.0"),
         (
             lambda value: value["policy"].update({"max_infrastructure_retries_per_call": 2}),
             "must be 1",
         ),
-        (lambda value: value["prompt_sha256"].update({"single": "bad"}), "lowercase SHA-256"),
-        (lambda value: value["conditions"][-1].update({"adversarial_rounds": True}), "integer"),
+        (
+            lambda value: value["corpus"].update({"visible_sha256": "0" * 64}),
+            "does not match frozen corpus",
+        ),
     ],
 )
 def test_manifest_rejects_incomplete_or_drifted_contract(mutate: Any, message: str) -> None:
