@@ -99,14 +99,17 @@ Science/forecasting holdout tranche:
 - corpus: `503a5cc94a26fcd38f8c0bb264413ac82b2ae7a3489da8d22e6d646254702ed6`
 - outcome sidecar: `9d93b2f085b1c8586f67ee73538219bc1a98888ef0d4b3d11f196b9976b4e7d4`
 
-These tranches are construction inputs. The adjacent
-`benchmark-manifest.json` and
-`scripts/validate_outcome_decision_quality_manifest.py` bind their exact
-canonical hashes, aggregate hashes, prompt, roster, scorer metrics, budget,
-and repeated-holdout invalidation contract. That manifest validator does not
-replace the separate structural and outcome-leakage validator. Counted
-inference remains prohibited until that validator and the benchmark runner
-also land on `main`.
+These tranches are construction inputs, not frozen benchmark artifacts. Run
+`python3 scripts/validate_outcome_backed_corpus.py --json` to check JSON
+structure, corpus/outcome case and option bindings, information cutoffs,
+source hashes, answer-key balance, canonical digests, and outcome leakage
+across the assembled 24-case corpus. The adjacent `benchmark-manifest.json`
+and `scripts/validate_outcome_decision_quality_manifest.py` bind those exact
+canonical and aggregate corpus digests together with the prompt, roster,
+scorer metrics, budget, and repeated-holdout invalidation contract. The
+manifest validator complements rather than replaces the structural and
+outcome-leakage validator. Counted inference remains prohibited until the
+benchmark runner also lands on `main`.
 
 Together the eight tranches provide all 24 planned cases: four development and
 two holdout cases in each required domain.
