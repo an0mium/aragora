@@ -181,6 +181,7 @@ class TestInitiativeIntegrator:
                 "isDraft": False,
                 "state": "OPEN",
                 "headRefName": "codex/initiative-published",
+                "headRefOid": "48cf9ca973ea4aeeaf073f35dbfde1b71693c0c2",
                 "mergeStateStatus": "CLEAN",
                 "mergedAt": None,
             },
@@ -212,6 +213,7 @@ class TestInitiativeIntegrator:
                 "isDraft": False,
                 "state": "MERGED",
                 "headRefName": "codex/merged-slice",
+                "headRefOid": "40b3b43a374e3af7c35e55d4cae7a0c0cc8d5d3c",
                 "mergeStateStatus": "MERGED",
                 "mergedAt": "2026-04-07T00:00:00+00:00",
             },
@@ -255,6 +257,7 @@ class TestInitiativeIntegrator:
                     "isDraft": False,
                     "state": "OPEN",
                     "headRefName": "codex/parent",
+                    "headRefOid": "e0d5d7b611a97fc2badc963db0c0a09ecb3b70f5",
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 }
@@ -264,6 +267,7 @@ class TestInitiativeIntegrator:
                 "isDraft": False,
                 "state": "OPEN",
                 "headRefName": "codex/child",
+                "headRefOid": "ce2f9a13f1b6f24a8c04ec95f21e918a6f70e6fd",
                 "mergeStateStatus": "CLEAN",
                 "mergedAt": None,
             }
@@ -282,7 +286,14 @@ class TestInitiativeIntegrator:
 
         assert payload["action"] == "merged"
         assert payload["project_id"] == "proj-001"
-        merge_pr.assert_called_once_with(2001, integrator.repo)
+        # #9873: the merge takes the frozen snapshot, and its head must be the one
+        # captured in the same read that produced this row's verdict — never a
+        # SHA resolved at merge time.
+        merge_pr.assert_called_once()
+        (gate,) = merge_pr.call_args[0]
+        assert gate.pr_number == 2001
+        assert gate.repo == integrator.repo
+        assert gate.head_sha == "e0d5d7b611a97fc2badc963db0c0a09ecb3b70f5"
 
     def test_promote_promotes_draft_slice_when_dependency_clear(self, tmp_path: Path) -> None:
         manifest_path = _manifest_path(
@@ -306,6 +317,7 @@ class TestInitiativeIntegrator:
                     "isDraft": True,
                     "state": "OPEN",
                     "headRefName": "codex/draft-slice",
+                    "headRefOid": "3885c1927e5e6fe1b5209b2bdb1e61af0f9519fe",
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 },
@@ -347,6 +359,7 @@ class TestInitiativeIntegrator:
                     "isDraft": False,
                     "state": "OPEN",
                     "headRefName": "codex/flagged-slice",
+                    "headRefOid": "9d3fa0d17cd3747bb7497c6b8494359f0d266398",
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 },
@@ -480,3 +493,17 @@ class TestInitiativeCli:
         assert integrator_cls.return_value.promote.call_args.kwargs["project_id"] == "proj-001"
         parsed = json.loads(capsys.readouterr().out)
         assert parsed["project_id"] == "proj-001"
+
+
+def test_promote_refuses_to_merge_when_the_read_captured_no_head(tmp_path: Path) -> None:
+    """#9873: a PR row without headRefOid means no head was captured — refuse.
+
+    This is the case that used to resolve a fresh head at merge time and merge
+    content the checks never saw.
+    """
+    from aragora.governance.gate_snapshot import GateSnapshotError
+    from aragora.swarm.initiative_integrator import _snapshot_from_pr_row
+
+    for row in ({}, {"pr_head_sha": None}, {"pr_head_sha": ""}, {"pr_head_sha": "deadbeef"}):
+        with pytest.raises(GateSnapshotError):
+            _snapshot_from_pr_row(2001, "synaptent/aragora", row)

@@ -11,11 +11,13 @@ contract and adds:
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
+from aragora.governance.gate_snapshot import GateSnapshot, GateSnapshotError
 from aragora.swarm.campaign import (
     CampaignExecutor,
     CampaignManifest,
@@ -101,7 +103,7 @@ def _get_pr_snapshot(
                 "--repo",
                 repo,
                 "--json",
-                "number,url,isDraft,state,headRefName,mergeStateStatus,mergedAt",
+                "number,url,isDraft,state,headRefName,headRefOid,mergeStateStatus,mergedAt",
             ]
         )
     except (RuntimeError, ValueError, TypeError, json.JSONDecodeError):
@@ -127,7 +129,7 @@ def _find_open_pr_for_branch(branch: str, *, repo: str) -> dict[str, Any] | None
                 "--head",
                 normalized,
                 "--json",
-                "number,url,isDraft,state,headRefName,mergeStateStatus,mergedAt",
+                "number,url,isDraft,state,headRefName,headRefOid,mergeStateStatus,mergedAt",
                 "--limit",
                 "10",
             ]
@@ -215,6 +217,29 @@ def _ordered_projects(manifest: CampaignManifest) -> list[CampaignProject]:
         ordered_ids.extend(remaining)
 
     return [project_map[project_id] for project_id in ordered_ids]
+
+
+def _snapshot_from_pr_row(pr_number: int, repo: str, row: dict[str, Any] | None) -> GateSnapshot:
+    """Freeze the head captured alongside this PR's gate read (#9873).
+
+    Raises GateSnapshotError when the row carries no head, which is the refusal
+    the contract requires — the alternative, looking the head up now, would bind
+    the merge to a commit these checks never saw.
+    """
+    data = row or {}
+    return GateSnapshot(
+        pr_number=pr_number,
+        repo=repo,
+        head_sha=str(data.get("pr_head_sha") or data.get("headRefOid") or ""),
+        required_checks_green=True,
+        checks_known=True,
+        state=str(data.get("pr_state") or data.get("state") or "OPEN").upper(),
+        is_draft=bool(data.get("pr_draft") or data.get("isDraft") or False),
+        merge_state_status=(
+            str(data["mergeStateStatus"]) if data.get("mergeStateStatus") else None
+        ),
+        captured_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    )
 
 
 class InitiativeIntegrator:
@@ -425,7 +450,21 @@ class InitiativeIntegrator:
                     "pr_number": pr_number,
                     "pr_url": row.get("pr_url"),
                 }
-            merged, reason = _merge_pr(pr_number, self.repo)
+            # #9873: the head must come from the gate read, not a fresh lookup at
+            # merge time — that pairing of a stale verdict with a new commit is
+            # exactly the TOCTOU this contract forbids. _merge_pr refuses a
+            # missing head, so a snapshot that cannot be built blocks the merge.
+            try:
+                gate = _snapshot_from_pr_row(pr_number, self.repo, row)
+            except GateSnapshotError as exc:
+                return {
+                    "mode": "initiative-promote",
+                    "initiative_id": manifest.campaign_id,
+                    "action": "merge_blocked",
+                    "pr_number": pr_number,
+                    "reason": f"no captured head for PR #{pr_number}: {exc}",
+                }
+            merged, reason = _merge_pr(gate)
             if not merged:
                 return {
                     "mode": "initiative-promote",
@@ -599,6 +638,10 @@ class InitiativeIntegrator:
             "pr_number": pr_number,
             "pr_draft": bool(snapshot.get("isDraft")) if isinstance(snapshot, dict) else None,
             "pr_state": str((snapshot or {}).get("state") or "").strip() or None,
+            # #9873: the head is carried from the SAME read that produced this
+            # row's verdict. A row without it means no head was captured, and
+            # the merge is refused rather than looked up at merge time.
+            "pr_head_sha": str((snapshot or {}).get("headRefOid") or "").strip() or None,
             "dependencies": [dep.project_id for dep in project.dependencies],
             "dependency_blockers": dependency_blockers,
             "feature_flag": project.feature_flag,

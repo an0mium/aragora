@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import json
 import logging
 import subprocess
@@ -21,6 +22,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+from aragora.governance.gate_snapshot import GateSnapshot, require_snapshot
 from aragora.config.trusted_authors import resolve_trusted_authors
 from aragora.swarm.github_app_auth import gh_subprocess_run
 from aragora.swarm.merge_quorum_io import (
@@ -406,24 +408,48 @@ def _promote_draft(pr_number: int, repo: str) -> bool:
     return result.returncode == 0
 
 
-def _merge_pr(
-    pr_number: int,
-    repo: str,
-    head_sha: str | None = None,
-) -> tuple[bool, str]:
-    """Squash-merge a PR with admin override.  Returns (success, reason)."""
+def _snapshot_from_evaluation(*, pr_number: int, repo: str, head_sha: str | None) -> GateSnapshot:
+    """Freeze the head this evaluation already validated.
+
+    The arbiter reads the head (``gh pr list``) BEFORE it reads checks, so a
+    head that moves in between produces checks for a newer commit while this pin
+    still names the older one — GitHub then refuses the merge. That ordering is
+    what makes reusing the read safe here instead of taking a second one.
+    """
+    return GateSnapshot(
+        pr_number=pr_number,
+        repo=repo,
+        head_sha=str(head_sha or ""),
+        required_checks_green=True,
+        checks_known=True,
+        state="OPEN",
+        is_draft=False,
+        merge_state_status=None,
+        captured_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+    )
+
+
+def _merge_pr(snapshot: GateSnapshot | None) -> tuple[bool, str]:
+    """Squash-merge with admin override, bound to the captured head (#9873).
+
+    Takes the snapshot rather than ``(pr_number, repo, head_sha=None)`` on
+    purpose: an optional naked SHA is what let callers merge unpinned, and it is
+    the parameter a future caller would fill with a freshly-resolved head. There
+    is no such parameter now — ``require_snapshot`` refuses when none was
+    captured, and the pin always comes from the snapshot.
+    """
+    snap = require_snapshot(snapshot)
     args = [
         "pr",
         "merge",
-        str(pr_number),
+        str(snap.pr_number),
         "--repo",
-        repo,
+        snap.repo,
         "--admin",
         "--squash",
         "--delete-branch",
+        *snap.match_head_args(),
     ]
-    if head_sha:
-        args.extend(["--match-head-commit", head_sha])
     result = _run_gh(args, write_op=True)
     if result.returncode != 0:
         reason = result.stderr.strip() or "unknown error"
@@ -536,7 +562,9 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
         logger.info("[dry-run] Would merge PR #%d (%s)", pr_number, branch)
         return MergeResult(pr_number, branch, True, "dry-run: would merge")
 
-    ok, reason = _merge_pr(pr_number, config.repo, head_sha)
+    ok, reason = _merge_pr(
+        _snapshot_from_evaluation(pr_number=pr_number, repo=config.repo, head_sha=head_sha)
+    )
     if ok:
         logger.info("Merged PR #%d (%s)", pr_number, branch)
     else:
