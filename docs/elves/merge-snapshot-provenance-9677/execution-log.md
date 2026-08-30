@@ -149,4 +149,29 @@ PR #9874 exact head matched the local and remote branch tip. Fresh CI started; n
 reviews were present. Begin Batch 2 under collision-safe tag
 `elves/pre-batch-2-merge-snapshot-provenance-9677`.
 
+## Batch 2 Review and Bounded Repair: 2026-08-29 19:48 America/Chicago
+
+**Review evidence:**
+
+- First fresh independent review at `ef9c48d552b685c978aaeaf169ccd6aef2b4d5c3`: PASS, no
+  P0-P3 findings; independently reran 129 focused tests.
+- Separate regression review found one P2: `gh pr view --json files` returns at most 100 paths, so
+  the new single-snapshot Codex merger could mistake a truncated list for the complete file set and
+  miss a sensitive path after entry 100. The reviewer provided live proof from a 213-file PR whose
+  returned `files` list contained 100 entries. No additional P0-P3 findings were found.
+
+**One bounded repair:**
+
+- Added `changedFiles` to the same authoritative `gh pr view` snapshot.
+- The snapshot now fails closed unless `changedFiles` is a non-boolean positive integer exactly
+  equal to the number of parsed returned paths. Truncated, missing, malformed, zero, and mismatched
+  file snapshots cannot reach eligibility selection or merge execution.
+- Added six category cases covering the 101-versus-100 truncation boundary and malformed counts.
+- Mutation proof removed the count-equality guard; the 101-versus-100 test failed as intended.
+  The guard was restored and the cumulative suite reran green: 135 passed, 0 skipped.
+- Scoped Ruff, four-source mypy, metrics drift, module-tier drift, and diff hygiene: PASS.
+
+**Control:** This is the single Batch 2 repair permitted by the plan. The repaired exact head must
+receive a fresh independent terminal review; any further P2 stops the lane.
+
 <!-- Add newer entries above this line. -->

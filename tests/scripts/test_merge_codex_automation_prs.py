@@ -150,6 +150,7 @@ def test_collect_pull_requests_uses_one_view_snapshot_for_all_eligibility_data(
                 "mergeable": "MERGEABLE",
                 "body": "## Validation\n- pytest",
                 "url": "https://example.com/pr/7",
+                "changedFiles": 1,
                 "files": [{"path": "aragora/safe.py"}],
                 "statusCheckRollup": [
                     {"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}
@@ -189,6 +190,7 @@ def test_collect_pull_requests_uses_one_view_snapshot_for_all_eligibility_data(
         "mergeable",
         "body",
         "url",
+        "changedFiles",
         "statusCheckRollup",
         "files",
     }.issubset(view_json_fields)
@@ -211,6 +213,45 @@ def test_collect_pull_requests_rejects_mismatched_snapshot_number(
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
     with pytest.raises(RuntimeError, match="requested #7, got #8"):
+        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
+@pytest.mark.parametrize(
+    ("changed_file_count", "returned_file_count"),
+    [
+        (101, 100),
+        (2, 1),
+        (None, 1),
+        (True, 1),
+        ("1", 1),
+        (0, 0),
+    ],
+)
+def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    changed_file_count: object,
+    returned_file_count: int,
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
+        else:
+            payload = {
+                "number": 7,
+                "changedFiles": changed_file_count,
+                "files": [
+                    {"path": f"aragora/file_{index}.py"} for index in range(returned_file_count)
+                ],
+            }
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="incomplete or malformed files snapshot"):
         merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
 
 

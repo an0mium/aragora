@@ -25,6 +25,7 @@
 - 2026-08-29: Reducing a settlement report to a boolean destroys the exact head it authorized; carry a typed result or full SHA instead.
 - 2026-08-29: A helper that performs its own last-second head lookup may protect only the command, while silently discarding the checks and file scan from the earlier snapshot.
 - 2026-08-29: A private merge helper can still have cross-module consumers. Before making it fail closed, survey imports as well as local call sites and propagate the caller's existing snapshot head rather than adding a compatibility lookup.
+- 2026-08-29: `gh pr view --json files` can truncate the files connection at 100 entries. A security-sensitive file scan must include `changedFiles` in the same snapshot and reject any count/path mismatch rather than treating the returned list as complete.
 
 ## Retired Learnings
 

@@ -124,7 +124,7 @@ def _pr_snapshot(repo_root: Path, repo: str, number: int) -> dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "number,title,headRefName,headRefOid,isDraft,mergeable,body,url,files,statusCheckRollup",
+            "number,title,headRefName,headRefOid,isDraft,mergeable,body,url,changedFiles,files,statusCheckRollup",
         ],
         cwd=repo_root,
     )
@@ -151,6 +151,22 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
         files = metadata.get("files") or []
         if not isinstance(files, list):
             raise RuntimeError(f"unexpected files payload for PR #{number}")
+        changed_file_count = metadata.get("changedFiles")
+        changed_files = [
+            str(item.get("path", ""))
+            for item in files
+            if isinstance(item, dict) and item.get("path")
+        ]
+        if (
+            isinstance(changed_file_count, bool)
+            or not isinstance(changed_file_count, int)
+            or changed_file_count < 1
+            or changed_file_count != len(changed_files)
+        ):
+            raise RuntimeError(
+                f"incomplete or malformed files snapshot for PR #{number}: "
+                f"changedFiles={changed_file_count!r}, returned_paths={len(changed_files)}"
+            )
         snapshots.append(
             PullRequestSnapshot(
                 number=snapshot_number,
@@ -161,11 +177,7 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
                 mergeable=str(metadata.get("mergeable", "")),
                 body=str(metadata.get("body", "") or ""),
                 url=str(metadata.get("url", "")),
-                changed_files=[
-                    str(item.get("path", ""))
-                    for item in files
-                    if isinstance(item, dict) and item.get("path")
-                ],
+                changed_files=changed_files,
                 status_rollup=list(metadata.get("statusCheckRollup") or []),
             )
         )

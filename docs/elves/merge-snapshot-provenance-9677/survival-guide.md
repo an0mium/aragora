@@ -93,10 +93,12 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** Batch 1 exact-head implementation, 129-test cumulative validation,
-mutation proof, hooks, preflight, and generator drift checks passed at pushed commit `66a195462c`.
+**What was just finished:** Batch 2 regression review found one P2 truncated-file fail-open; the
+single permitted bounded repair now validates `changedFiles` against returned paths, with 135 tests
+and mutation proof green locally.
 
-**Single next action:** run a fresh independent cumulative review of the exact pushed head.
+**Single next action:** commit and push the bounded repair, then run a fresh independent terminal
+review of that exact head.
 
 ## Active Compute
 
