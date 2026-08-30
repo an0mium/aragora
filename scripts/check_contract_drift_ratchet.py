@@ -1678,6 +1678,7 @@ def _gh_api_get(
     identity = {
         "byte_length": len(body),
         "etag": headers.get("etag"),
+        "link": headers.get("link"),
         "sha256": _sha256_bytes(body),
         "updated_at": payload.get("updated_at") if isinstance(payload, dict) else None,
     }
@@ -1799,6 +1800,25 @@ def _gh_api_get_raw_stable(
     raise BoundaryBlocked(f"authenticated GitHub asset moved concurrently: {endpoint}")
 
 
+def _link_header_advertises_next(link_header: Any) -> bool:
+    """Report whether an RFC 8288 Link header advertises another page.
+
+    GitHub omits rel="next" on the terminal page of a paginated collection,
+    so a short page that still advertises rel="next" is a truncated
+    enumeration, not an exhausted one. Absent Link identity stays exhausted:
+    single-page collections carry no Link header at all.
+    """
+    if link_header is None:
+        return False
+    if not isinstance(link_header, str):
+        raise ValueError("authenticated GitHub pagination Link header is malformed")
+    for segment in link_header.split(","):
+        for param in segment.split(";")[1:]:
+            if param.strip().lower() in {'rel="next"', "rel=next"}:
+                return True
+    return False
+
+
 def _gh_api_paginated(
     endpoint: str,
     *,
@@ -1821,6 +1841,11 @@ def _gh_api_paginated(
         identities[page_endpoint] = identity
         records.extend(payload)
         if len(payload) < 100:
+            if _link_header_advertises_next(identity.get("link")):
+                raise ValueError(
+                    "authenticated GitHub pagination ended before an advertised "
+                    f"next page: {page_endpoint}"
+                )
             break
         page += 1
         if page > 10_000:
@@ -2661,7 +2686,7 @@ def _collect_live_evidence(
         )
         endpoint_identities[rule_suite_endpoint] = {
             key: rule_suite_identity.get(key)
-            for key in ("byte_length", "etag", "sha256", "updated_at")
+            for key in ("byte_length", "etag", "link", "sha256", "updated_at")
         }
     else:
         _authenticate_persisted_rule_suite_claim(
@@ -2787,23 +2812,18 @@ def _collect_live_evidence(
         )
         endpoint_identities.update(file_identities)
         if len(files) != observed_pr.get("changed_files"):
-            raise ValueError(f"authenticated governed PR #{number} file discovery is incomplete")
+            _require_stats_dropout_completeness_witness(
+                repo_root=repo_root,
+                pr=number,
+                observed_pr=observed_pr,
+                files=files,
+                first_parent_sha=record.get("base_sha"),
+                merge_sha=receipt_by_pr.get(number, {}).get("merge_sha"),
+                operation_log=operation_log,
+            )
         if record.get("changed_files_complete") is not True:
             raise ValueError(f"capsule governed PR #{number} denies complete file discovery")
-        owned_paths: set[str] = set()
-        for item in files:
-            filename = item.get("filename") if isinstance(item, dict) else None
-            if not isinstance(filename, str) or not filename:
-                raise ValueError(f"authenticated governed PR #{number} file record is malformed")
-            owned_paths.add(filename)
-            previous = item.get("previous_filename")
-            if previous is not None:
-                if not isinstance(previous, str) or not previous:
-                    raise ValueError(
-                        f"authenticated governed PR #{number} file record is malformed"
-                    )
-                owned_paths.add(previous)
-        authenticated_pr_files[number] = sorted(owned_paths)
+        authenticated_pr_files[number] = _authenticated_pr_owned_paths(files, pr=number)
         receipt = receipt_by_pr.get(number)
         if not isinstance(receipt, dict):
             raise ValueError(f"capsule governed PR #{number} lacks a first-parent receipt")
@@ -3913,6 +3933,131 @@ def _require_squash_binding_witness(
         ),
     )
     return witness
+
+
+def _authenticated_pr_owned_paths(files: list[dict[str, Any]], *, pr: int) -> list[str]:
+    """Collect the authenticated disposition's owned paths for one PR.
+
+    Renames own both sides: previous_filename is a removal at the old path
+    and filename an addition at the new path, matching the pinned
+    --no-renames policy of the recomputed first-parent semantic delta.
+    """
+    owned_paths: set[str] = set()
+    for item in files:
+        filename = item.get("filename") if isinstance(item, dict) else None
+        if not isinstance(filename, str) or not filename:
+            raise ValueError(f"authenticated governed PR #{pr} file record is malformed")
+        owned_paths.add(filename)
+        previous = item.get("previous_filename")
+        if previous is not None:
+            if not isinstance(previous, str) or not previous:
+                raise ValueError(f"authenticated governed PR #{pr} file record is malformed")
+            owned_paths.add(previous)
+    return sorted(owned_paths)
+
+
+def _require_stats_dropout_completeness_witness(
+    *,
+    repo_root: Path,
+    pr: int,
+    observed_pr: dict[str, Any],
+    files: list[dict[str, Any]],
+    first_parent_sha: Any,
+    merge_sha: Any,
+    operation_log: list[dict[str, Any]],
+) -> None:
+    """Cure ONLY the fully zeroed REST stats dropout, by dual witness.
+
+    GitHub REST permanently reports changed_files=0/additions=0/deletions=0
+    for some very large merged PRs (observed on PR #9850) while the files
+    endpoint still enumerates the true disposition, so the exact
+    len(files) == changed_files completeness witness would fail closed on
+    every boundary interval containing such a merge. Acceptance requires a
+    dual witness:
+
+    - Link-exhausted pagination: _gh_api_paginated fails closed whenever a
+      short page still advertises rel="next", so any enumeration that
+      reaches this witness is exhausted by construction (and a zeroed
+      changed_files mismatch implies the enumeration is nonempty).
+    - Exact equality of the enumerated owned-path set (previous_filename
+      included) with the VAL-CDG-018 first-parent semantic delta recomputed
+      from immutable local git.
+
+    GraphQL changedFiles corroboration is deliberately not consulted: the
+    read-only subprocess guard admits only GET/HEAD gh HTTP requests (the
+    graphql endpoint needs mutating-shaped -f fields), and a remote count
+    witness is strictly dominated by exact local path-set equality.
+
+    Any non-zeroed count mismatch keeps the pre-existing fail-closed raise,
+    so normal-PR witness semantics are unchanged. The zeroed REST
+    additions/deletions still bind verbatim into authenticated_pr_changes
+    as the (zeroed) REST stats of record.
+    """
+    rest_counts = (
+        observed_pr.get("changed_files"),
+        observed_pr.get("additions"),
+        observed_pr.get("deletions"),
+    )
+    if any(isinstance(value, bool) or value != 0 for value in rest_counts):
+        raise ValueError(f"authenticated governed PR #{pr} file discovery is incomplete")
+    if not files:
+        raise ValueError(f"authenticated governed PR #{pr} zeroed-stats file enumeration is empty")
+    enumerated = set(_authenticated_pr_owned_paths(files, pr=pr))
+    if (
+        not isinstance(first_parent_sha, str)
+        or not FULL_SHA_RE.fullmatch(first_parent_sha)
+        or not isinstance(merge_sha, str)
+        or not FULL_SHA_RE.fullmatch(merge_sha)
+    ):
+        raise ValueError(
+            f"authenticated governed PR #{pr} zeroed-stats witness lacks canonical "
+            "first-parent bindings"
+        )
+    delta = _first_parent_semantic_delta(
+        repo_root,
+        first_parent_sha=first_parent_sha,
+        merge_sha=merge_sha,
+        pr=pr,
+        operation_log=operation_log,
+    )
+    foreign = sorted(delta - enumerated)
+    missing = sorted(enumerated - delta)
+    if foreign or missing:
+        differences = []
+        if foreign:
+            differences.append(f"semantic-delta paths outside the enumeration: {foreign}")
+        if missing:
+            differences.append(f"enumerated paths missing from the semantic delta: {missing}")
+        raise ValueError(
+            f"authenticated governed PR #{pr} zeroed-stats enumeration does not equal "
+            f"the recomputed first-parent semantic delta: {'; '.join(differences)}"
+        )
+    binding_witnesses = [
+        "link_exhausted_pagination",
+        "first_parent_semantic_delta_equality",
+    ]
+    _append_operation(
+        operation_log,
+        kind="stats_dropout_witness",
+        resource=f"stats-dropout:{pr}",
+        identifier="zeroed_stats_dual_witness",
+        response_identity={
+            "binding_witnesses": binding_witnesses,
+            "enumerated_path_count": len(enumerated),
+        },
+        raw=_canonical_json_bytes(
+            {
+                "binding_witnesses": binding_witnesses,
+                "enumerated_paths": sorted(enumerated),
+                "first_parent_sha": first_parent_sha,
+                "merge_sha": merge_sha,
+                "pr": pr,
+                "rest_additions": 0,
+                "rest_changed_files": 0,
+                "rest_deletions": 0,
+            }
+        ),
+    )
 
 
 def _reconcile_prs_and_receipts(
