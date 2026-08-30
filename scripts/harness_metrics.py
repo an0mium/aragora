@@ -38,6 +38,7 @@ from typing import Any, Iterable
 
 SCHEMA_VERSION = "aragora.harness-metrics.v1"
 DIMENSIONS = ("conductor_lane", "fleet", "agent_type")
+GH_METADATA_SEARCH_LIMIT = 1_000
 
 
 @dataclass(frozen=True)
@@ -254,7 +255,7 @@ def load_gh_metadata(repo: str, since: datetime, warnings: list[str]) -> list[di
         "--state",
         "merged",
         "--limit",
-        "500",
+        str(GH_METADATA_SEARCH_LIMIT),
         "--search",
         f"merged:>={since.date().isoformat()}",
         "--json",
@@ -273,7 +274,13 @@ def load_gh_metadata(repo: str, since: datetime, warnings: list[str]) -> list[di
     except json.JSONDecodeError:
         warnings.append("gh metadata unavailable: invalid JSON")
         return []
-    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    records = [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    if len(records) >= GH_METADATA_SEARCH_LIMIT:
+        warnings.append(
+            "gh metadata may be truncated: "
+            f"GitHub search returned its {GH_METADATA_SEARCH_LIMIT}-result ceiling"
+        )
+    return records
 
 
 def _resolved_observations(pairs: Iterable[tuple[str, bool | None]]) -> list[bool]:

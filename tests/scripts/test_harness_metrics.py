@@ -4,6 +4,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from scripts import harness_metrics
 
 
@@ -114,6 +116,44 @@ def test_github_metadata_top_level_number_joins_pr_inventory() -> None:
     assert summary["merged_pr_count"] == 1
     assert summary["rounds_to_merge_average"] == 1.0
     assert summary["token_cost_per_merged_pr"] == 2.5
+
+
+def test_github_metadata_warns_when_search_result_reaches_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [
+        {
+            "number": number,
+            "mergedAt": "2026-08-21T00:00:00Z",
+            "headRefName": f"branch-{number}",
+            "author": {"login": "codex"},
+        }
+        for number in range(harness_metrics.GH_METADATA_SEARCH_LIMIT)
+    ]
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_: object) -> object:
+        commands.append(command)
+        return harness_metrics.subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(rows),
+            stderr="",
+        )
+
+    monkeypatch.setattr(harness_metrics.subprocess, "run", fake_run)
+    warnings: list[str] = []
+
+    records = harness_metrics.load_gh_metadata("synaptent/aragora", AS_OF, warnings)
+
+    assert len(records) == harness_metrics.GH_METADATA_SEARCH_LIMIT
+    assert commands[0][commands[0].index("--limit") + 1] == str(
+        harness_metrics.GH_METADATA_SEARCH_LIMIT
+    )
+    assert warnings == [
+        "gh metadata may be truncated: GitHub search returned its "
+        f"{harness_metrics.GH_METADATA_SEARCH_LIMIT}-result ceiling"
+    ]
 
 
 def test_cli_is_offline_deterministic_and_emits_one_json_and_one_table(
