@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.swarm.merge_arbiter import (
+    _snapshot_from_evaluation,
     AUTOMATION_REVIEWER_LOGINS,
     REQUIRED_CHECKS,
     ArbiterOperationalError,
@@ -240,9 +241,11 @@ class TestMergePr:
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result()
             success, reason = _merge_pr(
-                12,
-                "owner/repo",
-                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                _snapshot_from_evaluation(
+                    pr_number=12,
+                    repo="owner/repo",
+                    head_sha="deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                )
             )
         assert success is True
         assert reason == "merged"
@@ -290,7 +293,14 @@ class TestEvaluatePrAllPassing:
             result = _evaluate_pr(pr, config)
         assert result.success is True
         assert result.pr_number == 42
-        mock_merge.assert_called_once_with(42, config.repo, pr["headRefOid"])
+        # #9873: the merge receives the frozen snapshot, and its head must be the
+        # one this evaluation validated — not a SHA re-read at merge time.
+        mock_merge.assert_called_once()
+        (snapshot,) = mock_merge.call_args[0]
+        assert snapshot.pr_number == 42
+        assert snapshot.repo == config.repo
+        assert snapshot.head_sha == pr["headRefOid"]
+        assert snapshot.match_head_args() == ["--match-head-commit", pr["headRefOid"]]
 
 
 # ---------------------------------------------------------------------------
@@ -853,3 +863,23 @@ class TestAutoCollectIntegration:
             summary = await arb.run()  # must not raise
         assert calls["n"] == 1  # attempted once; head recorded so no retry storm
         assert summary.polls >= 1
+
+
+class TestMergeRefusesWithoutACapturedHead:
+    """#9873: _merge_pr takes a snapshot, so an unbound merge has no way to happen."""
+
+    def test_merge_without_a_snapshot_is_refused(self) -> None:
+        from aragora.governance.gate_snapshot import MergeRefused
+
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            with pytest.raises(MergeRefused):
+                _merge_pr(None)
+        mock_gh.assert_not_called()
+
+    def test_a_snapshot_cannot_be_built_without_a_full_head(self) -> None:
+        """The old signature allowed head_sha=None; now there is no such state."""
+        from aragora.governance.gate_snapshot import GateSnapshotError
+
+        for bad in ("", None, "deadbeef"):
+            with pytest.raises(GateSnapshotError):
+                _snapshot_from_evaluation(pr_number=12, repo="owner/repo", head_sha=bad)
