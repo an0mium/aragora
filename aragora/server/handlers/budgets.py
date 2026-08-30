@@ -65,7 +65,12 @@ _circuit_breaker_lock = threading.Lock()
 
 def _coerce_finite_float(value: Any) -> float:
     """Coerce numeric input to a finite float."""
-    parsed = float(value)
+    try:
+        parsed = float(value)
+    except OverflowError as exc:
+        # float() of an arbitrary-precision JSON int raises OverflowError,
+        # which the ValueError-based call sites would let escape as a 500.
+        raise ValueError("Value must be finite") from exc
     if not math.isfinite(parsed):
         raise ValueError("Value must be finite")
     return parsed
@@ -189,7 +194,7 @@ class BudgetHandler(BaseHandler):
             from aragora.rbac.models import AuthorizationContext
 
             auth_ctx = AuthorizationContext(
-                user_id=user_ctx.user_id,
+                user_id=user_ctx.user_id or "unknown",
                 user_email=user_ctx.email,
                 org_id=user_ctx.org_id,
                 workspace_id=None,
