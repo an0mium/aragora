@@ -125,8 +125,9 @@ currently recorded in the Stop Gate permits a final response.
 ## Collision and Ownership Checks
 
 1. `git fetch origin main codex/public-wedge-contract-closure-b1-20260830`
-2. `git rev-parse HEAD` must equal the last self-created/pushed head recorded in
-   `.elves-session.json`; any unexplained movement is a collision.
+2. Local and remote branch tips must match, and the tip must descend from the recorded
+   `.elves-session.json` `staging_plan_head`; inspect every descendant commit and stop on any
+   non-self/foreign commit.
 3. `python3 scripts/agent_bridge.py read-steering --lane-id
    codex-public-wedge-contract-closure-b1-20260830 --json`
 4. `python3 scripts/check_work_lease.py codex/public-wedge-contract-closure-b1-20260830
@@ -157,7 +158,7 @@ currently recorded in the Stop Gate permits a final response.
 - [x] Survival guide, learnings, execution log, session JSON, and uncommitted ledger initialized
 - [x] Dedicated fresh-main worktree and branch confirmed
 - [x] Lane ownership and work lease confirmed
-- [ ] Draft PR opened and recorded
+- [x] Draft PR #9903 opened and recorded
 - [x] GitHub auth, current-main required checks, open-PR file overlap, and focused baseline checked
 - [x] Run mode, merge authorization, exclusions, circuit breakers, and Stop Gate recorded
 - [x] Stop Gate initialized with `Stop allowed right now: no` for the launched run; the current
@@ -166,15 +167,16 @@ currently recorded in the Stop Gate permits a final response.
 
 ## Current Phase
 
-**Status:** Staging
+**Status:** Launch-ready
 
 **Active batch:** Batch 1 - Compose the zero-key offline receipt proof
 
-**What was just finished:** Live overlap and runtime discovery proved the chain works but lacks one
-composed clean-install regression and tamper mutation.
+**What was just finished:** The validated staging packet was committed and pushed, and draft PR
+#9903 was opened at staging plan head `ac8d546127bc42de1ced6920fbd5e5194a889c96`.
 
-**Single next action:** Commit and push the staging packet, open and record the draft PR, then stop
-at the fresh-launch boundary without product edits.
+**Single next action:** Receive the user's fresh launch call, set the Stop Gate to `no`, renew the
+lease, recheck steering/head/overlap/main health, create the unique rollback tag, and implement
+Batch 1.
 
 ## Next Exact Batch
 
