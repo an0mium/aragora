@@ -67,7 +67,7 @@ rather than a known product defect.
   derived from that same demo receipt.
 - [ ] Run focused tests, wheel/install smoke validation, repository CI-equivalent gates, and one
   independent non-countable review.
-- [ ] Remove operational Elves artifacts before final readiness while retaining this durable plan.
+- [x] Remove operational Elves artifacts before final readiness while retaining this durable plan.
 
 ### Acceptance criteria
 
