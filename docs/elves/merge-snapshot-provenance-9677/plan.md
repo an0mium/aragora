@@ -191,7 +191,9 @@ review loop:
 - [x] Initiative dry-run with a missing or malformed snapshot head reports blocked, not `would_merge`.
 - [x] Each protection has a mutation break test that fails when the protection is removed.
 - [x] Cumulative touched-surface tests pass: 155 passed, 0 skipped; scoped Ruff and mypy pass.
-- [ ] Drift/docs/preflight checks pass on the restored final tree.
+- [x] Drift/docs/preflight checks pass on the restored final tree; the ready-only docs build exposed
+      omitted metric mirrors, which were regenerated with `doc_stats.py --write` and the docs-site
+      sync before the replacement exact-head review.
 - [ ] One fresh exact-head Claude+OpenAI terminal dry run has no P0-P2 findings.
 - [ ] If that review finds another P0-P2, stop for OWNER direction rather than start another repair loop.
 

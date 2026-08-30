@@ -25,6 +25,12 @@
   completeness errors on the affected snapshot and continue enumeration.
 - 2026-08-30: Dry-run output is still control-plane output. It must not report `would_merge` unless
   the same valid full snapshot head required by the apply path is present and surfaced in the result.
+- 2026-08-30: The focused preflight does not prove generated documentation statistics are current.
+  Python/test-count changes must also run `python3 scripts/doc_stats.py --write` followed by
+  `node docs-site/scripts/sync-docs.js`; the ready-only docs build is otherwise genuinely unstable.
+- 2026-08-30: The terminal Claude P3 about a possible 100-row `statusCheckRollup` cap was checked
+  live at exact head `55fe80e36277b870d206aee0c87e66845bb11fb4`; `gh pr view` returned 138 rows,
+  so the suspected cap was not present in the installed CLI/GitHub response for this PR.
 
 ## Product and Domain Invariants
 
