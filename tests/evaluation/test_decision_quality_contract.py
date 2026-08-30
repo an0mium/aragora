@@ -5,6 +5,9 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
+from aragora.evaluation.decision_quality_corpus import canonical_sha256
 from aragora.evaluation.decision_quality_contract import load_benchmark_bundle
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +23,14 @@ def _copy_contract(tmp_path: Path) -> Path:
 
 def _issue_codes(report: object) -> set[str]:
     return {issue.code for issue in report.issues}  # type: ignore[attr-defined]
+
+
+def _write_roster(manifest_path: Path, roster: dict[str, object]) -> None:
+    roster_path = manifest_path.parent / "roster.json"
+    roster_path.write_text(json.dumps(roster), encoding="utf-8")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["roster"]["sha256"] = canonical_sha256(roster)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def test_live_contract_binds_complete_frozen_corpus() -> None:
@@ -73,14 +84,66 @@ def test_contract_rejects_duplicate_roster_family(tmp_path: Path) -> None:
     roster = json.loads(roster_path.read_text(encoding="utf-8"))
     members = roster["conditions"]["aragora_team"]["members"]
     members.append(copy.deepcopy(members[0]))
-    roster_path.write_text(json.dumps(roster), encoding="utf-8")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    from aragora.evaluation.decision_quality_corpus import canonical_sha256
-
-    manifest["roster"]["sha256"] = canonical_sha256(roster)
-    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _write_roster(manifest_path, roster)
 
     bundle, report = load_benchmark_bundle(manifest_path)
 
     assert bundle is None
     assert "duplicate_family" in _issue_codes(report)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "issue_code"),
+    [
+        ("requested_model", "other/model", "model_contract_mismatch"),
+        ("allowed_resolved_models", ["other/model"], "model_contract_mismatch"),
+        ("transport", "paid-api-fallback", "transport_contract_mismatch"),
+        ("billing_class", "paid_api", "billing_contract_mismatch"),
+    ],
+)
+def test_contract_rejects_member_identity_drift(
+    tmp_path: Path, field: str, value: object, issue_code: str
+) -> None:
+    manifest_path = _copy_contract(tmp_path)
+    roster_path = manifest_path.parent / "roster.json"
+    roster = json.loads(roster_path.read_text(encoding="utf-8"))
+    roster["conditions"]["single_openai"]["members"][0][field] = value
+    _write_roster(manifest_path, roster)
+
+    bundle, report = load_benchmark_bundle(manifest_path)
+
+    assert bundle is None
+    assert issue_code in _issue_codes(report)
+
+
+@pytest.mark.parametrize(
+    ("condition", "field", "value", "issue_code"),
+    [
+        ("single_claude", "mode", "team", "mode_contract_mismatch"),
+        ("single_openai", "max_paid_cost_usd", True, "paid_cost_contract_mismatch"),
+        ("aragora_team", "adversarial_rounds", True, "round_contract"),
+        (
+            "aragora_team",
+            "synthesizer_family",
+            "openai",
+            "synthesizer_contract_mismatch",
+        ),
+    ],
+)
+def test_contract_rejects_condition_semantic_drift(
+    tmp_path: Path,
+    condition: str,
+    field: str,
+    value: object,
+    issue_code: str,
+) -> None:
+    manifest_path = _copy_contract(tmp_path)
+    roster_path = manifest_path.parent / "roster.json"
+    roster = json.loads(roster_path.read_text(encoding="utf-8"))
+    roster["conditions"][condition][field] = value
+    _write_roster(manifest_path, roster)
+
+    bundle, report = load_benchmark_bundle(manifest_path)
+
+    assert bundle is None
+    assert issue_code in _issue_codes(report)

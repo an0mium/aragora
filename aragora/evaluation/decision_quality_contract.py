@@ -31,6 +31,27 @@ REQUIRED_CONDITIONS = (
     "single_gemini",
     "aragora_team",
 )
+EXPECTED_FAMILY_MODELS = {
+    "claude": "claude-fable-5",
+    "openai": "gpt-5.6-sol",
+    "gemini": "gemini-3.1-pro-preview",
+}
+EXPECTED_TRANSPORT = "vibeproxy-required"
+EXPECTED_BILLING_CLASS = "subscription"
+
+_ROSTER_KEYS = {"schema_version", "conditions"}
+_SINGLE_CONDITION_KEYS = {"mode", "max_paid_cost_usd", "members"}
+_TEAM_CONDITION_KEYS = _SINGLE_CONDITION_KEYS | {
+    "adversarial_rounds",
+    "synthesizer_family",
+}
+_MEMBER_KEYS = {
+    "family",
+    "requested_model",
+    "allowed_resolved_models",
+    "transport",
+    "billing_class",
+}
 
 
 @dataclass(frozen=True)
@@ -80,6 +101,15 @@ class BenchmarkBundle:
 
 def _contract_issue(report: BenchmarkContractReport, path: str, code: str, message: str) -> None:
     report.issues.append(ContractIssue(path, code, message))
+
+
+def _exact_keys(
+    value: dict[str, Any], expected: set[str], path: str, report: BenchmarkContractReport
+) -> None:
+    for key in sorted(expected - value.keys()):
+        _contract_issue(report, f"{path}.{key}", "missing_field", "field is required")
+    for key in sorted(value.keys() - expected):
+        _contract_issue(report, f"{path}.{key}", "unknown_field", "field is not permitted")
 
 
 def _safe_artifact_path(manifest_dir: Path, relative: Any) -> Path | None:
@@ -252,6 +282,7 @@ def _copy_corpus_issues(source: CorpusValidationReport, target: BenchmarkContrac
 
 
 def _validate_roster(roster: dict[str, Any], report: BenchmarkContractReport) -> None:
+    _exact_keys(roster, _ROSTER_KEYS, "$.roster", report)
     if roster.get("schema_version") != ROSTER_SCHEMA_VERSION:
         _contract_issue(
             report, "$.roster.schema_version", "unsupported_schema", ROSTER_SCHEMA_VERSION
@@ -266,6 +297,31 @@ def _validate_roster(roster: dict[str, Any], report: BenchmarkContractReport) ->
         if not isinstance(condition, dict):
             _contract_issue(report, f"$.roster.{condition_name}", "invalid_condition", "object")
             continue
+        condition_path = f"$.roster.{condition_name}"
+        expected_mode = "team" if condition_name == "aragora_team" else "single"
+        expected_keys = (
+            _TEAM_CONDITION_KEYS if condition_name == "aragora_team" else _SINGLE_CONDITION_KEYS
+        )
+        _exact_keys(condition, expected_keys, condition_path, report)
+        if condition.get("mode") != expected_mode:
+            _contract_issue(
+                report,
+                f"{condition_path}.mode",
+                "mode_contract_mismatch",
+                f"must equal {expected_mode!r}",
+            )
+        max_paid_cost = condition.get("max_paid_cost_usd")
+        if (
+            isinstance(max_paid_cost, bool)
+            or not isinstance(max_paid_cost, (int, float))
+            or float(max_paid_cost) != 0.0
+        ):
+            _contract_issue(
+                report,
+                f"{condition_path}.max_paid_cost_usd",
+                "paid_cost_contract_mismatch",
+                "must be numeric zero for the subscription-only frozen roster",
+            )
         members = condition.get("members")
         if not isinstance(members, list) or not members:
             _contract_issue(
@@ -278,28 +334,56 @@ def _validate_roster(roster: dict[str, Any], report: BenchmarkContractReport) ->
             if not isinstance(member, dict):
                 _contract_issue(report, path, "invalid_member", "must be object")
                 continue
+            _exact_keys(member, _MEMBER_KEYS, path, report)
             family = member.get("family")
             if family in families:
                 _contract_issue(report, f"{path}.family", "duplicate_family", str(family))
             elif isinstance(family, str):
                 families.add(family)
-            for key in ("requested_model", "transport", "billing_class"):
-                if not isinstance(member.get(key), str) or not member[key]:
-                    _contract_issue(report, f"{path}.{key}", "missing_field", "required")
-            resolved = member.get("allowed_resolved_models")
-            if (
-                not isinstance(resolved, list)
-                or not resolved
-                or not all(isinstance(model, str) and model for model in resolved)
-            ):
+            expected_model = EXPECTED_FAMILY_MODELS.get(family) if isinstance(family, str) else None
+            requested_model = member.get("requested_model")
+            if requested_model != expected_model:
                 _contract_issue(
-                    report, f"{path}.allowed_resolved_models", "missing_field", "required"
+                    report,
+                    f"{path}.requested_model",
+                    "model_contract_mismatch",
+                    f"must equal {expected_model!r} for family {family!r}",
+                )
+            resolved = member.get("allowed_resolved_models")
+            if resolved != [expected_model]:
+                _contract_issue(
+                    report,
+                    f"{path}.allowed_resolved_models",
+                    "model_contract_mismatch",
+                    f"must equal [{expected_model!r}] for family {family!r}",
+                )
+            if member.get("transport") != EXPECTED_TRANSPORT:
+                _contract_issue(
+                    report,
+                    f"{path}.transport",
+                    "transport_contract_mismatch",
+                    f"must equal {EXPECTED_TRANSPORT!r}",
+                )
+            if member.get("billing_class") != EXPECTED_BILLING_CLASS:
+                _contract_issue(
+                    report,
+                    f"{path}.billing_class",
+                    "billing_contract_mismatch",
+                    f"must equal {EXPECTED_BILLING_CLASS!r}",
                 )
         expected = {condition_name.removeprefix("single_")}
         if condition_name == "aragora_team":
             expected = {"claude", "openai", "gemini"}
-            if condition.get("adversarial_rounds") != 1:
+            adversarial_rounds = condition.get("adversarial_rounds")
+            if isinstance(adversarial_rounds, bool) or adversarial_rounds != 1:
                 _contract_issue(report, f"$.roster.{condition_name}", "round_contract", "one round")
+            if condition.get("synthesizer_family") != "claude":
+                _contract_issue(
+                    report,
+                    f"$.roster.{condition_name}.synthesizer_family",
+                    "synthesizer_contract_mismatch",
+                    "must equal 'claude'",
+                )
         if families != expected:
             _contract_issue(
                 report,
@@ -314,6 +398,9 @@ __all__ = [
     "BenchmarkContractReport",
     "CANONICAL_JSON_CONVENTION",
     "ContractIssue",
+    "EXPECTED_BILLING_CLASS",
+    "EXPECTED_FAMILY_MODELS",
+    "EXPECTED_TRANSPORT",
     "MANIFEST_SCHEMA_VERSION",
     "REQUIRED_CONDITIONS",
     "ROSTER_SCHEMA_VERSION",
