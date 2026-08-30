@@ -262,6 +262,10 @@ class ArbiterOperationalError(RuntimeError):
     PR merely not being ready. Only these faults feed the circuit breaker."""
 
 
+class CheckSnapshotHeadMismatch(RuntimeError):
+    """The atomic check snapshot no longer belongs to the decision head."""
+
+
 def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
     """Return open PRs whose head branch matches any configured prefix.
 
@@ -298,42 +302,61 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
     return candidates
 
 
-def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
-    """Return a mapping of check-name -> conclusion for a PR.
+def _get_check_status(pr_number: int, repo: str, expected_head_sha: str) -> dict[str, str]:
+    """Return checks from one PR snapshot bound to ``expected_head_sha``.
 
-    Merges both status checks and GitHub Actions check runs.
+    ``headRefOid`` and ``statusCheckRollup`` are fetched in the same GraphQL
+    response. A head change between the caller's decision snapshot and this
+    check snapshot fails closed instead of pairing checks from one commit with
+    merge authority for another.
 
-    Raises ``ArbiterOperationalError`` when ``gh pr checks`` fails without
-    producing parseable JSON (transport/auth fault). An empty mapping means
-    the call succeeded but reported no checks (a normal not-ready state)."""
+    Raises ``ArbiterOperationalError`` when the snapshot cannot be obtained or
+    parsed. Raises ``CheckSnapshotHeadMismatch`` when the returned head differs
+    from the decision head. An empty mapping means the matching snapshot
+    reported no checks (a normal not-ready state)."""
+    if not _is_full_head_sha(expected_head_sha):
+        raise CheckSnapshotHeadMismatch("missing or malformed expected check-snapshot head SHA")
     result = _run_gh(
         [
             "pr",
-            "checks",
+            "view",
             str(pr_number),
             "--repo",
             repo,
             "--json",
-            "name,state",
+            "headRefOid,statusCheckRollup",
         ]
     )
-    # gh pr checks uses non-zero exits for pending/failing checks too, so the
-    # exit code alone does not distinguish "checks are red" from "gh broke".
-    # Parseable JSON output is the truth regardless of exit code; no JSON plus
-    # a non-zero exit is an operational fault, not a not-ready PR.
+    if result.returncode != 0:
+        raise ArbiterOperationalError(
+            f"gh pr view failed for #{pr_number}: {result.stderr.strip()}"
+        )
     try:
-        checks = json.loads(result.stdout) if result.stdout else None
-    except (json.JSONDecodeError, TypeError):
-        checks = None
-    if not isinstance(checks, list):
-        checks = None
+        snapshot = json.loads(result.stdout) if result.stdout else None
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ArbiterOperationalError(f"failed to parse check snapshot for #{pr_number}") from exc
+    if not isinstance(snapshot, dict):
+        raise ArbiterOperationalError(f"check snapshot for #{pr_number} is not an object")
+    actual_head_sha = snapshot.get("headRefOid")
+    if actual_head_sha != expected_head_sha:
+        raise CheckSnapshotHeadMismatch(
+            f"check snapshot head changed: expected {expected_head_sha}, got {actual_head_sha or '<missing>'}"
+        )
+    checks = snapshot.get("statusCheckRollup")
     if checks is None:
-        if result.returncode != 0:
-            raise ArbiterOperationalError(
-                f"gh pr checks failed for #{pr_number}: {result.stderr.strip()}"
-            )
         return {}
-    return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
+    if not isinstance(checks, list):
+        raise ArbiterOperationalError(f"check snapshot rollup for #{pr_number} is not a list")
+    statuses: dict[str, str] = {}
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("name") or check.get("context") or "").strip()
+        if not name:
+            continue
+        state = check.get("conclusion") or check.get("state") or check.get("status") or ""
+        statuses[name] = str(state).upper()
+    return statuses
 
 
 def _list_pr_reviews(pr_number: int, repo: str) -> list[dict]:
@@ -460,8 +483,12 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
         )
     required_checks = _get_required_checks(config.repo)
 
+    try:
+        checks = _get_check_status(pr_number, config.repo, head_sha)
+    except CheckSnapshotHeadMismatch as exc:
+        return MergeResult(pr_number, branch, False, str(exc))
+
     if is_draft:
-        checks = _get_check_status(pr_number, config.repo)
         if not checks:
             return MergeResult(
                 pr_number,
@@ -484,7 +511,6 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
             "draft PR: fast required checks passed; waiting for boss-loop promotion to ready",
         )
 
-    checks = _get_check_status(pr_number, config.repo)
     if not checks:
         return MergeResult(pr_number, branch, False, "no checks found")
 

@@ -18,7 +18,7 @@ from aragora.swarm.campaign import (
 from aragora.swarm.initiative_models import InitiativeRecord, InitiativeSlice
 from aragora.swarm.initiative_integrator import InitiativeIntegrator
 from aragora.swarm.initiative_store import InitiativeStore
-from aragora.swarm.merge_arbiter import REQUIRED_CHECKS
+from aragora.swarm.merge_arbiter import CheckSnapshotHeadMismatch, REQUIRED_CHECKS
 from aragora.swarm.spec import SwarmSpec
 
 HEAD_SHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
@@ -278,7 +278,7 @@ class TestInitiativeIntegrator:
             patch(
                 "aragora.swarm.initiative_integrator._get_check_status",
                 return_value=_all_passing_checks(),
-            ),
+            ) as check_status,
             patch(
                 "aragora.swarm.initiative_integrator._merge_pr", return_value=(True, "merged")
             ) as merge_pr,
@@ -287,7 +287,50 @@ class TestInitiativeIntegrator:
 
         assert payload["action"] == "merged"
         assert payload["project_id"] == "proj-001"
+        check_status.assert_called_once_with(2001, integrator.repo, HEAD_SHA)
         merge_pr.assert_called_once_with(2001, integrator.repo, HEAD_SHA)
+
+    def test_promote_blocks_merge_when_check_snapshot_head_changes(self, tmp_path: Path) -> None:
+        manifest_path = _manifest_path(
+            tmp_path,
+            _project(
+                "proj-001",
+                "Head drift slice",
+                status=CampaignProjectStatus.WAITING_FOR_MERGE.value,
+                pr_url="https://github.com/synaptent/aragora/pull/2001",
+            ),
+        )
+        integrator = InitiativeIntegrator(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with (
+            patch.object(
+                integrator,
+                "_resolve_project_pr_snapshot",
+                return_value={
+                    "number": 2001,
+                    "url": "https://github.com/synaptent/aragora/pull/2001",
+                    "isDraft": False,
+                    "state": "OPEN",
+                    "headRefName": "codex/head-drift",
+                    "headRefOid": HEAD_SHA,
+                    "mergeStateStatus": "CLEAN",
+                    "mergedAt": None,
+                },
+            ),
+            patch(
+                "aragora.swarm.initiative_integrator._get_check_status",
+                side_effect=CheckSnapshotHeadMismatch(
+                    f"check snapshot head changed: expected {HEAD_SHA}, got {CHILD_HEAD_SHA}"
+                ),
+            ) as check_status,
+            patch("aragora.swarm.initiative_integrator._merge_pr") as merge_pr,
+        ):
+            payload = integrator.promote()
+
+        assert payload["action"] == "blocked"
+        assert "check snapshot head changed" in payload["reason"]
+        check_status.assert_called_once_with(2001, integrator.repo, HEAD_SHA)
+        merge_pr.assert_not_called()
 
     @pytest.mark.parametrize("head_sha", [None, "", "deadbeef", "D" * 40])
     def test_promote_blocks_merge_without_valid_snapshot_head(
@@ -353,6 +396,7 @@ class TestInitiativeIntegrator:
                     "isDraft": True,
                     "state": "OPEN",
                     "headRefName": "codex/draft-slice",
+                    "headRefOid": HEAD_SHA,
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 },
@@ -394,6 +438,7 @@ class TestInitiativeIntegrator:
                     "isDraft": False,
                     "state": "OPEN",
                     "headRefName": "codex/flagged-slice",
+                    "headRefOid": HEAD_SHA,
                     "mergeStateStatus": "CLEAN",
                     "mergedAt": None,
                 },

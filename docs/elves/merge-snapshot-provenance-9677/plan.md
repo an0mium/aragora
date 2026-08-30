@@ -145,6 +145,32 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 - Risk: medium. The main failure mode is incorrectly treating stale review/check evidence as
   exact-head proof.
 
+## 2026-08-30 Exact-Head Settlement Cycle Extension
+
+The OWNER separately authorized advancing #9874 in the safest order after final draft readiness.
+A fresh Claude+OpenAI dry run on exact head `92d9a480735bf85a68e4a8a074f26b8fe6484545`
+returned a clean Claude PASS and two OpenAI P2 findings: merge arbiter and initiative integrator
+fetched required checks by PR number after taking their decision-head snapshots, without proving
+the returned checks belonged to those heads. Settlement remained stopped; no evidence was posted
+and the PR remained draft.
+
+The bounded repair changes only the existing shared check-status seam and its two direct consumers:
+
+- Fetch `headRefOid` and `statusCheckRollup` in one PR response.
+- Reject a check snapshot whose head differs from the caller's decision head.
+- Pass the decision head from merge arbiter and initiative integrator into that check snapshot.
+- Block settlement/promotion/merge before any authority or merge call on mismatch.
+
+**Acceptance criteria**
+
+- [x] Both P2 paths fail closed on a changed check-snapshot head.
+- [x] Mutation tests fail when the atomic head comparison or either caller's head propagation is removed.
+- [x] Cumulative touched-surface tests pass: 151 passed, 0 skipped.
+- [x] Scoped Ruff, mypy, drift checks, docs consistency, diff hygiene, and automation preflight pass.
+- [ ] One fresh exact-head Claude+OpenAI dry run has no P0-P2 findings and two counted supportive families.
+- [ ] Only after a clean current-head packet: mark ready, recheck live gates, post prepared evidence,
+      record OWNER settlement, and merge through the Tier-4 helper.
+
 ## Successor Run: Reconcile #9677 After This Follow-Up Lands
 
 This is intentionally not a batch on the current branch. Begin only after the fresh-main follow-up

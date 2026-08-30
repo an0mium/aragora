@@ -28,6 +28,7 @@ from aragora.swarm.campaign import (
 from aragora.swarm.merge_arbiter import (
     REQUIRED_CHECKS,
     ArbiterOperationalError,
+    CheckSnapshotHeadMismatch,
     _classify_required_checks,
     _get_check_status,
     _is_full_head_sha,
@@ -564,8 +565,16 @@ class InitiativeIntegrator:
         snapshot = self._resolve_project_pr_snapshot(project)
         pr_number = _parse_pr_number((snapshot or {}).get("number") or (snapshot or {}).get("url"))
         head_sha = (snapshot or {}).get("headRefOid")
+        check_snapshot_error: str | None = None
         try:
-            checks = _get_check_status(pr_number, self.repo) if pr_number is not None else {}
+            checks = (
+                _get_check_status(pr_number, self.repo, str(head_sha))
+                if pr_number is not None and _is_full_head_sha(head_sha)
+                else {}
+            )
+        except CheckSnapshotHeadMismatch as exc:
+            checks = {}
+            check_snapshot_error = str(exc)
         except ArbiterOperationalError:
             # Status reporting degrades to "checks unknown" on gh faults; only
             # the arbiter poll loop feeds these faults to its circuit breaker.
@@ -578,6 +587,10 @@ class InitiativeIntegrator:
         if project.status == CampaignProjectStatus.WAITING_FOR_PR.value and not snapshot:
             promotion_blockers.append("published PR not found for branch deliverable")
         elif project.status == CampaignProjectStatus.WAITING_FOR_MERGE.value:
+            if check_snapshot_error:
+                promotion_blockers.append(check_snapshot_error)
+            if snapshot is not None and not _is_full_head_sha(head_sha):
+                promotion_blockers.append("PR snapshot missing valid full head SHA")
             if dependency_blockers:
                 promotion_blockers.append(
                     "dependencies not merged: " + ", ".join(dependency_blockers)
@@ -594,8 +607,6 @@ class InitiativeIntegrator:
             else:
                 if project.feature_flag_required and not project.feature_flag:
                     promotion_blockers.append("feature flag required before merge")
-                if not _is_full_head_sha(head_sha):
-                    promotion_blockers.append("PR snapshot missing valid full head SHA")
                 if not promotion_blockers and not _is_pr_merged(snapshot):
                     next_action = "merge"
 

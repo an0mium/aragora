@@ -14,6 +14,9 @@
 
 - 2026-08-29: `--match-head-commit` is necessary but insufficient. The pinned SHA must be the same SHA that produced eligibility, settlement, required-check, changed-file, and approval evidence.
 - 2026-08-29: Tests that compare a freshly fetched head to the guard and merge command can still codify a TOCTOU. They must connect the merge head back to the earlier decision snapshot.
+- 2026-08-30: A pinned merge head does not prove required-check provenance. Fetch the check rollup
+  with its `headRefOid` in one response, compare that head to the decision snapshot, and fail closed
+  before settlement or merge when they differ.
 
 ## Product and Domain Invariants
 
