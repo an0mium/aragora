@@ -194,4 +194,26 @@ complete `changedFiles=0, files=[]` snapshot, preserves all malformed/mismatched
 cases, asserts the existing `no_changed_files` decision, reruns cumulative validation and mutation
 proof, and receives a new terminal review before cleanup.
 
+## OWNER-Authorized Terminal Repair: 2026-08-29 20:06 America/Chicago
+
+- The OWNER explicitly approved proceeding with the exact narrow repair described above.
+- Local, remote, and PR head all matched `16e872f11058cd9d1d2dd409d5266a68564ae9f0` before edits.
+- Recorded base `953c501c2147026c2c996c3f95001580e326ec52` remains an ancestor of both
+  local and remote branch tips. Current main is `3ea74c8a27194c86fe5482fed08406027b3277f0`
+  with no overlap in the scoped product, test, or metrics files.
+- Lease `7cb3e7fb-ce5` was renewed for the same session and scope. Operator steering remained empty.
+- Current main's five non-quorum required contexts are green; main quorum is skipped as expected.
+- Stop Gate returned to no. The only authorized product change is to accept the complete empty
+  snapshot `changedFiles=0, files=[]`, retain all fail-closed malformed/mismatch/truncation cases,
+  and prove the existing `no_changed_files` decision remains non-mergeable.
+- Implementation changed only the count lower bound from one to zero and replaced the former
+  zero-is-malformed parameter with a behavioral test that collects the complete empty snapshot and
+  asserts `eligible=False` with reason `no_changed_files`.
+- Focused Codex-merger tests: PASS, 21 passed. Cumulative touched-surface tests: PASS, 135 passed,
+  0 skipped. Scoped Ruff and four-source mypy: PASS. Metrics drift, module-tier drift, docs
+  consistency, and `git diff --check`: PASS.
+- Mutation proof temporarily restored the unsafe `changed_file_count < 1` threshold. The new exact
+  empty-snapshot test failed with `RuntimeError: incomplete or malformed files snapshot`; the repair
+  was restored and the full 135-test suite reran green.
+
 <!-- Add newer entries above this line. -->

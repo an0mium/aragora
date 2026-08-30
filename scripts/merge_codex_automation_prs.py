@@ -160,7 +160,7 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
         if (
             isinstance(changed_file_count, bool)
             or not isinstance(changed_file_count, int)
-            or changed_file_count < 1
+            or changed_file_count < 0
             or changed_file_count != len(changed_files)
         ):
             raise RuntimeError(

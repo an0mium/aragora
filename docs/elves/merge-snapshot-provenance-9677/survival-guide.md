@@ -40,9 +40,9 @@ integrator, the merge arbiter's only direct cross-module consumer.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** yes
-- **Why:** the repaired exact head received a second P2; the plan forbids another assumed repair loop
-- **Next required action:** await explicit OWNER authorization for the exact narrow empty-snapshot repair
+- **Stop allowed right now:** no
+- **Why:** the OWNER explicitly authorized the exact narrow empty-snapshot repair and terminal rerun
+- **Next required action:** commit and push the validated complete-empty-snapshot repair, then obtain a fresh terminal review
 
 ## Effort Standard
 
@@ -90,16 +90,17 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 2 blocked at terminal review
+**Status:** Batch 2 authorized repair in progress
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** The repaired exact head `66997073de` passed 135 tests and all five
-required non-quorum checks, but fresh terminal review found a second P2: complete empty snapshots
-abort the whole automation batch instead of producing the existing `no_changed_files` decision.
+**What was just finished:** The narrow repair accepts `changedFiles=0, files=[]`, routes it to the
+existing non-mergeable `no_changed_files` decision, and retains all malformed, negative,
+mismatched, and truncated failures. The cumulative 135-test suite, Ruff, mypy, drift checks, docs
+consistency, and diff hygiene pass; mutation proof reproduced the former failure.
 
-**Single next action:** ask the OWNER whether to authorize one additional narrow repair accepting
-only `changedFiles=0` with `files=[]`; do not edit product code without that decision.
+**Single next action:** commit and push once, re-read this guide, then obtain a fresh independent
+terminal review of the new exact head before any cleanup.
 
 ## Active Compute
 

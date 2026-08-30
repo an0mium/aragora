@@ -224,7 +224,6 @@ def test_collect_pull_requests_rejects_mismatched_snapshot_number(
         (None, 1),
         (True, 1),
         ("1", 1),
-        (0, 0),
     ],
 )
 def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
@@ -253,6 +252,45 @@ def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
 
     with pytest.raises(RuntimeError, match="incomplete or malformed files snapshot"):
         merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
+def test_collect_pull_requests_accepts_complete_empty_snapshot_as_not_mergeable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head_sha = "c" * 40
+
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [{"number": 7, "headRefName": "codex/empty"}]
+        else:
+            payload = {
+                "number": 7,
+                "title": "Empty snapshot",
+                "headRefName": "codex/empty",
+                "headRefOid": head_sha,
+                "isDraft": False,
+                "mergeable": "MERGEABLE",
+                "body": "## Validation\n- pytest",
+                "url": "https://example.com/pr/7",
+                "changedFiles": 0,
+                "files": [],
+                "statusCheckRollup": [
+                    {"status": "COMPLETED", "conclusion": "SUCCESS", "name": "tests"}
+                ],
+            }
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    snapshots = merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+    decision = _decision(select_mergeable_prs(snapshots), 7)
+
+    assert snapshots[0].changed_files == []
+    assert decision.eligible is False
+    assert decision.reason == "no_changed_files"
 
 
 @pytest.mark.parametrize("head_sha", ["", "c" * 39, "C" * 40])
