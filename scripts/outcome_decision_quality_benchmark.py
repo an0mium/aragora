@@ -57,6 +57,7 @@ def _parser() -> argparse.ArgumentParser:
     score = subparsers.add_parser("score", help="score one or more result ledgers")
     score.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     score.add_argument("--results", type=Path, nargs="+", required=True)
+    score.add_argument("--implementation-sha", required=True)
     score.add_argument("--output", type=Path)
 
     render = subparsers.add_parser("render", help="render deterministic Markdown from a score")
@@ -121,7 +122,7 @@ def _score(args: argparse.Namespace) -> int:
     results, errors = load_results(args.results)
     if errors:
         return _emit({"ok": False, "operation": "score", "errors": errors}, exit_code=2)
-    score = score_results(bundle, results)
+    score = score_results(bundle, results, implementation_sha=args.implementation_sha)
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(score, indent=2, sort_keys=True) + "\n", encoding="utf-8")

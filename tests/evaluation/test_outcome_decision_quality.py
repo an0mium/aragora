@@ -180,6 +180,10 @@ def test_outcome_leakage_detector_allows_incidental_generic_alias_overlap(bundle
             lambda response: response["calls"][0].update(family="openai"),
             "unexpected family",
         ),
+        (
+            lambda response: response["calls"].append(dict(response["calls"][0])),
+            "duplicate family claude",
+        ),
     ],
 )
 def test_family_integrity_rejects_absent_mismatched_and_ambiguous_roster(
@@ -345,6 +349,37 @@ def test_execute_batch_never_retries_model_failure(bundle, tmp_path: Path) -> No
     assert calls == 4
 
 
+def test_execute_batch_records_malformed_runner_numerics(bundle, tmp_path: Path) -> None:
+    results_path = tmp_path / "results.jsonl"
+
+    def runner(request: dict[str, Any]) -> dict[str, Any]:
+        response = _response(request)
+        response["calls"][0]["cost_usd"] = None
+        response["calls"][0]["latency_ms"] = "fast"
+        return response
+
+    summary = execute_batch(
+        bundle,
+        runner,
+        split="development",
+        repetition=1,
+        implementation_sha=IMPLEMENTATION_SHA,
+        run_id="malformed-numeric-run",
+        results_path=results_path,
+        cost_ledger=CostLedger(tmp_path / "costs.jsonl", 25.0),
+        recorded_at=datetime(2026, 8, 30, tzinfo=UTC),
+        max_cases=1,
+    )
+    results = [json.loads(line) for line in results_path.read_text().splitlines()]
+
+    assert summary["failures"] == 4
+    assert len(results) == 4
+    assert all(result["latency_ms"] >= 0 for result in results)
+    assert all(result["cost_usd"] >= 0 for result in results)
+    assert all("calls[0] invalid latency" in result["errors"] for result in results)
+    assert all("calls[0] invalid cost" in result["errors"] for result in results)
+
+
 def test_subprocess_runner_does_not_persist_secret_output() -> None:
     secret = "sk-do-not-persist-this"
     response = run_subprocess_runner(
@@ -367,6 +402,10 @@ def test_scoring_and_rendering_are_deterministic(bundle) -> None:
         results.append(
             {
                 "schema_version": "decision-quality-result/1.0",
+                "benchmark_id": bundle.manifest["benchmark_id"],
+                "revision": bundle.manifest["revision"],
+                "manifest_sha256": bundle.manifest_sha256,
+                "implementation_sha": IMPLEMENTATION_SHA,
                 "case_id": case["case_id"],
                 "condition": condition,
                 "split": case["split"],
@@ -388,7 +427,7 @@ def test_scoring_and_rendering_are_deterministic(bundle) -> None:
                 "calls": [{}],
             }
         )
-    score = score_results(bundle, results)
+    score = score_results(bundle, results, implementation_sha=IMPLEMENTATION_SHA)
     first = render_markdown(score)
     second = render_markdown(score)
 
@@ -398,3 +437,39 @@ def test_scoring_and_rendering_are_deterministic(bundle) -> None:
     assert score["decision"] == "incomplete"
     assert score["team_brier_improvement"] is None
     assert "Holdout team Brier improvement" in first
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("benchmark_id", "stale-benchmark"),
+        ("revision", "stale-revision"),
+        ("manifest_sha256", "b" * 64),
+        ("implementation_sha", "b" * 40),
+    ],
+)
+def test_scoring_rejects_stale_or_mixed_result_bindings(
+    bundle, field_name: str, value: str
+) -> None:
+    case = bundle.cases[0]
+    result = {
+        "schema_version": "decision-quality-result/1.0",
+        "benchmark_id": bundle.manifest["benchmark_id"],
+        "revision": bundle.manifest["revision"],
+        "manifest_sha256": bundle.manifest_sha256,
+        "implementation_sha": IMPLEMENTATION_SHA,
+        "case_id": case["case_id"],
+        "condition": "single_claude",
+        "split": case["split"],
+        "repetition": 1,
+        "errors": [],
+        "output": {},
+        "receipt_verification": "not_applicable",
+        "latency_ms": 0.0,
+        "cost_usd": 0.0,
+        "calls": [],
+    }
+    result[field_name] = value
+
+    with pytest.raises(ValueError, match=field_name):
+        score_results(bundle, [result], implementation_sha=IMPLEMENTATION_SHA)

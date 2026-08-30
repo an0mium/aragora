@@ -45,6 +45,7 @@ python3 scripts/outcome_decision_quality_benchmark.py run \
   --results <run-dir>/results.jsonl
 
 python3 scripts/outcome_decision_quality_benchmark.py score \
+  --implementation-sha <40-char-sha> \
   --results <run-dir>/results.jsonl --output <run-dir>/score.json
 
 python3 scripts/outcome_decision_quality_benchmark.py render \

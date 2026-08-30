@@ -488,6 +488,13 @@ def _member_index(condition: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {member["family"]: member for member in condition["members"]}
 
 
+def _nonnegative_finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) and number >= 0 else None
+
+
 def validate_runner_response(response: dict[str, Any], condition: dict[str, Any]) -> list[str]:
     """Validate result shape and exact family/model/transport integrity."""
     errors: list[str] = []
@@ -514,15 +521,18 @@ def validate_runner_response(response: dict[str, Any], condition: dict[str, Any]
             errors.append(f"calls[{index}] transport drift")
         if call.get("billing_class") != member["billing_class"]:
             errors.append(f"calls[{index}] billing class drift")
-        latency = call.get("latency_ms")
-        cost = call.get("cost_usd")
-        if not isinstance(latency, (int, float)) or latency < 0:
+        latency = _nonnegative_finite_number(call.get("latency_ms"))
+        cost = _nonnegative_finite_number(call.get("cost_usd"))
+        if latency is None:
             errors.append(f"calls[{index}] invalid latency")
-        if not isinstance(cost, (int, float)) or not math.isfinite(float(cost)) or cost < 0:
+        if cost is None:
             errors.append(f"calls[{index}] invalid cost")
     for family in expected:
-        if observed[family] == 0:
+        count = observed[family]
+        if count == 0:
             errors.append(f"incomplete roster: missing {family}")
+        elif count != 1:
+            errors.append(f"duplicate family {family}: expected exactly one call, observed {count}")
     output = response.get("output")
     if not isinstance(output, dict):
         errors.append("output must be an object")
@@ -680,10 +690,22 @@ def execute_batch(
             if condition_name == "aragora_team" and receipt_verification != "verified":
                 errors.append(f"team receipt {receipt_verification}")
             raw_calls = response.get("calls")
-            calls: list[Any] = raw_calls if isinstance(raw_calls, list) else []
+            call_items: list[Any] = raw_calls if isinstance(raw_calls, list) else []
+            calls: list[dict[str, Any]] = []
             cost_entries: list[CostEntry] = []
-            for call in calls:
+            unknown_paid_cost = False
+            for call in call_items:
                 if not isinstance(call, dict):
+                    continue
+                latency = _nonnegative_finite_number(call.get("latency_ms"))
+                cost = _nonnegative_finite_number(call.get("cost_usd"))
+                recorded_call = dict(call)
+                recorded_call["latency_ms"] = latency if latency is not None else 0.0
+                recorded_call["cost_usd"] = cost if cost is not None else 0.0
+                calls.append(recorded_call)
+                billing_class = str(call.get("billing_class", ""))
+                if cost is None and billing_class == "paid_api":
+                    unknown_paid_cost = True
                     continue
                 cost_entries.append(
                     CostEntry(
@@ -694,8 +716,25 @@ def execute_batch(
                         family=str(call.get("family", "")),
                         model=str(call.get("resolved_model", "")),
                         transport=str(call.get("transport", "")),
-                        billing_class=str(call.get("billing_class", "")),
-                        cost_usd=float(call.get("cost_usd", 0.0)),
+                        billing_class=billing_class,
+                        cost_usd=cost if cost is not None else 0.0,
+                    )
+                )
+            if unknown_paid_cost:
+                cost_entries = [
+                    entry for entry in cost_entries if entry.billing_class != "paid_api"
+                ]
+                cost_entries.append(
+                    CostEntry(
+                        recorded_at=now.isoformat().replace("+00:00", "Z"),
+                        run_id=run_id,
+                        case_id=case["case_id"],
+                        condition=condition_name,
+                        family="unknown",
+                        model="unknown",
+                        transport="unknown",
+                        billing_class="paid_api",
+                        cost_usd=max_paid,
                     )
                 )
             actual_paid = sum(
@@ -724,9 +763,7 @@ def execute_batch(
                 "transport": primary_call.get("transport"),
                 "calls": calls,
                 "output": response.get("output"),
-                "latency_ms": sum(
-                    float(call.get("latency_ms", 0.0)) for call in calls if isinstance(call, dict)
-                ),
+                "latency_ms": sum(float(call["latency_ms"]) for call in calls),
                 "cost_usd": sum(entry.cost_usd for entry in cost_entries),
                 "errors": sorted(set(errors)),
                 "attempt_count": attempts,
@@ -813,8 +850,33 @@ def load_results(paths: Iterable[Path]) -> tuple[list[dict[str, Any]], list[str]
     return results, errors
 
 
-def score_results(bundle: BenchmarkBundle, results: list[dict[str, Any]]) -> dict[str, Any]:
+def _require_result_bindings(
+    bundle: BenchmarkBundle,
+    results: list[dict[str, Any]],
+    implementation_sha: str,
+) -> None:
+    if _SHA_PATTERN.fullmatch(implementation_sha) is None:
+        raise ValueError("implementation_sha must be a full lowercase git SHA")
+    expected = {
+        "benchmark_id": bundle.manifest["benchmark_id"],
+        "revision": bundle.manifest["revision"],
+        "manifest_sha256": bundle.manifest_sha256,
+        "implementation_sha": implementation_sha,
+    }
+    for index, result in enumerate(results):
+        for field_name, expected_value in expected.items():
+            if result.get(field_name) != expected_value:
+                raise ValueError(f"result binding mismatch at result {index}: {field_name}")
+
+
+def score_results(
+    bundle: BenchmarkBundle,
+    results: list[dict[str, Any]],
+    *,
+    implementation_sha: str,
+) -> dict[str, Any]:
     """Produce deterministic per-condition metrics and best-single deltas."""
+    _require_result_bindings(bundle, results, implementation_sha)
     case_by_id = {case["case_id"]: case for case in bundle.cases}
     outcome_by_id = {outcome["case_id"]: outcome for outcome in bundle.outcomes["outcomes"]}
     per_condition: dict[str, list[dict[str, float]]] = defaultdict(list)
@@ -915,6 +977,7 @@ def score_results(bundle: BenchmarkBundle, results: list[dict[str, Any]]) -> dic
         "benchmark_id": bundle.manifest["benchmark_id"],
         "revision": bundle.manifest["revision"],
         "manifest_sha256": bundle.manifest_sha256,
+        "implementation_sha": implementation_sha,
         "result_count": len(results),
         "incomplete_results": sorted(set(incomplete)),
         "conditions": summaries,
