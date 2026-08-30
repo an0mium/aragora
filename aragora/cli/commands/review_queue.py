@@ -3074,6 +3074,13 @@ def _build_merge_authorization_packet(
                 model_quorum_admin_squash_allowed and not admin_squash_gate_blockers
             ),
             "model_quorum_admin_squash_allowed": model_quorum_admin_squash_allowed,
+            # Non-admin-lane eligibility is the model-level verdict itself
+            # (model-quorum satisfied + all effective REQUIRED contexts green +
+            # zero unresolved dissent + tier settlement recorded where
+            # required). The live gate below blocks only the admin-squash
+            # lane, so this stays True in blocked_by_live_gate shapes —
+            # settlement Decisions cite this field instead of entry status.
+            "non_admin_merge_eligible": model_quorum_admin_squash_allowed,
             "admin_squash_gate_blockers": admin_squash_gate_blockers,
             "merge_state_status": packet.merge_state_status,
             "unstable_non_required_contexts_ignored": (
@@ -3197,14 +3204,28 @@ def _explicit_merged_pr_merge_packet_entry(
         "status": "already_merged",
         "verdict": "already_merged_noop",
         "admin_squash_allowed": False,
+        "non_admin_merge_eligible": False,
         "requires_human_risk_settlement": False,
         "unresolved_dissent": False,
         "reviewer_signals": [],
         "dogfood_evidence": [],
         "counted_reviewer_ids": [],
         "counted_model_families": [],
+        # tier/tier_name/counted_* above are noop placeholders — this entry
+        # deliberately skips quorum hydration, so zero values here are not
+        # computed results. Authoritative post-merge tier/families live in the
+        # merged head's quorum collector JSON artifact.
+        "noop_placeholder_fields": [
+            "tier",
+            "tier_name",
+            "counted_reviewer_ids",
+            "counted_model_families",
+        ],
         "reasons": [
             "PR is already merged; merge-packet readiness is obsolete",
+            "tier=0 and empty counted_* values are noop placeholders, not "
+            "computed results; authoritative tier/families live in the "
+            "collector JSON artifact for the merged head",
         ],
     }
 
