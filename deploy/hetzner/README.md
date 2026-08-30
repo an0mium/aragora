@@ -1,0 +1,166 @@
+# Restoring production without AWS
+
+`api.aragora.ai` already resolves to Cloudflare, and the edge is healthy — it is
+waiting on an origin that no longer exists. So this is not a cloud migration.
+It is giving Cloudflare a working origin again.
+
+**The path is proven.** The same architecture already runs on `api-dev.aragora.ai`:
+public → Cloudflare → Tunnel → a loopback origin, verified returning
+`HTTP 200 {"status": "ok"}`. This directory does the same thing for production
+on a Hetzner host.
+
+The tunnel dials outbound, so the host needs **no inbound firewall rule, no
+public IP, and no DNS change**.
+
+---
+
+## Before you start: the one question that changes everything
+
+**Does a production database dump exist anywhere?**
+
+Automated recovery is closed. Backups were bind-mounted onto the instance that is
+gone (`./backups:/backups`), and the S3/GCS backend was never enabled —
+`storage_backend` defaults to `"local"` with no production override. The only
+possible survivor is a dump someone pulled by hand.
+
+Check your machines for `*.sql.gz` or `*.dump`. If one exists, restore it in
+step 5. If not, this brings production back on an **empty database**: the
+service works, historical data does not come with it. That is worth deciding
+deliberately, and telling users about, rather than discovering after cutover.
+
+---
+
+## Step 1 — Confirm Docker on the host
+
+No runner advertises `docker-ready`, so this is genuinely unknown.
+
+```bash
+ssh <hetzner-host> 'docker --version && docker compose version'
+```
+
+If either is missing:
+
+```bash
+ssh <hetzner-host> 'curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER'
+```
+
+Then log out and back in so the group applies.
+
+> The host answers to `ringrift-cpu1`, not an aragora name. Confirm whose machine
+> it is and what else runs on it before production lands there.
+
+## Step 2 — Get this directory onto the host
+
+```bash
+ssh <hetzner-host>
+git clone https://github.com/synaptent/aragora.git ~/aragora   # or: git -C ~/aragora pull
+cd ~/aragora/deploy/hetzner
+```
+
+## Step 3 — Create the secrets file
+
+Every value is **new**. The AWS copies are unrecoverable and should be treated as
+burned — rotate at each provider rather than trying to reuse anything.
+
+```bash
+cp secrets.env.template secrets.env
+chmod 600 secrets.env
+nano secrets.env
+```
+
+Generate the two you invent yourself:
+
+```bash
+openssl rand -base64 32   # POSTGRES_PASSWORD
+openssl rand -hex 32      # ARAGORA_API_TOKEN
+```
+
+`ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are reissued in each provider's console.
+`bring-up.sh` refuses to start if either required value is blank, so a
+half-filled file fails loudly instead of booting a server with no auth.
+
+## Step 4 — Start the origin
+
+```bash
+./bring-up.sh
+```
+
+It builds, runs migrations as a gate, waits for health, and curls the local
+endpoint. Everything binds to `127.0.0.1` — still unreachable from outside.
+
+## Step 5 — (Only if you found a dump) restore the data
+
+Do this **after** step 4 and **before** the tunnel goes live.
+
+```bash
+gunzip -c /path/to/dump.sql.gz | docker compose exec -T postgres \
+  psql -U aragora -d aragora
+docker compose restart app
+```
+
+## Step 6 — Point the tunnel at it
+
+Your stored Cloudflare certificate is present but the API rejects it, so start
+by re-authenticating:
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create aragora-prod
+```
+
+That writes a credentials JSON. Install both files:
+
+```bash
+sudo mkdir -p /etc/cloudflared
+sudo cp ~/.cloudflared/<TUNNEL-UUID>.json /etc/cloudflared/aragora-prod.json
+sudo cp cloudflared-config.yml /etc/cloudflared/config.yml
+```
+
+Route the hostname and start the service:
+
+```bash
+cloudflared tunnel route dns aragora-prod api.aragora.ai
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+```
+
+`route dns` updates the existing Cloudflare record in place. No registrar change.
+
+## Step 7 — Verify from outside
+
+Run these from your laptop, not the host — the point is to test the public path.
+
+```bash
+curl -sS https://api.aragora.ai/health
+curl -s -o /dev/null -w '%{http_code}\n' https://api.aragora.ai/health
+```
+
+You want `{"status": "ok"}` and `200`. Then confirm it survives a restart:
+
+```bash
+ssh <hetzner-host> 'cd ~/aragora/deploy/hetzner && docker compose restart app'
+sleep 30 && curl -sS https://api.aragora.ai/health
+```
+
+---
+
+## If something goes wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `502` from Cloudflare | tunnel up, origin down | `docker compose ps`, `docker compose logs app` |
+| `1033` | tunnel not connected | `systemctl status cloudflared` |
+| Still times out | DNS route not applied | re-run `cloudflared tunnel route dns` |
+| `bring-up.sh` refuses | blank required secret | fill it in — this guard is deliberate |
+| migrate exits non-zero | schema failure | read its logs; the app is held back on purpose |
+
+## What this deliberately does differently
+
+The previous setup wrote backups to a bind mount on the same instance as the
+database, so the copy died with the original. Here the nightly dump still runs,
+but **a backup that shares a failure domain with its source is not a backup** —
+copy `backups/` off this host on a schedule, or the next outage reads exactly
+like this one.
+
+A single host is also a single point of failure. Two hosts behind the same
+tunnel cost little now and much less than the next outage.
