@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -143,8 +144,8 @@ def _is_incomplete_trailing_json_record(
     return message.startswith(incomplete_messages) and exc.pos >= max(0, len(line.rstrip()) - 1)
 
 
-def validate_rescue_ledger(path: Path) -> dict[str, Any]:
-    """Validate the rescue ledger and return provenance for the report.
+def _read_validated_rescue_ledger(path: Path) -> tuple[dict[str, Any], bytes]:
+    """Read one validated ledger snapshot and return provenance plus bytes.
 
     A missing or malformed ledger is not equivalent to an observed empty
     ledger. Fail closed so TW-03 never publishes an authoritative-looking zero
@@ -223,14 +224,16 @@ def validate_rescue_ledger(path: Path) -> dict[str, Any]:
                 ),
             )
         if (
-            not str(event.get("event_type") or "").strip()
-            or not str(event.get("reason") or "").strip()
+            "event_type" not in event
+            or not isinstance(event["event_type"], str)
+            or "reason" not in event
+            or not isinstance(event["reason"], str)
         ):
             raise RescueLedgerValidationError(
                 code="rescue_ledger_malformed",
                 path=path,
                 detail=(
-                    f"rescue event ledger line {line_number} requires non-empty "
+                    f"rescue event ledger line {line_number} requires string "
                     f"event_type and reason fields: {stable_path}"
                 ),
             )
@@ -243,6 +246,12 @@ def validate_rescue_ledger(path: Path) -> dict[str, Any]:
     }
     if skipped_trailing_partial_line:
         source["skipped_trailing_partial_line_count"] = 1
+    return source, raw
+
+
+def validate_rescue_ledger(path: Path) -> dict[str, Any]:
+    """Validate the rescue ledger and return provenance for the observed bytes."""
+    source, _ = _read_validated_rescue_ledger(path)
     return source
 
 
@@ -519,49 +528,43 @@ def build_published_report(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     normalized_generated_at = normalize_generated_at(generated_at)
-    source = validate_rescue_ledger(ledger_path)
+    source, ledger_snapshot = _read_validated_rescue_ledger(ledger_path)
     source["summary_event_limit"] = recent_limit
     source["summary_truncated"] = int(source["event_count"]) > recent_limit
     fixtures = _rescue_fixtures()
-    initial_report = fixtures.load_rescue_productization_report(
-        ledger_path=ledger_path,
-        threshold=threshold,
-        recent_limit=recent_limit,
-        example_limit=example_limit,
-        one_off_limit=one_off_limit,
-        productization_map_path=productization_map_path,
-    )
-    initial_issue_drafts = fixtures.build_issue_drafts(initial_report)
-
-    issue_linkage_results: list[dict[str, Any]] = []
-    if ensure_issues and initial_issue_drafts:
-        issue_linkage_results = ensure_issue_linkage(
-            issue_drafts=initial_issue_drafts,
+    with tempfile.TemporaryDirectory(prefix="aragora-rescue-ledger-") as temp_dir:
+        snapshot_path = Path(temp_dir) / "rescue_events.jsonl"
+        snapshot_path.write_bytes(ledger_snapshot)
+        initial_report = fixtures.load_rescue_productization_report(
+            ledger_path=snapshot_path,
+            threshold=threshold,
+            recent_limit=recent_limit,
+            example_limit=example_limit,
+            one_off_limit=one_off_limit,
             productization_map_path=productization_map_path,
-            repo=repo,
-            dry_run=dry_run,
         )
+        initial_issue_drafts = fixtures.build_issue_drafts(initial_report)
 
-    final_report = fixtures.load_rescue_productization_report(
-        ledger_path=ledger_path,
-        threshold=threshold,
-        recent_limit=recent_limit,
-        example_limit=example_limit,
-        one_off_limit=one_off_limit,
-        productization_map_path=productization_map_path,
-    )
-    final_source = validate_rescue_ledger(ledger_path)
-    if final_source["sha256"] != source["sha256"]:
-        raise RescueLedgerValidationError(
-            code="rescue_ledger_changed_during_read",
-            path=ledger_path,
-            detail=(
-                "rescue event ledger changed while the report was being built: "
-                f"{_repo_stable_path(ledger_path)}"
-            ),
+        issue_linkage_results: list[dict[str, Any]] = []
+        if ensure_issues and initial_issue_drafts:
+            issue_linkage_results = ensure_issue_linkage(
+                issue_drafts=initial_issue_drafts,
+                productization_map_path=productization_map_path,
+                repo=repo,
+                dry_run=dry_run,
+            )
+
+        final_report = fixtures.load_rescue_productization_report(
+            ledger_path=snapshot_path,
+            threshold=threshold,
+            recent_limit=recent_limit,
+            example_limit=example_limit,
+            one_off_limit=one_off_limit,
+            productization_map_path=productization_map_path,
         )
-    final_issue_drafts = fixtures.build_issue_drafts(final_report)
+        final_issue_drafts = fixtures.build_issue_drafts(final_report)
     return {
+        "ok": True,
         "generated_at": normalized_generated_at,
         "repo": repo,
         "ledger_path": _repo_stable_path(ledger_path),
@@ -574,6 +577,40 @@ def build_published_report(
         "initial_issue_drafts": initial_issue_drafts,
         "issue_linkage_results": issue_linkage_results,
         "issue_drafts": final_issue_drafts,
+    }
+
+
+def build_unavailable_source_report(
+    *,
+    ledger_path: Path,
+    productization_map_path: Path,
+    repo: str,
+    error: RescueLedgerValidationError,
+    generated_at: str | None = None,
+    recent_limit: int = 500,
+) -> dict[str, Any]:
+    """Build a truthful publication that makes unavailable input explicit."""
+    return {
+        "ok": False,
+        "generated_at": normalize_generated_at(generated_at),
+        "repo": repo,
+        "ledger_path": _repo_stable_path(ledger_path),
+        "source": {
+            "status": "unavailable",
+            "event_count": None,
+            "sha256": None,
+            "summary_event_limit": recent_limit,
+            "summary_truncated": None,
+            "error": error.to_dict(),
+        },
+        "productization_map_path": _repo_stable_path(productization_map_path),
+        "summary": {},
+        "repeated_classes": [],
+        "one_off_classes": [],
+        "below_threshold_classes": [],
+        "initial_issue_drafts": [],
+        "issue_linkage_results": [],
+        "issue_drafts": [],
     }
 
 
@@ -625,6 +662,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create or relink bounded follow-on issues for unlinked repeated rescue classes.",
     )
+    parser.add_argument(
+        "--require-source",
+        action="store_true",
+        help="Exit 3 without publishing when the rescue ledger is unavailable or invalid.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--json", action="store_true")
     return parser
@@ -645,13 +687,18 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=bool(args.dry_run),
         )
     except RescueLedgerValidationError as exc:
-        error_payload = {"ok": False, "error": exc.to_dict()}
-        if args.json:
+        print(f"error: [{exc.code}] {exc.detail}", file=sys.stderr)
+        if args.require_source:
+            error_payload = {"ok": False, "error": exc.to_dict()}
             print(json.dumps(error_payload, indent=2))
-            print(f"error: [{exc.code}] {exc.detail}", file=sys.stderr)
-        else:
-            print(f"error: [{exc.code}] {exc.detail}", file=sys.stderr)
-        return 2
+            return 3
+        payload = build_unavailable_source_report(
+            ledger_path=args.path,
+            productization_map_path=args.productization_map,
+            repo=str(args.repo),
+            error=exc,
+            recent_limit=max(1, args.recent_limit),
+        )
     published = None
     if not args.dry_run:
         published = publish_report_bundle(
