@@ -47,18 +47,18 @@ modules:
     tier: core
     py_files: 124
     importer_count: 10
-    test_file_count: 158
+    test_file_count: 161
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 18
     importer_count: 368
-    test_file_count: 92
+    test_file_count: 93
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
-    py_files: 268
-    importer_count: 138
+    py_files: 269
+    importer_count: 139
     test_file_count: 252
   - name: core
     tier: core
@@ -102,12 +102,12 @@ modules:
   - name: nomic
     tier: core
     py_files: 166
-    importer_count: 89
-    test_file_count: 230
+    importer_count: 90
+    test_file_count: 234
   - name: observability
     tier: core
     py_files: 92
-    importer_count: 193
+    importer_count: 197
     test_file_count: 61
   - name: pipeline
     tier: core
@@ -128,8 +128,8 @@ modules:
   - name: reasoning
     tier: core
     py_files: 21
-    importer_count: 121
-    test_file_count: 113
+    importer_count: 122
+    test_file_count: 114
   - name: resilience
     tier: core
     py_files: 13
@@ -138,8 +138,8 @@ modules:
   - name: server
     tier: core
     py_files: 1126
-    importer_count: 150
-    test_file_count: 1902
+    importer_count: 142
+    test_file_count: 1905
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
@@ -256,9 +256,9 @@ modules:
     test_file_count: 12
   - name: epistemic
     tier: integrated
-    py_files: 22
+    py_files: 24
     importer_count: 12
-    test_file_count: 28
+    test_file_count: 30
   - name: essay
     tier: integrated
     py_files: 6
@@ -287,7 +287,7 @@ modules:
   - name: export
     tier: integrated
     py_files: 11
-    importer_count: 20
+    importer_count: 19
     test_file_count: 31
   - name: extensions
     tier: integrated
@@ -336,9 +336,9 @@ modules:
     test_file_count: 6
   - name: ideacloud
     tier: integrated
-    py_files: 25
+    py_files: 26
     importer_count: 1
-    test_file_count: 5
+    test_file_count: 6
   - name: implement
     tier: integrated
     py_files: 7
@@ -402,9 +402,9 @@ modules:
     test_file_count: 15
   - name: missions
     tier: integrated
-    py_files: 9
+    py_files: 10
     importer_count: 1
-    test_file_count: 6
+    test_file_count: 10
   - name: ml
     tier: integrated
     py_files: 8
@@ -569,7 +569,7 @@ modules:
     tier: integrated
     py_files: 8
     importer_count: 10
-    test_file_count: 16
+    test_file_count: 17
   - name: training
     tier: integrated
     py_files: 12
@@ -583,7 +583,7 @@ modules:
   - name: utils
     tier: integrated
     py_files: 21
-    importer_count: 158
+    importer_count: 164
     test_file_count: 25
   - name: verification
     tier: integrated
@@ -604,7 +604,7 @@ modules:
     tier: integrated
     py_files: 100
     importer_count: 36
-    test_file_count: 77
+    test_file_count: 78
   - name: workspace
     tier: integrated
     py_files: 6
