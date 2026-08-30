@@ -439,6 +439,14 @@ CONSTRAINTS:
 {chr(10).join(f"- {c}" for c in constraints) if constraints else "- None specified"}
 
 """
+    candidate_goals = getattr(context, "candidate_goals", None)
+    if candidate_goals:
+        topic += f"""
+CANDIDATE GOALS (externally supplied — evaluate and rank ALL of these against the objective;
+reject candidates that do not survive scrutiny and say why):
+{chr(10).join(f"{i}. {goal}" for i, goal in enumerate(candidate_goals, 1))}
+"""
+
     if context.recent_issues:
         topic += f"""
 RECENT ISSUES:
@@ -558,11 +566,70 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
     return topic
 
 
+def build_repository_planning_topic(
+    objective: str,
+    repository_name: str,
+    repository_id: str,
+    commit_sha: str,
+    pack_reference: str,
+    roadmap_paths: list[str],
+    context_entry_files: list[str],
+    evaluation_criteria: list[tuple[str, str]],
+    context_markdown: str,
+    max_goals: int,
+) -> str:
+    """Build the repository-neutral, evidence-bearing planning prompt."""
+    criteria = "\n".join(
+        f"- {item_id}: {description}" for item_id, description in evaluation_criteria
+    )
+    roadmaps = "\n".join(f"- {path}" for path in roadmap_paths) or "- None configured"
+    entries = "\n".join(f"- {path}" for path in context_entry_files) or "- None configured"
+    criterion_example = ", ".join(f'"{item_id}": 0.0' for item_id, _ in evaluation_criteria)
+    return f"""Plan the next repository improvements using only the commit-addressed context below.
+
+REPOSITORY NAME: {repository_name}
+REPOSITORY ID: {repository_id}
+COMMIT: {commit_sha}
+CONTEXT PACK: {pack_reference}
+OBJECTIVE: {objective}
+
+ROADMAP FILES:
+{roadmaps}
+
+CONTEXT ENTRY FILES:
+{entries}
+
+EVALUATION CRITERIA (score every goal from 0.0 to 1.0):
+{criteria}
+
+Return one JSON object and no prose. It must have a `goals` array containing at most
+{max_goals} objects. Every goal must contain `description`, `rationale`,
+`estimated_impact` (high, medium, or low), `criterion_scores`, and
+`evidence_paths`. Evidence paths must be concrete repository-relative paths present
+in the context pack. Use this exact shape:
+{{
+  "goals": [
+    {{
+      "description": "actionable improvement",
+      "rationale": "why this advances the objective",
+      "estimated_impact": "high",
+      "criterion_scores": {{{criterion_example}}},
+      "evidence_paths": ["path/from/manifest"]
+    }}
+  ]
+}}
+
+COMMIT-ADDRESSED CONTEXT:
+{context_markdown}
+"""
+
+
 def gather_file_excerpts(
     signals: list[str],
     max_files: int = 3,
     max_chars_per_file: int = 1500,
     max_total_chars: int = 5000,
+    repo_root: Path = Path("."),
 ) -> dict[str, str]:
     """Extract file paths from signal strings and read excerpts.
 
@@ -579,12 +646,14 @@ def gather_file_excerpts(
         Dict mapping file path to truncated content.
     """
     # Extract file paths from signal strings
-    path_re = re.compile(r"(?:aragora|tests|scripts)/\S+\.py")
+    path_re = re.compile(
+        r"(?:^|:\s)([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*\.(?:py|ts|tsx|js|jsx|go|rs|java))"
+    )
     paths: list[str] = []
     for sig in signals:
         match = path_re.search(sig)
-        if match and match.group() not in paths:
-            paths.append(match.group())
+        if match and match.group(1) not in paths:
+            paths.append(match.group(1))
         if len(paths) >= max_files:
             break
 
@@ -592,7 +661,7 @@ def gather_file_excerpts(
     total = 0
     for path in paths:
         try:
-            content = Path(path).read_text(errors="replace")[:max_chars_per_file]
+            content = (repo_root / path).read_text(errors="replace")[:max_chars_per_file]
             if total + len(content) > max_total_chars:
                 content = content[: max_total_chars - total]
             if content:

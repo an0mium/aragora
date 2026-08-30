@@ -151,7 +151,7 @@ class ServerEventSubscriber:
         This enables external systems to receive real-time notifications.
         """
         try:
-            from aragora.server.handlers.webhooks import get_webhook_store
+            from aragora.server.handlers.webhook_management import get_webhook_store
             from aragora.events.dispatcher import dispatch_webhook_with_retry
 
             # Get registered webhooks for this event type

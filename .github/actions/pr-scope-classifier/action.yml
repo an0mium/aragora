@@ -58,6 +58,7 @@ runs:
             - 'scripts/**'
           lint_python:
             - 'aragora/**'
+            - 'aragora-verify/**'
             - 'tests/**'
             - 'scripts/**'
             - 'pyproject.toml'
