@@ -174,4 +174,24 @@ reviews were present. Begin Batch 2 under collision-safe tag
 **Control:** This is the single Batch 2 repair permitted by the plan. The repaired exact head must
 receive a fresh independent terminal review; any further P2 stops the lane.
 
+## Terminal Review Blocker: 2026-08-29 20:02 America/Chicago
+
+- Exact local, remote, and PR head: `66997073ded25a0db6a23ad6784eb8c2e1f575da`.
+- Fresh independent terminal review found a second P2 at
+  `scripts/merge_codex_automation_prs.py:160`: `changedFiles=0, files=[]` is a complete valid empty
+  snapshot, but the new `changed_file_count < 1` guard raises and aborts the whole batch. The
+  selector's existing `no_changed_files` decision is therefore unreachable for collected PRs.
+- The >100-file truncation repair itself is correct and fail closed. All other exact-head paths and
+  consumers passed review.
+- Independent validation: 135 passed, 0 skipped; Ruff, four-source mypy, diff hygiene, and all five
+  required non-quorum PR checks passed. PR remained draft and `MERGEABLE/CLEAN`; comments, reviews,
+  and review threads remained empty.
+- Per the explicit Batch 2 contract, a second P2 stops the repair loop. No operational cleanup,
+  PR-body readiness claim, ready transition, evidence collection, settlement, or merge may occur.
+
+**Exact approval required:** authorize one additional narrowly scoped repair that accepts only a
+complete `changedFiles=0, files=[]` snapshot, preserves all malformed/mismatched/truncated failure
+cases, asserts the existing `no_changed_files` decision, reruns cumulative validation and mutation
+proof, and receives a new terminal review before cleanup.
+
 <!-- Add newer entries above this line. -->

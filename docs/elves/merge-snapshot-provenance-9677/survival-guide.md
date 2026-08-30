@@ -16,7 +16,8 @@ integrator, the merge arbiter's only direct cross-module consumer.
 - **Checkpoint due by:** none
 - **Checkpoint semantics:** none
 - **May continue after checkpoint:** yes
-- **Actual stop conditions:** final draft readiness or a genuine Tier-4/collision blocker
+- **Actual stop conditions:** final draft readiness or the plan's terminal-review rule requiring
+  OWNER direction after a second P2
 - **Workspace ownership:** dedicated worktree at `$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora`
 - **Branch tip at start:** `953c501c2147026c2c996c3f95001580e326ec52`
 - **Lease:** `7cb3e7fb-ce5`, session `codex-merge-snapshot-provenance-9677-20260829` (reclaimed after staged lease expired)
@@ -39,9 +40,9 @@ integrator, the merge arbiter's only direct cross-module consumer.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** no
-- **Why:** Batch 1 is pushed, but independent review and final draft readiness remain incomplete
-- **Next required action:** run Batch 2 cumulative review and exact-head readiness gates
+- **Stop allowed right now:** yes
+- **Why:** the repaired exact head received a second P2; the plan forbids another assumed repair loop
+- **Next required action:** await explicit OWNER authorization for the exact narrow empty-snapshot repair
 
 ## Effort Standard
 
@@ -89,16 +90,16 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 2 review and final readiness
+**Status:** Batch 2 blocked at terminal review
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** Batch 2 regression review found one P2 truncated-file fail-open; the
-single permitted bounded repair now validates `changedFiles` against returned paths, with 135 tests
-and mutation proof green locally.
+**What was just finished:** The repaired exact head `66997073de` passed 135 tests and all five
+required non-quorum checks, but fresh terminal review found a second P2: complete empty snapshots
+abort the whole automation batch instead of producing the existing `no_changed_files` decision.
 
-**Single next action:** commit and push the bounded repair, then run a fresh independent terminal
-review of that exact head.
+**Single next action:** ask the OWNER whether to authorize one additional narrow repair accepting
+only `changedFiles=0` with `files=[]`; do not edit product code without that decision.
 
 ## Active Compute
 
@@ -121,6 +122,10 @@ No active paid or long-running compute.
 - [ ] Draft PR body and cleanup state are ready for OWNER settlement.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
+
+**Blocking finding:** `scripts/merge_codex_automation_prs.py` rejects the valid complete snapshot
+`changedFiles=0, files=[]`. This is fail-closed for security but aborts processing of later eligible
+PRs and makes the existing `no_changed_files` selector branch unreachable through collection.
 
 **Rollback tag:** `elves/pre-batch-2-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 
