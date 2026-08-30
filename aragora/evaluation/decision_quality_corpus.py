@@ -61,6 +61,24 @@ _OUTCOME_KEYS = {
 _CRUX_KEYS = {"crux_id", "description", "aliases"}
 
 
+class _DuplicateObjectKeyError(ValueError):
+    """Raised when a JSON object repeats a key."""
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        super().__init__(f"duplicate JSON object key: {key!r}")
+
+
+def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build a JSON object while rejecting ambiguous duplicate keys."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateObjectKeyError(key)
+        result[key] = value
+    return result
+
+
 @dataclass(frozen=True)
 class ValidationIssue:
     """One fail-closed corpus validation issue."""
@@ -690,9 +708,21 @@ def validate_corpus_files(
     documents: list[Any] = []
     for label, path in (("corpus", corpus_path), ("outcomes", outcomes_path)):
         try:
-            documents.append(json.loads(path.read_text(encoding="utf-8")))
+            documents.append(
+                json.loads(
+                    path.read_text(encoding="utf-8"),
+                    object_pairs_hook=_reject_duplicate_object_keys,
+                )
+            )
         except OSError as exc:
             _issue(report, f"${label}", "read_error", f"cannot read {path}: {exc}")
+        except _DuplicateObjectKeyError as exc:
+            _issue(
+                report,
+                f"${label}",
+                "duplicate_json_key",
+                f"{path}: duplicate object key {exc.key!r}",
+            )
         except json.JSONDecodeError as exc:
             _issue(
                 report,

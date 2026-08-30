@@ -4,12 +4,14 @@ import copy
 import json
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
 
 from aragora.evaluation.decision_quality_corpus import (
     DOMAINS,
     corpus_sha256,
     validate_corpus_documents,
+    validate_corpus_files,
 )
 
 
@@ -216,3 +218,35 @@ def test_mutating_corpus_requires_new_sidecar_hash() -> None:
     report = validate_corpus_documents(mutated, outcomes, allow_partial=True)
 
     assert "corpus_hash_mismatch" in _issue_codes(report)
+
+
+@pytest.mark.parametrize("duplicate_in", ["corpus", "outcomes"])
+def test_file_loader_rejects_duplicate_object_keys_at_any_depth(
+    tmp_path: Path,
+    duplicate_in: str,
+) -> None:
+    corpus, outcomes = _documents()
+    corpus_text = json.dumps(corpus)
+    outcomes_text = json.dumps(outcomes)
+    if duplicate_in == "corpus":
+        corpus_text = corpus_text.replace(
+            '"revision": "v1"',
+            '"revision": "v1", "revision": "v2"',
+            1,
+        )
+    else:
+        outcomes_text = outcomes_text.replace(
+            '"case_id": "software-development-1"',
+            '"case_id": "software-development-1", "case_id": "other"',
+            1,
+        )
+    corpus_path = tmp_path / "corpus.json"
+    outcomes_path = tmp_path / "outcomes.json"
+    corpus_path.write_text(corpus_text)
+    outcomes_path.write_text(outcomes_text)
+
+    report = validate_corpus_files(corpus_path, outcomes_path, allow_partial=True)
+
+    assert not report.ok
+    assert _issue_codes(report) == {"duplicate_json_key"}
+    assert report.issues[0].path == f"${duplicate_in}"
