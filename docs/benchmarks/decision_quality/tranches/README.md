@@ -26,6 +26,12 @@ two delayed missions that did not. Model-visible evidence is limited to
 official pre-cutoff NASA or NOAA material; the measured outcomes remain in the
 hash-bound sidecar.
 
+`software-engineering-holdout-1` contributes the two software-engineering
+holdout cases. One roadmap commitment was fulfilled and one announced language
+semantic change did not ship on schedule. Both cases use immutable upstream
+release or source-history evidence, and their outcomes remain in the separate
+hash-bound sidecar.
+
 Current canonical digests:
 
 - corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
@@ -46,13 +52,19 @@ Science/forecasting tranche:
 - corpus: `3f5ea13fac70579c8422b08f820a96a3ebd266e7cd2db174d381a24f47bc491e`
 - outcome sidecar: `f86c8ee9b8ee6694595ebdc11a758569262a20176771bf7f9d7067cdf323e090`
 
+Software-engineering holdout tranche:
+
+- corpus: `4d13fea53e1313c2db332bb932ab57abac5170a9779eba779cef4c3c712af2c6`
+- outcome sidecar: `bae34db3f7928ade185e2975849e609139c59d7c64b496909a6b4137c3d957d4`
+
 The tranche passes the decision-quality corpus validator with
 `--allow-partial`. That flag skips only the final 24-case balance requirement.
 It does not relax source cutoffs, outcome separation, digest binding, or
 per-case semantics.
 
-Together the four tranches provide sixteen of the planned 24 cases: four
-development cases in each required domain.
+Together the five tranches provide eighteen of the planned 24 cases: four
+development cases in each required domain and both software-engineering
+holdouts.
 
 Do not run model inference from a tranche. Counted inference begins only after
 all 24 cases, the scoring contract, prompts, roster, and both corpus digests are
