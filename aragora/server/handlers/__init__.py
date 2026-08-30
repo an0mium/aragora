@@ -421,7 +421,7 @@ if TYPE_CHECKING:
     from .verification import FormalVerificationHandler, VerificationHandler
     from .verticals import VerticalsHandler
     from .visualization import VisualizationHandler
-    from .webhooks import WebhookHandler
+    from .webhook_management import WebhookHandler
     from .workflow_templates import (
         SMEWorkflowsHandler,
         TemplateRecommendationsHandler,

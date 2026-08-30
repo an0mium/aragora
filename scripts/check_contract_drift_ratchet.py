@@ -173,6 +173,18 @@ _READ_ONLY_GIT_SUBCOMMANDS = frozenset(
         "status",
     }
 )
+# Inline `-c` bypasses the GIT_CONFIG_GLOBAL/GIT_CONFIG_NOSYSTEM scrub in
+# _run_read_only, and config keys such as core.fsmonitor, diff.external, or
+# core.pager execute arbitrary commands even under read-only subcommands, so
+# only the exact key=value literals used by this script's call sites pass.
+_READ_ONLY_GIT_CONFIG_LITERALS = frozenset(
+    {
+        "diff.algorithm=myers",
+        "diff.context=3",
+        "diff.mnemonicPrefix=false",
+        "diff.noprefix=false",
+    }
+)
 _FORBIDDEN_CALLER_FIELDS = frozenset(
     {
         "actions",
@@ -420,6 +432,18 @@ def _git_subcommand(argv: list[str]) -> str:
         if item == "-C":
             index += 2
             continue
+        if item == "-c":
+            if index + 1 >= len(argv):
+                return ""
+            if argv[index + 1] not in _READ_ONLY_GIT_CONFIG_LITERALS:
+                raise ValueError(f"unsupported git -c configuration rejected: {argv[index + 1]}")
+            index += 2
+            continue
+        if item == "--config-env" or item.startswith("--config-env="):
+            # Environment-sourced equivalent of -c: it can set any config key
+            # (including command-executing ones) and would otherwise fall
+            # through the generic option skip, bypassing the -c allowlist.
+            raise ValueError(f"unsupported git --config-env rejected: {item}")
         if item.startswith("--git-dir=") or item.startswith("--work-tree="):
             index += 1
             continue
@@ -507,8 +531,17 @@ def _run_read_only(
     log_operation: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
     _guard_subprocess_argv(argv)
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
     executable = Path(argv[0]).name
+    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    if executable == "git":
+        env.update(
+            {
+                "GIT_CONFIG_GLOBAL": os.devnull,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_NO_REPLACE_OBJECTS": "1",
+                "LC_ALL": "C",
+            }
+        )
     try:
         if executable == "git":
             proc = subprocess.run(["git", *argv[1:]], capture_output=True, env=env, check=False)
@@ -2132,6 +2165,7 @@ def _collect_live_evidence(
     boundary: str,
     start_sha: str,
     end_sha: str,
+    repo_root: Path,
     scratch_root: Path,
     operation_log: list[dict[str, Any]],
 ) -> tuple[
@@ -2651,11 +2685,21 @@ def _collect_live_evidence(
         raise ValueError("capsule immutable-release claim contradicts repository settings")
 
     capsule = resources["durable_capsule"]
+    # Contract review-history entry 32 (B5): the payload-embedded release
+    # claim binds only publication-time-knowable identity. GitHub allocates
+    # release-asset API IDs at upload from an unpredictable instance-global
+    # counter with no ID-preserving content update, and every asset's bytes
+    # transitively depend on any payload-embedded ID triple, so a claim over
+    # asset_api_ids is unsatisfiable by construction. Instance identity is
+    # carried by release_api_id (assigned at draft creation, before any asset
+    # bytes are final), the fixed-prefix tag_name plus the independent
+    # tag-ref->END_SHA resolution proof (entry 29), exact_full_sha_tag, the
+    # exact asset names with live byte digests, the checksums.txt
+    # cross-binding, and the live attestation subject-digest gate (entry 30).
+    # Live asset IDs remain observed download-routing values in the operation
+    # log; they are never payload claims. The exact dict equality below
+    # rejects a stale-schema payload still carrying asset_api_ids.
     expected_release_claim = {
-        "asset_api_ids": [
-            assets_by_name[name]["id"]
-            for name in ("manifest.json", "payload.json", "checksums.txt")
-        ],
         "asset_names": ["manifest.json", "payload.json", "checksums.txt"],
         "exact_full_sha_tag": end_sha,
         "immutable": True,
@@ -2699,6 +2743,7 @@ def _collect_live_evidence(
         raise ValueError("capsule governed PR or receipt records are malformed")
     receipt_by_pr = {item.get("pr"): item for item in receipts if isinstance(item, dict)}
     authenticated_pr_changes: dict[int, dict[str, int]] = {}
+    authenticated_pr_files: dict[int, list[str]] = {}
     for record in governed:
         if not isinstance(record, dict) or not isinstance(record.get("pr"), int):
             raise ValueError("capsule governed PR record is malformed")
@@ -2745,6 +2790,20 @@ def _collect_live_evidence(
             raise ValueError(f"authenticated governed PR #{number} file discovery is incomplete")
         if record.get("changed_files_complete") is not True:
             raise ValueError(f"capsule governed PR #{number} denies complete file discovery")
+        owned_paths: set[str] = set()
+        for item in files:
+            filename = item.get("filename") if isinstance(item, dict) else None
+            if not isinstance(filename, str) or not filename:
+                raise ValueError(f"authenticated governed PR #{number} file record is malformed")
+            owned_paths.add(filename)
+            previous = item.get("previous_filename")
+            if previous is not None:
+                if not isinstance(previous, str) or not previous:
+                    raise ValueError(
+                        f"authenticated governed PR #{number} file record is malformed"
+                    )
+                owned_paths.add(previous)
+        authenticated_pr_files[number] = sorted(owned_paths)
         receipt = receipt_by_pr.get(number)
         if not isinstance(receipt, dict):
             raise ValueError(f"capsule governed PR #{number} lacks a first-parent receipt")
@@ -2774,7 +2833,6 @@ def _collect_live_evidence(
             record.get("head_tree_sha") != head_tree
             or receipt.get("head_tree_sha") != head_tree
             or receipt.get("merge_tree_sha") != merge_tree
-            or head_tree != merge_tree
             or not isinstance(merge_parents, list)
             or not merge_parents
             or not isinstance(merge_parents[0], dict)
@@ -2783,6 +2841,20 @@ def _collect_live_evidence(
             raise ValueError(
                 f"authenticated governed PR #{number} lacks first-parent or tree equality"
             )
+        # VAL-CDG-018 squash binding: the semantic delta recomputed from the
+        # squash merge's first parent (immutable local git, pinned rename and
+        # path-byte policies) must exactly equal the authenticated PR
+        # disposition. PR-head tree equality is corroboration only.
+        _require_squash_binding_witness(
+            repo_root=repo_root,
+            pr=number,
+            head_tree_sha=head_tree,
+            merge_tree_sha=merge_tree,
+            first_parent_sha=record["base_sha"],
+            merge_sha=receipt["merge_sha"],
+            owned_paths=authenticated_pr_files[number],
+            operation_log=operation_log,
+        )
 
     live_before_snapshot = {
         "assets": asset_identities,
@@ -2818,6 +2890,7 @@ def _collect_live_evidence(
         {
             "asset_identities": asset_identities,
             "authenticated_pr_changes": authenticated_pr_changes,
+            "authenticated_pr_files": authenticated_pr_files,
             "endpoint_identities": endpoint_identities,
             "expected_rule_suite_ref": expected_rule_suite_ref,
             "github_repository": github_repository,
@@ -3537,6 +3610,23 @@ def _validate_durable_capsule(
     attestation = resource.get("attestation")
     if not isinstance(release, dict) or not isinstance(attestation, dict):
         raise ValueError("durable release capsule evidence is malformed")
+    # Contract review-history entry 32 (B5): the release claim embeds only
+    # publication-time-knowable identity fields. asset_api_ids is expressly
+    # not part of the claim shape (GitHub assigns asset IDs unpredictably at
+    # upload, after the payload bytes must already be final), so a
+    # stale-schema payload still carrying it fails closed here.
+    _require_exact_fields(
+        release,
+        {
+            "asset_names",
+            "exact_full_sha_tag",
+            "immutable",
+            "release_api_id",
+            "tag_name",
+            "verified",
+        },
+        label="durable release claim",
+    )
     for field in ("immutable", "verified"):
         _require_bool(release.get(field), label=f"durable release {field}")
     if release.get("exact_full_sha_tag") != end_sha:
@@ -3544,17 +3634,9 @@ def _validate_durable_capsule(
     if release.get("tag_name") != f"cdg-{boundary}-{end_sha}":
         raise ValueError("durable release capsule tag name is not the fixed-prefix capsule tag")
     release_id = release.get("release_api_id")
-    asset_ids = release.get("asset_api_ids")
     asset_names = release.get("asset_names")
     if not isinstance(release_id, int) or release_id <= 0:
         raise ValueError("durable release API ID is malformed")
-    if (
-        not isinstance(asset_ids, list)
-        or len(asset_ids) != 3
-        or len(set(asset_ids)) != 3
-        or not all(isinstance(item, int) and item > 0 for item in asset_ids)
-    ):
-        raise ValueError("durable release asset API IDs are incomplete")
     if asset_names != ["manifest.json", "payload.json", "checksums.txt"]:
         raise ValueError("durable release asset names are incomplete or noncanonical")
     _require_bool(attestation.get("verified"), label="Sigstore attestation")
@@ -3701,6 +3783,138 @@ def _validate_first_parent_receipts(
     return records
 
 
+def _first_parent_semantic_delta(
+    repo_root: Path,
+    *,
+    first_parent_sha: str,
+    merge_sha: str,
+    pr: int,
+    operation_log: list[dict[str, Any]],
+) -> set[str]:
+    """Recompute the exact squash semantic delta from immutable local git.
+
+    Pinned rename policy: rename detection is disabled (`--no-renames`), so a
+    rename is a removal at the old path plus an addition at the new path and
+    both must be inside the authenticated disposition. Renamed content can
+    never masquerade as an unchanged or foreign path.
+
+    Git emits raw NUL-delimited path bytes. GitHub file dispositions expose
+    filenames as JSON strings transported in UTF-8, so only exact UTF-8 paths
+    can be compared reversibly across both authorities. Non-UTF-8 Git paths
+    fail closed rather than being quoted, normalized, or replacement-decoded.
+    """
+    diff = _run_read_only(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "diff",
+            "--no-renames",
+            "--name-only",
+            "-z",
+            f"{first_parent_sha}^{{tree}}",
+            f"{merge_sha}^{{tree}}",
+        ],
+        operation_log=operation_log,
+        resource=f"squash-semantic-delta:{pr}",
+    )
+    if not diff.stdout:
+        return set()
+    if not diff.stdout.endswith(b"\0"):
+        raise ValueError(
+            f"squash semantic delta for PR #{pr} has unterminated NUL-delimited path output"
+        )
+    raw_paths = diff.stdout[:-1].split(b"\0")
+    if any(not raw_path for raw_path in raw_paths):
+        raise ValueError(f"squash semantic delta for PR #{pr} has an empty path record")
+    paths: list[str] = []
+    for raw_path in raw_paths:
+        try:
+            path = raw_path.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"squash semantic delta for PR #{pr} contains a Git path that cannot "
+                "round-trip through a GitHub UTF-8 filename"
+            ) from exc
+        paths.append(path)
+    delta = set(paths)
+    if len(delta) != len(paths):
+        raise ValueError(f"squash semantic delta for PR #{pr} contains duplicate paths")
+    return delta
+
+
+def _require_squash_binding_witness(
+    *,
+    repo_root: Path,
+    pr: int,
+    head_tree_sha: str,
+    merge_tree_sha: str,
+    first_parent_sha: str,
+    merge_sha: str,
+    owned_paths: list[str] | None,
+    operation_log: list[dict[str, Any]],
+) -> str:
+    """Bind a squash merge to its authenticated PR disposition (VAL-CDG-018).
+
+    The exact semantic delta recomputed from the squash merge's first parent
+    to the squash merge (immutable local git trees, pinned rename policy) must
+    equal the authenticated PR disposition's owned-path delta. Head-tree ==
+    merge-tree equality remains a corroborating witness when present, but it
+    is never sufficient and never replaces exact semantic set equality.
+    """
+    delta = _first_parent_semantic_delta(
+        repo_root,
+        first_parent_sha=first_parent_sha,
+        merge_sha=merge_sha,
+        pr=pr,
+        operation_log=operation_log,
+    )
+    equality = head_tree_sha == merge_tree_sha
+    if owned_paths is None:
+        raise ValueError(
+            f"first-parent receipt for PR #{pr} lacks a squash binding witness: "
+            "no authenticated PR disposition paths are available for exact "
+            "semantic-delta comparison"
+        )
+    owned = set(owned_paths)
+    foreign = sorted(delta - owned)
+    missing = sorted(owned - delta)
+    if foreign or missing:
+        differences = []
+        if foreign:
+            differences.append(f"paths outside the authenticated disposition: {foreign}")
+        if missing:
+            differences.append(f"authenticated paths missing from semantic delta: {missing}")
+        raise ValueError(
+            f"squash semantic delta for PR #{pr} does not equal the authenticated "
+            f"disposition: {'; '.join(differences)}"
+        )
+    witness = "first_parent_semantic_delta"
+    corroborating_witnesses = ["head_tree_equality"] if equality else []
+    _append_operation(
+        operation_log,
+        kind="squash_binding_witness",
+        resource=f"squash-binding:{pr}",
+        identifier=witness,
+        response_identity={
+            "binding_witness": witness,
+            "corroborating_witnesses": corroborating_witnesses,
+        },
+        raw=_canonical_json_bytes(
+            {
+                "corroborating_witnesses": corroborating_witnesses,
+                "first_parent_sha": first_parent_sha,
+                "merge_sha": merge_sha,
+                "owned_paths": sorted(owned),
+                "pr": pr,
+                "semantic_delta": sorted(delta),
+                "binding_witness": witness,
+            }
+        ),
+    )
+    return witness
+
+
 def _reconcile_prs_and_receipts(
     governed_prs: list[dict[str, Any]],
     receipts: list[dict[str, Any]],
@@ -3708,6 +3922,7 @@ def _reconcile_prs_and_receipts(
     repo_root: Path,
     start_sha: str,
     end_sha: str,
+    authenticated_pr_files: dict[int, list[str]],
     operation_log: list[dict[str, Any]],
 ) -> None:
     prs_by_number = {record["pr"]: record for record in governed_prs}
@@ -3775,13 +3990,25 @@ def _reconcile_prs_and_receipts(
             .stdout.decode("ascii")
             .strip()
         )
-        if (
-            merge_tree != receipt["merge_tree_sha"]
-            or receipt["merge_tree_sha"] != receipt["head_tree_sha"]
-        ):
+        if merge_tree != receipt["merge_tree_sha"]:
             raise ValueError(
-                f"first-parent receipt for PR #{receipt['pr']} lacks squash tree equality"
+                f"first-parent receipt for PR #{receipt['pr']} misstates the squash merge "
+                "tree: local git recompute contradicts the claimed merge_tree_sha"
             )
+        # VAL-CDG-018 squash binding: the recomputed first-parent semantic
+        # delta must exactly equal the authenticated PR disposition. The
+        # independently recomputed merge tree may corroborate PR-head tree
+        # equality, but equality alone never binds the squash.
+        _require_squash_binding_witness(
+            repo_root=repo_root,
+            pr=receipt["pr"],
+            head_tree_sha=receipt["head_tree_sha"],
+            merge_tree_sha=merge_tree,
+            first_parent_sha=receipt["base_sha"],
+            merge_sha=receipt["merge_sha"],
+            owned_paths=authenticated_pr_files.get(receipt["pr"]),
+            operation_log=operation_log,
+        )
         prior = receipt["merge_sha"]
     if prior != end_sha:
         raise ValueError("governed PR and receipt coverage does not reach the boundary end SHA")
@@ -3800,6 +4027,7 @@ def _evaluate_boundary_evidence(
     authority: dict[str, Any],
     canonical_artifacts: dict[str, Any],
     authenticated_pr_changes: dict[int, dict[str, int]],
+    authenticated_pr_files: dict[int, list[str]],
     operation_log: list[dict[str, Any]],
 ) -> dict[str, Any]:
     chronology = _validate_boundary_chronology(
@@ -3836,6 +4064,7 @@ def _evaluate_boundary_evidence(
         repo_root=repo_root,
         start_sha=start_sha,
         end_sha=end_sha,
+        authenticated_pr_files=authenticated_pr_files,
         operation_log=operation_log,
     )
     selected = BOUNDARY_NAMES[: BOUNDARY_NAMES.index(boundary) + 1]
@@ -4137,6 +4366,7 @@ def build_boundary_result(
             boundary=boundary,
             start_sha=start_sha,
             end_sha=end_sha,
+            repo_root=repo_root,
             scratch_root=resolved_scratch,
             operation_log=operation_log,
         )
@@ -4153,6 +4383,9 @@ def build_boundary_result(
         authenticated_pr_changes = live_context.get("authenticated_pr_changes")
         if not isinstance(authenticated_pr_changes, dict):
             raise ValueError("authenticated governed PR additions/deletions are unavailable")
+        authenticated_pr_files = live_context.get("authenticated_pr_files", {})
+        if not isinstance(authenticated_pr_files, dict):
+            raise ValueError("authenticated governed PR file dispositions are malformed")
         repository_id = live_context.get("repository_id")
         repository_name = live_context.get("repository_name")
         expected_rule_suite_ref = live_context.get("expected_rule_suite_ref")
@@ -4185,6 +4418,7 @@ def build_boundary_result(
             authority=authority,
             canonical_artifacts=artifacts,
             authenticated_pr_changes=authenticated_pr_changes,
+            authenticated_pr_files=authenticated_pr_files,
             operation_log=operation_log,
         )
         result.update(evaluation)
@@ -4320,6 +4554,62 @@ def _accepted_failure(error: str, code: str) -> dict[str, Any]:
 
 def _git_json(repo_root: Path, sha: str, path: str) -> dict[str, Any]:
     return _git_json_at_ref(repo_root, sha, path, operation_log=[])
+
+
+def _repository_relative_path(repo_root: Path, path: Path, *, label: str) -> str:
+    if path.is_absolute():
+        try:
+            relative = path.resolve().relative_to(repo_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"{label} must be inside the repository") from exc
+    else:
+        if not path.parts or ".." in path.parts:
+            raise ValueError(f"{label} must be a safe repository-relative path")
+        relative = path
+    value = relative.as_posix()
+    if value in {"", "."}:
+        raise ValueError(f"{label} must name a repository file")
+    return value
+
+
+def _resolve_accepted_source(repo_root: Path, source_sha: str) -> tuple[str, str]:
+    operation_log: list[dict[str, Any]] = []
+    try:
+        source = _resolve_full_sha(
+            repo_root,
+            source_sha,
+            label="accepted-authority --ref",
+            operation_log=operation_log,
+        )
+    except ValueError as exc:
+        if FULL_SHA_RE.fullmatch(source_sha):
+            raise ValueError(
+                f"accepted-authority --ref is unavailable or is not an exact commit: {source_sha}"
+            ) from exc
+        raise
+    try:
+        proc = _run_read_only(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-parse",
+                "--verify",
+                f"{source}^1^{{commit}}",
+            ],
+            operation_log=operation_log,
+            resource="accepted-authority-tolerance-parent",
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"accepted-authority --ref first parent is unavailable: {source}"
+        ) from exc
+    parent = proc.stdout.decode("ascii").strip()
+    if not FULL_SHA_RE.fullmatch(parent):
+        raise ValueError(
+            f"accepted-authority --ref first parent is malformed: {source}"
+        )
+    return source, parent
 
 
 def _bundle_metadata(authority: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
@@ -4508,9 +4798,27 @@ def build_accepted_result(
     inventory_path: Path,
     as_of: str | None = None,
     source_sha: str | None = None,
+    historical_base_sha: str | None = None,
+    historical_head_sha: str | None = None,
+    historical_merge_sha: str | None = None,
+    historical_first_parent_sha: str | None = None,
 ) -> dict[str, Any]:
+    if source_sha is None:
+        return _accepted_failure(
+            "accepted-authority program/receipt modes require an explicit immutable --ref",
+            "accepted_authority_ref_required",
+        )
     try:
-        inventory = _strict_json_bytes(inventory_path.read_bytes(), "accepted inventory")
+        source, residue_ref = _resolve_accepted_source(repo_root, source_sha)
+        inventory_rel = _repository_relative_path(
+            repo_root,
+            inventory_path,
+            label="accepted inventory path",
+        )
+    except ValueError as exc:
+        return _accepted_failure(str(exc), "accepted_authority_ref_invalid")
+    try:
+        inventory = _git_json(repo_root, source, inventory_rel)
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "authority_transition_required")
     authority = inventory.get("accepted_authority")
@@ -4519,19 +4827,216 @@ def build_accepted_result(
             "resolved base has no accepted authority manifest", "authority_transition_required"
         )
     try:
-        summary = validate_accepted_authority(authority, repo_root=repo_root, live_ref=source_sha, residue_ref=f"{source_sha}^" if source_sha else None)  # fmt: skip
+        summary = validate_accepted_authority(
+            authority,
+            repo_root=repo_root,
+            live_ref=source,
+            residue_ref=residue_ref,
+        )
     except (OSError, ValueError) as exc:
         return _accepted_failure(str(exc), "accepted_authority_invalid")
     if mode == "receipt":
-        source = source_sha or ""
-        valid = FULL_SHA_RE.fullmatch(source)
-        proc = subprocess.run(["git", "-C", str(repo_root), "rev-list", "--first-parent", source], capture_output=True, text=True) if valid else None  # fmt: skip
-        chain = proc.stdout.splitlines() if proc and proc.returncode == 0 else []
-        passing = bool(chain and chain[0] == source_sha)
+        historical_values = {
+            "base_sha": historical_base_sha,
+            "first_parent_sha": historical_first_parent_sha,
+            "head_sha": historical_head_sha,
+            "merge_sha": historical_merge_sha,
+        }
+        if any(value is not None for value in historical_values.values()):
+            if not all(value is not None for value in historical_values.values()):
+                return _accepted_failure(
+                    "historical receipt requires base, head, merge, and first-parent SHAs together",
+                    "accepted_authority_historical_pair_incomplete",
+                )
+            try:
+                resolved = {
+                    label: _resolve_full_sha(
+                        repo_root,
+                        cast(str, value),
+                        label=f"historical receipt {label}",
+                        operation_log=[],
+                    )
+                    for label, value in historical_values.items()
+                }
+                first_parent = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['merge_sha']}^1",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-first-parent",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                merge_tree = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['merge_sha']}^{{tree}}",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-merge-tree",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                head_tree = (
+                    _run_read_only(
+                        [
+                            "git",
+                            "-C",
+                            str(repo_root),
+                            "rev-parse",
+                            f"{resolved['head_sha']}^{{tree}}",
+                        ],
+                        operation_log=[],
+                        resource="historical-receipt-head-tree",
+                    )
+                    .stdout.decode("ascii")
+                    .strip()
+                )
+                for ancestor, descendant, label in (
+                    (
+                        resolved["base_sha"],
+                        resolved["head_sha"],
+                        "historical receipt base is not an ancestor of the PR head",
+                    ),
+                    (
+                        resolved["base_sha"],
+                        resolved["first_parent_sha"],
+                        "historical receipt base is not an ancestor of the merge first parent",
+                    ),
+                    (
+                        resolved["base_sha"],
+                        resolved["merge_sha"],
+                        "historical receipt base is not an ancestor of the squash merge",
+                    ),
+                ):
+                    if not _is_ancestor(repo_root, ancestor, descendant, []):
+                        raise ValueError(label)
+                semantic_delta = sorted(
+                    _first_parent_semantic_delta(
+                        repo_root,
+                        first_parent_sha=resolved["first_parent_sha"],
+                        merge_sha=resolved["merge_sha"],
+                        pr=0,
+                        operation_log=[],
+                    )
+                )
+                head_semantic_delta = sorted(
+                    _first_parent_semantic_delta(
+                        repo_root,
+                        first_parent_sha=resolved["base_sha"],
+                        merge_sha=resolved["head_sha"],
+                        pr=0,
+                        operation_log=[],
+                    )
+                )
+                patch_args = [
+                    "git",
+                    "-c",
+                    "diff.noprefix=false",
+                    "-c",
+                    "diff.mnemonicPrefix=false",
+                    "-c",
+                    "diff.algorithm=myers",
+                    "-c",
+                    "diff.context=3",
+                    "-C",
+                    str(repo_root),
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-renames",
+                    "--no-color",
+                    "--no-indent-heuristic",
+                    "--full-index",
+                    "--unified=3",
+                    "--src-prefix=a/",
+                    "--dst-prefix=b/",
+                    "-O/dev/null",
+                ]
+                head_patch = _run_read_only(
+                    [
+                        *patch_args,
+                        f"{resolved['base_sha']}^{{tree}}",
+                        f"{resolved['head_sha']}^{{tree}}",
+                    ],
+                    operation_log=[],
+                    resource="historical-receipt-base-head-patch",
+                ).stdout
+                merge_patch = _run_read_only(
+                    [
+                        *patch_args,
+                        f"{resolved['first_parent_sha']}^{{tree}}",
+                        f"{resolved['merge_sha']}^{{tree}}",
+                    ],
+                    operation_log=[],
+                    resource="historical-receipt-first-parent-merge-patch",
+                ).stdout
+            except ValueError as exc:
+                return _accepted_failure(
+                    str(exc),
+                    "accepted_authority_historical_pair_invalid",
+                )
+            if first_parent != resolved["first_parent_sha"]:
+                return _accepted_failure(
+                    "historical receipt merge first parent contradicts the exact pair",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            if head_semantic_delta != semantic_delta:
+                return _accepted_failure(
+                    "historical receipt base/head paths differ from first-parent/merge paths",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            if head_patch != merge_patch:
+                return _accepted_failure(
+                    "historical receipt base/head patch differs from first-parent/merge patch",
+                    "accepted_authority_historical_pair_mismatch",
+                )
+            return {
+                "authority": {
+                    "historical_exact_pair": resolved,
+                    "source": "accepted_authority",
+                },
+                "execution": {
+                    **resolved,
+                    "first_parent_patch_byte_length": len(merge_patch),
+                    "first_parent_patch_sha256": _sha256_bytes(merge_patch),
+                    "head_tree_sha": head_tree,
+                    "merge_tree_sha": merge_tree,
+                    "semantic_delta_paths": semantic_delta,
+                    "source_sha": source,
+                },
+                "passing": True,
+                "source_sha": source,
+                "status": "pass",
+            }
+        try:
+            proc = _run_read_only(
+                ["git", "-C", str(repo_root), "rev-list", "--first-parent", source],
+                operation_log=[],
+                resource="accepted-authority-first-parent-chain",
+            )
+        except ValueError as exc:
+            return _accepted_failure(
+                str(exc),
+                "accepted_authority_receipt_failed",
+            )
+        chain = proc.stdout.decode("ascii").splitlines()
+        passing = bool(chain and chain[0] == source)
         return {
             "authority": {"first_parent_chain": chain, "source": "accepted_authority"},
             "passing": passing,
-            "source_sha": source_sha,
+            "source_sha": source,
             "status": "pass" if passing else "fail",
         }
     as_of_value = as_of or datetime.now(UTC).date().isoformat()
@@ -4542,7 +5047,14 @@ def build_accepted_result(
     if as_of_date > datetime.now(UTC).date():
         return _accepted_failure("live as-of may not be future-dated", "future_as_of")
     try:
-        program = _load_program(repo_root / "scripts/baselines/contract_drift_program.json")
+        program = _parse_program(
+            _git_json(
+                repo_root,
+                source,
+                "scripts/baselines/contract_drift_program.json",
+            ),
+            label="Program baseline",
+        )
         weeks = max(0, (as_of_date - program["start_date"]).days // 7)
         target = _target_after_weeks(program["start_total_items"], program["weekly_reduction"], weeks)  # fmt: skip
     except (OSError, ValueError) as exc:
@@ -4552,7 +5064,7 @@ def build_accepted_result(
     program_result = {
         "as_of": as_of_value,
         "effective_weeks": weeks,
-        "source_sha": source_sha,
+        "source_sha": source,
         "start_date": program["start_date"].isoformat(),
         "start_total_items": program["start_total_items"],
         "weekly_reduction": program["weekly_reduction"],
@@ -4613,24 +5125,30 @@ def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -
     return target
 
 
-def _load_program(program_baseline: Path) -> dict[str, Any]:
-    program = _load_json_strict(program_baseline, "Program baseline")
+def _parse_program(program: dict[str, Any], *, label: str) -> dict[str, Any]:
     start_date_raw = program.get("start_date")
     start_total = int(program.get("start_total_items", -1))
     weekly_reduction = float(program.get("weekly_reduction", -1.0))
     grace_weeks = int(program.get("grace_weeks", 0))
     if not start_date_raw:
-        raise ValueError("Program baseline must include 'start_date'")
+        raise ValueError(f"{label} must include 'start_date'")
     if start_total < 0:
-        raise ValueError("Program baseline has invalid 'start_total_items'")
+        raise ValueError(f"{label} has invalid 'start_total_items'")
     if not (0.0 < weekly_reduction < 1.0):
-        raise ValueError("Program baseline 'weekly_reduction' must be between 0 and 1")
+        raise ValueError(f"{label} 'weekly_reduction' must be between 0 and 1")
     return {
         "start_date": date.fromisoformat(start_date_raw),
         "start_total_items": start_total,
         "weekly_reduction": weekly_reduction,
         "grace_weeks": grace_weeks,
     }
+
+
+def _load_program(program_baseline: Path) -> dict[str, Any]:
+    return _parse_program(
+        _load_json_strict(program_baseline, "Program baseline"),
+        label="Program baseline",
+    )
 
 
 def _evaluate_classes(
@@ -5112,6 +5630,26 @@ def main() -> int:
     )
     parser.add_argument("--head-ref", default=None, help="Immutable PR head SHA")
     parser.add_argument("--ref", default=None, help="Immutable source SHA for main modes")
+    parser.add_argument(
+        "--historical-base-sha",
+        default=None,
+        help="Exact historical PR base SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-head-sha",
+        default=None,
+        help="Exact historical PR head SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-merge-sha",
+        default=None,
+        help="Exact historical squash-merge SHA for receipt mode",
+    )
+    parser.add_argument(
+        "--historical-first-parent-sha",
+        default=None,
+        help="Exact historical merge first-parent SHA for receipt mode",
+    )
     parser.add_argument("--trusted-bundle", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument(
@@ -5269,19 +5807,36 @@ def main() -> int:
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1
 
-    accepted_default = args.inventory.exists() and isinstance(
-        _strict_json_bytes(args.inventory.read_bytes(), "accepted inventory").get(
-            "accepted_authority"
-        ),
-        dict,
-    )
-    if args.mode == "receipt" or accepted_default:
+    requested_inventory = (
+        args.inventory if args.inventory.is_absolute() else args.repo_root / args.inventory
+    ).resolve()
+    canonical_inventory = (args.repo_root / inventory_mod.DEFAULT_INVENTORY).resolve()
+    head_has_accepted_authority = False
+    if args.ref is None and args.mode != "receipt" and requested_inventory == canonical_inventory:
+        try:
+            head_inventory = _git_json(
+                args.repo_root,
+                "HEAD",
+                inventory_mod.DEFAULT_INVENTORY,
+            )
+            head_has_accepted_authority = isinstance(
+                head_inventory.get("accepted_authority"),
+                dict,
+            )
+        except (OSError, ValueError):
+            pass
+    accepted_default = args.mode == "receipt" or args.ref is not None or head_has_accepted_authority
+    if accepted_default:
         result = build_accepted_result(
             mode=args.mode,
             repo_root=args.repo_root,
             inventory_path=args.inventory,
             as_of=args.as_of,
-            source_sha=args.ref or args.head_ref or args.base_ref,
+            source_sha=args.ref,
+            historical_base_sha=args.historical_base_sha,
+            historical_head_sha=args.historical_head_sha,
+            historical_merge_sha=args.historical_merge_sha,
+            historical_first_parent_sha=args.historical_first_parent_sha,
         )
         print(json.dumps(result, sort_keys=True) if args.json else result)
         return 0 if result["passing"] else 1

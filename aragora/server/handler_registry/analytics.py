@@ -170,6 +170,11 @@ ModerationAnalyticsHandler = _safe_import(
     "aragora.server.handlers.moderation_analytics", "ModerationAnalyticsHandler"
 )
 
+# Ralph campaign observability dashboard
+RalphDashboardHandler = _safe_import(
+    "aragora.server.handlers.ralph_dashboard", "RalphDashboardHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -234,6 +239,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_moderation_analytics_handler", ModerationAnalyticsHandler),
     # Agent evolution dashboard (issue #307)
     ("_agent_evolution_dashboard_handler", AgentEvolutionDashboardHandler),
+    # Ralph campaign observability dashboard
+    ("_ralph_dashboard_handler", RalphDashboardHandler),
 ]
 
 __all__ = [
@@ -290,6 +297,8 @@ __all__ = [
     "ModerationAnalyticsHandler",
     # Agent evolution dashboard
     "AgentEvolutionDashboardHandler",
+    # Ralph campaign observability dashboard
+    "RalphDashboardHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]
