@@ -15,6 +15,7 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -152,21 +153,27 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
         if not isinstance(files, list):
             raise RuntimeError(f"unexpected files payload for PR #{number}")
         changed_file_count = metadata.get("changedFiles")
-        changed_files = [
-            str(item.get("path", ""))
-            for item in files
-            if isinstance(item, dict) and item.get("path")
-        ]
         if (
             isinstance(changed_file_count, bool)
             or not isinstance(changed_file_count, int)
             or changed_file_count < 0
-            or changed_file_count != len(changed_files)
+            or changed_file_count != len(files)
         ):
             raise RuntimeError(
                 f"incomplete or malformed files snapshot for PR #{number}: "
-                f"changedFiles={changed_file_count!r}, returned_paths={len(changed_files)}"
+                f"changedFiles={changed_file_count!r}, returned_entries={len(files)}"
             )
+        changed_files: list[str] = []
+        for index, item in enumerate(files):
+            if not isinstance(item, Mapping):
+                raise RuntimeError(f"malformed file entry for PR #{number} at index {index}")
+            path = item.get("path")
+            if not isinstance(path, str) or not path.strip():
+                raise RuntimeError(
+                    f"malformed file entry for PR #{number} at index {index}: "
+                    "path must be a non-empty string"
+                )
+            changed_files.append(path)
         snapshots.append(
             PullRequestSnapshot(
                 number=snapshot_number,

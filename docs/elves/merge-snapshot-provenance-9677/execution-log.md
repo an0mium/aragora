@@ -2,8 +2,8 @@
 
 ## Run Digest
 
-- **Last updated:** 2026-08-29 19:28 America/Chicago
-- **Current phase:** Batch 2 review and final readiness
+- **Last updated:** 2026-08-29 23:28 America/Chicago
+- **Current phase:** Batch 2 OWNER-authorized terminal repair
 - **Active batch:** Batch 2: Independent review and final draft readiness
 - **Last completed batch:** Batch 1: Carry exact decision heads through all three merge paths
 - **Next exact batch:** Batch 2: Independent review and final draft readiness
@@ -254,5 +254,29 @@ proof, and receives a new terminal review before cleanup.
 rejects every malformed file entry before selection, compares `changedFiles` with the raw list
 length, adds malformed-entry mutation coverage, reruns all validation, and receives one new
 exact-head terminal review. Otherwise leave the draft blocked and split or supersede the lane.
+
+## OWNER-Authorized Malformed-Entry Repair: 2026-08-29 23:24 America/Chicago
+
+- The OWNER explicitly authorized the exact bounded repair described above with no other scope.
+- Local, remote, and PR head all matched `5c34fb630c5e09af6d954cbc3361dd019742460e`
+  before edits. The branch remains descended from recorded base
+  `953c501c2147026c2c996c3f95001580e326ec52`.
+- Current main is `5fe51d32c4b4b4cbc2c47b0314a53cb90be2c778`; no scoped product, test, or
+  metrics file overlaps. Its five non-quorum required contexts are green.
+- The previous lease had expired with no replacement owner. The same session claimed lease
+  `d6ea70bd-b8e` for the existing scope. PR- and branch-routed steering remained empty.
+- Stop Gate returned to no. The only product change authorized is to compare `changedFiles` with
+  the raw `files` list length and reject every entry unless it is a mapping containing a non-empty
+  string `path`, while preserving complete empty snapshots and every prior fail-closed case.
+- Added one regression test reproducing the exact filtered-member bypass and eight category cases
+  for null/list/string entries plus missing, null, non-string, empty, and whitespace-only paths.
+  All nine tests failed against the pre-repair implementation.
+- The collector now validates `changedFiles == len(files)` before parsing any member. It then
+  requires each raw entry to be a mapping and its `path` to be a non-blank string before appending
+  the exact path used by sensitive-path screening.
+- Mutation proof independently removed raw count equality, relaxed non-empty path validation, and
+  disabled the mapping guard. The corresponding tests failed in each case; all guards were restored.
+- Cumulative touched-surface validation: PASS, 148 passed, 0 skipped. Scoped Ruff and four-source
+  mypy: PASS. Metrics drift, module-tier drift, docs consistency, and diff hygiene: PASS.
 
 <!-- Add newer entries above this line. -->

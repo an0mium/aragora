@@ -26,6 +26,7 @@
 - 2026-08-29: A helper that performs its own last-second head lookup may protect only the command, while silently discarding the checks and file scan from the earlier snapshot.
 - 2026-08-29: A private merge helper can still have cross-module consumers. Before making it fail closed, survey imports as well as local call sites and propagate the caller's existing snapshot head rather than adding a compatibility lookup.
 - 2026-08-29: `gh pr view --json files` can truncate the files connection at 100 entries. A security-sensitive file scan must include `changedFiles` in the same snapshot and reject any count/path mismatch rather than treating the returned list as complete.
+- 2026-08-29: Snapshot completeness must be checked against the raw `files` list before transforming it. Filtering malformed members before count comparison can make an uninspectable file disappear; validate every raw member and its path fail-closed before selection.
 
 ## Retired Learnings
 

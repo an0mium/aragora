@@ -20,7 +20,7 @@ integrator, the merge arbiter's only direct cross-module consumer.
   OWNER direction after a second P2
 - **Workspace ownership:** dedicated worktree at `$HOME/.codex/worktrees/merge-snapshot-provenance-9677-20260829/aragora`
 - **Branch tip at start:** `953c501c2147026c2c996c3f95001580e326ec52`
-- **Lease:** `7cb3e7fb-ce5`, session `codex-merge-snapshot-provenance-9677-20260829` (reclaimed after staged lease expired)
+- **Lease:** `d6ea70bd-b8e`, session `codex-merge-snapshot-provenance-9677-20260829` (reclaimed after the prior lease expired)
 - **Merge policy:** user-merges; implementation authorization is not merge authorization
 - **Final-response policy:** only when the Stop Gate permits it
 - **Batch completion rule:** update execution log and survival guide, commit, push, then re-read this guide before starting later work
@@ -40,9 +40,9 @@ integrator, the merge arbiter's only direct cross-module consumer.
 ## Stop Gate
 
 - **Planned batches remaining:** 1
-- **Stop allowed right now:** yes
-- **Why:** the refreshed exact-head review found another P2; the plan forbids another assumed repair loop
-- **Next required action:** await explicit OWNER authority for the exact malformed-file-entry repair or a separate follow-up decision
+- **Stop allowed right now:** no
+- **Why:** the OWNER explicitly authorized exactly one bounded malformed-file-entry repair and terminal rerun
+- **Next required action:** commit and push the validated malformed-entry repair, then obtain one fresh exact-head terminal review
 
 ## Effort Standard
 
@@ -90,17 +90,17 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 2 blocked at refreshed terminal review
+**Status:** Batch 2 OWNER-authorized terminal repair in progress
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** Exact head `a061859015` passed 139 tests, static gates, hooks, preflight,
-and all five required non-quorum checks. Fresh independent review found another P2: malformed list
-members can be filtered out before `changedFiles` completeness and sensitive-path checks, allowing
-an uninspectable changed file to disappear from the security decision.
+**What was just finished:** The collector now compares `changedFiles` with the raw list length before
+parsing, then rejects every entry unless it is a mapping with a non-blank string path. Nine category
+cases reproduce the original fail-open plus malformed entries. Mutation proof covered raw count,
+mapping type, and empty-path guards; 148 cumulative tests and all static/drift gates pass.
 
-**Single next action:** record the blocked state and ask the OWNER whether to authorize exactly one
-malformed-entry repair. Do not edit product code, clean operational artifacts, or claim readiness.
+**Single next action:** commit and push only the validated repair and run one fresh independent
+terminal review of the new exact head before cleanup.
 
 ## Active Compute
 
@@ -124,10 +124,9 @@ No active paid or long-running compute.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
 
-**Blocking finding:** `scripts/merge_codex_automation_prs.py` filters malformed `files` members
-before comparing the resulting paths to `changedFiles`. A payload such as `changedFiles=1` with
-`files=[{"path":"aragora/safe.py"}, {}]` can be accepted after the malformed member disappears.
-The plan forbids another assumed repair after this further P2.
+**Authorized repair:** `scripts/merge_codex_automation_prs.py` must compare `changedFiles` with the
+raw `files` list length, reject every member unless it is a mapping with a non-empty string `path`,
+and preserve complete empty snapshots plus all prior fail-closed behavior.
 
 **Rollback tag:** `elves/pre-batch-2-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 
@@ -168,7 +167,7 @@ notification: PR comment only at final readiness if authorized by the run state
 
 - Shared checkout `$HOME/Development/aragora` is dirty and behind; it is read-only for this run.
 - PR #9677 moved during staging to `13fc8850700927e2e4bd4809f77ddf44f282382e` in another worktree. This run does not own that object.
-- Main staging base is `953c501c2147026c2c996c3f95001580e326ec52`; current main advanced to `ed79c28171dcd285e6edf050286510e8ab18ae16` without touching any of the six scoped source/test files.
+- Main staging base is `953c501c2147026c2c996c3f95001580e326ec52`; current main advanced to `5fe51d32c4b4b4cbc2c47b0314a53cb90be2c778` without touching the scoped product/test/metrics files.
 - Main required contexts were green for lint, typecheck, sdk-parity, Generate & Validate, and TypeScript SDK Type Check; main quorum was skipped as expected.
 
 ## Launch Prompt

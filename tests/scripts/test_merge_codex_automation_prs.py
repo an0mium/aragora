@@ -255,6 +255,63 @@ def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
         merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
 
 
+def test_collect_pull_requests_compares_changed_count_with_raw_file_entries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
+        else:
+            payload = {
+                "number": 7,
+                "changedFiles": 1,
+                "files": [{"path": "aragora/safe.py"}, {}],
+            }
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match=r"returned_entries=2"):
+        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
+@pytest.mark.parametrize(
+    "file_entry",
+    [
+        pytest.param(None, id="null-entry"),
+        pytest.param([], id="list-entry"),
+        pytest.param("aragora/safe.py", id="string-entry"),
+        pytest.param({}, id="missing-path"),
+        pytest.param({"path": None}, id="null-path"),
+        pytest.param({"path": 7}, id="non-string-path"),
+        pytest.param({"path": ""}, id="empty-path"),
+        pytest.param({"path": "   "}, id="whitespace-path"),
+    ],
+)
+def test_collect_pull_requests_rejects_malformed_file_entries(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_entry: object,
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
+        else:
+            payload = {"number": 7, "changedFiles": 1, "files": [file_entry]}
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="malformed file entry"):
+        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
 @pytest.mark.parametrize(
     ("include_files", "files_payload"),
     [
