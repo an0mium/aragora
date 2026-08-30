@@ -34,14 +34,14 @@ integrator, the merge arbiter's only direct cross-module consumer.
 - **Checkpoint expectation:** launch-ready draft PR during staging; validated final draft after launch
 - **Time budget:** approximately 8 hours after launch, no hard deadline
 - **Average batch time so far:** staging only
-- **Batches remaining:** 2 of 2
+- **Batches remaining:** 1 of 2
 
 ## Stop Gate
 
-- **Planned batches remaining:** 2
+- **Planned batches remaining:** 1
 - **Stop allowed right now:** no
-- **Why:** the run is launched and Batches 1-2 remain incomplete
-- **Next required action:** implement Batch 1 exact-head propagation and category tests
+- **Why:** Batch 1 is pushed, but independent review and final draft readiness remain incomplete
+- **Next required action:** run Batch 2 cumulative review and exact-head readiness gates
 
 ## Effort Standard
 
@@ -89,13 +89,14 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 ## Current Phase
 
-**Status:** Batch 1 implementation
+**Status:** Batch 2 review and final readiness
 
-**Active batch:** Batch 1: Carry exact decision heads through all three merge paths
+**Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** Launch recovery verified the unchanged local/remote head, recorded-base ancestry, zero current-main overlap on the six scoped files, and reclaimed the expired lease.
+**What was just finished:** Batch 1 exact-head implementation, 129-test cumulative validation,
+mutation proof, hooks, preflight, and generator drift checks passed at pushed commit `66a195462c`.
 
-**Single next action:** survey all consumers, implement one-snapshot head propagation, and add fail-closed tests.
+**Single next action:** run a fresh independent cumulative review of the exact pushed head.
 
 ## Active Compute
 
@@ -103,26 +104,23 @@ No active paid or long-running compute.
 
 ## Next Exact Batch
 
-**Batch:** 1: Carry exact decision heads through all three merge paths
+**Batch:** 2: Independent review and final draft readiness
 
 **Scope:**
 
-- Bind Codex automation eligibility snapshot to its merge command.
-- Bind boss drain settlement report head to its merge command.
-- Make merge arbiter reject missing/malformed heads and always pin the merge.
-- Pass the initiative integrator's existing PR snapshot head through the shared arbiter seam.
-- Add category tests, focused validation, and mutation break checks.
+- Audit the cumulative diff against the exact-head provenance invariant.
+- Triage live PR comments, reviews, and exact-head checks without collecting quorum evidence.
+- Reconcile the draft PR body, generate the Elves report, and remove operational artifacts.
 
 **Acceptance criteria:**
 
-- [ ] Decision/settlement/approval head equals `--match-head-commit` for all three paths and the
-      merge arbiter's direct consumer.
-- [ ] Missing or malformed trusted heads block before any merge subprocess.
-- [ ] Focused tests, Ruff, mypy, drift checks, and mutation checks pass.
+- [ ] Fresh independent review has no unresolved P0-P2 finding.
+- [ ] Final exact-head local gates and required non-quorum checks pass.
+- [ ] Draft PR body and cleanup state are ready for OWNER settlement.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
 
-**Rollback tag:** `elves/pre-batch-1-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
+**Rollback tag:** `elves/pre-batch-2-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 
 ## Post-Checkpoint Control Loop
 
@@ -155,7 +153,7 @@ notification: PR comment only at final readiness if authorized by the run state
 - **Execution log:** `docs/elves/merge-snapshot-provenance-9677/execution-log.md`
 - **Branch:** `codex/merge-snapshot-provenance-9677`
 - **PR number:** #9874
-- **Current reconciled plan hash:** `12fce3529f6d147d5704865f7058700b2a1fb51cf19f0f8dfb2e678e62ce609f`
+- **Current reconciled plan hash:** `3e01944585d4aa0043cb00f15c724c9e31ea0c64f4592212c77762c07c61470c`
 
 ## Collision and Live-State Notes
 

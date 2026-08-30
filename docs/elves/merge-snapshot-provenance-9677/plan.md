@@ -72,19 +72,19 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 
 **Acceptance criteria**
 
-- [ ] Codex automation eligibility data and exact head come from one `gh pr view` snapshot.
-- [ ] Codex automation merge consumes the decision head; no live-head lookup occurs between
+- [x] Codex automation eligibility data and exact head come from one `gh pr view` snapshot.
+- [x] Codex automation merge consumes the decision head; no live-head lookup occurs between
       selection and merge.
-- [ ] Boss drain consumes `head_sha` from the authorized settlement report and never performs a
+- [x] Boss drain consumes `head_sha` from the authorized settlement report and never performs a
       second `view_pr` to choose its merge head.
-- [ ] Merge arbiter rejects missing/malformed heads before approval matching and before `_run_gh`
+- [x] Merge arbiter rejects missing/malformed heads before approval matching and before `_run_gh`
       merge execution.
-- [ ] Every direct consumer of the modified merge-arbiter seam passes its validated snapshot head.
-- [ ] All three merge commands always contain `--match-head-commit <same-full-sha>`.
-- [ ] Tests cover missing/malformed heads, snapshot-to-merge head changes, exact match, and
+- [x] Every direct consumer of the modified merge-arbiter seam passes its validated snapshot head.
+- [x] All three merge commands always contain `--match-head-commit <same-full-sha>`.
+- [x] Tests cover missing/malformed heads, snapshot-to-merge head changes, exact match, and
       preservation of ordinary eligible/authorized behavior.
-- [ ] Focused tests, Ruff, mypy, `git diff --check`, and relevant drift generators pass.
-- [ ] Mutation break checks demonstrate that removing head propagation or pinning fails the
+- [x] Focused tests, Ruff, mypy, `git diff --check`, and relevant drift generators pass.
+- [x] Mutation break checks demonstrate that removing head propagation or pinning fails the
       intended tests.
 
 **Blast radius**
@@ -96,11 +96,11 @@ reconcile current main into #9677, regenerate derived docs, validate, and run a 
 
 ### Tasks
 
-- [ ] Survey every caller/consumer of the modified dataclasses and merge helpers.
-- [ ] Implement exact-head propagation at the decision snapshot boundary in each path.
-- [ ] Add category-level regression tests and targeted mutation checks.
-- [ ] Run focused and cumulative touched-surface validation.
-- [ ] Run generator-owned drift updates only if required by the changed Python/test counts.
+- [x] Survey every caller/consumer of the modified dataclasses and merge helpers.
+- [x] Implement exact-head propagation at the decision snapshot boundary in each path.
+- [x] Add category-level regression tests and targeted mutation checks.
+- [x] Run focused and cumulative touched-surface validation.
+- [x] Run generator-owned drift updates only if required by the changed Python/test counts.
 
 ### Docs likely touched
 

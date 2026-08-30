@@ -3,10 +3,10 @@
 ## Run Digest
 
 - **Last updated:** 2026-08-29 19:28 America/Chicago
-- **Current phase:** Batch 1 implementation
-- **Active batch:** Batch 1: Carry exact decision heads through all three merge paths
-- **Last completed batch:** Batch 0: session setup
-- **Next exact batch:** Batch 1: Carry exact decision heads through all three merge paths
+- **Current phase:** Batch 2 review and final readiness
+- **Active batch:** Batch 2: Independent review and final draft readiness
+- **Last completed batch:** Batch 1: Carry exact decision heads through all three merge paths
+- **Next exact batch:** Batch 2: Independent review and final draft readiness
 - **Active PR:** #9874 (draft)
 - **Docs promoted this run:** none
 - **Latest Elves Report:** not generated
@@ -129,6 +129,11 @@ call to end. No product files were edited.
 - `git diff --check`: PASS.
 - Structural consumer survey: PASS; every `_merge_pr` consumer in the modified paths now passes a
   decision/snapshot head, and no helper re-resolves the head at merge time.
+- `automation_pr_preflight.sh origin/main HEAD`: PASS on pushed implementation head.
+- Module-tier drift check: PASS, no drift.
+- Metrics drift check initially detected the expected parametrized-test increase; the canonical
+  generator updated only `docs/METRICS.md`, and the check then passed.
+- Docs consistency: PASS. Pre-commit and pre-push hooks: PASS.
 
 **Mutation proof:**
 
@@ -138,5 +143,10 @@ call to end. No product files were edited.
   both restored and its 70-test suite reran green.
 - Initiative snapshot-head propagation removal: intended direct-consumer call assertion failed;
   restored and green.
+
+**Checkpoint:** Implementation commit `66a195462c7e11cf8f7fd54acaa4d09bcb369a06` pushed. Draft
+PR #9874 exact head matched the local and remote branch tip. Fresh CI started; no PR comments or
+reviews were present. Begin Batch 2 under collision-safe tag
+`elves/pre-batch-2-merge-snapshot-provenance-9677`.
 
 <!-- Add newer entries above this line. -->
