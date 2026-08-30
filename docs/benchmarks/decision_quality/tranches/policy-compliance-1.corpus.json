@@ -1,8 +1,8 @@
 {
   "schema_version": "decision-quality-corpus/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "revision": "draft-policy-compliance-tranche-1",
-  "frozen_at": "2026-08-30T02:20:00Z",
+  "revision": "draft-policy-compliance-tranche-2",
+  "frozen_at": "2026-08-30T03:52:00Z",
   "cases": [
     {
       "case_id": "policy-dev-sec-cyber-disclosure-2023",
@@ -10,18 +10,18 @@
       "split": "development",
       "title": "SEC public-company cybersecurity disclosure rule timing",
       "decision_prompt": "A U.S. public company is deciding in early 2023 whether to fund implementation readiness for the SEC's proposed cybersecurity disclosure amendments before the fourth quarter. Choose the action that best protects compliance readiness if the Commission adopts a final rule by September 2023.",
-      "forecast_question": "Will the SEC adopt a final public-company cybersecurity disclosure rule on or before 2023-09-30? Forecast the probability that prepare_for_2023_rule is the correct action.",
-      "forecast_option_id": "prepare_for_2023_rule",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Defer implementation readiness\" is the outcome-aligned action at the stated horizon.",
+      "forecast_option_id": "defer_past_2023",
       "options": [
-        {
-          "option_id": "prepare_for_2023_rule",
-          "label": "Prepare for a 2023 final rule",
-          "description": "Fund bounded disclosure-process, incident-materiality, and governance readiness before the fourth quarter of 2023."
-        },
         {
           "option_id": "defer_past_2023",
           "label": "Defer implementation readiness",
           "description": "Wait until after 2023 before funding implementation readiness for the proposed requirements."
+        },
+        {
+          "option_id": "prepare_for_2023_rule",
+          "label": "Prepare for a 2023 final rule",
+          "description": "Fund bounded disclosure-process, incident-materiality, and governance readiness before the fourth quarter of 2023."
         }
       ],
       "information_cutoff": "2023-03-01T00:00:00Z",
@@ -41,18 +41,18 @@
       "split": "development",
       "title": "FDA food traceability final-rule readiness",
       "decision_prompt": "A food supply-chain operator covered by the FDA's proposed traceability rule must decide in spring 2022 whether to prepare its event-recording and data-sharing systems for a final rule during 2022. Choose the action that best protects compliance readiness.",
-      "forecast_question": "Will the FDA publish a final food traceability rule on or before 2022-12-31? Forecast the probability that prepare_for_2022_final_rule is the correct action.",
-      "forecast_option_id": "prepare_for_2022_final_rule",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Defer beyond 2022\" is the outcome-aligned action at the stated horizon.",
+      "forecast_option_id": "defer_until_after_2022",
       "options": [
-        {
-          "option_id": "prepare_for_2022_final_rule",
-          "label": "Prepare during 2022",
-          "description": "Begin bounded data-model and process readiness work for a final food traceability rule during 2022."
-        },
         {
           "option_id": "defer_until_after_2022",
           "label": "Defer beyond 2022",
           "description": "Wait until after 2022 before preparing systems for the proposed traceability requirements."
+        },
+        {
+          "option_id": "prepare_for_2022_final_rule",
+          "label": "Prepare during 2022",
+          "description": "Begin bounded data-model and process readiness work for a final food traceability rule during 2022."
         }
       ],
       "information_cutoff": "2022-05-01T00:00:00Z",
@@ -72,7 +72,7 @@
       "split": "development",
       "title": "SEC climate disclosure rule timing through 2023",
       "decision_prompt": "A U.S. public company is planning its 2023 reporting program after the SEC proposed climate-related disclosure rules. Choose whether to treat a 2023 final rule as the binding implementation baseline or preserve design readiness while waiting for final adoption.",
-      "forecast_question": "Will the SEC refrain from adopting a final climate-related disclosure rule through 2023-12-31? Forecast the probability that defer_binding_implementation is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Wait for the final rule\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "defer_binding_implementation",
       "options": [
         {
@@ -103,18 +103,18 @@
       "split": "development",
       "title": "NIST Cybersecurity Framework 2.0 draft timing",
       "decision_prompt": "A compliance program using NIST Cybersecurity Framework 1.1 must decide in January 2023 whether to switch its binding control baseline to CSF 2.0 before the end of July or wait for NIST to publish the initial public draft. Choose the action that best preserves an auditable baseline.",
-      "forecast_question": "Will NIST not publish the initial public draft of CSF 2.0 by 2023-07-31? Forecast the probability that wait_for_public_draft is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Keep CSF 1.1 until publication\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "wait_for_public_draft",
       "options": [
-        {
-          "option_id": "wait_for_public_draft",
-          "label": "Keep CSF 1.1 until publication",
-          "description": "Retain CSF 1.1 as the binding baseline until NIST publishes the CSF 2.0 initial public draft."
-        },
         {
           "option_id": "switch_before_publication",
           "label": "Switch before the draft is published",
           "description": "Replace the binding baseline with anticipated CSF 2.0 content before the initial public draft appears."
+        },
+        {
+          "option_id": "wait_for_public_draft",
+          "label": "Keep CSF 1.1 until publication",
+          "description": "Retain CSF 1.1 as the binding baseline until NIST publishes the CSF 2.0 initial public draft."
         }
       ],
       "information_cutoff": "2023-01-20T00:00:00Z",

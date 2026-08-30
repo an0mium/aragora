@@ -1,7 +1,7 @@
 {
   "schema_version": "decision-quality-outcomes/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "corpus_sha256": "086c8edba8caae1da3c1478d7910c393bcd131f881ca2f93935cd5ac4d90808c",
+  "corpus_sha256": "503a5cc94a26fcd38f8c0bb264413ac82b2ae7a3489da8d22e6d646254702ed6",
   "outcomes": [
     {
       "case_id": "science-holdout-osiris-rex-return-september-2023",

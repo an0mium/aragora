@@ -1,8 +1,8 @@
 {
   "schema_version": "decision-quality-corpus/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "revision": "draft-software-engineering-holdout-tranche-1",
-  "frozen_at": "2026-08-30T02:50:00Z",
+  "revision": "draft-software-engineering-holdout-tranche-2",
+  "frozen_at": "2026-08-30T03:52:00Z",
   "cases": [
     {
       "case_id": "se-holdout-k8s-psp-removal-1-25",
@@ -10,7 +10,7 @@
       "split": "holdout",
       "title": "Migrate from Kubernetes PodSecurityPolicy before 1.25",
       "decision_prompt": "A platform team relies on the built-in Kubernetes PodSecurityPolicy admission plugin. Upstream lifecycle metadata marks that API deprecated in 1.21 and removed in 1.25. Choose the action that best preserves enforceable workload-security policy through a Kubernetes 1.25 upgrade.",
-      "forecast_question": "Will Kubernetes 1.25 remove the built-in PodSecurityPolicy admission plugin? Forecast the probability that migrate_before_1_25 is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Migrate before Kubernetes 1.25\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "migrate_before_1_25",
       "options": [
         {
@@ -41,7 +41,7 @@
       "split": "holdout",
       "title": "Commit to PEP 563 runtime changes for Python 3.10",
       "decision_prompt": "A Python framework introspects annotations at runtime. The accepted PEP 563 text says postponed annotation evaluation will become the default in Python 3.10. Choose whether to make an irreversible compatibility break for that release now or preserve current behavior until the release semantics are confirmed.",
-      "forecast_question": "Will Python 3.10 make PEP 563 postponed annotation evaluation the default? Forecast the probability that commit_breaking_migration_for_3_10 is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Commit the breaking migration for Python 3.10\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "commit_breaking_migration_for_3_10",
       "options": [
         {

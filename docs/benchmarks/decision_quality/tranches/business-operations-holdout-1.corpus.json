@@ -1,8 +1,8 @@
 {
   "schema_version": "decision-quality-corpus/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "revision": "draft-business-operations-holdout-tranche-1",
-  "frozen_at": "2026-08-30T03:03:00Z",
+  "revision": "draft-business-operations-holdout-tranche-2",
+  "frozen_at": "2026-08-30T03:52:00Z",
   "cases": [
     {
       "case_id": "biz-holdout-737-max-us-ungrounding-2020",
@@ -10,18 +10,18 @@
       "split": "holdout",
       "title": "Stage US 737 MAX return-to-service operations for Q4 2020",
       "decision_prompt": "A US airline operations team must decide whether to make 737 MAX return-to-service training, maintenance, and capacity preparation its primary fourth-quarter plan. Boeing's latest filing assumes regulatory approvals will enable deliveries to resume during Q4 2020, while emphasizing regulatory, customer, and pandemic uncertainty. Choose the action that best fits whether the FAA will rescind the US grounding order by 2020-12-31.",
-      "forecast_question": "Will the FAA rescind the US 737 MAX grounding order by 2020-12-31? Forecast the probability that stage_q4_return_plan is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Stage a Q4 return-to-service plan\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "stage_q4_return_plan",
       "options": [
-        {
-          "option_id": "stage_q4_return_plan",
-          "label": "Stage a Q4 return-to-service plan",
-          "description": "Prioritize the training, maintenance, and capacity work needed to restore US 737 MAX operations during Q4 2020."
-        },
         {
           "option_id": "defer_return_plan_to_2021",
           "label": "Defer the return plan to 2021",
           "description": "Keep alternate-fleet operations primary and defer material 737 MAX return-to-service preparation until 2021."
+        },
+        {
+          "option_id": "stage_q4_return_plan",
+          "label": "Stage a Q4 return-to-service plan",
+          "description": "Prioritize the training, maintenance, and capacity work needed to restore US 737 MAX operations during Q4 2020."
         }
       ],
       "information_cutoff": "2020-10-29T00:00:00Z",
@@ -41,7 +41,7 @@
       "split": "holdout",
       "title": "Plan 777X operations around a late-2023 first delivery",
       "decision_prompt": "An aerospace program operations team must set its primary supplier, staffing, and customer-readiness plan after Boeing forecasts the first 777X delivery in late 2023 and discloses certification, design-change, market, and production risks. Choose the action that best fits whether the first 777X delivery will occur by 2023-12-31.",
-      "forecast_question": "Will Boeing make the first 777X delivery by 2023-12-31? Forecast the probability that maintain_2023_delivery_readiness is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Maintain 2023 delivery readiness\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "maintain_2023_delivery_readiness",
       "options": [
         {

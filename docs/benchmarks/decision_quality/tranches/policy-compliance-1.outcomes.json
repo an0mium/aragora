@@ -1,7 +1,7 @@
 {
   "schema_version": "decision-quality-outcomes/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "corpus_sha256": "4247cf544b5c12f939517b2267f915559df85b059a164c457a40af74ffd88ea3",
+  "corpus_sha256": "17bce195c719c30c128b0ce86e906754c076e2c03da4a10f6421d9e80f57943b",
   "outcomes": [
     {
       "case_id": "policy-dev-sec-cyber-disclosure-2023",

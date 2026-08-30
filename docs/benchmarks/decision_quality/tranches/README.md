@@ -48,50 +48,63 @@ and one first-flight launch moved beyond its operating horizon. Both cases use
 official NASA publications, with the outcome answer key kept in the separate
 hash-bound sidecar.
 
-Current canonical digests:
+The forecast target is outcome-aligned in exactly 12 of the 24 cases. Each
+domain contributes three aligned and three non-aligned targets, split as two
+of four development cases and one of two holdout cases. Every question uses
+the same neutral forecast template, and each case's options are ordered
+lexicographically by `option_id` so wording polarity and option position do
+not disclose the answer key.
 
-- corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
-- outcome sidecar: `dbce998d194fa3bb9fef6167902bc27a1445ab38e0d4d21378360503d8a97bb6`
+Digests below are SHA-256 values over canonical JSON serialized with sorted
+keys, compact separators, and UTF-8 output (`ensure_ascii=False`). They are
+not hashes of the formatted file bytes.
+
+Software-engineering development tranche:
+
+- corpus: `e9ec5a9a62b6d2d9a6cd9664989d3be6e45b7cc7cbfe0d57919a4238e0770b27`
+- outcome sidecar: `cb3f1c0b7762b144142044a510f8c0cb489a15699ce6a7c6e262e2f35b17938d`
 
 Business/operations tranche:
 
-- corpus: `734f515a6cff55e88faa8de2d4ff5bf32e42385bbe8ee109b68eb6df54ef8661`
-- outcome sidecar: `896a4e7f6b49c6cc7f0474e75a8b835619ef462fe142a53cd957e6e4d4ec9277`
+- corpus: `ac9676ff9715b724a436ac3f697e3599aba8416e061fe009088eea4360ad8bba`
+- outcome sidecar: `ce281b2caab29f79b07d7784c3d19a08243ad914e1e384226dd17ff63f1452d4`
 
 Policy/compliance tranche:
 
-- corpus: `4247cf544b5c12f939517b2267f915559df85b059a164c457a40af74ffd88ea3`
-- outcome sidecar: `0972e27803a6b4b73ed15f553ba8847692c319ee2b882e7b50c84dcf5daea52e`
+- corpus: `17bce195c719c30c128b0ce86e906754c076e2c03da4a10f6421d9e80f57943b`
+- outcome sidecar: `171cb032ca3047305ecb2086ad0913417d5a95fcfaec8dc228ba1b4f1dcf197b`
 
 Science/forecasting tranche:
 
-- corpus: `3f5ea13fac70579c8422b08f820a96a3ebd266e7cd2db174d381a24f47bc491e`
-- outcome sidecar: `f86c8ee9b8ee6694595ebdc11a758569262a20176771bf7f9d7067cdf323e090`
+- corpus: `2fc5525c8b7a23c5f57faed12967cb170be1e83c6afcba58ac45b43cefa18445`
+- outcome sidecar: `061f6dc846889b01a22e3562b998d6b2b43f3bcf24efbe048f33b2089286de38`
 
 Software-engineering holdout tranche:
 
-- corpus: `4d13fea53e1313c2db332bb932ab57abac5170a9779eba779cef4c3c712af2c6`
-- outcome sidecar: `bae34db3f7928ade185e2975849e609139c59d7c64b496909a6b4137c3d957d4`
+- corpus: `97da356b5d70618c332e5fc52a0510996e28c6723aa00111206e663dc581295e`
+- outcome sidecar: `1db3bd542e913b09c820af98a9ce4237f7dbfe8bbfed53d77f35fcf7f0bce292`
 
 Business/operations holdout tranche:
 
-- corpus: `26473525c2ab4fbd7298d307292b42859540532aa62e24be08bf934208cd9b1d`
-- outcome sidecar: `e0e44873391ddd2836bc6f4158ed5a82f1c4b1900d132e228ca918eef2657a47`
+- corpus: `2036afb2a909e1ffd16d5764fefd1fbccbeb298dd29924222d6034ec30d7e855`
+- outcome sidecar: `05a6640cbee4878d0726d8dbbe92f6e9ebcb97a7eae7b0a03939cea2829358ff`
 
 Policy/compliance holdout tranche:
 
-- corpus: `e52440953ce0c4b84f9f8ee5da69b278f4814af75971fe91c36279c555a4e5b6`
-- outcome sidecar: `fd3be3aea70c7008e27f9ae96b386726e6fa57c743a7bf4572b5cb41d656de8c`
+- corpus: `318c209ccfc5d24b82f6083f284334fb89f752a9dfc6a8ab0ee68d6f5a5dbd4d`
+- outcome sidecar: `247848041189c398c20a57547901aafff6d30d51fd98206e5e5a5e0c4689e8a1`
 
 Science/forecasting holdout tranche:
 
-- corpus: `086c8edba8caae1da3c1478d7910c393bcd131f881ca2f93935cd5ac4d90808c`
-- outcome sidecar: `70c8f4f97affcb26c2b98f646f14f47b13149334e55297942bbb95fe7981c63b`
+- corpus: `503a5cc94a26fcd38f8c0bb264413ac82b2ae7a3489da8d22e6d646254702ed6`
+- outcome sidecar: `9d93b2f085b1c8586f67ee73538219bc1a98888ef0d4b3d11f196b9976b4e7d4`
 
-Each tranche passes the decision-quality corpus validator with
-`--allow-partial`. That flag skips only the final 24-case balance requirement.
-It does not relax source cutoffs, outcome separation, digest binding, or
-per-case semantics.
+These tranches are construction inputs, not frozen benchmark artifacts. This
+PR checks JSON structure, corpus/outcome case and option bindings, information
+cutoffs, source hashes, answer-key balance, and canonical digests. The
+automated decision-quality validator is not yet available on `origin/main`.
+Counted inference remains prohibited until a merged freeze contract and
+validator reproduce these checks across the assembled 24-case corpus.
 
 Together the eight tranches provide all 24 planned cases: four development and
 two holdout cases in each required domain.

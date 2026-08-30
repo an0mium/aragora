@@ -1,8 +1,8 @@
 {
   "schema_version": "decision-quality-corpus/1.0",
   "benchmark_id": "outcome-backed-decision-quality-v1",
-  "revision": "draft-software-development-tranche-1",
-  "frozen_at": "2026-08-30T01:50:00Z",
+  "revision": "draft-software-development-tranche-2",
+  "frozen_at": "2026-08-30T03:52:00Z",
   "cases": [
     {
       "case_id": "se-dev-k8s-dockershim-1-24",
@@ -10,7 +10,7 @@
       "split": "development",
       "title": "Kubernetes dockershim removal planning",
       "decision_prompt": "A platform team operates Kubernetes clusters whose nodes rely on the in-tree dockershim integration. Choose the action that best protects the team's ability to adopt Kubernetes 1.24 while maintaining a supported container runtime.",
-      "forecast_question": "Will Kubernetes 1.24 ship without the in-tree dockershim integration? Forecast the probability that migrate_runtime_before_1_24 is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Migrate before Kubernetes 1.24\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "migrate_runtime_before_1_24",
       "options": [
         {
@@ -41,18 +41,18 @@
       "split": "development",
       "title": "Prepare for optional no-GIL CPython",
       "decision_prompt": "A CPython-dependent platform team must decide whether to reserve engineering capacity for free-threaded compatibility prototypes while PEP 703 is still a draft. Choose the action that best positions the platform if the proposal is accepted for CPython.",
-      "forecast_question": "Will the Python Steering Council accept PEP 703 in a form that places optional no-GIL CPython on the Python 3.13 roadmap? Forecast the probability that prepare_for_acceptance is the correct action.",
-      "forecast_option_id": "prepare_for_acceptance",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Defer until formal acceptance\" is the outcome-aligned action at the stated horizon.",
+      "forecast_option_id": "defer_until_formal_acceptance",
       "options": [
-        {
-          "option_id": "prepare_for_acceptance",
-          "label": "Prepare for acceptance",
-          "description": "Reserve bounded engineering capacity now for compatibility testing and a free-threaded prototype."
-        },
         {
           "option_id": "defer_until_formal_acceptance",
           "label": "Defer until formal acceptance",
           "description": "Do not reserve engineering capacity until the Steering Council formally accepts the proposal."
+        },
+        {
+          "option_id": "prepare_for_acceptance",
+          "label": "Prepare for acceptance",
+          "description": "Reserve bounded engineering capacity now for compatibility testing and a free-threaded prototype."
         }
       ],
       "information_cutoff": "2023-05-12T00:00:00Z",
@@ -72,18 +72,18 @@
       "split": "development",
       "title": "Node.js 16 accelerated end-of-life response",
       "decision_prompt": "A production service runs on Node.js 16 after the official release schedule moves its end-of-life date to September 2023. Choose the action that best preserves security support without depending on a later schedule extension.",
-      "forecast_question": "Will the official Node.js schedule end Node.js 16 support on or before 2023-09-11 without a later extension? Forecast the probability that upgrade_before_eol is the correct action.",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Upgrade before the revised end-of-life date\" is the outcome-aligned action at the stated horizon.",
       "forecast_option_id": "upgrade_before_eol",
       "options": [
-        {
-          "option_id": "upgrade_before_eol",
-          "label": "Upgrade before the revised end-of-life date",
-          "description": "Move the service to a supported Node.js LTS line before 2023-09-11."
-        },
         {
           "option_id": "defer_beyond_eol",
           "label": "Defer beyond the revised end-of-life date",
           "description": "Keep Node.js 16 in production beyond 2023-09-11 while expecting support or the schedule to be extended."
+        },
+        {
+          "option_id": "upgrade_before_eol",
+          "label": "Upgrade before the revised end-of-life date",
+          "description": "Move the service to a supported Node.js LTS line before 2023-09-11."
         }
       ],
       "information_cutoff": "2022-06-16T00:00:00Z",
@@ -103,8 +103,8 @@
       "split": "development",
       "title": "Migrate away from standard-library distutils",
       "decision_prompt": "A Python build tool imports distutils from the standard library. PEP 632 has been accepted and describes removal in Python 3.12. Choose the action that best preserves compatibility with that release.",
-      "forecast_question": "Will Python 3.12 omit distutils from the standard library as PEP 632 specifies? Forecast the probability that migrate_before_python312 is the correct action.",
-      "forecast_option_id": "migrate_before_python312",
+      "forecast_question": "Using only information available at the cutoff, forecast the probability that \"Retain the standard-library dependency\" is the outcome-aligned action at the stated horizon.",
+      "forecast_option_id": "retain_stdlib_distutils",
       "options": [
         {
           "option_id": "migrate_before_python312",
