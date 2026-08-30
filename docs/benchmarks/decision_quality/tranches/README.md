@@ -14,6 +14,12 @@ terminated transactions. Pre-cutoff packets combine the signed transaction
 with a public litigation or regulator signal; outcomes remain in the separate
 hash-bound sidecar.
 
+`policy-compliance-1` contributes four nonpartisan policy/compliance
+development cases. The tranche balances two rules published within the stated
+horizon and two standards or rules published after the stated horizon. All
+model-visible evidence is an official pre-cutoff publication; later outcome
+evidence remains in the hash-bound sidecar.
+
 Current canonical digests:
 
 - corpus: `aae58206475930742377b9a75f2f62f7e394e52f127fa97960d00eb8a651dd9c`
@@ -24,13 +30,19 @@ Business/operations tranche:
 - corpus: `734f515a6cff55e88faa8de2d4ff5bf32e42385bbe8ee109b68eb6df54ef8661`
 - outcome sidecar: `896a4e7f6b49c6cc7f0474e75a8b835619ef462fe142a53cd957e6e4d4ec9277`
 
+Policy/compliance tranche:
+
+- corpus: `4247cf544b5c12f939517b2267f915559df85b059a164c457a40af74ffd88ea3`
+- outcome sidecar: `0972e27803a6b4b73ed15f553ba8847692c319ee2b882e7b50c84dcf5daea52e`
+
 The tranche passes the decision-quality corpus validator with
 `--allow-partial`. That flag skips only the final 24-case balance requirement.
 It does not relax source cutoffs, outcome separation, digest binding, or
 per-case semantics.
 
-Together the two tranches provide eight of the planned 24 cases: eight
-development cases, four each in software engineering and business/operations.
+Together the three tranches provide twelve of the planned 24 cases: twelve
+development cases, four each in software engineering, business/operations,
+and policy/compliance.
 
 Do not run model inference from a tranche. Counted inference begins only after
 all 24 cases, the scoring contract, prompts, roster, and both corpus digests are
