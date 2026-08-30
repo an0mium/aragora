@@ -42,7 +42,7 @@ integrator, the merge arbiter's only direct cross-module consumer.
 - **Planned batches remaining:** 1
 - **Stop allowed right now:** no
 - **Why:** the OWNER explicitly authorized the exact narrow empty-snapshot repair and terminal rerun
-- **Next required action:** commit and push the validated complete-empty-snapshot repair, then obtain a fresh terminal review
+- **Next required action:** commit and push the P3 completeness correction, then refresh the exact-head terminal review
 
 ## Effort Standard
 
@@ -94,13 +94,13 @@ These are not valid reasons to stop the launched run while planned work remains:
 
 **Active batch:** Batch 2: Independent review and final draft readiness
 
-**What was just finished:** The narrow repair accepts `changedFiles=0, files=[]`, routes it to the
-existing non-mergeable `no_changed_files` decision, and retains all malformed, negative,
-mismatched, and truncated failures. The cumulative 135-test suite, Ruff, mypy, drift checks, docs
-consistency, and diff hygiene pass; mutation proof reproduced the former failure.
+**What was just finished:** The first terminal review of `eedcdf17c2` found no P0-P2 and independently
+passed the 135-test/static-check set. It found one P3 within the authorized completeness contract:
+missing or null `files` was normalized to `[]`. The correction now requires an explicit list and
+adds missing, null, non-list, and negative-count coverage; 139 cumulative tests and static gates pass.
 
-**Single next action:** commit and push once, re-read this guide, then obtain a fresh independent
-terminal review of the new exact head before any cleanup.
+**Single next action:** commit and push the bounded P3 correction, re-read this guide, then obtain a
+fresh independent terminal review of the new exact head before any cleanup.
 
 ## Active Compute
 
@@ -124,9 +124,9 @@ No active paid or long-running compute.
 
 **Risk:** Tier-4 merge authority; a missed fallback can merge an unchecked head.
 
-**Blocking finding:** `scripts/merge_codex_automation_prs.py` rejects the valid complete snapshot
-`changedFiles=0, files=[]`. This is fail-closed for security but aborts processing of later eligible
-PRs and makes the existing `no_changed_files` selector branch unreachable through collection.
+**Resolved review sequence:** the P2 empty-snapshot blocker is repaired. The first refreshed review
+found only a P3 completeness gap because missing or null `files` was normalized to an empty list;
+that exact in-scope correction is implemented and awaits a refreshed exact-head review.
 
 **Rollback tag:** `elves/pre-batch-2-merge-snapshot-provenance-9677` (the generic tag already belonged to an unrelated historical commit)
 

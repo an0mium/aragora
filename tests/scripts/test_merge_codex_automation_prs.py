@@ -224,6 +224,7 @@ def test_collect_pull_requests_rejects_mismatched_snapshot_number(
         (None, 1),
         (True, 1),
         ("1", 1),
+        (-1, 0),
     ],
 )
 def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
@@ -251,6 +252,39 @@ def test_collect_pull_requests_rejects_incomplete_or_malformed_files_snapshot(
     monkeypatch.setattr(merge_codex, "_run", fake_run)
 
     with pytest.raises(RuntimeError, match="incomplete or malformed files snapshot"):
+        merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
+
+
+@pytest.mark.parametrize(
+    ("include_files", "files_payload"),
+    [
+        (False, None),
+        (True, None),
+        (True, {}),
+    ],
+)
+def test_collect_pull_requests_rejects_missing_or_non_list_files_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    include_files: bool,
+    files_payload: object,
+) -> None:
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        if args[1:3] == ["pr", "list"]:
+            payload: object = [{"number": 7, "headRefName": "codex/snapshot"}]
+        else:
+            metadata: dict[str, object] = {"number": 7, "changedFiles": 0}
+            if include_files:
+                metadata["files"] = files_payload
+            payload = metadata
+        return subprocess.CompletedProcess(args, 0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(merge_codex, "_run", fake_run)
+
+    with pytest.raises(RuntimeError, match="unexpected files payload"):
         merge_codex.collect_pull_requests(tmp_path, "example/repo", limit=10)
 
 

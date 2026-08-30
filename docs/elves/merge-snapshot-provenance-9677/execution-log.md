@@ -216,4 +216,22 @@ proof, and receives a new terminal review before cleanup.
   empty-snapshot test failed with `RuntimeError: incomplete or malformed files snapshot`; the repair
   was restored and the full 135-test suite reran green.
 
+## First Refreshed Review and P3 Correction: 2026-08-29 20:15 America/Chicago
+
+- Fresh independent terminal review at exact head `eedcdf17c24be797e107badfcc75c8f287b592bc`
+  found no P0-P2. It independently confirmed 135 tests, Ruff, mypy, diff hygiene, the five green
+  non-quorum checks, exact-head propagation across all direct consumers, and no PR feedback.
+- The reviewer found one P3 inside the OWNER's exact completeness condition: `files =
+  metadata.get("files") or []` normalized a missing, null, or other falsy non-list payload to the
+  same empty list as the authorized complete `files=[]` snapshot. This remained non-mergeable but
+  did not satisfy the literal complete-snapshot contract.
+- The bounded correction now requires `files` to be an actual list. Coverage explicitly rejects a
+  missing field, null, a non-list mapping, and a negative count while preserving the complete
+  zero-list `no_changed_files` decision.
+- Mutation proof restored the `or []` normalization; all three missing/null/non-list cases failed
+  because collection did not raise. The strict list requirement was restored.
+- Focused Codex-merger tests: PASS, 25 passed. Cumulative touched-surface tests: PASS, 139 passed,
+  0 skipped. Scoped Ruff, four-source mypy, metrics drift, module-tier drift, docs consistency, and
+  diff hygiene: PASS.
+
 <!-- Add newer entries above this line. -->

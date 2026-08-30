@@ -21,7 +21,7 @@
     "remaining_batches": 1,
     "stop_allowed": false,
     "checkpoint_is_stop": false,
-    "next_required_action": "Commit and push the validated changedFiles=0/files=[] repair once, then obtain a fresh terminal review."
+    "next_required_action": "Commit and push the P3 completeness correction, then refresh the exact-head terminal review."
   },
   "test_baseline": {
     "passed": 75,
@@ -62,7 +62,15 @@
       "path": "scripts/merge_codex_automation_prs.py",
       "line": 160,
       "summary": "Complete empty snapshots changedFiles=0/files=[] abort the whole batch instead of yielding no_changed_files.",
-      "status": "addressed_pending_terminal_review"
+      "status": "fixed"
+    },
+    {
+      "severity": "P3",
+      "head_sha": "eedcdf17c24be797e107badfcc75c8f287b592bc",
+      "path": "scripts/merge_codex_automation_prs.py",
+      "line": 151,
+      "summary": "Missing or null files payload was normalized to an empty list instead of requiring explicit files=[].",
+      "status": "fixed_pending_terminal_review"
     }
   ],
   "protected_objects": {

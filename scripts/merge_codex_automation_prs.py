@@ -148,7 +148,7 @@ def collect_pull_requests(repo_root: Path, repo: str, *, limit: int) -> list[Pul
             raise RuntimeError(
                 f"snapshot PR number mismatch: requested #{number}, got #{snapshot_number}"
             )
-        files = metadata.get("files") or []
+        files = metadata.get("files")
         if not isinstance(files, list):
             raise RuntimeError(f"unexpected files payload for PR #{number}")
         changed_file_count = metadata.get("changedFiles")
