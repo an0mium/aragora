@@ -17,7 +17,11 @@ without claiming that a benchmark result exists yet.
 - Resolution evidence and three to five preregistered cruxes live only in the
   outcome sidecar.
 - The sidecar names the canonical SHA-256 of the model-visible corpus.
-- Any correction produces a new corpus revision and invalidates affected runs.
+- Validation reports a canonical SHA-256 for the outcome sidecar. The frozen
+  benchmark manifest must record both digests before inference.
+- Any correction produces a new corpus revision and invalidates affected runs;
+  later validation must pass the recorded digest with
+  `--expected-outcomes-sha256`.
 
 The JSON Schema at `corpus.schema.json` describes both documents. The CLI adds
 cross-document checks, timestamp ordering, unique identifiers, exact domain
@@ -33,6 +37,12 @@ During corpus construction, `--allow-partial` skips only the final 24-case
 domain/split count gate. It does not relax source cutoffs, outcome separation,
 hash binding, or per-case semantics. A partial corpus must never be used for a
 counted benchmark run.
+
+The canonical representation is the UTF-8 JSON encoding produced by
+`canonical_json_bytes`; it is the benchmark's explicit digest contract rather
+than an implicit cross-language JCS claim. URL validation is deterministic and
+offline: it requires a parsed HTTPS URL with a syntactically public host and
+rejects local/reserved hosts and non-global IP addresses without resolving DNS.
 
 The future runner must load the model-visible corpus independently from the
 outcome sidecar. Outcomes, correct options, resolution summaries, and

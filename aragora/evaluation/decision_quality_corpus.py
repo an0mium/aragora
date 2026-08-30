@@ -1,13 +1,14 @@
 """Validation for the outcome-backed decision-quality benchmark corpus.
 
 The model-visible corpus and resolved-outcome sidecar are deliberately
-separate. The sidecar binds to the canonical corpus hash so answer keys cannot
-be changed silently after inference starts.
+separate. Validation reports canonical digests for both documents so a frozen
+benchmark manifest can pin the question set and answer key before inference.
 """
 
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import re
 from collections import Counter
@@ -15,6 +16,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 CORPUS_SCHEMA_VERSION = "decision-quality-corpus/1.0"
 OUTCOMES_SCHEMA_VERSION = "decision-quality-outcomes/1.0"
@@ -28,6 +30,8 @@ SPLITS = ("development", "holdout")
 
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+_HOST_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_NON_PUBLIC_HOST_SUFFIXES = (".home", ".internal", ".lan", ".local", ".localhost")
 
 _CORPUS_KEYS = {"schema_version", "benchmark_id", "revision", "frozen_at", "cases"}
 _CASE_KEYS = {
@@ -93,6 +97,7 @@ class CorpusValidationReport:
     """Structured result returned by corpus validation."""
 
     corpus_sha256: str | None = None
+    outcomes_sha256: str | None = None
     case_count: int = 0
     domain_counts: dict[str, int] = field(default_factory=dict)
     split_counts: dict[str, int] = field(default_factory=dict)
@@ -106,6 +111,7 @@ class CorpusValidationReport:
         return {
             "ok": self.ok,
             "corpus_sha256": self.corpus_sha256,
+            "outcomes_sha256": self.outcomes_sha256,
             "case_count": self.case_count,
             "domain_counts": self.domain_counts,
             "split_counts": self.split_counts,
@@ -126,6 +132,11 @@ def canonical_json_bytes(document: Any) -> bytes:
 def corpus_sha256(corpus: Any) -> str:
     """Return the canonical SHA-256 digest of a model-visible corpus."""
     return hashlib.sha256(canonical_json_bytes(corpus)).hexdigest()
+
+
+def outcomes_sha256(outcomes: Any) -> str:
+    """Return the canonical SHA-256 digest of a resolved-outcome sidecar."""
+    return hashlib.sha256(canonical_json_bytes(outcomes)).hexdigest()
 
 
 def _issue(
@@ -237,10 +248,46 @@ def _https_url(
     report: CorpusValidationReport,
 ) -> str | None:
     text = _nonempty_string(value, path=path, report=report)
-    if text is not None and not text.startswith("https://"):
+    if text is not None and not _is_public_https_url(text):
         _issue(report, path, "non_public_url", "must use an https:// public source URL")
         return None
     return text
+
+
+def _is_public_https_url(text: str) -> bool:
+    """Return whether a URL has a syntactically public HTTPS authority."""
+    try:
+        parsed = urlsplit(text)
+        host = parsed.hostname
+        parsed.port
+    except ValueError:
+        return False
+    if (
+        parsed.scheme != "https"
+        or host is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return False
+
+    normalized_host = host.rstrip(".").lower()
+    if not normalized_host:
+        return False
+    try:
+        address = ipaddress.ip_address(normalized_host)
+    except ValueError:
+        try:
+            ascii_host = normalized_host.encode("idna").decode("ascii")
+        except UnicodeError:
+            return False
+        if (
+            "." not in ascii_host
+            or ascii_host == "localhost"
+            or ascii_host.endswith(_NON_PUBLIC_HOST_SUFFIXES)
+        ):
+            return False
+        return all(_HOST_LABEL_PATTERN.fullmatch(label) for label in ascii_host.split("."))
+    return address.is_global
 
 
 def _validate_source(
@@ -513,6 +560,7 @@ def validate_corpus_documents(
     outcomes: Any,
     *,
     allow_partial: bool = False,
+    expected_outcomes_sha256: str | None = None,
 ) -> CorpusValidationReport:
     """Validate the model-visible corpus and hash-bound outcome sidecar."""
     report = CorpusValidationReport()
@@ -522,6 +570,20 @@ def validate_corpus_documents(
         return report
 
     report.corpus_sha256 = corpus_sha256(corpus_object)
+    report.outcomes_sha256 = outcomes_sha256(outcomes_object)
+    if expected_outcomes_sha256 is not None:
+        expected_hash = _sha256(
+            expected_outcomes_sha256,
+            path="$expected_outcomes_sha256",
+            report=report,
+        )
+        if expected_hash is not None and expected_hash != report.outcomes_sha256:
+            _issue(
+                report,
+                "$expected_outcomes_sha256",
+                "outcomes_hash_mismatch",
+                "outcome sidecar does not match the frozen expected digest",
+            )
     _check_keys(corpus_object, allowed=_CORPUS_KEYS, path="$", report=report)
     _check_keys(outcomes_object, allowed=_OUTCOMES_KEYS, path="$", report=report)
 
@@ -702,6 +764,7 @@ def validate_corpus_files(
     outcomes_path: Path,
     *,
     allow_partial: bool = False,
+    expected_outcomes_sha256: str | None = None,
 ) -> CorpusValidationReport:
     """Load and validate corpus files without raising on malformed input."""
     report = CorpusValidationReport()
@@ -732,7 +795,12 @@ def validate_corpus_files(
             )
     if report.issues:
         return report
-    return validate_corpus_documents(documents[0], documents[1], allow_partial=allow_partial)
+    return validate_corpus_documents(
+        documents[0],
+        documents[1],
+        allow_partial=allow_partial,
+        expected_outcomes_sha256=expected_outcomes_sha256,
+    )
 
 
 __all__ = [
@@ -744,6 +812,7 @@ __all__ = [
     "CorpusValidationReport",
     "canonical_json_bytes",
     "corpus_sha256",
+    "outcomes_sha256",
     "validate_corpus_documents",
     "validate_corpus_files",
 ]

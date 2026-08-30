@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from aragora.evaluation.decision_quality_corpus import corpus_sha256
+from aragora.evaluation.decision_quality_corpus import corpus_sha256, outcomes_sha256
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,6 +135,49 @@ def test_validate_corpus_command_emits_structured_json(
     assert exit_code == 0
     assert payload["ok"] is True
     assert payload["case_count"] == 1
+    assert payload["outcomes_sha256"] == outcomes_sha256(outcomes)
+
+
+def test_validate_corpus_command_enforces_frozen_outcomes_digest(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    corpus = {
+        "schema_version": "decision-quality-corpus/1.0",
+        "benchmark_id": "cli-test",
+        "revision": "v1",
+        "frozen_at": "2025-03-01T00:00:00Z",
+        "cases": [],
+    }
+    outcomes = {
+        "schema_version": "decision-quality-outcomes/1.0",
+        "benchmark_id": "cli-test",
+        "corpus_sha256": corpus_sha256(corpus),
+        "outcomes": [],
+    }
+    corpus_path = tmp_path / "corpus.json"
+    outcomes_path = tmp_path / "outcomes.json"
+    corpus_path.write_text(json.dumps(corpus))
+    outcomes_path.write_text(json.dumps(outcomes))
+
+    exit_code = module.run_validate_corpus(
+        [
+            "--corpus",
+            str(corpus_path),
+            "--outcomes",
+            str(outcomes_path),
+            "--allow-partial",
+            "--expected-outcomes-sha256",
+            "0" * 64,
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 1
+    assert payload["outcomes_sha256"] == outcomes_sha256(outcomes)
+    assert any(issue["code"] == "outcomes_hash_mismatch" for issue in payload["issues"])
 
 
 def test_legacy_parser_does_not_consume_validate_corpus_command() -> None:

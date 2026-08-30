@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator
 from aragora.evaluation.decision_quality_corpus import (
     DOMAINS,
     corpus_sha256,
+    outcomes_sha256,
     validate_corpus_documents,
     validate_corpus_files,
 )
@@ -106,6 +107,7 @@ def test_partial_corpus_accepts_hash_bound_resolved_case() -> None:
     assert report.ok
     assert report.case_count == 1
     assert report.corpus_sha256 == corpus_sha256(corpus)
+    assert report.outcomes_sha256 == outcomes_sha256(outcomes)
 
 
 def test_complete_corpus_requires_six_cases_and_four_two_split_per_domain() -> None:
@@ -218,6 +220,70 @@ def test_mutating_corpus_requires_new_sidecar_hash() -> None:
     report = validate_corpus_documents(mutated, outcomes, allow_partial=True)
 
     assert "corpus_hash_mismatch" in _issue_codes(report)
+
+
+def test_mutating_answer_key_fails_against_frozen_outcomes_hash() -> None:
+    corpus, outcomes = _documents()
+    frozen_hash = outcomes_sha256(outcomes)
+    mutated = copy.deepcopy(outcomes)
+    mutated["outcomes"][0]["correct_option_id"] = "no"  # type: ignore[index]
+
+    report = validate_corpus_documents(
+        corpus,
+        mutated,
+        allow_partial=True,
+        expected_outcomes_sha256=frozen_hash,
+    )
+
+    assert report.outcomes_sha256 == outcomes_sha256(mutated)
+    assert report.outcomes_sha256 != frozen_hash
+    assert "outcomes_hash_mismatch" in _issue_codes(report)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com/evidence",
+        "https://",
+        "https://localhost/internal",
+        "https://service.internal/evidence",
+        "https://127.0.0.1/evidence",
+        "https://[::1]/evidence",
+        "https://bad host/evidence",
+        "https://example.com:invalid/evidence",
+    ],
+)
+def test_runtime_rejects_non_public_source_urls(url: str) -> None:
+    corpus, outcomes = _documents()
+    corpus["cases"][0]["sources"][0]["url"] = url  # type: ignore[index]
+    outcomes["corpus_sha256"] = corpus_sha256(corpus)
+
+    report = validate_corpus_documents(corpus, outcomes, allow_partial=True)
+
+    assert "non_public_url" in _issue_codes(report)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://",
+        "https://localhost/internal",
+        "https://service.internal/evidence",
+    ],
+)
+def test_json_schema_rejects_non_public_source_urls(url: str) -> None:
+    corpus, _ = _documents()
+    corpus["cases"][0]["sources"][0]["url"] = url  # type: ignore[index]
+    schema_path = (
+        Path(__file__).resolve().parents[2]
+        / "docs"
+        / "benchmarks"
+        / "decision_quality"
+        / "corpus.schema.json"
+    )
+    validator = Draft202012Validator(json.loads(schema_path.read_text()))
+
+    assert list(validator.iter_errors(corpus))
 
 
 @pytest.mark.parametrize("duplicate_in", ["corpus", "outcomes"])
