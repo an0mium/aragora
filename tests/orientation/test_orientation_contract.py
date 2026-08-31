@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -34,6 +35,13 @@ DERIVED_METADATA = {
     "invalidators",
     "bounded_cost",
 }
+DERIVED_EXAMPLES = (
+    ("fresh_orientation.json", "work_recommendations"),
+    ("fresh_orientation.json", "beliefs"),
+    ("uncertain_high_risk.json", "questions"),
+    ("fresh_orientation.json", "affordances"),
+    ("interrupted_resumption.json", "obligations"),
+)
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -63,13 +71,43 @@ def test_derived_records_preserve_lower_layer_basis(fixture_name: str) -> None:
         for record in document[collection]:
             assert DERIVED_METADATA <= record.keys()
             assert "reasoning_fingerprint" not in record
+            assert record["authority"] == "derived_recommendation"
+            assert record["evidence_refs"]
+
+
+@pytest.mark.parametrize(("fixture_name", "collection"), DERIVED_EXAMPLES)
+def test_schema_rejects_undeclared_derived_fields(
+    validator: Any, fixture_name: str, collection: str
+) -> None:
+    document = _load(FIXTURE_DIR / fixture_name)
+    document[collection][0]["reasoning_fingerprint"] = "sha256:" + ("0" * 64)
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(document)
+
+
+def test_traces_exercise_portable_lower_layer_evidence() -> None:
+    handles: list[dict[str, Any]] = []
+    for fixture_name in FIXTURE_NAMES - {"quiet_no_change.json"}:
+        document = _load(FIXTURE_DIR / fixture_name)
+        for collection in (*DERIVED_COLLECTIONS, "source_observations", "facts"):
+            for record in document[collection]:
+                handles.extend(record["evidence_refs"])
+    assert handles
+    assert all(urlsplit(handle["uri"]).scheme not in {"", "file"} for handle in handles)
+
+
+def test_fresh_trace_exercises_source_fact_belief_and_nomic() -> None:
+    document = _load(FIXTURE_DIR / "fresh_orientation.json")
+    assert document["source_observations"] and document["facts"] and document["beliefs"]
+    assert document["nomic"]["state"] == "absent"
 
 
 def test_live_blocker_overrides_ready_recommendation() -> None:
     document = _load(FIXTURE_DIR / "interrupted_resumption.json")
     assert document["work_recommendations"][0]["classification"] == "ready"
     affordance = document["affordances"][0]
-    assert affordance["authority"] == "live_authority"
+    assert affordance["authority"] == "derived_recommendation"
+    assert affordance["evidence_refs"][0]["authority"] == "live_authority"
     assert affordance["disposition"] == "blocked"
     assert affordance["blocked_by"] == ["settlement:BLOCKED"]
 

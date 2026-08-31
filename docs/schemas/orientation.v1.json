@@ -74,9 +74,13 @@
         "basis_fingerprint": { "$ref": "#/$defs/fingerprint" },
         "evidence_refs": {
           "type": "array",
+          "minItems": 1,
           "items": { "$ref": "#/$defs/evidenceHandle" }
         },
-        "authority": { "$ref": "#/$defs/authority" },
+        "authority": {
+          "description": "A synthesized record is never more authoritative than its cited basis.",
+          "const": "derived_recommendation"
+        },
         "freshness": { "$ref": "#/$defs/freshness" },
         "invalidators": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "bounded_cost": { "$ref": "#/$defs/boundedCost" }
@@ -156,7 +160,8 @@
         "classification": {
           "enum": ["ready", "needs-polish", "blocked", "duplicate", "stale", "review-only", "human-gated"]
         }
-      }
+      },
+      "unevaluatedProperties": false
     },
     "belief": {
       "allOf": [{ "$ref": "#/$defs/derivedMetadata" }],
@@ -166,7 +171,8 @@
         "id": { "type": "string" },
         "claim": { "type": "string" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
-      }
+      },
+      "unevaluatedProperties": false
     },
     "question": {
       "allOf": [{ "$ref": "#/$defs/derivedMetadata" }],
@@ -176,7 +182,8 @@
         "id": { "type": "string" },
         "question": { "type": "string" },
         "evidence_deficit": { "type": "string" }
-      }
+      },
+      "unevaluatedProperties": false
     },
     "affordance": {
       "allOf": [{ "$ref": "#/$defs/derivedMetadata" }],
@@ -202,7 +209,8 @@
         "reversible": { "type": "boolean" },
         "information_value": { "type": "number", "minimum": 0, "maximum": 1 },
         "blocked_by": { "type": "array", "items": { "type": "string" } }
-      }
+      },
+      "unevaluatedProperties": false
     },
     "obligation": {
       "allOf": [{ "$ref": "#/$defs/derivedMetadata" }],
@@ -213,7 +221,8 @@
         "obligation_kind": { "enum": ["wait", "lease", "settlement", "verification", "other"] },
         "summary": { "type": "string" },
         "status": { "enum": ["active", "blocked", "due", "satisfied", "expired"] }
-      }
+      },
+      "unevaluatedProperties": false
     },
     "mission": {
       "type": ["object", "null"],

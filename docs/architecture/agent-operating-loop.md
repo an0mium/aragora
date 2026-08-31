@@ -78,6 +78,10 @@ handles use portable source URIs. Only source inputs and prepared-effect inputs
 receive deterministic fingerprints; model reasoning must never be presented as
 reproducible.
 
+A derived record's own authority is always `derived_recommendation`; the cited
+evidence handles retain their native authority. This prevents a synthesized
+record from acquiring the authority of the live or durable state it summarizes.
+
 ## Freshness and failure semantics
 
 - `fresh` means the evidence remains valid under its declared invalidators.
