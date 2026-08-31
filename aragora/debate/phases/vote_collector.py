@@ -668,6 +668,8 @@ class VoteCollector:
         *,
         should_stop: Callable[[tuple[SlotVote, ...]], tuple[bool, str | None]] | None,
         handle_success: bool,
+        agent_timeout: float | None = None,
+        collection_timeout: float | None = None,
     ) -> tuple[MajorityVoteCollection, str | None]:
         """Collect one ballot per frozen slot without re-reading ``ctx.agents``."""
         slots = tuple(slot for slot, _agent in roster)
@@ -677,6 +679,14 @@ class VoteCollector:
 
         task_text = ctx.env.task if ctx.env else ""
         with_timeout = self._with_timeout
+        effective_agent_timeout = (
+            get_complexity_governor().get_scaled_timeout(float(self.config.agent_timeout))
+            if agent_timeout is None
+            else agent_timeout
+        )
+        effective_collection_timeout = (
+            self.VOTE_COLLECTION_TIMEOUT if collection_timeout is None else collection_timeout
+        )
         ballots: list[SlotVote] = []
         failed_ids: set[int] = set()
         early_leader: str | None = None
@@ -684,16 +694,14 @@ class VoteCollector:
         async def cast_vote(slot: VoterSlot, agent: Agent) -> Any:
             logger.debug("agent_voting agent=%s slot=%s", slot.name, slot.index)
             try:
-                timeout = get_complexity_governor().get_scaled_timeout(
-                    float(self.config.agent_timeout)
-                )
+                proposal_view = dict(proposals)
                 if with_timeout:
                     return await with_timeout(
-                        vote_with_agent(agent, proposals, task_text),
+                        vote_with_agent(agent, proposal_view, task_text),
                         slot.name,
-                        timeout_seconds=timeout,
+                        timeout_seconds=effective_agent_timeout,
                     )
-                return await vote_with_agent(agent, proposals, task_text)
+                return await vote_with_agent(agent, proposal_view, task_text)
             except (ValueError, KeyError, TypeError) as error:  # noqa: BLE001
                 logger.warning(
                     "vote_exception agent=%s slot=%s error=%s: %s",
@@ -773,7 +781,7 @@ class VoteCollector:
         timed_out = False
         early_terminated = False
         try:
-            async with asyncio.timeout(self.VOTE_COLLECTION_TIMEOUT):
+            async with asyncio.timeout(effective_collection_timeout):
                 early_terminated = await owner.run(consume_vote, stop_at_decision_boundary)
         except TimeoutError:
             timed_out = True
@@ -781,7 +789,7 @@ class VoteCollector:
                 "vote_collection_timeout collected=%s expected=%s timeout=%ss",
                 len(ballots),
                 len(roster),
-                self.VOTE_COLLECTION_TIMEOUT,
+                effective_collection_timeout,
             )
 
         skipped_ids: set[int] = set()
@@ -806,23 +814,47 @@ class VoteCollector:
         roster: tuple[tuple[VoterSlot, Agent], ...],
         *,
         should_stop: Callable[[tuple[SlotVote, ...]], tuple[bool, str | None]] | None = None,
+        proposals: dict[str, str] | None = None,
+        position_shuffling_enabled: bool | None = None,
+        position_shuffling_permutations: int | None = None,
+        position_shuffling_seed: int | None | object = ...,
+        agent_timeout: float | None = None,
+        collection_timeout: float | None = None,
     ) -> MajorityVoteCollection:
         """Collect majority ballots against one exact immutable slot roster."""
-        if self.config.enable_position_shuffling and ctx.proposals:
+        decision_proposals = dict(ctx.proposals if proposals is None else proposals)
+        shuffle_enabled = (
+            self.config.enable_position_shuffling
+            if position_shuffling_enabled is None
+            else position_shuffling_enabled
+        )
+        shuffle_permutations = (
+            self.config.position_shuffling_permutations
+            if position_shuffling_permutations is None
+            else position_shuffling_permutations
+        )
+        shuffle_seed = (
+            self.config.position_shuffling_seed
+            if position_shuffling_seed is ...
+            else position_shuffling_seed
+        )
+        if shuffle_enabled and decision_proposals:
             votes_by_slot: dict[int, list[Vote]] = {slot.index: [] for slot, _agent in roster}
-            for permutation_index, proposals in enumerate(
+            for permutation_index, proposal_permutation in enumerate(
                 generate_permutations(
-                    ctx.proposals,
-                    num_permutations=self.config.position_shuffling_permutations,
-                    base_seed=self.config.position_shuffling_seed,
+                    decision_proposals,
+                    num_permutations=shuffle_permutations,
+                    base_seed=shuffle_seed if isinstance(shuffle_seed, int) else None,
                 )
             ):
                 collection, _leader = await self._collect_majority_once(
                     ctx,
                     roster,
-                    proposals,
+                    proposal_permutation,
                     should_stop=None,
                     handle_success=False,
+                    agent_timeout=agent_timeout,
+                    collection_timeout=collection_timeout,
                 )
                 for ballot in collection.ballots:
                     votes_by_slot[ballot.slot.index].append(ballot.vote)
@@ -837,7 +869,7 @@ class VoteCollector:
                 slot_votes = votes_by_slot[slot.index]
                 if not slot_votes:
                     continue
-                averaged = average_permutation_votes({slot.name: slot_votes}, ctx.proposals)
+                averaged = average_permutation_votes({slot.name: slot_votes}, decision_proposals)
                 if not averaged:
                     continue
                 vote = averaged[0]
@@ -856,9 +888,11 @@ class VoteCollector:
         collection, leader = await self._collect_majority_once(
             ctx,
             roster,
-            ctx.proposals,
+            decision_proposals,
             should_stop=should_stop,
             handle_success=True,
+            agent_timeout=agent_timeout,
+            collection_timeout=collection_timeout,
         )
         if collection.skipped_slots:
             if self._notify_spectator:
@@ -1048,7 +1082,12 @@ class VoteCollector:
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("Position tracking error for vote: %s", e)
 
-    def compute_vote_groups(self, votes: list[Vote]) -> tuple[dict[str, list[str]], dict[str, str]]:
+    def compute_vote_groups(
+        self,
+        votes: list[Vote],
+        *,
+        group_similar_votes: Callable | None | object = ...,
+    ) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
 
         Args:
@@ -1059,12 +1098,15 @@ class VoteCollector:
             - vote_groups: canonical choice -> list of variant choices
             - choice_mapping: variant choice -> canonical choice
         """
-        if not self._group_similar_votes:
+        grouping_callback = (
+            self._group_similar_votes if group_similar_votes is ... else group_similar_votes
+        )
+        if not callable(grouping_callback):
             # No grouping, identity mapping
             choices = set(v.choice for v in votes if not isinstance(v, Exception))
             return {c: [c] for c in choices}, {c: c for c in choices}
 
-        vote_groups = self._group_similar_votes(votes)
+        vote_groups = grouping_callback(votes)
 
         choice_mapping: dict[str, str] = {}
         for canonical, variants in vote_groups.items():
