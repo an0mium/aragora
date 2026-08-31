@@ -654,7 +654,6 @@ class ConsensusPhase:
             use_position_shuffling=True,
             unanimous_mode=False,
         )
-        voting_errors = max(voting_errors, len(ctx.agents) - len(votes))
         if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
 
@@ -1680,17 +1679,19 @@ class ConsensusPhase:
         vote_count: int,
         failed_count: int,
     ) -> None:
-        """Record agent-ballot participation without conflating user votes."""
+        """Record agent ballots, failures, and intentional early-stop skips."""
         result = require_phase_result(ctx)
         eligible = len(ctx.agents)
         received = max(0, min(vote_count, eligible))
         failed = max(0, min(failed_count, eligible - received))
+        skipped = max(0, eligible - received - failed)
         current_metadata = getattr(result, "metadata", None)
         metadata = current_metadata if isinstance(current_metadata, dict) else {}
         metadata["vote_participation"] = {
             "eligible": eligible,
             "received": received,
             "failed": failed,
+            "skipped": skipped,
         }
         result.metadata = metadata
 

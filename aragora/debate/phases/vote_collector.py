@@ -568,9 +568,11 @@ class VoteCollector:
                 return (agent, e)
 
         async def collect_all_votes() -> None:
-            """Collect votes from all agents with error counting for unanimity checks."""
+            """Collect votes with truthful errors and majority-only early termination."""
             nonlocal voting_errors
+            total_agents = len(ctx.agents)
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
+            early_terminated = False
 
             for completed_task in asyncio.as_completed(vote_tasks):
                 try:
@@ -609,6 +611,44 @@ class VoteCollector:
                         vote_result,
                         unanimous=unanimous_mode,
                     )
+
+                    # Preserve the historical majority-mode RLM optimization.
+                    # Tasks deliberately skipped after a decisive ballot are
+                    # not failures; only completed None/exception results are.
+                    if not unanimous_mode:
+                        has_majority, leader = self._check_clear_majority(votes, total_agents)
+                        if has_majority:
+                            for vote_task in vote_tasks:
+                                if not vote_task.done():
+                                    vote_task.cancel()
+                            early_terminated = True
+
+                            if self._notify_spectator:
+                                self._notify_spectator(
+                                    "rlm_early_termination",
+                                    details=(
+                                        f"Clear majority for '{leader}' "
+                                        f"({len(votes)}/{total_agents} votes)"
+                                    ),
+                                    metric=len(votes) / total_agents,
+                                    agent="system",
+                                )
+
+                            if "on_rlm_early_termination" in self.hooks:
+                                self.hooks["on_rlm_early_termination"](
+                                    leader=leader,
+                                    votes_collected=len(votes),
+                                    total_agents=total_agents,
+                                )
+                            break
+
+            if early_terminated:
+                logger.info(
+                    "vote_collection_early_terminated_%s collected=%s total_agents=%s",
+                    vote_mode,
+                    len(votes),
+                    total_agents,
+                )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:

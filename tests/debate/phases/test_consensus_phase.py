@@ -404,6 +404,7 @@ class TestHandleMajorityConsensus:
             "eligible": 4,
             "received": 2,
             "failed": 2,
+            "skipped": 0,
         }
 
     @pytest.mark.asyncio
@@ -411,6 +412,7 @@ class TestHandleMajorityConsensus:
         """Healthy majority behavior is unchanged apart from participation metadata."""
         agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
         ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.enable_rlm_early_termination = False
 
         async def vote_with_agent(agent, proposals, task):
             return make_vote(agent=agent.name, choice="agent1")
@@ -428,6 +430,34 @@ class TestHandleMajorityConsensus:
             "eligible": 4,
             "received": 4,
             "failed": 0,
+            "skipped": 0,
+        }
+
+    @pytest.mark.asyncio
+    async def test_rlm_skipped_voters_are_not_reported_as_failures(self):
+        """Default early termination keeps the full roster denominator without false failures."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+
+        async def vote_with_agent(agent, proposals, task):
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is True
+        participation = ctx.result.metadata["vote_participation"]
+        assert 0 < participation["received"] < participation["eligible"]
+        assert ctx.result.confidence == pytest.approx(participation["received"] / 10)
+        assert participation == {
+            "eligible": 10,
+            "received": participation["received"],
+            "failed": 0,
+            "skipped": 10 - participation["received"],
         }
 
     @pytest.mark.asyncio
@@ -456,6 +486,7 @@ class TestHandleMajorityConsensus:
             "eligible": 4,
             "received": 1,
             "failed": 3,
+            "skipped": 0,
         }
 
 
@@ -487,6 +518,7 @@ class TestHandleUnanimousConsensus:
             "eligible": 2,
             "received": 1,
             "failed": 1,
+            "skipped": 0,
         }
 
 
