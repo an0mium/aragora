@@ -35,14 +35,13 @@ Read this file and `plan.md` before every batch or after any compaction.
 
 ## Current phase
 
-Launch-ready staging. No product batch has started. The next legal action in a
-fresh launch call is Batch 1: canonical contract, orientation schema, and four
-trace fixtures. The staging turn must not implement it. Use the exact staging
-head recorded in ignored runtime `session.json`; the tracked launch prompt does
-not self-encode its own commit SHA.
+Batch 1 is implemented and additively restacked on base
+`552da7de4ab040f49870dc83b06de11d17170493` at draft PR `#9932`. Local gates
+are green; protected CI and exact-head review remain. Use the live PR head from
+GitHub and ignored runtime `session.json`, never a copied short SHA.
 
-Batch 1 is predicted Tier 1 but is the first PR of a new architectural pattern,
-so it requires operator review before merge. Batch 6 is Tier 3. Batch 7 is Tier 3
+Batch 1 is Tier 1 but is the first PR of a new architectural pattern, so it
+requires operator review before merge. Batch 6 is Tier 3. Batch 7 is Tier 3
 only if it remains a dry-run internal seam and becomes Tier 4 if it changes
 mutation authority or protected behavior. Batch 8 must split and park any
 durable learning change as Tier 3.

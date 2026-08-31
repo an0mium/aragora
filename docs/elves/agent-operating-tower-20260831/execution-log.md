@@ -42,9 +42,24 @@
 
 ### Batch 1 - Contract and trace baseline
 
-- Status: pending
+- Status: waiting on protected CI at draft PR `#9932`
 - Predicted tier: Tier 1; operator review required for first architectural PR
-- Gate attempts: 0/2
+- Gate attempts: 1/2
+- Pre-batch tag: `elves/agent-operating-tower-20260831/pre-batch-1`
+- Implementation commit: `982e9d0f23b311a53662bbff3e0995454e6640ca`
+- Restacked base: `552da7de4ab040f49870dc83b06de11d17170493`
+- Additive restack commit: `5f6b9338ed78e4884027a6b4d30a8b5756aed264`
+- Scoped Batch 1 delta: 683 changed lines from the pre-batch checkpoint
+- Focused tests: PASS, 189
+- Schema contract: PASS, 16 Draft 2020-12 tests
+- Ruff/format: PASS
+- Full MyPy baseline: PASS, 1,756 errors (113 below baseline)
+- Documentation links, all-files pre-commit, automation preflight, and normal
+  pre-push: PASS
+- Review evidence: pending; Foreman Cycle 161 temporarily reserved reviewer
+  capacity after PR creation, so no reviewer process was launched during its
+  reservation
+- Receipt: pending exact-head review
 
 ### Batch 2 - Protocol types and source observations
 
@@ -90,6 +105,7 @@
 
 ## Next legal action
 
-Commit the final run-control checkpoint locally, update ignored runtime state
-with that exact SHA, then stop and return `launch-prompt.md`. Batch 1 must not
-begin in the staging turn.
+Wait for protected PR checks. After Foreman releases reviewer capacity and the
+head is settlement-stable, prepare fresh direct grounded Claude and Codex
+evidence, verify the DecisionReceipt, and stop for first-architecture operator
+review. Do not begin Batch 2.
