@@ -1422,6 +1422,7 @@ class TestConsensusIntegration:
         )
 
         protocol = MockProtocol(consensus="majority", consensus_threshold=0.5)
+        protocol.enable_rlm_early_termination = False
 
         votes_cast = []
 

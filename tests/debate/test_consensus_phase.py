@@ -884,6 +884,7 @@ class TestPhase11CEdgeCases:
     async def test_single_proposal_with_multiple_voters(self):
         """Single proposal should reach consensus if threshold met."""
         protocol = MockProtocol(consensus="majority", consensus_threshold=0.5)
+        protocol.enable_rlm_early_termination = False
 
         async def vote_with_agent(agent, proposals, task):
             return MockVote(agent=agent.name, choice="only_proposal", confidence=0.9)

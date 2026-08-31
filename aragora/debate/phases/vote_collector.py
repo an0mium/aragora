@@ -7,7 +7,7 @@ Handles the mechanics of collecting votes from agents with timeout protection.
 Key responsibilities:
 - Parallel vote collection from all agents
 - Timeout protection (per-agent and overall)
-- Error tracking for unanimity mode
+- Error tracking for roster-aware consensus modes
 - Vote grouping for similar choices
 - Success callbacks (hooks, recording, position tracking)
 - RLM-inspired early termination when clear majority is reached
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -59,6 +60,22 @@ def get_complexity_governor() -> Any:
     from aragora.debate.complexity_governor import get_complexity_governor as _get_governor
 
     return _get_governor()
+
+
+def _settle_decisive_vote_tasks(
+    tasks: list[asyncio.Task],
+    consume: Callable[[asyncio.Task], None],
+    observe: Callable[[asyncio.Task], None],
+) -> None:
+    for task in tasks:
+        if task.done():
+            consume(task)
+        elif task.cancel():
+            observe(task)
+        elif task.done():
+            consume(task)
+        else:
+            observe(task)
 
 
 @dataclass
@@ -111,7 +128,7 @@ class VoteCollector:
 
     Handles:
     - Parallel vote collection with timeout protection
-    - Error tracking for unanimity mode
+    - Error tracking for roster-aware consensus modes
     - Vote success callbacks (hooks, recording, position tracking)
     - Vote grouping for similar choices
     - RLM-inspired early termination when clear majority is reached
@@ -137,6 +154,10 @@ class VoteCollector:
         self,
         votes: list[Vote],
         total_agents: int,
+        *,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
     ) -> tuple[bool, str | None]:
         """
         Check if a clear majority has been reached for RLM early termination.
@@ -149,9 +170,18 @@ class VoteCollector:
         2. Leading choice has > 50% of total agents
         3. Lead over second choice >= rlm_majority_lead_threshold (default 25%)
 
+        Roster-aware majority mode additionally supplies the exact full-roster
+        weights and effective consensus threshold used by the final tally. In
+        that mode the leader must already meet the threshold against the full
+        denominator and hold more weight than every other roster member
+        combined. Missing or malformed snapshot inputs fail closed.
+
         Args:
             votes: List of votes collected so far
             total_agents: Total number of agents in the debate
+            vote_weights: Fixed full-roster weights for the final tally
+            consensus_threshold: Effective threshold for the final tally
+            eligible_agent_names: Immutable exact roster represented by the weights
 
         Returns:
             Tuple of (has_clear_majority, winning_choice or None)
@@ -191,6 +221,71 @@ class VoteCollector:
         min_lead = int(total_agents * self.config.rlm_majority_lead_threshold)
 
         if lead >= min_lead:
+            weighted_guard_requested = vote_weights is not None or consensus_threshold is not None
+            if weighted_guard_requested:
+                if vote_weights is None or consensus_threshold is None:
+                    return False, None
+                if (
+                    isinstance(consensus_threshold, bool)
+                    or not isinstance(consensus_threshold, (int, float))
+                    or not math.isfinite(consensus_threshold)
+                    or not 0.0 <= consensus_threshold <= 1.0
+                    or not isinstance(eligible_agent_names, frozenset)
+                    or len(eligible_agent_names) != total_agents
+                    or any(
+                        not isinstance(agent_name, str) or not agent_name
+                        for agent_name in eligible_agent_names
+                    )
+                    or len(vote_weights) != total_agents
+                    or set(vote_weights) != eligible_agent_names
+                ):
+                    return False, None
+
+                roster_weight = 0.0
+                for agent_name, weight in vote_weights.items():
+                    if (
+                        not isinstance(agent_name, str)
+                        or not agent_name
+                        or isinstance(weight, bool)
+                        or not isinstance(weight, (int, float))
+                        or not math.isfinite(weight)
+                        or weight < 0.0
+                    ):
+                        return False, None
+                    roster_weight += float(weight)
+                    if not math.isfinite(roster_weight):
+                        return False, None
+                if roster_weight <= 0.0:
+                    return False, None
+
+                weighted_counts: dict[str, float] = {}
+                voting_agents: set[str] = set()
+                for vote in votes:
+                    vote_agent = getattr(vote, "agent", None)
+                    choice = getattr(vote, "choice", None)
+                    if (
+                        not isinstance(vote_agent, str)
+                        or not vote_agent
+                        or vote_agent in voting_agents
+                        or vote_agent not in vote_weights
+                    ):
+                        return False, None
+                    voting_agents.add(vote_agent)
+                    if isinstance(choice, str) and choice:
+                        choice_weight = weighted_counts.get(choice, 0.0) + float(
+                            vote_weights[vote_agent]
+                        )
+                        if not math.isfinite(choice_weight):
+                            return False, None
+                        weighted_counts[choice] = choice_weight
+
+                leader_weight = weighted_counts.get(leader, 0.0)
+                if (
+                    leader_weight / roster_weight < float(consensus_threshold)
+                    or leader_weight <= roster_weight - leader_weight
+                ):
+                    return False, None
+
             logger.info(
                 "rlm_early_termination_majority leader=%s votes=%s/%s lead=%s total_agents=%s",
                 leader,
@@ -490,23 +585,59 @@ class VoteCollector:
 
         return votes
 
-    async def collect_votes_with_errors(self, ctx: DebateContext) -> tuple[list[Vote], int]:
-        """Collect votes with error tracking for unanimity mode.
+    async def collect_votes_with_errors(
+        self,
+        ctx: DebateContext,
+        *,
+        use_position_shuffling: bool = False,
+        unanimous_mode: bool = True,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
+    ) -> tuple[list[Vote], int]:
+        """Collect votes with error tracking for roster-aware consensus.
 
-        Used for unanimity mode where we need to track errors.
+        Used by consensus modes where missing voters must remain visible in
+        the agreement denominator. Majority mode may opt into the existing
+        position-shuffling path; unanimity keeps its historical single-ballot
+        behavior.
         Uses VOTE_COLLECTION_TIMEOUT to prevent runaway collection time.
 
         Args:
             ctx: The debate context with agents and proposals
+            use_position_shuffling: Preserve the configured multi-permutation path
+            unanimous_mode: Disable early termination when unanimity is required
+            vote_weights: Fixed full-roster weights for majority early termination
+            consensus_threshold: Effective final-tally threshold
+            eligible_agent_names: Immutable exact roster represented by the weights
 
         Returns:
             Tuple of (votes list, error count)
         """
         if not self._vote_with_agent:
-            return [], 0
+            logger.warning("No vote_with_agent callback, skipping votes")
+            return [], len(ctx.agents)
+
+        if use_position_shuffling and self.config.enable_position_shuffling:
+            logger.info("position_shuffling_enabled - using multi-permutation voting")
+            try:
+                shuffled_votes = await asyncio.wait_for(
+                    self._collect_votes_with_shuffling(ctx),
+                    timeout=self.VOTE_COLLECTION_TIMEOUT
+                    * self.config.position_shuffling_permutations,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "position_shuffling_timeout timeout=%ss",
+                    self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations,
+                )
+                shuffled_votes = []
+            voting_agents = {vote.agent for vote in shuffled_votes if getattr(vote, "agent", None)}
+            return shuffled_votes, max(0, len(ctx.agents) - len(voting_agents))
 
         votes: list[Vote] = []
         voting_errors = 0
+        vote_mode = "unanimous" if unanimous_mode else "majority_roster"
         task = ctx.env.task if ctx.env else ""
         vote_with_agent = self._vote_with_agent
         if vote_with_agent is None:
@@ -514,8 +645,8 @@ class VoteCollector:
         with_timeout = self._with_timeout
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
-            """Cast a vote for unanimous consensus with timeout protection."""
-            logger.debug("agent_voting_unanimous agent=%s", agent.name)
+            """Cast a vote for roster-aware consensus with timeout protection."""
+            logger.debug("agent_voting_%s agent=%s", vote_mode, agent.name)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
@@ -529,9 +660,14 @@ class VoteCollector:
                 else:
                     vote_result = await vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+            except asyncio.CancelledError:
+                raise
+            except BaseException as e:  # noqa: BLE001 - preserve the failing voter identity
+                if not isinstance(e, Exception):
+                    raise
                 logger.warning(
-                    "vote_exception_unanimous agent=%s error=%s: %s",
+                    "vote_exception_%s agent=%s error=%s: %s",
+                    vote_mode,
                     agent.name,
                     type(e).__name__,
                     e,
@@ -539,9 +675,68 @@ class VoteCollector:
                 return (agent, e)
 
         async def collect_all_votes() -> None:
-            """Collect votes from all agents with error counting for unanimity checks."""
+            """Collect votes with truthful errors and majority-only early termination."""
             nonlocal voting_errors
+            total_agents = len(ctx.agents)
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
+            processed_agent_ids: set[int] = set()
+            early_terminated = False
+
+            def record_vote_failure(agent: Agent, vote_result: Any) -> None:
+                nonlocal voting_errors
+                if isinstance(vote_result, Exception):
+                    logger.error(
+                        "vote_error_%s agent=%s error=%s",
+                        vote_mode,
+                        agent.name,
+                        vote_result,
+                    )
+                else:
+                    logger.error(
+                        "vote_error_%s agent=%s error=vote returned None",
+                        vote_mode,
+                        agent.name,
+                        extra={
+                            "triage_diag_code": "vote_none",
+                            "triage_diag_severity": "degraded",
+                        },
+                    )
+                voting_errors += 1
+
+            def consume_completed_task(vote_task: asyncio.Task) -> None:
+                nonlocal voting_errors
+                if vote_task.cancelled():
+                    return
+                task_error = vote_task.exception()
+                if task_error is not None:
+                    raise task_error
+                remaining_agent, remaining_result = vote_task.result()
+                if id(remaining_agent) in processed_agent_ids:
+                    return
+                processed_agent_ids.add(id(remaining_agent))
+                if remaining_result is None or isinstance(remaining_result, Exception):
+                    record_vote_failure(remaining_agent, remaining_result)
+                    return
+                votes.append(remaining_result)
+                self._handle_vote_success(ctx, remaining_agent, remaining_result, unanimous_mode)
+
+            def observe_skipped_task(vote_task: asyncio.Task) -> None:
+                loop = asyncio.get_running_loop()
+
+                def retrieve_result(completed_task: asyncio.Task) -> None:
+                    if completed_task.cancelled():
+                        return
+                    task_error = completed_task.exception()
+                    if task_error is not None and not isinstance(task_error, Exception):
+                        loop.call_exception_handler(
+                            {
+                                "message": "control-flow failure in skipped vote cleanup",
+                                "exception": task_error,
+                                "task": completed_task,
+                            }
+                        )
+
+                vote_task.add_done_callback(retrieve_result)
 
             for completed_task in asyncio.as_completed(vote_tasks):
                 try:
@@ -549,28 +744,65 @@ class VoteCollector:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001 - phase isolation
-                    logger.error("task_exception phase=unanimous_vote error=%s", e)
+                    logger.error("task_exception phase=%s_vote error=%s", vote_mode, e)
                     voting_errors += 1
                     continue
 
+                processed_agent_ids.add(id(agent))
                 if vote_result is None or isinstance(vote_result, Exception):
-                    if isinstance(vote_result, Exception):
-                        logger.error(
-                            "vote_error_unanimous agent=%s error=%s", agent.name, vote_result
-                        )
-                    else:
-                        logger.error(
-                            "vote_error_unanimous agent=%s error=vote returned None",
-                            agent.name,
-                            extra={
-                                "triage_diag_code": "vote_none",
-                                "triage_diag_severity": "degraded",
-                            },
-                        )
-                    voting_errors += 1
+                    record_vote_failure(agent, vote_result)
                 else:
                     votes.append(vote_result)
-                    self._handle_vote_success(ctx, agent, vote_result, unanimous=True)
+                    self._handle_vote_success(
+                        ctx,
+                        agent,
+                        vote_result,
+                        unanimous=unanimous_mode,
+                    )
+
+                    # Preserve the historical majority-mode RLM optimization.
+                    # Tasks deliberately skipped after a decisive ballot are
+                    # not failures; only completed None/exception results are.
+                    if not unanimous_mode:
+                        has_majority, leader = self._check_clear_majority(
+                            votes,
+                            total_agents,
+                            vote_weights=vote_weights,
+                            consensus_threshold=consensus_threshold,
+                            eligible_agent_names=eligible_agent_names,
+                        )
+                        if has_majority:
+                            _settle_decisive_vote_tasks(
+                                vote_tasks, consume_completed_task, observe_skipped_task
+                            )
+                            early_terminated = True
+
+                            if self._notify_spectator:
+                                self._notify_spectator(
+                                    "rlm_early_termination",
+                                    details=(
+                                        f"Clear majority for '{leader}' "
+                                        f"({len(votes)}/{total_agents} votes)"
+                                    ),
+                                    metric=len(votes) / total_agents,
+                                    agent="system",
+                                )
+
+                            if "on_rlm_early_termination" in self.hooks:
+                                self.hooks["on_rlm_early_termination"](
+                                    leader=leader,
+                                    votes_collected=len(votes),
+                                    total_agents=total_agents,
+                                )
+                            break
+
+            if early_terminated:
+                logger.info(
+                    "vote_collection_early_terminated_%s collected=%s total_agents=%s",
+                    vote_mode,
+                    len(votes),
+                    total_agents,
+                )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:
@@ -580,7 +812,8 @@ class VoteCollector:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
             logger.warning(
-                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss",
+                "vote_collection_timeout_%s collected=%s errors=%s expected=%s timeout=%ss",
+                vote_mode,
                 len(votes),
                 voting_errors,
                 len(ctx.agents),

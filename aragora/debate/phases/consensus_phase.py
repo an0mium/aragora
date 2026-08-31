@@ -30,7 +30,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
@@ -93,6 +93,35 @@ class ConsensusCallbacks:
     get_belief_analyzer: Callable | None = None
     user_vote_multiplier: Callable | None = None
     verify_claims: Callable | None = None  # Optional verification callback
+
+
+@dataclass(frozen=True, slots=True)
+class _MajoritySnapshot:
+    """Immutable inputs shared by majority collection and finalization."""
+
+    effective_threshold: float
+    eligible_agents: tuple[Any, ...]
+    eligible_agent_names: tuple[str, ...]
+
+    @classmethod
+    def capture(cls, effective_threshold: float, agents: Iterable[Any]) -> "_MajoritySnapshot":
+        eligible_agents = tuple(agents)
+        return cls(
+            effective_threshold=effective_threshold,
+            eligible_agents=eligible_agents,
+            eligible_agent_names=tuple(
+                agent.name if isinstance(getattr(agent, "name", None), str) and agent.name else ""
+                for agent in eligible_agents
+            ),
+        )
+
+    @property
+    def eligible_count(self) -> int:
+        return len(self.eligible_agent_names)
+
+    @property
+    def unique_eligible_agent_names(self) -> frozenset[str]:
+        return frozenset(name for name in self.eligible_agent_names if name)
 
 
 class ConsensusPhase:
@@ -646,9 +675,34 @@ class ConsensusPhase:
                 logger.debug("Adaptive consensus computation failed: %s", e)
                 threshold_override = None
 
-        # Cast votes from all agents
-        votes = await self._collect_votes(ctx)
-        if not self._ensure_quorum(ctx, len(votes)):
+        # Cast votes from all agents. Majority confidence is roster-relative:
+        # a voter that fails to return a ballot cannot silently disappear from
+        # the agreement denominator.
+        majority_snapshot = _MajoritySnapshot.capture(
+            (
+                threshold_override
+                if threshold_override is not None
+                else getattr(self.protocol, "consensus_threshold", 0.5)
+            ),
+            ctx.agents,
+        )
+        fixed_rlm_weights = (
+            self._compute_vote_weights(ctx) if self._rlm_tally_inputs_are_fixed() else None
+        )
+        votes, voting_errors = await self._collect_votes_with_errors(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=fixed_rlm_weights,
+            consensus_threshold=majority_snapshot.effective_threshold,
+            eligible_agent_names=majority_snapshot.unique_eligible_agent_names,
+        )
+        if not self._ensure_quorum(
+            ctx,
+            len(votes),
+            failed_count=voting_errors,
+            eligible_count=majority_snapshot.eligible_count,
+        ):
             return
 
         # Apply calibration adjustments to vote confidences
@@ -659,12 +713,25 @@ class ConsensusPhase:
         # Group similar votes
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
-        # Pre-compute vote weights (pass votes for bias mitigation)
-        vote_weight_cache = self._compute_vote_weights(ctx, votes=votes)
+        # Reuse the exact roster-weight snapshot that authorized early
+        # termination. Context-dependent weighting computes only after every
+        # ballot has completed, which disables RLM fail-closed.
+        vote_weight_cache = (
+            fixed_rlm_weights
+            if fixed_rlm_weights is not None
+            else self._compute_vote_weights(ctx, votes=votes)
+        )
 
         # Count weighted votes
         vote_counts, total_weighted = self._count_weighted_votes(
             votes, choice_mapping, vote_weight_cache
+        )
+
+        voting_agents = {vote.agent for vote in votes if getattr(vote, "agent", None)}
+        total_weighted += sum(
+            vote_weight_cache.get(agent_name, 1.0)
+            for agent_name in majority_snapshot.eligible_agent_names
+            if agent_name not in voting_agents
         )
 
         # Include user votes
@@ -712,8 +779,12 @@ class ConsensusPhase:
             vote_counts,
             total_weighted,
             choice_mapping,
-            normalize_choice=self._normalize_choice_to_agent,
-            threshold_override=threshold_override,
+            normalize_choice=lambda choice, _agents, proposals: self._normalize_choice_to_agent(
+                choice,
+                list(majority_snapshot.eligible_agents),
+                proposals,
+            ),
+            threshold_override=majority_snapshot.effective_threshold,
         )
 
         # Apply process verification gate if enabled
@@ -728,7 +799,8 @@ class ConsensusPhase:
         proposals = ctx.proposals
 
         votes, voting_errors = await self._collect_votes_with_errors(ctx)
-        if not self._ensure_quorum(ctx, len(votes)):
+        voting_errors = max(voting_errors, len(ctx.agents) - len(votes))
+        if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
         votes = self._apply_calibration_to_votes(votes, ctx)
         result.votes.extend(votes)
@@ -1580,9 +1652,41 @@ class ConsensusPhase:
         """Collect votes from all agents with outer timeout protection."""
         return await self._vote_collector.collect_votes(ctx)
 
-    async def _collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
+    async def _collect_votes_with_errors(
+        self,
+        ctx: "DebateContext",
+        *,
+        use_position_shuffling: bool = False,
+        unanimous_mode: bool = True,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
+    ) -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection."""
-        return await self._vote_collector.collect_votes_with_errors(ctx)
+        return await self._vote_collector.collect_votes_with_errors(
+            ctx,
+            use_position_shuffling=use_position_shuffling,
+            unanimous_mode=unanimous_mode,
+            vote_weights=vote_weights,
+            consensus_threshold=consensus_threshold,
+            eligible_agent_names=eligible_agent_names,
+        )
+
+    def _rlm_tally_inputs_are_fixed(self) -> bool:
+        """Return whether an early-stop tally can match the final tally exactly."""
+        if self.user_votes or self._drain_user_events is not None:
+            return False
+
+        vote_dependent_features = (
+            "enable_self_vote_mitigation",
+            "enable_verbosity_normalization",
+            "verify_claims_during_consensus",
+            "enable_evidence_weighting",
+            "enable_process_evaluation",
+            "enable_epistemic_hygiene",
+            "enable_truth_ratio_weighting",
+        )
+        return not any(getattr(self.protocol, name, False) for name in vote_dependent_features)
 
     def _compute_vote_groups(
         self, votes: list["Vote"]
@@ -1649,9 +1753,46 @@ class ConsensusPhase:
         # Never require more votes than agents available
         return min(required, max(total_agents, 1))
 
-    def _ensure_quorum(self, ctx: "DebateContext", vote_count: int) -> bool:
+    def _record_vote_participation(
+        self,
+        ctx: "DebateContext",
+        vote_count: int,
+        failed_count: int,
+        *,
+        eligible_count: int | None = None,
+    ) -> None:
+        """Record agent ballots, failures, and intentional early-stop skips."""
+        result = require_phase_result(ctx)
+        eligible = len(ctx.agents) if eligible_count is None else max(0, eligible_count)
+        received = max(0, min(vote_count, eligible))
+        failed = max(0, min(failed_count, eligible - received))
+        skipped = max(0, eligible - received - failed)
+        current_metadata = getattr(result, "metadata", None)
+        metadata = current_metadata if isinstance(current_metadata, dict) else {}
+        metadata["vote_participation"] = {
+            "eligible": eligible,
+            "received": received,
+            "failed": failed,
+            "skipped": skipped,
+        }
+        result.metadata = metadata
+
+    def _ensure_quorum(
+        self,
+        ctx: "DebateContext",
+        vote_count: int,
+        *,
+        failed_count: int = 0,
+        eligible_count: int | None = None,
+    ) -> bool:
         """Ensure enough agents participated to make consensus meaningful."""
-        total_agents = len(ctx.agents)
+        self._record_vote_participation(
+            ctx,
+            vote_count,
+            failed_count,
+            eligible_count=eligible_count,
+        )
+        total_agents = len(ctx.agents) if eligible_count is None else max(0, eligible_count)
         required = self._required_participation(total_agents)
         if vote_count >= required:
             return True

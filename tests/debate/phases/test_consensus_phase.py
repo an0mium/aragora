@@ -368,6 +368,340 @@ class TestHandleFallbackConsensusExtended:
 
 
 # =============================================================================
+# _handle_majority_consensus Tests
+# =============================================================================
+
+
+class TestHandleMajorityConsensus:
+    """Tests for truthful majority-vote participation accounting."""
+
+    @pytest.mark.asyncio
+    async def test_reuses_full_roster_weights_for_rlm_and_final_tally(self):
+        """The early-stop and winner decisions share one threshold/weight snapshot."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.75
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: float(index + 1) for index, agent in enumerate(agents)}
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=roster_weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_vote_dependent_weights_disable_rlm_and_compute_after_collection(self):
+        """Contextual weighting fails closed to full collection."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.enable_self_vote_mitigation = True
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: 1.0 for agent in agents}
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=None,
+            consensus_threshold=protocol.consensus_threshold,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx, votes=votes)
+
+    @pytest.mark.asyncio
+    async def test_user_event_drain_disables_fixed_rlm_snapshot(self):
+        """A post-collection user-event drain can mutate the final tally."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: 1.0 for agent in agents}
+        drain_user_events = MagicMock()
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(drain_user_events=drain_user_events),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=None,
+            consensus_threshold=protocol.consensus_threshold,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx, votes=votes)
+        drain_user_events.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_failed_voters_reduce_confidence_and_are_recorded(self):
+        """Two surviving votes cannot masquerade as a unanimous four-agent panel."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 2
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent3":
+                raise RuntimeError("provider unavailable")
+            if agent.name == "agent4":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == pytest.approx(0.5)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 2,
+            "failed": 2,
+            "skipped": 0,
+        }
+
+    @pytest.mark.asyncio
+    async def test_full_roster_keeps_existing_confidence_with_additive_metadata(self):
+        """Healthy majority behavior is unchanged apart from participation metadata."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.enable_rlm_early_termination = False
+
+        async def vote_with_agent(agent, proposals, task):
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(1.0)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 4,
+            "failed": 0,
+            "skipped": 0,
+        }
+
+    @pytest.mark.asyncio
+    async def test_rlm_skipped_voters_are_not_reported_as_failures(self):
+        """Default early termination keeps the full roster denominator without false failures."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+
+        async def vote_with_agent(agent, proposals, task):
+            if int(agent.name.removeprefix("agent")) >= 6:
+                await asyncio.sleep(10)
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is True
+        participation = ctx.result.metadata["vote_participation"]
+        assert 0 < participation["received"] < participation["eligible"]
+        assert ctx.result.confidence == pytest.approx(participation["received"] / 10)
+        assert participation == {
+            "eligible": 10,
+            "received": participation["received"],
+            "failed": 0,
+            "skipped": 10 - participation["received"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_rlm_finalization_uses_threshold_snapshot(self):
+        """A protocol mutation after collection starts cannot reverse the fixed decision."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+
+        async def vote_with_agent(agent, proposals, task):
+            agent_index = int(agent.name.removeprefix("agent"))
+            if agent_index >= 6:
+                await asyncio.sleep(10)
+            if agent_index == 5:
+                protocol.consensus_threshold = 0.9
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
+
+        await phase._handle_majority_consensus(ctx)
+
+        participation = ctx.result.metadata["vote_participation"]
+        assert participation == {
+            "eligible": 10,
+            "received": 6,
+            "failed": 0,
+            "skipped": 4,
+        }
+        assert protocol.consensus_threshold == 0.9
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(0.6)
+
+    @pytest.mark.asyncio
+    async def test_rlm_finalization_uses_exact_roster_snapshot(self):
+        """Late context mutation cannot change quorum, participation, or denominator."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+        protocol.min_participation_ratio = 0.1
+        protocol.min_participation_count = 1
+
+        async def vote_with_agent(agent, proposals, task):
+            agent_index = int(agent.name.removeprefix("agent"))
+            if agent_index >= 6:
+                await asyncio.sleep(10)
+            if agent_index == 5:
+                ctx.agents[:0] = [MockAgent(name="agent")] + [
+                    MockAgent(name=f"ghost{i}") for i in range(1, 10)
+                ]
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert len(ctx.agents) == 20
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 10,
+            "received": 6,
+            "failed": 0,
+            "skipped": 4,
+        }
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(0.6)
+        assert ctx.result.winner == "agent0"
+
+    @pytest.mark.asyncio
+    async def test_rlm_completed_failure_is_not_reported_as_skipped(self):
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent9":
+                return None
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        participation = ctx.result.metadata["vote_participation"]
+        assert ctx.result.consensus_reached is True
+        assert participation["received"] < participation["eligible"]
+        assert participation["failed"] == 1
+        assert participation["skipped"] == 10 - participation["received"] - 1
+
+    @pytest.mark.asyncio
+    async def test_insufficient_majority_records_missing_roster(self):
+        """Quorum rejection still exposes how much of the roster was lost."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.min_participation_ratio = 0.75
+        protocol.min_participation_count = 3
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name != "agent1":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.status == "insufficient_participation"
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 1,
+            "failed": 3,
+            "skipped": 0,
+        }
+
+
+class TestHandleUnanimousConsensus:
+    """Tests for unanimous-vote participation metadata."""
+
+    @pytest.mark.asyncio
+    async def test_failed_voter_is_recorded_as_dissent(self):
+        agents = [MockAgent(name="agent1"), MockAgent(name="agent2")]
+        ctx, protocol = make_context(agents=agents, consensus_mode="unanimous")
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 1
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent2":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_unanimous_consensus(ctx)
+
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == pytest.approx(0.5)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 2,
+            "received": 1,
+            "failed": 1,
+            "skipped": 0,
+        }
+
+
+# =============================================================================
 # _ensure_quorum Tests
 # =============================================================================
 

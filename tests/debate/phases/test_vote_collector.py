@@ -31,6 +31,7 @@ from aragora.debate.phases.vote_collector import (
     VOTE_COLLECTION_TIMEOUT,
     VoteCollector,
     VoteCollectorConfig,
+    _settle_decisive_vote_tasks,
     create_vote_collector,
 )
 
@@ -553,6 +554,122 @@ class TestRLMEarlyTermination:
         assert has_majority is True
         assert leader == "A"
 
+    def test_weighted_majority_must_meet_full_roster_threshold(self):
+        """Seven of ten cannot satisfy a 75% threshold; eight can."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        weights = {f"agent{i}": 1.0 for i in range(10)}
+        eligible_agents = frozenset(weights)
+        seven_votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(7)]
+        eight_votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+
+        assert collector._check_clear_majority(
+            seven_votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=eligible_agents,
+        ) == (False, None)
+        assert collector._check_clear_majority(
+            eight_votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=eligible_agents,
+        ) == (True, "A")
+
+    def test_weighted_head_count_majority_can_still_be_overtaken(self):
+        """A raw ballot majority is not decisive when pending agents hold most weight."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(6)]
+        weights = {f"agent{i}": 0.5 for i in range(6)} | {f"agent{i}": 2.0 for i in range(6, 10)}
+        eligible_agents = frozenset(weights)
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.25,
+            eligible_agent_names=eligible_agents,
+        ) == (False, None)
+
+    @pytest.mark.parametrize(
+        "vote_weights",
+        [
+            None,
+            {"agent0": 1.0},
+            {f"agent{i}": 1.0 for i in range(9)} | {"agent9": float("nan")},
+        ],
+    )
+    def test_weighted_majority_fails_closed_without_exact_finite_roster(self, vote_weights):
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=vote_weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=frozenset(f"agent{i}" for i in range(10)),
+        ) == (False, None)
+
+    def test_weighted_majority_rejects_same_size_wrong_roster(self):
+        """Ghost keys cannot stand in for pending eligible voters."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+        weights = {f"agent{i}": 1.0 for i in range(8)} | {"ghost8": 0.0, "ghost9": 0.0}
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=frozenset(f"agent{i}" for i in range(10)),
+        ) == (False, None)
+
+    def test_weighted_majority_rejects_nonfinite_aggregate(self):
+        """Finite individual weights whose sum overflows must fail closed."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        weights = {f"agent{i}": 1e308 for i in range(10)}
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+            eligible_agent_names=frozenset(weights),
+        ) == (False, None)
+
     def test_check_clear_majority_votes_without_choice(self):
         """Handles votes without choice attribute."""
         config = VoteCollectorConfig(enable_rlm_early_termination=True)
@@ -993,7 +1110,7 @@ class TestCollectVotesWithErrors:
 
     @pytest.mark.asyncio
     async def test_collect_votes_with_errors_no_callback(self):
-        """Returns empty when no vote_with_agent callback."""
+        """A missing callback records every eligible voter as failed."""
         config = VoteCollectorConfig()
         collector = VoteCollector(config)
         ctx = make_context()
@@ -1001,7 +1118,38 @@ class TestCollectVotesWithErrors:
         votes, errors = await collector.collect_votes_with_errors(ctx)
 
         assert votes == []
-        assert errors == 0
+        assert errors == len(ctx.agents)
+
+    @pytest.mark.asyncio
+    async def test_error_tracking_preserves_position_shuffling(self):
+        """Majority error tracking still uses the configured shuffle path."""
+
+        async def mock_vote(agent, proposals, task):
+            return make_vote(agent=agent.name)
+
+        config = VoteCollectorConfig(
+            vote_with_agent=mock_vote,
+            enable_position_shuffling=True,
+            position_shuffling_permutations=2,
+        )
+        collector = VoteCollector(config)
+        ctx = make_context()
+        shuffled_votes = [make_vote(agent=agent.name) for agent in ctx.agents[:-1]]
+
+        with patch.object(
+            collector,
+            "_collect_votes_with_shuffling",
+            new_callable=AsyncMock,
+            return_value=shuffled_votes,
+        ) as collect_shuffled:
+            votes, errors = await collector.collect_votes_with_errors(
+                ctx,
+                use_position_shuffling=True,
+            )
+
+        collect_shuffled.assert_awaited_once_with(ctx)
+        assert votes == shuffled_votes
+        assert errors == 1
 
     @pytest.mark.asyncio
     async def test_collect_votes_with_errors_basic(self, mock_governor):
@@ -1022,6 +1170,170 @@ class TestCollectVotesWithErrors:
 
         assert len(votes) == 2
         assert errors == 0
+
+    @pytest.mark.asyncio
+    async def test_majority_error_tracking_preserves_rlm_early_termination(self, mock_governor):
+        """Canceled cleanup is observed off-path without changing skip accounting."""
+
+        class VoteAbort(BaseException): ...
+
+        hook = MagicMock()
+        notify = MagicMock()
+        loop_contexts = []
+        release_cleanup = asyncio.Event()
+
+        async def mock_vote(agent, proposals, task):
+            if int(agent.name.removeprefix("agent")) < 6:
+                return make_vote(agent=agent.name, choice="winner")
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                await release_cleanup.wait()
+                agent_number = int(agent.name.removeprefix("agent"))
+                if agent_number == 6:
+                    return make_vote(agent=agent.name, choice="late")
+                if agent_number == 7:
+                    raise RuntimeError("late cleanup")
+                raise VoteAbort()
+
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                vote_with_agent=mock_vote,
+                hooks={"on_rlm_early_termination": hook},
+                notify_spectator=notify,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+                vote_collection_timeout=0.05,
+            )
+        )
+        loop = asyncio.get_running_loop()
+        old_handler = loop.get_exception_handler()
+        loop.set_exception_handler(lambda _loop, context: loop_contexts.append(context))
+
+        try:
+            with patch(
+                "aragora.debate.phases.vote_collector.get_complexity_governor",
+                return_value=mock_governor,
+            ):
+                votes, errors = await collector.collect_votes_with_errors(
+                    make_context(agents=[MockAgent(name=f"agent{i}") for i in range(10)]),
+                    unanimous_mode=False,
+                )
+
+            assert (len(votes), errors, 10 - len(votes) - errors) == (6, 0, 4)
+            hook.assert_called_once_with(leader="winner", votes_collected=6, total_agents=10)
+            assert (
+                sum(call.args[0] == "rlm_early_termination" for call in notify.call_args_list) == 1
+            )
+            release_cleanup.set()
+            await asyncio.sleep(0.01)
+            assert len(loop_contexts) == 2
+        finally:
+            release_cleanup.set()
+            await asyncio.sleep(0)
+            loop.set_exception_handler(old_handler)
+
+    @pytest.mark.asyncio
+    async def test_majority_collection_threads_exact_roster_guard(self, mock_governor):
+        """A same-sized ghost roster cannot emit an early-stop event."""
+
+        async def mock_vote(agent, proposals, task):
+            await asyncio.sleep(0)
+            return make_vote(agent=agent.name, choice="winner")
+
+        hook = MagicMock()
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                vote_with_agent=mock_vote,
+                hooks={"on_rlm_early_termination": hook},
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        ctx = make_context(agents=[MockAgent(name=f"agent{i}") for i in range(10)])
+        wrong_weights = {f"agent{i}": 1.0 for i in range(8)} | {
+            "ghost8": 0.0,
+            "ghost9": 0.0,
+        }
+
+        with patch(
+            "aragora.debate.phases.vote_collector.get_complexity_governor",
+            return_value=mock_governor,
+        ):
+            votes, errors = await collector.collect_votes_with_errors(
+                ctx,
+                unanimous_mode=False,
+                vote_weights=wrong_weights,
+                consensus_threshold=0.75,
+                eligible_agent_names=frozenset(agent.name for agent in ctx.agents),
+            )
+
+        assert (len(votes), errors) == (10, 0)
+        hook.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "failure_mode",
+        ["none", "exception-result", "raised-exception", "base-exception"],
+    )
+    @pytest.mark.asyncio
+    async def test_rlm_counts_completed_failure_after_decisive_votes(
+        self,
+        mock_governor,
+        failure_mode,
+    ):
+        """A completed but unconsumed failure is failed, not an RLM skip."""
+
+        class VoteAbort(BaseException): ...
+
+        async def mock_vote(agent, proposals, task):
+            if agent.name == "agent9":
+                if failure_mode == "none":
+                    return None
+                if failure_mode == "exception-result":
+                    return ValueError("completed failure")
+                if failure_mode == "base-exception":
+                    raise VoteAbort("completed control flow")
+                raise RuntimeError("completed failure")
+            return make_vote(agent=agent.name, choice="winner")
+
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                vote_with_agent=mock_vote,
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+
+        with patch(
+            "aragora.debate.phases.vote_collector.get_complexity_governor",
+            return_value=mock_governor,
+        ):
+            if failure_mode == "base-exception":
+                with pytest.raises(VoteAbort, match="completed control flow"):
+                    await collector.collect_votes_with_errors(
+                        make_context(agents=agents), unanimous_mode=False
+                    )
+                return
+            votes, errors = await collector.collect_votes_with_errors(
+                make_context(agents=agents), unanimous_mode=False
+            )
+
+        assert len(votes) == 9
+        assert errors == 1
+        assert len(agents) - len(votes) - errors == 0
+
+    def test_completion_winning_cancel_race_is_consumed_once(self):
+        task = MagicMock()
+        task.done.side_effect = [False, True]
+        task.cancel.return_value = False
+        consume, observe = MagicMock(), MagicMock()
+
+        _settle_decisive_vote_tasks([task], consume, observe)
+
+        consume.assert_called_once_with(task)
+        observe.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_collect_votes_with_errors_counts_exceptions(self, mock_governor):
