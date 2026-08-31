@@ -44,8 +44,12 @@ to fact. Where this tool cannot establish something it says so in UNKNOWNS
 rather than defaulting to a reassuring value. Absence of evidence is never
 rendered as evidence of absence.
 
-Inputs: ``git`` (local, cheap) and at most two ``gh`` calls. No writes of any
-kind except an optional cursor cache under ``.aragora/agent-surface/``.
+Inputs: ``git`` (local, cheap), two ``gh`` calls, and -- unless ``--no-fleet``
+-- one ``scripts/loop_control_status.py`` subprocess (~15s, ~3,100 tokens of
+JSON reduced to about 40 on the way out). With ``--pr N`` it also runs
+``scripts/settle_status.py``, supplying the ``--repo`` slug that tool requires
+and cannot infer for itself. Writes nothing at all; the cursor is returned to
+the caller to hold, not cached on disk.
 
 Exit codes: 0 -- capsule produced. 1 -- could not establish an anchor (the one
 condition under which no useful capsule exists).
@@ -67,7 +71,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-CURSOR_DIR = Path(".aragora/agent-surface")
 GH_TIMEOUT = 90
 
 
@@ -324,6 +327,169 @@ def add_github_beliefs(cap: Capsule) -> dict[str, Any]:
     return raw
 
 
+def add_fleet_beliefs(cap: Capsule) -> None:
+    """Summarize scripts/loop_control_status.py without embedding it.
+
+    That tool emits ~3,100 tokens of JSON. The agent must read back about 40.
+    This is the composition rule in miniature: summarize downward, and never let
+    the summary claim more certainty than the thing it summarizes.
+    """
+    code, out = sh(["python3", "scripts/loop_control_status.py", "--json"], timeout=120)
+    if code != 0:
+        cap.degraded.append(f"loop_control_status unavailable: {out[:100]}")
+        cap.unknowns.append(
+            Unknown(
+                "Are the background loops safe to continue?",
+                "Dispatching work into a halted or blocked fleet wastes the run.",
+                "python3 scripts/loop_control_status.py --json",
+                3100,
+            )
+        )
+        return
+
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        cap.degraded.append("loop_control_status returned unparseable JSON")
+        return
+
+    summary = data.get("summary", {})
+    by_state = summary.get("by_state", {})
+    unknown_n = int(by_state.get("unknown", 0))
+    total = sum(int(v) for v in by_state.values()) or len(data.get("records", []))
+    shape = " / ".join(f"{n} {s}" for s, n in sorted(by_state.items()))
+
+    cap.beliefs.append(
+        Belief(
+            "fleet_loops",
+            shape or "none reported",
+            "scripts/loop_control_status.py --json",
+            "live",
+            "derived",
+        )
+    )
+
+    safe = summary.get("fleet_safe_to_continue")
+    # Do NOT restate a green verdict computed over loops that could not be read.
+    caveat = (
+        (
+            f"computed while {unknown_n}/{total} loops report state=unknown; "
+            "this verdict does not cover them"
+        )
+        if unknown_n
+        else ""
+    )
+    cap.beliefs.append(
+        Belief(
+            "fleet_safe_to_continue",
+            safe,
+            "loop_control_status summary",
+            "live",
+            "derived",
+            note=caveat,
+        )
+    )
+
+    if summary.get("any_blocked"):
+        cap.beliefs.append(
+            Belief(
+                "fleet_blocked",
+                True,
+                "loop_control_status summary",
+                "live",
+                "observed",
+                note="at least one loop reports a blocker",
+            )
+        )
+
+    if unknown_n:
+        cap.unknowns.append(
+            Unknown(
+                f"Why do {unknown_n} of {total} background loops report state=unknown?",
+                "fleet_safe_to_continue is computed without them, so a green "
+                "fleet verdict is partial rather than complete.",
+                "python3 scripts/loop_control_status.py --json "
+                '| python3 -c "import json,sys; '
+                "print([r['loop_id'] for r in json.load(sys.stdin)['records'] "
+                "if r.get('state')=='unknown'])\"",
+                60,
+            )
+        )
+
+
+def add_pr_beliefs(cap: Capsule, pr: int) -> None:
+    """Compose settle_status.py for one PR, inferring --repo from the anchor.
+
+    settle_status.py requires --repo and cannot infer it; passing the wrong slug
+    yields a bare traceback. The anchor already knows the slug, so the capsule
+    supplies it.
+    """
+    slug = cap.anchor.get("repo", "")
+    if "/" not in slug:
+        cap.degraded.append(f"cannot resolve repo slug; settlement for PR {pr} withheld")
+        return
+
+    code, out = sh(
+        ["python3", "scripts/settle_status.py", "--repo", slug, "--pr", str(pr), "--json"],
+        timeout=120,
+    )
+    if code != 0:
+        cap.degraded.append(f"settle_status failed for PR {pr}")
+        cap.unknowns.append(
+            Unknown(
+                f"Where does PR {pr} stand in settlement?",
+                "Without it, merge-readiness is unknown and must not be assumed.",
+                f"python3 scripts/settle_status.py --repo {slug} --pr {pr}",
+                80,
+            )
+        )
+        return
+
+    try:
+        s = json.loads(out)
+    except json.JSONDecodeError:
+        cap.degraded.append(f"settle_status returned unparseable JSON for PR {pr}")
+        return
+
+    pr_head = s.get("head_sha", "")
+    cap.beliefs.append(Belief(f"pr{pr}_tier", s.get("tier"), "settle_status.py", "live", "derived"))
+    cap.beliefs.append(
+        Belief(
+            f"pr{pr}_quorum",
+            s.get("quorum_conclusion"),
+            "settle_status.py",
+            "live",
+            "derived",
+            note=f"true only at head {pr_head[:12]}; a new push invalidates it",
+        )
+    )
+    cap.beliefs.append(
+        Belief(f"pr{pr}_signals", s.get("signal_count"), "settle_status.py", "live", "derived")
+    )
+    cap.beliefs.append(
+        Belief(
+            f"pr{pr}_human_settlement",
+            "present" if s.get("human_settlement_present") else "absent",
+            "commit status aragora/human-settlement",
+            "live",
+            "observed",
+        )
+    )
+
+    nxt = s.get("next_action")
+    if nxt:
+        # Attributed, not adopted. Four instruments in this repo compute a
+        # next_action from overlapping sources and nothing arbitrates them, so
+        # the capsule must never launder one into "the" answer.
+        cap.obligations.append(
+            {
+                "kind": "advisory_next_action",
+                "detail": f"settle_status.py says for PR {pr}: {nxt}",
+                "verifies_by": f"re-run settle_status.py --pr {pr} at the same head",
+            }
+        )
+
+
 def add_objective(cap: Capsule) -> None:
     branch = cap.anchor.get("branch", "")
     _, subject = sh(["git", "log", "-1", "--pretty=%s"])
@@ -344,16 +510,32 @@ def add_frontier(cap: Capsule) -> None:
     branch = cap.anchor.get("branch", "")
     dirty = isinstance(b.get("working_tree"), str) and "uncommitted" in b["working_tree"]
 
-    cap.frontier.append(
-        Action(
-            "Inspect a specific PR's settlement",
-            "python3 scripts/settle_status.py --repo <slug> --pr <N>",
-            "cheap",
-            "none",
-            True,
-            prerequisite="--repo is REQUIRED; the tool cannot infer it",
+    # Hand over a command that runs as written. A frontier entry containing a
+    # placeholder the agent must resolve has pushed the join back onto it.
+    slug = cap.anchor.get("repo", "")
+    if "/" in slug:
+        cap.frontier.append(
+            Action(
+                "Inspect a specific PR's settlement",
+                f"python3 scripts/agent_surface/situation.py --pr N   "
+                f"# direct: scripts/settle_status.py --repo {slug} --pr N",
+                "cheap",
+                "none",
+                True,
+            )
         )
-    )
+    else:
+        cap.frontier.append(
+            Action(
+                "Inspect a specific PR's settlement",
+                "python3 scripts/settle_status.py --repo <slug> --pr <N>",
+                "cheap",
+                "none",
+                True,
+                prerequisite="repo slug unresolved here; settle_status.py "
+                "requires --repo and cannot infer it",
+            )
+        )
     if dirty:
         cap.frontier.append(
             Action(
@@ -461,12 +643,16 @@ def render(cap: Capsule) -> str:
     return "\n".join(L)
 
 
-def build(repo_root: Path) -> Capsule:
+def build(repo_root: Path, pr: int | None = None, fleet: bool = True) -> Capsule:
     cap = Capsule()
     if not build_anchor(cap):
         return cap
     add_local_beliefs(cap)
     add_github_beliefs(cap)
+    if fleet:
+        add_fleet_beliefs(cap)
+    if pr is not None:
+        add_pr_beliefs(cap, pr)
     add_objective(cap)
     add_standing_unknowns(cap)
     add_frontier(cap)
@@ -477,10 +663,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--since", metavar="CURSOR", help="emit a delta against this cursor")
     ap.add_argument("--json", action="store_true", help="full structured payload")
+    ap.add_argument("--pr", type=int, help="also compose settlement state for this PR")
+    ap.add_argument(
+        "--no-fleet",
+        action="store_true",
+        help="skip loop_control_status (saves ~15s wall time, loses fleet beliefs)",
+    )
     ap.add_argument("--repo-root", type=Path, default=Path.cwd())
     args = ap.parse_args()
 
-    cap = build(args.repo_root)
+    cap = build(args.repo_root, pr=args.pr, fleet=not args.no_fleet)
     if not cap.anchor:
         print("no anchor: not a git repository", file=sys.stderr)
         return 1

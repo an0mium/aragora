@@ -154,24 +154,45 @@ misread.
 
 ### Measured after
 
+Two stages. The first composed git and GitHub only; the second added
+`loop_control_status.py` (fleet, crossing the seam) and, under `--pr N`,
+`settle_status.py`.
+
 | journey | calls | tokens | verdict | vs baseline |
 |---|---:|---:|---|---|
-| cold orientation | 1 | 552 | **PASS** | 24,272 → 552 (**44x**) |
-| quiet re-check | 1 | 32 | **PASS** | 4,011 → 32 (**125x**) |
+| cold orientation, git+GitHub | 1 | 552 | **PASS** | 24,272 → 552 (**44x**) |
+| cold orientation, **composed** | 1 | 709 | **PASS** | 24,272 → 709 (**34x**) |
+| quiet re-check, composed | 1 | 31 | **PASS** | 4,011 → 31 (**129x**) |
 
-The quiet tick costs more wall-clock (~2.5s) than context, which is the correct
-trade: wall time is cheap and does not accumulate in a context window.
+Composition costs 157 tokens and buys fleet state across the hemisphere seam
+plus per-PR settlement — the two things findings 1 and 2 said were missing.
+
+**The trade is wall-clock for context, deliberately.** The composed capsule takes
+~13s to build, most of it inside `loop_control_status.py`. Wall time is cheap and
+does not accumulate in a context window; tokens are expensive and do. `--no-fleet`
+skips it for callers that need speed over completeness.
+
+Two behaviours worth recording because they were checked rather than assumed:
+
+- **The cursor is stable, not over-sensitive.** Two back-to-back capsules produce
+  an identical cursor. An over-sensitive cursor would report "changed" on every
+  tick and the cheap path would never fire — the failure mode that would quietly
+  void the entire delta design.
+- **The delta correctly detects real change.** An earlier measurement returned
+  125 tokens on the changed path because edits were landing mid-run. That was the
+  mechanism working, not noise.
 
 ## What the prototype does NOT do
 
 Stated plainly so this document is not read as more finished than it is.
 
-- It does **not** yet compose `settle_status.py` or `loop_control_status.py`. The
-  FRONTIER references them as commands; it does not call them.
-- It reads **only the GitHub hemisphere** plus local git. It does not cross the
-  seam into `.aragora*` fleet/queue state — finding 2 is diagnosed, not fixed.
 - OBJECTIVE is inferred from the branch name and last commit. It is the weakest
   field and is close to a placeholder.
+- Finding 3 is **surfaced, not solved**. The capsule reports `settle_status.py`'s
+  `next_action` as an attributed advisory under OBLIGATIONS rather than adopting
+  it, precisely so it does not become a fifth unarbitrated answer. Arbitration
+  between the four remains unbuilt.
+- It composes two aggregators. The other ~15 are untouched.
 - OBLIGATIONS carries a standing prohibition but does not track real in-flight
   effects awaiting verification.
 - **There is no accretion at all.** No `POST /experience`, no record written, no
@@ -201,19 +222,42 @@ Stated plainly so this document is not read as more finished than it is.
 | Journey measurement harness | **implemented** | `scripts/agent_surface/measure.py`, runs, exit 0/3 |
 | Baseline measurements, 4 journeys | **implemented** | table above, reproducible |
 | Six-field capsule, GitHub + git | **implemented** | `situation.py`, measured PASS on both budgets |
-| Cheap delta via cursor | **implemented** | 32 tokens measured |
-| Capsule composes existing aggregators | **proposed** | frontier names them only |
-| Cross-hemisphere composition | **proposed** | finding 2 diagnosed only |
-| Real OBLIGATIONS tracking | **partial** | static prohibition only |
+| Cheap delta via cursor | **implemented** | 31 tokens measured; cursor stability verified |
+| Capsule composes existing aggregators | **partial** | 2 of ~17: `loop_control_status.py`, `settle_status.py` |
+| Cross-hemisphere composition | **implemented** | fleet beliefs from `.aragora*` state, measured |
+| `--repo` inference for `settle_status.py` | **implemented** | slug taken from the anchor |
+| Arbitration of the four `next_action` fields | **not started** | capsule attributes, does not adopt — finding 3 |
+| Real OBLIGATIONS tracking | **partial** | standing prohibition + attributed advisory only |
 | Accretion / experience write-back | **not started** | open question 1 |
 | Net proper-noun reduction | **not evaluated** | prototype adds `capsule`, `cursor`, `anchor`, `frontier`; removes nothing yet |
 | Adoption anywhere in the repo | **not started** | nothing imports this |
 
-## Recommended first slice
+## First slice — done, and what it showed
 
-Compose `settle_status.py` and `loop_control_status.py` into the capsule's
-BELIEFS and FRONTIER, since both already cross or nearly cross the seam and both
-already emit `--json`. That tests finding 1's claim (composition is the fix)
-against finding 2's obstacle (the hemispheres) in one step, without inventing any
-new state store — and it is reversible, because nothing depends on the capsule
-yet.
+The first slice was to compose `settle_status.py` and `loop_control_status.py`,
+testing finding 1's claim (composition is the fix) against finding 2's obstacle
+(the hemispheres) in one step, without inventing a new state store. It is done
+and it held: 157 additional tokens bought fleet state across the seam plus
+per-PR settlement, and cold orientation still passes at 709.
+
+It also produced the clearest example of the authority rule earning its keep.
+`loop_control_status.py` reports `fleet_safe_to_continue: true` while **3 of its
+7 loops report `state: unknown`**. Restating that as a plain green would be a
+summary claiming more certainty than its basis. The capsule instead reports the
+verdict *with* the caveat and raises an UNKNOWN naming the three loops and the
+probe that would identify them. A summary layer that silently dropped the caveat
+would be indistinguishable from a correct one — right up until an agent
+dispatched work into a fleet nobody could actually see.
+
+## Recommended next slice
+
+**Accretion, because it is the only thing here that compounds and it is the one
+thing entirely absent.** Answer open question 1 first — is the durable receipt
+store at `.aragora/receipts/` the accretion store, given
+`aragora/gauntlet/receipt_store.py` is an in-process dict that loses everything
+at exit? Then define one record an agent writes on finishing, and make the
+capsule's next cold start surface it. Without a named record, a named store, and
+a named retrieval call, "accretive" stays a word.
+
+Explicitly *not* recommended next: composing more aggregators. Two was enough to
+prove the pattern; a third adds tokens without answering a live question.
