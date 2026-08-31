@@ -369,6 +369,65 @@ def test_identity_failure_can_record_observed_mismatch_without_fabricating_succe
     assert validate_result_record(result, manifest, packets["dev-00"])["billable_cost_usd"] == "0"
 
 
+def test_transport_failure_can_record_observed_mismatch() -> None:
+    manifest, _, _, packets = _manifest()
+    call = _call(
+        case_id="dev-00",
+        condition_id=CLAUDE_SINGLE,
+        sequence=1,
+        role="decision",
+        family="claude",
+        input_call_ids=[],
+        normalized_output=None,
+        status="transport_error",
+    )
+    call["transport"] = "unexpected-transport"
+    result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])
+    result.update(
+        calls=[call],
+        output=None,
+        receipt={"receipt_hash": None, "verification": "missing"},
+        error={"error_class": "transport_error", "message": "transport mismatch"},
+    )
+    _rehash(result)
+
+    assert validate_result_record(result, manifest, packets["dev-00"])["billable_cost_usd"] == "0"
+
+
+def test_dual_mismatch_uses_transport_error_precedence() -> None:
+    manifest, _, _, packets = _manifest()
+    call = _call(
+        case_id="dev-00",
+        condition_id=CLAUDE_SINGLE,
+        sequence=1,
+        role="decision",
+        family="claude",
+        input_call_ids=[],
+        normalized_output=None,
+        status="transport_error",
+    )
+    call["resolved_model"] = "unexpected-model"
+    call["transport"] = "unexpected-transport"
+    result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])
+    result.update(
+        calls=[call],
+        output=None,
+        receipt={"receipt_hash": None, "verification": "missing"},
+        error={"error_class": "transport_error", "message": "transport and identity mismatch"},
+    )
+    _rehash(result)
+
+    assert validate_result_record(result, manifest, packets["dev-00"])["billable_cost_usd"] == "0"
+
+    call["attempts"][0]["status"] = "identity_error"
+    call["attempts"][0]["error_class"] = "identity_error"
+    call["error"] = {"error_class": "identity_error", "message": "identity mismatch"}
+    result["error"] = {"error_class": "identity_error", "message": "identity mismatch"}
+    _rehash(result)
+    with pytest.raises(OutcomeBackedContractError, match="transport mismatch must fail"):
+        validate_result_record(result, manifest, packets["dev-00"])
+
+
 @pytest.mark.parametrize("status", ["identity_error", "transport_error"])
 def test_identity_and_transport_failures_require_recorded_mismatch(status: str) -> None:
     manifest, _, _, packets = _manifest()
@@ -393,6 +452,13 @@ def test_identity_and_transport_failures_require_recorded_mismatch(status: str) 
 
     with pytest.raises(OutcomeBackedContractError, match=f"{status} requires an observed"):
         validate_result_record(result, manifest, packets["dev-00"])
+
+
+def test_clean_success_matches_frozen_identity_and_transport() -> None:
+    manifest, _, _, packets = _manifest()
+    result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])
+
+    assert validate_result_record(result, manifest, packets["dev-00"])["billable_cost_usd"] == "0"
 
 
 def test_single_success_cannot_self_attest_a_verified_receipt() -> None:

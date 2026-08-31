@@ -633,7 +633,9 @@ def _validate_call(
     transport_mismatch = (
         call.get("transport") != member.transport or call.get("protocol") != member.protocol
     )
-    if identity_mismatch and final_status != "identity_error":
+    # Unexpected transport takes precedence because identity observed off the
+    # frozen transport cannot independently satisfy the roster contract.
+    if identity_mismatch and not transport_mismatch and final_status != "identity_error":
         raise OutcomeBackedContractError(
             f"{field} model/owner mismatch must fail as identity_error"
         )
