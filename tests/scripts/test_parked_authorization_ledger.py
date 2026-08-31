@@ -111,6 +111,48 @@ def test_later_decisive_owner_reply_resolves_ask() -> None:
     assert items == []
 
 
+def test_quoted_authorization_request_does_not_resolve_ask() -> None:
+    quoted_request = "\n".join(f"> {line}" for line in _ask(pr=42).splitlines())
+    comments = [
+        _comment(_ask(pr=42)),
+        _comment(
+            f"{quoted_request}\n\nCan you confirm whether the focused tests passed?",
+            author="an0mium",
+            created="2026-08-21T12:00:00Z",
+        ),
+    ]
+
+    items = pal.collect_authorizations(
+        [_pr(comments=comments)],
+        now=NOW,
+        operator_logins={"an0mium"},
+        check_loader=_green,
+    )
+
+    assert [item.pr for item in items] == [42]
+
+
+def test_unquoted_decision_below_quoted_request_resolves_ask() -> None:
+    quoted_request = "\n".join(f"> {line}" for line in _ask(pr=42).splitlines())
+    comments = [
+        _comment(_ask(pr=42)),
+        _comment(
+            f"{quoted_request}\n\nI authorize PR #42 at exact head {HEAD}.",
+            author="an0mium",
+            created="2026-08-21T12:00:00Z",
+        ),
+    ]
+
+    items = pal.collect_authorizations(
+        [_pr(comments=comments)],
+        now=NOW,
+        operator_logins={"an0mium"},
+        check_loader=_green,
+    )
+
+    assert items == []
+
+
 def test_decisive_reply_requires_exact_pr_number() -> None:
     comments = [
         _comment(_ask(pr=42)),

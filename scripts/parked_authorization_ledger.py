@@ -264,7 +264,7 @@ def _trusted_ask_author(comment: Mapping[str, Any], *, trusted_logins: set[str])
 
 
 def _looks_like_ask(body: str) -> bool:
-    lowered = body.lower()
+    lowered = _unquoted_markdown_prose(body).lower()
     return any(marker in lowered for marker in ASK_MARKERS) and bool(_extract_reply_block(body))
 
 
@@ -315,9 +315,35 @@ def _comment_time(comment: Mapping[str, Any]) -> datetime | None:
     return _parse_datetime(raw) if isinstance(raw, str) else None
 
 
+def _unquoted_markdown_prose(body: str) -> str:
+    """Return prose that can carry an operator decision, excluding quoted/code text."""
+    prose: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        fence_match = re.match(r"(`{3,}|~{3,})(?:\s|$)", stripped)
+        if fence is not None:
+            if (
+                fence_match
+                and fence_match.group(1)[0] == fence[0]
+                and len(fence_match.group(1)) >= fence[1]
+            ):
+                fence = None
+            continue
+        if fence_match:
+            marker = fence_match.group(1)
+            fence = (marker[0], len(marker))
+            continue
+        if re.match(r"^\s*>", line) or line.startswith(("    ", "\t")):
+            continue
+        prose.append(re.sub(r"`+[^`]*`+", "", line))
+    return "\n".join(prose)
+
+
 def _decisive_operator_reply(body: str, *, pr: int, head: str) -> bool:
-    lowered = body.lower()
-    references_target = bool(re.search(rf"#{pr}(?!\d)", body)) or head in lowered
+    prose = _unquoted_markdown_prose(body)
+    lowered = prose.lower()
+    references_target = bool(re.search(rf"#{pr}(?!\d)", prose)) or head in lowered
     return references_target and any(marker in lowered for marker in DECISIVE_REPLY_MARKERS)
 
 
