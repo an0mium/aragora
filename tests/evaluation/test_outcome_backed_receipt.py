@@ -105,6 +105,17 @@ def test_wrong_expected_execution_binding_is_rejected() -> None:
         )
 
 
+@pytest.mark.parametrize("reached", ["false", "true", 1])
+def test_non_boolean_consensus_proof_is_rejected(reached: object) -> None:
+    binding = _binding()
+    built = build_team_receipt(_team_result(), binding=binding)
+    tampered = deepcopy(built.receipt)
+    tampered["consensus_proof"]["reached"] = reached
+
+    with pytest.raises(OutcomeBackedReceiptError, match="does not prove consensus"):
+        verify_team_receipt(tampered, expected_binding=binding)
+
+
 def test_zero_evidence_and_non_consensus_results_fail_closed() -> None:
     placeholder = _team_result(final_answer="anthropic-api got confused and needs to recalibrate.")
     placeholder.messages = []

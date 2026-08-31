@@ -157,7 +157,7 @@ def verify_team_receipt(
         )
     if receipt.verdict not in {"PASS", "CONDITIONAL"}:
         raise OutcomeBackedReceiptError("team receipt does not contain a successful verdict")
-    if receipt.consensus_proof is None or not receipt.consensus_proof.reached:
+    if receipt.consensus_proof is None or receipt.consensus_proof.reached is not True:
         raise OutcomeBackedReceiptError("team receipt does not prove consensus")
     if not _SHA256_RE.fullmatch(receipt.artifact_hash):
         raise OutcomeBackedReceiptError("receipt artifact_hash must be a lowercase SHA-256")
