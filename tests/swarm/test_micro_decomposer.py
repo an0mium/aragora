@@ -71,6 +71,28 @@ def test_nonexistent_file_with_missing_parent_returns_empty(tmp_path: Path) -> N
     assert orders == []
 
 
+@pytest.mark.parametrize(
+    ("goal", "missing_path"),
+    [
+        ("Remove the obsolete module", "aragora/routing/obsolete.py"),
+        ("Update references after renaming this module", "aragora/routing/renamed.py"),
+    ],
+)
+def test_missing_non_test_hint_does_not_create_work_order(
+    repo_root: Path,
+    goal: str,
+    missing_path: str,
+) -> None:
+    orders = build_micro_work_orders(
+        goal=goal,
+        file_scope_hints=[missing_path],
+        repo_root=repo_root,
+    )
+
+    assert not (repo_root / missing_path).exists()
+    assert orders == []
+
+
 def test_work_order_has_required_fields(repo_root: Path) -> None:
     orders = build_micro_work_orders(
         goal="Add feature",

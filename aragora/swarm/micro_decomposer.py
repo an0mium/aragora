@@ -254,9 +254,14 @@ def _resolve_file_hints(hints: list[str], root: Path) -> list[str]:
 
 
 def _is_creatable_file_hint(hint: str, root: Path) -> bool:
-    """Accept a missing explicit file only when its existing parent bounds it."""
+    """Accept a missing test file only when its existing parent bounds it."""
     relative = Path(hint)
-    if relative.is_absolute() or ".." in relative.parts or not relative.suffix:
+    if (
+        relative.is_absolute()
+        or ".." in relative.parts
+        or not relative.suffix
+        or not _is_test_file(hint)
+    ):
         return False
     return (root / relative).parent.is_dir()
 
