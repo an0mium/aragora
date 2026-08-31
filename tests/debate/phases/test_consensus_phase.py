@@ -461,6 +461,30 @@ class TestHandleMajorityConsensus:
         }
 
     @pytest.mark.asyncio
+    async def test_rlm_completed_failure_is_not_reported_as_skipped(self):
+        """A completed failure after decisive votes remains failed end to end."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent9":
+                return None
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        participation = ctx.result.metadata["vote_participation"]
+        assert ctx.result.consensus_reached is True
+        assert participation["received"] < participation["eligible"]
+        assert participation["failed"] == 1
+        assert participation["skipped"] == 10 - participation["received"] - 1
+
+    @pytest.mark.asyncio
     async def test_insufficient_majority_records_missing_roster(self):
         """Quorum rejection still exposes how much of the roster was lost."""
         agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]

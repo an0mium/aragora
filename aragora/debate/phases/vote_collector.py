@@ -557,7 +557,9 @@ class VoteCollector:
                 else:
                     vote_result = await vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # noqa: BLE001 - preserve the failing voter identity
                 logger.warning(
                     "vote_exception_%s agent=%s error=%s: %s",
                     vote_mode,
@@ -572,7 +574,29 @@ class VoteCollector:
             nonlocal voting_errors
             total_agents = len(ctx.agents)
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
+            processed_agent_ids: set[int] = set()
             early_terminated = False
+
+            def record_vote_failure(agent: Agent, vote_result: Any) -> None:
+                nonlocal voting_errors
+                if isinstance(vote_result, Exception):
+                    logger.error(
+                        "vote_error_%s agent=%s error=%s",
+                        vote_mode,
+                        agent.name,
+                        vote_result,
+                    )
+                else:
+                    logger.error(
+                        "vote_error_%s agent=%s error=vote returned None",
+                        vote_mode,
+                        agent.name,
+                        extra={
+                            "triage_diag_code": "vote_none",
+                            "triage_diag_severity": "degraded",
+                        },
+                    )
+                voting_errors += 1
 
             for completed_task in asyncio.as_completed(vote_tasks):
                 try:
@@ -584,25 +608,9 @@ class VoteCollector:
                     voting_errors += 1
                     continue
 
+                processed_agent_ids.add(id(agent))
                 if vote_result is None or isinstance(vote_result, Exception):
-                    if isinstance(vote_result, Exception):
-                        logger.error(
-                            "vote_error_%s agent=%s error=%s",
-                            vote_mode,
-                            agent.name,
-                            vote_result,
-                        )
-                    else:
-                        logger.error(
-                            "vote_error_%s agent=%s error=vote returned None",
-                            vote_mode,
-                            agent.name,
-                            extra={
-                                "triage_diag_code": "vote_none",
-                                "triage_diag_severity": "degraded",
-                            },
-                        )
-                    voting_errors += 1
+                    record_vote_failure(agent, vote_result)
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(
@@ -621,6 +629,33 @@ class VoteCollector:
                             for vote_task in vote_tasks:
                                 if not vote_task.done():
                                     vote_task.cancel()
+
+                            # Consume tasks so completed failures cannot become RLM skips;
+                            # unconsumed successful ballots remain intentionally skipped.
+                            remaining_results = await asyncio.gather(
+                                *vote_tasks,
+                                return_exceptions=True,
+                            )
+                            for remaining_result in remaining_results:
+                                if isinstance(remaining_result, asyncio.CancelledError):
+                                    continue
+                                if isinstance(remaining_result, BaseException):
+                                    logger.error(
+                                        "task_exception phase=%s_vote error=%s",
+                                        vote_mode,
+                                        remaining_result,
+                                    )
+                                    voting_errors += 1
+                                    continue
+                                remaining_agent, unconsumed_result = remaining_result
+                                if id(remaining_agent) in processed_agent_ids:
+                                    continue
+                                processed_agent_ids.add(id(remaining_agent))
+                                if unconsumed_result is None or isinstance(
+                                    unconsumed_result,
+                                    Exception,
+                                ):
+                                    record_vote_failure(remaining_agent, unconsumed_result)
                             early_terminated = True
 
                             if self._notify_spectator:
