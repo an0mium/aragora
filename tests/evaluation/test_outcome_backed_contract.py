@@ -369,6 +369,42 @@ def test_identity_failure_can_record_observed_mismatch_without_fabricating_succe
     assert validate_result_record(result, manifest, packets["dev-00"])["billable_cost_usd"] == "0"
 
 
+@pytest.mark.parametrize("status", ["identity_error", "transport_error"])
+def test_identity_and_transport_failures_require_recorded_mismatch(status: str) -> None:
+    manifest, _, _, packets = _manifest()
+    call = _call(
+        case_id="dev-00",
+        condition_id=CLAUDE_SINGLE,
+        sequence=1,
+        role="decision",
+        family="claude",
+        input_call_ids=[],
+        normalized_output=None,
+        status=status,
+    )
+    result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])
+    result.update(
+        calls=[call],
+        output=None,
+        receipt={"receipt_hash": None, "verification": "missing"},
+        error={"error_class": status, "message": "sanitized failure"},
+    )
+    _rehash(result)
+
+    with pytest.raises(OutcomeBackedContractError, match=f"{status} requires an observed"):
+        validate_result_record(result, manifest, packets["dev-00"])
+
+
+def test_single_success_cannot_self_attest_a_verified_receipt() -> None:
+    manifest, _, _, packets = _manifest()
+    result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])
+    result["receipt"] = {"receipt_hash": "e" * 64, "verification": "verified"}
+    _rehash(result)
+
+    with pytest.raises(OutcomeBackedContractError, match="must not claim a receipt"):
+        validate_result_record(result, manifest, packets["dev-00"])
+
+
 def test_retry_is_allowed_only_after_infrastructure_error() -> None:
     manifest, _, _, packets = _manifest()
     result = _result(manifest, "dev-00", CLAUDE_SINGLE, packets["dev-00"])

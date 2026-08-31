@@ -639,6 +639,14 @@ def _validate_call(
         )
     if transport_mismatch and final_status != "transport_error":
         raise OutcomeBackedContractError(f"{field} transport mismatch must fail as transport_error")
+    if final_status == "identity_error" and not identity_mismatch:
+        raise OutcomeBackedContractError(
+            f"{field} identity_error requires an observed model/owner mismatch"
+        )
+    if final_status == "transport_error" and not transport_mismatch:
+        raise OutcomeBackedContractError(
+            f"{field} transport_error requires an observed transport/protocol mismatch"
+        )
     if final_status == "success" and (identity_mismatch or transport_mismatch):
         raise OutcomeBackedContractError(
             f"{field} successful identity must match the frozen roster"
@@ -705,7 +713,7 @@ def _validate_receipt(value: object, *, require_verified: bool, require_missing:
     if require_verified and verification != "verified":
         raise OutcomeBackedContractError("successful team result requires a verified receipt")
     if require_missing and verification != "missing":
-        raise OutcomeBackedContractError("failed result must not claim a receipt")
+        raise OutcomeBackedContractError("result must not claim a receipt")
 
 
 def validate_result_record(
@@ -804,7 +812,7 @@ def validate_result_record(
     _validate_receipt(
         result.get("receipt"),
         require_verified=successful and condition_id == ARAGORA_TEAM,
-        require_missing=not successful,
+        require_missing=not successful or condition_id != ARAGORA_TEAM,
     )
 
     claimed = _sha256(result.get("result_sha256"), "result.result_sha256")
