@@ -993,7 +993,7 @@ class TestCollectVotesWithErrors:
 
     @pytest.mark.asyncio
     async def test_collect_votes_with_errors_no_callback(self):
-        """Returns empty when no vote_with_agent callback."""
+        """A missing callback records every eligible voter as failed."""
         config = VoteCollectorConfig()
         collector = VoteCollector(config)
         ctx = make_context()
@@ -1001,7 +1001,38 @@ class TestCollectVotesWithErrors:
         votes, errors = await collector.collect_votes_with_errors(ctx)
 
         assert votes == []
-        assert errors == 0
+        assert errors == len(ctx.agents)
+
+    @pytest.mark.asyncio
+    async def test_error_tracking_preserves_position_shuffling(self):
+        """Majority error tracking still uses the configured shuffle path."""
+
+        async def mock_vote(agent, proposals, task):
+            return make_vote(agent=agent.name)
+
+        config = VoteCollectorConfig(
+            vote_with_agent=mock_vote,
+            enable_position_shuffling=True,
+            position_shuffling_permutations=2,
+        )
+        collector = VoteCollector(config)
+        ctx = make_context()
+        shuffled_votes = [make_vote(agent=agent.name) for agent in ctx.agents[:-1]]
+
+        with patch.object(
+            collector,
+            "_collect_votes_with_shuffling",
+            new_callable=AsyncMock,
+            return_value=shuffled_votes,
+        ) as collect_shuffled:
+            votes, errors = await collector.collect_votes_with_errors(
+                ctx,
+                use_position_shuffling=True,
+            )
+
+        collect_shuffled.assert_awaited_once_with(ctx)
+        assert votes == shuffled_votes
+        assert errors == 1
 
     @pytest.mark.asyncio
     async def test_collect_votes_with_errors_basic(self, mock_governor):

@@ -646,9 +646,16 @@ class ConsensusPhase:
                 logger.debug("Adaptive consensus computation failed: %s", e)
                 threshold_override = None
 
-        # Cast votes from all agents
-        votes = await self._collect_votes(ctx)
-        if not self._ensure_quorum(ctx, len(votes)):
+        # Cast votes from all agents. Majority confidence is roster-relative:
+        # a voter that fails to return a ballot cannot silently disappear from
+        # the agreement denominator.
+        votes, voting_errors = await self._collect_votes_with_errors(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+        )
+        voting_errors = max(voting_errors, len(ctx.agents) - len(votes))
+        if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
 
         # Apply calibration adjustments to vote confidences
@@ -665,6 +672,13 @@ class ConsensusPhase:
         # Count weighted votes
         vote_counts, total_weighted = self._count_weighted_votes(
             votes, choice_mapping, vote_weight_cache
+        )
+
+        voting_agents = {vote.agent for vote in votes if getattr(vote, "agent", None)}
+        total_weighted += sum(
+            vote_weight_cache.get(agent.name, 1.0)
+            for agent in ctx.agents
+            if agent.name not in voting_agents
         )
 
         # Include user votes
@@ -728,7 +742,8 @@ class ConsensusPhase:
         proposals = ctx.proposals
 
         votes, voting_errors = await self._collect_votes_with_errors(ctx)
-        if not self._ensure_quorum(ctx, len(votes)):
+        voting_errors = max(voting_errors, len(ctx.agents) - len(votes))
+        if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
         votes = self._apply_calibration_to_votes(votes, ctx)
         result.votes.extend(votes)
@@ -1580,9 +1595,19 @@ class ConsensusPhase:
         """Collect votes from all agents with outer timeout protection."""
         return await self._vote_collector.collect_votes(ctx)
 
-    async def _collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
+    async def _collect_votes_with_errors(
+        self,
+        ctx: "DebateContext",
+        *,
+        use_position_shuffling: bool = False,
+        unanimous_mode: bool = True,
+    ) -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection."""
-        return await self._vote_collector.collect_votes_with_errors(ctx)
+        return await self._vote_collector.collect_votes_with_errors(
+            ctx,
+            use_position_shuffling=use_position_shuffling,
+            unanimous_mode=unanimous_mode,
+        )
 
     def _compute_vote_groups(
         self, votes: list["Vote"]
@@ -1649,8 +1674,35 @@ class ConsensusPhase:
         # Never require more votes than agents available
         return min(required, max(total_agents, 1))
 
-    def _ensure_quorum(self, ctx: "DebateContext", vote_count: int) -> bool:
+    def _record_vote_participation(
+        self,
+        ctx: "DebateContext",
+        vote_count: int,
+        failed_count: int,
+    ) -> None:
+        """Record agent-ballot participation without conflating user votes."""
+        result = require_phase_result(ctx)
+        eligible = len(ctx.agents)
+        received = max(0, min(vote_count, eligible))
+        failed = max(0, min(failed_count, eligible - received))
+        current_metadata = getattr(result, "metadata", None)
+        metadata = current_metadata if isinstance(current_metadata, dict) else {}
+        metadata["vote_participation"] = {
+            "eligible": eligible,
+            "received": received,
+            "failed": failed,
+        }
+        result.metadata = metadata
+
+    def _ensure_quorum(
+        self,
+        ctx: "DebateContext",
+        vote_count: int,
+        *,
+        failed_count: int = 0,
+    ) -> bool:
         """Ensure enough agents participated to make consensus meaningful."""
+        self._record_vote_participation(ctx, vote_count, failed_count)
         total_agents = len(ctx.agents)
         required = self._required_participation(total_agents)
         if vote_count >= required:

@@ -368,6 +368,129 @@ class TestHandleFallbackConsensusExtended:
 
 
 # =============================================================================
+# _handle_majority_consensus Tests
+# =============================================================================
+
+
+class TestHandleMajorityConsensus:
+    """Tests for truthful majority-vote participation accounting."""
+
+    @pytest.mark.asyncio
+    async def test_failed_voters_reduce_confidence_and_are_recorded(self):
+        """Two surviving votes cannot masquerade as a unanimous four-agent panel."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 2
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent3":
+                raise RuntimeError("provider unavailable")
+            if agent.name == "agent4":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == pytest.approx(0.5)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 2,
+            "failed": 2,
+        }
+
+    @pytest.mark.asyncio
+    async def test_full_roster_keeps_existing_confidence_with_additive_metadata(self):
+        """Healthy majority behavior is unchanged apart from participation metadata."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+
+        async def vote_with_agent(agent, proposals, task):
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(1.0)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 4,
+            "failed": 0,
+        }
+
+    @pytest.mark.asyncio
+    async def test_insufficient_majority_records_missing_roster(self):
+        """Quorum rejection still exposes how much of the roster was lost."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.min_participation_ratio = 0.75
+        protocol.min_participation_count = 3
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name != "agent1":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert ctx.result.status == "insufficient_participation"
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 4,
+            "received": 1,
+            "failed": 3,
+        }
+
+
+class TestHandleUnanimousConsensus:
+    """Tests for unanimous-vote participation metadata."""
+
+    @pytest.mark.asyncio
+    async def test_failed_voter_is_recorded_as_dissent(self):
+        agents = [MockAgent(name="agent1"), MockAgent(name="agent2")]
+        ctx, protocol = make_context(agents=agents, consensus_mode="unanimous")
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 1
+
+        async def vote_with_agent(agent, proposals, task):
+            if agent.name == "agent2":
+                return None
+            return make_vote(agent=agent.name, choice="agent1")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+
+        await phase._handle_unanimous_consensus(ctx)
+
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == pytest.approx(0.5)
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 2,
+            "received": 1,
+            "failed": 1,
+        }
+
+
+# =============================================================================
 # _ensure_quorum Tests
 # =============================================================================
 

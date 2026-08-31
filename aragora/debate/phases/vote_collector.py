@@ -7,7 +7,7 @@ Handles the mechanics of collecting votes from agents with timeout protection.
 Key responsibilities:
 - Parallel vote collection from all agents
 - Timeout protection (per-agent and overall)
-- Error tracking for unanimity mode
+- Error tracking for roster-aware consensus modes
 - Vote grouping for similar choices
 - Success callbacks (hooks, recording, position tracking)
 - RLM-inspired early termination when clear majority is reached
@@ -111,7 +111,7 @@ class VoteCollector:
 
     Handles:
     - Parallel vote collection with timeout protection
-    - Error tracking for unanimity mode
+    - Error tracking for roster-aware consensus modes
     - Vote success callbacks (hooks, recording, position tracking)
     - Vote grouping for similar choices
     - RLM-inspired early termination when clear majority is reached
@@ -490,10 +490,19 @@ class VoteCollector:
 
         return votes
 
-    async def collect_votes_with_errors(self, ctx: DebateContext) -> tuple[list[Vote], int]:
-        """Collect votes with error tracking for unanimity mode.
+    async def collect_votes_with_errors(
+        self,
+        ctx: DebateContext,
+        *,
+        use_position_shuffling: bool = False,
+        unanimous_mode: bool = True,
+    ) -> tuple[list[Vote], int]:
+        """Collect votes with error tracking for roster-aware consensus.
 
-        Used for unanimity mode where we need to track errors.
+        Used by consensus modes where missing voters must remain visible in
+        the agreement denominator. Majority mode may opt into the existing
+        position-shuffling path; unanimity keeps its historical single-ballot
+        behavior.
         Uses VOTE_COLLECTION_TIMEOUT to prevent runaway collection time.
 
         Args:
@@ -503,10 +512,29 @@ class VoteCollector:
             Tuple of (votes list, error count)
         """
         if not self._vote_with_agent:
-            return [], 0
+            logger.warning("No vote_with_agent callback, skipping votes")
+            return [], len(ctx.agents)
+
+        if use_position_shuffling and self.config.enable_position_shuffling:
+            logger.info("position_shuffling_enabled - using multi-permutation voting")
+            try:
+                shuffled_votes = await asyncio.wait_for(
+                    self._collect_votes_with_shuffling(ctx),
+                    timeout=self.VOTE_COLLECTION_TIMEOUT
+                    * self.config.position_shuffling_permutations,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "position_shuffling_timeout timeout=%ss",
+                    self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations,
+                )
+                shuffled_votes = []
+            voting_agents = {vote.agent for vote in shuffled_votes if getattr(vote, "agent", None)}
+            return shuffled_votes, max(0, len(ctx.agents) - len(voting_agents))
 
         votes: list[Vote] = []
         voting_errors = 0
+        vote_mode = "unanimous" if unanimous_mode else "majority_roster"
         task = ctx.env.task if ctx.env else ""
         vote_with_agent = self._vote_with_agent
         if vote_with_agent is None:
@@ -514,8 +542,8 @@ class VoteCollector:
         with_timeout = self._with_timeout
 
         async def cast_vote(agent: Agent) -> tuple[Any, Any]:
-            """Cast a vote for unanimous consensus with timeout protection."""
-            logger.debug("agent_voting_unanimous agent=%s", agent.name)
+            """Cast a vote for roster-aware consensus with timeout protection."""
+            logger.debug("agent_voting_%s agent=%s", vote_mode, agent.name)
             try:
                 timeout = get_complexity_governor().get_scaled_timeout(
                     float(self.config.agent_timeout)
@@ -531,7 +559,8 @@ class VoteCollector:
                 return (agent, vote_result)
             except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
-                    "vote_exception_unanimous agent=%s error=%s: %s",
+                    "vote_exception_%s agent=%s error=%s: %s",
+                    vote_mode,
                     agent.name,
                     type(e).__name__,
                     e,
@@ -549,18 +578,22 @@ class VoteCollector:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001 - phase isolation
-                    logger.error("task_exception phase=unanimous_vote error=%s", e)
+                    logger.error("task_exception phase=%s_vote error=%s", vote_mode, e)
                     voting_errors += 1
                     continue
 
                 if vote_result is None or isinstance(vote_result, Exception):
                     if isinstance(vote_result, Exception):
                         logger.error(
-                            "vote_error_unanimous agent=%s error=%s", agent.name, vote_result
+                            "vote_error_%s agent=%s error=%s",
+                            vote_mode,
+                            agent.name,
+                            vote_result,
                         )
                     else:
                         logger.error(
-                            "vote_error_unanimous agent=%s error=vote returned None",
+                            "vote_error_%s agent=%s error=vote returned None",
+                            vote_mode,
                             agent.name,
                             extra={
                                 "triage_diag_code": "vote_none",
@@ -570,7 +603,12 @@ class VoteCollector:
                     voting_errors += 1
                 else:
                     votes.append(vote_result)
-                    self._handle_vote_success(ctx, agent, vote_result, unanimous=True)
+                    self._handle_vote_success(
+                        ctx,
+                        agent,
+                        vote_result,
+                        unanimous=unanimous_mode,
+                    )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:
@@ -580,7 +618,8 @@ class VoteCollector:
             missing = len(ctx.agents) - len(votes) - voting_errors
             voting_errors += missing
             logger.warning(
-                "vote_collection_timeout_unanimous collected=%s errors=%s expected=%s timeout=%ss",
+                "vote_collection_timeout_%s collected=%s errors=%s expected=%s timeout=%ss",
+                vote_mode,
                 len(votes),
                 voting_errors,
                 len(ctx.agents),
