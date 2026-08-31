@@ -1,0 +1,151 @@
+"""Tests for the affordance model: hard gates before ranking, frontier not score."""
+
+from aragora.reasoning.epistemics import KnowledgeState
+from aragora.work.affordances import (
+    ActionAffordance,
+    AffordanceDisposition,
+    CostVector,
+    WaitSpec,
+    apply_hard_gates,
+    from_work_recommendation,
+    pareto_frontier,
+)
+from aragora.work.models import WorkRecommendation
+
+
+def _aff(aid: str, value: float = 1.0, tokens: int = 100, risk: int = 0, **kw) -> ActionAffordance:
+    defaults = dict(
+        affordance_id=aid,
+        target="repo",
+        operation="probe",
+        reason_available="lane is clear",
+        disposition=AffordanceDisposition.CONDITIONAL,
+        expected_gain="learn merge state",
+        expected_value=value,
+        cost=CostVector(tokens=tokens),
+        risk_tier=risk,
+        reversibility="reversible",
+        required_capabilities=[],
+        required_approvals=[],
+        preconditions=[],
+        invalidators=[],
+        alternatives=[],
+        expected_terminal_proof="observation recorded",
+    )
+    defaults.update(kw)
+    return ActionAffordance(**defaults)
+
+
+class TestHardGates:
+    def test_halt_blocks_everything_except_wait_and_info_gathering(self):
+        acts = [
+            _aff("a"),
+            _aff("w", disposition=AffordanceDisposition.WAIT_WATCH),
+            _aff("i", disposition=AffordanceDisposition.INFORMATION_GATHERING),
+        ]
+        gated = {g.affordance_id: g for g in apply_hard_gates(acts, halted=True)}
+        assert gated["a"].disposition is AffordanceDisposition.BLOCKED
+        assert "halt" in gated["a"].blocked_by
+        assert gated["w"].disposition is AffordanceDisposition.WAIT_WATCH
+        assert gated["i"].disposition is AffordanceDisposition.INFORMATION_GATHERING
+
+    def test_missing_capability_makes_unavailable(self):
+        acts = [_aff("a", required_capabilities=["github:write"])]
+        gated = apply_hard_gates(acts, capabilities_held=frozenset({"github:read"}))
+        assert gated[0].disposition is AffordanceDisposition.UNAVAILABLE
+        assert any("github:write" in b for b in gated[0].blocked_by)
+
+    def test_live_blockers_block_by_id(self):
+        acts = [_aff("a"), _aff("b")]
+        gated = {
+            g.affordance_id: g
+            for g in apply_hard_gates(acts, live_blockers={"a": ["lease conflict"]})
+        }
+        assert gated["a"].disposition is AffordanceDisposition.BLOCKED
+        assert gated["a"].blocked_by == ["lease conflict"]
+        assert gated["b"].disposition is AffordanceDisposition.CONDITIONAL
+
+    def test_gating_never_removes_items(self):
+        acts = [_aff("a"), _aff("b", required_capabilities=["x"])]
+        assert len(apply_hard_gates(acts, halted=True)) == 2
+
+    def test_inputs_are_not_mutated(self):
+        act = _aff("a")
+        apply_hard_gates([act], halted=True)
+        assert act.disposition is AffordanceDisposition.CONDITIONAL
+
+
+class TestParetoFrontier:
+    def test_dominated_candidate_is_excluded(self):
+        better = _aff("better", value=2.0, tokens=50)
+        worse = _aff("worse", value=1.0, tokens=100)
+        assert pareto_frontier([better, worse]) == [better]
+
+    def test_tradeoff_candidates_both_survive(self):
+        cheap = _aff("cheap", value=1.0, tokens=10)
+        strong = _aff("strong", value=5.0, tokens=1000)
+        frontier = pareto_frontier([cheap, strong])
+        assert {a.affordance_id for a in frontier} == {"cheap", "strong"}
+
+    def test_blocked_and_unavailable_never_ranked(self):
+        blocked = _aff("x", value=99.0, tokens=1, disposition=AffordanceDisposition.BLOCKED)
+        ok = _aff("ok")
+        assert pareto_frontier([blocked, ok]) == [ok]
+
+    def test_risk_tier_is_an_axis(self):
+        safe = _aff("safe", value=1.0, tokens=100, risk=0)
+        risky = _aff("risky", value=1.0, tokens=100, risk=4)
+        assert pareto_frontier([safe, risky]) == [safe]
+
+    def test_wait_watch_can_sit_on_the_frontier(self):
+        wait = _aff(
+            "wait",
+            value=0.5,
+            tokens=1,
+            disposition=AffordanceDisposition.WAIT_WATCH,
+            wait=WaitSpec(
+                wake_predicates=["pr:9932:checks_complete"],
+                deadline_epoch=2_000_000.0,
+                expected_evidence=["check rollup"],
+                fallback_affordance_id="probe",
+                owner="session",
+                cancellation="drop the watch; no side effects",
+            ),
+        )
+        act = _aff("act", value=0.4, tokens=500)
+        frontier = pareto_frontier([wait, act])
+        assert {a.affordance_id for a in frontier} == {"wait"}
+
+
+class TestFromWorkRecommendation:
+    def _rec(self, blockers: list[str] | None = None) -> WorkRecommendation:
+        return WorkRecommendation(
+            rank=1,
+            item_id="bead-1",
+            classification="feature",
+            action="implement",
+            priority="high",
+            rationale=["small and ready"],
+            blockers=blockers or [],
+        )
+
+    def test_clean_recommendation_is_conditional(self):
+        aff = from_work_recommendation(self._rec())
+        assert aff.disposition is AffordanceDisposition.CONDITIONAL
+        assert aff.target == "bead-1"
+        assert aff.operation == "implement"
+        assert aff.epistemics is not None
+        assert aff.epistemics.state is KnowledgeState.ESTIMATED
+
+    def test_live_blocker_contradicting_clean_rec_is_conflicted_and_blocked(self):
+        """A rec with no blockers while live authority says blocked must surface
+        the contradiction instead of staying 'ready'."""
+        aff = from_work_recommendation(self._rec(), live_blockers=["settlement BLOCKED"])
+        assert aff.disposition is AffordanceDisposition.BLOCKED
+        assert "settlement BLOCKED" in aff.blocked_by
+        assert aff.epistemics.state is KnowledgeState.CONFLICTED
+
+    def test_rec_own_blockers_block_without_conflict(self):
+        aff = from_work_recommendation(self._rec(blockers=["needs spec"]))
+        assert aff.disposition is AffordanceDisposition.BLOCKED
+        assert aff.epistemics.state is KnowledgeState.ESTIMATED
