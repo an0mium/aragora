@@ -395,7 +395,6 @@ class TestHandleMajorityConsensus:
             deps=ConsensusDependencies(protocol=protocol),
             callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
         )
-
         await phase._handle_majority_consensus(ctx)
 
         assert ctx.result.consensus_reached is False
@@ -440,12 +439,15 @@ class TestHandleMajorityConsensus:
         ctx, protocol = make_context(agents=agents, consensus_mode="majority")
 
         async def vote_with_agent(agent, proposals, task):
+            if int(agent.name.removeprefix("agent")) >= 6:
+                await asyncio.sleep(10)
             return make_vote(agent=agent.name, choice="agent0")
 
         phase = ConsensusPhase(
             deps=ConsensusDependencies(protocol=protocol),
             callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
         )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
 
         await phase._handle_majority_consensus(ctx)
 

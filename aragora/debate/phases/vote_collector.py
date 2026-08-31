@@ -61,6 +61,22 @@ def get_complexity_governor() -> Any:
     return _get_governor()
 
 
+def _settle_decisive_vote_tasks(
+    tasks: list[asyncio.Task],
+    consume: Callable[[asyncio.Task], None],
+    observe: Callable[[asyncio.Task], None],
+) -> None:
+    for task in tasks:
+        if task.done():
+            consume(task)
+        elif task.cancel():
+            observe(task)
+        elif task.done():
+            consume(task)
+        else:
+            observe(task)
+
+
 @dataclass
 class VoteCollectorConfig:
     """Configuration for VoteCollector."""
@@ -600,6 +616,41 @@ class VoteCollector:
                     )
                 voting_errors += 1
 
+            def consume_completed_task(vote_task: asyncio.Task) -> None:
+                nonlocal voting_errors
+                if vote_task.cancelled():
+                    return
+                task_error = vote_task.exception()
+                if task_error is not None:
+                    raise task_error
+                remaining_agent, remaining_result = vote_task.result()
+                if id(remaining_agent) in processed_agent_ids:
+                    return
+                processed_agent_ids.add(id(remaining_agent))
+                if remaining_result is None or isinstance(remaining_result, Exception):
+                    record_vote_failure(remaining_agent, remaining_result)
+                    return
+                votes.append(remaining_result)
+                self._handle_vote_success(ctx, remaining_agent, remaining_result, unanimous_mode)
+
+            def observe_skipped_task(vote_task: asyncio.Task) -> None:
+                loop = asyncio.get_running_loop()
+
+                def retrieve_result(completed_task: asyncio.Task) -> None:
+                    if completed_task.cancelled():
+                        return
+                    task_error = completed_task.exception()
+                    if task_error is not None and not isinstance(task_error, Exception):
+                        loop.call_exception_handler(
+                            {
+                                "message": "control-flow failure in skipped vote cleanup",
+                                "exception": task_error,
+                                "task": completed_task,
+                            }
+                        )
+
+                vote_task.add_done_callback(retrieve_result)
+
             for completed_task in asyncio.as_completed(vote_tasks):
                 try:
                     agent, vote_result = await completed_task
@@ -628,35 +679,9 @@ class VoteCollector:
                     if not unanimous_mode:
                         has_majority, leader = self._check_clear_majority(votes, total_agents)
                         if has_majority:
-                            for vote_task in vote_tasks:
-                                if not vote_task.done():
-                                    vote_task.cancel()
-
-                            # Completed failures cannot become RLM skips; successes still can.
-                            remaining_results = await asyncio.gather(
-                                *vote_tasks,
-                                return_exceptions=True,
+                            _settle_decisive_vote_tasks(
+                                vote_tasks, consume_completed_task, observe_skipped_task
                             )
-                            for remaining_result in remaining_results:
-                                if isinstance(remaining_result, asyncio.CancelledError):
-                                    continue
-                                if isinstance(remaining_result, BaseException):
-                                    logger.error(
-                                        "task_exception phase=%s_vote error=%s",
-                                        vote_mode,
-                                        remaining_result,
-                                    )
-                                    voting_errors += 1
-                                    continue
-                                remaining_agent, unconsumed_result = remaining_result
-                                if id(remaining_agent) in processed_agent_ids:
-                                    continue
-                                processed_agent_ids.add(id(remaining_agent))
-                                if unconsumed_result is None or isinstance(
-                                    unconsumed_result,
-                                    Exception,
-                                ):
-                                    record_vote_failure(remaining_agent, unconsumed_result)
                             early_terminated = True
 
                             if self._notify_spectator:
