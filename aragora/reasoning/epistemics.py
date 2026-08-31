@@ -136,7 +136,11 @@ def reconcile(
     The higher-authority side supplies the value. When the values disagree the
     resulting tag is CONFLICTED (carrying both bases) so no consumer can treat
     the claim as settled: a lower-authority recommendation can never override
-    a higher-authority blocker, and the contradiction stays visible.
+    a higher-authority blocker, and the contradiction stays visible. At equal
+    authority rank the live side wins the tie and supplies the value. The
+    CONFLICTED tag intentionally resets ``observed_at``, ``ttl_seconds``, and
+    ``disposition`` to their defaults — the conflict itself is a fresh finding,
+    not an aging of either input fact.
     """
     if live.authority_rank() <= claimed.authority_rank():
         winner_value, winner, loser = live_value, live, claimed

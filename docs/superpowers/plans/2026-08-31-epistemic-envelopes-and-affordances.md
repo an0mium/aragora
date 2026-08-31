@@ -294,7 +294,11 @@ def reconcile(
     The higher-authority side supplies the value. When the values disagree the
     resulting tag is CONFLICTED (carrying both bases) so no consumer can treat
     the claim as settled: a lower-authority recommendation can never override
-    a higher-authority blocker, and the contradiction stays visible.
+    a higher-authority blocker, and the contradiction stays visible. At equal
+    authority rank the live side wins the tie and supplies the value. The
+    CONFLICTED tag intentionally resets ``observed_at``, ``ttl_seconds``, and
+    ``disposition`` to their defaults — the conflict itself is a fresh finding,
+    not an aging of either input fact.
     """
     if live.authority_rank() <= claimed.authority_rank():
         winner_value, winner, loser = live_value, live, claimed
@@ -422,6 +426,36 @@ class TestHardGates:
         apply_hard_gates([act], halted=True)
         assert act.disposition is AffordanceDisposition.CONDITIONAL
 
+    def test_pre_existing_blocked_by_survives_new_gate_reason(self):
+        """A candidate that already carries blocked_by (e.g. from
+        from_work_recommendation) must not lose those reasons when a hard
+        gate downgrades it further — both the prior and new reasons should
+        be visible, and a candidate with no new gate reason must pass
+        through unchanged."""
+        aff = from_work_recommendation(
+            WorkRecommendation(
+                rank=1,
+                item_id="bead-2",
+                classification="feature",
+                action="implement",
+                priority="high",
+                rationale=["ready"],
+                blockers=["needs spec"],
+            )
+        )
+        assert aff.blocked_by == ["needs spec"]
+
+        gated = apply_hard_gates([aff], halted=True)
+        assert "needs spec" in gated[0].blocked_by
+        assert "halt" in gated[0].blocked_by
+        # inputs not mutated
+        assert aff.blocked_by == ["needs spec"]
+
+        # No new gate reason applies: passes through unchanged.
+        gated_no_gate = apply_hard_gates([aff])
+        assert gated_no_gate[0] is aff
+        assert gated_no_gate[0].blocked_by == ["needs spec"]
+
 
 class TestParetoFrontier:
     def test_dominated_candidate_is_excluded(self):
@@ -444,6 +478,13 @@ class TestParetoFrontier:
         safe = _aff("safe", value=1.0, tokens=100, risk=0)
         risky = _aff("risky", value=1.0, tokens=100, risk=4)
         assert pareto_frontier([safe, risky]) == [safe]
+
+    def test_human_attention_is_an_axis(self):
+        approval_free = _aff("free", value=1.0, cost=CostVector(tokens=100, human_attention=0))
+        needs_approval = _aff(
+            "approval", value=1.0, cost=CostVector(tokens=100, human_attention=2)
+        )
+        assert pareto_frontier([approval_free, needs_approval]) == [approval_free]
 
     def test_wait_watch_can_sit_on_the_frontier(self):
         wait = _aff(
@@ -675,37 +716,54 @@ def apply_hard_gates(
 
     Never removes items: a blocked action stays visible as blocked, which is
     the point — the agent sees what it cannot do and why. Inputs are not
-    mutated; downgraded copies are returned.
+    mutated; downgraded copies are returned. Every downgrade branch preserves
+    a candidate's pre-existing ``blocked_by`` entries (listed before any new
+    gate-derived reason), so a candidate already blocked for its own reasons
+    never loses that context when a gate also fires. A candidate whose only
+    blockers are pre-existing — no new gate reason applies — passes through
+    unchanged rather than being re-wrapped.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
+        gate_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
         if missing:
             gated.append(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.UNAVAILABLE,
-                    blocked_by=[*reasons, *(f"missing capability: {c}" for c in missing)],
+                    blocked_by=[
+                        *cand.blocked_by,
+                        *gate_reasons,
+                        *(f"missing capability: {c}" for c in missing),
+                    ],
                 )
             )
             continue
         if halted and cand.disposition not in _HALT_EXEMPT:
             gated.append(
-                replace(cand, disposition=AffordanceDisposition.BLOCKED, blocked_by=[*reasons, "halt"])
+                replace(
+                    cand,
+                    disposition=AffordanceDisposition.BLOCKED,
+                    blocked_by=[*cand.blocked_by, *gate_reasons, "halt"],
+                )
             )
             continue
-        if reasons:
+        if gate_reasons:
             gated.append(
-                replace(cand, disposition=AffordanceDisposition.BLOCKED, blocked_by=reasons)
+                replace(
+                    cand,
+                    disposition=AffordanceDisposition.BLOCKED,
+                    blocked_by=[*cand.blocked_by, *gate_reasons],
+                )
             )
             continue
         gated.append(cand)
     return gated
 
 
-def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, float]:
+def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, float, float]:
     """All-minimized objective tuple (value negated so higher value is better)."""
     return (
         -a.expected_value,
@@ -713,6 +771,7 @@ def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, floa
         a.cost.seconds,
         a.cost.money_usd,
         float(a.risk_tier),
+        float(a.cost.human_attention),
     )
 
 

@@ -166,39 +166,54 @@ def apply_hard_gates(
 
     Never removes items: a blocked action stays visible as blocked, which is
     the point — the agent sees what it cannot do and why. Inputs are not
-    mutated; downgraded copies are returned.
+    mutated; downgraded copies are returned. Every downgrade branch preserves
+    a candidate's pre-existing ``blocked_by`` entries (listed before any new
+    gate-derived reason), so a candidate already blocked for its own reasons
+    never loses that context when a gate also fires. A candidate whose only
+    blockers are pre-existing — no new gate reason applies — passes through
+    unchanged rather than being re-wrapped.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
+        gate_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
         if missing:
             gated.append(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.UNAVAILABLE,
-                    blocked_by=[*reasons, *(f"missing capability: {c}" for c in missing)],
+                    blocked_by=[
+                        *cand.blocked_by,
+                        *gate_reasons,
+                        *(f"missing capability: {c}" for c in missing),
+                    ],
                 )
             )
             continue
         if halted and cand.disposition not in _HALT_EXEMPT:
             gated.append(
                 replace(
-                    cand, disposition=AffordanceDisposition.BLOCKED, blocked_by=[*reasons, "halt"]
+                    cand,
+                    disposition=AffordanceDisposition.BLOCKED,
+                    blocked_by=[*cand.blocked_by, *gate_reasons, "halt"],
                 )
             )
             continue
-        if reasons:
+        if gate_reasons:
             gated.append(
-                replace(cand, disposition=AffordanceDisposition.BLOCKED, blocked_by=reasons)
+                replace(
+                    cand,
+                    disposition=AffordanceDisposition.BLOCKED,
+                    blocked_by=[*cand.blocked_by, *gate_reasons],
+                )
             )
             continue
         gated.append(cand)
     return gated
 
 
-def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, float]:
+def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, float, float]:
     """All-minimized objective tuple (value negated so higher value is better)."""
     return (
         -a.expected_value,
@@ -206,6 +221,7 @@ def _frontier_key(a: ActionAffordance) -> tuple[float, float, float, float, floa
         a.cost.seconds,
         a.cost.money_usd,
         float(a.risk_tier),
+        float(a.cost.human_attention),
     )
 
 

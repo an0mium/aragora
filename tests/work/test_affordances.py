@@ -74,6 +74,36 @@ class TestHardGates:
         apply_hard_gates([act], halted=True)
         assert act.disposition is AffordanceDisposition.CONDITIONAL
 
+    def test_pre_existing_blocked_by_survives_new_gate_reason(self):
+        """A candidate that already carries blocked_by (e.g. from
+        from_work_recommendation) must not lose those reasons when a hard
+        gate downgrades it further — both the prior and new reasons should
+        be visible, and a candidate with no new gate reason must pass
+        through unchanged."""
+        aff = from_work_recommendation(
+            WorkRecommendation(
+                rank=1,
+                item_id="bead-2",
+                classification="feature",
+                action="implement",
+                priority="high",
+                rationale=["ready"],
+                blockers=["needs spec"],
+            )
+        )
+        assert aff.blocked_by == ["needs spec"]
+
+        gated = apply_hard_gates([aff], halted=True)
+        assert "needs spec" in gated[0].blocked_by
+        assert "halt" in gated[0].blocked_by
+        # inputs not mutated
+        assert aff.blocked_by == ["needs spec"]
+
+        # No new gate reason applies: passes through unchanged.
+        gated_no_gate = apply_hard_gates([aff])
+        assert gated_no_gate[0] is aff
+        assert gated_no_gate[0].blocked_by == ["needs spec"]
+
 
 class TestParetoFrontier:
     def test_dominated_candidate_is_excluded(self):
@@ -96,6 +126,11 @@ class TestParetoFrontier:
         safe = _aff("safe", value=1.0, tokens=100, risk=0)
         risky = _aff("risky", value=1.0, tokens=100, risk=4)
         assert pareto_frontier([safe, risky]) == [safe]
+
+    def test_human_attention_is_an_axis(self):
+        approval_free = _aff("free", value=1.0, cost=CostVector(tokens=100, human_attention=0))
+        needs_approval = _aff("approval", value=1.0, cost=CostVector(tokens=100, human_attention=2))
+        assert pareto_frontier([approval_free, needs_approval]) == [approval_free]
 
     def test_wait_watch_can_sit_on_the_frontier(self):
         wait = _aff(
