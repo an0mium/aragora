@@ -147,6 +147,48 @@
         "freshness": { "$ref": "#/$defs/freshness" },
         "invalidators": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       },
+      "allOf": [
+        {
+          "if": { "properties": { "authority": { "const": "live_authority" } } },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "items": { "properties": { "authority": { "const": "live_authority" } } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "authority": { "const": "durable_state" } } },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "items": {
+                  "properties": {
+                    "authority": { "enum": ["live_authority", "durable_state"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "authority": { "const": "commit_evidence" } } },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "items": {
+                  "properties": {
+                    "authority": {
+                      "enum": ["live_authority", "durable_state", "commit_evidence"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "workRecommendation": {
@@ -323,7 +365,6 @@
         "kind",
         "mode",
         "orientation_fingerprint",
-        "since_fingerprint",
         "repository_anchor",
         "changed",
         "next_legal_actions",
@@ -334,7 +375,6 @@
         "kind": { "const": "orientation" },
         "mode": { "const": "no_change" },
         "orientation_fingerprint": { "$ref": "#/$defs/fingerprint" },
-        "since_fingerprint": { "$ref": "#/$defs/fingerprint" },
         "repository_anchor": { "$ref": "#/$defs/repositoryAnchor" },
         "changed": { "const": false },
         "next_legal_actions": { "type": "array", "items": { "type": "string" }, "maxItems": 1 },

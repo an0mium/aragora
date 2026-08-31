@@ -69,8 +69,9 @@ envelope contains:
   invariant `mutations: []`.
 
 A compact `no_change` variant proves that the prior orientation fingerprint still
-matches. It carries the current anchor and next legal action but does not repeat
-the full envelope.
+matches. Its sole `orientation_fingerprint` is the value matched from `--since`,
+so the representation cannot encode two disagreeing fingerprints. It carries the
+current anchor and next legal action but does not repeat the full envelope.
 
 Every derived record carries its lower-layer `basis_fingerprint`, evidence
 references, authority, freshness, invalidators, and bounded cost. Evidence
@@ -90,6 +91,9 @@ record from acquiring the authority of the live or durable state it summarizes.
   dependent affordances.
 - Anchor movement invalidates commit-bound Nomic results and decision evidence.
 - Truncation is explicit, deterministic, and never silently removes a blocker.
+  `truncation.emitted_bytes` is the exact byte length of the complete envelope
+  serialized as compact, key-sorted UTF-8 JSON.
+- A fact's authority cannot exceed the authority of any cited evidence handle.
 - High-risk or permission-missing actions stop at `requires_authorization`; an
   orientation response never performs an effect.
 

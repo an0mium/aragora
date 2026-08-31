@@ -42,10 +42,20 @@ DERIVED_EXAMPLES = (
     ("fresh_orientation.json", "affordances"),
     ("interrupted_resumption.json", "obligations"),
 )
+AUTHORITY_PRECEDENCE = (
+    "live_authority",
+    "durable_state",
+    "commit_evidence",
+    "derived_recommendation",
+)
 
 
 def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _canonical_bytes(document: dict[str, Any]) -> bytes:
+    return json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -102,6 +112,31 @@ def test_fresh_trace_exercises_source_fact_belief_and_nomic() -> None:
     assert document["nomic"]["state"] == "absent"
 
 
+@pytest.mark.parametrize("fixture_name", sorted(FIXTURE_NAMES - {"quiet_no_change.json"}))
+def test_truncation_emitted_bytes_is_canonically_measured(fixture_name: str) -> None:
+    document = _load(FIXTURE_DIR / fixture_name)
+    emitted_bytes = len(_canonical_bytes(document))
+    assert document["truncation"]["emitted_bytes"] == emitted_bytes
+    assert emitted_bytes <= document["truncation"]["budget_bytes"]
+
+
+@pytest.mark.parametrize("fact_authority", AUTHORITY_PRECEDENCE)
+@pytest.mark.parametrize("evidence_authority", AUTHORITY_PRECEDENCE)
+def test_fact_authority_cannot_exceed_cited_evidence(
+    validator: Any, fact_authority: str, evidence_authority: str
+) -> None:
+    document = _load(FIXTURE_DIR / "fresh_orientation.json")
+    fact = document["facts"][0]
+    fact["authority"] = fact_authority
+    fact["evidence_refs"][0]["authority"] = evidence_authority
+
+    if AUTHORITY_PRECEDENCE.index(fact_authority) < AUTHORITY_PRECEDENCE.index(evidence_authority):
+        with pytest.raises(jsonschema.ValidationError):
+            validator.validate(document)
+    else:
+        validator.validate(document)
+
+
 def test_live_blocker_overrides_ready_recommendation() -> None:
     document = _load(FIXTURE_DIR / "interrupted_resumption.json")
     assert document["work_recommendations"][0]["classification"] == "ready"
@@ -122,10 +157,17 @@ def test_high_risk_trace_requests_authorization_without_effect() -> None:
 
 def test_quiet_no_change_trace_fits_wire_budget() -> None:
     document = _load(FIXTURE_DIR / "quiet_no_change.json")
-    encoded = json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
+    encoded = _canonical_bytes(document)
     assert len(encoded) <= 800
-    assert document["orientation_fingerprint"] == document["since_fingerprint"]
+    assert "since_fingerprint" not in document
     assert document["mutations"] == []
+
+
+def test_no_change_rejects_a_second_fingerprint(validator: Any) -> None:
+    document = _load(FIXTURE_DIR / "quiet_no_change.json")
+    document["since_fingerprint"] = "sha256:" + ("0" * 64)
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(document)
 
 
 @pytest.mark.parametrize(
