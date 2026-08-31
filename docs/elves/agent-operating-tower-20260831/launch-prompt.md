@@ -19,7 +19,7 @@ Before any mutation:
    checkout remains untouched.
 3. Read operator steering, record outcomes for any messages, refresh the
    heartbeat, and verify lane `agent-operating-tower-20260831` and lease
-   `c98d5943-661` are still held by
+   `82e882f4-7f4` are still held by
    `codex-agent-operating-tower-20260831` with the intended scope.
 4. Refresh exact `origin/main`, halt state, main health, protected required
    contexts, ownership, and the branch-tip tripwire. If the base moved, follow

@@ -10,7 +10,7 @@ Read this file and `plan.md` before every batch or after any compaction.
 - Worktree: `$HOME/.codex/worktrees/agent-operating-tower-20260831/aragora`
 - Owner session: `codex-agent-operating-tower-20260831`
 - Lane: `agent-operating-tower-20260831`
-- Lease: `c98d5943-661`
+- Lease: `82e882f4-7f4`
 - Starting base: `2b94459bc0e316c3c0c1eb285695bf2a0c73c647`
 - Deadline: `2026-09-01T13:10:47Z`
 - Runtime state: `.aragora/run-agent-operating-tower-20260831/session.json`

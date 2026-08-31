@@ -21,7 +21,7 @@ authority and settlement machinery.
 - Branch: `codex/agent-operating-tower-20260831`
 - Worktree: `$HOME/.codex/worktrees/agent-operating-tower-20260831/aragora`
 - Lane: `agent-operating-tower-20260831`
-- Lease: `c98d5943-661`
+- Lease: `82e882f4-7f4` (Batch 1 exact scope; replaces broad staging lease)
 - Coordinator: `codex-agent-operating-tower-20260831`
 - Runtime receipts: `.aragora/run-agent-operating-tower-20260831/receipts/`
 - Fable advisory: `.aragora/goal_cycles/20260831T130312Z/` in the pristine

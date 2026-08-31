@@ -15,8 +15,10 @@
 
 - Shared checkout observed dirty, ahead/behind, and left untouched.
 - Clean worktree created at the pinned `origin/main` SHA.
-- Scoped lease `c98d5943-661` and active lane
-  `agent-operating-tower-20260831` claimed; heartbeat recorded.
+- Initial staging lease `c98d5943-661` and active lane
+  `agent-operating-tower-20260831` claimed; heartbeat recorded. At Batch 1 it
+  was replaced by exact-scope lease `82e882f4-7f4`, releasing the unnecessary
+  global `tests/**` claim so Foreman #5749 could proceed.
 - No operator steering, active merge halt, or lease conflict observed.
 - Protected required-context disclosure refreshed from classic protection and
   applied branch rules.
