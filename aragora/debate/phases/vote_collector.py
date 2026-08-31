@@ -559,7 +559,9 @@ class VoteCollector:
                 return (agent, vote_result)
             except asyncio.CancelledError:
                 raise
-            except Exception as e:  # noqa: BLE001 - preserve the failing voter identity
+            except BaseException as e:  # noqa: BLE001 - preserve the failing voter identity
+                if not isinstance(e, Exception):
+                    raise
                 logger.warning(
                     "vote_exception_%s agent=%s error=%s: %s",
                     vote_mode,
@@ -630,8 +632,7 @@ class VoteCollector:
                                 if not vote_task.done():
                                     vote_task.cancel()
 
-                            # Consume tasks so completed failures cannot become RLM skips;
-                            # unconsumed successful ballots remain intentionally skipped.
+                            # Completed failures cannot become RLM skips; successes still can.
                             remaining_results = await asyncio.gather(
                                 *vote_tasks,
                                 return_exceptions=True,

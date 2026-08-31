@@ -462,7 +462,6 @@ class TestHandleMajorityConsensus:
 
     @pytest.mark.asyncio
     async def test_rlm_completed_failure_is_not_reported_as_skipped(self):
-        """A completed failure after decisive votes remains failed end to end."""
         agents = [MockAgent(name=f"agent{i}") for i in range(10)]
         ctx, protocol = make_context(agents=agents, consensus_mode="majority")
 
