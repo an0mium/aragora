@@ -28,7 +28,7 @@ import logging
 import math
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -40,7 +40,13 @@ from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
-from aragora.debate.phases.vote_collector import VoteCollector, VoteCollectorConfig
+from aragora.debate.phases.vote_collector import (
+    MajorityVoteCollection,
+    SlotVote,
+    VoteCollector,
+    VoteCollectorConfig,
+    VoterSlot,
+)
 from aragora.debate.phases.weight_calculator import WeightCalculator
 from aragora.debate.phases.winner_selector import WinnerSelector
 from aragora.events.context import streaming_task_context
@@ -93,6 +99,128 @@ class ConsensusCallbacks:
     get_belief_analyzer: Callable | None = None
     user_vote_multiplier: Callable | None = None
     verify_claims: Callable | None = None  # Optional verification callback
+
+
+@dataclass(frozen=True, slots=True)
+class _MajoritySnapshot:
+    """Immutable decision inputs for one majority-consensus attempt."""
+
+    effective_threshold: float
+    min_participation_ratio: float
+    min_participation_count: int
+    required_participation: int
+    slots: tuple[VoterSlot, ...]
+    fixed_slot_weights: tuple[float, ...] | None
+
+    @classmethod
+    def capture(
+        cls,
+        *,
+        effective_threshold: float,
+        agents: tuple[Any, ...],
+        min_participation_ratio: float,
+        min_participation_count: int,
+        fixed_weights_by_name: dict[str, float] | None,
+    ) -> "_MajoritySnapshot":
+        slots = tuple(
+            VoterSlot(index=index, name=str(getattr(agent, "name", "")))
+            for index, agent in enumerate(agents)
+        )
+        required = max(
+            min_participation_count,
+            math.ceil(len(slots) * min_participation_ratio),
+        )
+        required = min(required, max(len(slots), 1))
+        snapshot = cls(
+            effective_threshold=effective_threshold,
+            min_participation_ratio=min_participation_ratio,
+            min_participation_count=min_participation_count,
+            required_participation=required,
+            slots=slots,
+            fixed_slot_weights=None,
+        )
+        if fixed_weights_by_name is None:
+            return snapshot
+        try:
+            slot_weights = snapshot.align_weights(fixed_weights_by_name)
+        except ValueError:
+            slot_weights = None
+        return replace(snapshot, fixed_slot_weights=slot_weights)
+
+    @property
+    def eligible_count(self) -> int:
+        return len(self.slots)
+
+    @property
+    def agent_names(self) -> tuple[str, ...]:
+        return tuple(slot.name for slot in self.slots)
+
+    def align_weights(self, weights_by_name: dict[str, float]) -> tuple[float, ...]:
+        """Expand name-keyed legacy weights onto every exact voter slot."""
+        weights: list[float] = []
+        for slot in self.slots:
+            raw_weight = weights_by_name.get(slot.name, 1.0)
+            if (
+                isinstance(raw_weight, bool)
+                or not isinstance(raw_weight, (int, float))
+                or not math.isfinite(raw_weight)
+                or raw_weight < 0.0
+            ):
+                raise ValueError(f"Invalid vote weight for slot {slot.index}")
+            weights.append(float(raw_weight))
+        if weights and (not math.isfinite(sum(weights)) or sum(weights) <= 0.0):
+            raise ValueError("Invalid aggregate voter weight")
+        return tuple(weights)
+
+    def decisive_leader(
+        self,
+        ballots: tuple[SlotVote, ...],
+        *,
+        minimum_collection_ratio: float,
+        minimum_lead_ratio: float,
+    ) -> tuple[bool, str | None]:
+        """Return a winner only when no allocation of pending weight can overtake it."""
+        weights = self.fixed_slot_weights
+        if weights is None or not self.slots or not ballots:
+            return False, None
+        minimum_ballots = int(self.eligible_count * minimum_collection_ratio)
+        if len(ballots) < minimum_ballots:
+            return False, None
+
+        seen_slots: set[int] = set()
+        counts: dict[str, float] = {}
+        received_weight = 0.0
+        for ballot in ballots:
+            slot_index = ballot.slot.index
+            choice = getattr(ballot.vote, "choice", None)
+            if (
+                slot_index in seen_slots
+                or slot_index < 0
+                or slot_index >= self.eligible_count
+                or self.slots[slot_index] != ballot.slot
+                or not isinstance(choice, str)
+                or not choice
+            ):
+                return False, None
+            seen_slots.add(slot_index)
+            weight = weights[slot_index]
+            counts[choice] = counts.get(choice, 0.0) + weight
+            received_weight += weight
+
+        total_weight = sum(weights)
+        leader, leader_weight = max(counts.items(), key=lambda item: item[1])
+        runner_up = max(
+            (weight for choice, weight in counts.items() if choice != leader), default=0.0
+        )
+        pending_weight = max(0.0, total_weight - received_weight)
+        strongest_possible_competitor = runner_up + pending_weight
+        if leader_weight / total_weight < self.effective_threshold:
+            return False, None
+        if leader_weight <= strongest_possible_competitor:
+            return False, None
+        if leader_weight - strongest_possible_competitor < total_weight * minimum_lead_ratio:
+            return False, None
+        return True, leader
 
 
 class ConsensusPhase:
@@ -618,14 +746,14 @@ class ConsensusPhase:
         """Handle 'majority' consensus mode - weighted voting."""
         result = require_phase_result(ctx)
         proposals = ctx.proposals
+        eligible_agents = tuple(ctx.agents)
 
         # Compute adaptive threshold when enabled and no explicit override
         if threshold_override is None and self._adaptive_consensus is not None:
             try:
-                agents = ctx.agents or []
                 threshold_override, explanation = (
                     self._adaptive_consensus.compute_threshold_with_explanation(
-                        agents,
+                        list(eligible_agents),
                         elo_system=self.elo_system,
                         calibration_tracker=self.calibration_tracker,
                     )
@@ -640,31 +768,91 @@ class ConsensusPhase:
                 logger.info(
                     "adaptive_consensus_threshold=%.4f for %d agents",
                     threshold_override,
-                    len(agents),
+                    len(eligible_agents),
                 )
             except (TypeError, ValueError, AttributeError) as e:
                 logger.debug("Adaptive consensus computation failed: %s", e)
                 threshold_override = None
 
-        # Cast votes from all agents
-        votes = await self._collect_votes(ctx)
-        if not self._ensure_quorum(ctx, len(votes)):
+        effective_threshold = (
+            threshold_override
+            if threshold_override is not None
+            else getattr(self.protocol, "consensus_threshold", 0.5)
+        )
+        min_participation_ratio = getattr(self.protocol, "min_participation_ratio", 0.5)
+        min_participation_count = getattr(self.protocol, "min_participation_count", 1)
+        fixed_weights_by_name = None
+        if self._rlm_tally_inputs_are_fixed():
+            fixed_weights_by_name = self._compute_vote_weights(
+                ctx,
+                agents=eligible_agents,
+            )
+        majority_snapshot = _MajoritySnapshot.capture(
+            effective_threshold=effective_threshold,
+            agents=eligible_agents,
+            min_participation_ratio=min_participation_ratio,
+            min_participation_count=min_participation_count,
+            fixed_weights_by_name=fixed_weights_by_name,
+        )
+        roster = tuple(zip(majority_snapshot.slots, eligible_agents, strict=True))
+
+        should_stop = None
+        if (
+            self._vote_collector.config.enable_rlm_early_termination
+            and majority_snapshot.fixed_slot_weights is not None
+        ):
+
+            def should_stop(ballots: tuple[SlotVote, ...]) -> tuple[bool, str | None]:
+                return majority_snapshot.decisive_leader(
+                    ballots,
+                    minimum_collection_ratio=(
+                        self._vote_collector.config.rlm_early_termination_threshold
+                    ),
+                    minimum_lead_ratio=self._vote_collector.config.rlm_majority_lead_threshold,
+                )
+
+        collection = await self._vote_collector.collect_majority_votes(
+            ctx,
+            roster,
+            should_stop=should_stop,
+        )
+        self._record_vote_participation(ctx, collection, majority_snapshot)
+        if not self._ensure_quorum(
+            ctx,
+            len(collection.ballots),
+            required=majority_snapshot.required_participation,
+            total_agents=majority_snapshot.eligible_count,
+        ):
             return
 
         # Apply calibration adjustments to vote confidences
-        votes = self._apply_calibration_to_votes(votes, ctx)
+        votes = self._apply_calibration_to_votes(collection.votes, ctx)
+        ballots = tuple(
+            replace(ballot, vote=vote)
+            for ballot, vote in zip(collection.ballots, votes, strict=True)
+        )
 
         result.votes.extend(votes)
 
         # Group similar votes
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
-        # Pre-compute vote weights (pass votes for bias mitigation)
-        vote_weight_cache = self._compute_vote_weights(ctx, votes=votes)
+        # Vote-dependent weighting is delayed until every slot has reached a
+        # terminal outcome; fixed weighting reuses the capture-time values.
+        slot_weights = majority_snapshot.fixed_slot_weights
+        if slot_weights is None:
+            vote_weight_cache = self._compute_vote_weights(
+                ctx,
+                votes=votes,
+                agents=majority_snapshot.slots,
+            )
+            slot_weights = majority_snapshot.align_weights(vote_weight_cache)
 
-        # Count weighted votes
-        vote_counts, total_weighted = self._count_weighted_votes(
-            votes, choice_mapping, vote_weight_cache
+        # Missing, failed, and early-stopped slots remain in the denominator.
+        vote_counts, total_weighted = self._count_snapshot_votes(
+            ballots,
+            choice_mapping,
+            slot_weights,
         )
 
         # Include user votes
@@ -712,8 +900,14 @@ class ConsensusPhase:
             vote_counts,
             total_weighted,
             choice_mapping,
-            normalize_choice=self._normalize_choice_to_agent,
-            threshold_override=threshold_override,
+            normalize_choice=lambda choice, _agents, current_proposals: (
+                self._normalize_choice_to_names(
+                    choice,
+                    majority_snapshot.agent_names,
+                    current_proposals,
+                )
+            ),
+            threshold_override=majority_snapshot.effective_threshold,
         )
 
         # Apply process verification gate if enabled
@@ -1590,10 +1784,31 @@ class ConsensusPhase:
         """Group similar votes and create choice mapping."""
         return self._vote_collector.compute_vote_groups(votes)
 
+    def _rlm_tally_inputs_are_fixed(self) -> bool:
+        """Return whether collection-time weights can safely authorize a final decision."""
+        vote_dependent_features = (
+            "enable_self_vote_mitigation",
+            "enable_verbosity_normalization",
+            "verify_claims_during_consensus",
+            "enable_evidence_weighting",
+            "enable_process_evaluation",
+            "enable_epistemic_hygiene",
+            "enable_truth_ratio_weighting",
+        )
+        return not (
+            self._drain_user_events
+            or self.user_votes
+            or self._group_similar_votes
+            or getattr(self.protocol, "enable_position_shuffling", False)
+            or any(getattr(self.protocol, feature, False) for feature in vote_dependent_features)
+        )
+
     def _compute_vote_weights(
         self,
         ctx: "DebateContext",
         votes: list["Vote"] | None = None,
+        *,
+        agents: tuple[Any, ...] | None = None,
     ) -> dict[str, float]:
         """Pre-compute vote weights for all agents.
 
@@ -1635,11 +1850,17 @@ class ConsensusPhase:
             domain=domain,
         )
 
+        eligible_agents = list(ctx.agents if agents is None else agents)
+
         # Use bias-aware computation if votes and proposals available
         if votes and ctx.proposals and (enable_self_vote or enable_verbosity):
-            return calculator.compute_weights_with_context(ctx.agents, votes, ctx.proposals)
+            return calculator.compute_weights_with_context(
+                eligible_agents,
+                votes,
+                ctx.proposals,
+            )
 
-        return calculator.compute_weights(ctx.agents)
+        return calculator.compute_weights(eligible_agents)
 
     def _required_participation(self, total_agents: int) -> int:
         """Compute minimum required votes to proceed with consensus."""
@@ -1649,10 +1870,17 @@ class ConsensusPhase:
         # Never require more votes than agents available
         return min(required, max(total_agents, 1))
 
-    def _ensure_quorum(self, ctx: "DebateContext", vote_count: int) -> bool:
+    def _ensure_quorum(
+        self,
+        ctx: "DebateContext",
+        vote_count: int,
+        *,
+        required: int | None = None,
+        total_agents: int | None = None,
+    ) -> bool:
         """Ensure enough agents participated to make consensus meaningful."""
-        total_agents = len(ctx.agents)
-        required = self._required_participation(total_agents)
+        total_agents = len(ctx.agents) if total_agents is None else total_agents
+        required = self._required_participation(total_agents) if required is None else required
         if vote_count >= required:
             return True
 
@@ -1681,6 +1909,23 @@ class ConsensusPhase:
             )
 
         return False
+
+    def _record_vote_participation(
+        self,
+        ctx: "DebateContext",
+        collection: MajorityVoteCollection,
+        snapshot: _MajoritySnapshot,
+    ) -> None:
+        """Publish exact per-slot majority outcomes as additive result metadata."""
+        result = require_phase_result(ctx)
+        metadata = result.metadata if isinstance(result.metadata, dict) else {}
+        metadata["vote_participation"] = {
+            "eligible": snapshot.eligible_count,
+            "received": len(collection.ballots),
+            "failed": len(collection.failed_slots),
+            "skipped": len(collection.skipped_slots),
+        }
+        result.metadata = metadata
 
     def _apply_calibration_to_votes(
         self,
@@ -1750,6 +1995,20 @@ class ConsensusPhase:
 
         return vote_counts, total_weighted
 
+    def _count_snapshot_votes(
+        self,
+        ballots: tuple[SlotVote, ...],
+        choice_mapping: dict[str, str],
+        slot_weights: tuple[float, ...],
+    ) -> tuple[dict[str, float], float]:
+        """Count received ballots while retaining every eligible slot in the denominator."""
+        vote_counts: dict[str, float] = {}
+        for ballot in ballots:
+            canonical = choice_mapping.get(ballot.vote.choice, ballot.vote.choice)
+            weight = slot_weights[ballot.slot.index]
+            vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight
+        return vote_counts, sum(slot_weights)
+
     def _add_user_votes(
         self,
         vote_counts: dict[str, float],
@@ -1794,6 +2053,19 @@ class ConsensusPhase:
         proposals: dict[str, str],
     ) -> str:
         """Normalize a vote choice to an agent name."""
+        return self._normalize_choice_to_names(
+            choice,
+            tuple(agent.name for agent in agents),
+            proposals,
+        )
+
+    def _normalize_choice_to_names(
+        self,
+        choice: str,
+        agent_names: tuple[str, ...],
+        proposals: dict[str, str],
+    ) -> str:
+        """Normalize a choice against copied names rather than mutable agents."""
         if not choice:
             return choice
 
@@ -1806,8 +2078,7 @@ class ConsensusPhase:
             if agent_name.lower() == choice_lower:
                 return agent_name
 
-        for agent in agents:
-            agent_name = agent.name
+        for agent_name in agent_names:
             agent_lower = agent_name.lower()
 
             if agent_lower == choice_lower:
@@ -1824,7 +2095,7 @@ class ConsensusPhase:
                 if base_name == choice_lower or choice_lower.startswith(base_name):
                     return agent_name
 
-        logger.debug("vote_choice_no_match choice=%s agents=%s", choice, [a.name for a in agents])
+        logger.debug("vote_choice_no_match choice=%s agents=%s", choice, agent_names)
         return choice
 
     async def _verify_consensus_formally(self, ctx: "DebateContext") -> None:
