@@ -2083,10 +2083,17 @@ def main() -> int:
     if args.json:
         _write_stdout_line(json.dumps(result.to_dict(), indent=2))
     else:
-        _write_stdout_line("preflight=ok")
+        _write_stdout_line(f"preflight={'ok' if result.passed else 'blocked'}")
         _write_stdout_line(f"agent={result.agent}")
         _write_stdout_line(f"base_ref={result.base_ref}")
         _write_stdout_line(f"branch={result.branch}")
+        if not result.passed:
+            failed_check = next(
+                (item for item in result.checks if not bool(item.get("passed", False))),
+                None,
+            )
+            if failed_check is not None:
+                _write_stdout_line(f"failed_check={failed_check.get('name', 'preflight')}")
         checksum = str(result.worker.get("worker_contract_checksum", "")).strip()
         if checksum:
             _write_stdout_line(f"worker_contract_checksum={checksum}")
@@ -2095,7 +2102,7 @@ def main() -> int:
         ]
         if commit_shas:
             _write_stdout_line(f"commit_shas={','.join(commit_shas)}")
-    return 0
+    return 0 if result.passed else 2
 
 
 if __name__ == "__main__":

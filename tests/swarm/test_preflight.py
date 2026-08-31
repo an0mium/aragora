@@ -151,8 +151,38 @@ def test_run_preflight_returns_structured_result(monkeypatch, tmp_path: Path) ->
     assert result.branch_lease_id == "lease-preflight-1"
     assert result.branch_lease_work_id == f"branch:{branch}"
     assert result.branch_lease_released is True
-    assert cleanup_commands[0] == ["git", "worktree", "remove", "--force", str(expected_worktree)]
+    assert cleanup_commands[0] == [
+        "git",
+        "worktree",
+        "remove",
+        "--force",
+        str(expected_worktree),
+    ]
     assert cleanup_commands[1] == ["git", "branch", "-D", branch]
+
+
+def test_main_reports_structured_failure_and_exits_nonzero(monkeypatch, capsys) -> None:
+    fake_result = SimpleNamespace(
+        passed=False,
+        agent="codex",
+        base_ref="main",
+        branch="preflight/failed-push",
+        checks=[{"name": "git_push", "passed": False}],
+        worker={},
+        to_dict=lambda: {
+            "passed": False,
+            "checks": [{"name": "git_push", "passed": False}],
+        },
+    )
+    monkeypatch.setattr(mod, "run_preflight", lambda **_: fake_result)
+    monkeypatch.setattr(mod.sys, "argv", ["preflight", "--skip-publication"])
+
+    assert mod.main() == 2
+
+    out = capsys.readouterr().out
+    assert "preflight=blocked" in out
+    assert "failed_check=git_push" in out
+    assert "preflight=ok" not in out
 
 
 def test_contract_preflight_receipt_preserves_push_failure_and_releases_lease(
