@@ -19,6 +19,7 @@ from typing import Any, Literal, cast, overload
 import pytest
 import scripts.check_contract_drift_ratchet as ratchet
 import scripts.generate_contract_drift_inventory as gen
+from tests.scripts._contract_drift_historical_git import ensure_pr_9320_head
 
 if sys.platform == "win32":
     import msvcrt
@@ -4287,6 +4288,8 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         ["git", "merge", "main"],
         ["git", "push", "origin", "HEAD"],
         ["git", "config", "user.name", "unsafe"],
+        ["git", "-c", "diff.context=3", "merge", "main"],
+        ["git", "-c"],
         ["gh", "pr", "merge", "1"],
         ["gh", "run", "rerun", "1"],
         ["gh", "release", "upload", "tag", "asset"],
@@ -4296,7 +4299,139 @@ def test_read_only_cli_rejects_mutating_git_and_subprocess_actions():
         with pytest.raises(ValueError, match="mutating|unsupported"):
             ratchet._guard_subprocess_argv(argv)
     ratchet._guard_subprocess_argv(["git", "status", "--porcelain=v1"])
+    ratchet._guard_subprocess_argv(["git", "-c", "diff.context=3", "diff", "HEAD^", "HEAD"])
     ratchet._guard_subprocess_argv(["gh", "api", "--method", "GET", "repos/o/r"])
+
+
+def test_read_only_git_guard_rejects_command_executing_config_pairs():
+    # Inline `-c` bypasses the GIT_CONFIG_GLOBAL/NOSYSTEM scrub, and keys such
+    # as core.fsmonitor / diff.external / core.pager execute attacker-chosen
+    # commands even under read-only subcommands.
+    for argv in (
+        ["git", "-c", "core.fsmonitor=/tmp/evil", "status", "--porcelain=v1"],
+        ["git", "-c", "diff.external=/tmp/evil", "diff", "HEAD^", "HEAD"],
+        ["git", "-c", "core.pager=/tmp/evil", "log"],
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_config_allowlist_is_fail_closed():
+    # Only the exact call-site key=value literals pass: an allowlisted key
+    # with a different value, unknown keys, and case variants are all
+    # rejected rather than falling through to the subcommand allowlist.
+    for pair in (
+        "diff.context=99",
+        "diff.algorithm=patience",
+        "diff.noprefix=true",
+        "credential.helper=!/tmp/evil",
+        "core.sshCommand=/tmp/evil",
+        "Diff.Context=3",
+        "diff.context",
+        "",
+    ):
+        with pytest.raises(ValueError, match="unsupported git -c configuration"):
+            ratchet._guard_subprocess_argv(["git", "-c", pair, "status", "--porcelain=v1"])
+
+
+def test_read_only_git_guard_accepts_exact_call_site_patch_argv(tmp_path: Path):
+    # The exact argv shape built by the historical-receipt patch call sites.
+    argv = [
+        "git",
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.algorithm=myers",
+        "-c",
+        "diff.context=3",
+        "-C",
+        str(tmp_path),
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--no-color",
+        "--no-indent-heuristic",
+        "--full-index",
+        "--unified=3",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        "-O/dev/null",
+        "base^{tree}",
+        "head^{tree}",
+    ]
+    ratchet._guard_subprocess_argv(argv)
+    assert ratchet._git_subcommand(argv) == "diff"
+
+
+def test_read_only_git_config_literal_allowlist_matches_call_sites():
+    assert ratchet._READ_ONLY_GIT_CONFIG_LITERALS == frozenset(
+        {
+            "diff.algorithm=myers",
+            "diff.context=3",
+            "diff.mnemonicPrefix=false",
+            "diff.noprefix=false",
+        }
+    )
+
+
+def test_read_only_git_guard_rejects_config_env_joined_form():
+    # --config-env=<name>=<envvar> is git's environment-sourced equivalent of
+    # -c (including command-executing keys) and slips past the generic option
+    # skip as a plain "--" token, bypassing the -c allowlist entirely.
+    for argv in (
+        ["git", "--config-env=core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env=core.fsmonitor=EVIL_MONITOR", "status", "--porcelain=v1"],
+        ["git", "--config-env=diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_guard_rejects_config_env_separate_form():
+    # The two-token spelling must be rejected as --config-env fail-closed, not
+    # merely misclassified when its value token falls through as a subcommand.
+    for argv in (
+        ["git", "--config-env", "core.pager=EVIL_PAGER", "log"],
+        ["git", "--config-env", "diff.external=EVIL_DIFF", "diff", "HEAD^", "HEAD"],
+        ["git", "--config-env", "core.fsmonitor=EVIL_MONITOR", "rev-parse", "HEAD"],
+    ):
+        with pytest.raises(ValueError, match="config-env"):
+            ratchet._guard_subprocess_argv(argv)
+
+
+def test_read_only_git_scrubs_config_without_scrubbing_gh(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        calls.append((argv, kwargs["env"]))
+        return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/hostile/global")
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(ratchet.subprocess, "run", fake_run)
+    ratchet._run_read_only(
+        ["git", "status", "--porcelain=v1"],
+        operation_log=[],
+        resource="git-status",
+    )
+    ratchet._run_read_only(
+        ["gh", "api", "--method", "GET", "repos/o/r"],
+        operation_log=[],
+        resource="github-api",
+    )
+    git_env = calls[0][1]
+    assert git_env["GIT_CONFIG_GLOBAL"] == os.devnull
+    assert git_env["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert git_env["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert git_env["LC_ALL"] == "C"
+    gh_env = calls[1][1]
+    assert gh_env["GIT_CONFIG_GLOBAL"] == "/hostile/global"
+    assert "GIT_CONFIG_NOSYSTEM" not in gh_env
 
 
 def _accepted_authority() -> dict[str, Any]:
@@ -4685,10 +4820,13 @@ def _run_accepted_cli(
         command.extend(["--as-of", "2026-04-17", "--strict"])
     if source_ref is not None:
         command.extend(["--ref", source_ref])
+    env = {**os.environ}
+    env.pop("CDG_AUTHORITY_ROOT", None)
     proc = subprocess.run(
         command,
         cwd=repo,
         capture_output=True,
+        env=env,
         text=True,
     )
     return proc, json.loads(proc.stdout)
@@ -4788,6 +4926,7 @@ def _live_pr_files_probe(
     pr_additions: int = 400,
     pr_deletions: int = 400,
     duplicate_file_ids: bool = False,
+    files_link_header: str | None = None,
     mutate: Any | None = None,
     releases_payload: Any | None = None,
     tag_ref_object: Any | None = None,
@@ -4900,7 +5039,12 @@ def _live_pr_files_probe(
         if "per_page=100&page=" in endpoint:
             page = int(endpoint.rsplit("page=", 1)[1])
             if "/pulls/9999/files" in endpoint:
-                return files[(page - 1) * 100 : page * 100], identity
+                files_identity = (
+                    identity
+                    if files_link_header is None
+                    else dict(identity, link=files_link_header)
+                )
+                return files[(page - 1) * 100 : page * 100], files_identity
             if endpoint.startswith("repos/synaptent/aragora/releases?"):
                 if releases_payload is not None:
                     return (releases_payload if page == 1 else []), identity
@@ -5289,6 +5433,207 @@ def test_pr_files_paginate_to_exhaustion_and_reconcile_changed_files(
         _live_pr_files_probe(
             tmp_path / "dup", monkeypatch, files_count=150, duplicate_file_ids=True
         )
+
+
+def test_zeroed_stats_dropout_accepted_only_under_dual_witness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # PERMANENT GitHub REST stats dropout (the PR #9850 shape): the pulls
+    # endpoint zeroes changed_files/additions/deletions while the files
+    # endpoint enumerates the true disposition. The default files_count=1
+    # exercises the REAL recomputed first-parent semantic delta over the
+    # disposable boundary repository (no injected delta).
+    context, requested = _live_pr_files_probe(
+        tmp_path,
+        monkeypatch,
+        changed_files=0,
+        pr_additions=0,
+        pr_deletions=0,
+    )
+    assert context["authenticated_pr_files"] == {9999: ["fixture.txt"]}
+    assert context["authenticated_pr_changes"] == {9999: {"additions": 0, "deletions": 0}}
+    assert any("/pulls/9999/files?per_page=100&page=1" in e for e in requested)
+    # Multi-page zeroed enumerations still paginate to exhaustion and
+    # reconcile against the (injected) semantic delta.
+    context_multi, requested_multi = _live_pr_files_probe(
+        tmp_path / "multi",
+        monkeypatch,
+        files_count=103,
+        changed_files=0,
+        pr_additions=0,
+        pr_deletions=0,
+    )
+    assert sum(1 for e in requested_multi if "/pulls/9999/files" in e) == 2
+    assert context_multi["authenticated_pr_files"][9999] == sorted(
+        ["fixture.txt", *(f"file-{index}.txt" for index in range(1, 103))]
+    )
+
+
+def test_zeroed_stats_dropout_requires_fully_zeroed_rest_signature(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # changed_files=0 with nonzero REST additions/deletions is NOT the stats
+    # dropout signature; it remains incomplete file discovery.
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        _live_pr_files_probe(
+            tmp_path / "nonzero-stats",
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+        )
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        _live_pr_files_probe(
+            tmp_path / "zero-additions-only",
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+            pr_additions=0,
+        )
+
+
+def test_zeroed_stats_dropout_genuine_truncation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A zeroed-stats PR whose short files page still advertises rel="next"
+    # is a genuinely truncated enumeration, not a curable dropout.
+    with pytest.raises(ValueError, match="ended before an advertised next page"):
+        _live_pr_files_probe(
+            tmp_path,
+            monkeypatch,
+            files_count=3,
+            changed_files=0,
+            pr_additions=0,
+            pr_deletions=0,
+            files_link_header='<https://api.github.com/x?per_page=100&page=2>; rel="next"',
+        )
+
+
+def test_zeroed_stats_dropout_witness_binds_semantic_delta_exactly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    observed_zeroed = {"additions": 0, "changed_files": 0, "deletions": 0}
+    # Rename dispositions participate through previous_filename, exactly as
+    # in the downstream VAL-CDG-018 witness.
+    monkeypatch.setattr(
+        ratchet,
+        "_first_parent_semantic_delta",
+        lambda *_args, **_kwargs: {"new.txt", "old.txt"},
+    )
+    operation_log: list[dict[str, Any]] = []
+    ratchet._require_stats_dropout_completeness_witness(
+        repo_root=tmp_path,
+        pr=9850,
+        observed_pr=observed_zeroed,
+        files=[{"filename": "new.txt", "id": 1, "previous_filename": "old.txt"}],
+        first_parent_sha="a" * 40,
+        merge_sha="b" * 40,
+        operation_log=operation_log,
+    )
+    assert [entry["kind"] for entry in operation_log] == ["stats_dropout_witness"]
+    # Both mismatch directions fail closed.
+    monkeypatch.setattr(
+        ratchet,
+        "_first_parent_semantic_delta",
+        lambda *_args, **_kwargs: {"fixture.txt", "foreign.txt"},
+    )
+    with pytest.raises(ValueError, match="does not equal the recomputed first-parent"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    monkeypatch.setattr(ratchet, "_first_parent_semantic_delta", lambda *_args, **_kwargs: set())
+    with pytest.raises(ValueError, match="does not equal the recomputed first-parent"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    # A bool changed_files is not the zeroed dropout signature even though
+    # False == 0 in Python.
+    with pytest.raises(ValueError, match="file discovery is incomplete"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr={"additions": 0, "changed_files": False, "deletions": 0},
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    # Defensive floors: an empty enumeration and noncanonical first-parent
+    # bindings are never curable.
+    with pytest.raises(ValueError, match="file enumeration is empty"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[],
+            first_parent_sha="a" * 40,
+            merge_sha="b" * 40,
+            operation_log=[],
+        )
+    with pytest.raises(ValueError, match="lacks canonical first-parent bindings"):
+        ratchet._require_stats_dropout_completeness_witness(
+            repo_root=tmp_path,
+            pr=9850,
+            observed_pr=observed_zeroed,
+            files=[{"filename": "fixture.txt", "id": 1}],
+            first_parent_sha="a" * 40,
+            merge_sha="953c501c",
+            operation_log=[],
+        )
+
+
+def test_paginated_short_page_with_advertised_next_link_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Link-exhaustion proof: a short page that still advertises rel="next"
+    # is an inconsistent (truncated) enumeration and fails closed; a
+    # rel="prev"-only terminal page remains exhausted.
+    def serve(link: Any) -> Any:
+        identity = {
+            "byte_length": 1,
+            "etag": '"e"',
+            "link": link,
+            "sha256": "0" * 64,
+            "updated_at": None,
+        }
+        return lambda endpoint, *, operation_log: ([{"id": 1}], identity)
+
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        serve('<https://api.github.com/x?per_page=100&page=2>; rel="next"'),
+    )
+    with pytest.raises(ValueError, match="ended before an advertised next page"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/pulls/9850/files", operation_log=[])
+    monkeypatch.setattr(
+        ratchet,
+        "_gh_api_get_stable",
+        serve('<https://api.github.com/x?per_page=100&page=1>; rel="prev"'),
+    )
+    records, _identities = ratchet._gh_api_paginated(
+        "repos/synaptent/aragora/pulls/9850/files", operation_log=[]
+    )
+    assert len(records) == 1
+    # A malformed (non-string) Link identity fails closed rather than being
+    # treated as exhausted.
+    monkeypatch.setattr(ratchet, "_gh_api_get_stable", serve(7))
+    with pytest.raises(ValueError, match="Link header is malformed"):
+        ratchet._gh_api_paginated("repos/synaptent/aragora/pulls/9850/files", operation_log=[])
 
 
 def test_files_api_incomplete_uses_exact_tree_diff_with_pinned_rename_policy(
@@ -6327,7 +6672,9 @@ def _hermetic_repo(
     for rel in _HERMETIC_FILES:
         destination = repo / rel
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes((src / rel).read_bytes())
+        destination.write_bytes(
+            subprocess.check_output(["git", "-C", str(src), "show", f"HEAD:{rel}"])
+        )
     if mutate_base_inventory is not None:
         inventory = json.loads((repo / _HERMETIC_INVENTORY).read_text())
         mutate_base_inventory(inventory)
@@ -7517,6 +7864,41 @@ def _real_authority() -> dict:
     return _real_inventory()["accepted_authority"]
 
 
+def _bound_authority_bytes(binding: dict[str, Any]) -> bytes:
+    authority_root = os.environ.get("CDG_AUTHORITY_ROOT")
+    if authority_root:
+        return (Path(authority_root) / binding["path"]).read_bytes()
+    return (_REPO_ROOT / binding["path"]).read_bytes()
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_committed_authority_while_checker_is_dirty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    authority = _real_authority()
+    checker_binding = next(
+        binding
+        for binding in authority["analyzer_bundle"]["files"]
+        if binding["path"] == "scripts/check_contract_drift_ratchet.py"
+    )
+    live_checker = _REPO_ROOT / checker_binding["path"]
+    if hashlib.sha256(live_checker.read_bytes()).hexdigest() == checker_binding["sha256"]:
+        yield
+        return
+    with tempfile.TemporaryDirectory(prefix="cdg-committed-authority-") as temp:
+        root = Path(temp)
+        for binding in authority["analyzer_bundle"]["files"]:
+            target = root / binding["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                subprocess.check_output(
+                    ["git", "-C", str(_REPO_ROOT), "show", f"HEAD:{binding['path']}"]
+                )
+            )
+        monkeypatch.setenv("CDG_AUTHORITY_ROOT", str(root))
+        yield
+
+
 def _relink_fact(schema: str, value: dict) -> dict:
     return {"fact": value, "sha256": ratchet._fact_digest(schema, value)}
 
@@ -7728,7 +8110,7 @@ def test_corrective_guard_v2_sequence_is_h2_then_h3_repin_merge_then_empty_h4(tm
     assert bootstrap.ANALYZER_SOURCE_SHA == h3["oid"]
     assert bootstrap.BootstrapPolicy().transition_base_sha == CORRECTIVE_BASE_SHA
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -7807,7 +8189,7 @@ def test_corrective_guard_v2_binds_exact_patch_and_six_file_687_178_865_response
     # bootstrap policy; the live analyzer bytes are pinned by the accepted
     # authority manifest, which authorized rotations rebind in place.
     for binding in _real_authority()["analyzer_bundle"]["files"]:
-        live = hashlib.sha256((_REPO_ROOT / binding["path"]).read_bytes()).hexdigest()
+        live = hashlib.sha256(_bound_authority_bytes(binding)).hexdigest()
         assert live == binding["sha256"]
 
 
@@ -10100,6 +10482,159 @@ def test_legacy_entrypoints_delegate_to_canonical_inventory(monkeypatch: pytest.
     live_source = inspect.getsource(ratchet._live_witnesses)
     assert "inventory_mod.load_git_docs" in live_source
     assert "inventory_mod.collect_ids" in live_source
+
+
+def test_historical_receipt_mode_supports_the_exact_9320_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["passing"] is True
+    assert result["execution"] == {
+        "base_sha": "14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        "first_parent_sha": "e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        "first_parent_patch_byte_length": 6054,
+        "first_parent_patch_sha256": (
+            "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+        ),
+        "head_sha": "aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        "head_tree_sha": "e5c6c3d07a918cf43fffed6d4a9f472bc10a674a",
+        "merge_sha": "0b28f68b9f4d204ae14814169093723ea84c1364",
+        "merge_tree_sha": "79c1c374eed261c42468dc526d837e726e73425a",
+        "semantic_delta_paths": [
+            "aragora/server/handlers/social/__init__.py",
+            "aragora/server/handlers/social/sharing.py",
+            "tests/handlers/social/test_sharing.py",
+        ],
+        "source_sha": subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+    }
+
+
+def test_historical_receipt_patch_binding_ignores_hostile_git_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    assert ensure_pr_9320_head(_CDG_TEST_ROOT) == PR_9320_FACT["head_sha"]
+    global_config = tmp_path / "hostile-gitconfig"
+    global_config.write_text(
+        "[diff]\n"
+        "\tnoprefix = true\n"
+        "\talgorithm = histogram\n"
+        "\tcontext = 19\n"
+        "[core]\n"
+        "\tabbrev = 40\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    monkeypatch.delenv("GIT_CONFIG_NOSYSTEM", raising=False)
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    result = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=subprocess.check_output(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha=cast(str, PR_9320_FACT["head_sha"]),
+        historical_merge_sha=cast(str, PR_9320_FACT["merge_sha"]),
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert result["status"] == "pass"
+    assert result["execution"]["first_parent_patch_byte_length"] == 6054
+    assert result["execution"]["first_parent_patch_sha256"] == (
+        "7c53f6c8b9bd17847cdb4ecc5dfa1c7aa1699105faabc47439a4437709a175b4"
+    )
+
+
+def test_historical_receipt_mode_fails_closed_on_incomplete_or_mismatched_pair(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ratchet,
+        "validate_accepted_authority",
+        lambda *args, **kwargs: {
+            "active_original_record_ids": [],
+            "analyzer_bundle_sha256": "",
+            "live_original_record_ids": [],
+        },
+    )
+    source_sha = subprocess.check_output(
+        ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    incomplete = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+    )
+    assert incomplete["error_code"] == "accepted_authority_historical_pair_incomplete"
+    assert incomplete["passing"] is False
+
+    mismatched = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="14d1ef53e23c5466c0491ed93f72752944c78cd4",
+    )
+    assert mismatched["error_code"] == "accepted_authority_historical_pair_mismatch"
+    assert mismatched["passing"] is False
+
+    wrong_base = ratchet.build_accepted_result(
+        mode="receipt",
+        repo_root=_REPO_ROOT,
+        inventory_path=_REPO_ROOT / gen.DEFAULT_INVENTORY,
+        source_sha=source_sha,
+        historical_base_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+        historical_head_sha="aba6b14c94eca3a9c825b1a303ea67684d5f8daa",
+        historical_merge_sha="0b28f68b9f4d204ae14814169093723ea84c1364",
+        historical_first_parent_sha="e448b840dad03ee28accd218c14a27fa8b87c7b4",
+    )
+    assert wrong_base["error_code"] in {
+        "accepted_authority_historical_pair_invalid",
+        "accepted_authority_historical_pair_mismatch",
+    }
+    assert wrong_base["passing"] is False
 
 
 def test_no_reachable_classification_filtered_or_raw_baseline_fallback():

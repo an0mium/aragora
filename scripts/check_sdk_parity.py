@@ -29,6 +29,7 @@ import os
 import re
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -165,8 +166,62 @@ def _collect_routes_from_handler_class(handler_cls: type[Any]) -> list[str]:
     return sorted(collected)
 
 
+# Modules the handler cascade still reaches transitively that emit a
+# module-level DeprecationWarning on first import: compatibility shims, plus
+# one handler module carrying a module-level notice for a single deprecated
+# function. Their remaining in-tree importers are migrated on separate
+# tracks, so this diagnostic script imports each module once under a locally
+# scoped filter instead. sys.modules caching guarantees the warning cannot
+# fire again during the cascade, and the filter list is restored on scope
+# exit, so no global warning state (and no package __init__) is ever touched.
+_LEGACY_WARNING_MODULES: tuple[str, ...] = (
+    "aragora.server.errors",
+    "aragora.debate.protocol",
+    "aragora.server.metrics",
+    "aragora.server.redis_config",
+    "aragora.server.storage",
+    "aragora.server.http_client_pool",
+    "aragora.server.handlers.webhooks",
+)
+
+
+def _preimport_legacy_warning_modules_quietly() -> None:
+    """Import the known modules, muting only their own DeprecationWarnings.
+
+    Capture-and-replay instead of an ignore filter: third-party imports deep
+    in these chains call ``warnings.simplefilter`` themselves, which would
+    front-run any filter installed here. ``record=True`` intercepts at the
+    ``showwarning`` level, which such filter mutations cannot bypass, and the
+    scope exit restores the pre-existing filter state so nothing leaks out.
+    """
+    for module_path in _LEGACY_WARNING_MODULES:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            try:
+                importlib.import_module(module_path)
+            except (ImportError, AttributeError, ModuleNotFoundError):
+                # Same tolerance as the handler cascade below; a module that
+                # fails here fails identically there and is reported there.
+                continue
+        for captured in caught:
+            is_known_notice = issubclass(captured.category, DeprecationWarning) and str(
+                captured.message
+            ).startswith(_LEGACY_WARNING_MODULES)
+            if is_known_notice:
+                continue
+            # Replay everything else through the real (restored) filters so
+            # only the known notices above are actually silenced.
+            warnings.warn_explicit(
+                captured.message,
+                captured.category,
+                captured.filename,
+                captured.lineno,
+            )
+
+
 def extract_handler_routes_with_status() -> HandlerRouteExtractionResult:
     """Extract ROUTES from handler classes and report availability state."""
+    _preimport_legacy_warning_modules_quietly()
     try:
         from aragora.server.handlers._lazy_imports import ALL_HANDLER_NAMES, HANDLER_MODULES
     except (ImportError, ModuleNotFoundError) as exc:

@@ -607,6 +607,10 @@
       "description": "Matches operations"
     },
     {
+      "name": "Quotas",
+      "description": "Quotas operations"
+    },
+    {
       "name": "Templates",
       "description": "Templates operations"
     },
@@ -35003,6 +35007,16 @@
                 }
               }
             }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "x-method-inferred": false,
@@ -39275,7 +39289,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "total_agents": {
+                      "type": "integer"
+                    },
+                    "avg_elo": {
+                      "type": "number"
+                    },
+                    "max_elo": {
+                      "type": "number"
+                    },
+                    "min_elo": {
+                      "type": "number"
+                    },
+                    "total_matches": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
@@ -50498,7 +50529,30 @@
           "Reputation"
         ],
         "summary": "Get domain reputation scores",
-        "description": "Return domain-level reputation scores or reputation summaries.",
+        "description": "Return domain-level reputation scores or reputation summaries. Requires the critiques:read permission.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "required": true,
+            "description": "Domain token matched against agent names.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum reputations to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Domain reputation",
@@ -50520,12 +50574,51 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string"
+                    },
+                    "reputations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          },
+                          "vote_weight": {
+                            "type": "number"
+                          },
+                          "proposal_acceptance_rate": {
+                            "type": "number"
+                          },
+                          "critique_value": {
+                            "type": "number"
+                          },
+                          "debates_participated": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated",
         "operationId": "listReputationDomain"
@@ -50537,7 +50630,48 @@
           "Reputation"
         ],
         "summary": "Get reputation history",
-        "description": "List historical reputation events or score snapshots.",
+        "description": "List historical reputation events or score snapshots. Requires the critiques:read permission.",
+        "parameters": [
+          {
+            "name": "agent",
+            "in": "query",
+            "required": false,
+            "description": "Restrict snapshots to a single agent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "description": "ISO-8601 lower bound; invalid values are a 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "description": "ISO-8601 upper bound; invalid values are a 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum snapshots to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Reputation history",
@@ -50559,15 +50693,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": {
+                            "type": "string"
+                          },
+                          "agent": {
+                            "type": "string"
+                          },
+                          "reputation": {
+                            "type": "number"
+                          },
+                          "event": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
                   }
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated",
         "operationId": "listReputationHistory"
@@ -182672,7 +182833,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "total_agents": {
+                      "type": "integer"
+                    },
+                    "avg_elo": {
+                      "type": "number"
+                    },
+                    "max_elo": {
+                      "type": "number"
+                    },
+                    "min_elo": {
+                      "type": "number"
+                    },
+                    "total_matches": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
@@ -210427,6 +210605,116 @@
         "description": "Autogenerated placeholder (spec pending)"
       }
     },
+    "/api/v1/quotas/request-increase": {
+      "post": {
+        "tags": [
+          "Quotas"
+        ],
+        "summary": "Request quota increase",
+        "description": "Submit a quota increase request for review. Requires the org:billing permission.",
+        "operationId": "createQuotaIncreaseRequest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resource"
+                ],
+                "properties": {
+                  "resource": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "description": "Resource type the increase applies to."
+                  },
+                  "requested_limit": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Desired new limit."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Why the increase is needed."
+                  },
+                  "justification": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Accepted alias for reason; the key the python SDK documents."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request submitted",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "resource": {
+                      "type": "string"
+                    },
+                    "requested_limit": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "org_id": {
+                      "type": "string"
+                    },
+                    "submitted_by": {
+                      "type": "string"
+                    },
+                    "submitted_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      }
+    },
     "/api/v1/quotas/usage": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -215621,8 +215909,31 @@
           "Reputation"
         ],
         "summary": "Get domain reputation scores",
-        "description": "Return domain-level reputation scores or reputation summaries.",
+        "description": "Return domain-level reputation scores or reputation summaries. Requires the critiques:read permission.",
         "operationId": "getReputationDomain",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "required": true,
+            "description": "Domain token matched against agent names.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum reputations to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Domain reputation",
@@ -215644,12 +215955,51 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string"
+                    },
+                    "reputations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          },
+                          "vote_weight": {
+                            "type": "number"
+                          },
+                          "proposal_acceptance_rate": {
+                            "type": "number"
+                          },
+                          "critique_value": {
+                            "type": "number"
+                          },
+                          "debates_participated": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "stable"
       }
     },
@@ -215659,8 +216009,49 @@
           "Reputation"
         ],
         "summary": "Get reputation history",
-        "description": "List historical reputation events or score snapshots.",
+        "description": "List historical reputation events or score snapshots. Requires the critiques:read permission.",
         "operationId": "getReputationHistory",
+        "parameters": [
+          {
+            "name": "agent",
+            "in": "query",
+            "required": false,
+            "description": "Restrict snapshots to a single agent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "description": "ISO-8601 lower bound; invalid values are a 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "description": "ISO-8601 upper bound; invalid values are a 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum snapshots to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Reputation history",
@@ -215682,15 +216073,42 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": {
+                            "type": "string"
+                          },
+                          "agent": {
+                            "type": "string"
+                          },
+                          "reputation": {
+                            "type": "number"
+                          },
+                          "event": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
                   }
                 }
               }
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "stable"
       }
     },
@@ -230191,25 +230609,88 @@
       }
     },
     "/api/v1/verification/proofs": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+      "get": {
         "tags": [
           "Verification"
         ],
+        "summary": "List verification proofs",
+        "operationId": "listVerificationProofs",
+        "description": "Return stored verification proofs and associated metadata for prior verification runs.",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "query",
+            "required": false,
+            "description": "Filter proofs by debate identifier.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "proof_type",
+            "in": "query",
+            "required": false,
+            "description": "Filter proofs by proof type.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of proofs to return.",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Proofs list",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
                     },
-                    "success": {
-                      "type": "boolean"
+                    "filters": {
+                      "type": "object"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "available": {
+                      "type": "boolean",
+                      "description": "False when the formal-verification backend (z3) is unavailable; that degraded envelope returns only proofs/available/hint."
+                    },
+                    "hint": {
+                      "type": "string",
+                      "description": "Remediation hint, present only in the degraded (z3-unavailable) envelope."
                     }
                   }
                 }
@@ -230217,11 +230698,12 @@
             }
           }
         },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental",
-        "operationId": "createVerificationProofs",
-        "description": "Autogenerated placeholder (spec pending)"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/verification/status": {

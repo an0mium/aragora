@@ -640,7 +640,7 @@ class ShutdownPhaseBuilder:
 
         # Redis connection pool
         async def close_redis():
-            from aragora.server.redis_config import close_redis_pool
+            from aragora.utils.redis_config import close_redis_pool
 
             close_redis_pool()
             logger.debug("Redis connection pool closed")

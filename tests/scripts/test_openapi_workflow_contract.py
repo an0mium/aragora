@@ -1507,6 +1507,104 @@ def test_envelope_verification_argv_and_read_only_guard():
     module.require_read_only_argv(["gh", "release", "verify", tag])
 
 
+def test_envelope_run_gh_command_is_static_for_the_authority_closure_scanner():
+    """closure-member workflow openapi.yml invokes this helper statically, so
+    the fail-closed Tier-4 authority-closure scanner walks every subprocess
+    call in this file including function bodies. A parameter-forwarded argv
+    has no static program token ("dynamic subprocess command is forbidden")
+    and breaks the closure build at every ref containing the file; the helper
+    must present a statically resolvable command AND introduce zero closure
+    helper edges (gh is external; no literal repo helper paths)."""
+    import scripts.generate_contract_drift_inventory as drift_inventory
+
+    edges = drift_inventory._subprocess_helper_edges(
+        ROOT, "scripts/openapi_release_envelope.py", include_function_bodies=True
+    )
+    assert edges == []
+
+
+def test_envelope_run_gh_preserves_caller_argv_and_rejects_non_bare_program(monkeypatch):
+    """Static command reconstruction must not change execution semantics: for
+    every production argv shape the executed command stays byte-identical to
+    the caller's read-only argv with unchanged subprocess options. Any argv
+    whose program token is not exactly "gh" would silently execute different
+    bytes than the caller requested once the command is rebuilt around the
+    literal program name, so path forms fail closed before execution."""
+    module = _load_envelope_helper()
+    executed: list[list[str]] = []
+    sentinel = subprocess.CompletedProcess(args=["gh"], returncode=0, stdout=b"", stderr=b"")
+
+    def fake_run(argv, **kwargs):
+        executed.append(list(argv))
+        assert kwargs == {"capture_output": True, "check": False}
+        return sentinel
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    head = "a" * 40
+    tag = f"openapi-envelope-{head}"
+    signer = "synaptent/aragora/.github/workflows/openapi.yml"
+    production_shapes = [
+        [
+            "gh",
+            "api",
+            "-H",
+            module.API_VERSION_HEADER,
+            f"repos/synaptent/aragora/releases/tags/{tag}",
+        ],
+        [
+            "gh",
+            "api",
+            "-H",
+            module.API_VERSION_HEADER,
+            "repos/synaptent/aragora/actions/artifacts",
+            "--paginate",
+            "--slurp",
+        ],
+        ["gh", "release", "download", tag, "--repo", "synaptent/aragora", "--dir", "/tmp/scratch"],
+        ["gh", "release", "verify", "--help"],
+        module.release_verify_argv(tag, repository="synaptent/aragora"),
+        module.release_verify_asset_argv(
+            tag, "/tmp/x/manifest.json", repository="synaptent/aragora"
+        ),
+        module.attestation_verify_argv(
+            "/tmp/x/manifest.json",
+            repository="synaptent/aragora",
+            head_sha=head,
+            signer_workflow=signer,
+        ),
+    ]
+    for argv in production_shapes:
+        result = module._run_gh(argv)
+        assert result is sentinel
+        assert executed[-1] == argv
+    assert len(executed) == len(production_shapes)
+    # Path-form programs pass require_read_only_argv (basename check) but must
+    # be rejected here: rebuilding around literal "gh" would otherwise execute
+    # a different program than the caller named.
+    for hostile_program in ("/usr/bin/gh", "./gh", "bin/gh"):
+        with pytest.raises(ValueError):
+            module._run_gh([hostile_program, "api", "repos/synaptent/aragora/releases"])
+    assert len(executed) == len(production_shapes)
+
+
+def test_envelope_is_a_tier4_authority_dependency_in_both_classifiers():
+    """closure-member workflow openapi.yml invokes this helper statically, so
+    the helper is an authority-closure member. The fail-closed closure build
+    rejects any member classifying below Tier 4 and enforces per-member parity
+    between the canonical classifier and the merge-train mirror, so the exact
+    file path must be a dependency-prefix entry in both."""
+    from aragora.cli.commands import review_queue
+    from scripts import tier4_merge_train
+
+    path = "scripts/openapi_release_envelope.py"
+    assert path in review_queue.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+    assert path in tier4_merge_train.CONTRACT_DRIFT_AUTHORITY_DEPENDENCY_PREFIXES
+    assert tier4_merge_train.matches_serialized_path(path) == path
+    tier, name, _reason = review_queue._classify_model_review_tier([path])
+    assert tier == 4
+    assert name == "tier_4_preapproval_required"
+
+
 def test_envelope_build_and_dry_run_cli_are_deterministic(tmp_path):
     # dry-run: deterministic fixture bytes, byte-identical across invocations.
     runs = [
@@ -1877,11 +1975,12 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch, tmp_path, capsys
 ):
     """A probe answered by HTTP 403, failed by TLS certificate
-    verification, or killed in the network/Sigstore transport never
-    observed a verification verdict, so the blocked report must name the
-    observed cause instead of claiming marker drift: network shapes as the
-    transient infrastructure class, TLS-trust and HTTP 403 shapes without
-    any transience promise (a corporate-MITM trust failure and a
+    verification, dead at Sigstore verifier initialization, or killed in
+    the network transport never observed a verification verdict, so the
+    blocked report must name the observed cause instead of claiming marker
+    drift: network shapes as the transient infrastructure class, TLS-trust,
+    verifier-init, and HTTP 403 shapes without any transience promise (a
+    corporate-MITM trust failure, a stale or corrupt local TUF cache, and a
     token-permission 403 persist until the runner/token configuration
     changes). The exit class is message-only cosmetics: every class stays
     blocked pre-publication with the observed stderr embedded and no
@@ -1893,12 +1992,9 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
     monkeypatch.setattr(module, "_sleep", lambda _delay: None)
     monkeypatch.setattr(module, "_gh_api_json", _live_api_stub(module, identity, head, []))
     transient_shapes = {
-        # Live network shapes (gh 2.96.0, observed 2026-08-18): transport
-        # death before verifier initialization, and a post-init API dial
-        # failure whose stderr carries the attestations path but no HTTP 404.
-        "no valid Sigstore verifiers could be initialized": (
-            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
-        ),
+        # Live network shape (gh 2.96.0, observed 2026-08-18): a post-init
+        # API dial failure whose stderr carries the attestations path but
+        # no HTTP 404. A connectivity retry genuinely clears this class.
         "connection refused": (
             b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
             b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
@@ -1917,6 +2013,32 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
         assert observed in report["reason"], observed
         assert state["probe_calls"] == 1, observed
         assert state["asset_attempts"] == {}, observed
+    # Sigstore verifier-init death, pinned live 2026-08-19 with the
+    # byte-exact production argv (gh 2.96.0): dead TUF surfaces, TLS
+    # interception toward them, and a stale or corrupt local TUF cache all
+    # emit this same bare line, and the corrupt-cache case reproduces it
+    # with FULL connectivity (gh never self-heals the cache), so this
+    # wording must not promise that a connectivity retry clears it.
+    observed = "no valid Sigstore verifiers could be initialized"
+    fake_run, state = _preflight_gh_stub(
+        module,
+        probe_stderr=(
+            b"error creating Sigstore verifier: no valid Sigstore verifiers could be initialized"
+        ),
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked"
+    assert "could not initialize the Sigstore verifier" in report["reason"]
+    assert "stale or corrupt local TUF cache" in report["reason"]
+    assert "even with full connectivity" in report["reason"]
+    assert "transient" not in report["reason"]
+    assert "neither the" not in report["reason"]
+    assert "observed:" in report["reason"]
+    assert observed in report["reason"]
+    assert state["probe_calls"] == 1
+    assert state["asset_attempts"] == {}
     # TLS-trust failures (corporate-MITM interception, untrusted or expired
     # chains), pinned live 2026-08-18 against the byte-exact production argv
     # (gh 2.96.0): an untrusted interceptor reports unknown authority even
@@ -1950,6 +2072,32 @@ def test_envelope_preflight_probe_names_transient_classes_before_marker_drift(
         assert observed in report["reason"], observed
         assert state["probe_calls"] == 1, observed
         assert state["asset_attempts"] == {}, observed
+    # Precedence guard: one stderr carrying BOTH a TLS-trust marker and
+    # network markers (an untrusted HTTPS proxy fails exactly this way:
+    # proxyconnect plus the crypto/tls umbrella text in one line) must keep
+    # classifying as the persistent TLS-trust runner state, never as the
+    # transient network class, so a `_probe_transient_class` reorder that
+    # checks the network markers first fails here instead of shipping.
+    combined = "tls-trust must win over network"
+    fake_run, state = _preflight_gh_stub(
+        module,
+        probe_stderr=(
+            b'Error: Get "https://api.github.com/repos/synaptent/aragora/'
+            b'attestations/sha256:ab12?per_page=30": proxyconnect tcp: '
+            b"tls: failed to verify certificate: x509: certificate signed "
+            b"by unknown authority"
+        ),
+    )
+    monkeypatch.setattr(module, "_run_gh", fake_run)
+    assert module.cmd_preflight(args) == module.EXIT_BLOCKED, combined
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "blocked", combined
+    assert "failed TLS certificate verification" in report["reason"], combined
+    assert "persists until the runner trusts" in report["reason"], combined
+    assert "transient" not in report["reason"], combined
+    assert "observed:" in report["reason"], combined
+    assert state["probe_calls"] == 1, combined
+    assert state["asset_attempts"] == {}, combined
     # HTTP 403 is named without any transience promise: a rate-limited read
     # clears on retry, but a token-permission 403 persists until the token
     # can read the attestations API, and calling it transient would
