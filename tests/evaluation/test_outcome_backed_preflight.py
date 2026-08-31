@@ -296,7 +296,13 @@ def test_ambiguous_catalog_owner_fails_closed(
 @pytest.mark.parametrize(
     ("client", "blocker"),
     [
-        (FakeVibeProxyClient(loopback=False), "vibeproxy_not_loopback"),
+        (
+            FakeVibeProxyClient(
+                loopback=False,
+                failure=AssertionError("non-loopback endpoint must not be probed"),
+            ),
+            "vibeproxy_not_loopback",
+        ),
         (FakeVibeProxyClient(routes=("GET /v1/models",)), "vibeproxy_protocol_unavailable"),
         (
             FakeVibeProxyClient(failure=VibeProxyUnavailableError("credential detail")),

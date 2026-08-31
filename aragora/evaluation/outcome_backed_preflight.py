@@ -252,6 +252,7 @@ def _transport_readiness(
                 "outcome-backed inference requires a loopback VibeProxy endpoint",
             )
         )
+        return (), tuple(blockers)
 
     try:
         catalog = resolved_client.catalog(
