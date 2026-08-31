@@ -28,6 +28,18 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 - Revision-scoped truth pointer: `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-7/latest.json`
 - Revision-scoped scorecard pointer: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-7/latest.json`
 
+## Evidence Provenance
+
+- Metrics input: `.aragora/overnight/boss_metrics.jsonl`
+- Capture scope: `runner_local`
+- Content SHA-256: `n/a`
+- Repository HEAD: `c1868664248be7f533cabb441a8b8159dc47b908`
+- Tracked in this repository: `false`
+- Reproducible from this repository: `false`
+- Source workflow run: `https://github.com/synaptent/aragora/actions/runs/33314070684`
+
+Provenance warning: proxy, failure, and rescue counts come from a runner-local metrics window that is not tracked in this repository. Treat those counts as an observation from the cited run, not as a repository-reproducible benchmark receipt.
+
 ## Truth Metrics
 
 | Metric | Value |

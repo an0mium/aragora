@@ -329,6 +329,15 @@
     }
   ],
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "metrics_provenance": {
+    "capture_scope": "runner_local",
+    "content_sha256": null,
+    "path": ".aragora/overnight/boss_metrics.jsonl",
+    "repository_head_sha": "c1868664248be7f533cabb441a8b8159dc47b908",
+    "repository_reproducible": false,
+    "repository_tracked": false,
+    "source_run_url": "https://github.com/synaptent/aragora/actions/runs/33314070684"
+  },
   "primary_metrics": {
     "merged_only_rate": 0.5,
     "no_rescue_truth_success_rate": 0.5,
