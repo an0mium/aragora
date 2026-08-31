@@ -35,9 +35,11 @@ Read this file and `plan.md` before every batch or after any compaction.
 
 ## Current phase
 
-Staging only. No product batch has started. The next legal action in a fresh
-launch call is Batch 1: canonical contract, orientation schema, and four trace
-fixtures. The staging turn must not implement it.
+Launch-ready staging. No product batch has started. The next legal action in a
+fresh launch call is Batch 1: canonical contract, orientation schema, and four
+trace fixtures. The staging turn must not implement it. Use the exact staging
+head recorded in ignored runtime `session.json`; the tracked launch prompt does
+not self-encode its own commit SHA.
 
 Batch 1 is predicted Tier 1 but is the first PR of a new architectural pattern,
 so it requires operator review before merge. Batch 6 is Tier 3. Batch 7 is Tier 3

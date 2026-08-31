@@ -9,7 +9,7 @@
 - Maximum gate attempts per batch: 2
 - Current batch: 0 (staging)
 - Product implementation: not started
-- Current head/base: `2b94459bc0e316c3c0c1eb285695bf2a0c73c647`
+- Current base: `2b94459bc0e316c3c0c1eb285695bf2a0c73c647`
 
 ## Staging record
 
@@ -24,8 +24,17 @@
 - One bounded Fable goal cycle ran through VibeProxy using `claude-fable-5`.
   Its Batch 1 contract-first recommendation was accepted as advisory sequencing;
   it does not count toward review or settlement quorum.
-- Staging preflight: pending.
-- Launch readiness: pending staging preflight and local staging commit.
+- Staging commit: `01b20188fa` (`chore(docs): stage agent operating tower run`).
+- All-files pre-commit: PASS, including secrets, portability, and Boundary 2
+  receipt/verifier guards.
+- Full-codebase MyPy baseline: PASS with 1,756 errors, 113 below the 1,869
+  baseline.
+- Focused owner baseline: PASS, 173 tests across Nomic context/planning,
+  mission state, work scoring, session state, and CLI argument isolation.
+- Automation preflight: PASS; exact docs-only four-file scope.
+- CLI help and API-key capability inventory: PASS. Direct API keys are not
+  required for staging; later countable review uses the direct CLI families.
+- Launch readiness: READY after the final run-control checkpoint commit.
 
 ## Batch ledger
 
@@ -79,6 +88,6 @@
 
 ## Next legal action
 
-Finish the staging preflight, commit only these run-control documents locally,
-then stop and return the exact fresh-call launch prompt. Batch 1 must not begin in
-the staging turn.
+Commit the final run-control checkpoint locally, update ignored runtime state
+with that exact SHA, then stop and return `launch-prompt.md`. Batch 1 must not
+begin in the staging turn.
