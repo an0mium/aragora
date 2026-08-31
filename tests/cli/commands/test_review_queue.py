@@ -4339,7 +4339,9 @@ class TestGhTimeouts:
         def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
             captured["args"] = args
             captured["kwargs"] = kwargs
-            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+            # float() narrows the Any from kwargs for TimeoutExpired's typed
+            # parameter; _gh_json always passes a numeric timeout.
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=float(kwargs["timeout"]))
 
         monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
@@ -6685,9 +6687,8 @@ class TestBuildQueueAndPacket:
         assert entry["machine_recommendation"] == "settled_noop"
         assert entry["admin_squash_allowed"] is False
         assert entry["requires_human_risk_settlement"] is False
-        assert entry["reasons"] == [
-            "PR is already merged; merge-packet readiness is obsolete",
-        ]
+        assert entry["reasons"][0] == "PR is already merged; merge-packet readiness is obsolete"
+        assert any("noop placeholders" in reason for reason in entry["reasons"])
         assert packet["admin_squash_order"] == []
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
@@ -7423,7 +7424,12 @@ class TestCommandDispatch:
         assert ns.action == "admin_squash_merge"
         assert ns.reason == "operator authorized exact-head merge"
         assert ns.apply_post_merge_lane_audit is True
-        assert ns.json_output is True
+        # The main CLI routes record-settlement through the shared helper
+        # registration, so --json maps to the helper's dest ("json"); the
+        # dispatch handler accepts either dest.
+        assert ns.json is True
+        assert ns.post_github_status is False
+        assert ns.github_status_context == "aragora/human-settlement"
 
     def test_top_level_parser_registers_evidence_lint(self) -> None:
         from aragora.cli.parser import build_parser
