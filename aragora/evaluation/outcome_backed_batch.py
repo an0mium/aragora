@@ -233,6 +233,10 @@ def validate_development_plan(
     if case_count != SPLIT_COUNTS["development"]:
         raise DevelopmentBatchPlanError("development plan case count mismatch")
     batch_size = _integer(plan.get("batch_size"), "batch_size", minimum=1)
+    if batch_size > SPLIT_COUNTS["development"]:
+        raise DevelopmentBatchPlanError(
+            f"batch_size must not exceed {SPLIT_COUNTS['development']} development cases"
+        )
     batch_count = _integer(plan.get("batch_count"), "batch_count", minimum=1)
     raw_batches = plan.get("batches")
     if not isinstance(raw_batches, list) or len(raw_batches) != batch_count:
@@ -267,12 +271,9 @@ def validate_development_plan(
             "independent plan verification requires both cases and packet_set"
         )
     if cases is not None and packet_set is not None:
-        packet_set_sha256, packet_case_ids = validate_development_packet_set(packet_set)
-        development_ids, _ = _visible_case_ids(cases)
-        if plan.get("packet_set_sha256") != packet_set_sha256:
-            raise DevelopmentBatchPlanError("development plan packet-set binding mismatch")
-        if tuple(planned_ids) != packet_case_ids or tuple(planned_ids) != development_ids:
-            raise DevelopmentBatchPlanError("development plan case binding mismatch")
+        canonical = build_development_plan(cases, packet_set, batch_size=batch_size)
+        if dict(plan) != canonical:
+            raise DevelopmentBatchPlanError("development plan does not match canonical batching")
     return claimed_hash
 
 

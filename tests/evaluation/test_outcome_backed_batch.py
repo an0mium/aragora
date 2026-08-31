@@ -56,7 +56,10 @@ def test_build_development_plan_is_deterministic_and_outcome_blind() -> None:
         for batch in forward["batches"]
         for case_id in batch["case_ids"]
     )
-    assert validate_development_plan(forward) == forward["plan_sha256"]
+    assert (
+        validate_development_plan(forward, cases=_cases(), packet_set=_packet_set())
+        == forward["plan_sha256"]
+    )
 
 
 def test_build_development_plan_supports_bounded_final_batch() -> None:
@@ -117,7 +120,43 @@ def test_independent_validation_rebinds_cases_and_packet_set() -> None:
         {key: value for key, value in plan.items() if key != "plan_sha256"}
     )
 
-    with pytest.raises(DevelopmentBatchPlanError, match="case binding mismatch"):
+    with pytest.raises(DevelopmentBatchPlanError, match="canonical batching"):
+        validate_development_plan(plan, cases=_cases(), packet_set=packet_set)
+
+
+def test_independent_validation_rejects_irregular_rehashed_batches() -> None:
+    packet_set = _packet_set()
+    plan = build_development_plan(_cases(), packet_set)
+    case_ids = [case_id for batch in plan["batches"] for case_id in batch["case_ids"]]
+    boundaries = (1, 5, 9, 13, 16)
+    plan["batches"] = [
+        {
+            "batch_id": f"development-{index + 1:02d}",
+            "case_ids": case_ids[start:end],
+        }
+        for index, (start, end) in enumerate(zip((0, *boundaries[:-1]), boundaries, strict=True))
+    ]
+    plan["batch_count"] = len(plan["batches"])
+    plan["plan_sha256"] = canonical_json_sha256(
+        {key: value for key, value in plan.items() if key != "plan_sha256"}
+    )
+
+    with pytest.raises(DevelopmentBatchPlanError, match="canonical batching"):
+        validate_development_plan(plan, cases=_cases(), packet_set=packet_set)
+
+
+def test_validation_rejects_batch_size_above_development_count() -> None:
+    packet_set = _packet_set()
+    plan = build_development_plan(_cases(), packet_set)
+    case_ids = [case_id for batch in plan["batches"] for case_id in batch["case_ids"]]
+    plan["batch_size"] = 999
+    plan["batch_count"] = 1
+    plan["batches"] = [{"batch_id": "development-01", "case_ids": case_ids}]
+    plan["plan_sha256"] = canonical_json_sha256(
+        {key: value for key, value in plan.items() if key != "plan_sha256"}
+    )
+
+    with pytest.raises(DevelopmentBatchPlanError, match="must not exceed 16"):
         validate_development_plan(plan, cases=_cases(), packet_set=packet_set)
 
 
