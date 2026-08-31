@@ -654,6 +654,11 @@ class ConsensusPhase:
             if threshold_override is not None
             else getattr(self.protocol, "consensus_threshold", 0.5)
         )
+        eligible_agent_names = frozenset(
+            agent.name
+            for agent in ctx.agents
+            if isinstance(getattr(agent, "name", None), str) and agent.name
+        )
         fixed_rlm_weights = (
             self._compute_vote_weights(ctx) if self._rlm_tally_inputs_are_fixed() else None
         )
@@ -663,6 +668,7 @@ class ConsensusPhase:
             unanimous_mode=False,
             vote_weights=fixed_rlm_weights,
             consensus_threshold=effective_threshold,
+            eligible_agent_names=eligible_agent_names,
         )
         if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
@@ -1618,6 +1624,7 @@ class ConsensusPhase:
         unanimous_mode: bool = True,
         vote_weights: dict[str, float] | None = None,
         consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
     ) -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection."""
         return await self._vote_collector.collect_votes_with_errors(
@@ -1626,11 +1633,12 @@ class ConsensusPhase:
             unanimous_mode=unanimous_mode,
             vote_weights=vote_weights,
             consensus_threshold=consensus_threshold,
+            eligible_agent_names=eligible_agent_names,
         )
 
     def _rlm_tally_inputs_are_fixed(self) -> bool:
         """Return whether an early-stop tally can match the final tally exactly."""
-        if self.user_votes:
+        if self.user_votes or self._drain_user_events is not None:
             return False
 
         vote_dependent_features = (

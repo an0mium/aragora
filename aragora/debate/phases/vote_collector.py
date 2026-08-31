@@ -157,6 +157,7 @@ class VoteCollector:
         *,
         vote_weights: dict[str, float] | None = None,
         consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
     ) -> tuple[bool, str | None]:
         """
         Check if a clear majority has been reached for RLM early termination.
@@ -180,6 +181,7 @@ class VoteCollector:
             total_agents: Total number of agents in the debate
             vote_weights: Fixed full-roster weights for the final tally
             consensus_threshold: Effective threshold for the final tally
+            eligible_agent_names: Immutable exact roster represented by the weights
 
         Returns:
             Tuple of (has_clear_majority, winning_choice or None)
@@ -228,7 +230,14 @@ class VoteCollector:
                     or not isinstance(consensus_threshold, (int, float))
                     or not math.isfinite(consensus_threshold)
                     or not 0.0 <= consensus_threshold <= 1.0
+                    or not isinstance(eligible_agent_names, frozenset)
+                    or len(eligible_agent_names) != total_agents
+                    or any(
+                        not isinstance(agent_name, str) or not agent_name
+                        for agent_name in eligible_agent_names
+                    )
                     or len(vote_weights) != total_agents
+                    or set(vote_weights) != eligible_agent_names
                 ):
                     return False, None
 
@@ -244,6 +253,8 @@ class VoteCollector:
                     ):
                         return False, None
                     roster_weight += float(weight)
+                    if not math.isfinite(roster_weight):
+                        return False, None
                 if roster_weight <= 0.0:
                     return False, None
 
@@ -261,9 +272,12 @@ class VoteCollector:
                         return False, None
                     voting_agents.add(vote_agent)
                     if isinstance(choice, str) and choice:
-                        weighted_counts[choice] = weighted_counts.get(choice, 0.0) + float(
+                        choice_weight = weighted_counts.get(choice, 0.0) + float(
                             vote_weights[vote_agent]
                         )
+                        if not math.isfinite(choice_weight):
+                            return False, None
+                        weighted_counts[choice] = choice_weight
 
                 leader_weight = weighted_counts.get(leader, 0.0)
                 if (
@@ -579,6 +593,7 @@ class VoteCollector:
         unanimous_mode: bool = True,
         vote_weights: dict[str, float] | None = None,
         consensus_threshold: float | None = None,
+        eligible_agent_names: frozenset[str] | None = None,
     ) -> tuple[list[Vote], int]:
         """Collect votes with error tracking for roster-aware consensus.
 
@@ -590,6 +605,11 @@ class VoteCollector:
 
         Args:
             ctx: The debate context with agents and proposals
+            use_position_shuffling: Preserve the configured multi-permutation path
+            unanimous_mode: Disable early termination when unanimity is required
+            vote_weights: Fixed full-roster weights for majority early termination
+            consensus_threshold: Effective final-tally threshold
+            eligible_agent_names: Immutable exact roster represented by the weights
 
         Returns:
             Tuple of (votes list, error count)
@@ -749,6 +769,7 @@ class VoteCollector:
                             total_agents,
                             vote_weights=vote_weights,
                             consensus_threshold=consensus_threshold,
+                            eligible_agent_names=eligible_agent_names,
                         )
                         if has_majority:
                             _settle_decisive_vote_tasks(

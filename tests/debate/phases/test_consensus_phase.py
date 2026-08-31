@@ -398,6 +398,7 @@ class TestHandleMajorityConsensus:
             unanimous_mode=False,
             vote_weights=roster_weights,
             consensus_threshold=0.75,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
         )
         phase._compute_vote_weights.assert_called_once_with(ctx)
 
@@ -424,8 +425,37 @@ class TestHandleMajorityConsensus:
             unanimous_mode=False,
             vote_weights=None,
             consensus_threshold=protocol.consensus_threshold,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
         )
         phase._compute_vote_weights.assert_called_once_with(ctx, votes=votes)
+
+    @pytest.mark.asyncio
+    async def test_user_event_drain_disables_fixed_rlm_snapshot(self):
+        """A post-collection user-event drain can mutate the final tally."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: 1.0 for agent in agents}
+        drain_user_events = MagicMock()
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(drain_user_events=drain_user_events),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=None,
+            consensus_threshold=protocol.consensus_threshold,
+            eligible_agent_names=frozenset(agent.name for agent in agents),
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx, votes=votes)
+        drain_user_events.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_failed_voters_reduce_confidence_and_are_recorded(self):
