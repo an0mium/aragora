@@ -376,6 +376,58 @@ class TestHandleMajorityConsensus:
     """Tests for truthful majority-vote participation accounting."""
 
     @pytest.mark.asyncio
+    async def test_reuses_full_roster_weights_for_rlm_and_final_tally(self):
+        """The early-stop and winner decisions share one threshold/weight snapshot."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.75
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: float(index + 1) for index, agent in enumerate(agents)}
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=roster_weights,
+            consensus_threshold=0.75,
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_vote_dependent_weights_disable_rlm_and_compute_after_collection(self):
+        """Contextual weighting fails closed to full collection."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(4)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.enable_self_vote_mitigation = True
+        votes = [make_vote(agent=agent.name, choice="agent0") for agent in agents]
+        roster_weights = {agent.name: 1.0 for agent in agents}
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(),
+        )
+        phase._compute_vote_weights = MagicMock(return_value=roster_weights)
+        phase._collect_votes_with_errors = AsyncMock(return_value=(votes, 0))
+
+        await phase._handle_majority_consensus(ctx)
+
+        phase._collect_votes_with_errors.assert_awaited_once_with(
+            ctx,
+            use_position_shuffling=True,
+            unanimous_mode=False,
+            vote_weights=None,
+            consensus_threshold=protocol.consensus_threshold,
+        )
+        phase._compute_vote_weights.assert_called_once_with(ctx, votes=votes)
+
+    @pytest.mark.asyncio
     async def test_failed_voters_reduce_confidence_and_are_recorded(self):
         """Two surviving votes cannot masquerade as a unanimous four-agent panel."""
         agents = [MockAgent(name=f"agent{i}") for i in range(1, 5)]

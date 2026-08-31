@@ -649,10 +649,20 @@ class ConsensusPhase:
         # Cast votes from all agents. Majority confidence is roster-relative:
         # a voter that fails to return a ballot cannot silently disappear from
         # the agreement denominator.
+        effective_threshold = (
+            threshold_override
+            if threshold_override is not None
+            else getattr(self.protocol, "consensus_threshold", 0.5)
+        )
+        fixed_rlm_weights = (
+            self._compute_vote_weights(ctx) if self._rlm_tally_inputs_are_fixed() else None
+        )
         votes, voting_errors = await self._collect_votes_with_errors(
             ctx,
             use_position_shuffling=True,
             unanimous_mode=False,
+            vote_weights=fixed_rlm_weights,
+            consensus_threshold=effective_threshold,
         )
         if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
             return
@@ -665,8 +675,14 @@ class ConsensusPhase:
         # Group similar votes
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
-        # Pre-compute vote weights (pass votes for bias mitigation)
-        vote_weight_cache = self._compute_vote_weights(ctx, votes=votes)
+        # Reuse the exact roster-weight snapshot that authorized early
+        # termination. Context-dependent weighting computes only after every
+        # ballot has completed, which disables RLM fail-closed.
+        vote_weight_cache = (
+            fixed_rlm_weights
+            if fixed_rlm_weights is not None
+            else self._compute_vote_weights(ctx, votes=votes)
+        )
 
         # Count weighted votes
         vote_counts, total_weighted = self._count_weighted_votes(
@@ -1600,13 +1616,33 @@ class ConsensusPhase:
         *,
         use_position_shuffling: bool = False,
         unanimous_mode: bool = True,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
     ) -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection."""
         return await self._vote_collector.collect_votes_with_errors(
             ctx,
             use_position_shuffling=use_position_shuffling,
             unanimous_mode=unanimous_mode,
+            vote_weights=vote_weights,
+            consensus_threshold=consensus_threshold,
         )
+
+    def _rlm_tally_inputs_are_fixed(self) -> bool:
+        """Return whether an early-stop tally can match the final tally exactly."""
+        if self.user_votes:
+            return False
+
+        vote_dependent_features = (
+            "enable_self_vote_mitigation",
+            "enable_verbosity_normalization",
+            "verify_claims_during_consensus",
+            "enable_evidence_weighting",
+            "enable_process_evaluation",
+            "enable_epistemic_hygiene",
+            "enable_truth_ratio_weighting",
+        )
+        return not any(getattr(self.protocol, name, False) for name in vote_dependent_features)
 
     def _compute_vote_groups(
         self, votes: list["Vote"]

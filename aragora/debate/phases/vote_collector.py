@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -153,6 +154,9 @@ class VoteCollector:
         self,
         votes: list[Vote],
         total_agents: int,
+        *,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
     ) -> tuple[bool, str | None]:
         """
         Check if a clear majority has been reached for RLM early termination.
@@ -165,9 +169,17 @@ class VoteCollector:
         2. Leading choice has > 50% of total agents
         3. Lead over second choice >= rlm_majority_lead_threshold (default 25%)
 
+        Roster-aware majority mode additionally supplies the exact full-roster
+        weights and effective consensus threshold used by the final tally. In
+        that mode the leader must already meet the threshold against the full
+        denominator and hold more weight than every other roster member
+        combined. Missing or malformed snapshot inputs fail closed.
+
         Args:
             votes: List of votes collected so far
             total_agents: Total number of agents in the debate
+            vote_weights: Fixed full-roster weights for the final tally
+            consensus_threshold: Effective threshold for the final tally
 
         Returns:
             Tuple of (has_clear_majority, winning_choice or None)
@@ -207,6 +219,59 @@ class VoteCollector:
         min_lead = int(total_agents * self.config.rlm_majority_lead_threshold)
 
         if lead >= min_lead:
+            weighted_guard_requested = vote_weights is not None or consensus_threshold is not None
+            if weighted_guard_requested:
+                if vote_weights is None or consensus_threshold is None:
+                    return False, None
+                if (
+                    isinstance(consensus_threshold, bool)
+                    or not isinstance(consensus_threshold, (int, float))
+                    or not math.isfinite(consensus_threshold)
+                    or not 0.0 <= consensus_threshold <= 1.0
+                    or len(vote_weights) != total_agents
+                ):
+                    return False, None
+
+                roster_weight = 0.0
+                for agent_name, weight in vote_weights.items():
+                    if (
+                        not isinstance(agent_name, str)
+                        or not agent_name
+                        or isinstance(weight, bool)
+                        or not isinstance(weight, (int, float))
+                        or not math.isfinite(weight)
+                        or weight < 0.0
+                    ):
+                        return False, None
+                    roster_weight += float(weight)
+                if roster_weight <= 0.0:
+                    return False, None
+
+                weighted_counts: dict[str, float] = {}
+                voting_agents: set[str] = set()
+                for vote in votes:
+                    vote_agent = getattr(vote, "agent", None)
+                    choice = getattr(vote, "choice", None)
+                    if (
+                        not isinstance(vote_agent, str)
+                        or not vote_agent
+                        or vote_agent in voting_agents
+                        or vote_agent not in vote_weights
+                    ):
+                        return False, None
+                    voting_agents.add(vote_agent)
+                    if isinstance(choice, str) and choice:
+                        weighted_counts[choice] = weighted_counts.get(choice, 0.0) + float(
+                            vote_weights[vote_agent]
+                        )
+
+                leader_weight = weighted_counts.get(leader, 0.0)
+                if (
+                    leader_weight / roster_weight < float(consensus_threshold)
+                    or leader_weight <= roster_weight - leader_weight
+                ):
+                    return False, None
+
             logger.info(
                 "rlm_early_termination_majority leader=%s votes=%s/%s lead=%s total_agents=%s",
                 leader,
@@ -512,6 +577,8 @@ class VoteCollector:
         *,
         use_position_shuffling: bool = False,
         unanimous_mode: bool = True,
+        vote_weights: dict[str, float] | None = None,
+        consensus_threshold: float | None = None,
     ) -> tuple[list[Vote], int]:
         """Collect votes with error tracking for roster-aware consensus.
 
@@ -677,7 +744,12 @@ class VoteCollector:
                     # Tasks deliberately skipped after a decisive ballot are
                     # not failures; only completed None/exception results are.
                     if not unanimous_mode:
-                        has_majority, leader = self._check_clear_majority(votes, total_agents)
+                        has_majority, leader = self._check_clear_majority(
+                            votes,
+                            total_agents,
+                            vote_weights=vote_weights,
+                            consensus_threshold=consensus_threshold,
+                        )
                         if has_majority:
                             _settle_decisive_vote_tasks(
                                 vote_tasks, consume_completed_task, observe_skipped_task

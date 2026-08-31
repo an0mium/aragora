@@ -554,6 +554,76 @@ class TestRLMEarlyTermination:
         assert has_majority is True
         assert leader == "A"
 
+    def test_weighted_majority_must_meet_full_roster_threshold(self):
+        """Seven of ten cannot satisfy a 75% threshold; eight can."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        weights = {f"agent{i}": 1.0 for i in range(10)}
+        seven_votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(7)]
+        eight_votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+
+        assert collector._check_clear_majority(
+            seven_votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+        ) == (False, None)
+        assert collector._check_clear_majority(
+            eight_votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.75,
+        ) == (True, "A")
+
+    def test_weighted_head_count_majority_can_still_be_overtaken(self):
+        """A raw ballot majority is not decisive when pending agents hold most weight."""
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(6)]
+        weights = {f"agent{i}": 0.5 for i in range(6)} | {f"agent{i}": 2.0 for i in range(6, 10)}
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=weights,
+            consensus_threshold=0.25,
+        ) == (False, None)
+
+    @pytest.mark.parametrize(
+        "vote_weights",
+        [
+            None,
+            {"agent0": 1.0},
+            {f"agent{i}": 1.0 for i in range(9)} | {"agent9": float("nan")},
+        ],
+    )
+    def test_weighted_majority_fails_closed_without_exact_finite_roster(self, vote_weights):
+        collector = VoteCollector(
+            VoteCollectorConfig(
+                enable_rlm_early_termination=True,
+                rlm_early_termination_threshold=0.5,
+                rlm_majority_lead_threshold=0.1,
+            )
+        )
+        votes = [make_vote(agent=f"agent{i}", choice="A") for i in range(8)]
+
+        assert collector._check_clear_majority(
+            votes,
+            total_agents=10,
+            vote_weights=vote_weights,
+            consensus_threshold=0.75,
+        ) == (False, None)
+
     def test_check_clear_majority_votes_without_choice(self):
         """Handles votes without choice attribute."""
         config = VoteCollectorConfig(enable_rlm_early_termination=True)
