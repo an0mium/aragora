@@ -97,6 +97,32 @@ def test_rendering_is_byte_deterministic_and_self_hashing() -> None:
     assert first.to_dict()["schema_version"] == PROMPT_SCHEMA
 
 
+def test_non_ascii_packet_embedding_matches_digest_canonicalization() -> None:
+    packet = _packet(
+        source_content="The claimant was \u201cliable\u201d \u2014 exposure was \u20ac2m."
+    )
+    rendered = render_outcome_backed_prompt(
+        packet,
+        packet_set=_packet_set(packet),
+        condition_id=CLAUDE_SINGLE,
+    )
+
+    embedded = rendered.task_content.split("SOURCE PACKET (canonical JSON)\n", 1)[1].split(
+        "\nRESPONSE CONTRACT", 1
+    )[0]
+    assert embedded == json.dumps(
+        packet,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    assert "\u201cliable\u201d \u2014 exposure was \u20ac2m" in embedded
+    unhashed = json.loads(embedded)
+    claimed_hash = unhashed.pop("packet_sha256")
+    assert canonical_json_sha256(unhashed) == claimed_hash
+
+
 def test_prompt_digest_changes_with_valid_packet_hash_change() -> None:
     first_packet = _packet()
     second_packet = _packet(source_content="Different frozen pre-cutoff evidence.")
@@ -142,6 +168,30 @@ def test_outcome_bearing_keys_are_rejected(path: tuple[str | int, ...], key: str
         target = target[part]  # type: ignore[index]
     assert isinstance(target, dict)
     target[key] = "hidden answer"
+    packet["packet_sha256"] = canonical_json_sha256(
+        {name: value for name, value in packet.items() if name != "packet_sha256"}
+    )
+
+    with pytest.raises(OutcomeBackedPromptError, match="outcome-bearing key"):
+        render_outcome_backed_prompt(
+            packet, packet_set=_packet_set(packet), condition_id=GEMINI_SINGLE
+        )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "correctOptionId",
+        "correct-option-id",
+        "CORRECT OPTION ID",
+        "outcomeSidecar",
+        "resolvedAt",
+    ],
+)
+def test_outcome_bearing_key_variants_are_rejected(key: str) -> None:
+    packet = _packet()
+    assert isinstance(packet["case"], dict)
+    packet["case"][key] = "hidden answer"
     packet["packet_sha256"] = canonical_json_sha256(
         {name: value for name, value in packet.items() if name != "packet_sha256"}
     )

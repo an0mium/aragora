@@ -39,6 +39,9 @@ _OUTCOME_BEARING_KEYS = frozenset(
         "resolved_at",
     }
 )
+_NORMALIZED_OUTCOME_BEARING_KEYS = frozenset(
+    re.sub(r"[^a-z0-9]", "", key.casefold()) for key in _OUTCOME_BEARING_KEYS
+)
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -78,7 +81,8 @@ def _reject_outcome_keys(value: object, *, path: str = "packet") -> None:
         for key, child in value.items():
             if not isinstance(key, str):
                 raise OutcomeBackedPromptError(f"{path} contains a non-string key")
-            if key.casefold() in _OUTCOME_BEARING_KEYS:
+            normalized_key = re.sub(r"[^a-z0-9]", "", key.casefold())
+            if normalized_key in _NORMALIZED_OUTCOME_BEARING_KEYS:
                 raise OutcomeBackedPromptError(f"outcome-bearing key {key!r} found at {path}")
             _reject_outcome_keys(child, path=f"{path}.{key}")
     elif isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
@@ -90,6 +94,16 @@ def _required_text(value: object, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise OutcomeBackedPromptError(f"{field} must be a non-empty string")
     return value
+
+
+def _canonical_json_text(value: object) -> str:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 def _validate_packet(
@@ -291,9 +305,9 @@ def _task_content(
         "source-keyed falsifiable rationale. Every substantive claim must cite source_ids "
         "from the packet.",
         "SOURCE PACKET (canonical JSON)",
-        json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        _canonical_json_text(packet),
         "RESPONSE CONTRACT (return one JSON object and no surrounding prose)",
-        json.dumps(response_contract, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        _canonical_json_text(response_contract),
     ]
     return "\n".join(sections)
 
