@@ -4,7 +4,10 @@ from copy import deepcopy
 
 import pytest
 
-from aragora.evaluation.outcome_backed_analysis import ANALYSIS_CONTRACT_VERSION
+from aragora.evaluation.outcome_backed_analysis import (
+    ANALYSIS_CONTRACT_VERSION,
+    analyze_scored_conditions,
+)
 from aragora.evaluation.outcome_backed_holdout import (
     HOLDOUT_CONTRACT_VERSION,
     MAX_HOLDOUT_EXPOSURES,
@@ -20,17 +23,23 @@ from aragora.evaluation.outcome_backed_scoring import SCORER_CONTRACT_VERSION
 REGISTRY_HASH = "a" * 64
 
 
-def _summary(condition_id: str, *, brier_improvement: float = 0.08) -> dict[str, object]:
+def _summary(condition_id: str, verdict: str) -> dict[str, object]:
+    if verdict == "team_outperforms":
+        team_score, baseline_score, delta, brier, p_value = 0.78, 0.68, 0.1, 0.08, 0.01
+    elif verdict == "baseline_outperforms":
+        team_score, baseline_score, delta, brier, p_value = 0.68, 0.78, -0.1, -0.08, 0.01
+    else:
+        team_score, baseline_score, delta, brier, p_value = 0.7, 0.7, 0.0, 0.0, 1.0
     return {
         "condition_id": condition_id,
-        "team_mean_composite_score": 0.78,
-        "baseline_mean_composite_score": 0.68,
-        "mean_composite_delta": 0.1,
-        "mean_brier_improvement": brier_improvement,
+        "team_mean_composite_score": team_score,
+        "baseline_mean_composite_score": baseline_score,
+        "mean_composite_delta": delta,
+        "mean_brier_improvement": brier,
         "wins": 14,
         "ties": 1,
         "losses": 1,
-        "exact_sign_flip_p_value": 0.01,
+        "exact_sign_flip_p_value": p_value,
         "case_deltas": [],
     }
 
@@ -41,12 +50,13 @@ def _analysis_report(
     *,
     reverse_baselines: bool = False,
 ) -> dict[str, object]:
-    summaries = [_summary("openai"), _summary("claude", brier_improvement=0.06)]
+    summaries = [_summary("openai", verdict), _summary("claude", verdict)]
     if reverse_baselines:
         summaries.reverse()
     return {
         "analysis_contract_version": ANALYSIS_CONTRACT_VERSION,
         "scorer_contract_version": SCORER_CONTRACT_VERSION,
+        "phase": phase,
         "team_condition_id": "aragora_team",
         "n": 16 if phase == "development" else 8,
         "strongest_baseline_id": "claude",
@@ -120,11 +130,9 @@ def test_report_contract_version_is_frozen() -> None:
     [
         ("team_outperforms", "team_outperforms", "go"),
         ("team_outperforms", "no_difference", "conditional_go"),
-        ("team_outperforms", "insufficient_data", "conditional_go"),
         ("team_outperforms", "baseline_outperforms", "no_go"),
         ("baseline_outperforms", "team_outperforms", "no_go"),
         ("no_difference", "team_outperforms", "no_go"),
-        ("insufficient_data", "team_outperforms", "no_go"),
     ],
 )
 def test_frozen_verdict_branches(development: str, holdout: str, expected: str) -> None:
@@ -177,6 +185,95 @@ def test_analysis_input_defects_fail_closed(
 
     with pytest.raises(ValueError, match=message):
         final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+
+def test_analysis_phase_and_claimed_verdict_must_match_metrics() -> None:
+    development = _analysis_report("development", "team_outperforms")
+    holdout = _analysis_report("holdout", "team_outperforms")
+    holdout["phase"] = "development"
+    with pytest.raises(ValueError, match="phase mismatch"):
+        final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+    holdout = _analysis_report("holdout", "team_outperforms")
+    holdout["verdict"] = "no_difference"
+    with pytest.raises(ValueError, match="verdict does not match"):
+        final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+
+def test_strongest_baseline_must_match_metrics() -> None:
+    development = _analysis_report("development", "team_outperforms")
+    holdout = _analysis_report("holdout", "team_outperforms")
+    development["strongest_baseline_id"] = "openai"
+
+    with pytest.raises(ValueError, match="strongest baseline does not match"):
+        final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+
+def test_summary_delta_must_match_reported_means() -> None:
+    development = _analysis_report("development", "team_outperforms")
+    holdout = _analysis_report("holdout", "team_outperforms")
+    summaries = development["per_baseline"]
+    assert isinstance(summaries, list)
+    summaries[0]["mean_composite_delta"] = 0.2
+
+    with pytest.raises(ValueError, match="mean_composite_delta does not match"):
+        final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+
+def test_complete_report_rejects_insufficient_data_claim() -> None:
+    development = _analysis_report("development", "team_outperforms")
+    holdout = _analysis_report("holdout", "no_difference")
+    holdout["verdict"] = "insufficient_data"
+
+    with pytest.raises(ValueError, match="verdict does not match"):
+        final_verdict(development, holdout, [_budget_snapshot()], _holdout_snapshot())
+
+
+def _scored_rows(prefix: str, count: int, *, brier: float) -> list[dict[str, object]]:
+    return [
+        {
+            "case_id": f"{prefix}-{index:02d}",
+            "binary_brier": brier,
+            "directional_accuracy": 1.0,
+            "crux_recall": 0.8,
+            "provenance_completeness": 1.0,
+            "receipt_verification_rate": 1.0,
+        }
+        for index in range(count)
+    ]
+
+
+def test_real_development_and_holdout_analysis_can_produce_go() -> None:
+    development = analyze_scored_conditions(
+        {
+            "aragora_team": _scored_rows("dev", 16, brier=0.2),
+            "openai": _scored_rows("dev", 16, brier=0.3),
+        },
+        team_condition_id="aragora_team",
+        scorer_contract_version=SCORER_CONTRACT_VERSION,
+        holdout_case_ids=set(),
+    ).to_dict()
+    holdout_ids = {f"holdout-{index:02d}" for index in range(8)}
+    holdout = analyze_scored_conditions(
+        {
+            "aragora_team": _scored_rows("holdout", 8, brier=0.2),
+            "openai": _scored_rows("holdout", 8, brier=0.3),
+        },
+        team_condition_id="aragora_team",
+        scorer_contract_version=SCORER_CONTRACT_VERSION,
+        holdout_case_ids=holdout_ids,
+        phase="holdout",
+    ).to_dict()
+
+    assert (
+        final_verdict(
+            development,
+            holdout,
+            [_budget_snapshot()],
+            _holdout_snapshot(),
+        )
+        == "go"
+    )
 
 
 def test_budget_shape_defect_fails_closed() -> None:

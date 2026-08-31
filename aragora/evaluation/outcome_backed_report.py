@@ -20,7 +20,11 @@ from decimal import Decimal, InvalidOperation
 import math
 import re
 
-from aragora.evaluation.outcome_backed_analysis import ANALYSIS_CONTRACT_VERSION
+from aragora.evaluation.outcome_backed_analysis import (
+    ANALYSIS_CONTRACT_VERSION,
+    AnalysisPhase,
+    classify_analysis_verdict,
+)
 from aragora.evaluation.outcome_backed_budget import (
     BUDGET_LEDGER_SCHEMA,
     DAILY_BUDGET_CAP_USD,
@@ -83,10 +87,14 @@ def _money_text(value: Decimal) -> str:
     return text or "0"
 
 
+def _normalized_summary_number(summary: Mapping[str, object], field: str) -> float:
+    return _finite_number(summary.get(field), f"normalized_summary.{field}")
+
+
 def _analysis_report(
     report: Mapping[str, object],
     *,
-    phase: str,
+    phase: AnalysisPhase,
     expected_count: int,
 ) -> dict[str, object]:
     if not isinstance(report, Mapping):
@@ -95,6 +103,8 @@ def _analysis_report(
         raise ValueError(f"{phase}_report analysis contract version mismatch")
     if report.get("scorer_contract_version") != SCORER_CONTRACT_VERSION:
         raise ValueError(f"{phase}_report scorer contract version mismatch")
+    if report.get("phase") != phase:
+        raise ValueError(f"{phase}_report phase mismatch")
 
     n = _integer(report.get("n"), f"{phase}_report.n", minimum=1)
     if n != expected_count:
@@ -130,19 +140,24 @@ def _analysis_report(
             raw_summary.get("exact_sign_flip_p_value"),
             f"{prefix}.exact_sign_flip_p_value",
         )
+        team_mean = _finite_number(
+            raw_summary.get("team_mean_composite_score"),
+            f"{prefix}.team_mean_composite_score",
+        )
+        baseline_mean = _finite_number(
+            raw_summary.get("baseline_mean_composite_score"),
+            f"{prefix}.baseline_mean_composite_score",
+        )
+        mean_delta = _finite_number(
+            raw_summary.get("mean_composite_delta"), f"{prefix}.mean_composite_delta"
+        )
+        if not math.isclose(team_mean - baseline_mean, mean_delta, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(f"{prefix}.mean_composite_delta does not match the reported means")
         summary = {
             "condition_id": condition_id,
-            "team_mean_composite_score": _finite_number(
-                raw_summary.get("team_mean_composite_score"),
-                f"{prefix}.team_mean_composite_score",
-            ),
-            "baseline_mean_composite_score": _finite_number(
-                raw_summary.get("baseline_mean_composite_score"),
-                f"{prefix}.baseline_mean_composite_score",
-            ),
-            "mean_composite_delta": _finite_number(
-                raw_summary.get("mean_composite_delta"), f"{prefix}.mean_composite_delta"
-            ),
+            "team_mean_composite_score": team_mean,
+            "baseline_mean_composite_score": baseline_mean,
+            "mean_composite_delta": mean_delta,
             "mean_brier_improvement": _finite_number(
                 raw_summary.get("mean_brier_improvement"),
                 f"{prefix}.mean_brier_improvement",
@@ -154,6 +169,29 @@ def _analysis_report(
         summaries.append(summary)
     if strongest_baseline_id not in condition_ids:
         raise ValueError(f"{phase}_report strongest baseline is missing from per_baseline")
+
+    computed_strongest = min(
+        summaries,
+        key=lambda summary: (
+            -_normalized_summary_number(summary, "baseline_mean_composite_score"),
+            str(summary["condition_id"]),
+        ),
+    )
+    if strongest_baseline_id != computed_strongest["condition_id"]:
+        raise ValueError(f"{phase}_report strongest baseline does not match its metrics")
+    computed_verdict = classify_analysis_verdict(
+        phase=phase,
+        n=n,
+        mean_composite_delta=_normalized_summary_number(computed_strongest, "mean_composite_delta"),
+        mean_brier_improvement=_normalized_summary_number(
+            computed_strongest, "mean_brier_improvement"
+        ),
+        exact_sign_flip_p_value=_normalized_summary_number(
+            computed_strongest, "exact_sign_flip_p_value"
+        ),
+    )
+    if verdict != computed_verdict:
+        raise ValueError(f"{phase}_report verdict does not match its strongest-baseline metrics")
 
     return {
         "phase": phase,
@@ -352,8 +390,8 @@ def final_verdict(
     and holdout analyses with settled, under-cap budget custody and two or
     three recorded holdout exposures.  ``conditional_go`` requires a
     development win and a complete but statistically unconfirmed holdout
-    result (``no_difference`` or ``insufficient_data``) under the same custody
-    gates.  Every baseline win, inconclusive development result, budget
+    result (``no_difference``) under the same custody gates.  Every baseline
+    win, inconclusive development result, budget
     violation, or holdout custody violation returns ``no_go``.
 
     Missing, malformed, or version-mismatched inputs raise ``ValueError``.
@@ -371,7 +409,7 @@ def final_verdict(
         return "no_go"
     if holdout["verdict"] == "team_outperforms":
         return "go"
-    if holdout["verdict"] in {"no_difference", "insufficient_data"}:
+    if holdout["verdict"] == "no_difference":
         return "conditional_go"
     return "no_go"
 
