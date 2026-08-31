@@ -545,6 +545,78 @@ class TestHandleMajorityConsensus:
         }
 
     @pytest.mark.asyncio
+    async def test_rlm_finalization_uses_threshold_snapshot(self):
+        """A protocol mutation after collection starts cannot reverse the fixed decision."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+
+        async def vote_with_agent(agent, proposals, task):
+            agent_index = int(agent.name.removeprefix("agent"))
+            if agent_index >= 6:
+                await asyncio.sleep(10)
+            if agent_index == 5:
+                protocol.consensus_threshold = 0.9
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
+
+        await phase._handle_majority_consensus(ctx)
+
+        participation = ctx.result.metadata["vote_participation"]
+        assert participation == {
+            "eligible": 10,
+            "received": 6,
+            "failed": 0,
+            "skipped": 4,
+        }
+        assert protocol.consensus_threshold == 0.9
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(0.6)
+
+    @pytest.mark.asyncio
+    async def test_rlm_finalization_uses_exact_roster_snapshot(self):
+        """Late context mutation cannot change quorum, participation, or denominator."""
+        agents = [MockAgent(name=f"agent{i}") for i in range(10)]
+        ctx, protocol = make_context(agents=agents, consensus_mode="majority")
+        protocol.consensus_threshold = 0.6
+        protocol.min_participation_ratio = 0.1
+        protocol.min_participation_count = 1
+
+        async def vote_with_agent(agent, proposals, task):
+            agent_index = int(agent.name.removeprefix("agent"))
+            if agent_index >= 6:
+                await asyncio.sleep(10)
+            if agent_index == 5:
+                ctx.agents[:0] = [MockAgent(name="agent")] + [
+                    MockAgent(name=f"ghost{i}") for i in range(1, 10)
+                ]
+            return make_vote(agent=agent.name, choice="agent0")
+
+        phase = ConsensusPhase(
+            deps=ConsensusDependencies(protocol=protocol),
+            callbacks=ConsensusCallbacks(vote_with_agent=vote_with_agent),
+        )
+        phase._vote_collector.config.rlm_early_termination_threshold = 0.5
+
+        await phase._handle_majority_consensus(ctx)
+
+        assert len(ctx.agents) == 20
+        assert ctx.result.metadata["vote_participation"] == {
+            "eligible": 10,
+            "received": 6,
+            "failed": 0,
+            "skipped": 4,
+        }
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == pytest.approx(0.6)
+        assert ctx.result.winner == "agent0"
+
+    @pytest.mark.asyncio
     async def test_rlm_completed_failure_is_not_reported_as_skipped(self):
         agents = [MockAgent(name=f"agent{i}") for i in range(10)]
         ctx, protocol = make_context(agents=agents, consensus_mode="majority")

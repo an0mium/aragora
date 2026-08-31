@@ -30,7 +30,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
@@ -93,6 +93,35 @@ class ConsensusCallbacks:
     get_belief_analyzer: Callable | None = None
     user_vote_multiplier: Callable | None = None
     verify_claims: Callable | None = None  # Optional verification callback
+
+
+@dataclass(frozen=True, slots=True)
+class _MajoritySnapshot:
+    """Immutable inputs shared by majority collection and finalization."""
+
+    effective_threshold: float
+    eligible_agents: tuple[Any, ...]
+    eligible_agent_names: tuple[str, ...]
+
+    @classmethod
+    def capture(cls, effective_threshold: float, agents: Iterable[Any]) -> "_MajoritySnapshot":
+        eligible_agents = tuple(agents)
+        return cls(
+            effective_threshold=effective_threshold,
+            eligible_agents=eligible_agents,
+            eligible_agent_names=tuple(
+                agent.name if isinstance(getattr(agent, "name", None), str) and agent.name else ""
+                for agent in eligible_agents
+            ),
+        )
+
+    @property
+    def eligible_count(self) -> int:
+        return len(self.eligible_agent_names)
+
+    @property
+    def unique_eligible_agent_names(self) -> frozenset[str]:
+        return frozenset(name for name in self.eligible_agent_names if name)
 
 
 class ConsensusPhase:
@@ -649,15 +678,13 @@ class ConsensusPhase:
         # Cast votes from all agents. Majority confidence is roster-relative:
         # a voter that fails to return a ballot cannot silently disappear from
         # the agreement denominator.
-        effective_threshold = (
-            threshold_override
-            if threshold_override is not None
-            else getattr(self.protocol, "consensus_threshold", 0.5)
-        )
-        eligible_agent_names = frozenset(
-            agent.name
-            for agent in ctx.agents
-            if isinstance(getattr(agent, "name", None), str) and agent.name
+        majority_snapshot = _MajoritySnapshot.capture(
+            (
+                threshold_override
+                if threshold_override is not None
+                else getattr(self.protocol, "consensus_threshold", 0.5)
+            ),
+            ctx.agents,
         )
         fixed_rlm_weights = (
             self._compute_vote_weights(ctx) if self._rlm_tally_inputs_are_fixed() else None
@@ -667,10 +694,15 @@ class ConsensusPhase:
             use_position_shuffling=True,
             unanimous_mode=False,
             vote_weights=fixed_rlm_weights,
-            consensus_threshold=effective_threshold,
-            eligible_agent_names=eligible_agent_names,
+            consensus_threshold=majority_snapshot.effective_threshold,
+            eligible_agent_names=majority_snapshot.unique_eligible_agent_names,
         )
-        if not self._ensure_quorum(ctx, len(votes), failed_count=voting_errors):
+        if not self._ensure_quorum(
+            ctx,
+            len(votes),
+            failed_count=voting_errors,
+            eligible_count=majority_snapshot.eligible_count,
+        ):
             return
 
         # Apply calibration adjustments to vote confidences
@@ -697,9 +729,9 @@ class ConsensusPhase:
 
         voting_agents = {vote.agent for vote in votes if getattr(vote, "agent", None)}
         total_weighted += sum(
-            vote_weight_cache.get(agent.name, 1.0)
-            for agent in ctx.agents
-            if agent.name not in voting_agents
+            vote_weight_cache.get(agent_name, 1.0)
+            for agent_name in majority_snapshot.eligible_agent_names
+            if agent_name not in voting_agents
         )
 
         # Include user votes
@@ -747,8 +779,12 @@ class ConsensusPhase:
             vote_counts,
             total_weighted,
             choice_mapping,
-            normalize_choice=self._normalize_choice_to_agent,
-            threshold_override=threshold_override,
+            normalize_choice=lambda choice, _agents, proposals: self._normalize_choice_to_agent(
+                choice,
+                list(majority_snapshot.eligible_agents),
+                proposals,
+            ),
+            threshold_override=majority_snapshot.effective_threshold,
         )
 
         # Apply process verification gate if enabled
@@ -1722,10 +1758,12 @@ class ConsensusPhase:
         ctx: "DebateContext",
         vote_count: int,
         failed_count: int,
+        *,
+        eligible_count: int | None = None,
     ) -> None:
         """Record agent ballots, failures, and intentional early-stop skips."""
         result = require_phase_result(ctx)
-        eligible = len(ctx.agents)
+        eligible = len(ctx.agents) if eligible_count is None else max(0, eligible_count)
         received = max(0, min(vote_count, eligible))
         failed = max(0, min(failed_count, eligible - received))
         skipped = max(0, eligible - received - failed)
@@ -1745,10 +1783,16 @@ class ConsensusPhase:
         vote_count: int,
         *,
         failed_count: int = 0,
+        eligible_count: int | None = None,
     ) -> bool:
         """Ensure enough agents participated to make consensus meaningful."""
-        self._record_vote_participation(ctx, vote_count, failed_count)
-        total_agents = len(ctx.agents)
+        self._record_vote_participation(
+            ctx,
+            vote_count,
+            failed_count,
+            eligible_count=eligible_count,
+        )
+        total_agents = len(ctx.agents) if eligible_count is None else max(0, eligible_count)
         required = self._required_participation(total_agents)
         if vote_count >= required:
             return True
