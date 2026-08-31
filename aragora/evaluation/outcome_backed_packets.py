@@ -6,13 +6,16 @@ import base64
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
+from http.client import HTTPMessage
+import ipaddress
 import json
 from pathlib import Path
 import re
-from typing import Protocol
+import socket
+from typing import IO
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from aragora.evaluation.outcome_backed_corpus import (
     BENCHMARK_ID,
@@ -26,6 +29,21 @@ PACKET_SET_SCHEMA = "outcome-backed-source-packet-set/1.0"
 DEFAULT_MAX_SOURCE_BYTES = 10_000_000
 DEFAULT_TIMEOUT_SECONDS = 30.0
 SOURCE_USER_AGENT = "Mozilla/5.0 (compatible; AragoraBot/1.0; +https://aragora.ai)"
+SOURCE_HOST_ALLOWLIST = frozenset(
+    {
+        "assets.publishing.service.gov.uk",
+        "ntrs.nasa.gov",
+        "raw.githubusercontent.com",
+        "science.nasa.gov",
+        "www.ftc.gov",
+        "www.govinfo.gov",
+        "www.justice.gov",
+        "www.nasa.gov",
+        "www.nist.gov",
+        "www.noaa.gov",
+        "www.sec.gov",
+    }
+)
 
 _SAFE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _OUTCOME_KEYS = frozenset(
@@ -45,17 +63,82 @@ class SourcePacketError(ValueError):
     """Raised when source material cannot be packetized fail-closed."""
 
 
-class _ReadableResponse(Protocol):
-    def __enter__(self) -> _ReadableResponse: ...
+def _source_hostname(url: str, *, source_id: str, expected_hostname: str | None = None) -> str:
+    """Return an allowlisted HTTPS hostname without performing network I/O."""
 
-    def __exit__(self, *args: object) -> object: ...
+    try:
+        parsed = urlparse(url)
+        port = parsed.port
+    except ValueError as exc:
+        raise SourcePacketError(f"source {source_id} URL is malformed") from exc
+    hostname = (parsed.hostname or "").lower()
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or port not in {None, 443}
+    ):
+        raise SourcePacketError(f"source {source_id} URL must be credential-free HTTPS on port 443")
+    if hostname not in SOURCE_HOST_ALLOWLIST:
+        raise SourcePacketError(f"source {source_id} hostname is not in the frozen allowlist")
+    if expected_hostname is not None and hostname != expected_hostname:
+        raise SourcePacketError(f"source {source_id} redirect changed hostname")
+    return hostname
 
-    def read(self, amount: int = -1) -> bytes: ...
 
-    def geturl(self) -> str: ...
+def _validate_public_source_url(
+    url: str,
+    *,
+    source_id: str,
+    expected_hostname: str | None = None,
+) -> str:
+    """Fail closed unless every resolved address is globally routable."""
+
+    hostname = _source_hostname(
+        url,
+        source_id=source_id,
+        expected_hostname=expected_hostname,
+    )
+    try:
+        addresses = socket.getaddrinfo(hostname, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except (TimeoutError, socket.gaierror, OSError) as exc:
+        raise SourcePacketError(f"source {source_id} DNS resolution failed") from exc
+    if not addresses:
+        raise SourcePacketError(f"source {source_id} DNS resolution returned no addresses")
+    for address in addresses:
+        try:
+            resolved = ipaddress.ip_address(str(address[4][0]))
+        except (IndexError, TypeError, ValueError) as exc:
+            raise SourcePacketError(f"source {source_id} DNS returned an invalid address") from exc
+        if not resolved.is_global:
+            raise SourcePacketError(f"source {source_id} resolved to a non-public address")
+    return hostname
 
 
-OpenUrl = Callable[..., _ReadableResponse]
+class _SourceRedirectHandler(HTTPRedirectHandler):
+    """Validate every redirect target before urllib opens it."""
+
+    def __init__(self, *, source_id: str, expected_hostname: str) -> None:
+        super().__init__()
+        self._source_id = source_id
+        self._expected_hostname = expected_hostname
+
+    def redirect_request(
+        self,
+        req: Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> Request | None:
+        _validate_public_source_url(
+            newurl,
+            source_id=self._source_id,
+            expected_hostname=self._expected_hostname,
+        )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 @dataclass(frozen=True)
@@ -93,9 +176,7 @@ def _source_metadata(source: Mapping[str, object]) -> dict[str, str]:
         field: _required_text(source.get(field), f"source.{field}")
         for field in ("source_id", "title", "url", "published_at", "content_sha256")
     }
-    parsed = urlparse(metadata["url"])
-    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-        raise SourcePacketError("source.url must be credential-free HTTPS")
+    _source_hostname(metadata["url"], source_id=metadata["source_id"])
     if not re.fullmatch(r"[0-9a-f]{64}", metadata["content_sha256"]):
         raise SourcePacketError("source.content_sha256 must be lowercase SHA-256")
     return metadata
@@ -106,7 +187,6 @@ def fetch_source(
     *,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     max_source_bytes: int = DEFAULT_MAX_SOURCE_BYTES,
-    open_url: OpenUrl = urlopen,
 ) -> MaterializedSource:
     """Fetch one pinned source and verify its exact bytes before decoding."""
 
@@ -116,24 +196,29 @@ def fetch_source(
     if max_source_bytes <= 0:
         raise SourcePacketError("max_source_bytes must be positive")
 
+    source_hostname = _validate_public_source_url(
+        metadata["url"],
+        source_id=metadata["source_id"],
+    )
     request = Request(
         metadata["url"],
         headers={"User-Agent": SOURCE_USER_AGENT},
         method="GET",
     )
+    opener = build_opener(
+        _SourceRedirectHandler(
+            source_id=metadata["source_id"],
+            expected_hostname=source_hostname,
+        )
+    )
     try:
-        with open_url(request, timeout=timeout_seconds) as response:
+        with opener.open(request, timeout=timeout_seconds) as response:
             final_url = response.geturl()
-            parsed_final = urlparse(final_url)
-            if (
-                parsed_final.scheme != "https"
-                or not parsed_final.netloc
-                or parsed_final.username
-                or parsed_final.password
-            ):
-                raise SourcePacketError(
-                    f"source {metadata['source_id']} redirected outside credential-free HTTPS"
-                )
+            _source_hostname(
+                final_url,
+                source_id=metadata["source_id"],
+                expected_hostname=source_hostname,
+            )
             raw = response.read(max_source_bytes + 1)
     except SourcePacketError:
         raise
@@ -321,7 +406,6 @@ def materialize_source_packets(
     split: str,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     max_source_bytes: int = DEFAULT_MAX_SOURCE_BYTES,
-    open_url: OpenUrl = urlopen,
 ) -> dict[str, object]:
     """Load visible cases, fetch pinned evidence, and persist deterministic packets."""
 
@@ -332,7 +416,6 @@ def materialize_source_packets(
             metadata,
             timeout_seconds=timeout_seconds,
             max_source_bytes=max_source_bytes,
-            open_url=open_url,
         )
 
     manifest, packets = build_packet_set(cases, split=split, fetch=fetch)
