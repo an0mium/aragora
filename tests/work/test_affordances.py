@@ -76,10 +76,10 @@ class TestHardGates:
 
     def test_pre_existing_blocked_by_survives_new_gate_reason(self):
         """A candidate that already carries blocked_by (e.g. from
-        from_work_recommendation) must not lose those reasons when a hard
-        gate downgrades it further — both the prior and new reasons should
-        be visible, and a candidate with no new gate reason must pass
-        through unchanged."""
+        from_work_recommendation) must never lose those reasons. An
+        already-BLOCKED candidate is terminal for the halt gate (it is
+        already non-actionable) and passes through unchanged; a NEW live
+        blocker still lands, with prior reasons preserved first."""
         aff = from_work_recommendation(
             WorkRecommendation(
                 rank=1,
@@ -93,9 +93,15 @@ class TestHardGates:
         )
         assert aff.blocked_by == ["needs spec"]
 
+        # Halt is terminal on an already-BLOCKED candidate: unchanged.
         gated = apply_hard_gates([aff], halted=True)
-        assert "needs spec" in gated[0].blocked_by
-        assert "halt" in gated[0].blocked_by
+        assert gated[0] is aff
+        assert gated[0].blocked_by == ["needs spec"]
+
+        # A NEW live blocker merges after the prior reasons.
+        gated_live = apply_hard_gates([aff], live_blockers={aff.affordance_id: ["lease conflict"]})
+        assert gated_live[0].blocked_by == ["needs spec", "lease conflict"]
+        assert gated_live[0].disposition is AffordanceDisposition.BLOCKED
         # inputs not mutated
         assert aff.blocked_by == ["needs spec"]
 
@@ -103,6 +109,16 @@ class TestHardGates:
         gated_no_gate = apply_hard_gates([aff])
         assert gated_no_gate[0] is aff
         assert gated_no_gate[0].blocked_by == ["needs spec"]
+
+    def test_live_blocker_dominates_capability_lack(self):
+        """A live-authority blocker must classify as BLOCKED even when a
+        capability/approval lack also applies — BLOCKED survives situation-
+        frame truncation, so the live blocker can never be silently dropped."""
+        acts = [_aff("a", required_capabilities=["github:write"])]
+        gated = apply_hard_gates(acts, live_blockers={"a": ["lease conflict"]})
+        assert gated[0].disposition is AffordanceDisposition.BLOCKED
+        assert "lease conflict" in gated[0].blocked_by
+        assert "missing capability: github:write" in gated[0].blocked_by
 
     def test_missing_approval_makes_unavailable(self):
         acts = [_aff("a", required_approvals=["operator:tier3"])]
@@ -117,13 +133,20 @@ class TestHardGates:
         assert gated[0].blocked_by == []
 
     def test_gating_is_idempotent(self):
-        """Re-gating already-gated output must not duplicate blocked_by."""
+        """Re-gating already-gated output must not duplicate blocked_by,
+        change dispositions, or re-fire halt against a candidate whose
+        intrinsic disposition (e.g. halt-exempt WAIT_WATCH) was downgraded
+        on the first pass."""
         acts = [
             _aff("a"),
             _aff("u", required_capabilities=["github:write"]),
             _aff("p", required_approvals=["operator:tier3"]),
+            _aff("w", disposition=AffordanceDisposition.WAIT_WATCH),
         ]
-        kwargs = dict(halted=True, live_blockers={"a": ["lease conflict"]})
+        kwargs = dict(
+            halted=True,
+            live_blockers={"a": ["lease conflict"], "w": ["lease conflict"]},
+        )
         once = apply_hard_gates(acts, **kwargs)
         twice = apply_hard_gates(once, **kwargs)
         for first, second in zip(once, twice):

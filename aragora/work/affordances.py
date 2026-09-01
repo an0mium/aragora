@@ -66,6 +66,10 @@ _HALT_EXEMPT = frozenset(
     {AffordanceDisposition.WAIT_WATCH, AffordanceDisposition.INFORMATION_GATHERING}
 )
 
+# Already-downgraded dispositions: terminal for the halt gate (re-gating
+# gated output must not re-fire halt against a lost intrinsic disposition).
+_NON_ACTIONABLE = frozenset({AffordanceDisposition.BLOCKED, AffordanceDisposition.UNAVAILABLE})
+
 
 @dataclass(slots=True)
 class CostVector:
@@ -176,16 +180,21 @@ def apply_hard_gates(
 
     Never removes items: a blocked action stays visible as blocked, which is
     the point — the agent sees what it cannot do and why. Inputs are not
-    mutated; downgraded copies are returned. Every downgrade branch preserves
-    a candidate's pre-existing ``blocked_by`` entries (listed before any new
-    gate-derived reason, deduplicated so gating is idempotent), so a candidate
-    already blocked for its own reasons never loses that context when a gate
-    also fires. A candidate whose only blockers are pre-existing — no new gate
-    reason applies — passes through unchanged rather than being re-wrapped.
+    mutated; downgraded copies are returned, with pre-existing ``blocked_by``
+    entries preserved first and all reasons order-preserving-deduplicated, so
+    gating is idempotent: re-gating already-gated output changes nothing.
 
-    A candidate whose ``required_capabilities`` are not all held, or whose
-    ``required_approvals`` are not all granted, is UNAVAILABLE — approvals
-    are a hard gate, not advice.
+    Precedence: a live-authority prohibition (a live blocker, or halt on an
+    actionable non-exempt candidate) downgrades to BLOCKED and dominates a
+    capability/approval lack — BLOCKED survives situation-frame truncation,
+    so a live blocker can never be silently dropped under budget pressure —
+    while a pure lack of required capabilities or approvals downgrades to
+    UNAVAILABLE (approvals are a hard gate, not advice). Already-non-
+    actionable candidates are terminal for the halt gate and pass through
+    unchanged unless a NEW live blocker arrives, which upgrades them to
+    BLOCKED. Gates only ever downgrade: re-gating with a relaxed gate (e.g.
+    after a halt lifts) never recovers a candidate — recompute affordances
+    from their original source to recover.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
@@ -195,41 +204,33 @@ def apply_hard_gates(
         ]
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
         unapproved = [a for a in cand.required_approvals if a not in approvals_granted]
-        if missing or unapproved:
+        non_actionable = cand.disposition in _NON_ACTIONABLE
+        halt_applies = halted and not non_actionable and cand.disposition not in _HALT_EXEMPT
+        prohibitions = [*gate_reasons, *(["halt"] if halt_applies else [])]
+        lacks = [
+            *(f"missing capability: {c}" for c in missing),
+            *(f"missing approval: {a}" for a in unapproved),
+        ]
+        if prohibitions:
+            gated.append(
+                replace(
+                    cand,
+                    disposition=AffordanceDisposition.BLOCKED,
+                    blocked_by=_merged_reasons(cand, [*prohibitions, *lacks]),
+                )
+            )
+        elif non_actionable:
+            gated.append(cand)
+        elif lacks:
             gated.append(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.UNAVAILABLE,
-                    blocked_by=_merged_reasons(
-                        cand,
-                        [
-                            *gate_reasons,
-                            *(f"missing capability: {c}" for c in missing),
-                            *(f"missing approval: {a}" for a in unapproved),
-                        ],
-                    ),
+                    blocked_by=_merged_reasons(cand, lacks),
                 )
             )
-            continue
-        if halted and cand.disposition not in _HALT_EXEMPT:
-            gated.append(
-                replace(
-                    cand,
-                    disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=_merged_reasons(cand, [*gate_reasons, "halt"]),
-                )
-            )
-            continue
-        if gate_reasons:
-            gated.append(
-                replace(
-                    cand,
-                    disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=_merged_reasons(cand, gate_reasons),
-                )
-            )
-            continue
-        gated.append(cand)
+        else:
+            gated.append(cand)
     return gated
 
 
@@ -283,7 +284,7 @@ def from_work_recommendation(
     else:
         tag = claimed_tag
 
-    blocked = [*rec.blockers, *live_blockers]
+    blocked = list(dict.fromkeys([*rec.blockers, *live_blockers]))
     return ActionAffordance(
         affordance_id=f"work:{rec.item_id}",
         target=rec.item_id,
