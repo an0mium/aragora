@@ -345,7 +345,7 @@ git commit -m "feat(reasoning): add three-axis epistemic tags (knowledge state, 
   - `@dataclass(slots=True) class CostVector(tokens: int = 0, seconds: float = 0.0, money_usd: float = 0.0, human_attention: int = 0)`
   - `@dataclass(slots=True) class WaitSpec(wake_predicates: list[str], deadline_epoch: float | None, expected_evidence: list[str], fallback_affordance_id: str | None, owner: str, cancellation: str)`
   - `@dataclass(slots=True) class ActionAffordance(...)` — full field list in the implementation below; key methods `to_dict() -> dict[str, Any]`
-  - `apply_hard_gates(candidates: Sequence[ActionAffordance], *, halted: bool = False, capabilities_held: frozenset[str] = frozenset(), live_blockers: Mapping[str, Sequence[str]] | None = None) -> list[ActionAffordance]`
+  - `apply_hard_gates(candidates: Sequence[ActionAffordance], *, halted: bool = False, capabilities_held: frozenset[str] = frozenset(), approvals_granted: frozenset[str] = frozenset(), live_blockers: Mapping[str, Sequence[str]] | None = None) -> list[ActionAffordance]` — capability AND approval gates downgrade to UNAVAILABLE; idempotent (order-preserving dedup of `blocked_by`)
   - `pareto_frontier(candidates: Sequence[ActionAffordance]) -> list[ActionAffordance]`
   - `from_work_recommendation(rec: WorkRecommendation, *, live_blockers: Sequence[str] = ()) -> ActionAffordance`
 
@@ -455,6 +455,32 @@ class TestHardGates:
         gated_no_gate = apply_hard_gates([aff])
         assert gated_no_gate[0] is aff
         assert gated_no_gate[0].blocked_by == ["needs spec"]
+
+    def test_missing_approval_makes_unavailable(self):
+        acts = [_aff("a", required_approvals=["operator:tier3"])]
+        gated = apply_hard_gates(acts)
+        assert gated[0].disposition is AffordanceDisposition.UNAVAILABLE
+        assert any("operator:tier3" in b for b in gated[0].blocked_by)
+
+    def test_granted_approval_stays_actionable(self):
+        acts = [_aff("a", required_approvals=["operator:tier3"])]
+        gated = apply_hard_gates(acts, approvals_granted=frozenset({"operator:tier3"}))
+        assert gated[0].disposition is AffordanceDisposition.CONDITIONAL
+        assert gated[0].blocked_by == []
+
+    def test_gating_is_idempotent(self):
+        """Re-gating already-gated output must not duplicate blocked_by."""
+        acts = [
+            _aff("a"),
+            _aff("u", required_capabilities=["github:write"]),
+            _aff("p", required_approvals=["operator:tier3"]),
+        ]
+        kwargs = dict(halted=True, live_blockers={"a": ["lease conflict"]})
+        once = apply_hard_gates(acts, **kwargs)
+        twice = apply_hard_gates(once, **kwargs)
+        for first, second in zip(once, twice):
+            assert first.blocked_by == second.blocked_by
+            assert first.disposition is second.disposition
 
 
 class TestParetoFrontier:
@@ -568,7 +594,7 @@ work selection. Additive: does not modify ``aragora.work.models``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
@@ -705,11 +731,21 @@ class ActionAffordance:
         }
 
 
+def _merged_reasons(cand: ActionAffordance, new_reasons: Iterable[str]) -> list[str]:
+    """Pre-existing ``blocked_by`` first, then new gate reasons, deduplicated.
+
+    Order-preserving dedup makes gating idempotent: re-gating already-gated
+    output never duplicates a reason.
+    """
+    return list(dict.fromkeys([*cand.blocked_by, *new_reasons]))
+
+
 def apply_hard_gates(
     candidates: Sequence[ActionAffordance],
     *,
     halted: bool = False,
     capabilities_held: frozenset[str] = frozenset(),
+    approvals_granted: frozenset[str] = frozenset(),
     live_blockers: Mapping[str, Sequence[str]] | None = None,
 ) -> list[ActionAffordance]:
     """Downgrade dispositions per live authority BEFORE any ranking happens.
@@ -718,26 +754,36 @@ def apply_hard_gates(
     the point — the agent sees what it cannot do and why. Inputs are not
     mutated; downgraded copies are returned. Every downgrade branch preserves
     a candidate's pre-existing ``blocked_by`` entries (listed before any new
-    gate-derived reason), so a candidate already blocked for its own reasons
-    never loses that context when a gate also fires. A candidate whose only
-    blockers are pre-existing — no new gate reason applies — passes through
-    unchanged rather than being re-wrapped.
+    gate-derived reason, deduplicated so gating is idempotent), so a candidate
+    already blocked for its own reasons never loses that context when a gate
+    also fires. A candidate whose only blockers are pre-existing — no new gate
+    reason applies — passes through unchanged rather than being re-wrapped.
+
+    A candidate whose ``required_capabilities`` are not all held, or whose
+    ``required_approvals`` are not all granted, is UNAVAILABLE — approvals
+    are a hard gate, not advice.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        gate_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
+        gate_reasons: list[str] = [
+            r for r in blockers_by_id.get(cand.affordance_id, ()) if r not in cand.blocked_by
+        ]
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
-        if missing:
+        unapproved = [a for a in cand.required_approvals if a not in approvals_granted]
+        if missing or unapproved:
             gated.append(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.UNAVAILABLE,
-                    blocked_by=[
-                        *cand.blocked_by,
-                        *gate_reasons,
-                        *(f"missing capability: {c}" for c in missing),
-                    ],
+                    blocked_by=_merged_reasons(
+                        cand,
+                        [
+                            *gate_reasons,
+                            *(f"missing capability: {c}" for c in missing),
+                            *(f"missing approval: {a}" for a in unapproved),
+                        ],
+                    ),
                 )
             )
             continue
@@ -746,7 +792,7 @@ def apply_hard_gates(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=[*cand.blocked_by, *gate_reasons, "halt"],
+                    blocked_by=_merged_reasons(cand, [*gate_reasons, "halt"]),
                 )
             )
             continue
@@ -755,7 +801,7 @@ def apply_hard_gates(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=[*cand.blocked_by, *gate_reasons],
+                    blocked_by=_merged_reasons(cand, gate_reasons),
                 )
             )
             continue

@@ -17,7 +17,7 @@ work selection. Additive: does not modify ``aragora.work.models``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
@@ -155,11 +155,21 @@ class ActionAffordance:
         }
 
 
+def _merged_reasons(cand: ActionAffordance, new_reasons: Iterable[str]) -> list[str]:
+    """Pre-existing ``blocked_by`` first, then new gate reasons, deduplicated.
+
+    Order-preserving dedup makes gating idempotent: re-gating already-gated
+    output never duplicates a reason.
+    """
+    return list(dict.fromkeys([*cand.blocked_by, *new_reasons]))
+
+
 def apply_hard_gates(
     candidates: Sequence[ActionAffordance],
     *,
     halted: bool = False,
     capabilities_held: frozenset[str] = frozenset(),
+    approvals_granted: frozenset[str] = frozenset(),
     live_blockers: Mapping[str, Sequence[str]] | None = None,
 ) -> list[ActionAffordance]:
     """Downgrade dispositions per live authority BEFORE any ranking happens.
@@ -168,26 +178,36 @@ def apply_hard_gates(
     the point — the agent sees what it cannot do and why. Inputs are not
     mutated; downgraded copies are returned. Every downgrade branch preserves
     a candidate's pre-existing ``blocked_by`` entries (listed before any new
-    gate-derived reason), so a candidate already blocked for its own reasons
-    never loses that context when a gate also fires. A candidate whose only
-    blockers are pre-existing — no new gate reason applies — passes through
-    unchanged rather than being re-wrapped.
+    gate-derived reason, deduplicated so gating is idempotent), so a candidate
+    already blocked for its own reasons never loses that context when a gate
+    also fires. A candidate whose only blockers are pre-existing — no new gate
+    reason applies — passes through unchanged rather than being re-wrapped.
+
+    A candidate whose ``required_capabilities`` are not all held, or whose
+    ``required_approvals`` are not all granted, is UNAVAILABLE — approvals
+    are a hard gate, not advice.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        gate_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
+        gate_reasons: list[str] = [
+            r for r in blockers_by_id.get(cand.affordance_id, ()) if r not in cand.blocked_by
+        ]
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
-        if missing:
+        unapproved = [a for a in cand.required_approvals if a not in approvals_granted]
+        if missing or unapproved:
             gated.append(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.UNAVAILABLE,
-                    blocked_by=[
-                        *cand.blocked_by,
-                        *gate_reasons,
-                        *(f"missing capability: {c}" for c in missing),
-                    ],
+                    blocked_by=_merged_reasons(
+                        cand,
+                        [
+                            *gate_reasons,
+                            *(f"missing capability: {c}" for c in missing),
+                            *(f"missing approval: {a}" for a in unapproved),
+                        ],
+                    ),
                 )
             )
             continue
@@ -196,7 +216,7 @@ def apply_hard_gates(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=[*cand.blocked_by, *gate_reasons, "halt"],
+                    blocked_by=_merged_reasons(cand, [*gate_reasons, "halt"]),
                 )
             )
             continue
@@ -205,7 +225,7 @@ def apply_hard_gates(
                 replace(
                     cand,
                     disposition=AffordanceDisposition.BLOCKED,
-                    blocked_by=[*cand.blocked_by, *gate_reasons],
+                    blocked_by=_merged_reasons(cand, gate_reasons),
                 )
             )
             continue

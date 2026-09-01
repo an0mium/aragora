@@ -104,6 +104,32 @@ class TestHardGates:
         assert gated_no_gate[0] is aff
         assert gated_no_gate[0].blocked_by == ["needs spec"]
 
+    def test_missing_approval_makes_unavailable(self):
+        acts = [_aff("a", required_approvals=["operator:tier3"])]
+        gated = apply_hard_gates(acts)
+        assert gated[0].disposition is AffordanceDisposition.UNAVAILABLE
+        assert any("operator:tier3" in b for b in gated[0].blocked_by)
+
+    def test_granted_approval_stays_actionable(self):
+        acts = [_aff("a", required_approvals=["operator:tier3"])]
+        gated = apply_hard_gates(acts, approvals_granted=frozenset({"operator:tier3"}))
+        assert gated[0].disposition is AffordanceDisposition.CONDITIONAL
+        assert gated[0].blocked_by == []
+
+    def test_gating_is_idempotent(self):
+        """Re-gating already-gated output must not duplicate blocked_by."""
+        acts = [
+            _aff("a"),
+            _aff("u", required_capabilities=["github:write"]),
+            _aff("p", required_approvals=["operator:tier3"]),
+        ]
+        kwargs = dict(halted=True, live_blockers={"a": ["lease conflict"]})
+        once = apply_hard_gates(acts, **kwargs)
+        twice = apply_hard_gates(once, **kwargs)
+        for first, second in zip(once, twice):
+            assert first.blocked_by == second.blocked_by
+            assert first.disposition is second.disposition
+
 
 class TestParetoFrontier:
     def test_dominated_candidate_is_excluded(self):
