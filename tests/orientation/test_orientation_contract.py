@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import jsonschema
 import pytest
-
-jsonschema = pytest.importorskip("jsonschema")
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "docs" / "schemas" / "orientation.v1.json"
