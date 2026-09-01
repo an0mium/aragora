@@ -191,22 +191,23 @@ def apply_hard_gates(
     while a pure lack of required capabilities or approvals downgrades to
     UNAVAILABLE (approvals are a hard gate, not advice). Already-non-
     actionable candidates are terminal for the halt gate and pass through
-    unchanged unless a NEW live blocker arrives, which upgrades them to
-    BLOCKED. Gates only ever downgrade: re-gating with a relaxed gate (e.g.
-    after a halt lifts) never recovers a candidate — recompute affordances
-    from their original source to recover.
+    unchanged unless a live blocker names them, which (re)classifies them
+    BLOCKED. A live blocker downgrades a still-actionable candidate even when
+    its reason string is already recorded in ``blocked_by`` — a recorded
+    reason is not the same as an applied downgrade. Gates only ever
+    downgrade: re-gating with a relaxed gate (e.g. after a halt lifts) never
+    recovers a candidate — recompute affordances from their original source
+    to recover.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        gate_reasons: list[str] = [
-            r for r in blockers_by_id.get(cand.affordance_id, ()) if r not in cand.blocked_by
-        ]
+        live_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
         unapproved = [a for a in cand.required_approvals if a not in approvals_granted]
         non_actionable = cand.disposition in _NON_ACTIONABLE
         halt_applies = halted and not non_actionable and cand.disposition not in _HALT_EXEMPT
-        prohibitions = [*gate_reasons, *(["halt"] if halt_applies else [])]
+        prohibitions = [*live_reasons, *(["halt"] if halt_applies else [])]
         lacks = [
             *(f"missing capability: {c}" for c in missing),
             *(f"missing approval: {a}" for a in unapproved),
@@ -267,6 +268,12 @@ def from_work_recommendation(
     The recommendation's own view of actionability (DERIVED authority) is
     reconciled against live blockers (OBSERVED authority): a clean rec that a
     live authority contradicts becomes CONFLICTED, never silently 'ready'.
+
+    WorkRecommendation carries no cost or risk data, so adapter-produced
+    affordances default to a zero CostVector and risk_tier 0; among such
+    candidates alone the frontier degenerates to highest ``score.total``.
+    Callers with real cost/risk estimates should set them on the result for
+    the frontier's tradeoff axes to bite.
     """
     claimed_tag = EpistemicTag(
         state=KnowledgeState.ESTIMATED,

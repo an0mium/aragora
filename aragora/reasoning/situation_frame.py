@@ -194,13 +194,26 @@ def truncate_frame(
     current = frame
     if _frame_bytes(current) > budget_bytes:
         floor = current.possibility.protected_floor
-        keep = sorted(current.possibility.residuals, key=lambda r: r.loss_severity)
+        original_order = list(current.possibility.residuals)
+        keep = sorted(original_order, key=lambda r: r.loss_severity)
         while keep and _frame_bytes(current) > budget_bytes and keep[0].loss_severity < floor:
             keep.pop(0)
             dropped_residuals += 1
             current = replace(
                 current,
                 possibility=replace(current.possibility, residuals=list(keep)),
+            )
+        if dropped_residuals:
+            # Survivors keep the caller's ordering; drop order was only a
+            # severity policy, not a presentation change. Same elements mean
+            # the same serialized byte count, so mid-loop measurements hold.
+            kept_ids = {r.residual_id for r in keep}
+            current = replace(
+                current,
+                possibility=replace(
+                    current.possibility,
+                    residuals=[r for r in original_order if r.residual_id in kept_ids],
+                ),
             )
 
     if _frame_bytes(current) > budget_bytes:

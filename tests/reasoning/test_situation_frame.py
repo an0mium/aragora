@@ -124,6 +124,16 @@ class TestProtectedTruncation:
         assert "blocked" in kept
         assert report.dropped_affordances > 0
 
+    def test_truncation_preserves_input_order_of_survivors(self):
+        hi1 = _residual("hi1", 0.9)
+        lo = _residual("lo", 0.1)
+        hi2 = _residual("hi2", 0.8)
+        frame = _frame([hi1, lo, hi2])
+        tight = len(json.dumps(_frame([hi1, hi2]).to_dict(), separators=(",", ":")).encode()) + 100
+        out, report = truncate_frame(frame, budget_bytes=tight)
+        assert report.dropped_residuals == 1
+        assert [r.residual_id for r in out.possibility.residuals] == ["hi1", "hi2"]
+
     def test_evidence_facts_are_never_dropped(self):
         frame = _frame([_residual(f"r{i}", 0.1) for i in range(20)])
         out, _ = truncate_frame(frame, budget_bytes=100)

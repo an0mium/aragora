@@ -120,6 +120,16 @@ class TestHardGates:
         assert "lease conflict" in gated[0].blocked_by
         assert "missing capability: github:write" in gated[0].blocked_by
 
+    def test_live_blocker_downgrades_even_if_reason_already_recorded(self):
+        """A recorded reason is not an applied downgrade: a still-actionable
+        candidate whose blocked_by already contains the live blocker's string
+        must still be classified BLOCKED."""
+        acts = [_aff("a", blocked_by=["lease conflict"])]
+        assert acts[0].disposition is AffordanceDisposition.CONDITIONAL
+        gated = apply_hard_gates(acts, live_blockers={"a": ["lease conflict"]})
+        assert gated[0].disposition is AffordanceDisposition.BLOCKED
+        assert gated[0].blocked_by == ["lease conflict"]
+
     def test_missing_approval_makes_unavailable(self):
         acts = [_aff("a", required_approvals=["operator:tier3"])]
         gated = apply_hard_gates(acts)

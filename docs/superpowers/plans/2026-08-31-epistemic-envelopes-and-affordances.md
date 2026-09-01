@@ -474,6 +474,16 @@ class TestHardGates:
         assert "lease conflict" in gated[0].blocked_by
         assert "missing capability: github:write" in gated[0].blocked_by
 
+    def test_live_blocker_downgrades_even_if_reason_already_recorded(self):
+        """A recorded reason is not an applied downgrade: a still-actionable
+        candidate whose blocked_by already contains the live blocker's string
+        must still be classified BLOCKED."""
+        acts = [_aff("a", blocked_by=["lease conflict"])]
+        assert acts[0].disposition is AffordanceDisposition.CONDITIONAL
+        gated = apply_hard_gates(acts, live_blockers={"a": ["lease conflict"]})
+        assert gated[0].disposition is AffordanceDisposition.BLOCKED
+        assert gated[0].blocked_by == ["lease conflict"]
+
     def test_missing_approval_makes_unavailable(self):
         acts = [_aff("a", required_approvals=["operator:tier3"])]
         gated = apply_hard_gates(acts)
@@ -794,22 +804,23 @@ def apply_hard_gates(
     while a pure lack of required capabilities or approvals downgrades to
     UNAVAILABLE (approvals are a hard gate, not advice). Already-non-
     actionable candidates are terminal for the halt gate and pass through
-    unchanged unless a NEW live blocker arrives, which upgrades them to
-    BLOCKED. Gates only ever downgrade: re-gating with a relaxed gate (e.g.
-    after a halt lifts) never recovers a candidate — recompute affordances
-    from their original source to recover.
+    unchanged unless a live blocker names them, which (re)classifies them
+    BLOCKED. A live blocker downgrades a still-actionable candidate even when
+    its reason string is already recorded in ``blocked_by`` — a recorded
+    reason is not the same as an applied downgrade. Gates only ever
+    downgrade: re-gating with a relaxed gate (e.g. after a halt lifts) never
+    recovers a candidate — recompute affordances from their original source
+    to recover.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
     for cand in candidates:
-        gate_reasons: list[str] = [
-            r for r in blockers_by_id.get(cand.affordance_id, ()) if r not in cand.blocked_by
-        ]
+        live_reasons: list[str] = list(blockers_by_id.get(cand.affordance_id, ()))
         missing = [c for c in cand.required_capabilities if c not in capabilities_held]
         unapproved = [a for a in cand.required_approvals if a not in approvals_granted]
         non_actionable = cand.disposition in _NON_ACTIONABLE
         halt_applies = halted and not non_actionable and cand.disposition not in _HALT_EXEMPT
-        prohibitions = [*gate_reasons, *(["halt"] if halt_applies else [])]
+        prohibitions = [*live_reasons, *(["halt"] if halt_applies else [])]
         lacks = [
             *(f"missing capability: {c}" for c in missing),
             *(f"missing approval: {a}" for a in unapproved),
@@ -870,6 +881,12 @@ def from_work_recommendation(
     The recommendation's own view of actionability (DERIVED authority) is
     reconciled against live blockers (OBSERVED authority): a clean rec that a
     live authority contradicts becomes CONFLICTED, never silently 'ready'.
+
+    WorkRecommendation carries no cost or risk data, so adapter-produced
+    affordances default to a zero CostVector and risk_tier 0; among such
+    candidates alone the frontier degenerates to highest ``score.total``.
+    Callers with real cost/risk estimates should set them on the result for
+    the frontier's tradeoff axes to bite.
     """
     claimed_tag = EpistemicTag(
         state=KnowledgeState.ESTIMATED,
@@ -1073,6 +1090,18 @@ class TestProtectedTruncation:
         kept = {a.affordance_id for a in out.control.affordances}
         assert "blocked" in kept
         assert report.dropped_affordances > 0
+
+    def test_truncation_preserves_input_order_of_survivors(self):
+        hi1 = _residual("hi1", 0.9)
+        lo = _residual("lo", 0.1)
+        hi2 = _residual("hi2", 0.8)
+        frame = _frame([hi1, lo, hi2])
+        tight = (
+            len(json.dumps(_frame([hi1, hi2]).to_dict(), separators=(",", ":")).encode()) + 100
+        )
+        out, report = truncate_frame(frame, budget_bytes=tight)
+        assert report.dropped_residuals == 1
+        assert [r.residual_id for r in out.possibility.residuals] == ["hi1", "hi2"]
 
     def test_evidence_facts_are_never_dropped(self):
         frame = _frame([_residual(f"r{i}", 0.1) for i in range(20)])
@@ -1285,13 +1314,26 @@ def truncate_frame(
     current = frame
     if _frame_bytes(current) > budget_bytes:
         floor = current.possibility.protected_floor
-        keep = sorted(current.possibility.residuals, key=lambda r: r.loss_severity)
+        original_order = list(current.possibility.residuals)
+        keep = sorted(original_order, key=lambda r: r.loss_severity)
         while keep and _frame_bytes(current) > budget_bytes and keep[0].loss_severity < floor:
             keep.pop(0)
             dropped_residuals += 1
             current = replace(
                 current,
                 possibility=replace(current.possibility, residuals=list(keep)),
+            )
+        if dropped_residuals:
+            # Survivors keep the caller's ordering; drop order was only a
+            # severity policy, not a presentation change. Same elements mean
+            # the same serialized byte count, so mid-loop measurements hold.
+            kept_ids = {r.residual_id for r in keep}
+            current = replace(
+                current,
+                possibility=replace(
+                    current.possibility,
+                    residuals=[r for r in original_order if r.residual_id in kept_ids],
+                ),
             )
 
     if _frame_bytes(current) > budget_bytes:
