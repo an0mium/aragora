@@ -810,7 +810,10 @@ def apply_hard_gates(
     reason is not the same as an applied downgrade. Gates only ever
     downgrade: re-gating with a relaxed gate (e.g. after a halt lifts) never
     recovers a candidate — recompute affordances from their original source
-    to recover.
+    to recover. Diagnostics are consequently path-dependent: gates applied
+    across successive passes may record fewer ``blocked_by`` reasons than one
+    combined pass (a terminal candidate skips later halt marking), though the
+    non-actionable classification itself is identical either way.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
@@ -1103,6 +1106,22 @@ class TestProtectedTruncation:
         assert report.dropped_residuals == 1
         assert [r.residual_id for r in out.possibility.residuals] == ["hi1", "hi2"]
 
+    def test_duplicate_residual_ids_do_not_resurrect_dropped(self):
+        """The order-restore step must key on object identity: a dropped
+        low-severity residual sharing a residual_id with a protected one
+        must stay dropped, with truthful accounting."""
+        protected = _residual("dup", 0.9)
+        droppable = _residual("dup", 0.1)
+        pad = [_residual(f"lo{i}", 0.1) for i in range(10)]
+        frame = _frame([protected, droppable, *pad])
+        tight = len(json.dumps(_frame([protected]).to_dict(), separators=(",", ":")).encode()) + 100
+        out, report = truncate_frame(frame, budget_bytes=tight)
+        kept = [(r.residual_id, r.loss_severity) for r in out.possibility.residuals]
+        assert ("dup", 0.9) in kept
+        assert ("dup", 0.1) not in kept
+        assert report.dropped_residuals == 11
+        assert len(out.possibility.residuals) == 1
+
     def test_evidence_facts_are_never_dropped(self):
         frame = _frame([_residual(f"r{i}", 0.1) for i in range(20)])
         out, _ = truncate_frame(frame, budget_bytes=100)
@@ -1327,12 +1346,14 @@ def truncate_frame(
             # Survivors keep the caller's ordering; drop order was only a
             # severity policy, not a presentation change. Same elements mean
             # the same serialized byte count, so mid-loop measurements hold.
-            kept_ids = {r.residual_id for r in keep}
+            # Keyed on object identity, not residual_id: duplicate ids must
+            # not resurrect a dropped residual.
+            kept = {id(r) for r in keep}
             current = replace(
                 current,
                 possibility=replace(
                     current.possibility,
-                    residuals=[r for r in original_order if r.residual_id in kept_ids],
+                    residuals=[r for r in original_order if id(r) in kept],
                 ),
             )
 

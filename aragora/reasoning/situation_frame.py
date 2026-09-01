@@ -207,12 +207,14 @@ def truncate_frame(
             # Survivors keep the caller's ordering; drop order was only a
             # severity policy, not a presentation change. Same elements mean
             # the same serialized byte count, so mid-loop measurements hold.
-            kept_ids = {r.residual_id for r in keep}
+            # Keyed on object identity, not residual_id: duplicate ids must
+            # not resurrect a dropped residual.
+            kept = {id(r) for r in keep}
             current = replace(
                 current,
                 possibility=replace(
                     current.possibility,
-                    residuals=[r for r in original_order if r.residual_id in kept_ids],
+                    residuals=[r for r in original_order if id(r) in kept],
                 ),
             )
 

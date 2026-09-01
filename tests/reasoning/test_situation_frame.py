@@ -134,6 +134,22 @@ class TestProtectedTruncation:
         assert report.dropped_residuals == 1
         assert [r.residual_id for r in out.possibility.residuals] == ["hi1", "hi2"]
 
+    def test_duplicate_residual_ids_do_not_resurrect_dropped(self):
+        """The order-restore step must key on object identity: a dropped
+        low-severity residual sharing a residual_id with a protected one
+        must stay dropped, with truthful accounting."""
+        protected = _residual("dup", 0.9)
+        droppable = _residual("dup", 0.1)
+        pad = [_residual(f"lo{i}", 0.1) for i in range(10)]
+        frame = _frame([protected, droppable, *pad])
+        tight = len(json.dumps(_frame([protected]).to_dict(), separators=(",", ":")).encode()) + 100
+        out, report = truncate_frame(frame, budget_bytes=tight)
+        kept = [(r.residual_id, r.loss_severity) for r in out.possibility.residuals]
+        assert ("dup", 0.9) in kept
+        assert ("dup", 0.1) not in kept
+        assert report.dropped_residuals == 11
+        assert len(out.possibility.residuals) == 1
+
     def test_evidence_facts_are_never_dropped(self):
         frame = _frame([_residual(f"r{i}", 0.1) for i in range(20)])
         out, _ = truncate_frame(frame, budget_bytes=100)

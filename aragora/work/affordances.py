@@ -197,7 +197,10 @@ def apply_hard_gates(
     reason is not the same as an applied downgrade. Gates only ever
     downgrade: re-gating with a relaxed gate (e.g. after a halt lifts) never
     recovers a candidate — recompute affordances from their original source
-    to recover.
+    to recover. Diagnostics are consequently path-dependent: gates applied
+    across successive passes may record fewer ``blocked_by`` reasons than one
+    combined pass (a terminal candidate skips later halt marking), though the
+    non-actionable classification itself is identical either way.
     """
     blockers_by_id = dict(live_blockers or {})
     gated: list[ActionAffordance] = []
