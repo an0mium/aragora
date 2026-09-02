@@ -23,6 +23,7 @@ from scripts.verify_contract_drift_workflow_state import (
     verify_workflow_state,
 )
 from tests.scripts._contract_drift_historical_git import (
+    HISTORICAL_HEAD_FETCH_ENV,
     PR_9320_HEAD_REF,
     PR_9320_LOCAL_REF,
     ensure_pr_9320_head,
@@ -795,7 +796,8 @@ def test_historical_backfill_fetches_the_exact_pull_request_head_before_receipt(
     assert "refs/heads/" not in run and "refs/tags/" not in run
 
 
-def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(tmp_path: Path):
+def _scratch_clone_missing_historical_head(tmp_path: Path) -> tuple[Path, str]:
+    """Clone a file:// origin whose historical head exists only under refs/pull/9320/head."""
     source = tmp_path / "source"
     source.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=source, check=True)
@@ -855,6 +857,112 @@ def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(tmp_path
         ).returncode
         != 0
     )
+    return checkout, head_sha
+
+
+def _local_backfill_ref_present(checkout: Path) -> bool:
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def _ensure_head_or_fail(checkout: Path, expected_sha: str) -> str:
+    # A stray skip inside the helper would report the test as skipped rather
+    # than failed, so convert it into a hard failure for fetch-path tests.
+    try:
+        return ensure_pr_9320_head(checkout, expected_sha=expected_sha)
+    except pytest.skip.Exception as exc:
+        pytest.fail(f"ensure_pr_9320_head skipped unexpectedly: {exc}")
+
+
+def _unset_historical_fetch_opt_ins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(HISTORICAL_HEAD_FETCH_ENV, raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
+def test_missing_historical_head_skips_without_fetching_when_no_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    checkout, head_sha = _scratch_clone_missing_historical_head(tmp_path)
+    _unset_historical_fetch_opt_ins(monkeypatch)
+
+    with pytest.raises(pytest.skip.Exception) as excinfo:
+        ensure_pr_9320_head(checkout, expected_sha=head_sha)
+
+    reason = str(excinfo.value)
+    assert HISTORICAL_HEAD_FETCH_ENV in reason
+    assert head_sha in reason
+    assert PR_9320_HEAD_REF in reason
+    assert not _local_backfill_ref_present(checkout)
+    assert (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{head_sha}^{{commit}}"],
+            cwd=checkout,
+            capture_output=True,
+        ).returncode
+        != 0
+    )
+
+
+def test_missing_historical_head_fetches_when_opt_in_flag_is_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    checkout, head_sha = _scratch_clone_missing_historical_head(tmp_path)
+    _unset_historical_fetch_opt_ins(monkeypatch)
+    monkeypatch.setenv(HISTORICAL_HEAD_FETCH_ENV, "1")
+
+    assert _ensure_head_or_fail(checkout, head_sha) == head_sha
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            text=True,
+        ).strip()
+        == head_sha
+    )
+
+
+def test_missing_historical_head_fetches_under_github_actions_without_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    checkout, head_sha = _scratch_clone_missing_historical_head(tmp_path)
+    _unset_historical_fetch_opt_ins(monkeypatch)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    assert _ensure_head_or_fail(checkout, head_sha) == head_sha
+    assert (
+        subprocess.check_output(
+            ["git", "rev-parse", PR_9320_LOCAL_REF],
+            cwd=checkout,
+            text=True,
+        ).strip()
+        == head_sha
+    )
+
+
+def test_present_historical_head_honors_caller_expected_sha_without_fetching(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    checkout, _ = _scratch_clone_missing_historical_head(tmp_path)
+    _unset_historical_fetch_opt_ins(monkeypatch)
+    present_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
+    ).strip()
+
+    assert ensure_pr_9320_head(checkout, expected_sha=present_sha) == present_sha
+    assert not _local_backfill_ref_present(checkout)
+
+
+def test_historical_backfill_fetch_succeeds_from_a_clean_runner_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    checkout, head_sha = _scratch_clone_missing_historical_head(tmp_path)
+    monkeypatch.setenv(HISTORICAL_HEAD_FETCH_ENV, "1")
     assert ensure_pr_9320_head(checkout, expected_sha=head_sha) == head_sha
     assert (
         subprocess.check_output(
