@@ -37,7 +37,7 @@ def ensure_pr_9320_head(
         )
         ref = PR_9320_LOCAL_REF
     else:
-        ref = PR_9320_HEAD_SHA
+        ref = expected_sha
     resolved = subprocess.check_output(
         ["git", "-C", str(repo_root), "rev-parse", "--verify", f"{ref}^{{commit}}"],
         text=True,
