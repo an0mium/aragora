@@ -95,15 +95,11 @@ class TestRecommendedAction:
         assert count_failed_claims_from_decay(report) == 1
 
     def test_fail_closed_with_claim_failure_counted(self) -> None:
-        report = _report(
-            _signal(recommended_action="fail_closed", reason_kinds=["failed_claim"])
-        )
+        report = _report(_signal(recommended_action="fail_closed", reason_kinds=["failed_claim"]))
         assert count_failed_claims_from_decay(report) == 1
 
     def test_fail_closed_with_verifier_error_counted(self) -> None:
-        report = _report(
-            _signal(recommended_action="fail_closed", reason_kinds=["verifier_error"])
-        )
+        report = _report(_signal(recommended_action="fail_closed", reason_kinds=["verifier_error"]))
         assert count_failed_claims_from_decay(report) == 1
 
 
