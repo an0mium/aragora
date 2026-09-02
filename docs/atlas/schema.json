@@ -19,6 +19,7 @@
     "rounds_total",
     "reviewer",
     "verdict",
+    "verdict_basis",
     "highest_blocking_severity",
     "findings",
     "dissent_text",
@@ -295,6 +296,18 @@
         "changes_requested",
         "unknown"
       ]
+    },
+    "verdict_basis": {
+      "type": "string",
+      "enum": [
+        "verdict_line",
+        "negative_marker",
+        "non_negative_signal",
+        "review_state",
+        "fixture",
+        "unparsed"
+      ],
+      "description": "How the verdict was derived, mirroring the gate: an explicit Verdict token; a blocking finding / negative label without a parseable token; a verdict line the gate does not read as negative (counted as support by its comment-signal path); a GitHub review state; the eval fixture; or nothing parseable."
     },
     "highest_blocking_severity": {
       "oneOf": [

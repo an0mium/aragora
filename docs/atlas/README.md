@@ -69,8 +69,12 @@ See `schema.json` for the full contract. The load-bearing fields:
 - `reviewer.family`, `reviewer.counting_class` — canonical family and its gate
   jurisdiction (`western_frontier` claude/openai; `western`; `chinese_routed`;
   `advisory_only` gemini, kept but never counted).
-- `verdict`, `highest_blocking_severity`, `findings[]` — `pass` /
-  `changes_requested` / `unknown`; `P0`/`P1` when the body carries a real blocking
+- `verdict`, `verdict_basis`, `highest_blocking_severity`, `findings[]` — `pass` /
+  `changes_requested` / `unknown`, with the basis the gate used (`verdict_line`;
+  `negative_marker` for a blocking finding without a parseable token;
+  `non_negative_signal` for pre-gate phrasings such as `Verdict: approve` that the
+  gate's comment-signal path counts as support; `review_state`; `fixture`);
+  `P0`/`P1` when the body carries a real blocking
   finding (the [severity gate](../specs/MODEL_DISSENT_SEVERITY_GATE.md) treats
   `[P2]`/`[P3]` as advisory); every `[Pn]` finding line with its text.
 - `body`, `dissent_text` — the verbatim reviewer body; `dissent_text` repeats it

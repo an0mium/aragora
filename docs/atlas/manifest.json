@@ -1,0 +1,81 @@
+{
+  "atlas_version": "1.0.0",
+  "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
+  "content_digest": {
+    "alg": "sha-256",
+    "value": "3b8b24b2a157c967ca8dd26353b112299623b971eca7d184aa8914448fd44351"
+  },
+  "dataset": {
+    "bytes": 5971352,
+    "path": "docs/atlas/atlas-v1.jsonl",
+    "pr_count": 696,
+    "record_count": 1659,
+    "sha256": "8566dc68d62b30996118cf8d50acd177465c137313abef07750238b61516270a"
+  },
+  "generator": "scripts/build_disagreement_atlas.py",
+  "ground_truth_fixture": {
+    "path": "tests/governance/fixtures/adjudicator_eval_cases.json",
+    "sha256": "237d20557c20ec495fdc4af8763c96cda0aac9195ed169e3410fbf95422872ab"
+  },
+  "manifest": "disagreement_atlas.manifest.v1",
+  "record_schema": "disagreement_atlas.record.v1",
+  "record_schema_sha256": "98be80bc78948e91ae49c73201971ae4956ab401b4ee938ff09426472fe2c035",
+  "sample": {
+    "bytes": 749147,
+    "path": "docs/atlas/atlas-v1.sample.jsonl",
+    "record_count": 200,
+    "sha256": "0a69fba0f12b4aca1014d5aad6c96dcb9b73f575b3f4f9890454c7e14d864316"
+  },
+  "signatures": [],
+  "source": {
+    "github_rest_endpoints": [
+      "pulls?state=closed",
+      "issues/{pr}/comments",
+      "pulls/{pr}/reviews",
+      "pulls/{pr}/commits",
+      "commits/{head}/statuses"
+    ],
+    "prs_scanned": 1097,
+    "prs_with_verdicts": 696,
+    "repo": "synaptent/aragora",
+    "since": "2026-06-26T21:04:36Z",
+    "since_basis": "PR #8638 merged_at",
+    "until": "2026-09-01T16:46:35Z"
+  },
+  "vocabularies": {
+    "failure_classes": [
+      "diff_blind_grounding",
+      "stale_external_world",
+      "temporal_reasoning",
+      "verbatim_repeat_dissent",
+      "out_of_scope_carousel",
+      "cross_family_contradiction",
+      "control"
+    ],
+    "resolution_mechanisms": [
+      "evidence_post",
+      "premise_removal",
+      "premise_self_expiry",
+      "severity_gating",
+      "operator_adjudication",
+      "re_filing",
+      "grounding_fix",
+      "revision",
+      "re_gate_flip",
+      "none_required",
+      "closed_unmerged",
+      "unresolved",
+      "not_applicable"
+    ],
+    "sources": [
+      "pr_comment",
+      "pr_review",
+      "eval_fixture"
+    ],
+    "verdicts": [
+      "pass",
+      "changes_requested",
+      "unknown"
+    ]
+  }
+}

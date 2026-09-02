@@ -212,6 +212,30 @@ def _log(message: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _split_http_response(raw: str) -> tuple[dict[str, str], str]:
+    """Split ``gh api -i`` output into lowercase headers and the JSON body."""
+    if not raw.startswith("HTTP/"):
+        return {}, raw
+    head, sep, body = raw.partition("\n\n")
+    if not sep:
+        head, sep, body = raw.partition("\r\n\r\n")
+    headers: dict[str, str] = {}
+    for line in head.splitlines()[1:]:
+        name, colon, value = line.partition(":")
+        if colon:
+            headers[name.strip().lower()] = value.strip()
+    return headers, body
+
+
+def _int_header(headers: dict[str, str] | None, name: str) -> int | None:
+    if not headers or name not in headers:
+        return None
+    try:
+        return int(headers[name])
+    except ValueError:
+        return None
+
+
 class GitHubClient:
     """Thin ``gh api`` wrapper: every response is cached; every call is logged."""
 
@@ -227,30 +251,39 @@ class GitHubClient:
     def api(self, path: str, *, attempts: int = 6) -> Any:
         if self.offline:
             raise RuntimeError(f"offline mode: refusing to fetch {path}")
-        for attempt in range(1, attempts + 1):
+        attempt = 0
+        rate_limit_waits = 0
+        while True:
+            attempt += 1
             self.calls += 1
             with self._call_log.open("a", encoding="utf-8") as handle:
                 handle.write(f"{int(time.time())} {path}\n")
             proc = subprocess.run(
-                ["gh", "api", "-H", "Accept: application/vnd.github+json", path],
+                ["gh", "api", "-i", "-H", "Accept: application/vnd.github+json", path],
                 capture_output=True,
                 text=True,
                 timeout=120,
             )
+            headers, body = _split_http_response(proc.stdout or "")
             if proc.returncode == 0:
-                self._maybe_throttle()
-                return json.loads(proc.stdout or "null")
-            err = (proc.stderr or "").strip()
+                self._maybe_throttle(headers)
+                return json.loads(body or "null")
+            err = (proc.stderr or "").strip() or body.strip()
             lowered = err.lower()
             if "404" in lowered and "not found" in lowered:
                 raise LookupError(f"{path}: {err[:200]}")
             if "rate limit" in lowered or "403" in lowered or "429" in lowered:
-                self._sleep_until_reset(reason=err[:120])
+                # Rate-limit waits never consume the retry budget: the cache makes
+                # a long pause strictly cheaper than a crash-and-rerun.
+                rate_limit_waits += 1
+                attempt -= 1
+                if rate_limit_waits > 12:
+                    raise RuntimeError(f"gh api {path}: still rate-limited after 12 waits")
+                self._sleep_until_reset(reason=err[:120], headers=headers)
                 continue
-            if attempt == attempts:
+            if attempt >= attempts:
                 raise RuntimeError(f"gh api {path} failed after {attempts} attempts: {err[:300]}")
             time.sleep(min(60, 5 * attempt))
-        raise RuntimeError(f"gh api {path}: exhausted attempts")
 
     def _rate_limit(self) -> tuple[int, int]:
         proc = subprocess.run(
@@ -264,16 +297,34 @@ class GitHubClient:
         remaining, reset = proc.stdout.split()
         return (int(remaining), int(reset))
 
-    def _sleep_until_reset(self, *, reason: str) -> None:
-        remaining, reset = self._rate_limit()
-        wait = max(30, min(3700, reset - int(time.time()) + 5))
-        if remaining > 50:
-            # A secondary (abuse) limit rather than the core budget: short pause.
-            wait = 90
-        _log(f"[gh] backing off {wait}s ({reason}; remaining={remaining})")
+    def _sleep_until_reset(self, *, reason: str, headers: dict[str, str] | None = None) -> None:
+        now = int(time.time())
+        header_reset = _int_header(headers, "x-ratelimit-reset")
+        header_remaining = _int_header(headers, "x-ratelimit-remaining")
+        if header_reset and header_remaining == 0:
+            wait = max(30, min(3700, header_reset - now + 5))
+        else:
+            remaining, reset = self._rate_limit()
+            if remaining == 0:
+                wait = max(30, min(3700, reset - now + 5))
+            elif header_reset and header_reset > now:
+                wait = max(30, min(3700, header_reset - now + 5))
+            else:
+                # The limit is exceeded but no source reports the window: the
+                # budget is shared with other consumers, so pause a full 5 minutes.
+                wait = 300
+        _log(f"[gh] backing off {wait}s ({reason})")
         time.sleep(wait)
 
-    def _maybe_throttle(self) -> None:
+    def _maybe_throttle(self, headers: dict[str, str] | None = None) -> None:
+        remaining = _int_header(headers, "x-ratelimit-remaining")
+        reset = _int_header(headers, "x-ratelimit-reset")
+        if remaining is not None and reset is not None:
+            if remaining < 40:
+                wait = max(30, min(3700, reset - int(time.time()) + 5))
+                _log(f"[gh] core budget nearly exhausted ({remaining}); sleeping {wait}s")
+                time.sleep(wait)
+            return
         if self.calls % 100:
             return
         remaining, reset = self._rate_limit()
@@ -537,11 +588,35 @@ def _findings(body: str) -> list[dict[str, str]]:
     return findings
 
 
-def _verdict(body: str) -> str:
+VERDICT_BASES: tuple[str, ...] = (
+    "verdict_line",  # ``Verdict: PASS`` / ``Verdict: CHANGES-REQUESTED`` parsed by the gate
+    "negative_marker",  # no parseable verdict token, but a blocking finding / negative label
+    "non_negative_signal",  # a verdict line the gate does not read as negative (``approve``,
+    # ``no findings``): counted as a supportive signal by the gate's comment-signal path
+    "review_state",  # GitHub review object state (APPROVED / CHANGES_REQUESTED)
+    "fixture",  # verdict recorded in the committed eval fixture
+    "unparsed",  # nothing above applied
+)
+
+
+def _verdict(body: str) -> tuple[str, str]:
+    """Classify a body the way the merge gate does; returns ``(verdict, basis)``.
+
+    ``_reviewer_verdict`` reads an explicit ``Verdict:`` token. When that token is
+    unrecognised the gate still promotes a blocking dissent on a real finding /
+    negative label (``has_blocking_or_negative_verdict``) and otherwise treats a
+    recognised model review as a *supportive* signal
+    (``_model_review_signals_from_comments``). The atlas mirrors both branches so
+    a pre-gate ``Verdict: approve`` is recorded as the support the gate saw.
+    """
     verdict = _reviewer_verdict(body)
-    if verdict == "unknown" and has_blocking_or_negative_verdict(body):
-        return "changes_requested"
-    return verdict
+    if verdict in {"pass", "changes_requested"}:
+        return verdict, "verdict_line"
+    if has_blocking_or_negative_verdict(body):
+        return "changes_requested", "negative_marker"
+    if _has_verdict_line(body):
+        return "pass", "non_negative_signal"
+    return "unknown", "unparsed"
 
 
 def record_from_comment(
@@ -565,6 +640,7 @@ def record_from_comment(
     if not head:
         stats["dropped_no_head"] += 1
         return None
+    verdict, basis = _verdict(body)
     return {
         "source": "pr_comment",
         "source_id": str(comment.get("id")),
@@ -577,7 +653,8 @@ def record_from_comment(
         "reviewer_family": family,
         "identity": identity,
         "harness": _harness(body),
-        "verdict": _verdict(body),
+        "verdict": verdict,
+        "verdict_basis": basis,
         "body": body,
     }
 
@@ -595,14 +672,14 @@ def record_from_review(
     family, identity = _resolve_family(body, review_object=True)
     if not family:
         return None
-    verdict = _verdict(body)
-    if verdict == "unknown":
+    verdict, basis = _verdict(body)
+    if basis in {"non_negative_signal", "unparsed"}:
         state = str(review.get("state") or "").upper()
         if state == "APPROVED":
-            verdict = "pass"
+            verdict, basis = "pass", "review_state"
         elif state == "CHANGES_REQUESTED":
-            verdict = "changes_requested"
-        else:
+            verdict, basis = "changes_requested", "review_state"
+        elif verdict == "unknown":
             return None
     head = str(review.get("commit_id") or "").lower()
     if not head:
@@ -621,6 +698,7 @@ def record_from_review(
         "identity": identity,
         "harness": _harness(body),
         "verdict": verdict,
+        "verdict_basis": basis,
         "body": body,
     }
 
@@ -962,7 +1040,8 @@ def _assemble_pr(
                     "reviewer_family": family,
                     "identity": _resolve_family(body)[1] if body else {},
                     "harness": _harness(body),
-                    "verdict": str(item.get("verdict") or _verdict(body)),
+                    "verdict": str(item.get("verdict") or _verdict(body)[0]),
+                    "verdict_basis": "fixture",
                     "body": body,
                     "fixture_id": str(case.get("id") or ""),
                     "posted_to_thread": posted,
@@ -1062,6 +1141,7 @@ def _assemble_pr(
                     ),
                 },
                 "verdict": record["verdict"],
+                "verdict_basis": record["verdict_basis"],
                 "highest_blocking_severity": highest_blocking_severity(body),
                 "findings": _findings(body),
                 "dissent_text": body if record["verdict"] != "pass" else "",
@@ -1448,10 +1528,29 @@ def render_summary(records: list[dict[str, Any]], manifest: dict[str, Any] | Non
             "Records with hand-labelled ground truth",
             sum(1 for r in records if r["adjudication"]["source"] == "labeled"),
         ],
+        [
+            "  verdict basis: explicit Verdict line",
+            sum(1 for r in records if r["verdict_basis"] == "verdict_line"),
+        ],
+        [
+            "  verdict basis: non-negative signal (pre-gate phrasing)",
+            sum(1 for r in records if r["verdict_basis"] == "non_negative_signal"),
+        ],
+        [
+            "  verdict basis: negative marker only",
+            sum(1 for r in records if r["verdict_basis"] == "negative_marker"),
+        ],
         ["Distinct (PR, head) rounds", len({(r["pr"]["number"], r["head_sha"]) for r in records})],
         ["Dataset SHA-256", dataset.get("sha256", "(unbuilt)")],
     ]
     lines.append(_md_table(["Measure", "Value"], coverage_rows))
+    lines.append("")
+    lines.append(
+        "Posted verdicts skew to PASS: Tier 3-4 PRs run the collector prepare-only, so their "
+        "CHANGES-REQUESTED rounds are quoted in operator comments rather than posted verbatim, "
+        "and only the eval-fixture rounds recover those bodies. Dissent rates below are rates "
+        "over *posted* verdicts."
+    )
     lines.append("")
 
     # -- verdicts per family ------------------------------------------------

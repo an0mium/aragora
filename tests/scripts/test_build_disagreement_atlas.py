@@ -110,7 +110,10 @@ def test_record_ids_are_unique_and_vocabularies_controlled(built) -> None:
         for klass in record["taxonomy_classes"]:
             assert klass in atlas.FAILURE_CLASSES
         assert record["verdict"] in atlas.VERDICTS
+        assert record["verdict_basis"] in atlas.VERDICT_BASES
         assert record["source"] in atlas.SOURCES
+        if record["source"] == "eval_fixture":
+            assert record["verdict_basis"] == "fixture"
         if record["verdict"] == "changes_requested":
             assert record["dissent_text"] == record["body"]
         else:
@@ -332,6 +335,7 @@ def test_record_from_comment_reuses_gate_parsers() -> None:
     assert record is not None
     assert record["reviewer_family"] == "openai"  # codex alias collapses to the openai family
     assert record["verdict"] == "changes_requested"
+    assert record["verdict_basis"] == "verdict_line"
     assert record["head_sha"] == head
     assert record["head_committed_at"] == "2026-07-10T10:00:00Z"
     assert record["head_resolution"] == "comment_full"
@@ -339,6 +343,14 @@ def test_record_from_comment_reuses_gate_parsers() -> None:
     findings = atlas._findings(body)
     assert [f["severity"] for f in findings] == ["P1", "P3"]
     assert atlas.highest_blocking_severity(body) == "P1"
+
+    # Pre-gate phrasing: the gate reads "Verdict: approve" as a non-negative signal.
+    approve_body = body.replace("Verdict: CHANGES-REQUESTED", "Verdict: approve").replace(
+        "[P1] `x.py:3` - unguarded None deref.", ""
+    )
+    approved = atlas.record_from_comment(dict(comment, body=approve_body), {}, stats)
+    assert approved is not None
+    assert (approved["verdict"], approved["verdict_basis"]) == ("pass", "non_negative_signal")
 
     bot = dict(comment, user={"login": "github-actions[bot]"})
     assert atlas.record_from_comment(bot, {}, stats) is None
