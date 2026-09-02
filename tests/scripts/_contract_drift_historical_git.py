@@ -6,6 +6,7 @@ from pathlib import Path
 PR_9320_HEAD_REF = "refs/pull/9320/head"
 PR_9320_LOCAL_REF = "refs/cdg-historical-backfill/9320/head"
 PR_9320_HEAD_SHA = "aba6b14c94eca3a9c825b1a303ea67684d5f8daa"
+HISTORICAL_HEAD_FETCH_ENV = "ARAGORA_CDG_FETCH_HISTORICAL_HEAD"
 
 
 def ensure_pr_9320_head(
