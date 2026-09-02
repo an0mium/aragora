@@ -68,7 +68,9 @@ class TestFlagGate:
         self, adapter: SyntheticGitHubAdapter, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv(SYNTHETIC_MARKETS_FLAG, "1")
-        assert emit_markets_for_prs(adapter, [PrEntry(repo="owner/repo", number=1)]).created_count == 1
+        assert (
+            emit_markets_for_prs(adapter, [PrEntry(repo="owner/repo", number=1)]).created_count == 1
+        )
 
 
 class TestEmitPrs:

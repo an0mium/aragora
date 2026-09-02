@@ -156,7 +156,9 @@ def emit_markets_for_issues(
                 result.skipped_ids.append(probe.market_id)
                 continue
             desc = (
-                f"{issue.title} — will close within {resolution_window_days}d?" if issue.title else ""
+                f"{issue.title} — will close within {resolution_window_days}d?"
+                if issue.title
+                else ""
             )
             result.created.append(
                 adapter.create_issue_close_market(
@@ -172,4 +174,11 @@ def emit_markets_for_issues(
     return result
 
 
-__all__ = ["BatchEmitError", "BatchEmitResult", "IssueEntry", "PrEntry", "emit_markets_for_issues", "emit_markets_for_prs"]
+__all__ = [
+    "BatchEmitError",
+    "BatchEmitResult",
+    "IssueEntry",
+    "PrEntry",
+    "emit_markets_for_issues",
+    "emit_markets_for_prs",
+]
