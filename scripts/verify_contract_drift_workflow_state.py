@@ -355,7 +355,11 @@ def _run_key(run: Mapping[str, Any]) -> tuple[str, int, int]:
 
 
 def _selected_main_run(
-    runs: Iterable[dict[str, Any]], *, workflow_id: int, main_sha: str
+    runs: Iterable[dict[str, Any]],
+    *,
+    workflow_id: int,
+    main_sha: str,
+    is_historical_backfill: Callable[[dict[str, Any]], bool],
 ) -> dict[str, Any]:
     eligible = [
         run
@@ -365,6 +369,7 @@ def _selected_main_run(
         and run.get("head_branch") == "main"
         and run.get("head_sha") == main_sha
         and run.get("event") in {"push", "schedule", "workflow_dispatch"}
+        and not is_historical_backfill(run)
     ]
     if not eligible:
         raise VerificationError("no canonical main workflow execution matches current main")
@@ -599,10 +604,42 @@ class _Snapshot:
         }
 
 
+def _is_historical_backfill_dispatch(reader: ApiReader, *, repo: str, run: dict[str, Any]) -> bool:
+    # Run listings never expose dispatch inputs, so the historical-backfill
+    # input is recovered from the attempt topology: program-trajectory is the
+    # one job whose `if` is false exactly on a historical-backfill dispatch.
+    if run.get("event") != "workflow_dispatch":
+        return False
+    run_id = _require_int(run.get("id"), "run ID", minimum=1)
+    attempt = attempt_numbers(run)[-1]
+    endpoint = f"repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs"
+    jobs, _ = _paginate_collection(
+        reader,
+        endpoint,
+        collection_key="jobs",
+        identity=lambda job: job.get("id"),
+        label=f"attempt {attempt} jobs",
+    )
+    trajectory = [job for job in jobs if job.get("name") == "contract-drift-program-trajectory"]
+    if len(trajectory) != 1:
+        raise VerificationError("dispatch execution does not expose the program-trajectory job")
+    summary = _check_summary(
+        reader, repo=repo, endpoint=endpoint, job=trajectory[0], run=run, attempt=attempt
+    )
+    return summary.get("conclusion") == "skipped"
+
+
 def _snapshot(reader: ApiReader, *, repo: str, workflow_id: int) -> tuple[_Snapshot, list[str]]:
     main_sha = _main_sha(reader, repo)
     runs, endpoints = _workflow_runs(reader, repo=repo, workflow_id=workflow_id)
-    run = _selected_main_run(runs, workflow_id=workflow_id, main_sha=main_sha)
+    run = _selected_main_run(
+        runs,
+        workflow_id=workflow_id,
+        main_sha=main_sha,
+        is_historical_backfill=lambda candidate: _is_historical_backfill_dispatch(
+            reader, repo=repo, run=candidate
+        ),
+    )
     source = reader.get_bytes(
         f"repos/{repo}/contents/{CANONICAL_WORKFLOW_PATH}?ref={run['head_sha']}"
     )

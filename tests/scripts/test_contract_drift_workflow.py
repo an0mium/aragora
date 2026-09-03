@@ -353,20 +353,27 @@ def _run_record(
     main_sha: str = FIXTURE_MAIN_SHA,
     run_attempt: int = 1,
     started_at: str = "2026-08-12T01:00:00Z",
+    event: str = "push",
+    conclusion: str = "failure",
 ) -> dict[str, Any]:
-    return {"id": run_id, "workflow_id": CANONICAL_WORKFLOW_ID, "path": CANONICAL_WORKFLOW_PATH, "head_branch": "main", "head_sha": main_sha, "event": "push", "run_attempt": run_attempt, "run_started_at": started_at, "status": "completed", "conclusion": "failure"}  # fmt: skip
+    return {"id": run_id, "workflow_id": CANONICAL_WORKFLOW_ID, "path": CANONICAL_WORKFLOW_PATH, "head_branch": "main", "head_sha": main_sha, "event": event, "run_attempt": run_attempt, "run_started_at": started_at, "status": "completed", "conclusion": conclusion}  # fmt: skip
 
 
 FIXTURE_ATTEMPT_JOB_NAMES = (*LIVE_CHECK_NAMES, DISPATCH_JOB_NAME)
 FIXTURE_JOB_CONCLUSIONS = dict(
     zip(FIXTURE_ATTEMPT_JOB_NAMES, ("skipped", "success", "failure", "skipped"), strict=True)
 )
+# Job conclusions of a (workflow_dispatch, historical_backfill=true) execution
+# per EVENT_JOB_TABLE: trajectory never runs, the write-scoped dispatch does.
+BACKFILL_DISPATCH_CONCLUSIONS = dict(
+    zip(FIXTURE_ATTEMPT_JOB_NAMES, ("skipped", "success", "skipped", "success"), strict=True)
+)
 
 
-def _job_record(name: str, *, run_id: int, main_sha: str, attempt: int, job_id: int) -> tuple[dict[str, Any], str, dict[str, Any]]:  # fmt: skip
+def _job_record(name: str, *, run_id: int, main_sha: str, attempt: int, job_id: int, conclusion: str | None = None) -> tuple[dict[str, Any], str, dict[str, Any]]:  # fmt: skip
     check_id = job_id + 10_000
     check_url = f"https://api.github.com/repos/{FIXTURE_REPO}/check-runs/{check_id}"
-    conclusion = FIXTURE_JOB_CONCLUSIONS[name]
+    conclusion = FIXTURE_JOB_CONCLUSIONS[name] if conclusion is None else conclusion
     job = {"id": job_id, "name": name, "run_attempt": attempt, "check_run_url": check_url}
     check = {"id": check_id, "name": name, "head_sha": main_sha, "app": {"id": EXPECTED_PR_DELTA_APP_ID}, "status": "completed", "conclusion": conclusion, "details_url": f"https://github.com/{FIXTURE_REPO}/actions/runs/{run_id}/job/{job_id}"}  # fmt: skip
     return job, check_url, check
@@ -1333,6 +1340,59 @@ def test_live_verifier_requires_the_skipped_dispatch_job_on_routine_main_runs():
     dispatch_job["name"] = "contract-drift-main-receipt"
     with pytest.raises(VerificationError, match="duplicate names"):
         verify_workflow_state(renamed)
+
+
+def _register_attempt_jobs(reader: FixtureApiReader, *, run: dict[str, Any], conclusions: dict[str, str]) -> None:  # fmt: skip
+    for attempt in range(1, run["run_attempt"] + 1):
+        jobs: list[dict[str, Any]] = []
+        for offset, name in enumerate(FIXTURE_ATTEMPT_JOB_NAMES, start=1):
+            job, check_url, check = _job_record(name, run_id=run["id"], main_sha=run["head_sha"], attempt=attempt, job_id=run["id"] * 1_000 + attempt * 100 + offset, conclusion=conclusions[name])  # fmt: skip
+            jobs.append(job)
+            reader.json_responses[check_url] = [check]
+        endpoint = f"repos/{FIXTURE_REPO}/actions/runs/{run['id']}/attempts/{attempt}/jobs?per_page=100&page=1"
+        reader.json_responses[endpoint] = [_json_page(jobs, "jobs")]
+
+
+def test_live_verifier_selects_the_newest_routine_run_past_historical_backfill_dispatches():
+    runs_endpoint = (
+        f"repos/{FIXTURE_REPO}/actions/workflows/{CANONICAL_WORKFLOW_ID}/runs?per_page=100&page=1"
+    )
+    routine = _run_record(run_id=7001, started_at="2026-08-12T01:00:00Z")
+    backfill = _run_record(run_id=7002, started_at="2026-08-12T02:00:00Z", event="workflow_dispatch", conclusion="success")  # fmt: skip
+    reader, _ = _live_fixture(runs=[routine])
+    reader.json_responses[runs_endpoint] = [_json_page([routine, backfill], "workflow_runs")] * 4
+    _register_attempt_jobs(reader, run=backfill, conclusions=BACKFILL_DISPATCH_CONCLUSIONS)
+    result = verify_workflow_state(reader)
+    assert result["selection"]["identity"] == {"run_started_at": routine["run_started_at"], "run_id": 7001, "run_attempt": 1}  # fmt: skip
+    assert result["selection"]["selected_attempt"]["auxiliary_jobs"] == {
+        DISPATCH_JOB_NAME: "skipped"
+    }
+    assert result["stable_requery"] is True
+
+    # A historical_backfill=false dispatch is a routine receipt and still wins as newest.
+    routine_dispatch = _run_record(run_id=7003, started_at="2026-08-12T03:00:00Z", event="workflow_dispatch")  # fmt: skip
+    reader, _ = _live_fixture(runs=[routine, routine_dispatch])
+    assert verify_workflow_state(reader)["selection"]["identity"]["run_id"] == 7003
+
+    # With only a backfill dispatch at main's tip there is no routine execution to verify.
+    only_backfill, _ = _live_fixture(runs=[backfill])
+    _register_attempt_jobs(only_backfill, run=backfill, conclusions=BACKFILL_DISPATCH_CONCLUSIONS)
+    with pytest.raises(VerificationError, match="matches current main"):
+        verify_workflow_state(only_backfill)
+
+    # A dispatch run whose attempt hides program-trajectory cannot be classified.
+    hidden, _ = _live_fixture(runs=[routine])
+    hidden.json_responses[runs_endpoint] = [_json_page([routine, backfill], "workflow_runs")] * 4
+    _register_attempt_jobs(hidden, run=backfill, conclusions=BACKFILL_DISPATCH_CONCLUSIONS)
+    jobs_endpoint = f"repos/{FIXTURE_REPO}/actions/runs/{backfill['id']}/attempts/1/jobs?per_page=100&page=1"  # fmt: skip
+    remaining = [
+        job
+        for job in hidden.json_responses[jobs_endpoint][0]["jobs"]
+        if job["name"] != "contract-drift-program-trajectory"
+    ]
+    hidden.json_responses[jobs_endpoint] = [_json_page(remaining, "jobs")]
+    with pytest.raises(VerificationError, match="does not expose the program-trajectory job"):
+        verify_workflow_state(hidden)
 
 
 def test_program_trajectory_preserves_real_red_exit(tmp_path):
