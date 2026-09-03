@@ -11,7 +11,7 @@ byte-stability tests against the RFC 8785 examples.
 This is a dependency-free leaf shared by the emitter
 (:mod:`aragora.gauntlet.odr_export`) and the signer
 (:mod:`aragora.gauntlet.odr_signing`); ``aragora_verify.jcs`` mirrors it
-byte-for-byte so producer and verifier always agree on the digest.
+functionally so producer and verifier always agree on the digest.
 """
 
 from __future__ import annotations

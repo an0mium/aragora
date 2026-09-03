@@ -8,22 +8,31 @@ importing the emitter, and lets the emitter keep re-exporting the public names.
 from __future__ import annotations
 
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 from aragora.gauntlet import odr_export, odr_jcs, odr_signing
 
 _GAUNTLET_DIR = Path(odr_signing.__file__).resolve().parent
+_PACKAGE = "aragora.gauntlet"
 
 
 def _imported_modules(path: Path) -> set[str]:
+    """Absolute dotted names imported by ``path``, with relative imports resolved."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
-            names.update(f"{node.module}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = ".".join(_PACKAGE.split(".")[: len(_PACKAGE.split(".")) - node.level + 1])
+                module = f"{base}.{node.module}" if node.module else base
+            else:
+                module = node.module or ""
+            names.add(module)
+            names.update(f"{module}.{alias.name}" for alias in node.names)
     return names
 
 
@@ -45,18 +54,30 @@ def test_leaf_module_imports_nothing_from_aragora():
     assert not any(name.startswith("aragora") for name in imports), imports
 
 
-def test_signer_and_exporter_import_in_either_order():
-    import importlib
-    import sys
+def test_relative_import_resolver_sees_package_siblings(tmp_path):
+    probe = tmp_path / "probe.py"
+    probe.write_text("from . import odr_export\nfrom .odr_signing import x\n", encoding="utf-8")
+    names = _imported_modules(probe)
+    assert "aragora.gauntlet.odr_export" in names
+    assert "aragora.gauntlet.odr_signing.x" in names
 
+
+def test_signer_and_exporter_import_in_either_order():
+    # A fresh interpreter per order keeps this process's module objects intact,
+    # so lazily-imported exception classes elsewhere keep matching their tests.
     for first, second in (
         ("aragora.gauntlet.odr_signing", "aragora.gauntlet.odr_export"),
         ("aragora.gauntlet.odr_export", "aragora.gauntlet.odr_signing"),
     ):
-        for name in ("aragora.gauntlet.odr_signing", "aragora.gauntlet.odr_export"):
-            sys.modules.pop(name, None)
-        importlib.import_module(first)
-        importlib.import_module(second)
+        result = subprocess.run(
+            [sys.executable, "-c", f"import {first}, {second}; print('ok')"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "ok"
 
 
 def test_leaf_digest_matches_shipped_verifier():
