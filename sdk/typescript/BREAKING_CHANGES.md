@@ -41,7 +41,7 @@ on them. The interfaces used only by those methods (`WebhookDeliveryAttempt`,
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
-| `webhooks.listDeliveries(webhookId, options)` | `GET /api/v1/webhooks/{id}/deliveries` | `webhooks.getDeliveryStats(webhookId)` for per-webhook counts; `webhooks.listDeadLetter()` for failed deliveries |
+| `webhooks.listDeliveries(webhookId, options)` | `GET /api/v1/webhooks/{id}/deliveries` | `webhooks.listDeadLetter()` for failed deliveries; successful deliveries are not listed |
 | `webhooks.getDelivery(webhookId, deliveryId)` | `GET /api/v1/webhooks/{id}/deliveries/{deliveryId}` | `webhooks.getDeadLetter(id)` for a failed delivery; successful deliveries are not exposed individually |
 | `webhooks.retryDelivery(webhookId, deliveryId)` | `POST /api/v1/webhooks/{id}/deliveries/{deliveryId}/retry` | `webhooks.retryDeadLetter(id)` |
 | `webhooks.subscribeEvents(webhookId, events)` | `POST /api/v1/webhooks/{id}/events` | `webhooks.update(webhookId, { events })` with the full event list |
