@@ -6,6 +6,33 @@ This document tracks breaking changes specific to the Aragora Python SDK. For co
 
 ## Version 2.x
 
+### Unreleased (2026-09-03)
+
+#### Breaking Changes
+
+Removed 12 `debates` methods (sync `DebatesAPI` and async `AsyncDebatesAPI`)
+that targeted routes no server handler dispatches. Every one of them was
+already marked DEPRECATED and emitted a `DeprecationWarning`; each call
+fell through to the debate slug lookup and returned 404, so no working
+integration depended on them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `debates.restore(debate_id)` | `POST /api/v1/debates/{id}/restore` | `debates.update(debate_id, status="active")` |
+| `debates.make_permanent(debate_id)` | `POST /api/v1/debates/{id}/make-permanent` | None needed; completed debates persist automatically |
+| `debates.find_similar(debate_id, limit)` | `GET /api/v1/debates/{id}/similar` | `debates.search(query)` with the debate task text |
+| `debates.get_quality(debate_id)` | `GET /api/v1/debates/{id}/quality` | `debates.get_verification_report(debate_id)` |
+| `debates.get_notes(debate_id)` | `GET /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
+| `debates.add_note(debate_id, content)` | `POST /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
+| `debates.delete_note(debate_id, note_id)` | `DELETE /api/v1/debates/{id}/notes/{note_id}` | No replacement (server has no notes feature) |
+| `debates.get_batch_results(batch_id)` | `GET /api/v1/debates/batch/{id}/results` | `debates.get_batch_status(batch_id)` (includes per-job results) |
+| `debates.cancel_batch(batch_id)` | `POST /api/v1/debates/batch/{id}/cancel` | Cancel individual debates with `debates.cancel(debate_id)` |
+| `debates.retry_batch(batch_id)` | `POST /api/v1/debates/batch/{id}/retry` | Re-submit failed jobs with `debates.submit_batch(...)` |
+| `debates.get_agent_statistics(debate_id)` | `GET /api/v1/debates/{id}/agent-statistics` | `debates.get_agent_stats()` (aggregate per-agent statistics) |
+| `debates.get_debate_health(debate_id)` | `GET /api/v1/debates/{id}/health` | `debates.get_health()` for system health, `debates.get(debate_id)` for a debate's status |
+
+---
+
 ### v2.4.0 (2026-01-25)
 
 **No breaking changes.** Added new namespace resources.
