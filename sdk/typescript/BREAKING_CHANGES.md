@@ -21,7 +21,7 @@ methods (`DebateHealthDetail`, `BatchResults`, `ArgumentQualityAnalysis`,
 |----------------|-------|-----------|
 | `debates.restore(debateId)` | `POST /api/v1/debates/{id}/restore` | `debates.update(debateId, { status: 'active' })` |
 | `debates.makePermanent(debateId)` | `POST /api/v1/debates/{id}/make-permanent` | None needed; completed debates persist automatically |
-| `debates.findSimilar(debateId, limit)` | `GET /api/v1/debates/{id}/similar` | `debates.search(query)` or `debates.compare(debateIds)` |
+| `debates.findSimilar(debateId, limit)` | `GET /api/v1/debates/{id}/similar` | `consensus.findSimilar({ topic, limit })` (`GET /api/v1/consensus/similar`) with the debate task text as `topic` |
 | `debates.analyzeArgumentQuality(debateId)` | `GET /api/v1/debates/{id}/quality` | `debates.getSummary(debateId)` |
 | `debates.getNotes(debateId)` | `GET /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
 | `debates.addNote(debateId, note)` | `POST /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
@@ -31,6 +31,25 @@ methods (`DebateHealthDetail`, `BatchResults`, `ArgumentQualityAnalysis`,
 | `debates.retryBatch(batchId, options)` | `POST /api/v1/debates/batch/{id}/retry` | Re-submit failed debates with `debates.submitBatch(...)` |
 | `debates.getDebateAgentStatistics(debateId)` | `GET /api/v1/debates/{id}/agent-statistics` | `debates.getStatsAgents()` (aggregate per-agent statistics) |
 | `debates.getHealth(debateId)` | `GET /api/v1/debates/{id}/health` | `debates.listHealth()` for system-wide debate health |
+
+Removed 9 `webhooks` methods from `WebhooksAPI` that targeted per-webhook
+sub-routes no server handler dispatches. The webhook handler only routes
+`/api/v1/webhooks/{id}` and `/api/v1/webhooks/{id}/test` below a webhook id,
+so every one of these calls returned 404 and no working integration depended
+on them. The interfaces used only by those methods (`WebhookDeliveryAttempt`,
+`WebhookRetryPolicy`) were removed with them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `webhooks.listDeliveries(webhookId, options)` | `GET /api/v1/webhooks/{id}/deliveries` | `webhooks.getDeliveryStats(webhookId)` for per-webhook counts; `webhooks.listDeadLetter()` for failed deliveries |
+| `webhooks.getDelivery(webhookId, deliveryId)` | `GET /api/v1/webhooks/{id}/deliveries/{deliveryId}` | `webhooks.getDeadLetter(id)` for a failed delivery; successful deliveries are not exposed individually |
+| `webhooks.retryDelivery(webhookId, deliveryId)` | `POST /api/v1/webhooks/{id}/deliveries/{deliveryId}/retry` | `webhooks.retryDeadLetter(id)` |
+| `webhooks.subscribeEvents(webhookId, events)` | `POST /api/v1/webhooks/{id}/events` | `webhooks.update(webhookId, { events })` with the full event list |
+| `webhooks.unsubscribeEvents(webhookId, events)` | `DELETE /api/v1/webhooks/{id}/events` | `webhooks.update(webhookId, { events })` with the remaining events |
+| `webhooks.getRetryPolicy(webhookId)` | `GET /api/v1/webhooks/{id}/retry-policy` | No replacement; the retry policy is server-configured, not per webhook |
+| `webhooks.updateRetryPolicy(webhookId, policy)` | `PUT /api/v1/webhooks/{id}/retry-policy` | No replacement; the retry policy is server-configured, not per webhook |
+| `webhooks.rotateSecret(webhookId)` | `POST /api/v1/webhooks/{id}/rotate-secret` | `webhooks.delete(webhookId)` then `webhooks.create(...)`; the secret is returned once on creation |
+| `webhooks.getSigningInfo(webhookId)` | `GET /api/v1/webhooks/{id}/signing` | Deliveries are signed with HMAC-SHA256 as `sha256=<hex>`; see `docs/api/WEBHOOKS.md` |
 
 ---
 
