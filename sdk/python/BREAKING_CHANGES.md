@@ -6,6 +6,52 @@ This document tracks breaking changes specific to the Aragora Python SDK. For co
 
 ## Version 2.x
 
+### Unreleased (2026-09-03)
+
+#### Breaking Changes
+
+Removed 12 `debates` methods (sync `DebatesAPI` and async `AsyncDebatesAPI`)
+that targeted routes no server handler dispatches. Every one of them was
+already marked DEPRECATED and emitted a `DeprecationWarning`; each call
+fell through to the debate slug lookup and returned 404, so no working
+integration depended on them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `debates.restore(debate_id)` | `POST /api/v1/debates/{id}/restore` | `debates.update(debate_id, status="active")` |
+| `debates.make_permanent(debate_id)` | `POST /api/v1/debates/{id}/make-permanent` | None needed; completed debates persist automatically |
+| `debates.find_similar(debate_id, limit)` | `GET /api/v1/debates/{id}/similar` | `consensus.get_similar_debates(topic, limit)` (`GET /api/v1/consensus/similar`) with the debate task text as `topic` |
+| `debates.get_quality(debate_id)` | `GET /api/v1/debates/{id}/quality` | `debates.get_verification_report(debate_id)` |
+| `debates.get_notes(debate_id)` | `GET /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
+| `debates.add_note(debate_id, content)` | `POST /api/v1/debates/{id}/notes` | No replacement (server has no notes feature) |
+| `debates.delete_note(debate_id, note_id)` | `DELETE /api/v1/debates/{id}/notes/{note_id}` | No replacement (server has no notes feature) |
+| `debates.get_batch_results(batch_id)` | `GET /api/v1/debates/batch/{id}/results` | `debates.get_batch_status(batch_id)` (includes per-job results) |
+| `debates.cancel_batch(batch_id)` | `POST /api/v1/debates/batch/{id}/cancel` | Cancel individual debates with `debates.cancel(debate_id)` |
+| `debates.retry_batch(batch_id)` | `POST /api/v1/debates/batch/{id}/retry` | Re-submit failed jobs with `debates.submit_batch(...)` |
+| `debates.get_agent_statistics(debate_id)` | `GET /api/v1/debates/{id}/agent-statistics` | `debates.get_agent_stats()` (aggregate per-agent statistics) |
+| `debates.get_debate_health(debate_id)` | `GET /api/v1/debates/{id}/health` | `debates.get_health()` for system health, `debates.get(debate_id)` for a debate's status |
+
+Removed 10 `webhooks` methods (sync `WebhooksAPI` and async `AsyncWebhooksAPI`)
+that targeted per-webhook sub-routes no server handler dispatches. The
+webhook handler only routes `/api/v1/webhooks/{id}` and
+`/api/v1/webhooks/{id}/test` below a webhook id, so every one of these calls
+returned 404 and no working integration depended on them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `webhooks.list_deliveries(webhook_id, status, limit, offset)` | `GET /api/v1/webhooks/{id}/deliveries` | `webhooks.list_dead_letter()` for failed deliveries; successful deliveries are not listed |
+| `webhooks.get_delivery(webhook_id, delivery_id)` | `GET /api/v1/webhooks/{id}/deliveries/{delivery_id}` | `webhooks.get_dead_letter(dead_letter_id)` for a failed delivery; successful deliveries are not exposed individually |
+| `webhooks.retry_delivery(webhook_id, delivery_id)` | `POST /api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | `webhooks.retry_dead_letter(dead_letter_id)` |
+| `webhooks.get_delivery_stats(webhook_id, days)` | `GET /api/v1/webhooks/{id}/stats` | No replacement; per-webhook delivery statistics are not served (`GET /api/v1/webhooks/queue/stats` reports the shared delivery queue, not a single webhook) |
+| `webhooks.subscribe_events(webhook_id, events)` | `POST /api/v1/webhooks/{id}/events` | `webhooks.update(webhook_id, events=[...])` with the full event list |
+| `webhooks.unsubscribe_events(webhook_id, events)` | `DELETE /api/v1/webhooks/{id}/events` | `webhooks.update(webhook_id, events=[...])` with the remaining events |
+| `webhooks.get_retry_policy(webhook_id)` | `GET /api/v1/webhooks/{id}/retry-policy` | No replacement; the retry policy is server-configured, not per webhook |
+| `webhooks.update_retry_policy(webhook_id, **policy)` | `PUT /api/v1/webhooks/{id}/retry-policy` | No replacement; the retry policy is server-configured, not per webhook |
+| `webhooks.rotate_secret(webhook_id)` | `POST /api/v1/webhooks/{id}/rotate-secret` | `webhooks.delete(webhook_id)` then `webhooks.create(...)`; the secret is returned once on creation |
+| `webhooks.get_signing_info(webhook_id)` | `GET /api/v1/webhooks/{id}/signing` | Deliveries are signed with HMAC-SHA256 as `sha256=<hex>`; see `docs/api/WEBHOOKS.md` |
+
+---
+
 ### v2.4.0 (2026-01-25)
 
 **No breaking changes.** Added new namespace resources.
@@ -106,7 +152,7 @@ No breaking changes currently scheduled.
 
 ## Migration Guides
 
-- [API v1 to v2 Migration](../../docs/MIGRATION_V1_TO_V2.md) - Complete guide for API migration
+- [API v1 to v2 Migration](../../docs/api/V1_TO_V2_MIGRATION.md) - Complete guide for API migration
 - [SDK Guide](../../docs/SDK_GUIDE.md) - Full SDK documentation
 
 ---
