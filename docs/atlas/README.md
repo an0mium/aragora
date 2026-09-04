@@ -119,9 +119,15 @@ python3 scripts/build_disagreement_atlas.py summary \
     --dataset docs/atlas/atlas-v1.jsonl --out docs/atlas/summary.md
 ```
 
-Rebuilding from the same cache is byte-identical (the tests pin this under input
-reordering). Rebuilding from a fresh `collect` can differ only if GitHub content
-changed (a comment edited, a status added).
+The build has two inputs: the GitHub cache and the checkout's receipt files
+(`docs/receipts/`, `docs/elves/receipts/`, `docs/status/settlement-packets/`),
+which feed `receipt_refs[]`. Rebuilding from the same cache and the same receipt
+files is byte-identical (the tests pin this under input reordering). Rebuilding
+can differ only if GitHub content changed after a fresh `collect` (a comment
+edited, a status added) or a receipt file that mentions an in-window PR was
+added or edited; the manifest's `receipt_inputs.files` pins the SHA-256 of every
+receipt file the records cite so `verify` reports that case as a receipt-input
+mismatch rather than a dataset mismatch.
 
 ## Verify
 

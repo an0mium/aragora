@@ -799,6 +799,20 @@ def scan_receipt_refs(repo_root: Path, dirs: tuple[Path, ...]) -> dict[int, list
     return {pr: sorted(paths) for pr, paths in refs.items()}
 
 
+def receipt_inputs(
+    repo_root: Path, dirs: tuple[Path, ...], records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Pin the working-tree files that fed ``receipt_refs`` into the records.
+
+    The receipt scan reads the checkout rather than the GitHub cache, so it is
+    a second build input; hashing every file a record cites lets ``verify``
+    tell an edited receipt apart from a tampered dataset.
+    """
+    cited = sorted({p for r in records for p in r.get("receipt_refs") or []})
+    files = {rel: _sha256((repo_root / rel).read_bytes()) for rel in cited}
+    return {"dirs": [d.as_posix() for d in dirs], "files": files}
+
+
 # ---------------------------------------------------------------------------
 # build
 # ---------------------------------------------------------------------------
@@ -1281,6 +1295,7 @@ def build_manifest(
     sample: tuple[str, bytes, int] | None,
     eval_fixture: Path | None,
     repo_root: Path,
+    receipt_dirs: tuple[Path, ...] = (),
 ) -> dict[str, Any]:
     # The window covers every scanned PR, not only those that produced records.
     closed = [str(p.get("closed_at") or "") for p in index.get("prs") or []]
@@ -1333,6 +1348,7 @@ def build_manifest(
             "path": rel,
             "sha256": _sha256(eval_fixture.read_bytes()),
         }
+    manifest["receipt_inputs"] = receipt_inputs(repo_root, receipt_dirs, records)
     if sample is not None:
         rel, payload, count = sample
         manifest["sample"] = {
@@ -1392,6 +1408,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         sample=sample_info,
         eval_fixture=eval_fixture,
         repo_root=base,
+        receipt_dirs=receipt_dirs,
     )
     if args.sign_key:
         from aragora.gauntlet.odr_signing import load_private_key_from_pem, sign_odr_receipt
@@ -1904,6 +1921,24 @@ def verify_manifest(
             problems.append("schema.json sha256 mismatch")
         elif schema_path.exists():
             checks.append("schema sha256 ok")
+
+    pinned_files = (manifest.get("receipt_inputs") or {}).get("files") or {}
+    if pinned_files:
+        # Receipt files live outside docs/atlas, so a mirrored tree that holds
+        # only the atlas files skips them instead of failing.
+        absent = [rel for rel in pinned_files if not (base / rel).exists()]
+        changed = [
+            rel
+            for rel, sha in pinned_files.items()
+            if (base / rel).exists() and _sha256((base / rel).read_bytes()) != sha
+        ]
+        for rel in changed:
+            problems.append(f"receipt input sha256 mismatch: {rel}")
+        present = len(pinned_files) - len(absent)
+        if present and not changed:
+            checks.append(f"receipt inputs sha256 ok ({present} file(s))")
+        if absent:
+            checks.append(f"receipt inputs SKIPPED ({len(absent)} file(s) not present)")
 
     digest = manifest.get("content_digest") or {}
     unsigned = {k: v for k, v in manifest.items() if k not in {"content_digest", "signatures"}}

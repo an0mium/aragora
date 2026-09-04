@@ -3,7 +3,7 @@
   "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
   "content_digest": {
     "alg": "sha-256",
-    "value": "3acafc12c6980d9df15ca365984a09c7653264b41748818d1f6985824746f53e"
+    "value": "34c2252423b12421544206fbc5098e5fb911f936a5e34d8e241468e7f5b5c035"
   },
   "dataset": {
     "bytes": 5991112,
@@ -18,6 +18,18 @@
     "sha256": "237d20557c20ec495fdc4af8763c96cda0aac9195ed169e3410fbf95422872ab"
   },
   "manifest": "disagreement_atlas.manifest.v1",
+  "receipt_inputs": {
+    "dirs": [
+      "docs/receipts",
+      "docs/elves/receipts",
+      "docs/status/settlement-packets"
+    ],
+    "files": {
+      "docs/elves/receipts/b3-8767-settlement.json": "636b31d5dfb07aea12de0c797a30ee9bc05a4f02b251e65f1bbfa1a48c4b425c",
+      "docs/elves/receipts/b4-8768-settlement.json": "615d8a5023f990c995ed094ac6b3f48db14734e1729749c2e6e8b053b3e0219f",
+      "docs/elves/receipts/b6-cleanup-batch1.json": "bb965b3d8bdf92962389eaab6a5ddf442ef2437cf121b601584c50916ae3ecc8"
+    }
+  },
   "record_schema": "disagreement_atlas.record.v1",
   "record_schema_sha256": "98be80bc78948e91ae49c73201971ae4956ab401b4ee938ff09426472fe2c035",
   "sample": {

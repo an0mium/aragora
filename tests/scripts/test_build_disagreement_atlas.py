@@ -576,3 +576,57 @@ def test_build_fails_when_an_indexed_pr_is_missing_from_the_cache(tmp_path: Path
     cache = _cache_with_index(tmp_path, add_missing)
     with pytest.raises(RuntimeError, match=r"PR #4242 .*collect --cache-dir .*--refresh"):
         _build(tmp_path / "root", cache=cache)
+
+
+def test_manifest_pins_receipt_files_and_verify_flags_an_edited_one(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    receipt_dir = root / "docs" / "receipts"
+    receipt_dir.mkdir(parents=True)
+    receipt = receipt_dir / "settlement-8811.json"
+    receipt.write_text(json.dumps({"pr": 8811, "note": "settled"}), encoding="utf-8")
+    out_dir = root / "docs" / "atlas"
+    out_dir.mkdir(parents=True)
+    shutil.copy(SCHEMA, out_dir / "schema.json")
+    argv = [
+        "build",
+        "--cache-dir",
+        str(FIXTURE),
+        "--out",
+        str(out_dir / "atlas-v1.jsonl"),
+        "--schema",
+        str(out_dir / "schema.json"),
+        "--repo-root",
+        str(root),
+        "--eval-fixture",
+        str(FIXTURE / "eval_cases.json"),
+        "--receipt-dirs",
+        "docs/receipts",
+    ]
+    assert atlas.main(argv) == 0
+    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    records = atlas.read_jsonl(out_dir / "atlas-v1.jsonl")
+    assert all(
+        r["receipt_refs"] == ["docs/receipts/settlement-8811.json"]
+        for r in records
+        if r["pr"]["number"] == 8811
+    )
+    assert manifest["receipt_inputs"]["dirs"] == ["docs/receipts"]
+    assert manifest["receipt_inputs"]["files"] == {
+        "docs/receipts/settlement-8811.json": atlas._sha256(receipt.read_bytes())
+    }
+    ok, lines = atlas.verify_manifest(out_dir / "manifest.json", base=root)
+    assert ok, lines
+    assert any(line.startswith("receipt inputs sha256 ok") for line in lines)
+
+    receipt.write_text(json.dumps({"pr": 8811, "note": "edited"}), encoding="utf-8")
+    ok, lines = atlas.verify_manifest(out_dir / "manifest.json", base=root)
+    assert not ok
+    assert "receipt input sha256 mismatch: docs/receipts/settlement-8811.json" in lines
+    assert not any("dataset sha256 mismatch" in line for line in lines)
+
+    # A mirrored tree holding only the atlas files skips the receipt check.
+    mirror = tmp_path / "mirror"
+    shutil.copytree(out_dir, mirror / "docs" / "atlas")
+    ok, lines = atlas.verify_manifest(mirror / "docs" / "atlas" / "manifest.json", base=mirror)
+    assert ok, lines
+    assert any(line.startswith("receipt inputs SKIPPED") for line in lines)
