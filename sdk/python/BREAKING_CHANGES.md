@@ -71,17 +71,22 @@ returned 405 from that handler, so no working integration depended on them.
 | `admin.get_expiring_credits(org_id)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | `client.request("GET", f"/api/v1/admin/credits/{org_id}/expiring", params={"within_days": 30})` (`within_days` 1-365, default 30) |
 
 Removed 10 `tenants` methods (sync `TenantsAPI` and async `AsyncTenantsAPI`)
-that targeted routes no server handler dispatches. The HTTP server routes only
-the `/api/v1/tenants` collection (declared by the organizations handler);
-nothing dispatches `/api/v1/tenants/{id}` or any path below it, and the opt-in
-FastAPI `/api/v2/admin/tenants` surface is a separate admin family outside the
-spec. Every call below returned 404, so no working integration depended on
-them. `tenants.list(...)` and `tenants.create(...)` remain.
+that targeted routes no server handler dispatches. Nothing under
+`/api/v1/tenants/{id}` is routed, so every call below returned 404 and no
+working integration depended on them. There is no self-service tenant read or
+write on the HTTP server at all: `/api/v1/tenants` is declared by the
+organizations handler and `GET` is in the spec, but the handler has no branch
+for it, so `tenants.list(...)` and `tenants.create(...)` (kept because their
+route is spec-listed) currently fail too. Tenant administration lives only on
+the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`): `GET`/`POST
+/api/v2/admin/tenants` and `PUT /api/v2/admin/tenants/{tenant_id}` (`name`,
+`tier`, `is_active`, `config`; `admin:tenants:write`), none of which is in the
+spec or wrapped by this SDK.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
-| `tenants.get(tenant_id)` | `GET /api/v1/tenants/{id}` | `tenants.list(...)` and filter by id |
-| `tenants.update(tenant_id, name=..., plan=..., settings=..., quotas=...)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(org_id, name=..., settings=...)` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`; plan and quota changes have no self-service route) |
+| `tenants.get(tenant_id)` | `GET /api/v1/tenants/{id}` | No replacement; no tenant read is served (see above) |
+| `tenants.update(tenant_id, name=..., plan=..., settings=..., quotas=...)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(org_id, name=..., settings=...)` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`). Plan and quota changes have no self-service route; admins can use `PUT /api/v2/admin/tenants/{tenant_id}` (`client.request`) when the FastAPI surface is enabled |
 | `tenants.delete(tenant_id)` | `DELETE /api/v1/tenants/{id}` | No replacement; tenant deletion is not served |
 | `tenants.suspend(tenant_id, reason)` | `POST /api/v1/tenants/{id}/suspend` | No replacement; tenant suspension is not served |
 | `tenants.reactivate(tenant_id)` | `POST /api/v1/tenants/{id}/reactivate` | No replacement; tenant reactivation is not served |

@@ -80,23 +80,30 @@ unchanged here and still return 405; do not migrate to them.
 | `admin.getExpiringCredits(orgId)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/expiring`, { params: { within_days: 30 } })`` (`within_days` 1-365, default 30) |
 
 Removed 10 `tenants` methods from `TenantsAPI` that targeted routes no server
-handler dispatches. The HTTP server routes only the `/api/v1/tenants`
-collection (declared by the organizations handler); nothing dispatches
-`/api/v1/tenants/{id}` or any path below it, and the opt-in FastAPI
-`/api/v2/admin/tenants` surface is a separate admin family outside the spec.
-Every call below returned 404, so no working integration depended on them. The
-`TenantsClientInterface` entries and the local `UpdateTenantRequest`,
-`QuotaStatus` and `QuotaUpdate` interfaces used only by those methods were
-removed with them (the same-named package-root types in `types.ts` are
-unchanged). The legacy flat `*Tenant*` methods on `AragoraClient` that target
-the same routes are unchanged here and still return 404; do not migrate to
-them. `tenants.list`, `tenants.create`, `tenants.addMember` and
-`tenants.removeMember` remain.
+handler dispatches. Nothing under `/api/v1/tenants/{id}` is routed, so every
+call below returned 404 and no working integration depended on them. There is
+no self-service tenant read or write on the HTTP server at all:
+`/api/v1/tenants` is declared by the organizations handler and `GET` is in the
+spec, but the handler has no branch for it, so `tenants.list` and
+`tenants.create` (kept because their route is spec-listed) currently fail too.
+`tenants.addMember` and `tenants.removeMember` are also kept only because they
+are thin aliases of the flat client methods that own those paths
+(`POST /api/v1/tenants/{id}/members`, `DELETE /api/v1/tenants/{id}/members/{userId}`);
+those routes are equally unrouted and return 404. Tenant administration lives
+only on the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`): `GET`/`POST
+/api/v2/admin/tenants` and `PUT /api/v2/admin/tenants/{tenant_id}` (`name`,
+`tier`, `is_active`, `config`; `admin:tenants:write`), none of which is in the
+spec or wrapped by this SDK. The `TenantsClientInterface` entries and the
+local `UpdateTenantRequest`, `QuotaStatus` and `QuotaUpdate` interfaces used
+only by the removed methods were removed with them (the same-named
+package-root types in `types.ts` are unchanged). The legacy flat `*Tenant*`
+methods on `AragoraClient` that target the same routes are unchanged here and
+still return 404; do not migrate to them.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
-| `tenants.get(tenantId)` | `GET /api/v1/tenants/{id}` | `tenants.list(params)` and filter by id |
-| `tenants.update(tenantId, body)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(orgId, { name, settings })` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`; plan and quota changes have no self-service route) |
+| `tenants.get(tenantId)` | `GET /api/v1/tenants/{id}` | No replacement; no tenant read is served (see above) |
+| `tenants.update(tenantId, body)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(orgId, { name, settings })` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`). Plan and quota changes have no self-service route; admins can use `PUT /api/v2/admin/tenants/{tenant_id}` (`client.request`) when the FastAPI surface is enabled |
 | `tenants.delete(tenantId)` | `DELETE /api/v1/tenants/{id}` | No replacement; tenant deletion is not served |
 | `tenants.suspend(tenantId)` | `POST /api/v1/tenants/{id}/suspend` | No replacement; tenant suspension is not served |
 | `tenants.reactivate(tenantId)` | `POST /api/v1/tenants/{id}/reactivate` | No replacement; tenant reactivation is not served |

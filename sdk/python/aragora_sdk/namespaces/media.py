@@ -25,14 +25,14 @@ class MediaAPI:
     Synchronous Media API.
 
     Provides methods for media asset access:
-    - List audio files and build direct audio URLs
+    - Build direct audio URLs
     - List and browse podcast episodes
     - Access RSS feed for subscription
     - Media format conversions
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
-        >>> audio_files = client.media.list_audio(debate_id="debate_123")
+        >>> audio_url = client.media.get_audio_url("debate_123")
         >>> episodes = client.media.list_podcast_episodes()
         >>> feed_url = client.media.get_feed_url()
     """

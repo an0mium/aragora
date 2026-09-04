@@ -4,9 +4,8 @@
  * Provides access to media assets including audio files and podcast episodes.
  *
  * Features:
- * - Audio file listing
  * - Direct audio URL generation
- * - Audio upload
+ * - Audio file listing and upload
  * - Podcast episode management
  * - RSS feed access
  *
@@ -14,8 +13,8 @@
  * ```typescript
  * const client = createClient({ baseUrl: 'https://api.aragora.ai', apiKey: 'your-key' });
  *
- * // List audio files for a debate
- * const { audio_files } = await client.media.listAudio({ debateId: 'debate_456' });
+ * // Build a direct playback URL for a debate's audio
+ * const url = client.media.getAudioUrl('debate_456');
  *
  * // List podcast episodes
  * const { episodes } = await client.media.listPodcastEpisodes({ limit: 10 });
@@ -163,7 +162,7 @@ interface MediaClientInterface {
  * Media API namespace.
  *
  * Provides methods for media asset management:
- * - List and upload audio files
+ * - Direct audio URLs, audio listing and upload
  * - Podcast episode management
  * - RSS feed access
  *
@@ -171,11 +170,11 @@ interface MediaClientInterface {
  * ```typescript
  * const client = createClient({ baseUrl: 'https://api.aragora.ai', apiKey: 'your-key' });
  *
- * // List audio files for a debate
- * const { audio_files } = await client.media.listAudio({ debateId: 'debate_456' });
+ * // Build a direct playback URL for a debate's audio
+ * const url = client.media.getAudioUrl('debate_456');
  *
- * // Build a direct playback URL
- * const url = client.media.getAudioUrl('audio_123');
+ * // Browse podcast episodes
+ * const { episodes } = await client.media.listPodcastEpisodes({ limit: 10 });
  * ```
  */
 export class MediaAPI {
