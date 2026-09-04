@@ -70,6 +70,44 @@ returned 405 from that handler, so no working integration depended on them.
 | `admin.list_credit_transactions(org_id, **params)` | `GET /api/v1/admin/organizations/{id}/credits/transactions` | `client.request("GET", f"/api/v1/admin/credits/{org_id}/transactions", params={...})` |
 | `admin.get_expiring_credits(org_id)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | `client.request("GET", f"/api/v1/admin/credits/{org_id}/expiring", params={"within_days": 30})` (`within_days` 1-365, default 30) |
 
+Removed 10 `tenants` methods (sync `TenantsAPI` and async `AsyncTenantsAPI`)
+that targeted routes no server handler dispatches. Nothing under
+`/api/v1/tenants/{id}` is routed, so every call below returned 404 and no
+working integration depended on them. There is no self-service tenant read or
+write on the HTTP server at all: `/api/v1/tenants` is declared by the
+organizations handler and `GET` is in the spec, but the handler has no branch
+for it, so `tenants.list(...)` and `tenants.create(...)` (kept because their
+route is spec-listed) currently fail too. Tenant administration lives only on
+the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`): `GET`/`POST
+/api/v2/admin/tenants` and `PUT /api/v2/admin/tenants/{tenant_id}` (`name`,
+`tier`, `is_active`, `config`; `admin:tenants:write`), none of which is in the
+spec or wrapped by this SDK.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `tenants.get(tenant_id)` | `GET /api/v1/tenants/{id}` | No replacement; no tenant read is served (see above) |
+| `tenants.update(tenant_id, name=..., plan=..., settings=..., quotas=...)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(org_id, name=..., settings=...)` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`). Plan and quota changes have no self-service route; admins can use `PUT /api/v2/admin/tenants/{tenant_id}` (`client.request`) when the FastAPI surface is enabled |
+| `tenants.delete(tenant_id)` | `DELETE /api/v1/tenants/{id}` | No replacement; tenant deletion is not served |
+| `tenants.suspend(tenant_id, reason)` | `POST /api/v1/tenants/{id}/suspend` | No replacement; tenant suspension is not served |
+| `tenants.reactivate(tenant_id)` | `POST /api/v1/tenants/{id}/reactivate` | No replacement; tenant reactivation is not served |
+| `tenants.get_usage(tenant_id)` | `GET /api/v1/tenants/{id}/usage` | `quotas.get_usage(period)` (`GET /api/v1/quotas/usage`); scoped to the caller's own organization, not an arbitrary tenant id |
+| `tenants.get_quotas(tenant_id)` | `GET /api/v1/tenants/{id}/quotas` | `quotas.list()` (`GET /api/v1/quotas`); scoped to the caller's own organization |
+| `tenants.update_quotas(tenant_id, quotas)` | `PUT /api/v1/tenants/{id}/quotas` | `quotas.request_increase(resource, requested_limit=..., justification=...)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write |
+| `tenants.list_members(tenant_id)` | `GET /api/v1/tenants/{id}/members` | `organizations.list_members(org_id)` (`GET /api/v1/org/{id}/members`); unpaginated, caller must be an org member |
+| `tenants.invite_member(tenant_id, email, role)` | `POST /api/v1/tenants/{id}/members/invite` | `organizations.invite_member(org_id, email, role)` (`POST /api/v1/org/{id}/invite`, served but only the `GET` verb is in the spec; caller must be an org admin and `role` must be `member` or `admin`) |
+
+Removed 2 `media` methods (sync and async) that targeted per-file audio routes
+no server handler dispatches. The audio handler serves only
+`/audio/{debate_id}.mp3`, `/api/v1/podcast/feed.xml` and the
+`/api/v1/podcast/episodes` collection; `/api/v1/media/audio/{id}` returned 404.
+`media.upload_audio(...)` (`POST /api/v1/media/audio`) is kept: that path is
+declared by the audio handler even though no POST branch serves it yet.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `media.get_audio(audio_id)` | `GET /api/v1/media/audio/{id}` | `media.get_audio_url(debate_id)` builds the served `/audio/{debate_id}.mp3` URL; there is no per-file metadata route |
+| `media.delete_audio(audio_id)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
+
 ---
 
 ### v2.4.0 (2026-01-25)
