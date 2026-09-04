@@ -294,17 +294,48 @@ def test_row8_counts_odr_assets_on_receipts_releases(fake, capsys):
     assert r[8]["first_hour_run_ok"] is False and r[8]["status"] == "fail"
 
 
-def test_row6_counts_atlas_jsonl(fake, capsys, root):
-    (root / "docs/atlas").mkdir()
+ATLAS_SAMPLE = Path(sb.__file__).resolve().parents[1] / "docs/atlas/atlas-v1.sample.jsonl"
+
+
+def write_atlas(root: Path, recs: list[dict]) -> None:
+    (root / "docs/atlas").mkdir(parents=True, exist_ok=True)
+    (root / "docs/atlas/atlas-v1.jsonl").write_text("".join(json.dumps(x) + "\n" for x in recs))
+
+
+@pytest.mark.parametrize("limit", [None, 60])
+def test_row6_counts_atlas_jsonl(fake, capsys, root, limit):
+    recs = [json.loads(x) for x in ATLAS_SAMPLE.read_text().splitlines() if x.strip()][:limit]
+    assert recs and all(
+        isinstance(x["pr"], dict) and isinstance(x["pr"]["number"], int) for x in recs
+    )
+    write_atlas(root, recs)
+    cr = sum(x["verdict"] == "changes_requested" for x in recs)
+    posted = sum(bool(x["posted_to_thread"]) for x in recs)
+    rounds = len({(x["pr"]["number"], x["head_sha"]) for x in recs})
+    if limit is None:
+        assert (cr, posted, rounds, len(recs)) == (18, 187, 189, 200)
+    _, r = rows(capsys, "--offline", "--quorum-runs", "4")
+    assert "reason" not in r[6] and r[6]["status"] == "fail"
+    assert (r[6]["now"], r[6]["posted"], r[6]["rounds"], r[6]["records"]) == (
+        cr,
+        posted,
+        rounds,
+        len(recs),
+    )
+    assert r[6]["ratio"] == round(posted / rounds, 3) and r[6]["delta"] == cr - 53
+    assert r[6]["quorum_runs"] == 4 and r[6]["upper_bound"] is True
+
+
+def test_row6_accepts_legacy_scalar_pr(fake, capsys, root):
     recs = [
         {"pr": 1, "head_sha": "x", "verdict": "changes_requested", "posted_to_thread": True},
         {"pr": 1, "head_sha": "x", "verdict": "pass", "posted_to_thread": False},
+        {"pr": {"number": 1}, "head_sha": "x", "verdict": "pass", "posted_to_thread": True},
         {"pr": 2, "head_sha": "y", "verdict": "pass", "posted_to_thread": True},
     ]
-    (root / "docs/atlas/atlas-v1.jsonl").write_text("".join(json.dumps(x) + "\n" for x in recs))
-    _, r = rows(capsys, "--offline", "--quorum-runs", "4")
-    assert (r[6]["now"], r[6]["posted"], r[6]["rounds"], r[6]["records"]) == (1, 2, 2, 3)
-    assert r[6]["quorum_runs"] == 4 and r[6]["upper_bound"] is True and r[6]["delta"] == 1 - 53
+    write_atlas(root, recs)
+    _, r = rows(capsys, "--offline")
+    assert (r[6]["now"], r[6]["posted"], r[6]["rounds"], r[6]["records"]) == (1, 3, 2, 4)
 
 
 def test_post_creates_new_comment_with_refs(fake, capsys):
