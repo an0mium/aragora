@@ -3,14 +3,14 @@
   "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
   "content_digest": {
     "alg": "sha-256",
-    "value": "3b8b24b2a157c967ca8dd26353b112299623b971eca7d184aa8914448fd44351"
+    "value": "cee3ff483b14218ceab6cde508da31a0e9c1236905236202029dca11d59ab73d"
   },
   "dataset": {
-    "bytes": 5971352,
+    "bytes": 5991231,
     "path": "docs/atlas/atlas-v1.jsonl",
-    "pr_count": 696,
-    "record_count": 1659,
-    "sha256": "8566dc68d62b30996118cf8d50acd177465c137313abef07750238b61516270a"
+    "pr_count": 698,
+    "record_count": 1661,
+    "sha256": "874f32683d622cbdf5c889a4ea7dbd193485ad6c6eb650305fb61b6ccefaa652"
   },
   "generator": "scripts/build_disagreement_atlas.py",
   "ground_truth_fixture": {
@@ -21,10 +21,10 @@
   "record_schema": "disagreement_atlas.record.v1",
   "record_schema_sha256": "98be80bc78948e91ae49c73201971ae4956ab401b4ee938ff09426472fe2c035",
   "sample": {
-    "bytes": 749147,
+    "bytes": 737317,
     "path": "docs/atlas/atlas-v1.sample.jsonl",
     "record_count": 200,
-    "sha256": "0a69fba0f12b4aca1014d5aad6c96dcb9b73f575b3f4f9890454c7e14d864316"
+    "sha256": "b9559ceaefa260db9740cac51ebff5f7a69255a689f1350d06c0ddd2475f15ee"
   },
   "signatures": [],
   "source": {
@@ -36,7 +36,7 @@
       "commits/{head}/statuses"
     ],
     "prs_scanned": 1097,
-    "prs_with_verdicts": 696,
+    "prs_with_verdicts": 698,
     "repo": "synaptent/aragora",
     "since": "2026-06-26T21:04:36Z",
     "since_basis": "PR #8638 merged_at",

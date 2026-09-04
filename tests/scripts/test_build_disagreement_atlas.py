@@ -390,3 +390,65 @@ def test_readme_names_release_tag_atlas_v1() -> None:
     assert "disagreement-atlas-v1.0.0" not in readme
     gitignore = (REPO_ROOT / "docs" / "atlas" / ".gitignore").read_text(encoding="utf-8")
     assert "atlas-v1.jsonl" in gitignore.splitlines()
+
+
+def test_collect_caches_reviews_when_verdicts_exist_only_as_review_objects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = tmp_path / "cache"
+    (cache / "prs" / "42").mkdir(parents=True)
+    (cache / "index.json").write_text(
+        json.dumps(
+            {
+                "repo": "o/r",
+                "since": "2026-01-01T00:00:00Z",
+                "since_basis": "x",
+                "prs": [
+                    {
+                        "number": 42,
+                        "closed_at": "2026-02-01T00:00:00Z",
+                        "merged_at": None,
+                        "head_sha": "a" * 40,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (cache / "prs" / "42" / "pr.json").write_text(
+        json.dumps({"number": 42, "head": {"sha": "a" * 40}}), encoding="utf-8"
+    )
+    review_body = (
+        "## Codex review\n\nHead: aaaaaaa\nModel family: openai\n\nVerdict: CHANGES-REQUESTED\n"
+    )
+    payloads = {
+        "meta/since_pr_8638.json": {"merged_at": "2026-01-01T00:00:00Z"},
+        "prs/42/comments.json": [{"id": 1, "body": "Thanks, looks good."}],
+        "prs/42/reviews.json": [{"id": 7, "body": review_body, "state": "CHANGES_REQUESTED"}],
+        "prs/42/commits.json": [],
+        f"statuses/{'a' * 40}.json": [],
+    }
+    fetched: list[str] = []
+
+    class FakeClient:
+        def __init__(self, cache_dir: Path, *, refresh: bool = False) -> None:
+            self.cache_dir = cache_dir
+            self.calls = 0
+
+        def cached(self, rel: str, path: str, *, paginate: bool = False) -> Any:
+            fetched.append(rel)
+            payload = payloads[rel]
+            target = self.cache_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(payload), encoding="utf-8")
+            return payload
+
+        def total_logged_calls(self) -> int:
+            return 0
+
+    monkeypatch.setattr(atlas, "GitHubClient", FakeClient)
+    rc = atlas.main(["collect", "--cache-dir", str(cache), "--repo", "o/r"])
+    assert rc == 0
+    assert "prs/42/reviews.json" in fetched
+    assert "prs/42/commits.json" in fetched, "review-only verdict threads must be fully cached"
+    assert (cache / "prs" / "42" / "reviews.json").exists()

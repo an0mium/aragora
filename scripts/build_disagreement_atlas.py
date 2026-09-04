@@ -397,9 +397,11 @@ def _slim_pr(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _looks_like_review_thread(comments: list[dict[str, Any]]) -> bool:
-    for comment in comments:
-        lower = str(comment.get("body") or "").lower()
+def _looks_like_review_thread(
+    comments: list[dict[str, Any]], reviews: list[dict[str, Any]] | None = None
+) -> bool:
+    for item in [*comments, *(reviews or [])]:
+        lower = str(item.get("body") or "").lower()
         if "verdict" in lower and any(marker in lower for marker in REVIEW_MARKERS):
             return True
         if "model family" in lower:
@@ -472,11 +474,15 @@ def cmd_collect(args: argparse.Namespace) -> int:
         comments = client.cached(
             f"{base}/comments.json", f"repos/{repo}/issues/{number}/comments", paginate=True
         )
-        if not _looks_like_review_thread(comments):
+        # Model verdicts may be mirrored only as GitHub review objects, so the
+        # review list is fetched before deciding whether the PR is a thread.
+        reviews = client.cached(
+            f"{base}/reviews.json", f"repos/{repo}/pulls/{number}/reviews", paginate=True
+        )
+        if not _looks_like_review_thread(comments, reviews):
             continue
         with_verdicts += 1
         pr = json.loads(pr_path.read_text(encoding="utf-8"))
-        client.cached(f"{base}/reviews.json", f"repos/{repo}/pulls/{number}/reviews", paginate=True)
         client.cached(f"{base}/commits.json", f"repos/{repo}/pulls/{number}/commits", paginate=True)
         head_sha = str((pr.get("head") or {}).get("sha") or "")
         if head_sha:
