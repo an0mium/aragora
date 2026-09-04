@@ -150,8 +150,8 @@ If `atlas-v1.jsonl` exceeds 5 MB it is **not** committed. `build` then also
 writes `atlas-v1.sample.jsonl` (all hand-labelled records plus an evenly spaced
 selection, 200 records) which is committed with `manifest.json` (whose
 `dataset.sha256` still covers the full file) and `summary.md`. The full file is
-attached to the GitHub release tagged `disagreement-atlas-v1.0.0` as
-`atlas-v1.jsonl`; download it next to `manifest.json` and run `verify`.
+attached to the GitHub release tagged `atlas-v1` as `atlas-v1.jsonl`; download
+it next to `manifest.json` and run `verify`.
 
 ## Limitations — read before citing
 

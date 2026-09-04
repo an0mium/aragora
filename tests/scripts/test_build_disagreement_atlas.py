@@ -382,3 +382,11 @@ def test_mechanism_text_maps_onto_controlled_vocabulary() -> None:
     ]
     assert atlas.map_mechanism_text("fix + re-review (converged to 2-0 PASS)") == ["revision"]
     assert atlas.map_mechanism_text("") == []
+
+
+def test_readme_names_release_tag_atlas_v1() -> None:
+    readme = (REPO_ROOT / "docs" / "atlas" / "README.md").read_text(encoding="utf-8")
+    assert "`atlas-v1`" in readme
+    assert "disagreement-atlas-v1.0.0" not in readme
+    gitignore = (REPO_ROOT / "docs" / "atlas" / ".gitignore").read_text(encoding="utf-8")
+    assert "atlas-v1.jsonl" in gitignore.splitlines()
