@@ -79,6 +79,45 @@ unchanged here and still return 405; do not migrate to them.
 | `admin.listCreditTransactions(orgId, params)` | `GET /api/v1/admin/organizations/{id}/credits/transactions` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/transactions`, { params })`` |
 | `admin.getExpiringCredits(orgId)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/expiring`, { params: { within_days: 30 } })`` (`within_days` 1-365, default 30) |
 
+Removed 10 `tenants` methods from `TenantsAPI` that targeted routes no server
+handler dispatches. The HTTP server routes only the `/api/v1/tenants`
+collection (declared by the organizations handler); nothing dispatches
+`/api/v1/tenants/{id}` or any path below it, and the opt-in FastAPI
+`/api/v2/admin/tenants` surface is a separate admin family outside the spec.
+Every call below returned 404, so no working integration depended on them. The
+`TenantsClientInterface` entries and the local `UpdateTenantRequest`,
+`QuotaStatus` and `QuotaUpdate` interfaces used only by those methods were
+removed with them (the same-named package-root types in `types.ts` are
+unchanged). The legacy flat `*Tenant*` methods on `AragoraClient` that target
+the same routes are unchanged here and still return 404; do not migrate to
+them. `tenants.list`, `tenants.create`, `tenants.addMember` and
+`tenants.removeMember` remain.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `tenants.get(tenantId)` | `GET /api/v1/tenants/{id}` | `tenants.list(params)` and filter by id |
+| `tenants.update(tenantId, body)` | `PATCH /api/v1/tenants/{id}` | `organizations.update(orgId, { name, settings })` (`PUT /api/v1/org/{id}`, served but not in the spec; org-admin scoped and accepts only `name` and `settings`; plan and quota changes have no self-service route) |
+| `tenants.delete(tenantId)` | `DELETE /api/v1/tenants/{id}` | No replacement; tenant deletion is not served |
+| `tenants.suspend(tenantId)` | `POST /api/v1/tenants/{id}/suspend` | No replacement; tenant suspension is not served |
+| `tenants.reactivate(tenantId)` | `POST /api/v1/tenants/{id}/reactivate` | No replacement; tenant reactivation is not served |
+| `tenants.getUsage(tenantId)` | `GET /api/v1/tenants/{id}/usage` | ``client.request('GET', '/api/v1/quotas/usage')`` (in the spec; `quotas.getUsageHistory()` targets the unversioned `/api/quotas/usage` alias); scoped to the caller's own organization, not an arbitrary tenant id |
+| `tenants.getQuotas(tenantId)` | `GET /api/v1/tenants/{id}/quotas` | `quotas.list()` (`GET /api/v1/quotas`); scoped to the caller's own organization |
+| `tenants.updateQuotas(tenantId, body)` | `PUT /api/v1/tenants/{id}/quotas` | `quotas.requestIncrease(resource, requestedLimit, reason)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write |
+| `tenants.listMembers(tenantId, params)` | `GET /api/v1/tenants/{id}/members` | `organizations.listMembers(orgId, params)` (`GET /api/v1/org/{id}/members`); the server ignores pagination and the caller must be an org member |
+| `tenants.inviteMember(tenantId, body)` | `POST /api/v1/tenants/{id}/members/invite` | `organizations.invite(orgId, { email, role })` (`POST /api/v1/org/{id}/invite`, served but only the `GET` verb is in the spec; caller must be an org admin and `role` must be `member` or `admin`) |
+
+Removed 2 `media` methods that targeted per-file audio routes no server
+handler dispatches. The audio handler serves only `/audio/{debateId}.mp3`,
+`/api/v1/podcast/feed.xml` and the `/api/v1/podcast/episodes` collection;
+`/api/v1/media/audio/{id}` returned 404. `media.uploadAudio(params)`
+(`POST /api/v1/media/audio`) is kept: that path is declared by the audio
+handler even though no POST branch serves it yet.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `media.getAudio(audioId)` | `GET /api/v1/media/audio/{id}` | `media.getAudioUrl(debateId)` builds the served `/audio/{debateId}.mp3` path; there is no per-file metadata route |
+| `media.deleteAudio(audioId)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
+
 ---
 
 ## Migration Guides
