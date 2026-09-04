@@ -125,6 +125,42 @@ handler even though no POST branch serves it yet.
 | `media.getAudio(audioId)` | `GET /api/v1/media/audio/{id}` | `media.getAudioUrl(debateId)` builds the served `/audio/{debateId}.mp3` path; there is no per-file metadata route |
 | `media.deleteAudio(audioId)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
 
+Removed 6 `agents` methods from `AgentsAPI` that targeted routes no server
+handler dispatches. The agents handler rewrites `/api/v1/agents/{name}/...` to
+`/api/agent/{name}/...` and dispatches only read-only sub-routes (`profile`,
+`history`, `calibration`, `consistency`, `flips`, `network`, `rivals`, `allies`,
+`moments`, `positions`, `domains`, `performance`, `metadata`, `introspect`); it
+has no POST or PUT branch, and `/api/v1/agents/stats` is rejected as an invalid
+agent path. Every call below returned 404 (400 for `getStats`), so no working
+integration depended on them. `agents.getElo` (alias of the flat
+`client.getAgentElo`, `GET /api/v1/ranking/elo/{name}`) and `agents.updateElo`
+(`POST /api/v1/agents/{name}/elo`) are equally unrouted and will be removed in a
+follow-up; `register`, `unregister` and `heartbeat` (control-plane routes) are
+served and unchanged.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `agents.getStats()` | `GET /api/v1/agents/stats` | `ranking.getStats()` (`GET /api/v1/ranking/stats`; `total_agents`, `total_matches`, `avg_elo`, `top_agent`, `elo_range`) for aggregate ranking statistics, or `client.request('GET', '/api/v1/agents', { params: { include_stats: 'true' } })` for per-agent ELO and match counts (`agents.list()` sends no params). Per-agent stats also exist as `GET /api/v2/agents/{agent_id}/stats` on the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`), served but not in the spec |
+| `agents.calibrate(name, options)` | `POST /api/v1/agents/{name}/calibrate` | No replacement; calibration is recorded by the debate loop, not triggered over HTTP. Read the result with `agents.getCalibrationSummary(name)` / `agents.getCalibrationCurve(name)` (`GET /api/v1/agent/{name}/calibration-summary` and `.../calibration-curve`) |
+| `agents.enable(name)` | `POST /api/v1/agents/{name}/enable` | No replacement; there is no per-agent enable/disable switch on the HTTP server. Registration is the only lifecycle control: `agents.register(agentId, options)` / `agents.unregister(agentId)` (`POST` / `DELETE /api/v1/control-plane/agents[/{id}]`, served but not in the spec) |
+| `agents.disable(name, reason)` | `POST /api/v1/agents/{name}/disable` | See `agents.enable` |
+| `agents.getQuota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/quotas/{resource}`, the unversioned alias of the spec-listed `GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
+| `agents.setQuota(name, options)` | `PUT /api/v1/agents/{name}/quota` | `quotas.requestIncrease(resource, requestedLimit, reason)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
+
+Removed 4 `backups` methods from `BackupsAPI` that targeted routes no server
+handler dispatches. The backup handler only accepts `/api/v2/backups...` and
+below a backup id dispatches only `verify`, `verify-comprehensive` and
+`restore-test`; nothing serves `/backups/schedules` or `/backups/{id}/restore`,
+so every call below returned 404 and no working integration depended on them.
+The other `backups` methods (all on `/api/v2/backups...`) are unchanged.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `backups.restore(backupId, options)` | `POST /api/v1/backups/{id}/restore` | `backups.testRestore(backupId, targetPath)` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) performs a dry-run restore into a server-side scratch path only; a real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
+| `backups.createSchedule(options)` | `POST /api/v1/backups/schedules` | No replacement; the backup schedule is server configuration (`BACKUP_ENABLED`, `BACKUP_DAILY_TIME`, `BACKUP_DR_DRILL_ENABLED`, `BACKUP_DR_DRILL_INTERVAL_DAYS`), not an API resource |
+| `backups.listSchedules()` | `GET /api/v1/backups/schedules` | No replacement; see `backups.createSchedule` |
+| `backups.deleteSchedule(scheduleId)` | `DELETE /api/v1/backups/schedules/{id}` | No replacement; see `backups.createSchedule` |
+
 ---
 
 ## Migration Guides
