@@ -1,7 +1,7 @@
 # Aragora Self-Hosted Complete Guide
 
-**Version:** 2.6.3
-**Last Updated:** 2026-01-27
+**Version:** 2.10.0
+**Last Updated:** 2026-09-04
 
 The definitive guide for deploying Aragora on your own infrastructure—from 5-minute quick starts to enterprise-grade high availability.
 
@@ -186,7 +186,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "version": "2.6.3",
+  "version": "2.10.0",
   "database": "connected",
   "agents_available": 15
 }

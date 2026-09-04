@@ -95,6 +95,24 @@ def fix_package_json_version(path: Path, new_version: str) -> bool:
     return False
 
 
+def get_canonical_release_date() -> str | None:
+    """Get RELEASE_DATE from aragora/__version__.py, if declared."""
+    version_file = Path("aragora/__version__.py")
+    if not version_file.exists():
+        return None
+    match = re.search(r'RELEASE_DATE\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']', version_file.read_text())
+    return match.group(1) if match else None
+
+
+def _version_group(pattern: str) -> str | int:
+    """Doc patterns carry the version in group 2 unless they name a ``version`` group.
+
+    Patterns that also capture a ``date`` group cannot keep the version in
+    position 2 (named groups are numbered too), so they name it instead.
+    """
+    return "version" if "(?P<version>" in pattern else 2
+
+
 def get_doc_versions(path: Path, pattern: str) -> list[str]:
     """Extract every version string a regex pattern matches in a documentation file.
 
@@ -105,21 +123,35 @@ def get_doc_versions(path: Path, pattern: str) -> list[str]:
     if not path.exists():
         return []
     content = path.read_text()
-    return [match.group(2) for match in re.finditer(pattern, content, re.MULTILINE)]
+    group = _version_group(pattern)
+    return [match.group(group) for match in re.finditer(pattern, content, re.MULTILINE)]
 
 
-def get_doc_version(path: Path, pattern: str) -> str | None:
-    """Extract the first version string a regex pattern matches in a documentation file."""
-    versions = get_doc_versions(path, pattern)
-    return versions[0] if versions else None
+def fix_doc_version(
+    path: Path, pattern: str, new_version: str, release_date: str | None = None
+) -> bool:
+    """Update a version string in documentation using a regex pattern.
 
-
-def fix_doc_version(path: Path, pattern: str, new_version: str) -> bool:
-    """Update a version string in documentation using a regex pattern."""
+    When the pattern names a ``date`` group and a release date is supplied, the
+    date is rewritten in the same pass so "Last Updated" style lines cannot end
+    up carrying the new version next to the previous release's date.
+    """
     if not path.exists():
         return False
     content = path.read_text()
-    new_content = re.sub(pattern, rf"\g<1>{new_version}\g<3>", content, flags=re.MULTILINE)
+    group = _version_group(pattern)
+
+    def _rewrite(match: re.Match[str]) -> str:
+        text = match.group(0)
+        base = match.start()
+        edits = [(match.span(group), new_version)]
+        if release_date and "date" in match.re.groupindex and match.group("date"):
+            edits.append((match.span("date"), release_date))
+        for (start, end), value in sorted(edits, reverse=True):
+            text = text[: start - base] + value + text[end - base :]
+        return text
+
+    new_content = re.sub(pattern, _rewrite, content, flags=re.MULTILINE)
     if new_content != content:
         path.write_text(new_content)
         return True
@@ -164,6 +196,7 @@ def main() -> int:
     except (FileNotFoundError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
+    release_date = get_canonical_release_date()
 
     # Define all version sources
     version_sources: list[tuple[str, Path, str]] = [
@@ -256,7 +289,8 @@ def main() -> int:
         (
             "docs/api/API_REFERENCE.md (last updated)",
             Path("docs/api/API_REFERENCE.md"),
-            r"^(> \*\*Last Updated:\*\* \d{4}-\d{2}-\d{2} \(v)(\d+\.\d+\.\d+)( alignment with repo versions\))$",
+            r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
+            r"( alignment with repo versions\))$",
         ),
         (
             "docs/STATUS.md",
@@ -276,12 +310,27 @@ def main() -> int:
         (
             "docs/guides/SELF_HOSTED_QUICKSTART.md",
             Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
-            r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\*)$",
+            r"^(\*Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*\n\*Version: )(?P<version>\d+\.\d+\.\d+)(\*)$",
+        ),
+        (
+            "docs/guides/SELF_HOSTED_QUICKSTART.md (health response)",
+            Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
+            r'(\{"status": "healthy", "version": ")(\d+\.\d+\.\d+)("\})',
         ),
         (
             "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md",
             Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
-            r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+            r"^(\*Version: )(?P<version>\d+\.\d+\.\d+)( \| Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*)$",
+        ),
+        (
+            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (header)",
+            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+            r"^(\*\*Version:\*\* )(?P<version>\d+\.\d+\.\d+)(\n\*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})()$",
+        ),
+        (
+            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (health response)",
+            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+            r'^(\s*"version": ")(\d+\.\d+\.\d+)(",)$',
         ),
         (
             "docs-site/docs/getting-started/overview.md",
@@ -336,7 +385,8 @@ def main() -> int:
         (
             "docs-site/docs/api/reference.md (last updated)",
             Path("docs-site/docs/api/reference.md"),
-            r"^(> \*\*Last Updated:\*\* \d{4}-\d{2}-\d{2} \(v)(\d+\.\d+\.\d+)( alignment with repo versions\))$",
+            r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
+            r"( alignment with repo versions\))$",
         ),
         (
             "docs-site/docs/contributing/status.md",
@@ -432,7 +482,7 @@ def main() -> int:
             mismatches.append((name, version))
 
             if args.fix:
-                if fix_doc_version(path, pattern, canonical):
+                if fix_doc_version(path, pattern, canonical, release_date):
                     fixed.append(name)
 
     print("-" * 50)
