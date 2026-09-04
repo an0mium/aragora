@@ -38,7 +38,7 @@ _1,862 commits on `main` since `v2.9.0` (2026-04-25), grouped by conventional-co
 - `aragora-verify`: explicit sdist include list so local venvs never break `python -m build` (#8812); cryptography floor raised to `>=48.0.1` (#8970).
 - Swarm: derive diagnostic western-frontier advice from genuine reviewer signals (#9710); dev receipt helper types preserved (#9219); terminal mailbox receipts advisory-only.
 - Governance: release claim bound to publication-time-knowable identity [Tier 4] (#9709); squash binding conformed to VAL-CDG-018 semantic-delta witnesses [Tier 4] (#9707).
-- 784 `fix:` commits in total across CI lanes, quorum collection, automation funnels, lane coordination, docs truthfulness and the frontend; see `git log --format='%s' v2.9.0..v2.10.0 | grep '^fix'`.
+- 784 `fix:` commits in total across CI lanes, quorum collection, automation funnels, lane coordination, docs truthfulness and the frontend; see `git log --format='%s' v2.9.0..v2.10.0 | grep -E '^fix[(:]'` (787 with a bare `^fix` match).
 
 ### Security
 - aiohttp floor bumped to `>=3.14.3` with refreshed `uv.lock` CVE pins (#9714); Dependabot sweeps across `aragora/live`, `docs-site`, `examples/sveltekit` and `ide/vscode-aragora` (dompurify, postcss, fast-uri, undici, mermaid, recharts and others).

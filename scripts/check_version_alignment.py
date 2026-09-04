@@ -209,6 +209,16 @@ def main() -> int:
             r"^(\|\s*Version\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
         (
+            "docs/DEPLOYMENT.md",
+            Path("docs/DEPLOYMENT.md"),
+            r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
+        ),
+        (
+            "docs/DEPLOYMENT.md (image pin)",
+            Path("docs/DEPLOYMENT.md"),
+            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
             "docs/SELF_HOSTED_QUICKSTART.md",
             Path("docs/SELF_HOSTED_QUICKSTART.md"),
             r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\*)$",
@@ -237,6 +247,16 @@ def main() -> int:
             "docs-site/docs/api/reference.md (Python SDK)",
             Path("docs-site/docs/api/reference.md"),
             r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs-site/docs/deployment/overview.md",
+            Path("docs-site/docs/deployment/overview.md"),
+            r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
+        ),
+        (
+            "docs-site/docs/deployment/overview.md (image pin)",
+            Path("docs-site/docs/deployment/overview.md"),
+            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
         ),
     ]
 
