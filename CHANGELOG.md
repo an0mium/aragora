@@ -8,7 +8,7 @@ _Post-v2.10.0 changes land here until the next stable tag._
 
 ## [2.10.0] - 2026-09-04
 
-_1,862 commits on `main` since `v2.9.0` (2026-04-25), grouped by conventional-commit type: feat 287, fix 784, docs 321, chore 180, test 87, refactor 63, ci 33, perf 1. This is the first release cut under the Receipt-First mission: the headline is that the dissent-preserving Decision Receipt is now producible, signable and verifiable end to end (`aragora review` → ODR export → Ed25519 signature → `aragora-verify`), and that merge-gate disagreement is published as a dataset (Disagreement Atlas v1). No breaking changes to the public Python API; `aragora/__version__.py` is the single canonical version and `scripts/check_version_alignment.py --fix` fanned it out to 15 files._
+_1,862 commits on `main` since `v2.9.0` (2026-04-25), grouped by conventional-commit type: feat 287, fix 784, docs 321, chore 180, test 88, refactor 63, ci 33, perf 1. This is the first release cut under the Receipt-First mission: the headline is that the dissent-preserving Decision Receipt is now producible, signable and verifiable end to end (`aragora review` → ODR export → Ed25519 signature → `aragora-verify`), and that merge-gate disagreement is published as a dataset (Disagreement Atlas v1). No breaking changes to the public Python API; `aragora/__version__.py` is the single canonical version, `scripts/check_version_alignment.py --fix` fanned it out to its 15 tracked spots, and `README.md`, `docs/STATUS.md`, `docs/status/metrics/catalog.toml`, the four npm `package-lock.json` roots and `uv.lock` were aligned by hand. The release PR also removes the stale `docs/plans/2026-04-30-round-briefing.md` (a round briefing for PRs that merged in April 2026, no inbound references) because the docs page count sits at its ceiling and the new `docs/releases/v2.10.0.md` page must be net-zero._
 
 ### Added
 - **Open Decision Receipt (ODR) pipeline:** ODR v1.0 contract and quorum→receipt bridge (#8667); in-package verification engine `odr_verify` (#8389); Ed25519 detached signing for ODR exports (#8542) and signing of configured exports (#9080); public signing key served at `/.well-known` and `/api/v2` (#8809); `aragora review` emits ODR receipts (#9343); receipts bind planning evidence in schema 1.3 (#9758); calibration-report endpoint with auditable confidence provenance in receipts (#8290).
@@ -51,7 +51,7 @@ _1,862 commits on `main` since `v2.9.0` (2026-04-25), grouped by conventional-co
 - 321 `docs:` commits: ODR spec draft, `docs/atlas/`, GitHub Action receipt setup, governance and settlement playbooks, model-catalog and pricing references, release/status truth surfaces. Release notes: `docs/releases/v2.10.0.md`.
 
 ### Tests and refactors
-- 87 `test:` and 63 `refactor:` commits, including the import-cycle repairs above and the outcome-backed evaluation fixtures.
+- 88 `test:` and 63 `refactor:` commits, including the import-cycle repairs above and the outcome-backed evaluation fixtures.
 
 
 ## [2.9.0] - 2026-04-25
