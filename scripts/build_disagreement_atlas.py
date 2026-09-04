@@ -1801,7 +1801,7 @@ def render_summary(records: list[dict[str, Any]], manifest: dict[str, Any] | Non
         "this head on [P2]/[P3]-only dissent→`severity_gating`; otherwise `unresolved`."
     )
     lines.append("")
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines)
 
 
 def cmd_summary(args: argparse.Namespace) -> int:
