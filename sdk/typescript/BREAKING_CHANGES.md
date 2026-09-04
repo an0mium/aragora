@@ -141,14 +141,13 @@ integration depended on them. `agents.getElo` (`/api/v1/ranking/elo/{name}`) and
 | `agents.calibrate(name, options)` | `POST /api/v1/agents/{name}/calibrate` | No replacement; calibration is recorded by the debate loop, not triggered over HTTP. Read the result with `agents.getCalibrationSummary(name)` / `agents.getCalibrationCurve(name)` (`GET /api/v1/agent/{name}/calibration-summary` and `.../calibration-curve`) |
 | `agents.enable(name)` | `POST /api/v1/agents/{name}/enable` | No replacement; there is no per-agent enable/disable switch on the HTTP server. Registration is the only lifecycle control: `agents.register(agentId, options)` / `agents.unregister(agentId)` (`POST` / `DELETE /api/v1/control-plane/agents[/{id}]`, served but not in the spec) |
 | `agents.disable(name, reason)` | `POST /api/v1/agents/{name}/disable` | See `agents.enable` |
-| `agents.getQuota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/quotas/{resource}`, the unversioned alias of the spec-listed `GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
+| `agents.getQuota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/quotas/{resource}`; the server maps unversioned `/api/...` paths to v1, so this reaches the spec-listed `GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
 | `agents.setQuota(name, options)` | `PUT /api/v1/agents/{name}/quota` | `quotas.requestIncrease(resource, requestedLimit, reason)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
 
 Removed 4 `backups` methods from `BackupsAPI` that targeted routes no server
-handler dispatches. Below a backup id the backup handler serves only `verify`,
-`verify-comprehensive` and `restore-test`, and nothing serves
-`/backups/schedules` or `/backups/{id}/restore`, so every call below returned
-404 and no working integration depended on them.
+handler dispatches. The backup handler accepts only `/api/v2/backups...` paths
+and below a backup id serves only `verify`, `verify-comprehensive` and
+`restore-test`, so every call below returned 404.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|

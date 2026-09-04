@@ -128,14 +128,15 @@ failed (404; 400 for `get_stats`), so no working integration depended on them.
 | `agents.set_quota(name, limits)` | `PUT /api/v1/agents/{name}/quota` | `quotas.request_increase(resource, requested_limit=..., justification=...)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
 
 Removed 4 `backups` methods (sync `BackupsAPI` and async `AsyncBackupsAPI`) that
-targeted routes no server handler dispatches. Below a backup id the backup
-handler serves only `verify`, `verify-comprehensive` and `restore-test`, and
-nothing serves `/backups/schedules` or `/backups/{id}/restore`, so every call
-below returned 404 and no working integration depended on them.
+targeted routes no server handler dispatches. The backup handler accepts only
+`/api/v2/backups...` paths and below a backup id serves only `verify`,
+`verify-comprehensive` and `restore-test`, so every call below returned 404.
+The retained Python `backups` methods still target `/api/v1/backups...`, which
+the handler also rejects; a follow-up repoints them to `/api/v2/backups...`.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
-| `backups.restore(backup_id, target_namespace, data_types, dry_run)` | `POST /api/v1/backups/{id}/restore` | `backups.test_restore(backup_id, target_path)` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) performs a dry-run restore into a server-side scratch path only; a real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
+| `backups.restore(backup_id, target_namespace, data_types, dry_run)` | `POST /api/v1/backups/{id}/restore` | No served Python replacement: `backups.test_restore(backup_id, target_path)` posts to `/api/v1/backups/{backup_id}/restore-test`, which the v2-only backup handler rejects. For a dry-run restore into a server-side scratch path use the TypeScript `backups.testRestore(backupId, targetPath)` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) or `client.request("POST", f"/api/v2/backups/{backup_id}/restore-test", json={"target_path": ...})`; a real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
 | `backups.schedule(schedule, backup_type, retention_days, enabled)` | `POST /api/v1/backups/schedules` | No replacement; the backup schedule is server configuration (`BACKUP_ENABLED`, `BACKUP_DAILY_TIME`, `BACKUP_DR_DRILL_ENABLED`, `BACKUP_DR_DRILL_INTERVAL_DAYS`), not an API resource |
 | `backups.list_schedules()` | `GET /api/v1/backups/schedules` | No replacement; see `backups.schedule` |
 | `backups.delete_schedule(schedule_id)` | `DELETE /api/v1/backups/schedules/{id}` | No replacement; see `backups.schedule` |
