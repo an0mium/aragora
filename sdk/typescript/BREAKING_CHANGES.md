@@ -60,12 +60,16 @@ is served as `POST /api/v1/admin/impersonate/{userId}` and credits under
 handler, so no working integration depended on them. The
 `AdminClientInterface` entries used only by those methods (`getCreditAccount`,
 `listCreditTransactions`, `adjustCreditBalance`, `getExpiringCredits`) were
-removed with them.
+removed with them. The legacy flat methods on `AragoraClient` that target the
+same routes (`getAdminOrganization`, `updateAdminOrganization`, `getAdminUser`,
+`suspendAdminUser`, `impersonateUser`, `issueCredits`, `getCreditAccount`,
+`listCreditTransactions`, `adjustCreditBalance`, `getExpiringCredits`) are
+unchanged here and still return 405; do not migrate to them.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
 | `admin.getOrganization(orgId)` | `GET /api/v1/admin/organizations/{id}` | `organizations.get(orgId)` (`GET /api/v1/org/{id}`) |
-| `admin.updateOrganization(orgId, updates)` | `PUT /api/v1/admin/organizations/{id}` | No replacement; no in-spec route updates an organization by id |
+| `admin.updateOrganization(orgId, updates)` | `PUT /api/v1/admin/organizations/{id}` | `organizations.update(orgId, { name, settings })` (`PUT /api/v1/org/{id}`, served but not yet in the spec; org-admin scoped and accepts only `name` and `settings`) |
 | `admin.getUser(userId)` | `GET /api/v1/admin/users/{id}` | `admin.listUsers(...)` and filter by id |
 | `admin.suspendUser(userId, reason)` | `POST /api/v1/admin/users/{id}/suspend` | `admin.deactivateUser(userId)` |
 | `admin.impersonateUser(userId)` | `POST /api/v1/admin/users/{id}/impersonate` | `openapi.requestPostApiV1AdminImpersonateByUserId(userId)` (`POST /api/v1/admin/impersonate/{userId}`) |
@@ -73,7 +77,7 @@ removed with them.
 | `admin.adjustCredits(orgId, amount, reason)` | `POST /api/v1/admin/organizations/{id}/credits` | ``client.request('POST', `/api/v1/admin/credits/${orgId}/adjust`, { body })`` |
 | `admin.getCreditAccount(orgId)` | `GET /api/v1/admin/organizations/{id}/credits` | ``client.request('GET', `/api/v1/admin/credits/${orgId}`)`` |
 | `admin.listCreditTransactions(orgId, params)` | `GET /api/v1/admin/organizations/{id}/credits/transactions` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/transactions`, { params })`` |
-| `admin.getExpiringCredits(orgId)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/expiring`)`` |
+| `admin.getExpiringCredits(orgId)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/expiring`, { params: { within_days: 30 } })`` (`within_days` 1-365, default 30) |
 
 ---
 

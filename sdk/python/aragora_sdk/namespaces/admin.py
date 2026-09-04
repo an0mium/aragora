@@ -5,10 +5,9 @@ Provides methods for platform administration operations.
 Requires admin role for all operations.
 
 Features:
-- Organization and user management
+- Organization and user listing
 - Platform statistics and system metrics
 - Nomic loop control
-- Credit management
 - Security operations
 """
 
@@ -29,11 +28,10 @@ class AdminAPI:
     Synchronous Admin API.
 
     Provides methods for platform administration:
-    - Organization and user management
+    - Organization and user listing
     - Platform statistics and system metrics
     - Revenue analytics
     - Nomic loop control
-    - Credit management
     - Security operations
 
     Example:
