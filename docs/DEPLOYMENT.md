@@ -41,6 +41,13 @@ docker compose up -d
 
 **Services started:** Backend (port 8080 + WS 8765), Redis, PostgreSQL (optional profile)
 
+**Docker deployment path:**
+
+- Zero-dependency local run: `docker compose -f docker-compose.simple.yml up` (SQLite, no Postgres or Redis).
+- Production hardening (TLS, secrets, resource limits): [PRODUCTION_DEPLOYMENT.md](deployment/PRODUCTION_DEPLOYMENT.md).
+- Persistent volumes and bind mounts: [CONTAINER_VOLUMES.md](deployment/CONTAINER_VOLUMES.md).
+- Database provisioning: [DATABASE_SETUP.md](guides/DATABASE_SETUP.md).
+
 **Environment variables:**
 
 | Variable | Required | Purpose |
