@@ -977,11 +977,20 @@ def _assemble_pr(
     pr_dir: Path,
     *,
     cache_dir: Path,
+    repo: str,
     eval_cases: dict[tuple[int, str], dict[str, Any]],
     receipt_refs: dict[int, list[str]],
     known_prs: set[int],
     stats: Counter,
 ) -> list[dict[str, Any]]:
+    """Turn one cached PR into atlas records.
+
+    ``repo`` is the repository the cache index was collected from and is
+    stamped on every record.  ``record_id`` is deliberately not repo-scoped:
+    a dataset is built from exactly one cache, hence one repository, so the
+    id only needs to be unique within it; provenance is carried by each
+    record's ``repo`` and by the manifest's ``source.repo``.
+    """
     pr = _load_json(pr_dir / "pr.json", None)
     if not pr:
         return []
@@ -1118,7 +1127,7 @@ def _assemble_pr(
                 "record_id": _record_id(
                     number, head, family, record["source"], record["source_id"]
                 ),
-                "repo": DEFAULT_REPO,
+                "repo": repo,
                 "pr": {
                     "number": number,
                     "title": str(pr.get("title") or ""),
@@ -1198,15 +1207,20 @@ def build_records(
 ) -> list[dict[str, Any]]:
     eval_cases = load_eval_cases(eval_fixture)
     receipt_refs = scan_receipt_refs(repo_root, receipt_dirs)
-    pr_dirs = sorted(
-        (p for p in (cache_dir / "prs").iterdir() if p.is_dir() and p.name.isdigit()),
-        key=lambda p: int(p.name),
-    )
-    known_prs = {int(p.name) for p in pr_dirs}
+    index = _load_json(cache_dir / "index.json", {})
+    repo = str(index.get("repo") or DEFAULT_REPO)
+    # The index defines the dataset window; stray ``prs/*`` directories left
+    # behind by an earlier or wider collect must not leak into the output.
+    numbers = sorted({int(entry["number"]) for entry in index.get("prs") or []})
+    known_prs = set(numbers)
     records: list[dict[str, Any]] = []
-    for pr_dir in pr_dirs:
+    for number in numbers:
+        pr_dir = cache_dir / "prs" / str(number)
         if not (pr_dir / "pr.json").exists():
-            continue
+            raise RuntimeError(
+                f"PR #{number} is listed in {cache_dir / 'index.json'} but "
+                f"{pr_dir / 'pr.json'} is missing; run `collect --cache-dir {cache_dir} --refresh`"
+            )
         stats["prs_scanned"] += 1
         pr = _load_json(pr_dir / "pr.json", {})
         stats["prs_merged" if pr.get("merged_at") else "prs_closed_unmerged"] += 1
@@ -1214,6 +1228,7 @@ def build_records(
             _assemble_pr(
                 pr_dir,
                 cache_dir=cache_dir,
+                repo=repo,
                 eval_cases=eval_cases,
                 receipt_refs=receipt_refs,
                 known_prs=known_prs,

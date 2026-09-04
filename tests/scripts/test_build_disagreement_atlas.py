@@ -526,3 +526,53 @@ def test_verify_skips_an_absent_dataset_when_the_sample_is_present(built, tmp_pa
     ok, lines = atlas.verify_manifest(manifest_path, base=root)
     assert not ok
     assert any("sample missing" in line for line in lines)
+
+
+def _cache_with_index(tmp_path: Path, mutate: Any) -> Path:
+    cache = tmp_path / "cache"
+    shutil.copytree(FIXTURE, cache)
+    index_path = cache / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    mutate(index)
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+    return cache
+
+
+def test_records_carry_the_repo_from_the_cache_index(tmp_path: Path) -> None:
+    def rename(index: dict[str, Any]) -> None:
+        index["repo"] = "example/other"
+
+    cache = _cache_with_index(tmp_path, rename)
+    records, manifest, _out = _build(tmp_path / "root", cache=cache)
+    assert records
+    assert {r["repo"] for r in records} == {"example/other"}
+    assert manifest["source"]["repo"] == "example/other"
+
+
+def test_build_ignores_cached_pr_dirs_absent_from_the_index(tmp_path: Path) -> None:
+    cache = _cache_with_index(tmp_path, lambda index: None)
+    stray = cache / "prs" / "999"
+    shutil.copytree(cache / "prs" / "8811", stray)
+    pr = json.loads((stray / "pr.json").read_text(encoding="utf-8"))
+    pr["number"] = 999
+    (stray / "pr.json").write_text(json.dumps(pr), encoding="utf-8")
+    records, manifest, _out = _build(tmp_path / "root", cache=cache)
+    assert 999 not in {r["pr"]["number"] for r in records}
+    assert manifest["source"]["prs_scanned"] == 3
+    assert manifest["dataset"]["pr_count"] == 3
+
+
+def test_build_fails_when_an_indexed_pr_is_missing_from_the_cache(tmp_path: Path) -> None:
+    def add_missing(index: dict[str, Any]) -> None:
+        index["prs"].append(
+            {
+                "number": 4242,
+                "closed_at": "2026-08-30T00:00:00Z",
+                "merged_at": None,
+                "head_sha": "e" * 40,
+            }
+        )
+
+    cache = _cache_with_index(tmp_path, add_missing)
+    with pytest.raises(RuntimeError, match=r"PR #4242 .*collect --cache-dir .*--refresh"):
+        _build(tmp_path / "root", cache=cache)
