@@ -1082,10 +1082,10 @@ def _assemble_pr(
             human_settlement=human_settlement if head == final_head else None,
             known_prs=known_prs,
         )
-        case = eval_cases.get((number, head))
+        labeled_case = eval_cases.get((number, head))
         taxonomy_classes: list[str] = []
-        if case is not None:
-            truth = _ground_truth(case)
+        if labeled_case is not None:
+            truth = _ground_truth(labeled_case)
             adjudication["source"] = "labeled"
             adjudication["ground_truth"] = truth
             taxonomy_classes = truth["taxonomy_classes"]
@@ -1743,7 +1743,7 @@ def render_summary(records: list[dict[str, Any]], manifest: dict[str, Any] | Non
     dissent_records = [r for r in records if r["verdict"] == "changes_requested"]
     rows = []
     for mechanism in RESOLUTION_MECHANISMS:
-        row: list[Any] = [mechanism]
+        row = [mechanism]
         total = 0
         for family in families:
             n = sum(
@@ -1883,14 +1883,18 @@ def verify_manifest(
             from aragora.gauntlet.odr_export import odr_content_digest as _digest
             from aragora.gauntlet.odr_signing import compute_key_id
             from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-            public_key = serialization.load_pem_public_key(public_key_path.read_bytes())
+            loaded_key = serialization.load_pem_public_key(public_key_path.read_bytes())
+            if not isinstance(loaded_key, Ed25519PublicKey):
+                return False, checks + ["--public-key is not an Ed25519 public key"]
+            public_key = loaded_key
             message = bytes.fromhex(_digest(manifest))
             import base64
 
             for entry in signatures:
                 try:
-                    public_key.verify(base64.b64decode(entry["signature"]), message)  # type: ignore[union-attr]
+                    public_key.verify(base64.b64decode(entry["signature"]), message)
                 except Exception as exc:  # noqa: BLE001 - report every failing signature
                     problems.append(f"signature {entry.get('key_id')} invalid: {exc}")
                 else:
@@ -1898,7 +1902,7 @@ def verify_manifest(
                         "key_id matches"
                         if compute_key_id(public_key) == entry.get("key_id")
                         else "key_id differs"
-                    )  # type: ignore[arg-type]
+                    )
                     checks.append(f"signature {entry.get('key_id')} valid ({label})")
     return (not problems, checks + problems)
 
