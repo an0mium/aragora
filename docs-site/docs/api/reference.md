@@ -14,8 +14,8 @@ for multi-agent AI debate across organizational knowledge and channels.
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-| TypeScript (`@aragora/sdk`) | 2.9.0 | 380 async | Full API (79 namespaces) |
-| Python (`aragora`) | 2.9.0 | 220 async + 420 sync | Full API |
+| TypeScript (`@aragora/sdk`) | 2.10.0 | 380 async | Full API (79 namespaces) |
+| Python (`aragora`) | 2.10.0 | 220 async + 420 sync | Full API |
 
 Versions reflect the current repo tags (see `pyproject.toml` and
 `aragora/__version__.py`). If versions drift, run
