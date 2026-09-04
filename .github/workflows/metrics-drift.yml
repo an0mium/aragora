@@ -28,6 +28,10 @@ on:
       - 'docs/METRICS.md'
       - 'scripts/regenerate_metrics.py'
       - '.mypy-baseline'
+      # The import-cycle ratchet builds its graph from the `aragora` package
+      # only, so `aragora/**` above already re-runs it for every source
+      # change that can add a cycle; these two entries cover the measurer
+      # and its frozen baseline.
       - 'scripts/ci/measure_import_graph.py'
       - 'scripts/baselines/import_cycles_baseline.json'
       - '.github/workflows/metrics-drift.yml'
