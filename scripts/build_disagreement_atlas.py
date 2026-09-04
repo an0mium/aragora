@@ -1094,7 +1094,13 @@ def _assemble_pr(
             truth = _ground_truth(labeled_case)
             adjudication["source"] = "labeled"
             adjudication["ground_truth"] = truth
-            taxonomy_classes = truth["taxonomy_classes"]
+            # The failure classes describe the dissent at this head; a PASS at
+            # the same head did not exhibit them. ``control`` labels the whole
+            # round as correctly handled, so every verdict in it keeps it.
+            if record["verdict"] == "changes_requested":
+                taxonomy_classes = truth["taxonomy_classes"]
+            else:
+                taxonomy_classes = [c for c in truth["taxonomy_classes"] if c == "control"]
             # A hand label describes how the *dissent* at this head was resolved;
             # a PASS verdict resolves nothing, so it keeps ``none_required``.
             if truth["mechanisms"] and record["verdict"] == "changes_requested":
@@ -1261,7 +1267,10 @@ def build_manifest(
     eval_fixture: Path | None,
     repo_root: Path,
 ) -> dict[str, Any]:
-    closed = [r["pr"]["closed_at"] for r in records if r["pr"]["closed_at"]]
+    # The window covers every scanned PR, not only those that produced records.
+    closed = [str(p.get("closed_at") or "") for p in index.get("prs") or []]
+    closed += [r["pr"]["closed_at"] for r in records if r["pr"]["closed_at"]]
+    closed = [c for c in closed if c]
     manifest: dict[str, Any] = {
         "manifest": MANIFEST_ID,
         "atlas_version": ATLAS_VERSION,
@@ -1838,7 +1847,15 @@ def verify_manifest(
     dataset = manifest.get("dataset") or {}
     dataset_path = base / str(dataset.get("path") or "")
     if not dataset_path.exists():
-        problems.append(f"dataset missing: {dataset_path}")
+        # The full dataset ships as a release asset when it exceeds the commit
+        # size cap, so a checkout verifies the sample and digest without it.
+        if manifest.get("sample"):
+            checks.append(
+                f"dataset SKIPPED (not present: {dataset_path}; download the release "
+                f"asset next to manifest.json to verify sha256 {dataset.get('sha256')})"
+            )
+        else:
+            problems.append(f"dataset missing: {dataset_path}")
     else:
         payload = dataset_path.read_bytes()
         if _sha256(payload) != dataset.get("sha256"):

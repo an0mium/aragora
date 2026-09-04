@@ -452,3 +452,77 @@ def test_collect_caches_reviews_when_verdicts_exist_only_as_review_objects(
     assert "prs/42/reviews.json" in fetched
     assert "prs/42/commits.json" in fetched, "review-only verdict threads must be fully cached"
     assert (cache / "prs" / "42" / "reviews.json").exists()
+
+
+def test_failure_classes_attach_only_to_the_dissenting_verdict(built) -> None:
+    records, _manifest, _out = built
+    claude_pass = _find(records, 8802, "21a4ac4", "claude")
+    assert claude_pass["verdict"] == "pass"
+    assert claude_pass["adjudication"]["source"] == "labeled"
+    assert claude_pass["taxonomy_classes"] == []
+    assert claude_pass["adjudication"]["ground_truth"]["taxonomy_classes"] == [
+        "out_of_scope_carousel"
+    ]
+    for r in records:
+        if r["verdict"] == "pass":
+            assert set(r["taxonomy_classes"]) <= {"control"}, r["record_id"]
+
+
+def test_source_window_covers_every_scanned_pr(tmp_path: Path) -> None:
+    cache = tmp_path / "cache"
+    shutil.copytree(FIXTURE, cache)
+    index = json.loads((cache / "index.json").read_text(encoding="utf-8"))
+    index["prs"].append(
+        {
+            "number": 9999,
+            "closed_at": "2026-08-30T00:00:00Z",
+            "merged_at": None,
+            "head_sha": "f" * 40,
+        }
+    )
+    (cache / "index.json").write_text(json.dumps(index), encoding="utf-8")
+    (cache / "prs" / "9999").mkdir()
+    (cache / "prs" / "9999" / "pr.json").write_text(
+        json.dumps(
+            {"number": 9999, "head": {"sha": "f" * 40}, "closed_at": "2026-08-30T00:00:00Z"}
+        ),
+        encoding="utf-8",
+    )
+    _records, manifest, _out = _build(tmp_path / "root", cache=cache)
+    assert manifest["source"]["prs_scanned"] == 4
+    assert manifest["source"]["until"] == "2026-08-30T00:00:00Z"
+
+
+def test_verify_skips_an_absent_dataset_when_the_sample_is_present(built, tmp_path: Path) -> None:
+    _records, manifest, out = built
+    root = tmp_path / "checkout"
+    shutil.copytree(out.parents[2], root)
+    manifest_path = root / "docs" / "atlas" / "manifest.json"
+    if not manifest.get("sample"):
+        rc = atlas.main(
+            [
+                "build",
+                "--cache-dir",
+                str(FIXTURE),
+                "--out",
+                str(root / "docs" / "atlas" / "atlas-v1.jsonl"),
+                "--schema",
+                str(root / "docs" / "atlas" / "schema.json"),
+                "--repo-root",
+                str(root),
+                "--eval-fixture",
+                str(FIXTURE / "eval_cases.json"),
+                "--receipt-dirs",
+                "--force-sample",
+            ]
+        )
+        assert rc == 0
+    (root / "docs" / "atlas" / "atlas-v1.jsonl").unlink()
+    ok, lines = atlas.verify_manifest(manifest_path, base=root)
+    assert ok, lines
+    assert any(line.startswith("dataset SKIPPED") for line in lines)
+    assert any("sample sha256 ok" in line for line in lines)
+    (root / "docs" / "atlas" / "atlas-v1.sample.jsonl").unlink()
+    ok, lines = atlas.verify_manifest(manifest_path, base=root)
+    assert not ok
+    assert any("sample missing" in line for line in lines)

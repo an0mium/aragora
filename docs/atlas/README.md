@@ -11,8 +11,8 @@ hand-labelled in the
 which failure class the reviewer exhibited and whether its finding was valid.
 
 The record is one **(PR, head SHA, reviewer family, round)** tuple. Every number
-in [`summary.md`](summary.md) regenerates from [`atlas-v1.jsonl`](atlas-v1.jsonl)
-with one command; the JCS-canonical [`manifest.json`](manifest.json) pins the
+in [`summary.md`](summary.md) regenerates from `atlas-v1.jsonl` (a release
+asset, see *Release asset*) with one command; the JCS-canonical [`manifest.json`](manifest.json) pins the
 dataset hash and record count the same way an
 [Open Decision Receipt](../specs/OPEN_DECISION_RECEIPT.md#5-canonicalization-and-hashing--rfc-8785-jcs)
 pins its content.
@@ -126,6 +126,8 @@ changed (a comment edited, a status added).
 ## Verify
 
 ```bash
+# The full dataset is a release asset, not a tracked file (see *Release asset*).
+gh release download atlas-v1 -R synaptent/aragora -p atlas-v1.jsonl -D docs/atlas
 python3 scripts/build_disagreement_atlas.py verify --manifest docs/atlas/manifest.json
 ```
 
@@ -133,7 +135,9 @@ recomputes the dataset SHA-256, byte length and record count, the `schema.json`
 hash, and `content_digest = SHA-256(JCS(manifest minus content_digest and
 signatures))` using the ODR reference canonicaliser
 (`aragora.gauntlet.odr_export.jcs_canonicalize`). Exit code 0 and the word
-`VERIFIED` mean every check passed.
+`VERIFIED` mean every check passed. Without the download, `verify` still checks
+the sample, the schema hash and the content digest, and reports the dataset line
+as `SKIPPED` (with the expected SHA-256) rather than failing.
 
 The manifest carries the same detached-signature shape as an ODR receipt. To
 sign, pass `--sign-key <ed25519.pem>` to `build` (this calls

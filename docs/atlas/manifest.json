@@ -3,14 +3,14 @@
   "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
   "content_digest": {
     "alg": "sha-256",
-    "value": "cee3ff483b14218ceab6cde508da31a0e9c1236905236202029dca11d59ab73d"
+    "value": "3acafc12c6980d9df15ca365984a09c7653264b41748818d1f6985824746f53e"
   },
   "dataset": {
-    "bytes": 5991231,
+    "bytes": 5991112,
     "path": "docs/atlas/atlas-v1.jsonl",
     "pr_count": 698,
     "record_count": 1661,
-    "sha256": "874f32683d622cbdf5c889a4ea7dbd193485ad6c6eb650305fb61b6ccefaa652"
+    "sha256": "3ddd6249d7370a9ddf40e7c2ea238107a7c2dd96db9781a6686beac47f4995c8"
   },
   "generator": "scripts/build_disagreement_atlas.py",
   "ground_truth_fixture": {
@@ -21,10 +21,10 @@
   "record_schema": "disagreement_atlas.record.v1",
   "record_schema_sha256": "98be80bc78948e91ae49c73201971ae4956ab401b4ee938ff09426472fe2c035",
   "sample": {
-    "bytes": 737317,
+    "bytes": 737198,
     "path": "docs/atlas/atlas-v1.sample.jsonl",
     "record_count": 200,
-    "sha256": "b9559ceaefa260db9740cac51ebff5f7a69255a689f1350d06c0ddd2475f15ee"
+    "sha256": "f8f3d14809245aceca7e9c02ecfd9930802a39299ca44c5def4a8585b5c71249"
   },
   "signatures": [],
   "source": {
