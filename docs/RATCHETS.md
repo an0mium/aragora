@@ -220,9 +220,68 @@ lands in a later feature, which replaces the marked comment in place.
   when it lands.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
   runner with `--tool todo` and a fixed scan scope; documented when it lands.
-- **Dependency cooldown (uv) — placeholder, filled by `m1-release-age-dependabot`.**
-  <!-- PLACEHOLDER (m1-release-age-dependabot): pointer to
-  `scripts/ci/uv_lock_with_cooldown.sh` and the two-step flow (lock with
-  `--exclude-newer <7 days ago>`, then plain `uv lock` so the committed lock
-  never carries `exclude-newer`; exit 2 listing held-back packages when the
-  two resolutions differ). -->
+- **Dependency cooldown (uv).** See [Dependency release age](#dependency-release-age)
+  below: `scripts/ci/uv_lock_with_cooldown.sh` is the only place the uv
+  cooldown applies.
+
+## Dependency release age
+
+Three controls keep freshly published dependency versions out of the tree for
+a few days (supply-chain cooldown). None of them changes what CI installs:
+install steps always run against the committed lockfiles (`uv sync --frozen`
+/ `--locked`, `npm ci`).
+
+### npm: `min-release-age=3`
+
+Every JS app directory (`aragora/live`, `docs-site`, `ide/vscode-aragora`,
+`ide/vscode-aragora/webview-ui`, `sdk/typescript`) carries `min-release-age=3`
+in its own `.npmrc`; npm ≥ 11.9 refuses versions published less than three
+days ago when resolving. npm reads project config only from the nearest
+`package.json` prefix (no parent merge), so the key must live in each app; the
+root `.npmrc` is advisory and exists for future root-level packages. Probe from
+an app directory with `npm config get min-release-age` (prints `3` on npm ≥ 12;
+npm 11.x prints `null` because its config flattener rewrites the key into
+`before` before `config get` reads it) or, on any supporting npm, with
+`npm config get before` (a timestamp three days ago proves the key is in
+effect) and `npm config list` (the project section shows the raw line).
+
+### uv: `scripts/ci/uv_lock_with_cooldown.sh` (two-step flow)
+
+`exclude-newer` is never written into `uv.lock` or `pyproject.toml`: a lock
+produced with `--exclude-newer` carries an `[options] exclude-newer = ...`
+table, and plain `uv lock --check` (the BLOCKING step in `security-gate.yml`
+and the refresh in `dependabot-uv-lock.yml`) fails on such a lock. The cooldown
+therefore applies only when *regenerating* the lock, through this script, and
+CI never sets `UV_EXCLUDE_NEWER` in a job that runs `uv lock --check`.
+
+Run it from the workspace root (it operates on `pyproject.toml` + `uv.lock` in
+`$PWD`; every uv call inside runs with `UV_EXCLUDE_NEWER` unset):
+
+```bash
+bash scripts/ci/uv_lock_with_cooldown.sh
+```
+
+Flow:
+
+1. Prints `exclude-newer cutoff: <YYYY-MM-DD>` (UTC now minus 7 days).
+2. Runs plain `uv lock` into a temp copy (the plain resolution), then restores
+   the original lock.
+3. Runs `uv lock --exclude-newer <cutoff>` (the cooled-down resolution).
+4. Re-runs plain `uv lock` on top of it: uv keeps the cooled-down pins as
+   preferences and drops only the `[options]` table, so the committed lock
+   passes plain `uv lock --check`.
+5. Compares package versions between the two resolutions and prints
+   `held back: <name> <plain> -> <cooled>` for each difference.
+
+Exit codes: `0` when the two resolutions agree (lock regenerated); `2` when
+packages were held back (listed; `uv.lock` holds the cooled-down resolution and
+a human decides whether to commit it); `3` when `uv` is not on `PATH`; `1` on
+any other failure, in which case the original `uv.lock` is restored
+byte-for-byte. Temp copies live under `/tmp/aragora-readiness/`.
+
+### Dependabot cooldown
+
+`.github/dependabot.yml` sets `cooldown: {default-days: 7, semver-major-days: 14}`
+on every ecosystem entry (pip, npm ×5, gomod, github-actions). This is the
+enforced control: Dependabot does not propose a version until it is at least a
+week old (two weeks for major bumps).
