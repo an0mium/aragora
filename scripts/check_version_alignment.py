@@ -95,13 +95,23 @@ def fix_package_json_version(path: Path, new_version: str) -> bool:
     return False
 
 
-def get_doc_version(path: Path, pattern: str) -> str | None:
-    """Extract a version string from a documentation file using a regex pattern."""
+def get_doc_versions(path: Path, pattern: str) -> list[str]:
+    """Extract every version string a regex pattern matches in a documentation file.
+
+    A pattern may legitimately match several spots in one file (for example an
+    image tag repeated in a compose example and an env-var example); each match
+    is returned so a single stale occurrence cannot hide behind a fresh one.
+    """
     if not path.exists():
-        return None
+        return []
     content = path.read_text()
-    match = re.search(pattern, content, re.MULTILINE)
-    return match.group(2) if match else None
+    return [match.group(2) for match in re.finditer(pattern, content, re.MULTILINE)]
+
+
+def get_doc_version(path: Path, pattern: str) -> str | None:
+    """Extract the first version string a regex pattern matches in a documentation file."""
+    versions = get_doc_versions(path, pattern)
+    return versions[0] if versions else None
 
 
 def fix_doc_version(path: Path, pattern: str, new_version: str) -> bool:
@@ -214,9 +224,54 @@ def main() -> int:
             r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
         ),
         (
+            "docs/DEPLOYMENT.md (git tag)",
+            Path("docs/DEPLOYMENT.md"),
+            r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
+        ),
+        (
             "docs/DEPLOYMENT.md (image pin)",
             Path("docs/DEPLOYMENT.md"),
             r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs/deployment/GO_LIVE_CHECKLIST.md",
+            Path("docs/deployment/GO_LIVE_CHECKLIST.md"),
+            r"(ghcr\.io/synaptent/aragora/(?:backend|frontend):)(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md (Python SDK)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md (checkout)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs/api/API_REFERENCE.md (last updated)",
+            Path("docs/api/API_REFERENCE.md"),
+            r"^(> \*\*Last Updated:\*\* \d{4}-\d{2}-\d{2} \(v)(\d+\.\d+\.\d+)( alignment with repo versions\))$",
+        ),
+        (
+            "docs/STATUS.md",
+            Path("docs/STATUS.md"),
+            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
+        ),
+        (
+            "docs/STATUS.md (version bullet)",
+            Path("docs/STATUS.md"),
+            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
+        ),
+        (
+            "docs/status/STATUS.md (version bullet)",
+            Path("docs/status/STATUS.md"),
+            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
         ),
         (
             "docs/SELF_HOSTED_QUICKSTART.md",
@@ -254,9 +309,44 @@ def main() -> int:
             r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
         ),
         (
+            "docs-site/docs/deployment/overview.md (git tag)",
+            Path("docs-site/docs/deployment/overview.md"),
+            r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
+        ),
+        (
             "docs-site/docs/deployment/overview.md (image pin)",
             Path("docs-site/docs/deployment/overview.md"),
             r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md (Python SDK)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md (checkout)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs-site/docs/api/reference.md (last updated)",
+            Path("docs-site/docs/api/reference.md"),
+            r"^(> \*\*Last Updated:\*\* \d{4}-\d{2}-\d{2} \(v)(\d+\.\d+\.\d+)( alignment with repo versions\))$",
+        ),
+        (
+            "docs-site/docs/contributing/status.md",
+            Path("docs-site/docs/contributing/status.md"),
+            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
+        ),
+        (
+            "docs-site/docs/contributing/status.md (version bullet)",
+            Path("docs-site/docs/contributing/status.md"),
+            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
         ),
     ]
 
@@ -307,15 +397,18 @@ def main() -> int:
                     fixed.append(name)
 
     for name, path, pattern in doc_sources:
-        version = get_doc_version(path, pattern)
-        if version is None:
+        versions = get_doc_versions(path, pattern)
+        if not versions:
             print(f"  {name}: (version not found)")
             continue
 
-        status = "OK" if version == canonical else "MISMATCH"
-        print(f"  {name}: {version} [doc] [{status}]")
+        stale = [v for v in versions if v != canonical]
+        version = stale[0] if stale else versions[0]
+        status = "OK" if not stale else "MISMATCH"
+        suffix = f" ({len(versions)} occurrences)" if len(versions) > 1 else ""
+        print(f"  {name}: {version} [doc] [{status}]{suffix}")
 
-        if version != canonical:
+        if stale:
             mismatches.append((name, version))
 
             if args.fix:
