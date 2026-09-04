@@ -264,7 +264,7 @@ class AgentsAPI:
         return self._client.request("GET", "/api/agents/local/status")
 
     # =========================================================================
-    # Calibration, ELO & Quotas
+    # ELO
     # =========================================================================
 
     def get_elo(self, name: str) -> dict[str, Any]:
@@ -645,7 +645,7 @@ class AsyncAgentsAPI:
         return await self._client.request("GET", "/api/agents/local/status")
 
     # =========================================================================
-    # Calibration, ELO & Quotas
+    # ELO
     # =========================================================================
 
     async def get_elo(self, name: str) -> dict[str, Any]:

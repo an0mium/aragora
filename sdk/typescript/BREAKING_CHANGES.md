@@ -126,17 +126,14 @@ handler even though no POST branch serves it yet.
 | `media.deleteAudio(audioId)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
 
 Removed 6 `agents` methods from `AgentsAPI` that targeted routes no server
-handler dispatches. The agents handler rewrites `/api/v1/agents/{name}/...` to
-`/api/agent/{name}/...` and dispatches only read-only sub-routes (`profile`,
+handler dispatches: the agents handler rewrites `/api/v1/agents/{name}/...` to
+`/api/agent/{name}/...`, dispatches only read-only sub-routes (`profile`,
 `history`, `calibration`, `consistency`, `flips`, `network`, `rivals`, `allies`,
-`moments`, `positions`, `domains`, `performance`, `metadata`, `introspect`); it
+`moments`, `positions`, `domains`, `performance`, `metadata`, `introspect`) and
 has no POST or PUT branch, and `/api/v1/agents/stats` is rejected as an invalid
-agent path. Every call below returned 404 (400 for `getStats`), so no working
-integration depended on them. `agents.getElo` (alias of the flat
-`client.getAgentElo`, `GET /api/v1/ranking/elo/{name}`) and `agents.updateElo`
-(`POST /api/v1/agents/{name}/elo`) are equally unrouted and will be removed in a
-follow-up; `register`, `unregister` and `heartbeat` (control-plane routes) are
-served and unchanged.
+agent path. Every call below failed (404; 400 for `getStats`), so no working
+integration depended on them. `agents.getElo` (`/api/v1/ranking/elo/{name}`) and
+`agents.updateElo` (also unrouted) follow in the next batch.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
@@ -148,11 +145,10 @@ served and unchanged.
 | `agents.setQuota(name, options)` | `PUT /api/v1/agents/{name}/quota` | `quotas.requestIncrease(resource, requestedLimit, reason)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
 
 Removed 4 `backups` methods from `BackupsAPI` that targeted routes no server
-handler dispatches. The backup handler only accepts `/api/v2/backups...` and
-below a backup id dispatches only `verify`, `verify-comprehensive` and
-`restore-test`; nothing serves `/backups/schedules` or `/backups/{id}/restore`,
-so every call below returned 404 and no working integration depended on them.
-The other `backups` methods (all on `/api/v2/backups...`) are unchanged.
+handler dispatches. Below a backup id the backup handler serves only `verify`,
+`verify-comprehensive` and `restore-test`, and nothing serves
+`/backups/schedules` or `/backups/{id}/restore`, so every call below returned
+404 and no working integration depended on them.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|

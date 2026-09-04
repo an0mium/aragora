@@ -109,16 +109,14 @@ declared by the audio handler even though no POST branch serves it yet.
 | `media.delete_audio(audio_id)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
 
 Removed 6 `agents` methods (sync `AgentsAPI` and async `AsyncAgentsAPI`) that
-targeted routes no server handler dispatches. The agents handler rewrites
-`/api/v1/agents/{name}/...` to `/api/agent/{name}/...` and dispatches only
+targeted routes no server handler dispatches: the agents handler rewrites
+`/api/v1/agents/{name}/...` to `/api/agent/{name}/...`, dispatches only
 read-only sub-routes (`profile`, `history`, `calibration`, `consistency`,
 `flips`, `network`, `rivals`, `allies`, `moments`, `positions`, `domains`,
-`performance`, `metadata`, `introspect`); it has no POST or PUT branch, and
+`performance`, `metadata`, `introspect`) and has no POST or PUT branch, and
 `/api/v1/agents/stats` is rejected as an invalid agent path. Every call below
-returned 404 (400 for `get_stats`), so no working integration depended on them.
-`agents.get_elo` / `agents.update_elo` (`/api/v1/agents/{name}/elo`) are equally
-unrouted and will be removed in a follow-up; `register`, `unregister` and
-`heartbeat` (control-plane routes) are served and unchanged.
+failed (404; 400 for `get_stats`), so no working integration depended on them.
+`agents.get_elo` / `agents.update_elo` (also unrouted) follow in the next batch.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
@@ -129,13 +127,11 @@ unrouted and will be removed in a follow-up; `register`, `unregister` and
 | `agents.get_quota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
 | `agents.set_quota(name, limits)` | `PUT /api/v1/agents/{name}/quota` | `quotas.request_increase(resource, requested_limit=..., justification=...)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
 
-Removed 4 `backups` methods (sync `BackupsAPI` and async `AsyncBackupsAPI`)
-that targeted routes no server handler dispatches. The backup handler only
-accepts `/api/v2/backups...` (the SDK's `/api/v1/backups/...` calls reach it
-through version normalization) and below a backup id dispatches only
-`verify`, `verify-comprehensive` and `restore-test`; nothing serves
-`/backups/schedules` or `/backups/{id}/restore`, so every call below returned
-404 and no working integration depended on them.
+Removed 4 `backups` methods (sync `BackupsAPI` and async `AsyncBackupsAPI`) that
+targeted routes no server handler dispatches. Below a backup id the backup
+handler serves only `verify`, `verify-comprehensive` and `restore-test`, and
+nothing serves `/backups/schedules` or `/backups/{id}/restore`, so every call
+below returned 404 and no working integration depended on them.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
