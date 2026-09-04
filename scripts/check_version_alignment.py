@@ -287,6 +287,26 @@ def main() -> int:
             r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
         (
+            "docs/reference/INSTALL_MATRIX.md (build ships)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md (in-tree moved)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md (not yet)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs/reference/INSTALL_MATRIX.md (in-tree prose)",
+            Path("docs/reference/INSTALL_MATRIX.md"),
+            r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
+        ),
+        (
             "docs/api/API_REFERENCE.md (last updated)",
             Path("docs/api/API_REFERENCE.md"),
             r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
@@ -383,6 +403,26 @@ def main() -> int:
             r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
         (
+            "docs-site/docs/reference/install-matrix.md (build ships)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md (in-tree moved)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md (not yet)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs-site/docs/reference/install-matrix.md (in-tree prose)",
+            Path("docs-site/docs/reference/install-matrix.md"),
+            r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
+        ),
+        (
             "docs-site/docs/api/reference.md (last updated)",
             Path("docs-site/docs/api/reference.md"),
             r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
@@ -417,6 +457,16 @@ def main() -> int:
             "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (image pin)",
             Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
             r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+        ),
+        (
+            "docs/SDK_GUIDE.md (cadence example)",
+            Path("docs/SDK_GUIDE.md"),
+            r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
+        ),
+        (
+            "docs-site/docs/guides/sdk.md (cadence example)",
+            Path("docs-site/docs/guides/sdk.md"),
+            r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
         ),
     ]
 
@@ -497,7 +547,7 @@ def main() -> int:
         print("Run with --fix to auto-fix, or manually update the files.")
         return 1
 
-    if mismatches and fixed:
+    if mismatches:
         remaining = len(mismatches) - len(fixed)
         if remaining > 0:
             print(f"\nWARNING: {remaining} mismatch(es) could not be fixed.")

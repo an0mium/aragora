@@ -80,6 +80,24 @@ def test_canonical_release_date_matches_version_file(cva, monkeypatch) -> None:
     assert f'RELEASE_DATE = "{date}"' in text
 
 
+def test_fix_reports_failure_when_nothing_could_be_rewritten(
+    cva, monkeypatch, capsys, tmp_path: Path
+) -> None:
+    (tmp_path / "aragora").mkdir()
+    (tmp_path / "aragora" / "__version__.py").write_text(
+        'VERSION_MAJOR = 2\nVERSION_MINOR = 10\nVERSION_PATCH = 0\nRELEASE_DATE = "2026-09-04"\n'
+    )
+    (tmp_path / "pyproject.toml").write_text('version = "2.9.0"\n')
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["check_version_alignment.py", "--fix"])
+    # Make the pyproject rewrite a no-op so a mismatch survives --fix.
+    monkeypatch.setattr(cva, "fix_pyproject_version", lambda *_: False)
+    assert cva.main() == 1
+    out = capsys.readouterr().out
+    assert "could not be fixed" in out
+    assert "All versions aligned!" not in out
+
+
 def test_repo_docs_are_aligned(cva, monkeypatch, capsys) -> None:
     monkeypatch.chdir(REPO_ROOT)
     monkeypatch.setattr(sys, "argv", ["check_version_alignment.py"])

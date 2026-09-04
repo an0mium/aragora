@@ -59,13 +59,15 @@ print(__version__)  # "2.10.0"
 
 **Python support:** 3.10, 3.11, 3.12, 3.13
 
+**PyPI availability:** the `2.10.0` wheel ships when the operator pushes the `v2.10.0` tag and dispatches `publish-aragora.yml`; until then PyPI serves 2.9.0 and the exact-version commands below resolve nothing (see [INSTALL_MATRIX.md](../reference/INSTALL_MATRIX.md)).
+
 ---
 
 ## Upgrade Paths
 
 ### v2.x.x -> v2.10.0 (Minor Upgrade)
 
-No breaking changes between v2.x releases. Standard upgrade:
+No API or SDK breaking changes between v2.x releases. One behavioral change: `DecisionReceipt` verdicts are never minted from zero evidence (#9306), so a pipeline that relied on an empty-evidence PASS now sees a non-passing verdict (see [Breaking Change Summary](#breaking-change-summary)). Standard upgrade:
 
 ```bash
 pip install --upgrade aragora==2.10.0
@@ -320,6 +322,12 @@ Migration safety features:
 ---
 
 ## Breaking Change Summary
+
+### v2.10.0 Behavioral Changes
+
+| Area | Change | Action Required |
+|------|--------|-----------------|
+| **Receipt verdicts** | `DecisionReceipt` never reports PASS/APPROVED from zero evidence (#9306); `ConsensusProof.reached` is forced to `false` with `confidence` 0.0 | Merge gates that consumed an empty-evidence PASS must supply evidence or treat the verdict as non-passing |
 
 ### v2.0.0 Breaking Changes
 
