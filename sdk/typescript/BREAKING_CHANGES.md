@@ -52,6 +52,29 @@ on them. The interfaces used only by those methods (`WebhookDeliveryAttempt`,
 | `webhooks.rotateSecret(webhookId)` | `POST /api/v1/webhooks/{id}/rotate-secret` | `webhooks.delete(webhookId)` then `webhooks.create(...)`; the secret is returned once on creation |
 | `webhooks.getSigningInfo(webhookId)` | `GET /api/v1/webhooks/{id}/signing` | Deliveries are signed with HMAC-SHA256 as `sha256=<hex>`; see `docs/api/WEBHOOKS.md` |
 
+Removed 10 `admin` methods from `AdminAPI` that targeted routes no server
+handler dispatches. Below an organization or user id the admin handler only
+serves the `/activate`, `/deactivate` and `/unlock` user actions; impersonation
+is served as `POST /api/v1/admin/impersonate/{userId}` and credits under
+`/api/v1/admin/credits/{orgId}/...`. Every call below returned 405 from that
+handler, so no working integration depended on them. The
+`AdminClientInterface` entries used only by those methods (`getCreditAccount`,
+`listCreditTransactions`, `adjustCreditBalance`, `getExpiringCredits`) were
+removed with them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `admin.getOrganization(orgId)` | `GET /api/v1/admin/organizations/{id}` | `organizations.get(orgId)` (`GET /api/v1/org/{id}`) |
+| `admin.updateOrganization(orgId, updates)` | `PUT /api/v1/admin/organizations/{id}` | No replacement; no in-spec route updates an organization by id |
+| `admin.getUser(userId)` | `GET /api/v1/admin/users/{id}` | `admin.listUsers(...)` and filter by id |
+| `admin.suspendUser(userId, reason)` | `POST /api/v1/admin/users/{id}/suspend` | `admin.deactivateUser(userId)` |
+| `admin.impersonateUser(userId)` | `POST /api/v1/admin/users/{id}/impersonate` | `openapi.requestPostApiV1AdminImpersonateByUserId(userId)` (`POST /api/v1/admin/impersonate/{userId}`) |
+| `admin.issueCredits(orgId, amount, reason, expiresAt)` | `POST /api/v1/admin/organizations/{id}/credits` | ``client.request('POST', `/api/v1/admin/credits/${orgId}/issue`, { body })`` |
+| `admin.adjustCredits(orgId, amount, reason)` | `POST /api/v1/admin/organizations/{id}/credits` | ``client.request('POST', `/api/v1/admin/credits/${orgId}/adjust`, { body })`` |
+| `admin.getCreditAccount(orgId)` | `GET /api/v1/admin/organizations/{id}/credits` | ``client.request('GET', `/api/v1/admin/credits/${orgId}`)`` |
+| `admin.listCreditTransactions(orgId, params)` | `GET /api/v1/admin/organizations/{id}/credits/transactions` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/transactions`, { params })`` |
+| `admin.getExpiringCredits(orgId)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | ``client.request('GET', `/api/v1/admin/credits/${orgId}/expiring`)`` |
+
 ---
 
 ## Migration Guides

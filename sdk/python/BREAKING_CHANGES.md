@@ -50,6 +50,26 @@ returned 404 and no working integration depended on them.
 | `webhooks.rotate_secret(webhook_id)` | `POST /api/v1/webhooks/{id}/rotate-secret` | `webhooks.delete(webhook_id)` then `webhooks.create(...)`; the secret is returned once on creation |
 | `webhooks.get_signing_info(webhook_id)` | `GET /api/v1/webhooks/{id}/signing` | Deliveries are signed with HMAC-SHA256 as `sha256=<hex>`; see `docs/api/WEBHOOKS.md` |
 
+Removed 10 `admin` methods (sync `AdminAPI` and async `AsyncAdminAPI`) that
+targeted routes no server handler dispatches. Below an organization or user id
+the admin handler only serves the `/activate`, `/deactivate` and `/unlock`
+user actions; impersonation is served as `POST /api/v1/admin/impersonate/{user_id}`
+and credits under `/api/v1/admin/credits/{org_id}/...`. Every call below
+returned 405 from that handler, so no working integration depended on them.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `admin.get_organization(org_id)` | `GET /api/v1/admin/organizations/{id}` | `organizations.get(org_id)` (`GET /api/v1/org/{id}`) |
+| `admin.update_organization(org_id, **fields)` | `PUT /api/v1/admin/organizations/{id}` | No replacement; no in-spec route updates an organization by id |
+| `admin.get_user(user_id)` | `GET /api/v1/admin/users/{id}` | `admin.list_users(...)` and filter by id |
+| `admin.suspend_user(user_id, reason)` | `POST /api/v1/admin/users/{id}/suspend` | `admin.deactivate_user(user_id)` |
+| `admin.impersonate_user(user_id)` | `POST /api/v1/admin/users/{id}/impersonate` | `client.request("POST", f"/api/v1/admin/impersonate/{user_id}")` |
+| `admin.issue_credits(org_id, amount, reason, expires_at=None)` | `POST /api/v1/admin/organizations/{id}/credits` | `client.request("POST", f"/api/v1/admin/credits/{org_id}/issue", json={...})` |
+| `admin.adjust_credits(org_id, amount, reason)` | `POST /api/v1/admin/organizations/{id}/credits` | `client.request("POST", f"/api/v1/admin/credits/{org_id}/adjust", json={...})` |
+| `admin.get_credit_account(org_id)` | `GET /api/v1/admin/organizations/{id}/credits` | `client.request("GET", f"/api/v1/admin/credits/{org_id}")` |
+| `admin.list_credit_transactions(org_id, **params)` | `GET /api/v1/admin/organizations/{id}/credits/transactions` | `client.request("GET", f"/api/v1/admin/credits/{org_id}/transactions", params={...})` |
+| `admin.get_expiring_credits(org_id)` | `GET /api/v1/admin/organizations/{id}/credits/expiring` | `client.request("GET", f"/api/v1/admin/credits/{org_id}/expiring")` |
+
 ---
 
 ### v2.4.0 (2026-01-25)
