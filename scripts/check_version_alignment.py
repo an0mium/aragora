@@ -274,13 +274,13 @@ def main() -> int:
             r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
         ),
         (
-            "docs/SELF_HOSTED_QUICKSTART.md",
-            Path("docs/SELF_HOSTED_QUICKSTART.md"),
+            "docs/guides/SELF_HOSTED_QUICKSTART.md",
+            Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
             r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\*)$",
         ),
         (
-            "docs/SELF_HOSTED_COMPLETE_GUIDE.md",
-            Path("docs/SELF_HOSTED_COMPLETE_GUIDE.md"),
+            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md",
+            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
             r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
         (
@@ -347,6 +347,26 @@ def main() -> int:
             "docs-site/docs/contributing/status.md (version bullet)",
             Path("docs-site/docs/contributing/status.md"),
             r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
+        ),
+        (
+            "docs/migration/V3_MIGRATION_GUIDE.md",
+            Path("docs/migration/V3_MIGRATION_GUIDE.md"),
+            r"^(> \*\*Current version:\*\* v)(\d+\.\d+\.\d+)()$",
+        ),
+        (
+            "docs/deployment/UPGRADE_ROADMAP.md",
+            Path("docs/deployment/UPGRADE_ROADMAP.md"),
+            r"^(\*\*Aragora v)(\d+\.\d+\.\d+)(\*\* \(released \d{4}-\d{2}-\d{2}\))$",
+        ),
+        (
+            "docs/deployment/UPGRADE_ROADMAP.md (version check)",
+            Path("docs/deployment/UPGRADE_ROADMAP.md"),
+            r'^(print\(__version__\)\s*# ")(\d+\.\d+\.\d+)(")$',
+        ),
+        (
+            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (image pin)",
+            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
         ),
     ]
 
