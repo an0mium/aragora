@@ -15,8 +15,9 @@ consumer are guaranteed compatible:
     key_id     = "ed25519-" + SHA-256(raw_public_key).hexdigest()[:16]
     entry      = {"alg": "Ed25519", "key_id": key_id, "signature": base64(signature)}
 
-The digest is computed with :func:`aragora.gauntlet.odr_export.odr_content_digest`,
-which the verifier's own docstring states it "mirrors exactly". Excluding the
+The digest is computed with :func:`aragora.gauntlet.odr_jcs.odr_content_digest`
+(re-exported by :mod:`aragora.gauntlet.odr_export`), which the verifier's own
+docstring states it "mirrors exactly". Excluding the
 ``signatures`` array from the digest is what makes the signatures *detached*:
 attaching one never changes the bytes it covers.
 
@@ -38,7 +39,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any
 
-from aragora.gauntlet.odr_export import odr_content_digest
+from aragora.gauntlet.odr_jcs import odr_content_digest
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from cryptography.hazmat.primitives.asymmetric.ed25519 import (

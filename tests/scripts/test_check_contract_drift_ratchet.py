@@ -11136,3 +11136,399 @@ def test_live_evidence_plane_accepts_stale_base_squash_and_rejects_foreign_delta
 
     with pytest.raises(ValueError, match="lacks first-parent or tree equality"):
         _live_pr_files_probe(tmp_path / "claim", monkeypatch, mutate=wrong_receipt_tree)
+
+
+def _github_json_transport(bodies: dict[str, Any]) -> Any:
+    # GitHub's weak entity tags are derived from the exact response body, so
+    # any byte change to the body also changes the ETag header.
+    def run(argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        body = ratchet._canonical_json_bytes(bodies[argv[-1]])
+        etag = hashlib.sha256(body).hexdigest()[:32].encode()
+        stdout = b'HTTP/2 200 OK\r\nETag: W/"' + etag + b'"\r\n\r\n' + body
+        return subprocess.CompletedProcess(argv, 0, stdout=stdout, stderr=b"")
+
+    return run
+
+
+def _github_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    body: Any,
+) -> dict[str, Any]:
+    monkeypatch.setattr(ratchet, "_run_read_only", _github_json_transport({endpoint: body}))
+    _payload, identity = ratchet._gh_api_get(endpoint, operation_log=[])
+    return identity
+
+
+def _tick(value: Any) -> Any:
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    return f"{value}-ticked"
+
+
+def _volatile_fixture_repository() -> dict[str, Any]:
+    return {
+        "default_branch": "main",
+        "description": "fixture",
+        "forks": 3,
+        "forks_count": 3,
+        "full_name": "synaptent/aragora",
+        "id": 1126097105,
+        "name": "aragora",
+        "network_count": 3,
+        "open_issues": 1019,
+        "open_issues_count": 1019,
+        "pushed_at": "2026-09-02T03:27:50Z",
+        "size": 4096,
+        "stargazers_count": 7,
+        "subscribers_count": 2,
+        "updated_at": "2026-09-01T00:00:00Z",
+        "watchers": 7,
+        "watchers_count": 7,
+    }
+
+
+def _volatile_fixture_pull_request(end_sha: str) -> dict[str, Any]:
+    return {
+        "additions": 400,
+        "base": {"ref": "main", "repo": _volatile_fixture_repository(), "sha": "f" * 40},
+        "changed_files": 1,
+        "deletions": 400,
+        "head": {"ref": "structex/fixture", "repo": _volatile_fixture_repository(), "sha": end_sha},
+        "merge_commit_sha": "e" * 40,
+        "mergeable": None,
+        "mergeable_state": "unknown",
+        "merged_at": "2026-08-31T00:00:00Z",
+        "number": 8766,
+        "title": "fixture",
+        "updated_at": "2026-08-31T00:00:00Z",
+    }
+
+
+def _volatile_fixture_release(end_sha: str) -> dict[str, Any]:
+    tag = f"cdg-route_truth-{end_sha}"
+    return {
+        "assets": [
+            {
+                "digest": "sha256:" + "1" * 64,
+                "download_count": 12,
+                "id": 538132370,
+                "name": "checksums.txt",
+                "size": 159,
+                "updated_at": "2026-08-31T14:55:16Z",
+            },
+            {
+                "digest": "sha256:" + "2" * 64,
+                "download_count": 12,
+                "id": 538132327,
+                "name": "manifest.json",
+                "size": 302,
+                "updated_at": "2026-08-31T14:55:14Z",
+            },
+            {
+                "digest": "sha256:" + "3" * 64,
+                "download_count": 12,
+                "id": 538132338,
+                "name": "payload.json",
+                "size": 90447,
+                "updated_at": "2026-08-31T14:55:15Z",
+            },
+        ],
+        "draft": False,
+        "id": 379772162,
+        "immutable": True,
+        "prerelease": False,
+        "tag_name": tag,
+        "target_commitish": end_sha,
+        "updated_at": "2026-08-31T14:56:04Z",
+    }
+
+
+def _bump_download_counts(release: dict[str, Any], by: int = 6) -> dict[str, Any]:
+    ticked = copy.deepcopy(release)
+    for asset in ticked["assets"]:
+        asset["download_count"] += by
+    return ticked
+
+
+def _tick_repository_counters(repository: dict[str, Any]) -> dict[str, Any]:
+    ticked = dict(repository)
+    for field in ratchet._VOLATILE_REPOSITORY_FIELDS:
+        ticked[field] = _tick(repository[field])
+    return ticked
+
+
+def test_release_identity_excludes_only_asset_download_counts(monkeypatch: pytest.MonkeyPatch):
+    # The verifier's own paired octet-stream asset downloads bump every
+    # assets[].download_count inside the release body it captured before the
+    # downloads, so that counter alone must not read as concurrent movement.
+    end_sha = "2b94459bc0e316c3c0c1eb285695bf2a0c73c647"
+    endpoint = f"repos/synaptent/aragora/releases/{379772162}"
+    release = _volatile_fixture_release(end_sha)
+    before = _github_identity(monkeypatch, endpoint, release)
+    ticked = _github_identity(monkeypatch, endpoint, _bump_download_counts(release))
+    assert ratchet._remote_identity_moved(before, ticked) is False
+    assert before["excluded_volatile_fields"] == ["assets[].download_count"]
+    assert before["etag"] is None
+    assert before["updated_at"] == release["updated_at"]
+    assert before["sha256"] == ticked["sha256"]
+
+    def mutate_asset(index: int, field: str) -> Any:
+        def apply(body: dict[str, Any]) -> None:
+            body["assets"][index][field] = _tick(body["assets"][index][field])
+
+        return apply
+
+    def mutate_field(field: str) -> Any:
+        def apply(body: dict[str, Any]) -> None:
+            body[field] = _tick(body[field])
+
+        return apply
+
+    semantic = {
+        "asset size": mutate_asset(0, "size"),
+        "asset digest": mutate_asset(1, "digest"),
+        "asset id": mutate_asset(2, "id"),
+        "asset name": mutate_asset(0, "name"),
+        "tag_name": mutate_field("tag_name"),
+        "target_commitish": mutate_field("target_commitish"),
+        "draft": mutate_field("draft"),
+        "immutable": mutate_field("immutable"),
+        "prerelease": mutate_field("prerelease"),
+        "updated_at": mutate_field("updated_at"),
+    }
+    for label, apply in semantic.items():
+        moved_body = _bump_download_counts(release)
+        apply(moved_body)
+        moved = _github_identity(monkeypatch, endpoint, moved_body)
+        assert ratchet._remote_identity_moved(before, moved) is True, label
+
+    # The paginated release listing embeds the same per-asset counters and is
+    # reauthenticated too; a newly published release still moves it.
+    listing = "repos/synaptent/aragora/releases?per_page=100&page=1"
+    listing_before = _github_identity(monkeypatch, listing, [release])
+    listing_ticked = _github_identity(monkeypatch, listing, [_bump_download_counts(release)])
+    assert ratchet._remote_identity_moved(listing_before, listing_ticked) is False
+    assert listing_before["excluded_volatile_fields"] == ["[].assets[].download_count"]
+    extra = copy.deepcopy(release)
+    extra["id"] = 379772163
+    extra["tag_name"] = "v-other"
+    listing_grown = _github_identity(monkeypatch, listing, [release, extra])
+    assert ratchet._remote_identity_moved(listing_before, listing_grown) is True
+
+
+def test_repository_and_pull_request_identity_exclude_only_embedded_activity_counters(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Issue open/close, pushes to any branch, and stars tick counters inside
+    # the repository object (also nested as base.repo/head.repo in governed
+    # PR bodies) during a multi-minute run; only those counters are excluded.
+    end_sha = "2b94459bc0e316c3c0c1eb285695bf2a0c73c647"
+    repo_endpoint = "repos/synaptent/aragora"
+    repository = _volatile_fixture_repository()
+    before = _github_identity(monkeypatch, repo_endpoint, repository)
+    assert before["etag"] is None
+    assert before["updated_at"] is None
+    assert before["excluded_volatile_fields"] == list(ratchet._VOLATILE_REPOSITORY_FIELDS)
+    assert set(ratchet._VOLATILE_REPOSITORY_FIELDS) == {
+        "forks",
+        "forks_count",
+        "network_count",
+        "open_issues",
+        "open_issues_count",
+        "pushed_at",
+        "size",
+        "stargazers_count",
+        "subscribers_count",
+        "updated_at",
+        "watchers",
+        "watchers_count",
+    }
+    for field in ratchet._VOLATILE_REPOSITORY_FIELDS:
+        ticked = dict(repository)
+        ticked[field] = _tick(repository[field])
+        moved = ratchet._remote_identity_moved(
+            before, _github_identity(monkeypatch, repo_endpoint, ticked)
+        )
+        assert moved is False, field
+    all_ticked = _github_identity(monkeypatch, repo_endpoint, _tick_repository_counters(repository))
+    assert ratchet._remote_identity_moved(before, all_ticked) is False
+    for field in ("default_branch", "description", "full_name", "id", "name"):
+        changed = _tick_repository_counters(repository)
+        changed[field] = _tick(repository[field])
+        moved = ratchet._remote_identity_moved(
+            before, _github_identity(monkeypatch, repo_endpoint, changed)
+        )
+        assert moved is True, field
+
+    pr_endpoint = "repos/synaptent/aragora/pulls/8766"
+    pull_request = _volatile_fixture_pull_request(end_sha)
+    pr_before = _github_identity(monkeypatch, pr_endpoint, pull_request)
+    assert pr_before["etag"] is None
+    assert pr_before["updated_at"] == pull_request["updated_at"]
+    assert pr_before["excluded_volatile_fields"] == [
+        f"{side}.repo.{field}"
+        for side in ("base", "head")
+        for field in ratchet._VOLATILE_REPOSITORY_FIELDS
+    ]
+    ticked_pr = copy.deepcopy(pull_request)
+    for side in ("base", "head"):
+        ticked_pr[side]["repo"] = _tick_repository_counters(pull_request[side]["repo"])
+    assert (
+        ratchet._remote_identity_moved(
+            pr_before, _github_identity(monkeypatch, pr_endpoint, ticked_pr)
+        )
+        is False
+    )
+
+    def nested(path: tuple[str, ...]) -> Any:
+        def apply(body: dict[str, Any]) -> None:
+            target = body
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = _tick(target[path[-1]])
+
+        return apply
+
+    semantic = {
+        "head sha": nested(("head", "sha")),
+        "base sha": nested(("base", "sha")),
+        "head ref": nested(("head", "ref")),
+        "head repo full_name": nested(("head", "repo", "full_name")),
+        "merge_commit_sha": nested(("merge_commit_sha",)),
+        "mergeable_state": nested(("mergeable_state",)),
+        "merged_at": nested(("merged_at",)),
+        "changed_files": nested(("changed_files",)),
+        "title": nested(("title",)),
+        "updated_at": nested(("updated_at",)),
+    }
+    for label, apply in semantic.items():
+        moved_body = copy.deepcopy(ticked_pr)
+        apply(moved_body)
+        moved = ratchet._remote_identity_moved(
+            pr_before, _github_identity(monkeypatch, pr_endpoint, moved_body)
+        )
+        assert moved is True, label
+
+    # Endpoints outside the three normalized classes keep the raw-body plane.
+    branch = "repos/synaptent/aragora/branches/main"
+    raw = _github_identity(monkeypatch, branch, {"commit": {"sha": end_sha}, "name": "main"})
+    assert raw["etag"] is not None
+    assert "excluded_volatile_fields" not in raw
+
+
+def test_stable_get_tolerates_counter_ticks_between_paired_fetches_and_blocks_on_content(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    endpoint = "repos/synaptent/aragora"
+    repository = _volatile_fixture_repository()
+    served = iter([repository, _tick_repository_counters(repository)])
+
+    def ticking(argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        return _github_json_transport({endpoint: next(served)})(argv)
+
+    monkeypatch.setattr(ratchet, "_run_read_only", ticking)
+    operation_log: list[dict[str, Any]] = []
+    payload, identity = ratchet._gh_api_get_stable(endpoint, operation_log=operation_log)
+    assert payload["open_issues_count"] == repository["open_issues_count"] + 1
+    assert payload["full_name"] == "synaptent/aragora"
+    assert identity["etag"] is None
+    assert [entry["movement_observed"] for entry in operation_log] == [False, False]
+    assert all(entry["raw_etag"] for entry in operation_log)
+    assert operation_log[0]["sha256"] != operation_log[1]["sha256"]
+    assert operation_log[0]["response_identity"] == operation_log[1]["response_identity"]
+
+    flipping = iter([repository, {**repository, "default_branch": "develop"}] * 3)
+
+    def content_moves(argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        return _github_json_transport({endpoint: next(flipping)})(argv)
+
+    monkeypatch.setattr(ratchet, "_run_read_only", content_moves)
+    blocked_log: list[dict[str, Any]] = []
+    with pytest.raises(ratchet.BoundaryBlocked, match="moved concurrently"):
+        ratchet._gh_api_get_stable(endpoint, operation_log=blocked_log)
+    assert [entry["movement_observed"] for entry in blocked_log] == [True] * 6
+
+
+def test_reauthentication_tolerates_volatile_counter_ticks_and_blocks_on_content_movement(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    end_sha = "2b94459bc0e316c3c0c1eb285695bf2a0c73c647"
+    repo_endpoint = "repos/synaptent/aragora"
+    pr_endpoint = "repos/synaptent/aragora/pulls/8766"
+    release_endpoint = "repos/synaptent/aragora/releases/379772162"
+    listing_endpoint = "repos/synaptent/aragora/releases?per_page=100&page=1"
+    release = _volatile_fixture_release(end_sha)
+    before_bodies: dict[str, Any] = {
+        repo_endpoint: _volatile_fixture_repository(),
+        pr_endpoint: _volatile_fixture_pull_request(end_sha),
+        release_endpoint: release,
+        listing_endpoint: [release],
+    }
+    monkeypatch.setattr(ratchet, "_run_read_only", _github_json_transport(before_bodies))
+    operation_log: list[dict[str, Any]] = []
+    endpoint_identities: dict[str, dict[str, Any]] = {}
+    for endpoint in sorted(before_bodies):
+        _payload, identity = ratchet._gh_api_get_stable(endpoint, operation_log=operation_log)
+        endpoint_identities[endpoint] = identity
+    context = {
+        "asset_identities": {},
+        "endpoint_identities": endpoint_identities,
+        "github_repository": "synaptent/aragora",
+        "local_asset_identities": {},
+        "verification_commands": [],
+    }
+    before_snapshot = {
+        "assets": {},
+        "endpoints": endpoint_identities,
+        "local_assets": {},
+        "repository": "synaptent/aragora",
+        "verifications": [],
+    }
+    # End of run: the janitor ticked the repository counters and the
+    # verifier's own asset downloads bumped every download_count.
+    ticked_pr = copy.deepcopy(before_bodies[pr_endpoint])
+    for side in ("base", "head"):
+        ticked_pr[side]["repo"] = _tick_repository_counters(ticked_pr[side]["repo"])
+    ticked_bodies: dict[str, Any] = {
+        repo_endpoint: _tick_repository_counters(before_bodies[repo_endpoint]),
+        pr_endpoint: ticked_pr,
+        release_endpoint: _bump_download_counts(release),
+        listing_endpoint: [_bump_download_counts(release)],
+    }
+    monkeypatch.setattr(ratchet, "_run_read_only", _github_json_transport(ticked_bodies))
+    after_snapshot = ratchet._reauthenticate_live_context(
+        context,
+        operation_log=operation_log,
+        end_sha=end_sha,
+    )
+    assert ratchet._canonical_json_bytes(after_snapshot) == ratchet._canonical_json_bytes(
+        before_snapshot
+    )
+
+    def move_head_sha(body: dict[str, Any]) -> None:
+        body["head"]["sha"] = "d" * 40
+
+    def move_asset_digest(body: dict[str, Any]) -> None:
+        body["assets"][2]["digest"] = "sha256:" + "f" * 64
+
+    def move_repository_name(body: dict[str, Any]) -> None:
+        body["full_name"] = "synaptent/renamed"
+
+    def publish_extra_release(body: list[dict[str, Any]]) -> None:
+        body.append({**copy.deepcopy(release), "id": 379772163, "tag_name": "v-other"})
+
+    for endpoint, apply in (
+        (pr_endpoint, move_head_sha),
+        (release_endpoint, move_asset_digest),
+        (repo_endpoint, move_repository_name),
+        (listing_endpoint, publish_extra_release),
+    ):
+        moved_bodies = copy.deepcopy(ticked_bodies)
+        apply(moved_bodies[endpoint])
+        monkeypatch.setattr(ratchet, "_run_read_only", _github_json_transport(moved_bodies))
+        with pytest.raises(ratchet.BoundaryBlocked, match="moved concurrently") as excinfo:
+            ratchet._reauthenticate_live_context(context, operation_log=[], end_sha=end_sha)
+        assert str(excinfo.value).endswith(endpoint)
