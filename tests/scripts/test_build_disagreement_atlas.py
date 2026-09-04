@@ -630,3 +630,49 @@ def test_manifest_pins_receipt_files_and_verify_flags_an_edited_one(tmp_path: Pa
     ok, lines = atlas.verify_manifest(mirror / "docs" / "atlas" / "manifest.json", base=mirror)
     assert ok, lines
     assert any(line.startswith("receipt inputs SKIPPED") for line in lines)
+
+
+def test_manifest_canonicalization_string_reproduces_the_digest(built) -> None:
+    _records, manifest, _out = built
+    assert (
+        manifest["canonicalization"] == "RFC 8785 (JCS); content_digest = "
+        "SHA-256(JCS(manifest minus content_digest and signatures))"
+    )
+    unsigned = {k: v for k, v in manifest.items() if k not in {"content_digest", "signatures"}}
+    assert atlas._sha256(atlas.jcs_canonicalize(unsigned)) == manifest["content_digest"]["value"]
+
+
+def test_verify_recomputes_the_ground_truth_fixture_hash(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    fixture_dir = root / "tests" / "fixtures"
+    fixture_dir.mkdir(parents=True)
+    fixture = fixture_dir / "eval_cases.json"
+    shutil.copy(FIXTURE / "eval_cases.json", fixture)
+    out_dir = root / "docs" / "atlas"
+    out_dir.mkdir(parents=True)
+    shutil.copy(SCHEMA, out_dir / "schema.json")
+    argv = [
+        "build",
+        "--cache-dir",
+        str(FIXTURE),
+        "--out",
+        str(out_dir / "atlas-v1.jsonl"),
+        "--schema",
+        str(out_dir / "schema.json"),
+        "--repo-root",
+        str(root),
+        "--eval-fixture",
+        str(fixture),
+        "--receipt-dirs",
+    ]
+    assert atlas.main(argv) == 0
+    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["ground_truth_fixture"]["path"] == "tests/fixtures/eval_cases.json"
+    ok, lines = atlas.verify_manifest(out_dir / "manifest.json", base=root)
+    assert ok, lines
+    assert "ground_truth_fixture sha256 ok" in lines
+
+    fixture.write_text(fixture.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    ok, lines = atlas.verify_manifest(out_dir / "manifest.json", base=root)
+    assert not ok
+    assert "ground_truth_fixture sha256 mismatch" in lines

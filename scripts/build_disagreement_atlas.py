@@ -1334,7 +1334,10 @@ def build_manifest(
             "sources": list(SOURCES),
         },
         "generator": "scripts/build_disagreement_atlas.py",
-        "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
+        "canonicalization": (
+            "RFC 8785 (JCS); content_digest = "
+            "SHA-256(JCS(manifest minus content_digest and signatures))"
+        ),
         "signatures": [],
     }
     if schema_path is not None and schema_path.exists():
@@ -1921,6 +1924,16 @@ def verify_manifest(
             problems.append("schema.json sha256 mismatch")
         elif schema_path.exists():
             checks.append("schema sha256 ok")
+
+    fixture = manifest.get("ground_truth_fixture") or {}
+    if fixture.get("sha256"):
+        fixture_path = base / str(fixture.get("path") or "")
+        if not fixture_path.exists():
+            checks.append(f"ground_truth_fixture SKIPPED (not present: {fixture_path})")
+        elif _sha256(fixture_path.read_bytes()) != fixture["sha256"]:
+            problems.append("ground_truth_fixture sha256 mismatch")
+        else:
+            checks.append("ground_truth_fixture sha256 ok")
 
     pinned_files = (manifest.get("receipt_inputs") or {}).get("files") or {}
     if pinned_files:

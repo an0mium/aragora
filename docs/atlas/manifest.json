@@ -1,9 +1,9 @@
 {
   "atlas_version": "1.0.0",
-  "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus signatures))",
+  "canonicalization": "RFC 8785 (JCS); content_digest = SHA-256(JCS(manifest minus content_digest and signatures))",
   "content_digest": {
     "alg": "sha-256",
-    "value": "34c2252423b12421544206fbc5098e5fb911f936a5e34d8e241468e7f5b5c035"
+    "value": "11d925b91bbad6cd10c4f62b0160e76b73af5871a3432832cd8b3eb5056eabf9"
   },
   "dataset": {
     "bytes": 5991112,
