@@ -218,17 +218,6 @@ export class WebhooksAPI {
   }
 
   // ===========================================================================
-  // Delivery Management
-  // ===========================================================================
-
-  /**
-   * Get delivery stats for a webhook.
-   */
-  async getDeliveryStats(webhookId: string, options?: { days?: number }): Promise<{ success_rate: number; avg_latency_ms: number; total_deliveries: number; failed_deliveries: number }> {
-    return this.client.request('GET', `/api/v1/webhooks/${webhookId}/stats`, { params: options });
-  }
-
-  // ===========================================================================
   // Event Filtering
   // ===========================================================================
 

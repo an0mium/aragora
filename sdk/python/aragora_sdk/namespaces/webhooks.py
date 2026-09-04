@@ -165,13 +165,6 @@ class WebhooksAPI:
     # Delivery Management
     # =========================================================================
 
-    def get_delivery_stats(self, webhook_id: str, days: int | None = None) -> dict[str, Any]:
-        """Get delivery stats for a webhook."""
-        params: dict[str, Any] = {}
-        if days is not None:
-            params["days"] = days
-        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/stats", params=params)
-
     def list_dead_letter(self, limit: int | None = None) -> dict[str, Any]:
         """List deliveries in the dead-letter queue."""
         params: dict[str, Any] = {}
@@ -296,15 +289,6 @@ class AsyncWebhooksAPI:
     # =========================================================================
     # Delivery Management
     # =========================================================================
-
-    async def get_delivery_stats(self, webhook_id: str, days: int | None = None) -> dict[str, Any]:
-        """Get delivery stats for a webhook."""
-        params: dict[str, Any] = {}
-        if days is not None:
-            params["days"] = days
-        return await self._client.request(
-            "GET", f"/api/v1/webhooks/{webhook_id}/stats", params=params
-        )
 
     async def list_dead_letter(self, limit: int | None = None) -> dict[str, Any]:
         """List deliveries in the dead-letter queue."""

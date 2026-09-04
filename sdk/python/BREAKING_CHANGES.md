@@ -31,7 +31,7 @@ integration depended on them.
 | `debates.get_agent_statistics(debate_id)` | `GET /api/v1/debates/{id}/agent-statistics` | `debates.get_agent_stats()` (aggregate per-agent statistics) |
 | `debates.get_debate_health(debate_id)` | `GET /api/v1/debates/{id}/health` | `debates.get_health()` for system health, `debates.get(debate_id)` for a debate's status |
 
-Removed 9 `webhooks` methods (sync `WebhooksAPI` and async `AsyncWebhooksAPI`)
+Removed 10 `webhooks` methods (sync `WebhooksAPI` and async `AsyncWebhooksAPI`)
 that targeted per-webhook sub-routes no server handler dispatches. The
 webhook handler only routes `/api/v1/webhooks/{id}` and
 `/api/v1/webhooks/{id}/test` below a webhook id, so every one of these calls
@@ -42,6 +42,7 @@ returned 404 and no working integration depended on them.
 | `webhooks.list_deliveries(webhook_id, status, limit, offset)` | `GET /api/v1/webhooks/{id}/deliveries` | `webhooks.list_dead_letter()` for failed deliveries; successful deliveries are not listed |
 | `webhooks.get_delivery(webhook_id, delivery_id)` | `GET /api/v1/webhooks/{id}/deliveries/{delivery_id}` | `webhooks.get_dead_letter(dead_letter_id)` for a failed delivery; successful deliveries are not exposed individually |
 | `webhooks.retry_delivery(webhook_id, delivery_id)` | `POST /api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | `webhooks.retry_dead_letter(dead_letter_id)` |
+| `webhooks.get_delivery_stats(webhook_id, days)` | `GET /api/v1/webhooks/{id}/stats` | No replacement; per-webhook delivery statistics are not served (`GET /api/v1/webhooks/queue/stats` reports the shared delivery queue, not a single webhook) |
 | `webhooks.subscribe_events(webhook_id, events)` | `POST /api/v1/webhooks/{id}/events` | `webhooks.update(webhook_id, events=[...])` with the full event list |
 | `webhooks.unsubscribe_events(webhook_id, events)` | `DELETE /api/v1/webhooks/{id}/events` | `webhooks.update(webhook_id, events=[...])` with the remaining events |
 | `webhooks.get_retry_policy(webhook_id)` | `GET /api/v1/webhooks/{id}/retry-policy` | No replacement; the retry policy is server-configured, not per webhook |
