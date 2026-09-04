@@ -32,7 +32,7 @@ def get_canonical_version() -> str:
     minor = re.search(r"VERSION_MINOR\s*=\s*(\d+)", content)
     patch = re.search(r"VERSION_PATCH\s*=\s*(\d+)", content)
 
-    if not all([major, minor, patch]):
+    if major is None or minor is None or patch is None:
         raise ValueError("Could not parse version from aragora/__version__.py")
 
     return f"{major.group(1)}.{minor.group(1)}.{patch.group(1)}"
