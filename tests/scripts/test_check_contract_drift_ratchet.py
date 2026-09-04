@@ -4602,17 +4602,18 @@ def test_accepted_authority_keeps_genesis_and_reconciles_live_witnesses():
     authority, root = _accepted_authority(), Path(ratchet.__file__).parents[1]
     summary = ratchet.validate_accepted_authority(authority, repo_root=root)
     assert (summary["original_record_total"], summary["sdk_provenance_record_total"]) == (655, 598)
-    assert (len(summary["active_original_record_ids"]), len(summary["live_original_record_ids"])) == (398, 398)  # fmt: skip
+    assert (len(summary["active_original_record_ids"]), len(summary["live_original_record_ids"])) == (339, 339)  # fmt: skip
     # The committed authority equals the genesis authority plus exactly the
-    # 257-record digest-bound catch-up paydown (255 historical + the 2
-    # VAL-CDG-016 serve-side literals), each event bound to the live digest.
+    # 316-record digest-bound paydown (255 historical + the 2 VAL-CDG-016
+    # serve-side literals + 59 stale TypeScript literals), each event bound
+    # to the live digest.
     genesis = _genesis_authority(authority)
     genesis_summary = ratchet.validate_accepted_authority(genesis, repo_root=root)
     assert len(genesis_summary["active_original_record_ids"]) == 655
     compared = ratchet.compare_accepted_authorities(genesis, authority, repo_root=root)
     assert compared["passing"] and compared["status"] == "pass"
     assert compared["added_original_record_ids"] == []
-    assert len(compared["removed_original_record_ids"]) == 257
+    assert len(compared["removed_original_record_ids"]) == 316
 
 
 def test_accepted_authority_rejects_unbound_paydown_and_bundle():
@@ -4667,7 +4668,7 @@ def test_live_residue_is_frozen_shrink_only_against_tolerance_ref(monkeypatch):
     kwargs = {"repo_root": root, "live_ref": "candidate-ref", "residue_ref": "tolerance-ref"}
     removal_live = ratchet._live_witnesses(authority, **kwargs)
     equal_live = ratchet._live_witnesses(authority, repo_root=root, live_ref="tolerance-ref", residue_ref="tolerance-ref")  # fmt: skip
-    assert removal_live == equal_live and len(equal_live) == 398
+    assert removal_live == equal_live and len(equal_live) == 339
     head_docs["routes"]["missing_in_spec"].append(f"{entry}/guard-v2-new")
     with pytest.raises(ValueError, match="new live baseline keys outside immutable original cohort") as one_new:  # fmt: skip
         ratchet._live_witnesses(authority, **kwargs)
@@ -4890,7 +4891,7 @@ def test_accepted_main_modes_bind_non_head_ref_and_ignore_dirty_worktree_authori
     if mode == "program":
         assert result["program"]["source_sha"] == source
         assert result["program"]["start_date"] == "2026-04-17"
-        assert result["current"]["total_items"] == 398
+        assert result["current"]["total_items"] == 339
     else:
         assert result["source_sha"] == source
         assert result["authority"]["first_parent_chain"][0] == source
@@ -5912,7 +5913,7 @@ def test_pr_mode_passes_equal_or_subset_original_record_ids(tmp_path: Path):
     assert (compared["passing"], compared["status"]) == (True, "pass")
     assert compared["added_original_record_ids"] == []
     removed = compared["removed_original_record_ids"]
-    assert removed == sorted(removed) and len(removed) == 257
+    assert removed == sorted(removed) and len(removed) == 316
     assert set(removed).isdisjoint(live)
 
 
@@ -6031,7 +6032,7 @@ def test_accepted_inventory_annotation_tamper_does_not_change_enforcement():
     # Untampered enforcement outcome (the invariant being defended).
     summary = ratchet.validate_accepted_authority(_accepted_authority(), repo_root=root)
     assert summary["original_record_total"] == 655
-    assert len(summary["live_original_record_ids"]) == 398
+    assert len(summary["live_original_record_ids"]) == 339
     # Any annotation key added to an accepted-inventory row fails closed: the
     # row schema is exactly {category, disposition_history, original_record_id,
     # status}, so tamper can never ride along as metadata.
@@ -7548,7 +7549,7 @@ def test_pr_mode_passes_strict_original_record_subset(tmp_path: Path):
     assert compared["added_original_record_ids"] == []
     expected_removed = sorted(set(genesis_summary["active_original_record_ids"]) - live)
     assert compared["removed_original_record_ids"] == expected_removed
-    assert len(expected_removed) == 257
+    assert len(expected_removed) == 316
 
 
 # ---- VAL-CDG-008: exact UTC week arithmetic, non-backdated final as-of
@@ -9698,7 +9699,7 @@ def test_transition_reconstructs_all_655_ids_and_598_provenance_records():
     summary = ratchet.validate_accepted_authority(_real_authority(), repo_root=_REPO_ROOT)
     assert summary["original_record_total"] == 655
     assert summary["sdk_provenance_record_total"] == 598
-    assert len(summary["active_original_record_ids"]) == 398
+    assert len(summary["active_original_record_ids"]) == 339
     # The genesis reconstruction of the committed authority still spans the
     # full 655-record cohort — paydown resolves records, never removes them.
     genesis_summary = ratchet.validate_accepted_authority(
@@ -9932,7 +9933,7 @@ def test_strict_subset_requires_separate_authenticated_paydown():
     resolve(paydown, live_digest)
     compared = ratchet.compare_accepted_authorities(genesis, paydown, repo_root=root)
     assert compared["passing"] is True
-    assert len(compared["removed_original_record_ids"]) == 257
+    assert len(compared["removed_original_record_ids"]) == 316
     assert compared["authority"] == {"source": "accepted_authority"}
     assert "transition" not in compared
     # The same subset without the exact appended active-set digest cannot be
