@@ -131,17 +131,36 @@ Parsers live in `scripts/ci/tool_baseline_parsers.py`. Each is a pure function
 adding a parser is a one-function change and the runner's `--help`, this list,
 and `docs/TECH_DEBT.md` follow.
 
-Shipped in M1 by `m1-ratchet-runner`:
+The eight M1 parsers (`python scripts/ci/check_tool_baseline.py --help` lists
+the same names). The command column is what the runner expects to find on the
+tool's **stdout**; run it from `--cwd` so reported paths stay relative.
 
-| `--tool` | Command it expects (stdout) | Key symbol | Clean exit codes |
+| `--tool` | Command it expects (stdout) | Key form `<path>::<symbol>::<rule>` | Clean exit codes |
 |---|---|---|---|
-| `ruff` | `ruff check <paths> [--select ...] --output-format concise` | line-content hash | `0` |
-| `mypy` | `mypy [--ignore-missing-imports] <paths>` (text output; `error`/`warning` lines, notes ignored; rule = `[code]`) | line-content hash | `0` |
-| `todo` | `grep -rn --include='*.py' -E 'TODO\|FIXME' .` (rule = the marker word) | matched-line hash | `0`, `1` (no matches) |
+| `ruff` | `ruff check <paths> [--select ...] --output-format concise` | symbol = line-content hash; rule = ruff code (`F401`, `N806`) | `0` |
+| `vulture` | `vulture <paths> [--min-confidence N]` (text: `path:line: unused <kind> '<name>' (NN% confidence)`) | symbol = the reported name; rule = `unused-<kind>` (`unused-import`, `unused-function`, …); unnamed findings such as `unreachable code` hash the message | `0` (vulture exits `3` when it reports dead code; that is the normal case, not a crash) |
+| `deptry` | `deptry <root> --json-output /dev/stdout` (the human report goes to stderr) | symbol = module name; rule = `DEP001`..`DEP004`; `pyproject.toml` findings have no line | `0` |
+| `jscpd` | `sh -c 'jscpd --reporters json --output DIR --silent . >/dev/null; cat DIR/jscpd-report.json'` — the `json` reporter only writes `DIR/jscpd-report.json`, never stdout, so the wired command must `cat` it; scan `.` from `--cwd` so `firstFile.name` is relative | path = `firstFile.name`; symbol = hash of the duplicated `fragment`; rule = `clone`. A third copy of the same fragment raises the count | `0` (`1` only when over `--threshold`) |
+| `mypy` | `mypy [--ignore-missing-imports] <paths>` (text output; `error`/`warning` lines, notes ignored) | symbol = line-content hash; rule = `[code]` (`arg-type`, `return-value`) | `0` |
+| `eslint` | `eslint -f json <paths>` (`filePath` is absolute; the runner makes it relative to `--cwd`) | symbol = line-content hash; rule = `ruleId` (a fatal parse error with `ruleId: null` is `fatal`) | `0` |
+| `golangci-lint` | `golangci-lint run --output.json.path stdout --show-stats=false ./...` (v2 JSON schema: `{"Issues":[{"FromLinter","Text","SourceLines","Pos":{"Filename","Line"}}],"Report":…}`; without `--show-stats=false` a text stats block follows the JSON on stdout and only the first JSON object is read) | symbol = line-content hash (taken from `SourceLines[0]`, or read from the file when absent); rule = `FromLinter` (`errcheck`, `revive`) | `0` |
+| `todo` | `grep -rn --include='*.py' -E 'TODO\|FIXME' .` | symbol = matched-line hash; rule = the marker word (`TODO`, `FIXME`, `XXX`, `HACK`) | `0`, `1` (no matches) |
 
-<!-- PLACEHOLDER (m1-ratchet-parsers): extend this table with vulture, deptry (JSON),
-     jscpd (JSON), eslint (JSON), golangci-lint (v2 JSON) — the command each expects
-     and its key form. -->
+Two key families follow from the table:
+
+- **Line-keyed tools** (`ruff`, `mypy`, `eslint`, `golangci-lint`): the parser
+  reports a line number and the runner hashes that source line's stripped
+  content from `--cwd`, so two findings of the same rule in one function keep
+  distinct keys and a pure line shift changes nothing.
+- **Symbol-keyed tools** (`vulture`, `deptry`, `jscpd`, `todo`): the tool's own
+  output already names the thing (a dead symbol, an unused module, a duplicated
+  fragment, a matched comment line), so the parser fills the symbol itself and
+  the runner never opens the source file.
+
+Every parser has a captured real-output fixture under
+`tests/ci/fixtures/tool_baseline/` and at least one test id naming it in
+`tests/ci/test_check_tool_baseline.py`; a later milestone that adds a parser
+(e.g. `knip`) must add both.
 
 ## Contributor flow
 
@@ -187,7 +206,11 @@ command), where the count is `len(findings)`.
 
 ## Related mechanisms
 
-- **ESLint bulk suppressions (M5).** <!-- PLACEHOLDER (m5-frontend-quality): the JS apps use
+Two entries below are intentionally placeholders: the mechanism is designed but
+lands in a later feature, which replaces the marked comment in place.
+
+- **ESLint bulk suppressions (M5) — placeholder, filled by `m5-frontend-quality`.**
+  <!-- PLACEHOLDER (m5-frontend-quality): the JS apps use
   ESLint's native `eslint-suppressions.json` (`eslint --suppress-all` to create,
   `eslint --prune-suppressions` to shrink) for `naming-convention` and `complexity`
   instead of this runner; document the files, the prune command, and the
@@ -197,7 +220,8 @@ command), where the count is `len(findings)`.
   when it lands.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
   runner with `--tool todo` and a fixed scan scope; documented when it lands.
-- **Dependency cooldown (uv).** <!-- PLACEHOLDER (m1-release-age-dependabot): pointer to
+- **Dependency cooldown (uv) — placeholder, filled by `m1-release-age-dependabot`.**
+  <!-- PLACEHOLDER (m1-release-age-dependabot): pointer to
   `scripts/ci/uv_lock_with_cooldown.sh` and the two-step flow (lock with
   `--exclude-newer <7 days ago>`, then plain `uv lock` so the committed lock
   never carries `exclude-newer`; exit 2 listing held-back packages when the
