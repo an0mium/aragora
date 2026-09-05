@@ -1,0 +1,242 @@
+"""Request-shape hardening: catalog-driven Anthropic/OpenAI payload flags.
+
+Task 7 (frontier-model-refresh, 2026-09-04): request shapes must be derived
+from ``aragora.models.catalog`` flags (``supports_sampling_params``,
+``thinking_default_on``, ``forced_tool_choice_allowed``, ``max_tokens_param``,
+``reasoning_effort_default``) instead of hand-maintained per-provider
+conditionals, so a new frontier row is enough to correct the wire shape.
+"""
+
+from __future__ import annotations
+
+import json
+import socket
+import urllib.request
+
+import pytest
+
+from aragora.models import compat
+
+
+def test_flags_come_from_catalog() -> None:
+    assert compat.rejects_sampling_params("gpt-6-astra") is True
+    assert compat.rejects_sampling_params("claude-fable-5-1") is True
+    assert compat.rejects_sampling_params("gemini-3.8-flash") is False
+    assert compat.rejects_sampling_params("claude-newfamily-9") is False  # unknown -> conservative
+    assert compat.thinks_by_default("claude-fable-5-1") is True
+    assert compat.allows_forced_tool_choice("claude-fable-5-1") is False
+    assert compat.max_tokens_param("gpt-6-astra") == "max_completion_tokens"
+    assert compat.max_tokens_param("gemini-3.8-flash") == "max_tokens"
+    assert compat.reasoning_effort_default("gpt-6-astra") == "high"
+
+
+def test_anthropic_payload_for_fable_51() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(
+        name="a", model="claude-fable-5-1", temperature=0.2, top_p=0.9, api_key="test-key"
+    )
+    payload = agent._build_payload("hello", max_tokens=32000)
+    assert "temperature" not in payload and "top_p" not in payload
+    assert "thinking" not in payload or payload["thinking"] == {"type": "adaptive"}
+    assert payload["max_tokens"] == 32000
+    assert payload.get("tool_choice", {"type": "auto"}).get("type") in ("auto", "none")
+
+
+def test_anthropic_payload_default_max_tokens_non_streaming() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    payload = agent._build_payload("hello")
+    # min(catalog max_output_tokens=128_000, 16_000) for non-streaming.
+    assert payload["max_tokens"] == 16000
+
+
+def test_anthropic_payload_default_max_tokens_streaming() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    payload = agent._build_payload("hello", stream=True)
+    # min(catalog max_output_tokens=128_000, 64_000) for streaming.
+    assert payload["max_tokens"] == 64000
+
+
+def test_anthropic_payload_caller_value_capped_at_catalog_max() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    payload = agent._build_payload("hello", max_tokens=999_000)
+    assert payload["max_tokens"] == 128_000
+
+
+def test_anthropic_payload_unknown_model_keeps_4096_default() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-newfamily-9", api_key="test-key")
+    payload = agent._build_payload("hello")
+    assert payload["max_tokens"] == 4096
+
+
+def test_anthropic_refusal_fallback_payload_and_headers() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    payload = agent._build_payload("hello")
+    assert payload.get("fallbacks") == "default"
+    headers = agent._request_headers()
+    assert "server-side-fallback-2026-07-01" in headers.get("anthropic-beta", "")
+
+
+def test_anthropic_refusal_fallback_disabled_by_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    monkeypatch.setenv("ARAGORA_ANTHROPIC_REFUSAL_FALLBACK", "false")
+    from aragora.config.settings import get_settings
+
+    get_settings.cache_clear()
+    try:
+        agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+        payload = agent._build_payload("hello")
+        assert "fallbacks" not in payload
+        headers = agent._request_headers()
+        assert "server-side-fallback-2026-07-01" not in headers.get("anthropic-beta", "")
+    finally:
+        get_settings.cache_clear()
+
+
+def test_anthropic_refusal_fallback_not_applied_to_other_models() -> None:
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-opus-4-8", api_key="test-key")
+    payload = agent._build_payload("hello")
+    assert "fallbacks" not in payload
+
+
+def test_anthropic_stop_reason_refusal_raises_structured_error() -> None:
+    import asyncio
+
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.agents.errors.exceptions import AgentAPIError
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(
+        return_value={
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {"category": "cyber"},
+            "usage": {"input_tokens": 1, "output_tokens": 0},
+        }
+    )
+
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    # __aexit__ must return a falsy value: a Mock's default truthy return
+    # would tell the `async with` protocol to suppress any exception raised
+    # inside the block, silently turning our raise into a `None` return.
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.post = MagicMock(
+        return_value=MagicMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        with pytest.raises(AgentAPIError) as excinfo:
+            asyncio.run(agent.generate("hello"))
+
+    assert getattr(excinfo.value, "reason", None) == "refusal"
+    assert getattr(excinfo.value, "category", None) == "cyber"
+
+
+def test_openai_payload_for_astra() -> None:
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+    agent = OpenAIAPIAgent(name="o", model="gpt-6-astra", temperature=0.3, api_key="test-key")
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert "max_completion_tokens" in payload and "max_tokens" not in payload
+    assert "temperature" not in payload
+    assert payload["reasoning_effort"] == "high"
+
+
+def test_openai_payload_for_non_reasoning_model_unchanged() -> None:
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+    agent = OpenAIAPIAgent(
+        name="o", model="some-openai-compatible-model", temperature=0.3, api_key="test-key"
+    )
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert (
+        "max_tokens" in payload
+        and payload["temperature"] == 0.3
+        and "reasoning_effort" not in payload
+    )
+
+
+def test_openai_reasoning_effort_override() -> None:
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+    agent = OpenAIAPIAgent(
+        name="o", model="gpt-6-astra", reasoning_effort="xhigh", api_key="test-key"
+    )
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert payload["reasoning_effort"] == "xhigh"
+
+
+# ---------------------------------------------------------------------------
+# Keyless smoke test through VibeProxy (skipped automatically when the proxy
+# is absent, e.g. in CI).
+# ---------------------------------------------------------------------------
+
+
+def _proxy_up() -> bool:
+    try:
+        socket.create_connection(("127.0.0.1", 8318), timeout=1).close()
+        return True
+    except OSError:
+        return False
+
+
+@pytest.mark.skipif(not _proxy_up(), reason="VibeProxy not running on 127.0.0.1:8318")
+@pytest.mark.parametrize(
+    "model,url,body",
+    [
+        (
+            "gpt-6-astra",
+            "http://127.0.0.1:8318/v1/chat/completions",
+            {
+                "model": "gpt-6-astra",
+                "messages": [{"role": "user", "content": "Reply: ok"}],
+                "max_completion_tokens": 16,
+                "reasoning_effort": "low",
+            },
+        ),
+        (
+            "claude-fable-5-1",
+            "http://127.0.0.1:8318/v1/messages",
+            {
+                "model": "claude-fable-5-1",
+                "max_tokens": 16,
+                "messages": [{"role": "user", "content": "Reply: ok"}],
+            },
+        ),
+    ],
+)
+def test_live_shape_accepted_by_proxy(model: str, url: str, body: dict) -> None:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer local",
+            "x-api-key": "local",
+            "anthropic-version": "2023-06-01",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=120) as r:
+        assert r.status == 200
