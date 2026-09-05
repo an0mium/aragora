@@ -292,3 +292,90 @@ def test_pre_pr_explicit_openrouter_rows_price_as_before() -> None:
     assert calculate_token_cost("openrouter", "openai/gpt-5.5", 1_000_000, 1_000_000) == Decimal(
         "35.00"
     )
+
+
+# ---------------------------------------------------------------------------
+# Wave-3 generators (2026-09-04 controller rulings): the hand-maintained
+# estimate tables PR 1's spec inventory missed. Unlike the five phase-2
+# tables these emit ACTIVE rows only -- each consumer keeps its historical
+# hand rows verbatim, so re-emitting a retired row would only restate a
+# price the table already carries.
+# ---------------------------------------------------------------------------
+
+
+def test_per_1k_rows_are_the_catalog_rate_divided_by_1000() -> None:
+    rows = pm.per_1k_rows()
+    astra = CATALOG["gpt-6-astra"]
+    assert rows["gpt-6-astra"] == {
+        "input": astra.input_per_mtok / 1000.0,
+        "output": astra.output_per_mtok / 1000.0,
+    }
+
+
+def test_per_mtok_rows_are_the_catalog_rate_verbatim() -> None:
+    rows = pm.per_mtok_rows()
+    fable = CATALOG["claude-fable-5-1"]
+    assert rows["claude-fable-5-1"] == {
+        "input": fable.input_per_mtok,
+        "output": fable.output_per_mtok,
+    }
+
+
+def test_input_cost_per_1k_rows_use_the_input_rate() -> None:
+    rows = pm.input_cost_per_1k_rows()
+    grok = CATALOG["grok-4.6"]
+    assert rows["grok-4.6"] == grok.input_per_mtok / 1000.0
+
+
+def test_wave3_generators_cover_every_active_spelling_and_no_retired_row() -> None:
+    active = {sp for s in CATALOG.values() if not s.retired for sp in s.all_ids()}
+    retired_only = {
+        sp for s in CATALOG.values() if s.retired for sp in s.all_ids()
+    } - active
+    for rows in (pm.per_1k_rows(), pm.per_mtok_rows(), pm.input_cost_per_1k_rows()):
+        assert active <= set(rows)
+        assert not (retired_only & set(rows))
+
+
+def test_workflow_tables_gained_the_frontier_and_kept_their_history() -> None:
+    """Both workflow ``MODEL_PRICING`` tables had no row for any current
+    frontier model, so every live call billed at the ``default`` estimate."""
+    from aragora.workflow.engine_v2 import MODEL_PRICING as ENGINE_PRICING
+    from aragora.workflow.resource_tracker import MODEL_PRICING as TRACKER_PRICING
+
+    per_1k = pm.per_1k_rows()
+    for table in (ENGINE_PRICING, TRACKER_PRICING):
+        # Historical rows and family labels survive untouched.
+        assert table["gpt-4"] == {"input": 0.03, "output": 0.06}
+        assert table["claude"] == {"input": 0.003, "output": 0.015}
+        assert table["default"] == {"input": 0.003, "output": 0.015}
+        # ... and every active catalog spelling is now priced explicitly.
+        for spelling, rates in per_1k.items():
+            assert table[spelling] == rates
+        assert table["gpt-6-astra"] != table["default"]
+
+
+def test_context_manager_pricing_gained_the_frontier_and_kept_its_history() -> None:
+    from aragora.documents.chunking.context_manager import PRICING, ContextManager
+
+    assert PRICING["gpt-4-turbo"] == {"input": 10.00, "output": 30.00}
+    for spelling, rates in pm.per_mtok_rows().items():
+        assert PRICING[spelling] == rates
+
+    # A preview for a current model no longer falls back to the $5/$15 guess.
+    astra = CATALOG["gpt-6-astra"]
+    estimate = ContextManager().estimate_cost(total_tokens=1_000_000, model="gpt-6-astra")
+    assert estimate["input_cost_usd"] == round(astra.input_per_mtok, 4)
+
+
+def test_agent_cost_estimates_gained_the_frontier_and_kept_prefix_matching() -> None:
+    from aragora.server.handlers.agents.recommendations import _AGENT_COST_ESTIMATES
+
+    assert _AGENT_COST_ESTIMATES["claude"] == 0.015
+    assert _AGENT_COST_ESTIMATES["gpt-4o"] == 0.005
+    # The family labels must still come FIRST so prefix matching (which
+    # walks the dict in insertion order) still reaches them.
+    keys = list(_AGENT_COST_ESTIMATES)
+    assert keys.index("claude") < keys.index("claude-fable-5-1")
+    for spelling, rate in pm.input_cost_per_1k_rows().items():
+        assert _AGENT_COST_ESTIMATES[spelling] == rate

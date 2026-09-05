@@ -37,8 +37,11 @@ if TYPE_CHECKING:
 __all__ = [
     "dec",
     "debate_cost_rows",
+    "input_cost_per_1k_rows",
     "metering_rows",
     "pdb_rows",
+    "per_1k_rows",
+    "per_mtok_rows",
     "provider_config_rows",
     "usage_rows",
 ]
@@ -71,6 +74,22 @@ def _active() -> list[ModelSpec]:
     frontier-selection surfaces (those checks live on ``ModelSpec.retired``
     itself, not here)."""
     return [s for s in CATALOG.values()]
+
+
+def _current() -> list[ModelSpec]:
+    """Only the rows that are still ACTIVE.
+
+    The five phase-2 tables above deliberately price retired rows too (an
+    old receipt must still resolve). The tables added in the 2026-09-05
+    wave-3 pass are different: they are *forward*-looking estimate tables
+    (workflow resource budgeting, document cost previews, the agent
+    leaderboard's per-1K estimate) whose hand-written rows are being KEPT
+    as-is for historical spellings. Emitting retired rows here would only
+    restate a historical price the table already carries by hand, so these
+    generators add the active frontier and nothing else -- exactly the
+    "keep the historical rows, add the current ones" shape the
+    frontier-model-refresh wave-3 rulings call for."""
+    return [s for s in CATALOG.values() if not s.retired]
 
 
 _OPENROUTER = "openrouter"
@@ -296,3 +315,43 @@ def provider_config_rows(
         for s in rows.values()
         if not s.retired
     }
+
+
+def per_1k_rows() -> dict[str, dict[str, float]]:
+    """Shape of the workflow resource tables' ``MODEL_PRICING``
+    (``aragora.workflow.resource_tracker`` and
+    ``aragora.workflow.engine_v2``): spelling -> ``{"input": …, "output": …}``
+    in USD per 1K tokens, one entry per spelling in ``ModelSpec.all_ids()``.
+
+    Those tables budget a workflow run in per-1K units, so the catalog's
+    per-MTok rates are divided by 1000 here rather than at each call site."""
+    return {
+        spelling: {
+            "input": s.input_per_mtok / 1000.0,
+            "output": s.output_per_mtok / 1000.0,
+        }
+        for s in _current()
+        for spelling in s.all_ids()
+    }
+
+
+def per_mtok_rows() -> dict[str, dict[str, float]]:
+    """Shape of ``aragora.documents.chunking.context_manager``'s ``PRICING``:
+    spelling -> ``{"input": …, "output": …}`` in USD per 1M tokens, i.e. the
+    catalog's own units, one entry per spelling in ``ModelSpec.all_ids()``."""
+    return {
+        spelling: {"input": s.input_per_mtok, "output": s.output_per_mtok}
+        for s in _current()
+        for spelling in s.all_ids()
+    }
+
+
+def input_cost_per_1k_rows() -> dict[str, float]:
+    """Shape of
+    ``aragora.server.handlers.agents.recommendations._AGENT_COST_ESTIMATES``:
+    spelling -> INPUT rate in USD per 1K tokens.
+
+    That endpoint publishes a single ``estimated_cost_per_1k_tokens`` number
+    per agent, documented as the input rate; the output rate has no slot in
+    the response shape."""
+    return {spelling: s.input_per_mtok / 1000.0 for s in _current() for spelling in s.all_ids()}

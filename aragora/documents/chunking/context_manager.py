@@ -27,8 +27,30 @@ from typing import Any
 
 from aragora.documents.models import DocumentChunk, MODEL_TOKEN_LIMITS
 from aragora.documents.chunking.token_counter import TokenCounter, get_token_counter
+from aragora.models.pricing_mirror import per_mtok_rows
 
 logger = logging.getLogger(__name__)
+
+# Pricing in USD per 1M tokens, consulted by ``ContextManager.estimate_cost``.
+# The hand-written rows are HISTORICAL snapshots kept so a preview for an
+# archived document run still quotes the price that run was billed at; the
+# generated rows come from the catalog (one per spelling of every active
+# row) so a preview for a CURRENT model no longer falls back to the
+# module's $5/$15 guess. Module-level rather than function-local (where it
+# used to live) so the table is inspectable and testable, and the catalog
+# projection is built once instead of on every call.
+_LEGACY_PRICING: dict[str, dict[str, float]] = {
+    "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},
+    "gemini-3-pro": {"input": 1.25, "output": 5.00},
+    "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},
+    "gemini-3.1-pro": {"input": 1.25, "output": 5.00},
+    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+    "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-opus": {"input": 15.00, "output": 75.00},
+}
+
+PRICING: dict[str, dict[str, float]] = {**_LEGACY_PRICING, **per_mtok_rows()}
 
 
 class ContextStrategy(str, Enum):
@@ -549,18 +571,6 @@ class ContextManager:
         Returns:
             Cost estimate dictionary
         """
-        # Approximate pricing per 1M tokens (as of 2025)
-        PRICING = {
-            "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},
-            "gemini-3-pro": {"input": 1.25, "output": 5.00},
-            "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},
-            "gemini-3.1-pro": {"input": 1.25, "output": 5.00},
-            "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-            "gpt-4o": {"input": 2.50, "output": 10.00},
-            "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
-            "claude-3-opus": {"input": 15.00, "output": 75.00},
-        }
-
         pricing = PRICING.get(model, {"input": 5.00, "output": 15.00})
         input_cost = (total_tokens / 1_000_000) * pricing["input"]
         # Estimate output as 20% of input
