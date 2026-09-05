@@ -231,3 +231,59 @@ def test_anthropic_tier_targets_are_active_priced_rows() -> None:
     from aragora.models.catalog import frontier_for
 
     assert frontier_for("anthropic").canonical_id == "claude-fable-5-1"
+
+
+def test_one_successor_per_retired_row_whatever_the_spelling() -> None:
+    """A retired row must upgrade the same way however it is written.
+
+    Finding C-P3 on #9989: ``mistral-large-2411`` was an UPGRADES key and
+    resolved to ``mistral-large-2512``, but its OpenRouter spelling
+    ``mistralai/mistral-large-2411`` was not a key and fell through to the
+    family-frontier branch, giving the same model two successors.
+    """
+    assert (
+        resolve_model_id("mistralai/mistral-large-2411")
+        == resolve_model_id("mistral-large-2411")
+        == "mistral-large-2512"
+    )
+
+    for spec in CATALOG.values():
+        if not spec.retired:
+            continue
+        answers = {resolve_model_id(mid) for mid in spec.all_ids()}
+        assert len(answers) == 1, (
+            f"{spec.canonical_id}: spellings {spec.all_ids()} resolve to {answers}"
+        )
+        (answer,) = answers
+        target = CATALOG.get(answer)
+        assert target is not None and not target.retired, (
+            f"{spec.canonical_id} upgrades to {answer!r}, which is not an active row"
+        )
+
+
+def test_row_successor_index_only_covers_retired_rows() -> None:
+    from aragora.models.upgrade_map import _ROW_SUCCESSOR
+
+    for canonical_id, successor in _ROW_SUCCESSOR.items():
+        assert CATALOG[canonical_id].retired, (
+            f"{canonical_id} is active; the per-row successor index is for retired rows"
+        )
+        assert not CATALOG[successor].retired
+
+
+def test_row_successor_index_rejects_disagreeing_spellings() -> None:
+    """Two spellings of one retired row may not name different successors."""
+    import pytest as _pytest
+
+    from aragora.models import upgrade_map as um
+
+    retired = next(s for s in CATALOG.values() if s.retired and len(set(s.all_ids())) > 1)
+    a, b = sorted(set(retired.all_ids()))[:2]
+    conflicting = {a: "claude-fable-5-1", b: "gpt-6-astra"}
+    original = um.UPGRADES
+    um.UPGRADES = conflicting  # type: ignore[assignment]
+    try:
+        with _pytest.raises(ValueError, match="two successors"):
+            um._build_row_successors()
+    finally:
+        um.UPGRADES = original  # type: ignore[assignment]

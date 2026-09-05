@@ -23,9 +23,19 @@ Contract (frontier-model-refresh, Task 2, 2026-09-04 controller rulings):
 * ``resolve_model_id`` checks, in order: (1) ``UPGRADES`` exact-key hit;
   (2) ``spec_or_none`` resolution to an ACTIVE (non-retired) catalog row,
   returning its ``canonical_id``; (3) ``spec_or_none`` resolution to a
-  RETIRED row not covered by (1) or (2), returning that row's family
-  frontier (``frontier_for(spec.family).canonical_id``); (4) the input
-  unchanged. ``None`` in, ``None`` out.
+  RETIRED row, returning the ``UPGRADES`` target declared for ANY spelling
+  of that row if there is one, else that row's family frontier
+  (``frontier_for(spec.family).canonical_id``); (4) the input unchanged.
+  ``None`` in, ``None`` out.
+* ONE successor per retired row, whatever the spelling. Step (3) consults
+  ``_ROW_SUCCESSOR`` before the family frontier because ``UPGRADES`` keys
+  are individual spellings, not rows: ``mistral-large-2411`` was a key
+  (-> ``mistral-large-2512``) while its OpenRouter spelling
+  ``mistralai/mistral-large-2411`` was not, so the same retired model
+  upgraded two different ways depending on how it was written (finding
+  C-P3 on #9989). The explicit entry is authoritative for every spelling
+  of its row; the family frontier stays the answer for a retired row no
+  ``UPGRADES`` entry names.
 * ``RETIRED_PATTERN`` is built from ``UPGRADES`` keys only, with boundary
   guards so a retired key that happens to be a literal *prefix* of a
   longer ACTIVE spelling (``"claude-fable-5"`` vs. active
@@ -339,15 +349,51 @@ RETIRED_PATTERN: re.Pattern[str] = re.compile(
 )
 
 
+def _build_row_successors() -> dict[str, str]:
+    """``{retired canonical_id: successor}`` for every RETIRED catalog row
+    that any ``UPGRADES`` key names by any of its spellings.
+
+    ``UPGRADES`` is keyed by SPELLING, so a retired row whose bare id is a
+    key but whose OpenRouter slug is not used to get two different
+    successors: the bare spelling took the explicit target while the slug
+    fell through to the family frontier (finding C-P3 on #9989). Collapsing
+    the map onto canonical ids once, at import, gives ``resolve_model_id``
+    one answer per row for free.
+
+    A row whose spellings disagree on a target is a genuine authoring bug
+    in ``UPGRADES``, not something to paper over at runtime, so it raises
+    here rather than picking a winner.
+    """
+    successors: dict[str, str] = {}
+    for old, new in UPGRADES.items():
+        spec = spec_or_none(old)
+        if spec is None or not spec.retired:
+            continue
+        existing = successors.setdefault(spec.canonical_id, new)
+        if existing != new:
+            raise ValueError(
+                f"UPGRADES gives retired row {spec.canonical_id!r} two successors: "
+                f"{existing!r} and {new!r}"
+            )
+    return successors
+
+
+_ROW_SUCCESSOR: dict[str, str] = _build_row_successors()
+
+
 def resolve_model_id(model_id: str | None) -> str | None:
     """Map a legacy or superseded model spelling to the current catalog id.
 
     Order: an exact ``UPGRADES`` key hit wins; otherwise a spelling that
     resolves (via any catalog spelling: canonical/direct/openrouter/alias)
     to an ACTIVE row returns that row's ``canonical_id`` unchanged; a
-    spelling that resolves to a RETIRED row not covered by ``UPGRADES``
-    returns that row's family frontier; anything else passes through
-    unchanged. ``None`` in, ``None`` out.
+    spelling that resolves to a RETIRED row returns the successor
+    ``UPGRADES`` declares for that ROW (under any of its spellings) if
+    there is one, else the row's family frontier; anything else passes
+    through unchanged. ``None`` in, ``None`` out.
+
+    The per-ROW step is what makes the answer spelling-independent: see
+    ``_build_row_successors``.
     """
     if model_id is None:
         return None
@@ -359,4 +405,7 @@ def resolve_model_id(model_id: str | None) -> str | None:
         return model_id
     if not spec.retired:
         return spec.canonical_id
+    row_successor = _ROW_SUCCESSOR.get(spec.canonical_id)
+    if row_successor is not None:
+        return row_successor
     return frontier_for(spec.family).canonical_id
