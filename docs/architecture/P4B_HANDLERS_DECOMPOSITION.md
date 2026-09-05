@@ -16,9 +16,9 @@ path under a `DeprecationWarning` that names the handler basename
 | Bucket | Files | What happens |
 |---|---|---|
 | Keep flat (infrastructure) | 13 | untouched; they are the package's shared base (`base`, `secure`, ...) |
-| Move into an existing subdir | 155 | `git mv` + rewrite relative imports + registry pointer update + lazy shim |
-| Move into a new subdir | 12 | same, into `accounting/` (5) and `marketplace/` (7), both justified in §4.3 |
-| Retire (delete outright) | 5 | shadowed or pure-alias duplicates of a subdir twin; shim still added |
+| Move into an existing subdir | 156 | `git mv` + rewrite relative imports + registry pointer update + shim entry |
+| Move into a new subdir | 12 | same, into `finance/` (5) and `catalog/` (7), both justified in §4.3 |
+| Retire (delete outright) | 5 | shadowed or pure-alias duplicates of a subdir twin; shim entry still added |
 | Total | 186 | |
 
 End state: 13 flat modules + `__init__.py` = 14 files at the root, leaving
@@ -72,10 +72,13 @@ any name whose import raises `ImportError`/`AttributeError`.
 
 ### 2.2 Resolution at boot
 
-`aragora/server/unified_server.py:129` imports `HandlerRegistryMixin`
-(through the 74-line re-export shim `aragora/server/handler_registry.py`)
-and `unified_server.py:1281` calls `UnifiedHandler._init_handlers()` eagerly
-at startup. `_init_handlers` (`handler_registry/__init__.py:168-240`) runs
+`aragora/server/unified_server.py:129` imports `HandlerRegistryMixin` from
+`aragora.server.handler_registry`, which resolves to
+`handler_registry/__init__.py` (the sibling file
+`aragora/server/handler_registry.py` is shadowed by the package and never
+imported; same mechanism as `connectors.py` in §4.4), and
+`unified_server.py:1281` calls `UnifiedHandler._init_handlers()` eagerly at
+startup. `_init_handlers` (`handler_registry/__init__.py:168-240`) runs
 `filter_registry_by_tier(HANDLER_REGISTRY, active_tiers)` and then, for each
 surviving pair, `handler_ref.resolve()`.
 
@@ -154,95 +157,168 @@ The counts printed on the first line must not change across a batch
 `git ls-files ':(glob)aragora/server/handlers/*.py'`. A stub module left at
 `aragora/server/handlers/<name>.py` counts as a flat file under both, so
 168 stubs would leave the root at 181 and the ratchet red. The shim must
-live in `handlers/__init__.py` as a package-level lazy `__getattr__`.
-VAL-P4B-007's probe explicitly accepts this form: it tries
+live inside the package without adding files to the root. VAL-P4B-007's
+probe explicitly accepts this: it tries
 `importlib.import_module("aragora.server.handlers." + name)`, catches
 `ModuleNotFoundError`, and falls back to
 `getattr(importlib.import_module("aragora.server.handlers"), name)`.
 
-### 3.2 The pattern
+### 3.2 Why a package-level `__getattr__` alone is not enough
+
+A `__getattr__` on `aragora/server/handlers/__init__.py` serves
+`from aragora.server.handlers import routing` and
+`getattr(handlers, "routing")`, but the statement form
+`import aragora.server.handlers.routing` and the dotted form
+`from aragora.server.handlers.routing import X` go through the import
+system, which consults `sys.modules` and then `sys.meta_path` and never
+calls the parent package's `__getattr__`. Runtime code uses those forms
+on modules that move (measured over `aragora/` and `scripts/`, excluding the
+two registration tables):
+
+| form | B1 | B2 | B3 | B4 | runtime examples |
+|---|---|---|---|---|---|
+| `import aragora.server.handlers.<f>` | 0 | 1 | 0 | 5 | `orchestration/handler.py:1045` (`routing`); `workspace/{crud,policies,settings,members,invites}.py:34-38` (`workspace_module`, executed per request) |
+| `from aragora.server.handlers.<f> import` | 9 | 4 | 11 | 18 | `stream/servers_route_registration.py:42` (`accounting`, inside `try/except ImportError` that silently disables the routes) |
+| dotted string (`importlib`/`sys.modules.get`) | 1 | 0 | 13 | 1 | `workspace/__init__.py:96`; `shared_inbox/handler.py:65-92` (`sys.modules.get("..._shared_inbox_handler")`); `_oauth/utils.py:198` |
+
+Tests use the same forms far more (statement form 19/98/53/32 per batch;
+dotted `patch(...)` strings 1117/2573/2070/1719). Rewriting all of them is
+out of the per-PR LOC bound, so the shim has to make every form resolve to
+the live module.
+
+### 3.3 The pattern: one `sys.meta_path` finder plus `__getattr__`
 
 One new table in `aragora/server/handlers/_lazy_imports.py` (kept flat; it
 already owns `HANDLER_MODULES`), appended to by every batch:
 
 ```python
-# Old flat module basename -> new dotted module.  Read by the package
-# __getattr__ so `from aragora.server.handlers import checkpoints` keeps
-# working (with a DeprecationWarning) after the file moved.
+# Old flat basename -> new dotted module.  Read by the MovedModuleFinder in
+# handlers/__init__.py so every import form of the old path resolves to the
+# moved module (with a DeprecationWarning) until callers are migrated.
 MOVED_MODULES: dict[str, str] = {
-    "checkpoints": "aragora.server.handlers.memory.checkpoints",
+    "routing": "aragora.server.handlers.agents.routing",
     ...
 }
 ```
 
-And one branch added to the existing `__getattr__` in `handlers/__init__.py`,
-placed **after** the `HANDLER_MODULES` branch so class-name lookups keep
-their current fast path:
+And in `aragora/server/handlers/__init__.py`, a finder registered once at
+package import and a `__getattr__` branch that delegates to it:
 
 ```python
+class _MovedModuleLoader(importlib.abc.Loader):
+    def __init__(self, target: ModuleType) -> None:
+        self._target = target
+        self._spec = target.__spec__
+
+    def create_module(self, spec: ModuleSpec) -> ModuleType:
+        return self._target
+
+    def exec_module(self, module: ModuleType) -> None:
+        # module_from_spec always overwrites __spec__; give the real module its own back.
+        module.__spec__ = self._spec
+
+
+class _MovedModuleFinder(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        prefix = __name__ + "."
+        if not fullname.startswith(prefix):
+            return None
+        basename = fullname[len(prefix):]
+        new = MOVED_MODULES.get(basename)
+        if new is None:
+            return None
+        warnings.warn(
+            f"{fullname} moved to {new}; import {new} instead (handler basename: {basename})",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return importlib.util.spec_from_loader(fullname, _MovedModuleLoader(importlib.import_module(new)))
+
+
+if not any(isinstance(f, _MovedModuleFinder) for f in sys.meta_path):
+    sys.meta_path.append(_MovedModuleFinder())
+
+
 def __getattr__(name: str) -> Any:
     ...
     if name in HANDLER_MODULES:
         return _lazy_import(name)
-
     if name in MOVED_MODULES:
-        target = MOVED_MODULES[name]
-        warnings.warn(
-            f"aragora.server.handlers.{name} moved to {target}; "
-            f"import {target} instead (handler basename: {name})",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        module = importlib.import_module(target)
-        sys.modules[f"{__name__}.{name}"] = module
-        return module
-
+        return importlib.import_module(f"{__name__}.{name}")
     raise AttributeError(...)
 ```
 
-Three properties this gives, each load-bearing for a test population of
-4,643 `patch("aragora.server.handlers.<flat>....")` strings across 493 test
-files:
+The finder is appended, not prepended, so it only runs after the normal
+path finder has failed to find a real file, which means it can never
+shadow a module that still exists. Because `create_module` returns the
+already-imported real module, `sys.modules["aragora.server.handlers.routing"]`
+and `sys.modules["aragora.server.handlers.agents.routing"]` are the **same
+object**, and the real module keeps its own `__name__` and `__spec__`.
 
-1. `from aragora.server.handlers import checkpoints` and
-   `getattr(aragora.server.handlers, "checkpoints")` work and warn. The
-   warning text contains the basename, which is what VAL-P4B-007 asserts.
-2. The `sys.modules` alias makes `unittest.mock.patch("aragora.server.handlers.checkpoints.get_store")`
-   patch the **same module object** the implementation reads from, because
-   `mock._get_target` resolves the dotted target through `pkgutil.resolve_name`,
-   which walks `aragora.server.handlers` -> `__getattr__("checkpoints")` ->
-   the real module. Without the alias, tests would patch a dead copy.
-3. `import aragora.server.handlers.checkpoints` (statement form) still
-   raises `ModuleNotFoundError` on first use because the import system
-   consults `sys.modules` before `__getattr__`. The alias is populated on the
-   first attribute access, so the statement form works only after some
-   earlier `from ... import checkpoints`. This is the one incompatibility.
-   The consumer census (`/tmp/p4b-consumers.txt`, reproduced per file in §5)
-   found the statement form used only inside tests, and each batch rewrites
-   those to the new path in the same PR (§6 step 5).
+Verified in a throwaway package on Python 3.11.11 (the version in
+`library/environment.md`), one fresh interpreter per case:
 
-### 3.3 Shim ledger
+| # | form | result |
+|---|---|---|
+| 1 | `import pkg.old` | imports; one `DeprecationWarning` whose text contains `old`; `pkg.old is pkg.sub.real` |
+| 2 | `from pkg.old import f` | works, warns |
+| 3 | `from pkg import old` | works, warns, identity holds |
+| 4 | `getattr(pkg, "old")` | works, warns, identity holds |
+| 5 | `mock.patch("pkg.old.helper", ...)` | patches the live module: the real implementation sees the patched value inside the context and the original after |
+| 6 | `__name__`/`__spec__` of the real module after aliasing | unchanged (`pkg.sub.real`), both `sys.modules` keys point at it |
+| 7 | `from ..old import f` from a sibling module | works, warns |
+| 8 | `importlib.import_module("pkg.old")` | works, returns the real module |
+| 9 | the VAL-P4B-007 probe script verbatim | `PASS old` |
+| 10 | second and third imports of the old name | no further warnings (`sys.modules` short-circuits the finder) |
+
+Negative control with the `__getattr__`-only variant: forms 1 and 2 raise
+`ModuleNotFoundError` on first use, which is exactly what the runtime
+consumers in §3.2 would hit.
+
+Item 10 has a consequence for VAL-P4B-007: the warning fires once per
+process per module. The contract's probe runs one `python3` per sampled
+name, so it always sees the warning. Any in-process test that asserts the
+warning must run first for that name or clear `sys.modules` entries for both
+the old and new keys (only the old key is needed to re-trigger the finder,
+but clearing both avoids a half-initialised state).
+
+### 3.4 Migration of runtime consumers
+
+The shim keeps runtime consumers working, but each batch still rewrites
+the runtime consumers of its own files in the same PR (§6 step 5), because
+a `DeprecationWarning` on a per-request path (`workspace/*.py:34-38`) is
+noise in production logs. Test consumers may stay on the old path; a
+follow-up per directory can migrate them once the batch has settled.
+
+`connectors.py` is the one basename that is also a package name
+(`connectors/`). It is retired, not shimmed: the package already shadows
+it, so there is no old-path behaviour to preserve. This is also why the two
+new subdirs are named `finance/` and `catalog/` rather than `accounting/`
+and `marketplace/` (§4.3): a package named after a moved basename would win
+the import-system lookup before the finder ran, and `MOVED_MODULES["accounting"]`
+would be dead code.
+
+### 3.5 Shim ledger
 
 Every batch appends one bullet per moved module to
 `$MISSION/library/shims.md` in the normative form
 `- aragora.server.handlers.<flat> -> aragora.server.handlers.<dir>.<name> (PR #N)`.
-The five retired files (§4.4) get the same bullet pointing at the surviving
-twin, since the shim resolves them too.
+The retired files (§4.4) get the same bullet pointing at the surviving
+twin, since the finder resolves them too.
 
-### 3.4 Not chosen, and why
+### 3.6 Not chosen, and why
 
 - **Stub file per moved module** (the `analytics_metrics.py`, `slack.py`,
   `compliance_handler.py` precedent). Rejected: counts against the ratchet
   (§3.1). Those three existing stubs are retired in this plan for the same
   reason.
-- **`sys.meta_path` finder** to make the statement form work too. Rejected:
-  no precedent in the package (the only `meta_path` reference in `aragora/`
-  is a shutdown guard in `storage/schema.py`), and it would be the first
-  import hook in the server. If a later batch finds a runtime
-  statement-form consumer that cannot be rewritten, add the finder then and
-  note it here.
+- **Package `__getattr__` with a `sys.modules` alias, no finder.** The first
+  draft of this design. Rejected after the negative control above: the
+  statement and dotted forms fail until some earlier attribute access has
+  populated the alias, and §3.2 shows six runtime call sites that use those
+  forms on modules that move.
 - **Rewriting all 4,643 patch strings.** Rejected for the move PRs: it would
-  blow the 800-LOC bound many times over. The alias makes the rewrite
+  blow the 800-LOC bound many times over. The finder makes the rewrite
   optional; a follow-up cycle can do it per directory.
 
 ## 4. Mapping rules
@@ -269,19 +345,30 @@ file was checked for a live twin and retired instead (§4.4).
 
 ### 4.3 New subdirs (2, justified)
 
-- **`accounting/`** (5 files, 5,501 LOC): `accounting`, `ap_automation`,
+- **`finance/`** (5 files, 5,501 LOC): `accounting`, `ap_automation`,
   `ar_automation`, `expenses`, `invoices`. All five serve
   `/api/v1/accounting/...` and import from `aragora/accounting/`. No existing
   subdir owns that prefix; `billing/` and `payments/` are Stripe and
   subscription plumbing, and mixing QuickBooks/Gusto flows into them would
   invert the domain boundary the P4a layering work drew.
-- **`marketplace/`** (7 files, 3,936 LOC): `marketplace`,
+- **`catalog/`** (7 files, 3,936 LOC): `marketplace`,
   `marketplace_browse`, `marketplace_pilot`, `template_marketplace`,
   `template_discovery`, `skill_marketplace`, `skills`. All serve
   `/api/v1/marketplace/...` or `/api/v1/templates` and import from
-  `aragora/marketplace/` or `aragora/skills/`. There is no `marketplace/`
+  `aragora/marketplace/` or `aragora/skills/`. There is no marketplace
   subdir today and no closer fit (`features/` is the vertical-feature grab
   bag and is path-frozen by PR #9989).
+
+Neither new subdir may be named after a file it receives. A package
+`aragora.server.handlers.accounting` would satisfy
+`from aragora.server.handlers.accounting import register_accounting_routes`
+(`stream/servers_route_registration.py:42`) with the package's `__init__`
+instead of the moved module, and the finder in §3.3 would never run for
+that basename because the path finder ahead of it finds the directory
+first. The same applies to `marketplace` (29 `patch("aragora.server.handlers.marketplace...")`
+strings in `tests/server/handlers/test_marketplace_handler.py`). A batch
+that wants to add a subdir must check its name against every basename in
+`MOVED_MODULES`.
 
 ### 4.4 Retired outright (5)
 
@@ -293,9 +380,13 @@ file was checked for a live twin and retired instead (§4.4).
 | `analytics_metrics.py` | 14 | `_analytics_metrics_impl.py` (moves to `analytics/metrics_impl.py`) | pure re-export of `AnalyticsMetricsHandler` |
 | `compliance_handler.py` | 18 | `compliance/handler.py` | star re-export plus four store getters (`get_receipt_store`, `get_audit_store`, `get_legal_hold_manager`, `get_deletion_coordinator`); 118 test patch strings target those getters, so the batch adds the four names to `compliance/handler.py`'s namespace before deleting |
 
-Each retirement is still listed in `MOVED_MODULES` pointing at the twin, so
-old imports keep working and VAL-P4B-007 samples pass if one of these lands
-at the first/median/last position.
+Each retirement except `connectors` is listed in `MOVED_MODULES` pointing at
+the twin, so old imports keep working and VAL-P4B-007 samples pass if one of
+these lands at the first/median/last position. `connectors` cannot be
+shimmed (the package of the same name wins the import lookup, §3.4) and has
+no old-path behaviour to preserve; if VAL-P4B-007 samples it, the PR body
+records the deletion and the validator substitutes the next alphabetical
+entry as the contract allows.
 
 ### 4.5 Renames on landing (1)
 
@@ -418,19 +509,26 @@ flat path (import or `patch` string). Targets are relative to
 
 | flat file | LOC | registration | `aragora/` refs | test refs | target |
 |---|---|---|---|---|---|
-| `accounting.py` | 1467 | none | 1 | 2 | `accounting/accounting.py` |
-| `ap_automation.py` | 736 | HM 1 + reg 1 | 1 | 2 | `accounting/ap_automation.py` |
-| `ar_automation.py` | 724 | HM 1 + reg 1 | 1 | 2 | `accounting/ar_automation.py` |
-| `expenses.py` | 1318 | HM 1 + reg 1 | 1 | 4 | `accounting/expenses.py` |
-| `invoices.py` | 1156 | HM 1 + reg 1 | 1 | 3 | `accounting/invoices.py` |
 | `action_canvas.py` | 795 | HM 1 + reg 1 | 1 | 2 | `canvas/action_canvas.py` |
 | `canvas_pipeline.py` | 2600 | HM 1 + reg 1 | 2 | 11 | `canvas/canvas_pipeline.py` |
 | `goal_canvas.py` | 739 | HM 1 + reg 1 | 1 | 3 | `canvas/goal_canvas.py` |
 | `idea_canvas.py` | 707 | HM 1 + reg 1 | 1 | 3 | `canvas/idea_canvas.py` |
 | `orchestration_canvas.py` | 701 | HM 1 + reg 1 | 1 | 3 | `canvas/orchestration_canvas.py` |
+| `marketplace.py` | 716 | none | 4 | 5 | `catalog/marketplace.py` |
+| `marketplace_browse.py` | 217 | HM 1 + reg 1 | 1 | 1 | `catalog/marketplace_browse.py` |
+| `marketplace_pilot.py` | 395 | HM 1 + reg 1 | 1 | 3 | `catalog/marketplace_pilot.py` |
+| `skill_marketplace.py` | 626 | HM 1 + reg 1 | 1 | 4 | `catalog/skill_marketplace.py` |
+| `skills.py` | 411 | HM 1 + reg 1 | 1 | 4 | `catalog/skills.py` |
+| `template_discovery.py` | 162 | HM 1 + reg 1 | 1 | 1 | `catalog/template_discovery.py` |
+| `template_marketplace.py` | 1229 | HM 1 + reg 2 | 2 | 7 | `catalog/template_marketplace.py` |
 | `email_debate.py` | 343 | HM 1 + reg 1 | 1 | 3 | `email/email_debate.py` |
 | `email_services.py` | 1097 | HM 1 | 2 | 4 | `email/email_services.py` |
 | `email_triage.py` | 219 | HM 1 + reg 1 | 1 | 2 | `email/email_triage.py` |
+| `accounting.py` | 1467 | none | 1 | 2 | `finance/accounting.py` |
+| `ap_automation.py` | 736 | HM 1 + reg 1 | 1 | 2 | `finance/ap_automation.py` |
+| `ar_automation.py` | 724 | HM 1 + reg 1 | 1 | 2 | `finance/ar_automation.py` |
+| `expenses.py` | 1318 | HM 1 + reg 1 | 1 | 4 | `finance/expenses.py` |
+| `invoices.py` | 1156 | HM 1 + reg 1 | 1 | 3 | `finance/invoices.py` |
 | `a2a.py` | 654 | HM 1 | 1 | 3 | `gateway/a2a.py` |
 | `gateway_agents_handler.py` | 385 | HM 1 + reg 1 | 1 | 3 | `gateway/gateway_agents_handler.py` |
 | `gateway_config_handler.py` | 214 | HM 1 + reg 1 | 1 | 2 | `gateway/gateway_config_handler.py` |
@@ -449,13 +547,6 @@ flat path (import or `patch` string). Targets are relative to
 | `integration_management.py` | 925 | HM 1 + reg 1 | 2 | 5 | `integrations/integration_management.py` |
 | `mcp_tools_handler.py` | 123 | HM 1 + reg 1 | 1 | 2 | `integrations/mcp_tools_handler.py` |
 | `partner.py` | 503 | HM 1 + reg 1 | 1 | 3 | `integrations/partner.py` |
-| `marketplace.py` | 716 | none | 4 | 5 | `marketplace/marketplace.py` |
-| `marketplace_browse.py` | 217 | HM 1 + reg 1 | 1 | 1 | `marketplace/marketplace_browse.py` |
-| `marketplace_pilot.py` | 395 | HM 1 + reg 1 | 1 | 3 | `marketplace/marketplace_pilot.py` |
-| `skill_marketplace.py` | 626 | HM 1 + reg 1 | 1 | 4 | `marketplace/skill_marketplace.py` |
-| `skills.py` | 411 | HM 1 + reg 1 | 1 | 4 | `marketplace/skills.py` |
-| `template_discovery.py` | 162 | HM 1 + reg 1 | 1 | 1 | `marketplace/template_discovery.py` |
-| `template_marketplace.py` | 1229 | HM 1 + reg 2 | 2 | 7 | `marketplace/template_marketplace.py` |
 | `openclaw_gateway.py` | 105 | HM 1 + reg 1 | 4 | 6 | `openclaw/openclaw_gateway.py` |
 | `dag_operations.py` | 257 | HM 1 + reg 1 | 0 | 1 | `pipeline/dag_operations.py` |
 | `pipeline_graph.py` | 589 | HM 1 + reg 1 | 1 | 1 | `pipeline/pipeline_graph.py` |
@@ -540,14 +631,21 @@ into the PR body. `$ENV` below means
    must print `ok` and `exit=0`. Then
    `$ENV python3 -c "import logging; logging.basicConfig(level=logging.WARNING); from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers()" 2>&1 | grep -c 'Failed to import'`
    must print `0`.
-5. **Rewrite statement-form imports in tests.**
-   `rg -n "^\s*import aragora\.server\.handlers\.(<f1>|<f2>|...)\b" tests/`
-   and rewrite each to the new path (the shim does not cover the statement
-   form, §3.2 item 3). `patch(...)` strings and `from ... import` lines may
-   stay.
+5. **Rewrite runtime consumers of the old path.**
+   `rg -n "aragora\.server\.handlers\.(<f1>|<f2>|...)\b" aragora/ scripts/ | rg -v "handlers/(_lazy_imports|__init__)\.py|handler_registry/"`
+   lists every runtime import, `importlib` string and `sys.modules.get`
+   key for the batch's files. Rewrite each to the new dotted path in the
+   same PR (the finder keeps them working, §3.3, but a per-request
+   `DeprecationWarning` is log noise). Then run `$ENV python3 -W error::DeprecationWarning -c "from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers()"`
+   and confirm exit 0: any surviving old-path import on the boot path
+   raises. Test consumers (`import`, `from ... import`, `patch(...)`
+   strings) may stay on the old path.
 6. **Green shim probe (VAL-P4B-007).** `python3 /tmp/p4val/t7.py <basename>`
    must print `PASS <basename>` for every file in the batch, including
-   retired ones.
+   retired ones other than `connectors`. Then for every basename that is
+   also a directory name after the move (`ls aragora/server/handlers/ | sort | uniq -d`
+   over stripped `.py` suffixes) confirm the list is empty; a match means a
+   dead shim entry (§3.4).
 7. **Handler-specific tests.** For every target dir touched:
    `set -o pipefail; python3 -m pytest tests/handlers/<dir> tests/server/handlers/<dir> -q -p no:cacheprovider --timeout=120 </dev/null 2>&1 | tail -3`
    plus every test file named in the batch's "test refs" column that lives
@@ -609,14 +707,19 @@ directory-scoped pytest tails.
 |---|---|---|---|---|---|
 | 1 | 45 | 19,170 | admin, analytics, analytics_dashboard, auth, compliance, metrics, oauth, observability, public, security | ops, health, compliance, auth | Owns `admin/health/`, so it carries the k8s readiness fix (§8). Includes all three stub retirements and `status_page`. |
 | 2 | 41 | 21,276 | agents, debates, decisions, evolution, memory, tasks, verification | core debate loop | Highest test density (debates alone has 16 movers); `debates/__init__.py` enumerates 21 modules and must be edited. |
-| 3 | 45 | 30,292 | accounting (new), canvas, email, gateway, inbox, integrations, marketplace (new), openclaw, pipeline, shared_inbox, workflows | pipeline, integrations, SME verticals | Creates the two new subdirs; `canvas_pipeline.py` (2600 LOC) carries its size-baseline row. |
-| 4 | 42 | 33,760 | autonomous, billing, codebase, control_plane, demo, gauntlet, governance, knowledge, notifications, orchestration, sme, streaming, voice, webhooks, workspace | governance, autonomy, remaining verticals | Holds the two path-frozen files (`platform_config.py` PR #9989, `webhook_management.py` PR #9853) and `connectors.py`; re-census before opening. `playground.py` (4256 LOC) carries its size and bandit baseline rows. |
+| 3 | 45 | 30,292 | canvas, catalog (new), email, finance (new), gateway, inbox, integrations, openclaw, pipeline, shared_inbox, workflows | pipeline, integrations, SME verticals | Creates the two new subdirs; rewrites `stream/servers_route_registration.py:42` (`accounting`); `canvas_pipeline.py` (2600 LOC) carries its size-baseline row. |
+| 4 | 42 | 33,760 | autonomous, billing, codebase, control_plane, demo, gauntlet, governance, knowledge, notifications, orchestration, sme, streaming, voice, webhooks, workspace | governance, autonomy, remaining verticals | Holds the two path-frozen files (`platform_config.py` PR #9989, `webhook_management.py` PR #9853) and `connectors.py`; re-census before opening. Rewrites the six `workspace_module` runtime imports (§3.2). `playground.py` (4256 LOC) carries its size and bandit baseline rows. |
 
 Ordering rationale: batch 1 first because it is the smallest by LOC, has
 the fewest relative imports to rewrite after batch 3, and lands the shim
-machinery (`MOVED_MODULES`, the `__getattr__` branch, the ledger format)
-that batches 2 to 4 only append to. Batch 4 last because its frozen files
-need the foreign PRs to merge or the census to be redone.
+machinery (`MOVED_MODULES`, the finder, the `__getattr__` branch, the
+ledger format) that batches 2 to 4 only append to. Batch 4 last because its
+frozen files need the foreign PRs to merge or the census to be redone.
+
+The k8s readiness fix (§8) rides batch 1 because that batch owns `admin/`;
+if the operator prefers a separately revertable change, it can be split
+out as its own small Tier-3 PR ahead of batch 1 with no change to the rest
+of this plan. Either way it is one settlement decision in the same phase.
 
 Path-freeze census at design time (open PRs touching handler files, from a
 paginated `gh pr list --json files`): flat files frozen are
@@ -663,7 +766,7 @@ rides a Tier-3 PR rather than a doc-tier one.
 | VAL-P4B-001 (< 20 flat) | §1: 14 remain; §3.1 forbids stub files |
 | VAL-P4B-005 (smoke green) | §6 step 8, every batch |
 | VAL-P4B-006 (entrypoint imports) | §6 step 4, every batch |
-| VAL-P4B-007 (old path + DeprecationWarning with basename) | §3.2 shim; §6 steps 1 and 6 |
+| VAL-P4B-007 (old path + DeprecationWarning with basename) | §3.3 finder (prototype row 9 runs the contract's probe verbatim); §6 steps 1 and 6 |
 | VAL-P4B-008 (tool count == ls-files count) | §6 step 9 |
 | VAL-P4B-002/003/004/009 | owned by `p4b-cycles-and-counts` after the four batches; the batches must not regress them, which §6 step 9's `measure_import_graph.py` run checks |
 
