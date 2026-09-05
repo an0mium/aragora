@@ -62,6 +62,7 @@ def key_file(tmp_path):
             serialization.NoEncryption(),
         )
     )
+    path.chmod(0o600)
     return path
 
 
@@ -149,6 +150,8 @@ def test_unusable_file_fails_closed(odr, tmp_path, kind, monkeypatch):
         )
     elif kind != "missing":
         path.write_text("not a key")
+    if path.is_file():
+        path.chmod(0o600)
     if kind == "unreadable":
         monkeypatch.setattr(Path, "read_bytes", lambda _: _permission_denied())
     monkeypatch.setenv(FILE_ENV, str(path))

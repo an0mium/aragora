@@ -168,6 +168,7 @@ def test_file_signing_before_output(tmp_path, monkeypatch, capsys, mode):
                 serialization.NoEncryption(),
             )
         )
+        key_file.chmod(0o600)
     if mode != "unset":
         monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_FILE", "" if mode == "empty" else str(key_file))
     outcome_path = tmp_path / "outcome.json"

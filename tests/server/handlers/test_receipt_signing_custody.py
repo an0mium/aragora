@@ -30,6 +30,8 @@ async def test_key_routes_and_readiness_are_independent(tmp_path, monkeypatch, m
         )
     elif mode == "garbage":
         path.write_text("not a key")
+    if path.is_file():
+        path.chmod(0o600)
     if mode != "unset":
         monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_FILE", "" if mode == "empty" else str(path))
     handler = ReceiptsHandler({})
