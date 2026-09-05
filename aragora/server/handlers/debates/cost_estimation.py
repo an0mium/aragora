@@ -11,7 +11,7 @@ from typing import Any
 
 from aragora.billing.usage import PROVIDER_PRICING, calculate_token_cost
 from aragora.config.model_pins import FABLE_51_DIRECT, GEMINI_31_PRO_DIRECT, GPT6_ASTRA_DIRECT
-from aragora.models.catalog import CATALOG
+from aragora.models.catalog import CATALOG, ModelSpec
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 
 logger = logging.getLogger(__name__)
@@ -54,12 +54,26 @@ _LEGACY_MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
 }
 
 
-def _pricing_provider(provider: str) -> str:
-    """Fall back to "openrouter" for a catalog provider PROVIDER_PRICING
-    doesn't carry a native bucket for (e.g. ai21, alibaba, cohere, moonshot,
-    perplexity) -- accurate per-model pricing for those is Task 6 scope;
-    "openrouter" already has a documented default-rate bucket."""
-    return provider if provider in PROVIDER_PRICING else "openrouter"
+def _pricing_provider(spec: ModelSpec) -> str:
+    """Billing provider label for a catalog row: the same billing provider
+    the legacy rows above used for that FAMILY, not necessarily the
+    catalog's own ``provider`` field.
+
+    ``ModelSpec.provider`` records how a row is *reached* (e.g.
+    deepseek-v4-pro-0813's ``provider`` is "openrouter" because that is its
+    only modeled transport), which is not always the same thing as which
+    billing family it belongs to -- the legacy "deepseek-v4-pro" row above
+    was always billed as "deepseek", and deepseek-v4-pro-0813 is the same
+    family. So this keys off ``spec.family`` (the pretraining-lineage
+    grouping) instead: when the family itself names a PROVIDER_PRICING
+    bucket (anthropic, openai, google, xai, mistral, deepseek), use it;
+    otherwise (ai21, alibaba/qwen, cohere, moonshot, perplexity, meta, zai,
+    minimax -- none of which PROVIDER_PRICING carries a native bucket for)
+    fall back to "openrouter", which already has a documented default-rate
+    bucket. Accurate per-model pricing for the fallback families is Task 6
+    scope.
+    """
+    return spec.family if spec.family in PROVIDER_PRICING else "openrouter"
 
 
 # Model -> (provider, model_key) mapping for cost lookup. Built from every
@@ -69,14 +83,18 @@ def _pricing_provider(provider: str) -> str:
 # as they always have (frontier-model-refresh, 2026-09-04).
 MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     **{
-        spelling: (_pricing_provider(spec.provider), spec.canonical_id)
+        spelling: (_pricing_provider(spec), spec.canonical_id)
         for spec in CATALOG.values()
         for spelling in spec.all_ids()
     },
     **_LEGACY_MODEL_PROVIDER_MAP,
 }
 
-# Default models when none specified
+# Default models when none specified. NOTE: PROVIDER_PRICING itself has no
+# claude-fable-5-1 / gpt-6-astra rows yet -- that per-model pricing
+# migration is declared Task 6 scope (ruling 4) and is deliberately NOT
+# fixed here; calculate_token_cost() falls back to each provider's
+# "default" rate for these until then.
 DEFAULT_MODELS = [FABLE_51_DIRECT, GPT6_ASTRA_DIRECT, GEMINI_31_PRO_DIRECT]
 
 

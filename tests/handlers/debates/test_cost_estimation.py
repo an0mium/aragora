@@ -462,6 +462,27 @@ class TestEstimateDebateCostModelProviderMap:
                 f"{model}: provider {provider} not in PROVIDER_PRICING"
             )
 
+    def test_default_models_map_to_their_own_provider(self):
+        """Each DEFAULT_MODELS entry must resolve to its own real billing
+        provider, not the "openrouter" catch-all (frontier-model-refresh,
+        2026-09-04 review fix round 1, item 2): claude-fable-5-1 is
+        anthropic, gpt-6-astra is openai, gemini-3.1-pro-preview is google.
+        """
+        expected = {
+            "claude-fable-5-1": "anthropic",
+            "gpt-6-astra": "openai",
+            "gemini-3.1-pro-preview": "google",
+        }
+        assert set(DEFAULT_MODELS) == set(expected), (
+            "DEFAULT_MODELS changed; update this test's expectations"
+        )
+        for model in DEFAULT_MODELS:
+            provider, _ = MODEL_PROVIDER_MAP[model]
+            assert provider == expected[model], (
+                f"{model}: expected provider {expected[model]!r}, got {provider!r}"
+            )
+            assert provider != "openrouter", f"{model} incorrectly fell back to openrouter"
+
 
 # ===========================================================================
 # Tests for handle_estimate_cost()
