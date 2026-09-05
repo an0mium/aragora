@@ -1653,6 +1653,84 @@ class TestCrossBucketPriceConsistency:
             + "\n".join(sorted(conflicts))
         )
 
+    def test_metering_extra_prices_never_disagree_with_the_shared_table(self):
+        """The tenant-billing path passes its own table as ``extra_prices``.
+
+        ``services.usage_metering`` carried ``deepseek-v3`` at 0.14/0.28
+        while ``PROVIDER_PRICING`` priced the same spelling at 0.28/0.42
+        (DeepSeek's current list price), and ``extra_prices`` won the exact
+        same-provider hit -- so that one spelling billed at a rate no other
+        caller used (2026-09-05 merge-gate addendum on #9989).
+        """
+        from aragora.billing.usage import PROVIDER_PRICING
+        from aragora.services.metering_models import MODEL_PRICING
+
+        shared: dict[str, tuple[str, Decimal]] = {}
+        for bucket, rows in PROVIDER_PRICING.items():
+            for spelling, rate in rows.items():
+                shared.setdefault(spelling, (bucket, rate))
+
+        conflicts: list[str] = []
+        for bucket, rows in MODEL_PRICING.items():
+            for spelling, rate in rows.items():
+                if spelling in ("default", "default-output"):
+                    continue
+                prior = shared.get(spelling)
+                if prior is not None and prior[1] != rate:
+                    conflicts.append(
+                        f"{spelling!r}: PROVIDER_PRICING[{prior[0]}]={prior[1]} vs "
+                        f"MODEL_PRICING[{bucket}]={rate}"
+                    )
+        assert not conflicts, (
+            "the metering table restates a spelling the shared table already "
+            "prices, at a different rate:\n" + "\n".join(sorted(conflicts))
+        )
+
+    def test_extra_prices_cannot_override_a_shared_spelling(self):
+        """Even a hand-built extra_prices row loses to the shared table."""
+        from aragora.billing.usage import PROVIDER_PRICING
+
+        rogue = {
+            "deepseek": {
+                "deepseek-v3": Decimal("0.14"),
+                "deepseek-v3-output": Decimal("0.28"),
+            }
+        }
+        cost = calculate_token_cost(
+            "deepseek", "deepseek-v3", 1_000_000, 1_000_000, extra_prices=rogue
+        )
+        shared = PROVIDER_PRICING["deepseek"]
+        assert cost == shared["deepseek-v3"] + shared["deepseek-v3-output"]
+        assert cost == Decimal("0.28") + Decimal("0.42")
+
+    def test_extra_prices_still_supplies_spellings_the_shared_table_lacks(self):
+        """The guard must not turn extra_prices into dead weight."""
+        from aragora.billing.usage import _SHARED_PRICED_SPELLINGS
+
+        spelling = "totally-uncataloged-model-xyz"
+        assert spelling not in _SHARED_PRICED_SPELLINGS
+        extra = {
+            "deepseek": {
+                spelling: Decimal("3.00"),
+                f"{spelling}-output": Decimal("9.00"),
+            }
+        }
+        cost = calculate_token_cost("deepseek", spelling, 1_000_000, 1_000_000, extra_prices=extra)
+        assert cost == Decimal("12.00")
+
+    def test_extra_prices_default_row_is_still_honoured(self):
+        """Default rows are per-provider fallbacks, not model spellings."""
+        extra = {
+            "deepseek": {
+                "default": Decimal("7.00"),
+                "default-output": Decimal("11.00"),
+            }
+        }
+        cost = calculate_token_cost(
+            "deepseek", "no-such-model-at-all", 1_000_000, 1_000_000, extra_prices=extra
+        )
+        assert cost == Decimal("18.00")
+
     def test_the_invariant_covers_more_than_a_handful_of_shared_spellings(self):
         """Guards against the test above passing vacuously if bucketing ever
         stopped emitting a spelling under more than one label."""

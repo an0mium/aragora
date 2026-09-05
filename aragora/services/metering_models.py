@@ -111,8 +111,16 @@ _LEGACY_MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "deepseek": {
         "deepseek-v4-pro": Decimal("1.74"),
         "deepseek-v4-pro-output": Decimal("3.48"),
-        "deepseek-v3": Decimal("0.14"),
-        "deepseek-v3-output": Decimal("0.28"),
+        # NOTE: "deepseek-v3"/"deepseek-v3-output" were here at 0.14/0.28
+        # while aragora/billing/usage.py's shared table priced the same
+        # spelling at 0.28/0.42 (DeepSeek's current list price). Because
+        # this table is passed to calculate_token_cost as ``extra_prices``,
+        # the losing rate won on the tenant-billing path only, so one
+        # spelling billed two ways depending on which caller priced it
+        # (2026-09-05 merge-gate addendum on #9989). Removed; the shared
+        # table's 0.28/0.42 is the rate, and calculate_token_cost now
+        # refuses to let extra_prices restate a spelling the shared table
+        # already prices at all.
         "default": Decimal("1.74"),
         "default-output": Decimal("3.48"),
     },

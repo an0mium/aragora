@@ -184,6 +184,35 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     }.items()
 }
 
+# Per-provider fallbacks, not model spellings: a caller's ``extra_prices``
+# is still allowed to supply its own, which is the whole point of step 5 of
+# the resolution ladder below.
+_DEFAULT_ROW_KEYS = frozenset({"default", "default-output"})
+
+# Every MODEL spelling the shared table above prices at all. A caller's
+# ``extra_prices`` may ADD spellings this table has never heard of; it may
+# not RESTATE one it already prices. ``services.usage_metering`` carried
+# ``deepseek-v3`` at 0.14/0.28 against this table's 0.28/0.42 and, because
+# ``extra_prices`` won an exact same-provider hit, the tenant-billing path
+# billed that spelling at a rate no other caller used (2026-09-05 merge-gate
+# addendum on #9989). One spelling, one price -- see
+# ``tests/billing/test_usage.py::TestCrossBucketPriceConsistency``.
+_SHARED_PRICED_SPELLINGS: frozenset[str] = (
+    frozenset(key for rows in PROVIDER_PRICING.values() for key in rows) - _DEFAULT_ROW_KEYS
+)
+
+
+def _caller_model_price(caller_prices: "dict[str, Decimal]", key: str) -> "Decimal | None":
+    """A caller's ``extra_prices`` rate for one MODEL spelling.
+
+    ``None`` when the shared ``PROVIDER_PRICING`` table already prices that
+    spelling: the shared table wins, so the two can never disagree about
+    the same key. Default rows are unaffected (see ``_DEFAULT_ROW_KEYS``).
+    """
+    if key in _SHARED_PRICED_SPELLINGS:
+        return None
+    return caller_prices.get(key)
+
 
 def _catalog_token_price(model: str, prompt_tokens: int = 0) -> tuple[Decimal, Decimal] | None:
     """Rate pair for ``model``'s OWN catalog spelling, or ``None``.
@@ -268,9 +297,12 @@ def calculate_token_cost(
         tokens_out: Output tokens
         tokens_cached: Cached input tokens (charged at 10% of input price)
         extra_prices: An additional ``PROVIDER_PRICING``-shaped table this
-            caller owns. It takes PRECEDENCE over the shared table for an
-            exact same-provider hit, and supplies the per-provider
-            ``default`` row before the global $2/$8. Exists so
+            caller owns. It may ADD model spellings the shared table has
+            never heard of, and supplies the per-provider ``default`` row
+            before the global $2/$8 -- but it can no longer RESTATE a
+            spelling the shared table already prices (see
+            ``_caller_model_price``), so the two cannot disagree about one
+            key and bill it differently per caller. Exists so
             ``services.usage_metering`` -- which carries historical rows
             ``PROVIDER_PRICING`` never had (``o1``, ``claude-haiku-4``,
             ``codestral``, per-provider defaults) -- can keep pricing them
@@ -300,9 +332,12 @@ def calculate_token_cost(
     #   5. the caller's per-provider default row, then this table's, then
     #      the $2/$8 default.
     #
-    # ``extra_prices``' own provider bucket is consulted BEFORE step 2: a
-    # caller that ships its own table has the more specific knowledge of
-    # what it bills.
+    # ``extra_prices``' own provider bucket is consulted BEFORE step 2 for a
+    # spelling this table does NOT price: a caller that ships its own table
+    # has the more specific knowledge of what it bills. For a spelling this
+    # table DOES price, the shared row wins -- otherwise the same spelling
+    # bills two ways depending on which caller priced it, which is exactly
+    # what "deepseek-v3" did (see ``_SHARED_PRICED_SPELLINGS``).
     #
     # There is deliberately NO upgrade leg anywhere in this order: see
     # ``_catalog_token_price``. Steps 1 and 2 cannot disagree today -- every
@@ -322,16 +357,22 @@ def calculate_token_cost(
         input_price, output_price = catalog_price
     else:
         output_key = f"{model}-output"
-        input_price = caller_prices.get(model, provider_prices.get(model))
-        output_price = caller_prices.get(output_key, provider_prices.get(output_key))
+        input_price = _caller_model_price(caller_prices, model)
+        if input_price is None:
+            input_price = provider_prices.get(model)
+        output_price = _caller_model_price(caller_prices, output_key)
+        if output_price is None:
+            output_price = provider_prices.get(output_key)
         if input_price is None or output_price is None:
             any_in, any_out = _any_bucket_token_price(model)
             input_price = any_in if input_price is None else input_price
             output_price = any_out if output_price is None else output_price
         if (input_price is None or output_price is None) and extra_prices:
             any_in, any_out = _any_bucket_token_price(model, extra_prices.values())
-            input_price = any_in if input_price is None else input_price
-            output_price = any_out if output_price is None else output_price
+            if input_price is None and model not in _SHARED_PRICED_SPELLINGS:
+                input_price = any_in
+            if output_price is None and output_key not in _SHARED_PRICED_SPELLINGS:
+                output_price = any_out
         if input_price is None:
             input_price = caller_prices.get(
                 "default", provider_prices.get("default", Decimal("2.00"))
