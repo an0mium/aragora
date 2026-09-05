@@ -28,6 +28,7 @@ from aragora.agents.api_agents.common import (
     get_primary_api_key,
     get_trace_headers,
     handle_agent_errors,
+    upgrade_retired_model_id,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
@@ -157,6 +158,10 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         temperature: float | None = None,
         top_p: float | None = None,
     ) -> None:
+        # A retired or known-dead explicit id is upgraded before it can be
+        # sent to the native endpoint (finding O-P2a); active and unknown
+        # ids pass through untouched. See upgrade_retired_model_id.
+        model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
             model=model,

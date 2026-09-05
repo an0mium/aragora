@@ -342,6 +342,47 @@ def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False)
     return get_api_key(*env_vars, required=True)
 
 
+# Retired-id rewrites already logged, keyed by the (original, upgraded)
+# pair so the WARNING is emitted once per distinct rewrite for the process
+# lifetime instead of on every agent construction.
+_LOGGED_MODEL_UPGRADES: set[tuple[str, str]] = set()
+
+
+def upgrade_retired_model_id(model: str) -> str:
+    """Rewrite a RETIRED or known-dead model id to its current spelling.
+
+    A native API agent sends ``model`` straight to its provider endpoint, so
+    an explicitly configured id the provider has since retired (``gpt-5.5``,
+    ``grok-4-latest``) fails the call rather than upgrading — the 2026-09-05
+    merge-gate finding O-P2a on #9989. This rewrites exactly two classes of
+    id and nothing else:
+
+    * a spelling that resolves to a catalog row marked ``retired``;
+    * a spelling that is an explicit ``UPGRADES`` key — an id the catalog
+      does not carry at all, recorded in the upgrade map as dead.
+
+    An ACTIVE spelling is returned UNCHANGED, including an active alias: the
+    caller pinned a working id and the native endpoint accepts it verbatim.
+    An UNKNOWN spelling is returned unchanged too — a model newer than the
+    catalog must still be callable, which is why this is deliberately not a
+    blanket ``resolve_model_id()``.
+    """
+    from aragora.models.catalog import spec_or_none
+    from aragora.models.upgrade_map import UPGRADES, resolve_model_id
+
+    if not model:
+        return model
+    spec = spec_or_none(model)
+    is_dead = model in UPGRADES or (spec is not None and spec.retired)
+    if not is_dead:
+        return model
+    upgraded = resolve_model_id(model) or model
+    if upgraded != model and (model, upgraded) not in _LOGGED_MODEL_UPGRADES:
+        _LOGGED_MODEL_UPGRADES.add((model, upgraded))
+        logger.warning("retired model id %s upgraded to %s", model, upgraded)
+    return upgraded
+
+
 async def close_shared_connector() -> None:
     """Close the shared connector, releasing all connections.
 
@@ -701,6 +742,7 @@ __all__: list[str] = [
     "DB_TIMEOUT_SECONDS",
     "get_api_key",
     "get_primary_api_key",
+    "upgrade_retired_model_id",
     "get_trace_headers",
     "is_openrouter_fallback_available",
     "Agent",

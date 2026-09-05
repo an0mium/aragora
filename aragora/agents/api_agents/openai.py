@@ -17,6 +17,7 @@ from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentCircuitOpenError,
     get_primary_api_key,
+    upgrade_retired_model_id,
 )
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
@@ -123,6 +124,10 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     ) -> None:
         import os
 
+        # A retired or known-dead explicit id is upgraded before it can be
+        # sent to the native endpoint (finding O-P2a); active and unknown
+        # ids pass through untouched. See upgrade_retired_model_id.
+        model = upgrade_retired_model_id(model)
         self._uses_official_openai_endpoint = not os.environ.get("OPENAI_BASE_URL", "").strip()
         super().__init__(
             name=name,

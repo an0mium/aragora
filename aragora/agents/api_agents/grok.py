@@ -4,7 +4,7 @@ Grok agent for xAI's Grok API.
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
-from aragora.agents.api_agents.common import get_primary_api_key
+from aragora.agents.api_agents.common import get_primary_api_key, upgrade_retired_model_id
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
 from aragora.config.model_pins import GROK_46_DIRECT, GROK_46_VIA_OPENROUTER
@@ -47,6 +47,10 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
     ) -> None:
+        # A retired or known-dead explicit id is upgraded before it can be
+        # sent to the native endpoint (finding O-P2a); active and unknown
+        # ids pass through untouched. See upgrade_retired_model_id.
+        model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
             model=model,

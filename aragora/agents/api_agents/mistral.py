@@ -6,10 +6,11 @@ Uses Mistral's native OpenAI-compatible API at api.mistral.ai.
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
-from aragora.agents.api_agents.common import get_primary_api_key
+from aragora.agents.api_agents.common import get_primary_api_key, upgrade_retired_model_id
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
 from aragora.config.model_pins import MISTRAL_MEDIUM_DIRECT, MISTRAL_MEDIUM_VIA_OPENROUTER
+from typing import ClassVar
 
 # Frontier pick for the Mistral API agent (2026-09-04 frontier-model-refresh).
 DEFAULT_MODEL = MISTRAL_MEDIUM_DIRECT
@@ -46,6 +47,11 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
     # to its frontier via OpenRouter.
     DEFAULT_FALLBACK_MODEL = MISTRAL_MEDIUM_VIA_OPENROUTER
 
+    # Upgrade a retired/known-dead explicit model id at construction time
+    # (finding O-P2a). CodestralAgent turns this OFF -- see the comment on
+    # that subclass.
+    UPGRADE_RETIRED_MODEL_ID: ClassVar[bool] = True
+
     def __init__(
         self,
         name: str = "mistral-api",
@@ -56,6 +62,11 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
         enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker_threshold: int = 5,  # Increased from 3 - less aggressive fallback
     ) -> None:
+        # A retired or known-dead explicit id is upgraded before it can be
+        # sent to the native endpoint (finding O-P2a); active and unknown
+        # ids pass through untouched. See upgrade_retired_model_id.
+        if self.UPGRADE_RETIRED_MODEL_ID:
+            model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
             model=model,
@@ -89,6 +100,16 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
 )
 class CodestralAgent(MistralAPIAgent):
     """Codestral via Mistral API - specialized for code generation and analysis."""
+
+    # Codestral is a LIVE, code-specialized SKU on the native Mistral
+    # endpoint, so its id must reach that endpoint verbatim. It is an
+    # UPGRADES key only because the catalog carries no Codestral row, which
+    # makes ``mistral-medium-2604`` the right OPENROUTER FALLBACK target for
+    # it (aragora/models/upgrade_map.py records exactly that reasoning) --
+    # not a reason to retarget the primary call away from the code model the
+    # caller asked for. Finding O-P2a is about ids that are DEAD on the wire;
+    # this one is not.
+    UPGRADE_RETIRED_MODEL_ID: ClassVar[bool] = False
 
     def __init__(
         self,
