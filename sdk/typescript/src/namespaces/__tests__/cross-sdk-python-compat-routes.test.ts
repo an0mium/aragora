@@ -145,35 +145,27 @@ describe('Cross SDK Python Compatibility Routes', () => {
     });
   });
 
-  it('maps budgets overrides/transactions/trends compatibility routes', async () => {
+  it('maps budgets transactions/trends compatibility routes', async () => {
     const api = new BudgetsAPI(mockClient as any);
 
-    await api.addOverride('b/1', { user_id: 'u/1', limit: 100 });
-    await api.removeOverride('b/1', 'u/1');
     await api.getTransactions('b/1', { limit: 5 });
     await api.getTrends('b/1', { period: 'day', limit: 7 });
 
-    expect(mockClient.request).toHaveBeenNthCalledWith(1, 'POST', '/api/v1/budgets/b%2F1/overrides', {
-      body: { user_id: 'u/1', limit: 100 },
-    });
-    expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/v1/budgets/b%2F1/trends', {
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/v1/budgets/b%2F1/trends', {
       params: { period: 'day', limit: 7 },
     });
   });
 
-  it('maps document detail/chunk/reprocess compatibility routes', async () => {
+  it('maps document detail/chunk compatibility routes', async () => {
     const api = new DocumentsAPI(mockClient as any);
 
     await api.get('doc/1');
-    await api.download('doc/1');
     await api.getChunks('doc/1', { limit: 25, offset: 5 });
-    await api.reprocess('doc/1');
 
     expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/v1/documents/doc%2F1');
-    expect(mockClient.request).toHaveBeenNthCalledWith(3, 'GET', '/api/v1/documents/doc%2F1/chunks', {
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/v1/documents/doc%2F1/chunks', {
       params: { limit: 25, offset: 5 },
     });
-    expect(mockClient.request).toHaveBeenNthCalledWith(4, 'POST', '/api/v1/documents/doc%2F1/reprocess');
   });
 
   it('maps marketplace v2 routes with legacy compatibility preserved', async () => {

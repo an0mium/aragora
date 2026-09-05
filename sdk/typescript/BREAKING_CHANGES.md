@@ -10,6 +10,9 @@ This document tracks breaking changes specific to the Aragora TypeScript SDK. Fo
 
 #### Breaking Changes
 
+Batch 06 removes 13 matched phantom operations from `IndexAPI`, `ReplaysAPI`, `BudgetsAPI`, and `DocumentsAPI`; the removed index methods are `getIndexStats`, `addDocuments`, `updateDocument`, `deleteDocuments`, `rebuildIndex`, and `optimizeIndex`, whose `/api/v1/index/{name}/...` routes are absent from the OpenAPI specs and current handler dispatch.
+The removed replay methods are `getFromDebate`, `export`, and `getSummary`; use `replays.list()` and `replays.get(replayId)` for served replay retrieval, while export and summary have no served replacement.
+The plural `budgets.addOverride` / `budgets.removeOverride` methods are removed; use `client.addBudgetOverride` / `client.removeBudgetOverride`, which target the served singular `/api/v1/budgets/{id}/override...` routes. The removed `documents.download` and `documents.reprocess` methods have no served replacement; the wildcard document handler accepts a document id but not either extra path segment.
 Removed 12 `debates` methods from `DebatesAPI` that targeted routes no server
 handler dispatches. Every one of them was already marked `@deprecated`; each
 call fell through to the debate slug lookup and returned 404, so no working

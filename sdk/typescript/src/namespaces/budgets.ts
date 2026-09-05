@@ -67,8 +67,6 @@ interface BudgetsClientInterface {
   deleteBudget(budgetId: string): Promise<{ deleted: boolean }>;
   getBudgetAlerts(budgetId: string, params?: PaginationParams): Promise<BudgetAlertList>;
   acknowledgeBudgetAlert(budgetId: string, alertId: string): Promise<{ acknowledged: boolean }>;
-  addBudgetOverride(budgetId: string, body: { user_id: string; limit: number; reason?: string }): Promise<{ added: boolean }>;
-  removeBudgetOverride(budgetId: string, userId: string): Promise<{ removed: boolean }>;
   resetBudget(budgetId: string): Promise<{ reset: boolean; new_period_start: string }>;
   getBudgetSummary(): Promise<BudgetSummary>;
   checkBudget(body: {
@@ -230,34 +228,6 @@ export class BudgetsAPI {
    */
   async acknowledgeAlert(budgetId: string, alertId: string): Promise<{ acknowledged: boolean }> {
     return this.client.acknowledgeBudgetAlert(budgetId, alertId);
-  }
-
-  // ===========================================================================
-  // Overrides
-  // ===========================================================================
-
-  /**
-   * Add a user-specific budget override.
-   *
-   * Useful for giving specific users higher limits for their work.
-   */
-  async addOverride(
-    budgetId: string,
-    body: { user_id: string; limit: number; reason?: string }
-  ): Promise<{ added: boolean }> {
-    return this.client.request('POST', `/api/v1/budgets/${encodeURIComponent(budgetId)}/overrides`, {
-      body,
-    });
-  }
-
-  /**
-   * Remove a user-specific budget override.
-   */
-  async removeOverride(budgetId: string, userId: string): Promise<{ removed: boolean }> {
-    return this.client.request(
-      'DELETE',
-      `/api/v1/budgets/${encodeURIComponent(budgetId)}/overrides/${encodeURIComponent(userId)}`
-    );
   }
 
   // ===========================================================================

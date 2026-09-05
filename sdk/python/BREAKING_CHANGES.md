@@ -10,6 +10,9 @@ This document tracks breaking changes specific to the Aragora Python SDK. For co
 
 #### Breaking Changes
 
+Batch 06 removes 13 matched phantom operations from both Python index namespace implementations, `ReplaysAPI`, `BudgetsAPI`, and `DocumentsAPI` (including every async twin); the removed index methods are `get_index_stats`, `add_documents`, `update_document`, `delete_documents`, `rebuild_index`, and `optimize_index`, whose `/api/v1/index/{name}/...` routes are absent from the OpenAPI specs and current handler dispatch.
+The removed replay methods are `get_from_debate`, `export`, and `get_summary`; use `replays.list()` and `replays.get(replay_id)` for served replay retrieval, while export and summary have no served replacement.
+The plural `budgets.add_override` / `budgets.remove_override` methods are removed; use `add_single_override` / `remove_single_override`, which target the served singular `/api/v1/budgets/{id}/override...` routes. The removed `documents.download` and `documents.reprocess` methods have no served replacement; the wildcard document handler accepts a document id but not either extra path segment.
 Removed 12 `debates` methods (sync `DebatesAPI` and async `AsyncDebatesAPI`)
 that targeted routes no server handler dispatches. Every one of them was
 already marked DEPRECATED and emitted a `DeprecationWarning`; each call
