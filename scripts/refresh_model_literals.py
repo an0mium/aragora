@@ -42,10 +42,11 @@ code (only "offenders" do):
   ``dict``/``set``/list literals onto one entry; ``--write`` rewrites
   NEITHER spelling anywhere in that file. See ``_collisions()``.
 * **guarded** — text that was never a model id: a bare ``o1``/``o3``
-  identifier or prose word, a raw-string or ``re.compile(`` regex source,
-  or an alternative inside a ``|``-separated matcher. These are dropped
-  silently (not even reported), because calling them offenders would make
-  ``--check`` unfixable by construction. See ``_is_guarded()``.
+  identifier or prose word, a raw string, a ``re.``-call or ``pattern=``
+  regex source, or an alternative inside a ``|``-separated string that also
+  carries a regex metacharacter. These are dropped silently (not even
+  reported), because calling them offenders would make ``--check``
+  unfixable by construction. See ``_is_guarded()``.
 """
 
 from __future__ import annotations
@@ -114,29 +115,62 @@ SKIP_NAMES = {
 #     / ``_PRICE_PER_MTOK[model]`` lookup against them (2026-09-04 controller
 #     ruling, Class 6). Skipping the source without its test is only half a
 #     freeze.
-SKIP_PATHS: tuple[str, ...] = (
+# {frozen pricing source: the test files that look its historical spellings
+# up EXACTLY}. THE single definition of that pairing: SKIP_PATHS below is
+# built from it and tests/scripts/test_refresh_model_literals.py imports it,
+# so a frozen source added here without its tests, or with a test that is
+# never listed, fails there instead of quietly shipping half a freeze
+# (2026-09-05 merge-gate addendum on #9989). Adding a source to SKIP_PATHS
+# by hand without a pairing entry is still possible for tables that have no
+# spelling-exact test -- the routing hand-rows -- which is why the pairing
+# map is separate from, rather than equal to, SKIP_PATHS.
+FROZEN_PRICING_SOURCE_TESTS: dict[str, tuple[str, ...]] = {
+    "aragora/billing/usage.py": (
+        "tests/billing/test_usage.py",
+        "tests/billing/test_billing_usage.py",
+        "tests/e2e/test_billing_accuracy_e2e.py",
+    ),
+    "aragora/billing/debate_costs.py": ("tests/billing/test_debate_costs.py",),
+    "aragora/services/metering_models.py": (
+        "tests/services/test_usage_metering.py",
+        "tests/services/test_usage_metering_service.py",
+    ),
+    "aragora/pdb/real_invoker.py": ("tests/pdb/test_real_invoker.py",),
+    "aragora/server/handlers/debates/cost_estimation.py": (
+        "tests/handlers/debates/test_cost_estimation.py",
+    ),
+}
+
+# Frozen paths with no spelling-exact test to pair (the catalog and its
+# generated mirrors, the routing hand-rows, this script and its own test,
+# and tests/models/).
+_UNPAIRED_SKIP_PATHS: tuple[str, ...] = (
     "aragora/models/catalog.py",
     "aragora/models/upgrade_map.py",
     "aragora/models/catalog_snapshot.json",
     "aragora/models/pricing_mirror.py",
-    "aragora/billing/usage.py",
-    "aragora/billing/debate_costs.py",
-    "aragora/services/metering_models.py",
-    "aragora/pdb/real_invoker.py",
     "aragora/routing/provider_config.py",
-    "aragora/server/handlers/debates/cost_estimation.py",
     "tests/models/",
     "scripts/refresh_model_literals.py",
     "tests/scripts/test_refresh_model_literals.py",
-    "tests/billing/test_usage.py",
-    "tests/billing/test_billing_usage.py",
-    "tests/billing/test_debate_costs.py",
-    "tests/services/test_usage_metering.py",
-    "tests/services/test_usage_metering_service.py",
-    "tests/handlers/debates/test_cost_estimation.py",
-    "tests/e2e/test_billing_accuracy_e2e.py",
-    "tests/pdb/test_real_invoker.py",
 )
+
+
+def _skip_paths() -> tuple[str, ...]:
+    """``_UNPAIRED_SKIP_PATHS`` plus every source and test in the pairing map.
+
+    Order is deterministic (unpaired first, then each source immediately
+    followed by its tests) so ``--check`` output and this tuple's own
+    diffability do not depend on dict iteration accidents.
+    """
+    out: list[str] = list(_UNPAIRED_SKIP_PATHS)
+    for source, tests in FROZEN_PRICING_SOURCE_TESTS.items():
+        out.append(source)
+        out.extend(tests)
+    return tuple(dict.fromkeys(out))
+
+
+SKIP_PATHS: tuple[str, ...] = _skip_paths()
 
 DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "baselines" / "retired_model_literals_allowlist.txt"
 
@@ -152,6 +186,20 @@ _SHORT_TOKEN_MIN_LEN = 6
 SHORT_BARE_KEYS: frozenset[str] = frozenset(
     k for k in UPGRADES if "-" not in k and len(k) < _SHORT_TOKEN_MIN_LEN
 )
+
+# Regex metacharacters OTHER than "|". A ``|``-separated string counts as a
+# regex only if it also carries one of these (or sits in a raw-string /
+# ``re.``-call / ``pattern=`` context, both handled separately): Aragora's own
+# agent-spec DSL writes real model ids as ``"provider|model"``, e.g.
+# ``"anthropic|claude-sonnet-4"``, and treating every pipe as a regex made
+# the sweep silently drop 15 genuine occurrences from both --write and
+# --check (2026-09-05 merge-gate addendum on #9989).
+_REGEX_METACHARS = frozenset("\\()[]*+?^${")
+
+# Regex-source contexts a match may sit in on the same line. ``re.compile(``
+# alone was too narrow: ``re.match``/``re.search``/``re.sub``/... and an
+# explicit ``pattern=`` keyword are the same thing.
+_REGEX_CONTEXT = re.compile(r"\bre\.[A-Za-z_]+\s*\(|\bpattern\s*=")
 
 # One single-line string literal, with its optional prefix (so ``r"..."`` /
 # ``r'...'`` raw strings are recognisable) and its BODY captured separately.
@@ -199,10 +247,21 @@ def _is_guarded(
 
     * inside a RAW string literal (``r"gpt|o1|o3"``) -- raw strings in this
       repo are regex sources, never model ids;
-    * anywhere on a line containing ``re.compile(``;
-    * as an alternative inside a ``|``-separated regex-shaped string
-      (``"gpt|o1|o3|chatgpt"``), i.e. the match is bounded on both sides by
-      a ``|`` or by the string's own boundary.
+    * anywhere on a line containing a regex-source context: an ``re.``
+      call (``re.compile(``, ``re.match(``, ``re.sub(``, ...) or an
+      explicit ``pattern=`` keyword;
+    * as an alternative inside a ``|``-separated string that ALSO carries a
+      regex metacharacter (``"gpt(-4)?|o1"``), i.e. the match is bounded on
+      both sides by a ``|`` or by the string's own boundary AND the body
+      looks like a pattern rather than a plain pipe-joined value.
+
+    The metacharacter condition on that third guard is load-bearing.
+    Aragora's own agent-spec DSL writes model ids as ``"provider|model"``
+    (``"anthropic|claude-sonnet-4"``, ``"openai|gpt-4o"``), so a bare
+    "contains a pipe" test classified 15 genuine ids across production code,
+    tests and docs as regex alternatives and dropped them from both --write
+    and --check -- the sweep reported them as neither rewritten nor
+    outstanding (2026-09-05 merge-gate addendum on #9989).
 
     A fourth guard applies only to ``SHORT_BARE_KEYS``: the match must sit
     inside a quoted string AND be either the COMPLETE string body (``"o1"``)
@@ -217,7 +276,8 @@ def _is_guarded(
         body_start, body_end, is_raw = enclosing
         if is_raw:
             return True
-        if "|" in line[body_start:body_end]:
+        body = line[body_start:body_end]
+        if "|" in body and _REGEX_METACHARS.intersection(body):
             bounded_left = start == body_start or line[start - 1] == "|"
             bounded_right = end == body_end or line[end] == "|"
             if bounded_left and bounded_right:
@@ -293,7 +353,7 @@ def _scan_line(line: str) -> list[tuple[str, str | None]]:
     neither rewritten nor reported. See ``_is_guarded``.
     """
     spans = _string_spans(line)
-    in_regex_call = "re.compile(" in line
+    in_regex_call = bool(_REGEX_CONTEXT.search(line))
     out: list[tuple[str, str | None]] = []
     for m in RETIRED_PATTERN.finditer(line):
         literal = m.group(0)
@@ -310,7 +370,7 @@ def _rewrite_line(line: str, frozen: frozenset[str]) -> str:
     span, an ``re.compile(`` call) and because rejoining ``splitlines
     (keepends=True)`` output preserves the file byte-for-byte otherwise."""
     spans = _string_spans(line)
-    in_regex_call = "re.compile(" in line
+    in_regex_call = bool(_REGEX_CONTEXT.search(line))
 
     def _replace(match: "re.Match[str]") -> str:
         return _sub_one(match, line, spans, frozen, in_regex_call)

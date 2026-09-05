@@ -296,7 +296,7 @@ def test_write_leaves_both_sides_of_a_collision_untouched(tmp_path: Path) -> Non
     original = (
         "MODEL_TIERS = {\n"
         '    "claude-opus-4": {"tier": 1},\n'
-        '    "claude-sonnet-4": {"tier": 2},\n'
+        '    "claude-opus-4-6": {"tier": 2},\n'
         "}\n"
     )
     f.write_text(original)
@@ -312,7 +312,7 @@ def test_collision_freezes_the_whole_file_not_just_one_line(tmp_path: Path) -> N
     f = tmp_path / "mixed.py"
     f.write_text(
         'A = "claude-opus-4"\n'
-        'B = "claude-sonnet-4"\n'
+        'B = "claude-opus-4-6"\n'
         'FAR_BELOW = "claude-opus-4"\n'
         'UNRELATED = "gemini-2.5-pro"\n'
     )
@@ -320,7 +320,7 @@ def test_collision_freezes_the_whole_file_not_just_one_line(tmp_path: Path) -> N
     assert r.returncode == 0, r.stderr
     assert f.read_text() == (
         'A = "claude-opus-4"\n'
-        'B = "claude-sonnet-4"\n'
+        'B = "claude-opus-4-6"\n'
         'FAR_BELOW = "claude-opus-4"\n'
         'UNRELATED = "gemini-3.1-pro-preview"\n'
     )
@@ -328,11 +328,11 @@ def test_collision_freezes_the_whole_file_not_just_one_line(tmp_path: Path) -> N
 
 def test_check_reports_collisions_separately_and_does_not_fail(tmp_path: Path) -> None:
     f = tmp_path / "tiers.py"
-    f.write_text('A = "claude-opus-4"\nB = "claude-sonnet-4"\n')
+    f.write_text('A = "claude-opus-4"\nB = "claude-opus-4-6"\n')
     r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, f"collisions must not gate the sweep:\n{r.stdout}"
     assert "collision: distinct retired spellings that collapse onto one id" in r.stdout
-    assert "collision: claude-opus-4,claude-sonnet-4 -> claude-fable-5-1" in r.stdout
+    assert "collision: claude-opus-4,claude-opus-4-6 -> claude-fable-5-1" in r.stdout
     assert "0 retired literal(s) outside allowlist" in r.stdout
     assert "1 collision(s) (not counted as offenders)" in r.stdout
     # A colliding literal must NOT also be counted as an offender.
@@ -343,7 +343,7 @@ def test_collision_does_not_swallow_a_genuine_offender_in_the_same_file(
     tmp_path: Path,
 ) -> None:
     f = tmp_path / "mixed.py"
-    f.write_text('A = "claude-opus-4"\nB = "claude-sonnet-4"\nC = "gemini-2.5-pro"\n')
+    f.write_text('A = "claude-opus-4"\nB = "claude-opus-4-6"\nC = "gemini-2.5-pro"\n')
     r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 1
     assert "retired model id gemini-2.5-pro" in r.stdout
@@ -454,10 +454,52 @@ def test_re_compile_line_is_never_rewritten(tmp_path: Path) -> None:
     assert f.read_text() == original
 
 
-def test_pipe_separated_alternation_is_never_rewritten(tmp_path: Path) -> None:
-    """A non-raw, non-``re.compile`` alternation string is still a matcher."""
+def test_pipe_separated_regex_shaped_string_is_not_rewritten(tmp_path: Path) -> None:
+    """A ``|`` string that ALSO carries a regex metacharacter is a matcher."""
     f = tmp_path / "markers.py"
-    original = 'OPENAI = "gpt-4o|o1|o3"\n'
+    original = 'OPENAI = "gpt(-4)?|o1|o3"\n'
+    f.write_text(original)
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert f.read_text() == original
+
+
+def test_pipe_separated_agent_spec_is_rewritten_like_any_literal(tmp_path: Path) -> None:
+    """``provider|model`` is Aragora's own agent-spec DSL, not a regex.
+
+    Treating every ``|``-containing string as a regex silently dropped 15
+    genuine model ids from both --write and --check -- production code,
+    tests and docs -- so the sweep reported them as neither rewritten nor
+    outstanding (2026-09-05 merge-gate addendum on #9989). A pipe alone is
+    no longer enough: the body must also carry a regex metacharacter, or
+    sit in a raw-string / ``re.``-call / ``pattern=`` context.
+    """
+    f = tmp_path / "spec.py"
+    f.write_text('SPEC = "anthropic|claude-sonnet-4"\nOTHER = "openai|gpt-4o"\n')
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert f.read_text() == 'SPEC = "anthropic|claude-sonnet-5"\nOTHER = "openai|gpt-6-astra"\n'
+
+
+def test_pipe_separated_ids_are_counted_by_check(tmp_path: Path) -> None:
+    """They must also stop being invisible to --check."""
+    f = tmp_path / "spec.py"
+    f.write_text('SPEC = "anthropic|claude-sonnet-4"\n')
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 1
+    assert "1 retired literal(s) outside allowlist" in r.stdout
+    assert "claude-sonnet-4" in r.stdout
+
+
+def test_regex_call_context_beyond_re_compile_is_guarded(tmp_path: Path) -> None:
+    """``re.compile(`` was too narrow: any ``re.`` call or ``pattern=`` counts."""
+    f = tmp_path / "pat.py"
+    original = (
+        "import re\n"
+        'M = re.match("gpt-4o|o1", s)\n'
+        'S = re.sub("gpt-4o|o1", "x", s)\n'
+        'D = dict(pattern="gpt-4o|o1")\n'
+    )
     f.write_text(original)
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
@@ -482,28 +524,41 @@ def test_a_pipe_elsewhere_in_the_string_does_not_freeze_a_real_id(tmp_path: Path
 
 def test_frozen_pricing_source_tests_are_in_skip_paths() -> None:
     """A SKIP_PATHS pricing table is keyed on its historical spellings, so
-    the test that looks those spellings up EXACTLY must be skipped too."""
+    the test that looks those spellings up EXACTLY must be skipped too.
+
+    The pairing is DERIVED from the script's own
+    ``FROZEN_PRICING_SOURCE_TESTS`` rather than restated here: a duplicated
+    literal map let a future frozen source ship with no paired test and this
+    test still pass, which is the failure mode it exists to prevent
+    (2026-09-05 merge-gate addendum on #9989).
+    """
     mod = _load_module()
-    paired = {
-        "aragora/billing/usage.py": (
-            "tests/billing/test_usage.py",
-            "tests/billing/test_billing_usage.py",
-        ),
-        "aragora/billing/debate_costs.py": ("tests/billing/test_debate_costs.py",),
-        "aragora/services/metering_models.py": (
-            "tests/services/test_usage_metering.py",
-            "tests/services/test_usage_metering_service.py",
-        ),
-        "aragora/pdb/real_invoker.py": ("tests/pdb/test_real_invoker.py",),
-        "aragora/server/handlers/debates/cost_estimation.py": (
-            "tests/handlers/debates/test_cost_estimation.py",
-        ),
-    }
+    paired = mod.FROZEN_PRICING_SOURCE_TESTS
+    assert paired, "the pairing map must not be empty"
     for source, tests in paired.items():
-        assert source in mod.SKIP_PATHS
+        assert source in mod.SKIP_PATHS, f"frozen source {source} is not skipped"
+        assert tests, f"frozen source {source} declares no paired test"
         for t in tests:
             assert t in mod.SKIP_PATHS, f"{t} pairs with frozen {source} but is not skipped"
-    assert "tests/e2e/test_billing_accuracy_e2e.py" in mod.SKIP_PATHS
+            assert t.startswith("tests/"), f"{t} is not a test path"
+
+
+def test_every_frozen_pricing_source_declares_a_paired_test() -> None:
+    """A frozen aragora/*pricing* source with no pairing entry is half a freeze.
+
+    ``_UNPAIRED_SKIP_PATHS`` is the deliberate escape hatch (the catalog, its
+    generated mirrors, the routing hand-rows, this script and its own test),
+    so anything skipped OUTSIDE that tuple must come from the pairing map.
+    """
+    mod = _load_module()
+    accounted = set(mod._UNPAIRED_SKIP_PATHS)
+    for source, tests in mod.FROZEN_PRICING_SOURCE_TESTS.items():
+        accounted.add(source)
+        accounted.update(tests)
+    assert set(mod.SKIP_PATHS) == accounted, (
+        "SKIP_PATHS has entries that are neither an explicit unpaired skip "
+        f"nor part of the pairing map: {sorted(set(mod.SKIP_PATHS) - accounted)}"
+    )
 
 
 def test_frozen_pricing_test_files_are_not_rewritten(tmp_path: Path) -> None:
