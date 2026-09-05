@@ -197,6 +197,19 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     }.items()
 }
 
+# The catalog covers several providers (ai21, alibaba, cohere, moonshot,
+# perplexity) the legacy dict above never had a bucket for, so those
+# buckets come out of the merge above with no "default"/"default-output"
+# entry. UsageMeter._calculate_token_cost() already falls back to the
+# same $2.00/$8.00 constants for an unrecognized model in a recognized
+# bucket -- this just makes that fallback an explicit, queryable row
+# instead of a hardcoded literal, so every provider bucket satisfies the
+# same invariant the hand-written buckets always have.
+for _rows in MODEL_PRICING.values():
+    _rows.setdefault("default", Decimal("2.00"))
+    _rows.setdefault("default-output", Decimal("8.00"))
+del _rows
+
 # Tier-based usage caps (monthly)
 TIER_USAGE_CAPS: dict[str, dict[str, int]] = {
     "free": {
