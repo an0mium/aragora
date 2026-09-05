@@ -36,9 +36,13 @@ that had already drifted to retired slugs.
 2. **Offline validation, advisory liveness.** Required CI never calls the
    network: it validates against the committed
    `aragora/models/catalog_snapshot.json`. `scripts/model_catalog_drift.py`
-   is the advisory live-vs-snapshot differ (`--refresh` rewrites the
-   snapshot for a reviewed commit). A scheduled advisory workflow may invoke
-   it, but it must never gate a PR on live-catalog reachability.
+   is the advisory live-vs-snapshot differ (`--refresh` rewrites the whole
+   snapshot for a reviewed commit; `--add-missing` captures ONLY the ids the
+   snapshot lacks, so a PR that adds one catalog row does not have to absorb
+   every unrelated reprice and delisting accumulated since the last
+   whole-file capture — those keep being reported by the default mode, where
+   they can be adjudicated on their own). A scheduled advisory workflow may
+   invoke either, but it must never gate a PR on live-catalog reachability.
 3. **Governance stays out.** Quorum-family *eligibility* — which model may
    produce merge-authority evidence — lives in
    `aragora/swarm/quorum_evidence.py` under Tier-4 control, never in the
@@ -67,7 +71,7 @@ for s in rows:
 EOF
 ```
 
-Output as of this commit (28 rows):
+Output as of this commit (29 rows):
 
 | Family | Canonical ID | Direct ID | OpenRouter slug | $/1M in | $/1M out | Context | Tier | Retired |
 |---|---|---|---|---:|---:|---:|---|---|
@@ -77,6 +81,7 @@ Output as of this commit (28 rows):
 | anthropic | `claude-haiku-4-5-20251001` | `claude-haiku-4-5-20251001` | `anthropic/claude-haiku-4.5` | 1 | 5 | 200,000 | value | False |
 | anthropic | `claude-opus-4-8` | `claude-opus-4-8` | `anthropic/claude-opus-4.8` | 5 | 25 | 1,000,000 | fallback | False |
 | anthropic | `claude-opus-5` | `claude-opus-5` | `anthropic/claude-opus-5` | 5 | 25 | 1,000,000 | fallback | False |
+| anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `anthropic/claude-sonnet-5` | 2 | 10 | 1,000,000 | value | False |
 | cohere | `command-a` | `command-a-03-2025` | `cohere/command-a` | 2.5 | 10 | 256,000 | flagship | False |
 | deepseek | `deepseek-v4-pro-0813` | `deepseek-v4-pro-0813` | `deepseek/deepseek-v4-pro-0813` | 1.1207 | 3.362 | 1,048,576 | flagship | False |
 | google | `gemini-3.1-pro-preview` | `gemini-3.1-pro-preview` | `google/gemini-3.1-pro-preview` | 2 | 12 | 1,048,576 | flagship | False |
@@ -174,12 +179,18 @@ one map:
   *alias* on an active row (e.g. `mistral-medium-latest`,
   `qwen/qwen3.8-max`) is deliberately **not** an `UPGRADES` key — it already
   resolves via `by_any_id()`, and duplicating it here would risk the two
-  paths drifting apart.
+  paths drifting apart. Targets preserve **tier** wherever the provider has
+  an active value row: a `flash`/`mini`/`haiku`/`sonnet` spelling lands on
+  that row rather than over-paying for the flagship, and only a family whose
+  rows are all flagship-class has nowhere cheaper to land.
 - **`resolve_model_id(model_id)`** — the runtime normalizer: exact
   `UPGRADES` hit wins; else an active catalog row returns its own
-  `canonical_id`; else a retired row not covered by `UPGRADES` returns
+  `canonical_id`; else a retired row returns the successor `UPGRADES`
+  declares for that **row** under any of its spellings, falling back to
   `frontier_for(spec.family).canonical_id`; else the input passes through
-  unchanged.
+  unchanged. The per-row step is what makes the answer spelling-independent:
+  `UPGRADES` is keyed by spelling, so a retired row whose bare id was a key
+  but whose OpenRouter slug was not used to get two different successors.
 - **`RETIRED_PATTERN`** — `UPGRADES` keys compiled into one regex with
   token-boundary lookarounds, so a retired key that is a literal prefix of
   a longer active spelling (`"claude-fable-5"` vs. active
