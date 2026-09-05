@@ -35,9 +35,12 @@ class TestOpenAIAgentInitialization:
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""
+        # An ACTIVE non-default catalog id: a retired one (the old
+        # "gpt-4-turbo") is now upgraded at construction time, its own
+        # behaviour (tests/agents/test_retired_model_id_upgrade.py).
         agent = OpenAIAPIAgent(
             name="my-gpt",
-            model="gpt-4-turbo",
+            model="gpt-5.6-terra",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -45,7 +48,7 @@ class TestOpenAIAgentInitialization:
         )
 
         assert agent.name == "my-gpt"
-        assert agent.model == "gpt-4-turbo"
+        assert agent.model == "gpt-5.6-terra"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False

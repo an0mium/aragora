@@ -32,9 +32,14 @@ class TestGrokAgentInitialization:
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""
+        # grok-4.6 is the only ACTIVE xAI catalog row, so a genuinely custom
+        # id here has to be one the catalog does not know yet -- which also
+        # pins the pass-through half of the construction-time upgrade rule
+        # (a retired "grok-2" would now be rewritten to the frontier; see
+        # tests/agents/test_retired_model_id_upgrade.py).
         agent = GrokAgent(
             name="my-grok",
-            model="grok-2",
+            model="grok-5-preview",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -42,7 +47,7 @@ class TestGrokAgentInitialization:
         )
 
         assert agent.name == "my-grok"
-        assert agent.model == "grok-2"
+        assert agent.model == "grok-5-preview"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False

@@ -36,9 +36,12 @@ class TestAnthropicAgentInitialization:
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""
+        # An ACTIVE non-default catalog id: a retired one (the old
+        # "claude-3-opus-20240229") is now upgraded at construction time, its
+        # own behaviour (tests/agents/test_retired_model_id_upgrade.py).
         agent = AnthropicAPIAgent(
             name="my-claude",
-            model="claude-3-opus-20240229",
+            model="claude-opus-5",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -46,7 +49,7 @@ class TestAnthropicAgentInitialization:
         )
 
         assert agent.name == "my-claude"
-        assert agent.model == "claude-3-opus-20240229"
+        assert agent.model == "claude-opus-5"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False

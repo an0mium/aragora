@@ -105,6 +105,24 @@ class TestQuotaFallbackMixin:
 
         assert result == "openai/gpt-6-astra"
 
+    def test_get_fallback_model_for_haiku_45_uses_its_own_slug(self):
+        """2026-09-05 merge-gate finding C-P3 on #9989.
+
+        ``claude-haiku-4-5-20251001`` was in the pre-refresh Anthropic model
+        map but had no catalog row, so the fallback fell through to the
+        agent's DEFAULT_FALLBACK_MODEL -- Opus 5, a ~5x-priced flagship --
+        while every other legacy Claude spelling upgraded correctly. Now that
+        it is cataloged, the fallback is its OWN OpenRouter slug.
+        """
+        from aragora.agents.fallback import QuotaFallbackMixin
+
+        for spelling in ("claude-haiku-4-5-20251001", "claude-haiku-4-5", "claude-haiku-4.5"):
+            agent = MockAgentWithMixin(model=spelling)
+            agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
+                agent, MockAgentWithMixin
+            )
+            assert agent.get_fallback_model() == "anthropic/claude-haiku-4.5", spelling
+
     def test_get_fallback_model_uses_default(self):
         """Test getting fallback model falls back to default."""
         from aragora.agents.fallback import QuotaFallbackMixin
