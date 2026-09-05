@@ -570,3 +570,61 @@ class TestSamplingParamStripOnFallback:
         src = Path(mod.__file__).read_text(encoding="utf-8")
         assert src.count('strip_sampling_params(payload, payload["model"])') == 2
         assert "strip_sampling_params(payload, self.model)" not in src
+
+
+class TestRetiredSpellingKeepsItsFallback:
+    """Finding C-P2 on #9989: ``OpenRouterAgent`` performs no retired-id
+    upgrade at construction, so a caller (or a stored config, or the PDB
+    panel) pinning a retired OpenRouter slug reached the fallback lookup with
+    that exact spelling. Dropping its key therefore did not merely lose a
+    convenience -- it turned retry exhaustion from "fall back" into "raise".
+    """
+
+    def test_retired_deepseek_slug_has_a_key_again(self) -> None:
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+
+        assert (
+            OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"]
+            == "deepseek/deepseek-v4-pro-0813"
+        )
+
+    def test_lookup_resolves_a_retired_spelling_with_no_key_of_its_own(self) -> None:
+        """A spelling with no key at all still finds its successor's entry."""
+        from aragora.agents.api_agents.openrouter import (
+            OPENROUTER_FALLBACK_MODELS,
+            fallback_model_for,
+        )
+
+        assert "openai/gpt-5.5" not in OPENROUTER_FALLBACK_MODELS
+        # openai/gpt-5.5 -> gpt-6-astra -> openai/gpt-6-astra's entry.
+        assert fallback_model_for("openai/gpt-5.5") == "anthropic/claude-fable-5.1"
+
+    def test_lookup_never_returns_the_model_itself(self) -> None:
+        from aragora.agents.api_agents.openrouter import fallback_model_for
+
+        assert fallback_model_for("deepseek/deepseek-v4-pro-0813") == "openai/gpt-5.6-terra"
+        assert fallback_model_for("") is None
+        assert fallback_model_for("no-such-vendor/no-such-model") is None
+
+    @pytest.mark.asyncio
+    async def test_agent_pinned_to_the_retired_slug_actually_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end on the real generate() path: the primary exhausts its
+        retries and the live successor slug is the one re-sent."""
+        from aragora.agents.api_agents.common import AgentTimeoutError
+        from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+        agent = OpenRouterAgent(model="deepseek/deepseek-v4-pro")
+        sent: list[str] = []
+
+        async def fake_generate(model: str, prompt: str, context=None) -> str:
+            sent.append(model)
+            if model == "deepseek/deepseek-v4-pro":
+                raise AgentTimeoutError("exhausted", agent_name=agent.name)
+            return "ok"
+
+        agent._generate_with_model = fake_generate  # type: ignore[method-assign]
+        assert await agent.generate("hi") == "ok"
+        assert sent == ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-pro-0813"]

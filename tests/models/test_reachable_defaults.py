@@ -42,6 +42,24 @@ _NATIVE_ID_EXEMPT = {
 }
 
 
+# PDB panel defaults (aragora/pdb/invoker_factory.py) that name a PUBLISHED
+# provider snapshot id the catalog carries no row for at all -- so neither the
+# raw spelling nor its resolution reaches a catalog row. Such an entry is
+# still held to the priced half of this test's contract, against the PDB
+# hand-written price table (``real_invoker._PRICE_PER_MTOK``), so the slot
+# cannot silently bill at a default rate; it is exempted only from the
+# "cataloged" half. Self-removing: the assertion below fails the day the
+# catalog gains a row for the id.
+_UNCATALOGED_PDB_DEFAULTS = {
+    "invoker_factory.GROK_MODEL_DEFAULT": (
+        "xAI publishes dated reasoning snapshots (docs.x.ai/developers/models) "
+        "that the catalog does not enumerate; the grok_heterodox slot pins one "
+        "deliberately after the 2026-04-22 'Model not found: grok-4.2' incident "
+        "(PR #6441). Priced by a hand row in aragora/pdb/real_invoker.py."
+    ),
+}
+
+
 def _reachable_defaults() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     from aragora.config import model_pins as mp
@@ -149,12 +167,45 @@ def _reachable_defaults() -> list[tuple[str, str]]:
         registered = AgentRegistry.get_spec(agent_type)
         assert registered is not None, f"{agent_type} is no longer registered"
         out.append((f"registry.{agent_type}", registered.default_model))
+
+    # PDB panel defaults. A whole definer module this reverse test missed
+    # until the 2026-09-05 gate-fix wave (finding C-P2 on #9989): the DeepSeek
+    # slot was pinned to "deepseek/deepseek-v4-pro", a slug this repo's own
+    # UPGRADES map declares dead, and OpenRouterAgent performs no
+    # construction-time upgrade -- so the slot sent a dead id and had no
+    # fallback entry to fall back to.
+    from aragora.pdb import invoker_factory as pdb_invoker_factory
+
+    for const in (
+        "CLAUDE_MODEL_DEFAULT",
+        "OPENAI_MODEL_DEFAULT",
+        "GEMINI_MODEL_DEFAULT",
+        "GROK_MODEL_DEFAULT",
+        "DEEPSEEK_MODEL_DEFAULT",
+        "KIMI_MODEL_DEFAULT",
+        "QWEN_MODEL_DEFAULT",
+        "MISTRAL_MODEL_DEFAULT",
+    ):
+        out.append((f"invoker_factory.{const}", getattr(pdb_invoker_factory, const)))
     return out
 
 
 @pytest.mark.parametrize("where,model_id", _reachable_defaults())
 def test_reachable_default_is_priced_and_active(where: str, model_id: str) -> None:
     raw = spec_or_none(model_id)
+    if where in _UNCATALOGED_PDB_DEFAULTS:
+        from aragora.pdb.real_invoker import _PRICE_PER_MTOK
+
+        assert raw is None and spec_or_none(resolve_model_id(model_id)) is None, (
+            f"{where}: {model_id!r} now resolves to a catalog row -- drop it "
+            f"from _UNCATALOGED_PDB_DEFAULTS ({_UNCATALOGED_PDB_DEFAULTS[where]})"
+        )
+        rates = _PRICE_PER_MTOK.get(model_id)
+        assert rates is not None and rates[0] > 0 and rates[1] > 0, (
+            f"{where}: {model_id!r} has neither a catalog row nor a PDB price "
+            "row, so the slot bills at a default rate"
+        )
+        return
     if where in _NATIVE_ID_EXEMPT:
         assert raw is None, (
             f"{where}: {model_id!r} now has a catalog row of its own -- "

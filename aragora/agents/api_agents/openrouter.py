@@ -110,6 +110,12 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # keys so callers that pin an older OpenRouter id still get a safe
     # fallback.
     DEEPSEEK_V4_PRO_MODEL: GPT56_TERRA_VIA_OPENROUTER,
+    # Retired spelling -> the live DeepSeek slug (same retired-to-live hop as
+    # the perplexity/cohere/ai21 rows below). Restored in the 2026-09-05
+    # gate-fix wave: it was the key the pre-refresh DEEPSEEK_V4_PRO_MODEL
+    # constant supplied, and dropping it left every caller still pinning the
+    # bare slug with no fallback at all (finding C-P2 on #9989).
+    "deepseek/deepseek-v4-pro": DEEPSEEK_V4_PRO_MODEL,
     "deepseek/deepseek-chat": GPT56_TERRA_VIA_OPENROUTER,
     "deepseek/deepseek-chat-v3-0324": GPT56_TERRA_VIA_OPENROUTER,
     "deepseek/deepseek-v3.2": GPT56_TERRA_VIA_OPENROUTER,
@@ -158,6 +164,40 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     GLM_MODEL: DEEPSEEK_V4_PRO_MODEL,
     MINIMAX_MODEL: DEEPSEEK_V4_PRO_MODEL,
 }
+
+
+def fallback_model_for(model: str) -> str | None:
+    """OpenRouter fallback target for ``model``, or ``None`` if there is none.
+
+    An exact ``OPENROUTER_FALLBACK_MODELS`` key wins (legacy spellings are
+    deliberately kept as keys so a caller pinning an old id still gets a
+    safe target). Only when the exact spelling misses does this fall back to
+    the model's CURRENT spellings -- ``resolve_model_id`` plus the resolved
+    row's other ids -- so a retired or renamed spelling finds its
+    successor's entry instead of losing the resilience path entirely
+    (finding C-P2 on #9989: ``OpenRouterAgent`` does no retired-id upgrade at
+    construction, so a stale ``model`` reached this lookup verbatim).
+
+    A target equal to ``model`` itself is never returned: falling back to the
+    id that just exhausted its retries is a no-op retry loop, not resilience.
+    """
+    from aragora.models.catalog import spec_or_none
+    from aragora.models.upgrade_map import resolve_model_id
+
+    if not model:
+        return None
+    candidates: list[str] = [model]
+    resolved = resolve_model_id(model)
+    if resolved and resolved != model:
+        candidates.append(resolved)
+    spec = spec_or_none(resolved or model)
+    if spec is not None:
+        candidates.extend(mid for mid in spec.all_ids() if mid not in candidates)
+    for candidate in candidates:
+        fallback = OPENROUTER_FALLBACK_MODELS.get(candidate)
+        if fallback is not None and fallback != model:
+            return fallback
+    return None
 
 
 @AgentRegistry.register(
@@ -262,7 +302,7 @@ class OpenRouterAgent(APIAgent):
             return await self._generate_with_model(self.model, prompt, context)
         except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
             # All retries exhausted - try fallback model if available
-            fallback = OPENROUTER_FALLBACK_MODELS.get(self.model)
+            fallback = fallback_model_for(self.model)
             if fallback:
                 logger.warning(
                     "OpenRouter %s exhausted retries, falling back to %s",
@@ -1210,4 +1250,6 @@ __all__ = [
     "JambaAgent",
     "FusionAgent",
     "FUSION_MODEL",
+    "OPENROUTER_FALLBACK_MODELS",
+    "fallback_model_for",
 ]

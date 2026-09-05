@@ -675,6 +675,13 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "openai": frozenset(
         {
+            # Current frontier (frontier-model-refresh, 2026-09-04): the
+            # id aragora/models/catalog.py carries as the openai flagship
+            # and aragora/agents/api_agents/openai.py already ships as its
+            # DEFAULT_MODEL. Added when OPENAI_MODEL_DEFAULT stopped
+            # pinning the retired "gpt-5.5" (finding C-P2 on #9989).
+            "gpt-6-astra",
+            "gpt-5.6-terra",
             "gpt-5.4",
             "gpt-5.4-pro",
             "gpt-5.5",
@@ -722,6 +729,11 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "deepseek": frozenset(
         {
+            # Current OpenRouter slug (catalog row deepseek-v4-pro-0813).
+            "deepseek/deepseek-v4-pro-0813",
+            # Legacy spelling kept accepted for stored configs that pin it;
+            # it is an UPGRADES key and OPENROUTER_FALLBACK_MODELS routes it
+            # to the row above.
             "deepseek/deepseek-v4-pro",
         }
     ),
