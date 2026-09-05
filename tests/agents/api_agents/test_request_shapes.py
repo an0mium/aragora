@@ -154,6 +154,125 @@ def test_anthropic_stop_reason_refusal_raises_structured_error() -> None:
     assert getattr(excinfo.value, "category", None) == "cyber"
 
 
+def test_sse_parser_captures_message_delta_stop_info() -> None:
+    """Parser unit test: a "message_delta" event populates stop_reason/
+    stop_details on the parser object while text-chunk extraction is
+    unaffected (message_delta itself yields no content)."""
+    import asyncio
+
+    from aragora.agents.api_agents.common import create_anthropic_sse_parser
+    from tests.agents.api_agents.conftest import MockStreamResponse
+
+    chunks = [
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,'
+        b'"delta":{"type":"text_delta","text":"Hi"}}\n\n',
+        b'event: message_delta\ndata: {"type":"message_delta","delta":'
+        b'{"stop_reason":"refusal","stop_sequence":null},"stop_details":'
+        b'{"category":"cyber"},"usage":{"output_tokens":1}}\n\n',
+    ]
+    mock_response = MockStreamResponse(status=200, chunks=chunks)
+
+    async def _consume() -> tuple[object, list[str]]:
+        parser = create_anthropic_sse_parser()
+        collected = [c async for c in parser.parse_stream(mock_response.content, "test")]
+        return parser, collected
+
+    parser, collected = asyncio.run(_consume())
+
+    assert collected == ["Hi"], "message_delta must not itself yield content"
+    assert parser.stop_reason == "refusal"
+    assert parser.stop_details == {"category": "cyber"}
+
+
+def test_anthropic_stream_refusal_raises_after_yielding_partial_text() -> None:
+    """A streamed refusal (stop_reason on a message_delta event, not a
+    single JSON body) must raise the same structured AgentAPIError generate()
+    raises, after any text already streamed."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.agents.errors.exceptions import AgentAPIError
+    from tests.agents.api_agents.conftest import MockStreamResponse
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    agent.enable_web_search = False
+
+    chunks = [
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,'
+        b'"delta":{"type":"text_delta","text":"Hello"}}\n\n',
+        b'event: message_delta\ndata: {"type":"message_delta","delta":'
+        b'{"stop_reason":"refusal","stop_sequence":null},"stop_details":'
+        b'{"category":"cyber"},"usage":{"output_tokens":1}}\n\n',
+        b'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+    ]
+    mock_response = MockStreamResponse(status=200, chunks=chunks)
+
+    yielded: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in agent.generate_stream("hello"):
+            yielded.append(chunk)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(return_value=mock_response)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(
+        "aragora.agents.api_agents.anthropic.create_client_session",
+        return_value=mock_session,
+    ):
+        with pytest.raises(AgentAPIError) as excinfo:
+            asyncio.run(_consume())
+
+    assert yielded == ["Hello"], "text streamed before the refusal must stay yielded"
+    assert excinfo.value.reason == "refusal"
+    assert excinfo.value.category == "cyber"
+
+
+def test_anthropic_stream_end_turn_yields_full_text_without_error() -> None:
+    """A normal (non-refusal) stream must not raise and must yield all text."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from tests.agents.api_agents.conftest import MockStreamResponse
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    agent.enable_web_search = False
+
+    chunks = [
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,'
+        b'"delta":{"type":"text_delta","text":"Hello"}}\n\n',
+        b'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,'
+        b'"delta":{"type":"text_delta","text":" world"}}\n\n',
+        b'event: message_delta\ndata: {"type":"message_delta","delta":'
+        b'{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":2}}\n\n',
+        b'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+    ]
+    mock_response = MockStreamResponse(status=200, chunks=chunks)
+
+    yielded: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in agent.generate_stream("hello"):
+            yielded.append(chunk)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(return_value=mock_response)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(
+        "aragora.agents.api_agents.anthropic.create_client_session",
+        return_value=mock_session,
+    ):
+        asyncio.run(_consume())
+
+    assert "".join(yielded) == "Hello world"
+
+
 def test_openai_payload_for_astra() -> None:
     from aragora.agents.api_agents.openai import OpenAIAPIAgent
 

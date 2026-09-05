@@ -752,12 +752,35 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                     )
 
                 # Use SSEStreamParser for consistent SSE parsing
+                parser = create_anthropic_sse_parser()
                 try:
-                    parser = create_anthropic_sse_parser()
                     async for content in parser.parse_stream(response.content, self.name):
                         yield content
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
+
+                # A streamed refusal carries stop_reason on a "message_delta"
+                # event rather than in the (nonexistent, for a stream) single
+                # JSON body generate() inspects: surface it the same
+                # structured way once the stream completes. Any text already
+                # yielded above stays yielded; the error is raised after it.
+                if parser.stop_reason == "refusal":
+                    category = (
+                        parser.stop_details.get("category")
+                        if isinstance(parser.stop_details, dict)
+                        else None
+                    )
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    message = "Anthropic declined to generate a response (stop_reason=refusal)"
+                    if category:
+                        message = f"{message}: {category}"
+                    raise AgentAPIError(
+                        message,
+                        agent_name=self.name,
+                        reason="refusal",
+                        category=category,
+                    )
 
     async def critique(
         self,

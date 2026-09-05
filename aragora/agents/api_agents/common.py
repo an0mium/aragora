@@ -536,6 +536,33 @@ class SSEStreamParser:
         self.chunk_timeout = (
             chunk_timeout if chunk_timeout is not None else _get_stream_chunk_timeout()
         )
+        # Populated from an Anthropic "message_delta" event, if the stream
+        # carries one (no-op for providers whose events never use that
+        # shape, e.g. OpenAI): lets a caller detect a streamed
+        # stop_reason == "refusal" after the stream completes, without
+        # changing the yielded text-chunk interface other consumers rely on.
+        self.stop_reason: str | None = None
+        self.stop_details: dict[str, Any] | None = None
+
+    def _capture_message_delta_stop_info(self, event: dict[str, Any]) -> None:
+        """Record stop_reason/stop_details from an Anthropic "message_delta"
+        event (streaming carries these on the delta and/or event, unlike the
+        non-streaming response body where they are top-level). A no-op for
+        every other event type/provider shape."""
+        if event.get("type") != "message_delta":
+            return
+        delta: Any = event.get("delta")
+        if isinstance(delta, dict):
+            stop_reason = delta.get("stop_reason")
+            if stop_reason is not None:
+                self.stop_reason = stop_reason
+        else:
+            delta = None
+        stop_details: Any = event.get("stop_details")
+        if stop_details is None and isinstance(delta, dict):
+            stop_details = delta.get("stop_details")
+        if isinstance(stop_details, dict):
+            self.stop_details = stop_details
 
     async def parse_stream(
         self,
@@ -592,6 +619,7 @@ class SSEStreamParser:
                                 "[%s] Unexpected JSON type: %s", agent_name, type(event).__name__
                             )
                             continue
+                        self._capture_message_delta_stop_info(event)
                         content: str = self.content_extractor(event)
                         if content:
                             yield content
