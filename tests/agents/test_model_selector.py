@@ -93,6 +93,25 @@ class TestModelProfiles:
             for cap, score in profile.capabilities.items():
                 assert 0.0 <= score <= 1.0, f"{name} has invalid {cap} score: {score}"
 
+    def test_all_profiles_match_catalog_pricing(self):
+        """Every MODEL_PROFILES entry's model_id must resolve to a catalog
+        row, and its cost fields must equal that row's pricing (per 1k,
+        i.e. per-MTok / 1000) -- frontier-model-refresh, 2026-09-04 review
+        fix round 1, item 4."""
+        from aragora.models.catalog import by_any_id
+
+        for name, profile in MODEL_PROFILES.items():
+            spec = by_any_id(profile.model_id)
+            assert spec is not None, f"{name}: model_id {profile.model_id!r} has no catalog row"
+            assert profile.cost_input_per_1k == pytest.approx(spec.input_per_mtok / 1000), (
+                f"{name}: cost_input_per_1k {profile.cost_input_per_1k} != "
+                f"catalog {spec.input_per_mtok / 1000}"
+            )
+            assert profile.cost_output_per_1k == pytest.approx(spec.output_per_mtok / 1000), (
+                f"{name}: cost_output_per_1k {profile.cost_output_per_1k} != "
+                f"catalog {spec.output_per_mtok / 1000}"
+            )
+
 
 class TestModelCapabilityEnum:
     """Tests for ModelCapability enum."""

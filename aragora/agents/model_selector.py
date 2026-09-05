@@ -158,7 +158,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     # still Active upstream and is Opus 5's documented fallback target for
     # cyber-classifier refusals.
     "claude-opus-4-8": ModelProfile(
-        model_id="claude-opus-4-8",
+        model_id=CATALOG["claude-opus-4-8"].direct_id,
         display_name="Claude Opus 4.8",
         provider="anthropic",
         capabilities={
@@ -173,10 +173,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.99,
             ModelCapability.FACTUAL_ACCURACY: 0.98,
         },
-        max_context_tokens=1000000,
-        max_output_tokens=128000,
-        cost_input_per_1k=0.005,
-        cost_output_per_1k=0.025,
+        max_context_tokens=CATALOG["claude-opus-4-8"].context_window,
+        max_output_tokens=CATALOG["claude-opus-4-8"].max_output_tokens,
+        cost_input_per_1k=CATALOG["claude-opus-4-8"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["claude-opus-4-8"].output_per_mtok / 1000,
         avg_latency_ms=1200,
         reliability_score=0.97,
         supports_vision=True,
@@ -242,9 +242,13 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
+    # gpt-5.4 is a retired legacy spelling with no catalog row; "gpt-5.4"
+    # now points at the value-tier frontier (gpt-5.6-terra), the same
+    # target as the "gpt-4o" profile (frontier-model-refresh, 2026-09-04
+    # review fix round 1, item 4).
     "gpt-5.4": ModelProfile(
-        model_id="gpt-5.4",
-        display_name="GPT-4.1 Mini",
+        model_id=CATALOG["gpt-5.6-terra"].direct_id,
+        display_name="GPT-5.6 Terra",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.85,
@@ -258,17 +262,17 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.88,
             ModelCapability.FACTUAL_ACCURACY: 0.83,
         },
-        max_context_tokens=1000000,
-        max_output_tokens=32768,
-        cost_input_per_1k=0.0004,
-        cost_output_per_1k=0.0016,
+        max_context_tokens=CATALOG["gpt-5.6-terra"].context_window,
+        max_output_tokens=CATALOG["gpt-5.6-terra"].max_output_tokens,
+        cost_input_per_1k=CATALOG["gpt-5.6-terra"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["gpt-5.6-terra"].output_per_mtok / 1000,
         avg_latency_ms=400,
         reliability_score=0.97,
         supports_vision=True,
     ),
     # Google
     "gemini": ModelProfile(
-        model_id="gemini-3.1-pro-preview",
+        model_id=CATALOG["gemini-3.1-pro-preview"].direct_id,
         display_name="Gemini 3.1 Pro",
         provider="google",
         capabilities={
@@ -283,10 +287,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.94,
             ModelCapability.FACTUAL_ACCURACY: 0.92,
         },
-        max_context_tokens=1000000,
-        max_output_tokens=64000,
-        cost_input_per_1k=0.002,
-        cost_output_per_1k=0.012,
+        max_context_tokens=CATALOG["gemini-3.1-pro-preview"].context_window,
+        max_output_tokens=CATALOG["gemini-3.1-pro-preview"].max_output_tokens,
+        cost_input_per_1k=CATALOG["gemini-3.1-pro-preview"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["gemini-3.1-pro-preview"].output_per_mtok / 1000,
         avg_latency_ms=900,
         reliability_score=0.96,
         supports_vision=True,
@@ -453,7 +457,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Kimi (Moonshot AI)
     "kimi": ModelProfile(
-        model_id="kimi-k3",
+        model_id=CATALOG["kimi-k3"].direct_id,
         display_name="Kimi K3",
         provider="moonshot",
         capabilities={
@@ -469,10 +473,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
             ModelCapability.FACTUAL_ACCURACY: 0.82,
         },
-        max_context_tokens=1_048_576,
-        max_output_tokens=32_768,
-        cost_input_per_1k=0.003,
-        cost_output_per_1k=0.015,
+        max_context_tokens=CATALOG["kimi-k3"].context_window,
+        max_output_tokens=CATALOG["kimi-k3"].max_output_tokens,
+        cost_input_per_1k=CATALOG["kimi-k3"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["kimi-k3"].output_per_mtok / 1000,
         avg_latency_ms=800,
         reliability_score=0.91,
         supports_vision=True,
