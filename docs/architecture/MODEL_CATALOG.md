@@ -67,13 +67,14 @@ for s in rows:
 EOF
 ```
 
-Output as of this commit (26 rows):
+Output as of this commit (28 rows):
 
 | Family | Canonical ID | Direct ID | OpenRouter slug | $/1M in | $/1M out | Context | Tier | Retired |
 |---|---|---|---|---:|---:|---:|---|---|
 | ai21 | `jamba-large-1.7` | `jamba-large` | `ai21/jamba-large-1.7` | 2 | 8 | 256,000 | flagship | False |
 | anthropic | `claude-fable-5` | `claude-fable-5` | `anthropic/claude-fable-5` | 10 | 50 | 1,000,000 | flagship | True |
 | anthropic | `claude-fable-5-1` | `claude-fable-5-1` | `anthropic/claude-fable-5.1` | 10 | 50 | 1,000,000 | flagship | False |
+| anthropic | `claude-haiku-4-5-20251001` | `claude-haiku-4-5-20251001` | `anthropic/claude-haiku-4.5` | 1 | 5 | 200,000 | value | False |
 | anthropic | `claude-opus-4-8` | `claude-opus-4-8` | `anthropic/claude-opus-4.8` | 5 | 25 | 1,000,000 | fallback | False |
 | anthropic | `claude-opus-5` | `claude-opus-5` | `anthropic/claude-opus-5` | 5 | 25 | 1,000,000 | fallback | False |
 | cohere | `command-a` | `command-a-03-2025` | `cohere/command-a` | 2.5 | 10 | 256,000 | flagship | False |
@@ -83,6 +84,7 @@ Output as of this commit (26 rows):
 | meta | `muse-spark-1.3` | `muse-spark-1.3` | `meta/muse-spark-1.3` | 1.25 | 4.25 | 1,048,576 | flagship | False |
 | minimax | `minimax-m3` | `minimax-m3` | `minimax/minimax-m3` | 0.3 | 1.2 | 1,048,576 | flagship | False |
 | mistral | `mistral-medium-2604` | `mistral-medium-2604` | `mistralai/mistral-medium-3-5` | 1.5 | 7.5 | 262,144 | flagship | False |
+| mistral | `mistral-large-2411` | `mistral-large-2411` | `mistralai/mistral-large-2411` | 2 | 6 | 131,072 | fallback | True |
 | mistral | `mistral-large-2512` | `mistral-large-2512` | `mistralai/mistral-large-2512` | 0.5 | 1.5 | 262,144 | fallback | False |
 | moonshot | `kimi-k3` | `kimi-k3` | `moonshotai/kimi-k3` | 3 | 15 | 1,048,576 | flagship | False |
 | moonshot | `kimi-k2.7-code` | `kimi-k2.7-code` | `moonshotai/kimi-k2.7-code` | 0.66 | 3.4 | 262,144 | code | False |
@@ -99,7 +101,7 @@ Output as of this commit (26 rows):
 | zai | `glm-5.2` | `glm-5.2` | `z-ai/glm-5.2` | 0.966 | 3.036 | 1,048,576 | flagship | False |
 
 Retired rows (`claude-fable-5`, `gpt-5.5`, `gpt-5.6-sol`, `qwen3.7-max`,
-`grok-4.3`, `grok-4.5`) are kept in `CATALOG`, not deleted: an old receipt
+`grok-4.3`, `grok-4.5`, `mistral-large-2411`) are kept in `CATALOG`, not deleted: an old receipt
 or cost report that names one must still resolve and price correctly. They
 are simply excluded from `frontier_for()`/`FRONTIER` and from routing
 enumeration (`ModelSpec.is_under_soak()` / `retired` both gate *adoption*
