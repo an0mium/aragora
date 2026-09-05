@@ -326,7 +326,10 @@ def decision_receipt_to_odr(
         for key in ("verdicts", "rule"):
             if key in content:
                 doc["quorum"][key] = content[key]
-        doc["quorum"]["dissent"].update(content.get("dissent", {}))
+        dissent = content.get("dissent", {})
+        for key in ("findings", "severity_max", "blocking"):
+            if key in dissent:
+                doc["quorum"]["dissent"][key] = dissent[key]
     if content.get("observations") and doc["reasoning"]["status"] == "present":
         doc["reasoning"]["observations"] = content["observations"]
     if "adjudication" in content:

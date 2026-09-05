@@ -44,9 +44,26 @@ def test_findings_do_not_change_legacy_dissent_present():
     )
     before = decision_receipt_to_odr(receipt)["quorum"]["dissent"]
     finding = {"issuer": "claude", "severity": "P3", "blocking": False, "text": "[P3] advisory"}
-    receipt.settlement_metadata = {"odr": {"dissent": {"findings": [finding]}}}
+    receipt.settlement_metadata = {
+        "odr": {
+            "dissent": {
+                "findings": [finding],
+                "severity_max": "P3",
+                "blocking": False,
+                "present": True,
+                "dissenting_agents": ["invented"],
+                "views": ["invented"],
+            }
+        }
+    }
     doc = decision_receipt_to_odr(receipt)
     assert before["present"] is False and doc["quorum"]["dissent"]["present"] is False
+    assert doc["quorum"]["dissent"] == {
+        **before,
+        "findings": [finding],
+        "severity_max": "P3",
+        "blocking": False,
+    }
     assert doc["quorum"]["dissent"]["findings"] == [finding]
     assert verify(doc).ok and verify_odr_document(doc).ok
 
