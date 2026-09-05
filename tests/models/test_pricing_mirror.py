@@ -102,15 +102,18 @@ def test_provider_config_rows_are_not_calendar_dependent() -> None:
     """
     from datetime import date
 
-    soaking = [s for s in CATALOG.values() if s.soak_until is not None and not s.retired]
+    soaking = [
+        (s, s.soak_until) for s in CATALOG.values() if s.soak_until is not None and not s.retired
+    ]
     assert soaking, "fixture assumption: the catalog carries at least one soaking row"
 
     baseline = set(pm.provider_config_rows())
-    for s in soaking:
-        assert s.canonical_id in baseline, (
-            f"{s.canonical_id} is soaking but active; it must still be a routing candidate"
+    for spec, soak_until in soaking:
+        assert soak_until is not None
+        assert spec.canonical_id in baseline, (
+            f"{spec.canonical_id} is soaking but active; it must still be a routing candidate"
         )
-        mid_soak = s.release_date + (s.soak_until - s.release_date) // 2
+        mid_soak = spec.release_date + (soak_until - spec.release_date) // 2
         assert set(pm.provider_config_rows(today=mid_soak)) == baseline
     assert set(pm.provider_config_rows(today=date(2099, 1, 1))) == baseline
 
