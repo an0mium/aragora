@@ -164,9 +164,15 @@ def _default_cost(tokens_in: int, tokens_out: int) -> Decimal:
 
 
 def _expected_cost(spec, tokens_in: int, tokens_out: int) -> Decimal:
-    return (Decimal(tokens_in) / Decimal(10**6)) * Decimal(str(spec.input_per_mtok)) + (
+    """Tier-aware, like ``calculate_token_cost`` itself: a prompt at or above
+    a row's documented ``long_context_threshold`` bills every token in the
+    request at the higher rate (finding O-P2b on #9989). Using the flat
+    fields here would make this helper disagree with the code it checks for
+    exactly the rows the tier exists for (``gpt-6-astra``, ``grok-4.6``)."""
+    input_rate, output_rate = spec.rates_for(tokens_in)
+    return (Decimal(tokens_in) / Decimal(10**6)) * Decimal(str(input_rate)) + (
         Decimal(tokens_out) / Decimal(10**6)
-    ) * Decimal(str(spec.output_per_mtok))
+    ) * Decimal(str(output_rate))
 
 
 def test_openrouter_bucket_prices_every_openrouter_slug() -> None:

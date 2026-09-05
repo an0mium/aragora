@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from aragora.routing.provider_config import ProviderPricing
 
 __all__ = [
+    "dec",
     "debate_cost_rows",
     "metering_rows",
     "pdb_rows",
@@ -43,13 +44,23 @@ __all__ = [
 ]
 
 
-def _dec(x: float) -> Decimal:
+def dec(x: float) -> Decimal:
     """Render a catalog float as the ``Decimal`` shape the legacy tables
     use: two decimal places for round dollar-and-cents rates (``10.0`` ->
     ``Decimal("10.00")``), four for rates with finer-grained cents (e.g.
     the qwen3.7-max reprice ``1.475``, the deepseek-v4-pro-0813 live
-    capture ``1.1207``)."""
+    capture ``1.1207``).
+
+    Public because two consumers outside this module (``billing.usage``'s
+    catalog price path and its test) must render a catalog rate in exactly
+    the same shape the generated tables use, and importing an underscored
+    name across module boundaries hides that coupling rather than removing
+    it."""
     return Decimal(f"{x:.4f}").normalize() if x != round(x, 2) else Decimal(f"{x:.2f}")
+
+
+# Back-compat alias for the original private spelling.
+_dec = dec
 
 
 def _active() -> list[ModelSpec]:
@@ -187,7 +198,16 @@ def usage_rows() -> dict[str, dict[str, Decimal]]:
     """Shape of ``aragora.billing.usage.PROVIDER_PRICING``: provider ->
     {id: input_rate, f"{id}-output": output_rate}, one entry per spelling
     in ``ModelSpec.all_ids()`` so canonical/direct/openrouter/alias ids all
-    resolve, under every bucket ``_bucketed`` emits the row for."""
+    resolve, under every bucket ``_bucketed`` emits the row for.
+
+    The emitted rates are FLAT (``input_per_mtok``/``output_per_mtok``) and
+    stay flat: the two-key-per-spelling shape this table must produce cannot
+    express a documented long-context tier, which depends on the request's
+    prompt length rather than on the model alone. Tier-aware pricing is
+    therefore the catalog's job -- ``ModelSpec.rates_for(prompt_tokens)``,
+    which ``billing.usage.calculate_token_cost`` consults BEFORE these
+    buckets (finding O-P2b on #9989) -- and these rows remain the correct
+    answer for the spellings the catalog cannot resolve at all."""
     out: dict[str, dict[str, Decimal]] = {}
     for s in _active():
         for bucket, spellings in _bucketed(s):

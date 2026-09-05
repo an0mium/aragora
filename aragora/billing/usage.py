@@ -18,7 +18,7 @@ from typing import Any
 from collections.abc import Generator
 from uuid import uuid4
 
-from aragora.models.pricing_mirror import _dec, usage_rows
+from aragora.models.pricing_mirror import dec, usage_rows
 
 logger = logging.getLogger(__name__)
 
@@ -184,30 +184,62 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
 }
 
 
-def _catalog_token_price(model: str) -> tuple[Decimal, Decimal] | None:
-    """Resolve ``model`` against the catalog directly, for
-    ``calculate_token_cost``'s fallback below.
+def _catalog_token_price(model: str, prompt_tokens: int = 0) -> tuple[Decimal, Decimal] | None:
+    """Rate pair for ``model``'s OWN catalog spelling, or ``None``.
 
-    Tries an EXACT catalog spelling first (canonical/direct/openrouter/
-    alias, including a RETIRED row at its own historical rate -- "retired
-    rows stay priced" is a hard invariant elsewhere in this module's
-    generated tables). Only when that misses does it try
-    ``resolve_model_id`` (UPGRADES-map normalization), since that can
-    redirect a spelling the catalog carries no row for at all to a LIVE
-    row's rate -- appropriate only as a last resort, because it is not the
-    unrecognised spelling's own historical price.
+    Resolution is EXACT (canonical/direct/openrouter/alias via
+    ``spec_or_none``), including a RETIRED row at its own historical rate --
+    "retired rows stay priced" is a hard invariant of this module's
+    generated tables.
+
+    It deliberately carries NO upgrade leg. An earlier cut fell through to
+    ``resolve_model_id`` when the exact spelling missed, which priced an
+    uncataloged legacy spelling at its SUCCESSOR's rate -- never a correct
+    answer for a receipt, which records what was actually charged for the
+    model that actually ran. ``mistral-large-2411`` was the empirical case
+    (2.00 against a true 8.00 before it got its own row); the same leg also
+    over-priced ``gpt-4o`` at ``gpt-6-astra``'s rate and under-priced
+    ``grok-4`` at ``grok-4.6``'s, both of which have correct rows in the
+    generated buckets that ``calculate_token_cost`` now reaches instead.
+
+    Tier-aware: ``spec.rates_for(prompt_tokens)`` applies a documented
+    long-context tier (xAI's, and ``gpt-6-astra``'s) for a prompt at or above
+    the row's threshold. The generated buckets are flat and cannot express
+    that (finding O-P2b on #9989), which is why this path is consulted first.
     """
     from aragora.models.catalog import spec_or_none
-    from aragora.models.upgrade_map import resolve_model_id
 
     spec = spec_or_none(model)
     if spec is None:
-        resolved = resolve_model_id(model)
-        if resolved and resolved != model:
-            spec = spec_or_none(resolved)
-    if spec is None:
         return None
-    return _dec(spec.input_per_mtok), _dec(spec.output_per_mtok)
+    input_rate, output_rate = spec.rates_for(prompt_tokens)
+    return dec(input_rate), dec(output_rate)
+
+
+def _any_bucket_token_price(model: str) -> tuple[Decimal | None, Decimal | None]:
+    """First ``(input, output)`` price found for the EXACT ``model``
+    spelling under ANY ``PROVIDER_PRICING`` bucket.
+
+    A spelling has ONE price, and which provider LABEL a caller happens to
+    pass is not information about that price: ``CLIAgent`` never sets
+    ``agent_type`` (so every CLI agent bills as ``"unknown"``), and several
+    API agents bill under a label naming neither their model's catalog
+    provider nor its family. Buckets are emitted per label precisely so a
+    legitimate label finds the row, so consulting the others on a miss
+    cannot introduce a conflicting rate -- ``tests/billing/test_usage.py``
+    asserts no spelling is priced two different ways across buckets.
+    """
+    in_price: Decimal | None = None
+    out_price: Decimal | None = None
+    output_key = f"{model}-output"
+    for table in PROVIDER_PRICING.values():
+        if in_price is None:
+            in_price = table.get(model)
+        if out_price is None:
+            out_price = table.get(output_key)
+        if in_price is not None and out_price is not None:
+            break
+    return in_price, out_price
 
 
 def calculate_token_cost(
@@ -232,38 +264,42 @@ def calculate_token_cost(
     """
     provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
 
-    model_in_bucket = model in provider_prices
-    model_output_in_bucket = f"{model}-output" in provider_prices
-
-    # Catalog fallback (2026-09-05 C-P1 fix): a ``provider`` string that
-    # names neither a real pricing bucket nor the model's own catalog
-    # provider/family (e.g. "gemini" for a google-family row, "unknown" for
-    # every CLI agent -- see aragora/models/pricing_mirror.py's
-    # ``_LABEL_ALIASES``) misses the bucket lookup below exactly like an
-    # unregistered provider entirely. Resolve the model against the
-    # catalog directly BEFORE falling to the hardcoded $2/$8 default -- an
-    # explicit bucket entry (checked first, immediately below) still wins
-    # whenever it hits, so this never second-guesses a real bucket price.
-    catalog_price: tuple[Decimal, Decimal] | None = None
-    if not model_in_bucket or not model_output_in_bucket:
-        catalog_price = _catalog_token_price(model)
-
-    # Get input price
-    if model_in_bucket:
-        input_price = provider_prices[model]
-    elif catalog_price is not None:
-        input_price = catalog_price[0]
+    # Resolution order (#9989 merge-gate, round 2 -- findings O-P2b and the
+    # scoped re-review's Important #1):
+    #
+    #   1. the model's OWN catalog row, TIER-AWARE. First because it is the
+    #      only source that can price a long-context request correctly: the
+    #      generated buckets are flat two-key rows and cannot express a
+    #      documented tier. A retired row prices at its own historical rate.
+    #   2. the caller's label bucket;
+    #   3. any OTHER bucket carrying the exact spelling -- one price per
+    #      spelling, independent of the label the caller passed (a CLI agent
+    #      passes "unknown", several API agents pass a label matching neither
+    #      their model's provider nor its family);
+    #   4. the $2/$8 default.
+    #
+    # There is deliberately NO upgrade leg anywhere in this order: see
+    # ``_catalog_token_price``. Steps 1 and 2 cannot disagree today -- every
+    # cataloged spelling's bucket rows are GENERATED from the same row -- so
+    # putting the catalog first changes no flat-priced answer; it only makes
+    # the tiered ones right.
+    input_price: Decimal | None
+    output_price: Decimal | None
+    catalog_price = _catalog_token_price(model, tokens_in)
+    if catalog_price is not None:
+        input_price, output_price = catalog_price
     else:
-        input_price = provider_prices.get("default", Decimal("2.00"))
-
-    # Get output price
-    output_key = f"{model}-output"
-    if model_output_in_bucket:
-        output_price = provider_prices[output_key]
-    elif catalog_price is not None:
-        output_price = catalog_price[1]
-    else:
-        output_price = provider_prices.get("default-output", Decimal("8.00"))
+        output_key = f"{model}-output"
+        input_price = provider_prices.get(model)
+        output_price = provider_prices.get(output_key)
+        if input_price is None or output_price is None:
+            any_in, any_out = _any_bucket_token_price(model)
+            input_price = any_in if input_price is None else input_price
+            output_price = any_out if output_price is None else output_price
+        if input_price is None:
+            input_price = provider_prices.get("default", Decimal("2.00"))
+        if output_price is None:
+            output_price = provider_prices.get("default-output", Decimal("8.00"))
 
     # Calculate cost (prices are per 1M tokens)
     input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
