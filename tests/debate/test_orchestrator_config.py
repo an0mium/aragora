@@ -59,7 +59,7 @@ def mock_debate_config() -> DebateConfig:
 def mock_agent_config() -> AgentConfig:
     """Create a test AgentConfig instance."""
     return AgentConfig(
-        agent_weights={"claude": 1.2, "gpt-4": 1.0},
+        agent_weights={"claude": 1.2, "gpt-6-astra": 1.0},
         use_performance_selection=False,
         use_airlock=True,
         vertical="healthcare",
@@ -414,7 +414,7 @@ class TestMergeConfigObjects:
 
         assert result.use_performance_selection is False  # From mock_agent_config
         assert result.use_airlock is True  # From mock_agent_config
-        assert result.agent_weights == {"claude": 1.2, "gpt-4": 1.0}
+        assert result.agent_weights == {"claude": 1.2, "gpt-6-astra": 1.0}
         assert result.vertical == "healthcare"
 
     def test_memory_config_overrides_individual_params(
@@ -777,7 +777,7 @@ class TestAgentTeamSelectionParams:
 
     def test_agent_weights_passthrough(self, default_merge_params):
         """Agent weights are passed through."""
-        weights = {"claude": 1.5, "gpt-4": 1.0, "gemini": 0.8}
+        weights = {"claude": 1.5, "gpt-6-astra": 1.0, "gemini": 0.8}
         default_merge_params["agent_weights"] = weights
 
         result = merge_config_objects(**default_merge_params)
@@ -1025,7 +1025,7 @@ class TestConfigHierarchyOverride:
     def test_agent_config_overrides_weights(self, default_merge_params):
         """AgentConfig.agent_weights overrides individual agent_weights."""
         individual_weights = {"claude": 1.0}
-        config_weights = {"claude": 1.5, "gpt-4": 1.2}
+        config_weights = {"claude": 1.5, "gpt-6-astra": 1.2}
 
         agent_config = AgentConfig(agent_weights=config_weights)
         default_merge_params["agent_config"] = agent_config

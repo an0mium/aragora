@@ -89,7 +89,7 @@ class TestZapierPayloadFormatting:
     @pytest.mark.asyncio
     async def test_format_payload_handles_arrays(self, connector, subscription):
         payload = {
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
         }
         formatted = await connector.format_payload(
             AutomationEventType.DEBATE_COMPLETED,
@@ -97,7 +97,7 @@ class TestZapierPayloadFormatting:
             subscription,
         )
 
-        assert formatted["agents"] == ["claude", "gpt-4", "gemini"]
+        assert formatted["agents"] == ["claude", "gpt-6-astra", "gemini"]
         assert formatted["agents_count"] == 3
 
 

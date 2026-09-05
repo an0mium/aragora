@@ -53,7 +53,7 @@ def _make_workspace_stats(
         if agent_costs is not None
         else {
             "claude": "5.00",
-            "gpt-4": "3.00",
+            "gpt-6-astra": "3.00",
             "gemini": "2.00",
         },
         "cost_by_model": {},

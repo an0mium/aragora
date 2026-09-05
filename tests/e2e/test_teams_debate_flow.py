@@ -344,7 +344,7 @@ class TestTeamsAdaptiveCards:
         card = TeamsAdaptiveCards.starting_card(
             topic="Should we adopt microservices?",
             initiated_by="Test User",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             debate_id="debate-123",
         )
 
@@ -383,7 +383,7 @@ class TestTeamsAdaptiveCards:
                 confidence=0.85,
             ),
             AgentContribution(
-                name="gpt-4",
+                name="gpt-6-astra",
                 position="for",
                 key_point="I agree with the scalability benefits",
                 confidence=0.80,

@@ -30,7 +30,7 @@ def test_codex_launch_parses_thread_started_agent_messages_and_usage(tmp_path: P
     fake_runner = FakeRunner(_fixture_text("codex_start.jsonl"))
     transport = CodexTransport(
         cwd=tmp_path,
-        model="gpt-5.4",
+        model="gpt-6-astra",
         runner=fake_runner,
         binary_resolver=lambda _: "/usr/bin/codex",
     )
@@ -47,7 +47,7 @@ def test_codex_launch_parses_thread_started_agent_messages_and_usage(tmp_path: P
         "exec",
         "--json",
         "--model",
-        "gpt-5.4",
+        "gpt-6-astra",
         "Review the plan",
     ]
     assert fake_runner.kwargs[0]["stdin"] == subprocess.DEVNULL

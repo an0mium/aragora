@@ -119,7 +119,7 @@ def test_discovery_finds_native_mistral_sdk_calls(tmp_path: Path) -> None:
         "aragora/run.py",
         """from mistralai import Mistral as MistralClient
 client = MistralClient(api_key="key")
-client.chat.complete(model="mistral-large", messages=[])
+client.chat.complete(model="mistral-large-2512", messages=[])
 client.fim.complete(model="codestral", prompt="pass")
 unrelated.chat.complete(model="not-mistral", messages=[])
 """,
@@ -137,7 +137,7 @@ def test_bare_mistral_types_reach_ast_discovery(tmp_path: Path) -> None:
         tmp_path,
         "aragora/run.py",
         """def run(client: Mistral):
-    client.chat.complete(model="mistral-large", messages=[])
+    client.chat.complete(model="mistral-large-2512", messages=[])
 """,
     )
     sites = checker.discover(tmp_path).sites

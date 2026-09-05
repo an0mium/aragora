@@ -44,7 +44,7 @@ class TestConsensusProofInit:
         proof = ConsensusProof(
             reached=True,
             confidence=0.85,
-            vote_breakdown={"claude": True, "gpt-4": True},
+            vote_breakdown={"claude": True, "gpt-6-astra": True},
             final_answer="Agreed on REST API",
             rounds_used=3,
         )
@@ -104,7 +104,7 @@ class TestConsensusProofToDict:
         proof = ConsensusProof(
             reached=True,
             confidence=0.85,
-            vote_breakdown={"claude": True, "gpt-4": False},
+            vote_breakdown={"claude": True, "gpt-6-astra": False},
             final_answer="Final answer",
             rounds_used=3,
             timestamp="2024-01-15T10:00:00Z",
@@ -114,7 +114,7 @@ class TestConsensusProofToDict:
 
         assert result["reached"] is True
         assert result["confidence"] == 0.85
-        assert result["vote_breakdown"] == {"claude": True, "gpt-4": False}
+        assert result["vote_breakdown"] == {"claude": True, "gpt-6-astra": False}
         assert result["final_answer"] == "Final answer"
         assert result["rounds_used"] == 3
         assert result["timestamp"] == "2024-01-15T10:00:00Z"
@@ -239,7 +239,7 @@ class TestDebateArtifactInit:
             artifact_id="custom-id",
             debate_id="debate-001",
             task="Test task",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=3,
             duration_seconds=60.5,
             message_count=10,
@@ -249,7 +249,7 @@ class TestDebateArtifactInit:
         assert artifact.artifact_id == "custom-id"
         assert artifact.debate_id == "debate-001"
         assert artifact.task == "Test task"
-        assert artifact.agents == ["claude", "gpt-4"]
+        assert artifact.agents == ["claude", "gpt-6-astra"]
         assert artifact.rounds == 3
         assert artifact.duration_seconds == 60.5
         assert artifact.message_count == 10
@@ -419,7 +419,7 @@ class TestDebateArtifactFromDict:
             "artifact_id": "test-id",
             "debate_id": "debate-001",
             "task": "Test task",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "rounds": 3,
         }
 
@@ -428,7 +428,7 @@ class TestDebateArtifactFromDict:
         assert artifact.artifact_id == "test-id"
         assert artifact.debate_id == "debate-001"
         assert artifact.task == "Test task"
-        assert artifact.agents == ["claude", "gpt-4"]
+        assert artifact.agents == ["claude", "gpt-6-astra"]
         assert artifact.rounds == 3
 
     def test_reconstructs_consensus_proof(self):
@@ -501,7 +501,7 @@ class TestDebateArtifactRoundtrip:
             artifact_id="test",
             debate_id="debate-001",
             task="Test task",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=3,
             consensus_proof=ConsensusProof(
                 reached=True,
@@ -646,7 +646,7 @@ class TestArtifactBuilderFromResult:
         mock_result.task = "Test task"
         mock_result.rounds_used = 3
         mock_result.duration_seconds = 45.5
-        mock_result.messages = [MagicMock(agent="claude"), MagicMock(agent="gpt-4")]
+        mock_result.messages = [MagicMock(agent="claude"), MagicMock(agent="gpt-6-astra")]
         mock_result.critiques = [MagicMock()]
         mock_result.consensus_reached = True
         mock_result.confidence = 0.85
@@ -671,7 +671,7 @@ class TestArtifactBuilderFromResult:
         mock_result.duration_seconds = 10
         mock_result.messages = [
             MagicMock(agent="claude"),
-            MagicMock(agent="gpt-4"),
+            MagicMock(agent="gpt-6-astra"),
             MagicMock(agent="claude"),  # Duplicate
         ]
         mock_result.critiques = []
@@ -684,7 +684,7 @@ class TestArtifactBuilderFromResult:
 
         assert len(artifact.agents) == 2
         assert "claude" in artifact.agents
-        assert "gpt-4" in artifact.agents
+        assert "gpt-6-astra" in artifact.agents
 
     def test_creates_consensus_proof(self):
         """Should create consensus proof from result."""

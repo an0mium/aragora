@@ -188,9 +188,9 @@ class TestInterrogatorConfigMerge:
 
     def test_merge_multiple_fields(self):
         cfg = InterrogatorConfig()
-        new_cfg = cfg.merge({"max_turns": 3, "model": "gpt-4o"})
+        new_cfg = cfg.merge({"max_turns": 3, "model": "gpt-6-astra"})
         assert new_cfg.max_turns == 3
-        assert new_cfg.model == "gpt-4o"
+        assert new_cfg.model == "gpt-6-astra"
 
     def test_merge_custom_system_prompt(self):
         cfg = InterrogatorConfig()
@@ -425,10 +425,12 @@ class TestSwarmCommanderConfigMerge:
         assert new_cfg.interrogator is custom_interrogator
 
     def test_merge_interrogator_dict_preserves_other_interrogator_fields(self):
-        cfg = SwarmCommanderConfig(interrogator=InterrogatorConfig(max_turns=6, model="gpt-4o"))
+        cfg = SwarmCommanderConfig(
+            interrogator=InterrogatorConfig(max_turns=6, model="gpt-6-astra")
+        )
         new_cfg = cfg.merge({"interrogator": {"max_turns": 12}})
         assert new_cfg.interrogator.max_turns == 12
-        assert new_cfg.interrogator.model == "gpt-4o"
+        assert new_cfg.interrogator.model == "gpt-6-astra"
 
     def test_merge_budget_none(self):
         cfg = SwarmCommanderConfig()

@@ -21,7 +21,7 @@ def mock_anthropic_response():
 
     def _make_response(
         content: str = "Test response",
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-fable-5-1",
         stop_reason: str = "end_turn",
         input_tokens: int = 100,
         output_tokens: int = 50,
@@ -62,7 +62,7 @@ def mock_openai_response():
 
     def _make_response(
         content: str = "Test response",
-        model: str = "gpt-4o",
+        model: str = "gpt-6-astra",
         finish_reason: str = "stop",
         prompt_tokens: int = 100,
         completion_tokens: int = 50,
@@ -99,7 +99,7 @@ def mock_openrouter_response():
 
     def _make_response(
         content: str = "Test response",
-        model: str = "anthropic/claude-3.5-sonnet",
+        model: str = "anthropic/claude-fable-5.1",
         finish_reason: str = "stop",
     ):
         mock_resp = MagicMock()

@@ -78,14 +78,14 @@ def sample_agent_states():
         ),
         AgentState(
             agent_name="gpt4",
-            agent_model="gpt-4-turbo",
+            agent_model="gpt-6-astra",
             agent_role="critic",
             system_prompt="You critique proposals.",
             stance="skeptical",
         ),
         AgentState(
             agent_name="gemini",
-            agent_model="gemini-pro",
+            agent_model="gemini-3.1-pro-preview",
             agent_role="synthesizer",
             system_prompt="You synthesize viewpoints.",
             stance="neutral",

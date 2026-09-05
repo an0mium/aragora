@@ -159,7 +159,7 @@ class MockUsageBreakdown:
             "by_model",
             [
                 {
-                    "model": "claude-3-opus",
+                    "model": "claude-fable-5-1",
                     "input_tokens": 2000000,
                     "output_tokens": 1000000,
                     "total_tokens": 3000000,
@@ -793,7 +793,7 @@ class TestExportUsage:
         result = await handler.handle("/api/v1/billing/usage/export", {}, http, method="GET")
         csv_text = result.body.decode("utf-8")
         assert "Usage by Model" in csv_text
-        assert "claude-3-opus" in csv_text
+        assert "claude-fable-5-1" in csv_text
 
     async def test_export_csv_contains_provider_section(self, handler):
         http = MockHTTPHandler()

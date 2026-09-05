@@ -329,7 +329,7 @@ class TestWebhookDelivery:
             "data": {
                 "consensus_type": "majority",
                 "agreement_score": 0.85,
-                "participants": ["claude", "gpt-4", "gemini"],
+                "participants": ["claude", "gpt-6-astra", "gemini"],
                 "result": "Recommended approach: hybrid architecture",
             },
             "metadata": {

@@ -60,7 +60,7 @@ class MockAgentRating:
 class MinimalAgent:
     """Agent with only a name attribute."""
 
-    name: str = "gpt-4"
+    name: str = "gpt-6-astra"
 
 
 @dataclass
@@ -296,11 +296,11 @@ class TestGetAgentName:
         assert get_agent_name({"agent_name": "claude"}) == "claude"
 
     def test_dict_with_name_key(self):
-        assert get_agent_name({"name": "gpt-4"}) == "gpt-4"
+        assert get_agent_name({"name": "gpt-6-astra"}) == "gpt-6-astra"
 
     def test_dict_agent_name_takes_priority(self):
         """agent_name is checked before name in dict."""
-        agent = {"agent_name": "claude", "name": "gpt-4"}
+        agent = {"agent_name": "claude", "name": "gpt-6-astra"}
         assert get_agent_name(agent) == "claude"
 
     def test_dict_with_neither_key(self):
@@ -314,8 +314,8 @@ class TestGetAgentName:
         assert get_agent_name(agent) == "gemini"
 
     def test_object_with_name_only(self):
-        agent = MinimalAgent(name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4"
+        agent = MinimalAgent(name="gpt-6-astra")
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_object_with_both_prefers_agent_name(self):
         agent = MagicMock()
@@ -329,12 +329,12 @@ class TestGetAgentName:
 
     def test_dict_with_empty_agent_name_falls_to_name(self):
         """Empty string agent_name is falsy, should fall to name."""
-        agent = {"agent_name": "", "name": "gpt-4"}
-        assert get_agent_name(agent) == "gpt-4"
+        agent = {"agent_name": "", "name": "gpt-6-astra"}
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_dict_with_none_agent_name_falls_to_name(self):
-        agent = {"agent_name": None, "name": "gpt-4"}
-        assert get_agent_name(agent) == "gpt-4"
+        agent = {"agent_name": None, "name": "gpt-6-astra"}
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_string_agent(self):
         """String is not a dict; getattr will be used. Strings have no agent_name."""
@@ -403,10 +403,10 @@ class TestAgentToDict:
 
     def test_object_with_minimal_attrs(self):
         """Agent with only name; ELO fields should use defaults."""
-        agent = MinimalAgent(name="gpt-4")
+        agent = MinimalAgent(name="gpt-6-astra")
         result = agent_to_dict(agent)
-        assert result["name"] == "gpt-4"
-        assert result["agent_name"] == "gpt-4"
+        assert result["name"] == "gpt-6-astra"
+        assert result["agent_name"] == "gpt-6-astra"
         assert result["elo"] == 1500  # default
         assert result["wins"] == 0  # default
         assert result["losses"] == 0
@@ -494,8 +494,8 @@ class TestNormalizeAgentNames:
         assert result == ["claude", "gpt-4", "gemini"]
 
     def test_already_lowercase(self):
-        result = normalize_agent_names(["claude", "gpt-4"])
-        assert result == ["claude", "gpt-4"]
+        result = normalize_agent_names(["claude", "gpt-6-astra"])
+        assert result == ["claude", "gpt-6-astra"]
 
     def test_mixed_case(self):
         result = normalize_agent_names(["ClAuDe", "Gpt-4-Turbo"])

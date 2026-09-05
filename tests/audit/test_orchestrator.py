@@ -29,7 +29,7 @@ def mock_session():
         id="session-test-123",
         created_by="user-123",
         document_ids=["doc-1", "doc-2"],
-        model="claude-3.5-sonnet",
+        model="claude-fable-5-1",
     )
 
 

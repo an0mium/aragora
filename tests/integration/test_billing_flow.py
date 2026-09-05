@@ -216,7 +216,7 @@ class TestUsageTracking:
             tokens_in=1000,
             tokens_out=500,
             provider="anthropic",
-            model="claude-sonnet-4",
+            model="claude-fable-5-1",
         )
 
         assert event.tokens_in == 1000
@@ -239,7 +239,7 @@ class TestUsageTracking:
                 tokens_in=100,
                 tokens_out=50,
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-6-astra",
             )
 
         summary = usage_tracker.get_summary(test_org.id)
@@ -280,7 +280,7 @@ class TestUsageTracking:
             tokens_in=1000,
             tokens_out=500,
             provider="anthropic",
-            model="claude-sonnet-4",
+            model="claude-fable-5-1",
         )
         usage_tracker.record_debate(
             user_id="user-1",
@@ -289,7 +289,7 @@ class TestUsageTracking:
             tokens_in=1000,
             tokens_out=500,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-6-astra",
         )
 
         summary = usage_tracker.get_summary(test_org.id)
@@ -636,7 +636,7 @@ class TestFullBillingFlow:
                 tokens_in=1000,
                 tokens_out=500,
                 provider="anthropic",
-                model="claude-sonnet-4",
+                model="claude-fable-5-1",
             )
             org.increment_debates(1)
 

@@ -413,7 +413,7 @@ class TestAgentConfigRequest:
         """Config with all options."""
         config: AgentConfigRequest = {
             "name": "custom-agent",
-            "model": "gpt-4",
+            "model": "gpt-6-astra",
             "temperature": 0.7,
             "max_tokens": 2000,
             "system_prompt": "You are a helpful assistant.",

@@ -127,25 +127,25 @@ class TestWatchdogAgentRegistration:
     def test_agent_registration(self, watchdog):
         """Test that agents can be registered with watchdog."""
         watchdog.register_agent("claude-opus")
-        watchdog.register_agent("gpt-4o")
-        watchdog.register_agent("gemini-pro")
+        watchdog.register_agent("gpt-6-astra")
+        watchdog.register_agent("gemini-3.1-pro-preview")
 
         health = watchdog.get_all_health()
         assert len(health) == 3
         assert "claude-opus" in health
-        assert "gpt-4o" in health
-        assert "gemini-pro" in health
+        assert "gpt-6-astra" in health
+        assert "gemini-3.1-pro-preview" in health
 
     def test_agent_unregistration(self, watchdog):
         """Test that agents can be unregistered."""
         watchdog.register_agent("claude-opus")
-        watchdog.register_agent("gpt-4o")
+        watchdog.register_agent("gpt-6-astra")
 
         watchdog.unregister_agent("claude-opus")
 
         health = watchdog.get_all_health()
         assert len(health) == 1
-        assert "gpt-4o" in health
+        assert "gpt-6-astra" in health
         assert "claude-opus" not in health
 
     def test_control_plane_triggers_watchdog_registration(self, watchdog, mock_control_plane):
@@ -159,12 +159,12 @@ class TestWatchdogAgentRegistration:
         mock_control_plane.register_agent("claude-opus")
         on_agent_registered("claude-opus")
 
-        mock_control_plane.register_agent("gpt-4o")
-        on_agent_registered("gpt-4o")
+        mock_control_plane.register_agent("gpt-6-astra")
+        on_agent_registered("gpt-6-astra")
 
         # Both should be in watchdog
         assert watchdog.get_agent_health("claude-opus") is not None
-        assert watchdog.get_agent_health("gpt-4o") is not None
+        assert watchdog.get_agent_health("gpt-6-astra") is not None
 
 
 class TestWatchdogHeartbeatMonitoring:
@@ -292,11 +292,11 @@ class TestWatchdogMemoryMonitoring:
         """Test detection of memory threshold violations."""
         watchdog.configure_tier(strict_config[WatchdogTier.MECHANICAL])
         watchdog.register_agent("claude-opus")
-        watchdog.register_agent("gpt-4o")
+        watchdog.register_agent("gpt-6-astra")
 
         # Set memory usage
         watchdog.update_memory_usage("claude-opus", memory_mb=600.0)  # Warning
-        watchdog.update_memory_usage("gpt-4o", memory_mb=1200.0)  # Critical
+        watchdog.update_memory_usage("gpt-6-astra", memory_mb=1200.0)  # Critical
 
         config = watchdog._configs[WatchdogTier.MECHANICAL]
         issues = await watchdog._check_mechanical(config)
@@ -310,7 +310,7 @@ class TestWatchdogMemoryMonitoring:
         assert len(warning_issues) == 1
         assert warning_issues[0].agent == "claude-opus"
         assert len(critical_issues) == 1
-        assert critical_issues[0].agent == "gpt-4o"
+        assert critical_issues[0].agent == "gpt-6-astra"
 
 
 class TestWatchdogCircuitBreaker:
@@ -519,7 +519,7 @@ class TestWatchdogSLAMonitoring:
 
         # Register agents with poor success rates
         watchdog.register_agent("claude-opus")
-        watchdog.register_agent("gpt-4o")
+        watchdog.register_agent("gpt-6-astra")
 
         # Record failures to bring success rate below SLA (99%)
         for _ in range(95):
@@ -562,7 +562,7 @@ class TestWatchdogStatistics:
     def test_statistics_tracking(self, watchdog):
         """Test that statistics are tracked correctly."""
         watchdog.register_agent("claude-opus")
-        watchdog.register_agent("gpt-4o")
+        watchdog.register_agent("gpt-6-astra")
 
         stats = watchdog.get_stats()
 

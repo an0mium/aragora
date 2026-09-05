@@ -70,7 +70,7 @@ class TestTokenUsageRecord:
             tenant_id="tenant_1",
             user_id="user_1",
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=1000,
             tokens_out=500,
             total_tokens=1500,
@@ -81,7 +81,7 @@ class TestTokenUsageRecord:
         )
         assert record.tenant_id == "tenant_1"
         assert record.provider == "anthropic"
-        assert record.model == "claude-opus-4"
+        assert record.model == "claude-fable-5-1"
         assert record.tokens_in == 1000
         assert record.tokens_out == 500
         assert record.total_tokens == 1500
@@ -91,7 +91,7 @@ class TestTokenUsageRecord:
         record = TokenUsageRecord(
             tenant_id="tenant_1",
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
             tokens_in=100,
             tokens_out=50,
         )
@@ -99,7 +99,7 @@ class TestTokenUsageRecord:
         assert isinstance(data, dict)
         assert data["tenant_id"] == "tenant_1"
         assert data["provider"] == "openai"
-        assert data["model"] == "gpt-4"
+        assert data["model"] == "gpt-6-astra"
         assert data["tokens_in"] == 100
         assert data["tokens_out"] == 50
 
@@ -158,12 +158,12 @@ class TestCostBreakdown:
             period_end=now,
             total_cost=Decimal("100.00"),
             cost_by_provider={"anthropic": Decimal("60.00"), "openai": Decimal("40.00")},
-            cost_by_model={"claude-opus-4": Decimal("60.00"), "gpt-4": Decimal("40.00")},
+            cost_by_model={"claude-fable-5-1": Decimal("60.00"), "gpt-6-astra": Decimal("40.00")},
         )
         data = breakdown.to_dict()
         assert data["total_cost"] == "100.00"
         assert "anthropic" in data["by_provider"]["cost"]
-        assert "claude-opus-4" in data["by_model"]["cost"]
+        assert "claude-fable-5-1" in data["by_model"]["cost"]
 
 
 class TestInvoice:
@@ -262,7 +262,7 @@ class TestEnterpriseMeter:
         """Should record token usage correctly."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="test_tenant",
@@ -279,7 +279,7 @@ class TestEnterpriseMeter:
         """Should apply cache discount correctly."""
         record = await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="test_tenant",
@@ -304,7 +304,7 @@ class TestEnterpriseMeter:
         """Should calculate costs based on provider pricing."""
         input_cost, output_cost = meter._calculate_costs(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=1000,
             tokens_out=500,
         )
@@ -350,14 +350,14 @@ class TestEnterpriseMeter:
         # Record some usage first
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=500,
             tokens_out=250,
             tenant_id="breakdown_test",
         )
         await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
             tokens_in=500,
             tokens_out=250,
             tenant_id="breakdown_test",
@@ -420,7 +420,7 @@ class TestEnterpriseMeter:
         # Record usage
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="invoice_test",
@@ -444,7 +444,7 @@ class TestEnterpriseMeter:
         # Generate an invoice first
         await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
             tokens_in=500,
             tokens_out=250,
             tenant_id="invoices_test",
@@ -519,7 +519,7 @@ class TestCostCalculation:
         """Should handle zero tokens gracefully."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=0,
             tokens_out=0,
             tenant_id="zero_test",
@@ -531,7 +531,7 @@ class TestCostCalculation:
         """Should handle large token counts."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             tokens_in=1000000,
             tokens_out=500000,
             tenant_id="large_test",
@@ -585,7 +585,7 @@ class TestMeteringEventIngestion:
         """Should ingest a basic metering event."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=500,
             tokens_out=200,
             tenant_id="tenant_ingest",
@@ -593,14 +593,14 @@ class TestMeteringEventIngestion:
         assert record.id is not None
         assert record.tenant_id == "tenant_ingest"
         assert record.provider == "anthropic"
-        assert record.model == "claude-opus-4"
+        assert record.model == "claude-fable-5-1"
 
     @pytest.mark.asyncio
     async def test_ingest_with_all_metadata(self, meter):
         """Should ingest event with all optional metadata."""
         record = await meter.record_token_usage(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-6-astra",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="tenant_full",
@@ -625,7 +625,7 @@ class TestMeteringEventIngestion:
         """Should track failed requests."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=100,
             tokens_out=0,
             tenant_id="tenant_fail",
@@ -639,7 +639,7 @@ class TestMeteringEventIngestion:
         for i in range(10):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100 * (i + 1),
                 tokens_out=50 * (i + 1),
                 tenant_id="tenant_batch",
@@ -680,7 +680,7 @@ class TestUsageAggregationByDimension:
         for user in users:
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100,
                 tokens_out=50,
                 tenant_id="tenant_user_agg",
@@ -716,9 +716,9 @@ class TestUsageAggregationByDimension:
     async def test_aggregate_by_model(self, meter):
         """Should aggregate usage by model."""
         models = [
-            ("anthropic", "claude-opus-4"),
-            ("openai", "gpt-4o"),
-            ("anthropic", "claude-opus-4"),
+            ("anthropic", "claude-fable-5-1"),
+            ("openai", "gpt-6-astra"),
+            ("anthropic", "claude-fable-5-1"),
         ]
         for provider, model in models:
             await meter.record_token_usage(
@@ -739,7 +739,7 @@ class TestUsageAggregationByDimension:
         for req_type in ["chat", "debate", "analysis", "debate", "chat"]:
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100,
                 tokens_out=50,
                 tenant_id="tenant_type_agg",
@@ -781,7 +781,7 @@ class TestAPICallCounting:
         for _ in range(15):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100,
                 tokens_out=50,
                 tenant_id="tenant_count",
@@ -797,7 +797,7 @@ class TestAPICallCounting:
         for i in range(5):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100 + i * 50,
                 tokens_out=50 + i * 25,
                 tenant_id="tenant_avg",
@@ -814,7 +814,7 @@ class TestAPICallCounting:
         for _ in range(10):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=1000,
                 tokens_out=500,
                 tenant_id="tenant_avg_cost",
@@ -852,7 +852,7 @@ class TestRealtimeUsageQueries:
         """Should query current month usage by default."""
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=500,
             tokens_out=200,
             tenant_id="tenant_current",
@@ -870,7 +870,7 @@ class TestRealtimeUsageQueries:
 
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=500,
             tokens_out=200,
             tenant_id="tenant_range",
@@ -922,7 +922,7 @@ class TestHistoricalUsageReports:
         for _ in range(5):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=500,
                 tokens_out=200,
                 tenant_id="tenant_daily",
@@ -936,7 +936,7 @@ class TestHistoricalUsageReports:
     @pytest.mark.asyncio
     async def test_invoice_includes_line_items(self, meter):
         """Should generate invoice with detailed line items."""
-        for provider, model in [("anthropic", "claude-opus-4"), ("openai", "gpt-4o")]:
+        for provider, model in [("anthropic", "claude-fable-5-1"), ("openai", "gpt-6-astra")]:
             await meter.record_token_usage(
                 provider=provider,
                 model=model,
@@ -960,7 +960,7 @@ class TestHistoricalUsageReports:
         """Should apply tax and discount to invoice."""
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=1000000,
             tokens_out=500000,
             tenant_id="tenant_tax_disc",
@@ -1007,7 +1007,7 @@ class TestMeterRollups:
         for _ in range(3):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=500,
                 tokens_out=200,
                 tenant_id="tenant_rollup",
@@ -1023,7 +1023,7 @@ class TestMeterRollups:
         """Should generate invoice for monthly period."""
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="tenant_monthly",
@@ -1069,7 +1069,7 @@ class TestIdempotencyHandling:
         for _ in range(5):
             record = await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=100,
                 tokens_out=50,
                 tenant_id="tenant_unique",
@@ -1099,7 +1099,7 @@ class TestIdempotencyHandling:
         await meter.initialize()
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=100,
             tokens_out=50,
             tenant_id="tenant_reinit",
@@ -1167,7 +1167,7 @@ class TestErrorHandling:
         """Should handle negative token values."""
         record = await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=-100,
             tokens_out=50,
             tenant_id="tenant_negative",
@@ -1180,7 +1180,7 @@ class TestErrorHandling:
         """Should raise error for invalid invoice period format."""
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=100,
             tokens_out=50,
             tenant_id="tenant_invalid_period",
@@ -1198,7 +1198,7 @@ class TestErrorHandling:
         """Should filter invoices by status."""
         await meter.record_token_usage(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=100,
             tokens_out=50,
             tenant_id="tenant_filter_status",
@@ -1237,7 +1237,7 @@ class TestErrorHandling:
         for _ in range(10):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=10000,
                 tokens_out=5000,
                 tenant_id="tenant_dedup",
@@ -1248,7 +1248,7 @@ class TestErrorHandling:
         for _ in range(5):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=10000,
                 tokens_out=5000,
                 tenant_id="tenant_dedup",
@@ -1303,7 +1303,7 @@ class TestUsageForecastComprehensive:
         for _ in range(10):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=1000,
                 tokens_out=500,
                 tenant_id="tenant_forecast_budget",
@@ -1332,7 +1332,7 @@ class TestUsageForecastComprehensive:
         for i in range(15):
             await meter.record_token_usage(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=1000,
                 tokens_out=500,
                 tenant_id="tenant_confidence",

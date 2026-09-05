@@ -11,15 +11,15 @@ def test_offline_preflight_declares_openai_and_gemini_fallback_order() -> None:
 
     openai_attempts = slots["openai-frontier"]["attempt_order"]
     assert openai_attempts[0]["transport_provider"] == "openai"
-    assert openai_attempts[0]["transport_model"] == "gpt-5.5"
+    assert openai_attempts[0]["transport_model"] == "gpt-6-astra"
     assert openai_attempts[0]["fallback_used"] is False
     assert openai_attempts[1]["transport_provider"] == "openrouter"
-    assert openai_attempts[1]["transport_model"] == "openai/gpt-5.5"
+    assert openai_attempts[1]["transport_model"] == "openai/gpt-6-astra"
     assert openai_attempts[1]["fallback_used"] is True
 
     gemini_attempts = slots["gemini-frontier"]["attempt_order"]
     assert gemini_attempts[0]["transport_provider"] == "gemini"
-    assert gemini_attempts[0]["transport_model"] == "gemini-3-pro-preview"
+    assert gemini_attempts[0]["transport_model"] == "gemini-3.1-pro-preview"
     assert gemini_attempts[1]["transport_model"] == "google/gemini-3.1-pro-preview"
     assert gemini_attempts[2]["transport_model"] == "~google/gemini-pro-latest"
 

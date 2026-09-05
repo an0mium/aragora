@@ -2251,11 +2251,11 @@ class TestSwarmCommand:
         )
         inspection = SimpleNamespace(
             runner_id="gemini-runner-789",
-            profile="gemini-pro",
+            profile="gemini-3.1-pro-preview",
             to_dict=lambda: {
                 "runner_id": "gemini-runner-789",
                 "runner_type": "gemini-cli",
-                "profile": "gemini-pro",
+                "profile": "gemini-3.1-pro-preview",
                 "auth_mode": "oauth",
                 "availability": "available",
             },
@@ -2289,7 +2289,7 @@ class TestSwarmCommand:
             registry_cls.return_value.record_probe.return_value = {
                 "runner_id": "gemini-runner-789",
                 "runner_type": "gemini-cli",
-                "profile": "gemini-pro",
+                "profile": "gemini-3.1-pro-preview",
                 "probe_status": "passed",
             }
             cmd_swarm(args)

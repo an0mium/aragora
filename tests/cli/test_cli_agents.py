@@ -381,9 +381,9 @@ class TestCodexAgent:
 
     def test_initialization(self):
         """Should initialize with correct attributes."""
-        agent = CodexAgent(name="codex", model="gpt-4.1-codex", role="proposer")
+        agent = CodexAgent(name="codex", model="gpt-6-astra", role="proposer")
         assert agent.name == "codex"
-        assert agent.model == "gpt-4.1-codex"
+        assert agent.model == "gpt-6-astra"
         assert agent.role == "proposer"
         assert agent.timeout == 300  # Default (increased for complex operations)
 
@@ -534,9 +534,9 @@ class TestClaudeAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = ClaudeAgent(name="claude", model="claude-sonnet-4")
+        agent = ClaudeAgent(name="claude", model="claude-fable-5-1")
         assert agent.name == "claude"
-        assert agent.model == "claude-sonnet-4"
+        assert agent.model == "claude-fable-5-1"
 
     @pytest.mark.asyncio
     async def test_generate_uses_stdin(self):
@@ -601,9 +601,9 @@ class TestGeminiCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = GeminiCLIAgent(name="gemini", model="gemini-3-pro")
+        agent = GeminiCLIAgent(name="gemini", model="gemini-3.1-pro-preview")
         assert agent.name == "gemini"
-        assert agent.model == "gemini-3-pro"
+        assert agent.model == "gemini-3.1-pro-preview"
 
     @pytest.mark.asyncio
     async def test_generate_uses_yolo_flag(self):
@@ -754,9 +754,9 @@ class TestGrokCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = GrokCLIAgent(name="grok", model="grok-4-latest")
+        agent = GrokCLIAgent(name="grok", model="grok-4.6")
         assert agent.name == "grok"
-        assert agent.model == "grok-4-latest"
+        assert agent.model == "grok-4.6"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -830,9 +830,9 @@ class TestQwenCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = QwenCLIAgent(name="qwen", model="qwen3-coder")
+        agent = QwenCLIAgent(name="qwen", model="qwen3.8-2.4t-a95b")
         assert agent.name == "qwen"
-        assert agent.model == "qwen3-coder"
+        assert agent.model == "qwen3.8-2.4t-a95b"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -883,9 +883,9 @@ class TestDeepseekCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = DeepseekCLIAgent(name="deepseek", model="deepseek-v4-pro")
+        agent = DeepseekCLIAgent(name="deepseek", model="deepseek-v4-pro-0813")
         assert agent.name == "deepseek"
-        assert agent.model == "deepseek-v4-pro"
+        assert agent.model == "deepseek-v4-pro-0813"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -941,8 +941,8 @@ class TestOpenAIAgent:
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
-        agent = OpenAIAgent(name="openai", model="gpt-5")
-        assert agent.model == "gpt-5"
+        agent = OpenAIAgent(name="openai", model="gpt-6-astra")
+        assert agent.model == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -1222,11 +1222,11 @@ class TestCLIAgentGetFallbackAgent:
 
     @pytest.fixture
     def agent(self):
-        # Enable fallback for testing fallback functionality. "gpt-5.5" is a
+        # Enable fallback for testing fallback functionality. "gpt-6-astra" is a
         # legacy OpenAI spelling covered by the shared upgrade map (unlike
-        # the CLI-specific "gpt-4.1-codex" spelling), so it exercises the
+        # the CLI-specific "gpt-6-astra" spelling), so it exercises the
         # resolve_model_id() upgrade path in _get_fallback_agent().
-        return CodexAgent(name="test", model="gpt-5.5", enable_fallback=True)
+        return CodexAgent(name="test", model="gpt-6-astra", enable_fallback=True)
 
     def test_returns_none_when_disabled(self, agent):
         """Should return None when fallback is disabled."""
@@ -1448,35 +1448,35 @@ class TestCLIAgentModelMapping:
         served = ClaudeAgent(name="test", model="claude-opus-4-8", enable_fallback=True)
         assert self._fallback_model(served) == "anthropic/claude-opus-4.8"
 
-        legacy = ClaudeAgent(name="test", model="claude-opus-4-7", enable_fallback=True)
+        legacy = ClaudeAgent(name="test", model="claude-fable-5-1", enable_fallback=True)
         assert self._fallback_model(legacy) == "anthropic/claude-fable-5.1"
 
     def test_codex_model_mapping(self):
         """A legacy OpenAI spelling should upgrade to the current OpenAI
         frontier."""
-        agent = CodexAgent(name="test", model="gpt-5.5", enable_fallback=True)
+        agent = CodexAgent(name="test", model="gpt-6-astra", enable_fallback=True)
         assert self._fallback_model(agent) == "openai/gpt-6-astra"
 
     def test_gemini_model_mapping(self):
         """Should map Gemini models to the LIVE catalog slug (#9073: the
         unsuffixed google/gemini-3.1-pro id does not exist on OpenRouter)."""
-        agent = GeminiCLIAgent(name="test", model="gemini-3-pro", enable_fallback=True)
+        agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent) == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
-        agent = GrokCLIAgent(name="test", model="grok-3", enable_fallback=True)
+        agent = GrokCLIAgent(name="test", model="grok-4.6", enable_fallback=True)
         assert self._fallback_model(agent) == "x-ai/grok-4.6"
 
     def test_deepseek_model_mapping(self):
         """Should map Deepseek models correctly."""
-        agent = DeepseekCLIAgent(name="test", model="deepseek-v4-pro", enable_fallback=True)
+        agent = DeepseekCLIAgent(name="test", model="deepseek-v4-pro-0813", enable_fallback=True)
         assert self._fallback_model(agent) == "deepseek/deepseek-v4-pro-0813"
 
     def test_qwen_model_mapping(self):
         """A legacy Qwen spelling should upgrade to the current Qwen
         frontier."""
-        agent = QwenCLIAgent(name="test", model="qwen3-coder", enable_fallback=True)
+        agent = QwenCLIAgent(name="test", model="qwen3.8-2.4t-a95b", enable_fallback=True)
         assert self._fallback_model(agent) == "qwen/qwen3.8-2.4t-a95b"
 
     def test_unknown_model_uses_own_family_frontier(self):
@@ -1548,7 +1548,7 @@ class TestFallbackErrorDetection:
 
     def test_detects_quota_exceeded(self, agent):
         """Should detect quota exceeded errors."""
-        error = RuntimeError("Quota exceeded for model gpt-4")
+        error = RuntimeError("Quota exceeded for model gpt-6-astra")
         assert agent._is_fallback_error(error) is True
 
     def test_detects_resource_exhausted(self, agent):
@@ -1719,7 +1719,7 @@ class TestFallbackIntegration:
     @pytest.fixture
     def agent(self):
         """Create a CodexAgent with fallback enabled."""
-        return CodexAgent(name="test", model="gpt-4o", enable_fallback=True)
+        return CodexAgent(name="test", model="gpt-6-astra", enable_fallback=True)
 
     @pytest.mark.asyncio
     async def test_fallback_triggered_on_rate_limit(self, agent):
@@ -1762,7 +1762,7 @@ class TestFallbackIntegration:
     @pytest.mark.asyncio
     async def test_prefer_api_skips_cli(self):
         """Should skip CLI and use OpenRouter directly when prefer_api=True."""
-        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True, enable_fallback=True)
+        agent = CodexAgent(name="test", model="gpt-6-astra", prefer_api=True, enable_fallback=True)
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             with patch.object(agent, "_run_cli") as mock_cli:
@@ -1782,7 +1782,7 @@ class TestFallbackIntegration:
     @pytest.mark.asyncio
     async def test_prefer_api_falls_back_to_cli_without_key(self):
         """Should fall back to CLI when prefer_api=True but no API key."""
-        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True)
+        agent = CodexAgent(name="test", model="gpt-6-astra", prefer_api=True)
 
         with patch.dict("os.environ", {}, clear=True):
             with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:

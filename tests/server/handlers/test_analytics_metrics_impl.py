@@ -87,7 +87,9 @@ def mock_storage():
                 "confidence": 0.7 + (i % 3) * 0.1,
                 "outcome_type": "consensus" if i % 3 != 0 else "dissent",
             },
-            "agents": ["claude", "gpt-4"] if i % 2 == 0 else ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra"]
+            if i % 2 == 0
+            else ["claude", "gpt-6-astra", "gemini"],
             "task": f"Task about {'security' if i % 2 == 0 else 'performance'}",
             "domain": "security" if i % 2 == 0 else "performance",
         }
@@ -104,7 +106,7 @@ def mock_elo_system():
 
     # Create mock agents
     agents = []
-    for i, name in enumerate(["claude", "gpt-4", "gemini", "grok", "mistral"]):
+    for i, name in enumerate(["claude", "gpt-6-astra", "gemini", "grok", "mistral"]):
         agent = MagicMock()
         agent.agent_name = name
         agent.elo = 1500 + (5 - i) * 50
@@ -133,9 +135,9 @@ def mock_elo_system():
 
     # Recent matches
     elo_system.get_recent_matches.return_value = [
-        {"participants": ["claude", "gpt-4"], "winner": "claude"},
+        {"participants": ["claude", "gpt-6-astra"], "winner": "claude"},
         {"participants": ["claude", "gemini"], "winner": "claude"},
-        {"participants": ["gpt-4", "gemini"], "winner": "gpt-4"},
+        {"participants": ["gpt-6-astra", "gemini"], "winner": "gpt-6-astra"},
     ]
 
     # Head-to-head
@@ -1527,7 +1529,7 @@ class TestAgentsComparison:
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
                 "/api/analytics/agents/comparison",
-                {"agents": "claude,gpt-4,gemini"},
+                {"agents": "claude,gpt-6-astra,gemini"},
                 mock_http_handler,
             )
 
@@ -1599,7 +1601,7 @@ class TestAgentsComparison:
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
                 "/api/analytics/agents/comparison",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-6-astra"},
                 mock_http_handler,
             )
 
@@ -1696,7 +1698,7 @@ class TestAgentsComparison:
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
                 "/api/analytics/agents/comparison",
-                {"agents": " claude , gpt-4 "},
+                {"agents": " claude , gpt-6-astra "},
                 mock_http_handler,
             )
 
@@ -1704,7 +1706,7 @@ class TestAgentsComparison:
             assert result.status_code == 200
             data = json.loads(result.body)
             assert "claude" in data["agents"]
-            assert "gpt-4" in data["agents"]
+            assert "gpt-6-astra" in data["agents"]
 
 
 class TestAgentsTrends:
@@ -1741,14 +1743,14 @@ class TestAgentsTrends:
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
                 "/api/analytics/agents/trends",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-6-astra"},
                 mock_http_handler,
             )
 
             assert result is not None
             data = json.loads(result.body)
             assert "claude" in data["agents"]
-            assert "gpt-4" in data["agents"]
+            assert "gpt-6-astra" in data["agents"]
 
     @pytest.mark.asyncio
     async def test_agents_trends_no_elo_system_returns_503(
@@ -2010,7 +2012,7 @@ class TestUsageCosts:
                 mock_tracker.return_value.get_workspace_stats.return_value = {
                     "total_cost_usd": "125.50",
                     "total_api_calls": 500,
-                    "cost_by_agent": {"claude": "80.00", "gpt-4": "45.50"},
+                    "cost_by_agent": {"claude": "80.00", "gpt-6-astra": "45.50"},
                     "cost_by_model": {},
                 }
 
@@ -2069,7 +2071,7 @@ class TestUsageCosts:
                 mock_tracker.return_value.get_workspace_stats.return_value = {
                     "total_cost_usd": "100.00",
                     "total_api_calls": 200,
-                    "cost_by_agent": {"claude": "60.00", "gpt-4": "40.00"},
+                    "cost_by_agent": {"claude": "60.00", "gpt-6-astra": "40.00"},
                     "cost_by_model": {},
                 }
 
@@ -2081,7 +2083,7 @@ class TestUsageCosts:
 
                 data = json.loads(result.body)
                 assert data["by_provider"]["claude"]["percentage"] == 60.0
-                assert data["by_provider"]["gpt-4"]["percentage"] == 40.0
+                assert data["by_provider"]["gpt-6-astra"]["percentage"] == 40.0
 
     @pytest.mark.asyncio
     async def test_usage_costs_avg_cost_per_debate(
@@ -2335,7 +2337,7 @@ class TestEdgeCases:
                 self.created_at = datetime.now(timezone.utc).isoformat()
                 self.consensus_reached = True
                 self.result = {"rounds_used": 3, "confidence": 0.85}
-                self.agents = ["claude", "gpt-4"]
+                self.agents = ["claude", "gpt-6-astra"]
                 self.task = "Test task"
                 self.domain = "security"
 
@@ -2453,7 +2455,7 @@ class TestEdgeCases:
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
                 "/api/analytics/agents/comparison",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-6-astra"},
                 mock_http_handler,
             )
 

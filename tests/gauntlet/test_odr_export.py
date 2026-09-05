@@ -174,7 +174,7 @@ def _full_receipt() -> DecisionReceipt:
                 agent="claude-agent",
                 response="I support shipping.",
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
             ),
             AgentResponseRecord(
                 agent="mistral-agent",

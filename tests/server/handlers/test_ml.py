@@ -384,7 +384,7 @@ class TestMLHandlerPostRoute:
         """Test posting valid routing request."""
         data = {
             "task": "Implement a binary search algorithm",
-            "available_agents": ["claude", "gpt-4", "codex"],
+            "available_agents": ["claude", "gpt-6-astra", "codex"],
             "team_size": 2,
         }
         result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
@@ -399,7 +399,7 @@ class TestMLHandlerPostRoute:
     def test_post_route_missing_task(self, ml_handler, mock_http_handler):
         """Test posting route request without task."""
         data = {
-            "available_agents": ["claude", "gpt-4"],
+            "available_agents": ["claude", "gpt-6-astra"],
             "team_size": 2,
         }
         result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
@@ -427,7 +427,7 @@ class TestMLHandlerPostRoute:
         """Test posting route request with constraints."""
         data = {
             "task": "Write production code",
-            "available_agents": ["claude", "gpt-4", "codex"],
+            "available_agents": ["claude", "gpt-6-astra", "codex"],
             "team_size": 2,
             "constraints": {"require_code": True, "max_latency": 5000},
         }
@@ -441,7 +441,7 @@ class TestMLHandlerPostRoute:
         """Test route uses default team size when not specified."""
         data = {
             "task": "Implement feature",
-            "available_agents": ["claude", "gpt-4", "codex", "gemini"],
+            "available_agents": ["claude", "gpt-6-astra", "codex", "gemini"],
         }
         result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
 
@@ -638,7 +638,7 @@ class TestMLHandlerPostConsensus:
         data = {
             "responses": [
                 ["claude", "I recommend approach A for this problem"],
-                ["gpt-4", "Approach A seems like the best solution"],
+                ["gpt-6-astra", "Approach A seems like the best solution"],
             ],
             "context": "System design question",
             "current_round": 2,
@@ -1094,7 +1094,7 @@ class TestMLHandlerIntegration:
         # Step 1: Route agents
         route_data = {
             "task": "Design a distributed cache",
-            "available_agents": ["claude", "gpt-4", "codex", "gemini"],
+            "available_agents": ["claude", "gpt-6-astra", "codex", "gemini"],
             "team_size": 3,
         }
         route_result = ml_handler.handle_post("/api/v1/ml/route", route_data, mock_http_handler)
@@ -1116,7 +1116,7 @@ class TestMLHandlerIntegration:
         consensus_data = {
             "responses": [
                 ["claude", "Redis with consistent hashing is the best approach"],
-                ["gpt-4", "I agree, Redis provides the reliability we need"],
+                ["gpt-6-astra", "I agree, Redis provides the reliability we need"],
             ],
             "context": "Design a distributed cache",
             "current_round": 2,

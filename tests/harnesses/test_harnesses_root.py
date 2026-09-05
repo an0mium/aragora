@@ -340,7 +340,7 @@ class TestCodexConfig:
         """Test default configuration."""
         config = CodexConfig()
 
-        assert config.model == "gpt-4o"
+        assert config.model == "gpt-6-astra"
         assert config.temperature == 0.2
         assert config.max_tokens == 4096
         assert len(config.analysis_prompts) > 0
@@ -542,9 +542,9 @@ Here are the findings:
 
     def test_create_codex_harness(self):
         """Test convenience function."""
-        harness = create_codex_harness(model="gpt-4-turbo")
+        harness = create_codex_harness(model="gpt-6-astra")
 
-        assert harness.config.model == "gpt-4-turbo"
+        assert harness.config.model == "gpt-6-astra"
 
 
 # =============================================================================

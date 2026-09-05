@@ -74,16 +74,16 @@ class TestNormalizeModelName:
         assert _normalize_model_name("claude-2") == "claude"
 
     def test_gpt4(self):
-        assert _normalize_model_name("gpt-4-turbo-preview") == "gpt-4"
+        assert _normalize_model_name("gpt-6-astra") == "gpt-6-astra"
 
     def test_gpt35(self):
         assert _normalize_model_name("gpt-3.5-turbo") == "gpt-3.5"
 
     def test_gemini(self):
-        assert _normalize_model_name("gemini-1.5-pro") == "gemini"
+        assert _normalize_model_name("gemini-3.1-pro-preview") == "gemini"
 
     def test_grok(self):
-        assert _normalize_model_name("grok-2") == "grok"
+        assert _normalize_model_name("grok-4.6") == "grok"
 
     def test_mistral(self):
         assert _normalize_model_name("mistral-large-latest") == "mistral"
@@ -198,5 +198,5 @@ class TestContextManagers:
 
     @pytest.mark.asyncio
     async def test_track_agent_response_async(self, _init_noop):
-        async with track_agent_response_async("gpt-4", "critique"):
+        async with track_agent_response_async("gpt-6-astra", "critique"):
             pass

@@ -166,7 +166,7 @@ class TestCodexResponseExtraction:
         """Test extraction with standard codex header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-6-astra")
         raw_output = """codex
 This is the actual response.
 tokens used: 150"""
@@ -177,7 +177,7 @@ tokens used: 150"""
         """Test extraction when no codex header present."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-6-astra")
         raw_output = "Direct response without header"
         result = agent._extract_codex_response(raw_output)
         assert result == "Direct response without header"
@@ -186,7 +186,7 @@ tokens used: 150"""
         """Test extraction with multiline response."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-6-astra")
         raw_output = """codex
 Line 1
 Line 2
@@ -230,7 +230,7 @@ class TestGrokResponseExtraction:
         """Test extraction from Grok JSON output."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = """{"role": "assistant", "content": "This is the response"}"""
         result = agent._extract_grok_response(raw_output)
         assert result == "This is the response"
@@ -239,7 +239,7 @@ class TestGrokResponseExtraction:
         """Test that tool use messages are skipped."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = """{"role": "assistant", "content": "Using tools..."}
 {"role": "assistant", "content": "Final answer"}"""
         result = agent._extract_grok_response(raw_output)
@@ -249,7 +249,7 @@ class TestGrokResponseExtraction:
         """Test extraction when output is not JSON."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = "Plain text response"
         result = agent._extract_grok_response(raw_output)
         assert result == "Plain text response"
@@ -295,7 +295,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction from OpenAI JSON response."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-6-astra")
         raw_output = '{"choices": [{"message": {"content": "API response"}}]}'
         result = agent._extract_openai_response(raw_output)
         assert result == "API response"
@@ -304,7 +304,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction when no choices in response."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-6-astra")
         raw_output = '{"data": "something"}'
         result = agent._extract_openai_response(raw_output)
         assert result == '{"data": "something"}'
@@ -313,7 +313,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction when response is not JSON."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-6-astra")
         raw_output = "Plain text response"
         result = agent._extract_openai_response(raw_output)
         assert result == "Plain text response"
@@ -450,14 +450,14 @@ class TestOpenRouterModelMapping:
         """Test Claude models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101", enable_fallback=True)
+        agent = ClaudeAgent(name="test", model="claude-fable-5-1", enable_fallback=True)
         assert self._fallback_model(agent).startswith("anthropic/claude")
 
     def test_gpt_model_mapping(self):
         """Test GPT models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4o", enable_fallback=True)
+        agent = CodexAgent(name="test", model="gpt-6-astra", enable_fallback=True)
         assert self._fallback_model(agent) == "openai/gpt-6-astra"
 
     def test_gemini_model_mapping(self):
@@ -467,14 +467,14 @@ class TestOpenRouterModelMapping:
         agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent) == "google/gemini-3.1-pro-preview"
 
-        agent2 = GeminiCLIAgent(name="test", model="gemini-3.1-pro", enable_fallback=True)
+        agent2 = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent2) == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Test Grok models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4", enable_fallback=True)
+        agent = GrokCLIAgent(name="test", model="grok-4.6", enable_fallback=True)
         assert self._fallback_model(agent).startswith("x-ai/")
 
 

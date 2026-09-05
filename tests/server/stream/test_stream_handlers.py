@@ -411,7 +411,7 @@ class TestAgentConsistencyHandler:
     @pytest.mark.asyncio
     async def test_accepts_valid_agent_names(self, handler, request_factory):
         """Accepts valid agent names with alphanumeric, underscore, hyphen."""
-        valid_names = ["claude", "gpt-4", "agent_001", "Claude-3-5-sonnet"]
+        valid_names = ["claude", "gpt-6-astra", "agent_001", "Claude-3-5-sonnet"]
 
         for name in valid_names:
             request = request_factory(match_info={"name": name})

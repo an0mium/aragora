@@ -109,7 +109,7 @@ class TestWebSocketEventTypes:
             "agent_message",
             {
                 "debate_id": "test-123",
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
                 "content": "I believe the answer is...",
                 "round": 1,
             },
@@ -117,7 +117,7 @@ class TestWebSocketEventTypes:
 
         events = mock_event_bus.get_events()
         assert events[0]["type"] == "agent_message"
-        assert events[0]["data"]["agent"] == "gpt-4"
+        assert events[0]["data"]["agent"] == "gpt-6-astra"
 
     def test_critique_event_emitted(self, mock_event_bus):
         """critique event should be emitted during critique phase."""
@@ -126,7 +126,7 @@ class TestWebSocketEventTypes:
             {
                 "debate_id": "test-123",
                 "from_agent": "claude",
-                "target_agent": "gpt-4",
+                "target_agent": "gpt-6-astra",
                 "severity": "medium",
                 "issues": ["Unclear reasoning"],
             },

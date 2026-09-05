@@ -322,7 +322,7 @@ class TestBuildDebateCard:
     """Tests for build_debate_card Adaptive Card builder."""
 
     def test_basic_card_structure(self):
-        card = build_debate_card("d1", "My topic", ["claude", "gpt-4"], 1, 3)
+        card = build_debate_card("d1", "My topic", ["claude", "gpt-6-astra"], 1, 3)
         assert card["$schema"] == "http://adaptivecards.io/schemas/adaptive-card.json"
         assert card["type"] == "AdaptiveCard"
         assert card["version"] == "1.4"
@@ -348,12 +348,12 @@ class TestBuildDebateCard:
         assert len(topic_block["text"]) < 250  # **Topic:** prefix + 200 chars
 
     def test_agents_in_fact_set(self):
-        card = build_debate_card("d1", "T", ["claude", "gpt-4", "gemini"], 2, 5)
+        card = build_debate_card("d1", "T", ["claude", "gpt-6-astra", "gemini"], 2, 5)
         fact_set = card["body"][2]
         assert fact_set["type"] == "FactSet"
         agents_fact = fact_set["facts"][0]
         assert agents_fact["title"] == "Agents"
-        assert agents_fact["value"] == "claude, gpt-4, gemini"
+        assert agents_fact["value"] == "claude, gpt-6-astra, gemini"
 
     def test_agents_limited_to_5(self):
         agents = [f"agent-{i}" for i in range(10)]
@@ -378,13 +378,13 @@ class TestBuildDebateCard:
         assert footer["isSubtle"] is True
 
     def test_vote_buttons_included_by_default(self):
-        card = build_debate_card("d1", "T", ["claude", "gpt-4"], 1, 3)
+        card = build_debate_card("d1", "T", ["claude", "gpt-6-astra"], 1, 3)
         actions = card["actions"]
         assert len(actions) > 0
         vote_actions = [a for a in actions if a["data"].get("action") == "vote"]
         assert len(vote_actions) == 2
         assert vote_actions[0]["title"] == "Vote claude"
-        assert vote_actions[1]["title"] == "Vote gpt-4"
+        assert vote_actions[1]["title"] == "Vote gpt-6-astra"
 
     def test_vote_buttons_limited_to_5_agents(self):
         agents = [f"agent-{i}" for i in range(8)]
@@ -412,7 +412,7 @@ class TestBuildDebateCard:
         assert card["actions"] is None
 
     def test_json_serializable(self):
-        card = build_debate_card("d1", "Topic", ["claude", "gpt-4"], 2, 5)
+        card = build_debate_card("d1", "Topic", ["claude", "gpt-6-astra"], 2, 5)
         serialized = json.dumps(card)
         assert isinstance(serialized, str)
 
@@ -433,7 +433,7 @@ class TestBuildConsensusCard:
             "confidence": 0.85,
             "winner": "claude",
             "final_answer": "We should proceed.",
-            "vote_counts": {"claude": 3, "gpt-4": 1},
+            "vote_counts": {"claude": 3, "gpt-6-astra": 1},
         }
         defaults.update(overrides)
         return build_consensus_card(**defaults)
@@ -493,7 +493,7 @@ class TestBuildConsensusCard:
         assert len(winner_facts) == 0
 
     def test_vote_counts_displayed(self):
-        card = self._make(vote_counts={"claude": 3, "gpt-4": 1})
+        card = self._make(vote_counts={"claude": 3, "gpt-6-astra": 1})
         vote_blocks = [
             b
             for b in card["body"]
@@ -502,7 +502,7 @@ class TestBuildConsensusCard:
         assert len(vote_blocks) == 1
         text = vote_blocks[0]["text"]
         assert "claude: 3 votes" in text
-        assert "gpt-4: 1 vote" in text  # singular
+        assert "gpt-6-astra: 1 vote" in text  # singular
 
     def test_vote_counts_sorted_descending(self):
         card = self._make(vote_counts={"b-agent": 1, "a-agent": 5, "c-agent": 3})
@@ -970,12 +970,12 @@ class TestGetDebateVoteCounts:
     def test_votes_for_different_agents(self):
         _user_votes["d1"] = {
             "user-1": "claude",
-            "user-2": "gpt-4",
+            "user-2": "gpt-6-astra",
             "user-3": "claude",
             "user-4": "gemini",
         }
         counts = get_debate_vote_counts("d1")
-        assert counts == {"claude": 2, "gpt-4": 1, "gemini": 1}
+        assert counts == {"claude": 2, "gpt-6-astra": 1, "gemini": 1}
 
     def test_empty_votes_dict(self):
         _user_votes["d1"] = {}
@@ -984,9 +984,9 @@ class TestGetDebateVoteCounts:
 
     def test_separate_debates(self):
         _user_votes["d1"] = {"u1": "claude"}
-        _user_votes["d2"] = {"u1": "gpt-4", "u2": "gpt-4"}
+        _user_votes["d2"] = {"u1": "gpt-6-astra", "u2": "gpt-6-astra"}
         assert get_debate_vote_counts("d1") == {"claude": 1}
-        assert get_debate_vote_counts("d2") == {"gpt-4": 2}
+        assert get_debate_vote_counts("d2") == {"gpt-6-astra": 2}
 
 
 # ===========================================================================

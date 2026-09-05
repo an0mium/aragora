@@ -98,7 +98,7 @@ class TestClassificationConfig:
         assert config.default_level == SensitivityLevel.INTERNAL
         assert config.min_confidence == 0.6
         assert config.use_llm is False
-        assert config.llm_model == "claude-sonnet-4-20250514"
+        assert config.llm_model == "claude-fable-5-1"
         assert config.custom_indicators == []
 
     def test_custom_config(self):

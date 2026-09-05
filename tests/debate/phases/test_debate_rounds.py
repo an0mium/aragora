@@ -485,7 +485,7 @@ class TestBuildFinalSynthesisPrompt:
         prompt = phase._build_final_synthesis_prompt(
             agent=agent,
             current_proposal="My proposal",
-            all_proposals={"claude-opus": "My proposal", "gpt-4": "Other proposal"},
+            all_proposals={"claude-opus": "My proposal", "gpt-6-astra": "Other proposal"},
             critiques=[],
             round_num=7,
         )

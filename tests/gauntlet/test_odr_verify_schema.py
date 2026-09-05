@@ -52,7 +52,7 @@ def _valid_odr() -> dict[str, Any]:
             "supporting_agents": ["claude", "grok"],
             "participants": [
                 {"agent": "claude", "model_family": "anthropic", "model_id": "claude-opus-4-8"},
-                {"agent": "grok", "model_family": "xai", "model_id": "grok-4"},
+                {"agent": "grok", "model_family": "xai", "model_id": "grok-4.6"},
             ],
             "independence": {
                 "disclosed": True,

@@ -295,7 +295,7 @@ class TestMessageBinding:
             "provider": "telegram",
             "account_id": "123456",
             "peer_pattern": "chat:*",
-            "agent_binding": "gpt-4",
+            "agent_binding": "gpt-6-astra",
             "binding_type": "specific_agent",
             "priority": 10,
             "enabled": True,
@@ -306,7 +306,7 @@ class TestMessageBinding:
         assert binding.provider == "telegram"
         assert binding.account_id == "123456"
         assert binding.peer_pattern == "chat:*"
-        assert binding.agent_binding == "gpt-4"
+        assert binding.agent_binding == "gpt-6-astra"
         assert binding.binding_type == BindingType.SPECIFIC_AGENT
         assert binding.priority == 10
 
@@ -709,7 +709,7 @@ class TestBindingRouterAgentSelection:
         )
         router.add_binding(binding)
 
-        agents = [MockAgent("gpt-4"), MockAgent("claude-opus")]
+        agents = [MockAgent("gpt-6-astra"), MockAgent("claude-opus")]
         selection = router.get_agent_for_message("slack", "T12345", "channel:test", agents)
 
         assert selection.agent_name == "claude-opus"
@@ -717,7 +717,7 @@ class TestBindingRouterAgentSelection:
 
     def test_select_from_pool(self, router: BindingRouter):
         """Test selecting from agent pool."""
-        router.register_agent_pool("fast-agents", ["gpt-4", "claude-sonnet"])
+        router.register_agent_pool("fast-agents", ["gpt-6-astra", "claude-sonnet"])
 
         binding = MessageBinding(
             provider="slack",
@@ -728,10 +728,10 @@ class TestBindingRouterAgentSelection:
         )
         router.add_binding(binding)
 
-        agents = [MockAgent("claude-opus"), MockAgent("gpt-4")]
+        agents = [MockAgent("claude-opus"), MockAgent("gpt-6-astra")]
         selection = router.get_agent_for_message("slack", "T12345", "channel:test", agents)
 
-        assert selection.agent_name == "gpt-4"  # First available from pool
+        assert selection.agent_name == "gpt-6-astra"  # First available from pool
         assert "pool" in selection.selection_reason
 
     def test_select_debate_team(self, router: BindingRouter):
@@ -762,11 +762,11 @@ class TestBindingRouterAgentSelection:
         )
         router.add_binding(binding)
 
-        agents = [MockAgent("gpt-4")]
+        agents = [MockAgent("gpt-6-astra")]
         selection = router.get_agent_for_message("slack", "T12345", "channel:test", agents)
 
         # Should fall back to first available
-        assert selection.agent_name == "gpt-4"
+        assert selection.agent_name == "gpt-6-astra"
 
     def test_no_agents_available_raises(self, router: BindingRouter):
         """Test error when no agents available."""

@@ -46,7 +46,7 @@ class TestGetDashboardSummary:
         stats["by_agent"]["claude"] = Decimal("8.00")
         stats["by_agent"]["gpt"] = Decimal("4.50")
         stats["by_model"]["claude-3"] = Decimal("8.00")
-        stats["by_model"]["gpt-4"] = Decimal("4.50")
+        stats["by_model"]["gpt-6-astra"] = Decimal("4.50")
 
         result = tracker.get_dashboard_summary(workspace_id="ws-1")
 

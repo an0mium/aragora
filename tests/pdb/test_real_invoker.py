@@ -104,7 +104,7 @@ def _binding() -> PRReviewBinding:
 
 def _make_mock_agent(
     *,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-fable-5-1",
     response_text: str = '{"recommendation": "approve", "confidence": 0.8}',
     tokens_in: int = 1000,
     tokens_out: int = 500,
@@ -199,7 +199,7 @@ class TestEstimateCostUsd:
         assert cost == pytest.approx(3.0)
 
     def test_negative_tokens_clamped(self) -> None:
-        cost = estimate_cost_usd(model="gpt-5.5", tokens_in=-100, tokens_out=-100)
+        cost = estimate_cost_usd(model="gpt-6-astra", tokens_in=-100, tokens_out=-100)
         assert cost == 0.0
 
 
@@ -212,7 +212,7 @@ class TestProviderUnavailable:
     def test_heterodox_families_raise(self) -> None:
         invoker = RealProviderInvoker(
             claude=_make_mock_agent(),
-            gpt=_make_mock_agent(model="gpt-5.5"),
+            gpt=_make_mock_agent(model="gpt-6-astra"),
         )
         for family in HETERODOX_FAMILIES:
             slot = _slot(f"{family}_slot", family=family, lens="heterodox")
@@ -252,7 +252,7 @@ class TestProviderUnavailable:
 class TestFindings:
     def test_claude_findings_parses_and_dispatches(self) -> None:
         agent = _make_mock_agent(
-            model="claude-sonnet-4-6",
+            model="claude-fable-5-1",
             response_text=_findings_payload_json(slot_id="claude_core"),
             tokens_in=2000,
             tokens_out=500,
@@ -270,7 +270,7 @@ class TestFindings:
         assert isinstance(result, SlotFindingsResponse)
         assert result.slot_id == "claude_core"
         assert result.provider == "claude"
-        assert result.model == "claude-sonnet-4-6"
+        assert result.model == "claude-fable-5-1"
         assert result.position is DissentPosition.APPROVE
         assert result.confidence == 0.85
         assert result.summary  # non-empty
@@ -284,7 +284,7 @@ class TestFindings:
 
     def test_gpt_findings_parses_and_dispatches(self) -> None:
         agent = _make_mock_agent(
-            model="gpt-5.5",
+            model="gpt-6-astra",
             response_text=_findings_payload_json("request_changes", slot_id="gpt_core"),
             tokens_in=1500,
             tokens_out=400,
@@ -349,7 +349,7 @@ class TestFindings:
 
     def test_deepseek_findings_dispatch(self) -> None:
         agent = _make_mock_agent(
-            model="deepseek/deepseek-v4-pro",
+            model="deepseek/deepseek-v4-pro-0813",
             response_text=_findings_payload_json("approve", slot_id="deepseek_heterodox"),
             tokens_in=1000,
             tokens_out=500,
@@ -366,7 +366,7 @@ class TestFindings:
             lens="heterodox",
         )
         result = invoker.findings(slot=slot, provider="deepseek", prompt="p", binding=_binding())
-        assert result.model == "deepseek/deepseek-v4-pro"
+        assert result.model == "deepseek/deepseek-v4-pro-0813"
         # Provider-prefixed models resolve through the price table too.
         assert result.cost_usd > 0
 
@@ -440,7 +440,7 @@ class TestFindings:
 
     def test_malformed_response_yields_safe_dataclass(self) -> None:
         agent = _make_mock_agent(
-            model="claude-sonnet-4-6",
+            model="claude-fable-5-1",
             response_text="I refuse to output JSON.",
         )
         invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
@@ -454,7 +454,7 @@ class TestFindings:
 
     def test_agent_exception_propagates(self) -> None:
         agent = MagicMock()
-        agent.model = "claude-sonnet-4-6"
+        agent.model = "claude-fable-5-1"
         agent.last_tokens_in = 0
         agent.last_tokens_out = 0
 
@@ -469,7 +469,7 @@ class TestFindings:
 
     def test_agent_timeout_is_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
         agent = MagicMock()
-        agent.model = "claude-sonnet-4-6"
+        agent.model = "claude-fable-5-1"
         agent.last_tokens_in = 0
         agent.last_tokens_out = 0
 
@@ -489,7 +489,7 @@ class TestFindings:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         agent = MagicMock()
-        agent.model = "claude-sonnet-4-6"
+        agent.model = "claude-fable-5-1"
         agent.last_tokens_in = 0
         agent.last_tokens_out = 0
 
@@ -512,7 +512,7 @@ class TestFindings:
 class TestCritique:
     def test_critique_parses(self) -> None:
         agent = _make_mock_agent(
-            model="claude-sonnet-4-6",
+            model="claude-fable-5-1",
             response_text=_critique_payload_json("request_changes"),
             tokens_in=1000,
             tokens_out=300,
@@ -538,7 +538,7 @@ class TestCritique:
         fixtures = [
             (FAMILY_GEMINI, "gemini-3.1-pro-preview", "gemini"),
             (FAMILY_GROK, "grok-4.2", "grok"),
-            (FAMILY_DEEPSEEK, "deepseek/deepseek-v4-pro", "deepseek"),
+            (FAMILY_DEEPSEEK, "deepseek/deepseek-v4-pro-0813", "deepseek"),
             (FAMILY_KIMI, "moonshotai/kimi-k3", "kimi"),
             (FAMILY_QWEN, "qwen/qwen3-235b-a22b", "qwen"),
             (FAMILY_MISTRAL, "mistral-large-2512", "mistral"),
@@ -581,7 +581,7 @@ class TestCritique:
 class TestSynthesize:
     def test_synthesize_parses(self) -> None:
         agent = _make_mock_agent(
-            model="claude-sonnet-4-6",
+            model="claude-fable-5-1",
             response_text=_synthesis_payload_json(),
             tokens_in=3000,
             tokens_out=700,
@@ -595,7 +595,7 @@ class TestSynthesize:
                 finding=RoleFinding(
                     role=ReviewRole.LOGIC,
                     agent="claude_core:claude",
-                    model="claude-sonnet-4-6",
+                    model="claude-fable-5-1",
                     confidence=0.8,
                     finding_text="",
                 ),
@@ -606,7 +606,7 @@ class TestSynthesize:
                 finding=RoleFinding(
                     role=ReviewRole.SECURITY,
                     agent="gpt_core:openai",
-                    model="gpt-5.5",
+                    model="gpt-6-astra",
                     confidence=0.7,
                     finding_text="",
                 ),
@@ -651,7 +651,7 @@ class TestSynthesize:
                 finding=RoleFinding(
                     role=ReviewRole.LOGIC,
                     agent="claude_core:claude",
-                    model="claude-sonnet-4-6",
+                    model="claude-fable-5-1",
                     confidence=0.8,
                     finding_text="",
                 ),
@@ -973,7 +973,7 @@ class TestEndToEndWithRealInvoker:
     def test_run_protocol_b_with_mocked_agents_produces_brief(self) -> None:
         # Stateful mocks that return the right payload per call phase.
         claude_mock = MagicMock()
-        claude_mock.model = "claude-sonnet-4-6"
+        claude_mock.model = "claude-fable-5-1"
         claude_mock.last_tokens_in = 1000
         claude_mock.last_tokens_out = 500
 
@@ -993,7 +993,7 @@ class TestEndToEndWithRealInvoker:
         claude_mock.generate.side_effect = _claude_generate
 
         gpt_mock = MagicMock()
-        gpt_mock.model = "gpt-5.5"
+        gpt_mock.model = "gpt-6-astra"
         gpt_mock.last_tokens_in = 900
         gpt_mock.last_tokens_out = 400
 
@@ -1060,7 +1060,7 @@ class TestEndToEndWithRealInvoker:
         # validation (≥2 core required); we use resolver-level collapse
         # to exercise the runtime heterogeneity check.
         claude_mock = _make_mock_agent(
-            model="claude-sonnet-4-6",
+            model="claude-fable-5-1",
             response_text=_findings_payload_json(),
         )
         invoker = RealProviderInvoker(claude=claude_mock, gpt=None)

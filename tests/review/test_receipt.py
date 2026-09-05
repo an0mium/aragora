@@ -46,7 +46,7 @@ def _minimal_brief(**overrides) -> ReviewBrief:
         disagreement_score=0.05,
         total_cost_usd=0.12,
         total_wall_clock_ms=3500,
-        agent_roster=("claude-opus-4-7", "gpt-5-4"),
+        agent_roster=("claude-fable-5-1", "gpt-5-4"),
         generated_at=datetime.now(UTC).isoformat(),
     )
     defaults.update(overrides)
@@ -232,7 +232,7 @@ class TestBriefReceipt:
         brief = _minimal_brief(
             dissent=(
                 DissentingView(
-                    agent="grok-3",
+                    agent="grok-4.6",
                     position=DissentPosition.REQUEST_CHANGES,
                     reason="Security concern in auth path.",
                     role=ReviewRole.SECURITY,

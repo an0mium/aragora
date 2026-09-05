@@ -82,7 +82,7 @@ def sample_debate_result():
         final_answer="Microservices with careful service boundaries are recommended for this use case.",
         consensus_reached=True,
         rounds_used=3,
-        winner="claude-3.5-sonnet",
+        winner="claude-fable-5-1",
         confidence=0.85,
     )
     # Add debate_id attribute that email module expects

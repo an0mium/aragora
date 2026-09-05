@@ -721,7 +721,7 @@ class TestLearningHandler:
         learner, _ = mock_continuous_learner
         learner.elo_updater.get_all_ratings.return_value = {
             "claude": 1500,
-            "gpt-4": 1450,
+            "gpt-6-astra": 1450,
         }
 
         with patch(
@@ -818,9 +818,9 @@ class TestLearningHandler:
             request.json = AsyncMock(
                 return_value={
                     "debate_id": "debate-123",
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "winner": "claude",
-                    "votes": {"claude": 3, "gpt-4": 1},
+                    "votes": {"claude": 3, "gpt-6-astra": 1},
                     "consensus_reached": True,
                     "topics": ["coding"],
                 }

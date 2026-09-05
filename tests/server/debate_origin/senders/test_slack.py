@@ -57,7 +57,7 @@ def sample_result() -> dict[str, Any]:
         "consensus_reached": True,
         "final_answer": "The team reached agreement on the Slack delivery approach.",
         "confidence": 0.91,
-        "participants": ["claude", "gpt-4", "gemini"],
+        "participants": ["claude", "gpt-6-astra", "gemini"],
         "task": "Evaluate the Slack proposal",
     }
 

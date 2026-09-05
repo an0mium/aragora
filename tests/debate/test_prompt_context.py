@@ -29,7 +29,7 @@ class MockAgent:
     def __init__(self, name: str = "claude_proposer", role: str = "proposer"):
         self.name = name
         self.role = role
-        self.model = "claude-3-opus"
+        self.model = "claude-fable-5-1"
 
 
 class MockPersona:

@@ -530,7 +530,7 @@ class TestRegisterAgent:
                 "framework_type": "langgraph",
                 "base_url": "https://full.example.com",
                 "timeout": 120,
-                "config": {"model": "gpt-4"},
+                "config": {"model": "gpt-6-astra"},
                 "api_key_env": "MY_KEY",
             }
         )
@@ -538,7 +538,7 @@ class TestRegisterAgent:
         assert _status(result) == 201
         info = handler.ctx["external_agents"]["full"]
         assert info["timeout"] == 120
-        assert info["config"] == {"model": "gpt-4"}
+        assert info["config"] == {"model": "gpt-6-astra"}
         assert info["api_key_env"] == "MY_KEY"
 
     def test_register_default_timeout(self, handler):

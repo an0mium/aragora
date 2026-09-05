@@ -79,7 +79,7 @@ def sample_debate_result():
     result.answer = "Python is widely considered excellent for its readability."
     result.total_rounds = 3
     result.consensus_confidence = 0.85
-    result.participating_agents = ["claude", "gpt-4", "gemini"]
+    result.participating_agents = ["claude", "gpt-6-astra", "gemini"]
     return result
 
 
@@ -586,7 +586,7 @@ class TestTeamsConsensusAlert:
             debate_id="test-123",
             answer="The consensus answer",
             confidence=0.85,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
         assert result is True
         mock_aiohttp_session.post.assert_called_once()
@@ -705,7 +705,7 @@ class TestTeamsConsensusAlert:
             debate_id="test-123",
             answer="Answer",
             confidence=0.85,
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
         )
 
         call_args = mock_aiohttp_session.post.call_args
@@ -713,7 +713,7 @@ class TestTeamsConsensusAlert:
         content = payload["attachments"][0]["content"]
 
         body_texts = [item.get("text", "") for item in content["body"]]
-        assert any("claude" in text and "gpt-4" in text for text in body_texts)
+        assert any("claude" in text and "gpt-6-astra" in text for text in body_texts)
 
     @pytest.mark.asyncio
     async def test_send_consensus_alert_without_agents(
@@ -854,7 +854,7 @@ class TestTeamsLeaderboardUpdate:
         """Sample leaderboard rankings."""
         return [
             {"name": "claude", "elo": 1650, "wins": 15, "losses": 5},
-            {"name": "gpt-4", "elo": 1600, "wins": 12, "losses": 8},
+            {"name": "gpt-6-astra", "elo": 1600, "wins": 12, "losses": 8},
             {"name": "gemini", "elo": 1550, "wins": 10, "losses": 10},
         ]
 
@@ -893,7 +893,7 @@ class TestTeamsLeaderboardUpdate:
 
         body_texts = [item.get("text", "") for item in content["body"]]
         assert any("claude" in text and "1650" in text for text in body_texts)
-        assert any("gpt-4" in text for text in body_texts)
+        assert any("gpt-6-astra" in text for text in body_texts)
 
     @pytest.mark.asyncio
     async def test_send_leaderboard_update_with_domain(

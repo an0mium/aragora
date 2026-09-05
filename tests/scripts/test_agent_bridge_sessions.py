@@ -368,7 +368,7 @@ def test_select_summary_prefers_meaningful_recent_line() -> None:
             "• Ran git push origin HEAD:codex/branch",
             "────────────────────────────────────",
             "• I’m refreshing #5297 onto current main locally before I report the updated CI state.",
-            "gpt-5.4 xhigh · ~/Development/aragora",
+            "gpt-6-astra xhigh · ~/Development/aragora",
         ]
     )
 

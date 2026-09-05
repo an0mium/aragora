@@ -107,7 +107,7 @@ def sample_deliberation():
         "id": "delib-123",
         "task": "Should we adopt policy X?",
         "status": "active",
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
         "current_round": 2,
         "total_rounds": 5,
         "consensus_score": 0.6,
@@ -237,7 +237,7 @@ class TestActiveDeliberations:
             "id": "debate-123",
             "task": "Test task",
             "status": "running",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "messages": [{"round": 1}, {"round": 2}],
             "total_rounds": 5,
             "consensus_score": 0.7,
@@ -249,7 +249,7 @@ class TestActiveDeliberations:
         assert formatted["id"] == "debate-123"
         assert formatted["task"] == "Test task"
         assert formatted["status"] == "active"  # "running" maps to "active"
-        assert formatted["agents"] == ["claude", "gpt-4"]
+        assert formatted["agents"] == ["claude", "gpt-6-astra"]
         assert formatted["message_count"] == 2
 
     def test_status_mapping(self, deliberations_handler):

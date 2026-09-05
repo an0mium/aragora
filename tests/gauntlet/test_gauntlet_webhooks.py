@@ -366,7 +366,7 @@ class TestWebhookManagerEmit:
             gauntlet_id="gauntlet-123",
             input_type="spec",
             input_summary="Test spec",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
 
         assert not webhook_manager._delivery_queue.empty()

@@ -163,7 +163,7 @@ class TestDebateStateCaching:
             "debate_id": "test-123",
             "status": "in_progress",
             "round": 2,
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
         }
 
         server.debate_states["test-123"] = debate_state

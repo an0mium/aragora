@@ -111,7 +111,7 @@ class TestRecordingFunctions:
         record_provider_call("mistral", success=False, error_type="rate_limit")
 
     def test_record_provider_call_with_model(self):
-        record_provider_call("anthropic", success=True, model="claude-3-opus")
+        record_provider_call("anthropic", success=True, model="claude-fable-5-1")
 
     def test_record_provider_latency(self):
         record_provider_latency("openai", 2.5)
@@ -296,7 +296,7 @@ class TestDecorators:
 
     @pytest.mark.asyncio
     async def test_async_decorator(self):
-        @with_agent_provider_metrics("openai", model="gpt-4")
+        @with_agent_provider_metrics("openai", model="gpt-6-astra")
         async def call_api():
             return "result"
 

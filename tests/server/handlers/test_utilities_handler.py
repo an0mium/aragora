@@ -241,7 +241,7 @@ class TestGetAgentName:
 
     def test_dict_with_agent_name(self):
         """Returns name from dict with 'agent_name' key."""
-        assert get_agent_name({"agent_name": "gpt-4"}) == "gpt-4"
+        assert get_agent_name({"agent_name": "gpt-6-astra"}) == "gpt-6-astra"
 
     def test_dict_agent_name_priority(self):
         """agent_name takes priority over name in dict."""

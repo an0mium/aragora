@@ -125,7 +125,7 @@ class TestConsensusProof:
         proof = ConsensusProof(
             reached=True,
             confidence=0.85,
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-6-astra"],
             dissenting_agents=["gemini"],
             method="majority",
         )
@@ -294,7 +294,7 @@ class TestDecisionReceiptSerialization:
         consensus = ConsensusProof(
             reached=True,
             confidence=0.85,
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-6-astra"],
             method="majority",
         )
         provenance = [
@@ -683,7 +683,7 @@ class TestDecisionReceiptIntegration:
         consensus = ConsensusProof(
             reached=True,
             confidence=0.9,
-            supporting_agents=["claude", "gpt-4", "gemini"],
+            supporting_agents=["claude", "gpt-6-astra", "gemini"],
             method="majority",
         )
 
@@ -698,7 +698,7 @@ class TestDecisionReceiptIntegration:
             ProvenanceRecord(
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 event_type="probe",
-                agent="gpt-4",
+                agent="gpt-6-astra",
                 description="Hallucination check",
                 evidence_hash="def456",
             ),

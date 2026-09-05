@@ -771,8 +771,8 @@ class TestGetAgentColor:
         assert self._get_color("gpt4") == "#10b981"
 
     def test_gpt_4_color(self):
-        """gpt-4 (with hyphen) also returns green (#10b981)."""
-        assert self._get_color("gpt-4") == "#10b981"
+        """gpt-6-astra (with hyphen) also returns green (#10b981)."""
+        assert self._get_color("gpt-6-astra") == "#10b981"
 
     def test_gemini_color(self):
         """gemini returns blue (#3b82f6)."""

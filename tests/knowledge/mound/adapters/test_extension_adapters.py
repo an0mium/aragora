@@ -100,7 +100,7 @@ class TestFabricAdapter:
         snapshot = PoolSnapshot(
             pool_id="pool-1",
             name="Test Pool",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             current_agents=5,
             min_agents=2,
             max_agents=10,

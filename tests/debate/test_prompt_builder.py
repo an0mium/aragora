@@ -30,7 +30,7 @@ class MockAgent:
     def __init__(self, name: str = "claude", role: str = "proposer", stance: str = None):
         self.name = name
         self.role = role
-        self.model = "claude-3-opus"
+        self.model = "claude-fable-5-1"
         if stance:
             self.stance = stance
 

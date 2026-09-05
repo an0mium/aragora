@@ -170,7 +170,7 @@ def create_sample_metrics_data() -> dict[str, Any]:
         "loop_id": "loop_1",
         "cycle": 1,
         "agent_name": "claude",
-        "model": "claude-3-opus",
+        "model": "claude-fable-5-1",
         "phase": "debate",
         "messages_sent": 5,
         "proposals_made": 2,

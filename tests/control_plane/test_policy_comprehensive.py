@@ -93,12 +93,12 @@ class TestPolicyViolationError:
         error = PolicyViolationError(
             result,
             task_type="analysis",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             region="us-east-1",
         )
 
         assert error.task_type == "analysis"
-        assert error.agent_id == "gpt-4"
+        assert error.agent_id == "gpt-6-astra"
         assert error.region == "us-east-1"
         assert error.result is result
 
@@ -1413,7 +1413,7 @@ class TestPolicySystemIntegration:
         policy = ControlPlanePolicy(
             name="Lifecycle Policy",
             version=1,
-            agent_allowlist=["claude-3-opus"],
+            agent_allowlist=["claude-fable-5-1"],
         )
         manager.add_policy(policy)
         await history.record_version(policy, "Initial creation", "admin")
@@ -1423,7 +1423,7 @@ class TestPolicySystemIntegration:
             id=policy.id,
             name="Lifecycle Policy",
             version=2,
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
             metadata={},
         )
         manager.remove_policy(policy.id)
@@ -1487,7 +1487,7 @@ class TestPolicySystemIntegration:
         # Add various factory policies
         manager.add_policy(
             create_production_policy(
-                agent_allowlist=["claude-3-opus"],
+                agent_allowlist=["claude-fable-5-1"],
                 allowed_regions=["us-east-1"],
             )
         )
@@ -1501,7 +1501,7 @@ class TestPolicySystemIntegration:
         manager.add_policy(
             create_agent_tier_policy(
                 tier="premium",
-                agents=["claude-3-opus", "gpt-4"],
+                agents=["claude-fable-5-1", "gpt-6-astra"],
                 task_types=["premium-task"],
             )
         )
@@ -1509,7 +1509,7 @@ class TestPolicySystemIntegration:
         # Test evaluation
         result = manager.evaluate_task_dispatch(
             task_type="production-deployment",
-            agent_id="claude-3-opus",
+            agent_id="claude-fable-5-1",
             region="us-east-1",
         )
         assert result.allowed is True

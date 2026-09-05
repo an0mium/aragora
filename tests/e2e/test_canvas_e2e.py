@@ -142,7 +142,7 @@ class TestCanvasNodeManagementE2E:
             CanvasNodeType.AGENT,
             Position(100, 100),
             "Claude Agent",
-            data={"agent_id": "claude-3-opus"},
+            data={"agent_id": "claude-fable-5-1"},
         )
         assert agent_node.node_type == CanvasNodeType.AGENT
         assert agent_node.label == "Claude Agent"
@@ -495,7 +495,7 @@ class TestCanvasWorkflowE2E:
             CanvasNodeType.AGENT,
             Position(100, 100),
             "Claude (Pro Safety)",
-            data={"agent_id": "claude-3-opus", "stance": "pro_safety"},
+            data={"agent_id": "claude-fable-5-1", "stance": "pro_safety"},
         )
 
         gpt4 = await manager.add_node(
@@ -503,7 +503,7 @@ class TestCanvasWorkflowE2E:
             CanvasNodeType.AGENT,
             Position(300, 100),
             "GPT-4 (Balanced)",
-            data={"agent_id": "gpt-4", "stance": "balanced"},
+            data={"agent_id": "gpt-6-astra", "stance": "balanced"},
         )
 
         gemini = await manager.add_node(
@@ -511,7 +511,7 @@ class TestCanvasWorkflowE2E:
             CanvasNodeType.AGENT,
             Position(500, 100),
             "Gemini (Innovation)",
-            data={"agent_id": "gemini-pro", "stance": "pro_innovation"},
+            data={"agent_id": "gemini-3.1-pro-preview", "stance": "pro_innovation"},
         )
 
         # Step 3: Add debate node
@@ -593,7 +593,7 @@ class TestCanvasWorkflowE2E:
             CanvasNodeType.AGENT,
             Position(200, 50),
             "Research Agent",
-            data={"agent_id": "claude-3-opus", "role": "researcher"},
+            data={"agent_id": "claude-fable-5-1", "role": "researcher"},
         )
 
         # Output

@@ -405,7 +405,7 @@ class TestIntrospectionCacheWarm:
         agent1 = Mock()
         agent1.name = "claude"
         agent2 = Mock()
-        agent2.name = "gpt-4"
+        agent2.name = "gpt-6-astra"
 
         cache.warm(agents=[agent1, agent2])
 
@@ -524,7 +524,7 @@ class TestIntrospectionCacheGet:
         agent.name = "claude"
         cache.warm(agents=[agent])
 
-        assert cache.get("gpt-4") is None
+        assert cache.get("gpt-6-astra") is None
 
 
 class TestIntrospectionCacheInvalidate:

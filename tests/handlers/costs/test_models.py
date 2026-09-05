@@ -133,7 +133,7 @@ class TestCostEntry:
             tokens_input=1000,
             tokens_output=500,
             cost=0.0045,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             workspace_id="ws-1",
             user_id="user-1",
         )
@@ -143,7 +143,7 @@ class TestCostEntry:
         assert entry.tokens_input == 1000
         assert entry.tokens_output == 500
         assert entry.cost == 0.0045
-        assert entry.model == "claude-3-opus"
+        assert entry.model == "claude-fable-5-1"
         assert entry.workspace_id == "ws-1"
         assert entry.user_id == "user-1"
 
@@ -155,7 +155,7 @@ class TestCostEntry:
             tokens_input=500,
             tokens_output=200,
             cost=0.002,
-            model="gpt-4o",
+            model="gpt-6-astra",
             workspace_id="ws-default",
         )
         assert entry.user_id is None
@@ -182,7 +182,7 @@ class TestCostEntry:
             tokens_input=10_000_000,
             tokens_output=5_000_000,
             cost=150.00,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             workspace_id="ws-enterprise",
         )
         assert entry.tokens_input == 10_000_000
@@ -529,7 +529,7 @@ class TestRecordCost:
                 tokens_input=1000,
                 tokens_output=500,
                 cost=0.005,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             )
 
     def test_record_with_tracker_in_sync_context(self):
@@ -562,14 +562,14 @@ class TestRecordCost:
                 tokens_input=500,
                 tokens_output=200,
                 cost=0.002,
-                model="gpt-4o",
+                model="gpt-6-astra",
                 workspace_id="ws-test",
                 user_id="user-42",
             )
             mock_token_usage_cls.assert_called_once()
             call_kwargs = mock_token_usage_cls.call_args
             assert call_kwargs.kwargs["provider"] == "openai"
-            assert call_kwargs.kwargs["model"] == "gpt-4o"
+            assert call_kwargs.kwargs["model"] == "gpt-6-astra"
             assert call_kwargs.kwargs["tokens_in"] == 500
             assert call_kwargs.kwargs["tokens_out"] == 200
             assert call_kwargs.kwargs["cost_usd"] == Decimal("0.002")
@@ -611,7 +611,7 @@ class TestRecordCost:
                 tokens_input=1000,
                 tokens_output=500,
                 cost=0.005,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             )
             mock_create_task.assert_called_once()
             mock_task.add_done_callback.assert_called_once()
@@ -646,7 +646,7 @@ class TestRecordCost:
                 tokens_input=200,
                 tokens_output=100,
                 cost=0.001,
-                model="mistral-large",
+                model="mistral-large-2512",
             )
             call_kwargs = mock_token_usage_cls.call_args.kwargs
             assert call_kwargs["workspace_id"] == "default"
@@ -681,7 +681,7 @@ class TestRecordCost:
                 tokens_input=100,
                 tokens_output=50,
                 cost=0.001,
-                model="gpt-4",
+                model="gpt-6-astra",
             )
             call_kwargs = mock_token_usage_cls.call_args.kwargs
             assert call_kwargs["metadata"] == {}
@@ -707,7 +707,7 @@ class TestRecordCost:
                 tokens_input=1000,
                 tokens_output=500,
                 cost=0.005,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             )
 
     def test_record_handles_runtime_error_in_tracker(self):
@@ -740,7 +740,7 @@ class TestRecordCost:
                 tokens_input=100,
                 tokens_output=50,
                 cost=0.001,
-                model="gpt-4",
+                model="gpt-6-astra",
             )
 
     def test_record_handles_value_error(self):
@@ -841,7 +841,7 @@ class TestRecordCost:
                 tokens_input=1000,
                 tokens_output=500,
                 cost=0.123456,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             )
             call_kwargs = mock_token_usage_cls.call_args.kwargs
             assert call_kwargs["cost_usd"] == Decimal("0.123456")

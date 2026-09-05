@@ -33,7 +33,7 @@ class MockDebateResult:
         self,
         consensus_reached: bool = True,
         consensus_confidence: float = 0.85,
-        winner: str = "claude-3-opus",
+        winner: str = "claude-fable-5-1",
     ):
         self.consensus_reached = consensus_reached
         self.consensus_confidence = consensus_confidence

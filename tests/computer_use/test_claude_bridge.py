@@ -35,12 +35,12 @@ class TestBridgeConfig:
     def test_custom_values(self):
         """Test custom configuration."""
         config = BridgeConfig(
-            model="claude-opus-4-20250514",
+            model="claude-fable-5-1",
             max_tokens=8192,
             display_width=2560,
             display_height=1440,
         )
-        assert config.model == "claude-opus-4-20250514"
+        assert config.model == "claude-fable-5-1"
         assert config.max_tokens == 8192
         assert config.display_width == 2560
         assert config.display_height == 1440
@@ -71,9 +71,9 @@ class TestClaudeComputerUseBridge:
 
     def test_init_custom_config(self):
         """Test initialization with custom config."""
-        config = BridgeConfig(model="claude-opus-4-20250514")
+        config = BridgeConfig(model="claude-fable-5-1")
         bridge = ClaudeComputerUseBridge(api_key="test-key", config=config)
-        assert bridge.config.model == "claude-opus-4-20250514"
+        assert bridge.config.model == "claude-fable-5-1"
 
     def test_init_from_env(self):
         """Test API key from environment variable."""

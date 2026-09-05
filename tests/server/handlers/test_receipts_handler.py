@@ -1421,7 +1421,7 @@ class TestReceiptsHandlerGetShared:
                 "risk_level": "LOW",
                 "input_summary": "Stored proof summary",
                 "timestamp": "2026-04-07T01:00:00Z",
-                "agents_involved": ["claude", "gpt-4"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "findings": [
                     {
                         "severity": "HIGH",

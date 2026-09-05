@@ -67,7 +67,7 @@ def mock_elo_system():
     mock_agent1.draws = 10
 
     mock_agent2 = MagicMock()
-    mock_agent2.agent_name = "gpt-4"
+    mock_agent2.agent_name = "gpt-6-astra"
     mock_agent2.elo = 1580.0
     mock_agent2.win_rate = 0.68
     mock_agent2.games_played = 100
@@ -76,7 +76,7 @@ def mock_elo_system():
     mock_agent2.draws = 5
 
     mock_system.get_leaderboard.return_value = [mock_agent1, mock_agent2]
-    mock_system.list_agents.return_value = ["claude", "gpt-4", "gemini"]
+    mock_system.list_agents.return_value = ["claude", "gpt-6-astra", "gemini"]
 
     return mock_system
 
@@ -99,7 +99,7 @@ def mock_storage():
                 "domain": "security" if i % 2 == 0 else "performance",
                 "outcome_type": "consensus" if i % 3 != 0 else "no_resolution",
             },
-            "agents": [{"name": "claude"}, {"name": "gpt-4"}],
+            "agents": [{"name": "claude"}, {"name": "gpt-6-astra"}],
         }
         for i in range(20)
     ]

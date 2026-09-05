@@ -259,7 +259,7 @@ class TestThinkingTracesInResult:
         agent1._last_thinking_trace = "Reasoning chain 1"
 
         agent2 = MagicMock()
-        agent2.name = "gpt-4"
+        agent2.name = "gpt-6-astra"
         agent2._last_thinking_trace = None
 
         agent3 = MagicMock()
@@ -276,12 +276,12 @@ class TestThinkingTracesInResult:
         assert len(thinking_traces) == 2
         assert thinking_traces["claude-1"] == "Reasoning chain 1"
         assert thinking_traces["claude-2"] == "Reasoning chain 2"
-        assert "gpt-4" not in thinking_traces
+        assert "gpt-6-astra" not in thinking_traces
 
     def test_no_traces_when_none_available(self):
         """Should produce empty dict when no agents have traces."""
         agent1 = MagicMock()
-        agent1.name = "gpt-4"
+        agent1.name = "gpt-6-astra"
         agent1._last_thinking_trace = None
 
         agents = [agent1]

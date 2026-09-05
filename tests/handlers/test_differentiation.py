@@ -70,7 +70,7 @@ class MockEloSystem:
         if agents is _SENTINEL:
             self._agents = {
                 "claude-4": {"elo": 1650, "wins": 30, "losses": 10},
-                "gpt-5": {"elo": 1580, "wins": 25, "losses": 15},
+                "gpt-6-astra": {"elo": 1580, "wins": 25, "losses": 15},
                 "gemini-3": {"elo": 1520, "wins": 20, "losses": 20},
                 "mistral-l": {"elo": 1450, "wins": 15, "losses": 25},
             }

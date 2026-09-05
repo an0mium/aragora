@@ -53,7 +53,7 @@ class TestDebateFactoryProviderRouting:
         """ProviderRouter hints should be stored on the arena when available."""
         mock_arena = _mock_arena_build
 
-        fake_hints = {"claude-sonnet-4": 0.9, "gpt-4o": 0.85}
+        fake_hints = {"claude-fable-5-1": 0.9, "gpt-6-astra": 0.85}
 
         mock_router = MagicMock()
         mock_router.get_provider_hints.return_value = fake_hints
@@ -148,7 +148,7 @@ class TestArenaBuilderProviderHints:
         agents = [MagicMock(), MagicMock()]
 
         builder = ArenaBuilder(env, agents)
-        hints = {"claude-sonnet-4": 0.9}
+        hints = {"claude-fable-5-1": 0.9}
         result = builder.with_provider_hints(hints)
 
         assert result is builder
@@ -165,7 +165,7 @@ class TestArenaBuilderProviderHints:
         agent2 = MagicMock()
         agent2.name = "agent2"
 
-        hints = {"claude-sonnet-4": 0.9, "gpt-4o": 0.8}
+        hints = {"claude-fable-5-1": 0.9, "gpt-6-astra": 0.8}
 
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
             mock_arena = MagicMock()
@@ -244,7 +244,7 @@ class TestProviderHintsIntegration:
         """ArenaConfig should accept and store provider_hints."""
         from aragora.debate.arena_config import ArenaConfig
 
-        hints = {"claude-sonnet-4": 0.9}
+        hints = {"claude-fable-5-1": 0.9}
         config = ArenaConfig(provider_hints=hints)
 
         assert config.provider_hints == hints

@@ -53,14 +53,14 @@ class TestInit:
 class TestLLMCallbacks:
     def test_on_llm_start(self, handler):
         handler.on_llm_start(
-            serialized={"name": "gpt-4"},
+            serialized={"name": "gpt-6-astra"},
             prompts=["Hello", "World"],
             run_id=uuid4(),
         )
         assert len(handler._events) == 1
         event = handler._events[0]
         assert event["type"] == "llm_start"
-        assert event["data"]["model"] == "gpt-4"
+        assert event["data"]["model"] == "gpt-6-astra"
         assert event["data"]["prompt_count"] == 2
 
     def test_on_llm_end_with_usage(self, handler):

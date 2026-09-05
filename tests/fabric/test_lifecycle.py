@@ -16,7 +16,7 @@ def manager():
 
 @pytest.fixture
 def agent_config():
-    return AgentConfig(id="test-agent", model="claude-3-opus")
+    return AgentConfig(id="test-agent", model="claude-fable-5-1")
 
 
 class TestSpawn:
@@ -24,7 +24,7 @@ class TestSpawn:
     async def test_spawn_agent(self, manager, agent_config):
         handle = await manager.spawn(agent_config)
         assert handle.agent_id == "test-agent"
-        assert handle.config.model == "claude-3-opus"
+        assert handle.config.model == "claude-fable-5-1"
         assert handle.status == HealthStatus.HEALTHY
 
     @pytest.mark.asyncio
@@ -42,7 +42,7 @@ class TestSpawn:
     @pytest.mark.asyncio
     async def test_spawn_multiple_agents(self, manager):
         for i in range(5):
-            config = AgentConfig(id=f"agent-{i}", model="gpt-4")
+            config = AgentConfig(id=f"agent-{i}", model="gpt-6-astra")
             await manager.spawn(config)
         agents = await manager.list_agents()
         assert len(agents) == 5
@@ -74,7 +74,7 @@ class TestTerminate:
 
     @pytest.mark.asyncio
     async def test_terminate_removes_from_list(self, manager, agent_config):
-        config = AgentConfig(id="no-pool", model="gpt-4")
+        config = AgentConfig(id="no-pool", model="gpt-6-astra")
         await manager.spawn(config)
         await manager.terminate("no-pool", graceful=False)
         agents = await manager.list_agents()
@@ -84,11 +84,11 @@ class TestTerminate:
 class TestPooling:
     @pytest.mark.asyncio
     async def test_pool_reuse(self, manager):
-        config1 = AgentConfig(id="a1", model="claude-3-opus", pool_id="pool-1")
+        config1 = AgentConfig(id="a1", model="claude-fable-5-1", pool_id="pool-1")
         await manager.spawn(config1)
         await manager.terminate("a1", graceful=False)
 
-        config2 = AgentConfig(id="a2", model="claude-3-opus", pool_id="pool-1")
+        config2 = AgentConfig(id="a2", model="claude-fable-5-1", pool_id="pool-1")
         handle = await manager.spawn(config2)
         assert handle.agent_id == "a2"
 
@@ -131,14 +131,14 @@ class TestListAgents:
     @pytest.mark.asyncio
     async def test_list_all(self, manager):
         for i in range(3):
-            await manager.spawn(AgentConfig(id=f"a{i}", model="gpt-4"))
+            await manager.spawn(AgentConfig(id=f"a{i}", model="gpt-6-astra"))
         agents = await manager.list_agents()
         assert len(agents) == 3
 
     @pytest.mark.asyncio
     async def test_filter_by_status(self, manager):
-        await manager.spawn(AgentConfig(id="a1", model="gpt-4"))
-        await manager.spawn(AgentConfig(id="a2", model="gpt-4"))
+        await manager.spawn(AgentConfig(id="a1", model="gpt-6-astra"))
+        await manager.spawn(AgentConfig(id="a2", model="gpt-6-astra"))
         manager._agents["a2"].status = HealthStatus.UNHEALTHY
 
         healthy = await manager.list_agents(status=HealthStatus.HEALTHY)
@@ -147,12 +147,12 @@ class TestListAgents:
 
     @pytest.mark.asyncio
     async def test_filter_by_model(self, manager):
-        await manager.spawn(AgentConfig(id="a1", model="claude-3-opus"))
-        await manager.spawn(AgentConfig(id="a2", model="gpt-4"))
+        await manager.spawn(AgentConfig(id="a1", model="claude-fable-5-1"))
+        await manager.spawn(AgentConfig(id="a2", model="gpt-6-astra"))
 
-        claude_agents = await manager.list_agents(model="claude-3-opus")
+        claude_agents = await manager.list_agents(model="claude-fable-5-1")
         assert len(claude_agents) == 1
-        assert claude_agents[0].model == "claude-3-opus"
+        assert claude_agents[0].model == "claude-fable-5-1"
 
     @pytest.mark.asyncio
     async def test_list_empty(self, manager):

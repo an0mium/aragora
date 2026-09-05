@@ -458,10 +458,10 @@ class TestAirlockProxyAttributeAccess:
         """AirlockProxy delegates model attribute."""
         from aragora.agents.airlock import AirlockProxy
 
-        agent = MockAgent(model="gpt-4")
+        agent = MockAgent(model="gpt-6-astra")
         proxy = AirlockProxy(agent)
 
-        assert proxy.model == "gpt-4"
+        assert proxy.model == "gpt-6-astra"
 
     def test_delegates_role(self):
         """AirlockProxy delegates role attribute."""

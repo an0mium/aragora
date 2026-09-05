@@ -213,10 +213,10 @@ class TestHandleCostEstimation:
             mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle(
                 "/api/debates/estimate-cost",
-                {"num_agents": "5", "num_rounds": "3", "model_types": "gpt-4o,claude"},
+                {"num_agents": "5", "num_rounds": "3", "model_types": "gpt-6-astra,claude"},
                 mock_http_handler,
             )
-            mock_est.assert_called_once_with(5, 3, "gpt-4o,claude")
+            mock_est.assert_called_once_with(5, 3, "gpt-6-astra,claude")
 
     def test_estimate_cost_model_types_list(self, mock_http_handler):
         handler = _make_handler()
@@ -226,10 +226,10 @@ class TestHandleCostEstimation:
             mock_est.return_value = MagicMock(status_code=200, body=b"{}")
             result = handler.handle(
                 "/api/debates/estimate-cost",
-                {"model_types": ["gpt-4o", "claude"]},
+                {"model_types": ["gpt-6-astra", "claude"]},
                 mock_http_handler,
             )
-            mock_est.assert_called_once_with(3, 9, "gpt-4o")
+            mock_est.assert_called_once_with(3, 9, "gpt-6-astra")
 
     def test_estimate_cost_v1_path(self, mock_http_handler):
         handler = _make_handler()

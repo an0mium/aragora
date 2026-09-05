@@ -56,7 +56,7 @@ class MockOpenAIUsage:
 class MockOpenAICompletion:
     """Mock OpenAI chat completion response."""
 
-    def __init__(self, content: str, model: str = "gpt-4o"):
+    def __init__(self, content: str, model: str = "gpt-6-astra"):
         self.id = "chatcmpl-mock123"
         self.model = model
         self.choices = [MockOpenAIChoice(content)]
@@ -89,12 +89,12 @@ class MockOpenAIChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    def create(self, messages: list[dict], model: str = "gpt-6-astra", **kwargs):
         """Sync create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
 
-    async def acreate(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    async def acreate(self, messages: list[dict], model: str = "gpt-6-astra", **kwargs):
         """Async create method (for compatibility)."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -125,7 +125,7 @@ class MockOpenAIAsyncChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    async def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    async def create(self, messages: list[dict], model: str = "gpt-6-astra", **kwargs):
         """Async create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -182,7 +182,7 @@ class MockAnthropicUsage:
 class MockAnthropicMessage:
     """Mock Anthropic message response."""
 
-    def __init__(self, content: str, model: str = "claude-sonnet-4-20250514"):
+    def __init__(self, content: str, model: str = "claude-fable-5-1"):
         self.id = "msg_mock123"
         self.type = "message"
         self.role = "assistant"
@@ -220,7 +220,7 @@ class MockAnthropicMessages:
     def create(
         self,
         messages: list[dict],
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-fable-5-1",
         max_tokens: int = 1024,
         **kwargs,
     ):
@@ -257,7 +257,7 @@ class MockAnthropicAsyncMessages:
     async def create(
         self,
         messages: list[dict],
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-fable-5-1",
         max_tokens: int = 1024,
         **kwargs,
     ):
@@ -523,7 +523,7 @@ def apply_api_mocks(monkeypatch: Any, force: bool = False) -> None:
 
 def create_openai_response(
     content: str = "Test response",
-    model: str = "gpt-4o",
+    model: str = "gpt-6-astra",
     prompt_tokens: int = 100,
     completion_tokens: int = 50,
 ) -> MockOpenAICompletion:
@@ -545,7 +545,7 @@ def create_openai_response(
 
 def create_anthropic_response(
     content: str = "Test response",
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-fable-5-1",
     input_tokens: int = 100,
     output_tokens: int = 50,
 ) -> MockAnthropicMessage:

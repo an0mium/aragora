@@ -142,14 +142,14 @@ def mock_vertical_config():
     model_config = MagicMock()
     model_config.to_dict = MagicMock(
         return_value={
-            "preferred_model": "claude-opus-4",
+            "preferred_model": "claude-fable-5-1",
             "temperature": 0.7,
             "max_tokens": 4096,
         }
     )
     model_config.temperature = 0.7
     model_config.max_tokens = 4096
-    model_config.primary_model = "claude-opus-4"
+    model_config.primary_model = "claude-fable-5-1"
     model_config.primary_provider = "anthropic"
     config.model_config = model_config
 
@@ -205,13 +205,13 @@ def mock_registry(mock_vertical_spec, mock_vertical_config):
     # Agent creation
     mock_specialist = MagicMock()
     mock_specialist.name = "healthcare-specialist"
-    mock_specialist.model = "claude-opus-4"
+    mock_specialist.model = "claude-fable-5-1"
     mock_specialist.role = "specialist"
     mock_specialist.expertise_areas = ["diagnostics", "treatment"]
     mock_specialist.to_dict = MagicMock(
         return_value={
             "name": "healthcare-specialist",
-            "model": "claude-opus-4",
+            "model": "claude-fable-5-1",
         }
     )
     mock_specialist.get_enabled_tools = MagicMock(return_value=[])
@@ -854,7 +854,7 @@ class TestCreateAgentEndpoint:
     def test_create_agent_success(self, verticals_handler, mock_registry, mock_handler):
         """Test creating a specialist agent."""
         mock_handler.rfile.read = MagicMock(
-            return_value=b'{"name": "test-agent", "model": "claude-opus-4"}'
+            return_value=b'{"name": "test-agent", "model": "claude-fable-5-1"}'
         )
         mock_handler.headers = {
             "Content-Length": "50",

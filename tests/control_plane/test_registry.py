@@ -106,7 +106,7 @@ class TestAgentInfoCreation:
             agent_id="claude-3",
             capabilities={"debate", "critique"},
             status=AgentStatus.READY,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             metadata={"tier": "premium"},
             tasks_completed=10,
@@ -116,7 +116,7 @@ class TestAgentInfoCreation:
             region_id="us-west-2",
             available_regions={"us-west-2", "us-east-1"},
         )
-        assert agent.model == "claude-3-opus"
+        assert agent.model == "claude-fable-5-1"
         assert agent.provider == "anthropic"
         assert agent.tasks_completed == 10
         assert agent.tasks_failed == 1
@@ -263,7 +263,7 @@ class TestAgentInfoSerialization:
             agent_id="claude-3",
             capabilities={"debate", "code"},
             status=AgentStatus.READY,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             region_id="us-west-2",
             available_regions={"us-west-2", "us-east-1"},
@@ -274,7 +274,7 @@ class TestAgentInfoSerialization:
         assert d["agent_id"] == "claude-3"
         assert set(d["capabilities"]) == {"debate", "code"}
         assert d["status"] == "ready"
-        assert d["model"] == "claude-3-opus"
+        assert d["model"] == "claude-fable-5-1"
         assert d["provider"] == "anthropic"
         assert d["region_id"] == "us-west-2"
         assert set(d["available_regions"]) == {"us-west-2", "us-east-1"}
@@ -283,10 +283,10 @@ class TestAgentInfoSerialization:
     def test_from_dict(self):
         """Test deserialization from dict."""
         data = {
-            "agent_id": "gpt-4",
+            "agent_id": "gpt-6-astra",
             "capabilities": ["debate", "analysis"],
             "status": "ready",
-            "model": "gpt-4",
+            "model": "gpt-6-astra",
             "provider": "openai",
             "tasks_completed": 5,
             "region_id": "eu-west-1",
@@ -294,10 +294,10 @@ class TestAgentInfoSerialization:
         }
         agent = AgentInfo.from_dict(data)
 
-        assert agent.agent_id == "gpt-4"
+        assert agent.agent_id == "gpt-6-astra"
         assert agent.capabilities == {"debate", "analysis"}
         assert agent.status == AgentStatus.READY
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-6-astra"
         assert agent.tasks_completed == 5
         assert agent.region_id == "eu-west-1"
 
@@ -307,7 +307,7 @@ class TestAgentInfoSerialization:
             agent_id="test",
             capabilities={"debate", "code"},
             status=AgentStatus.BUSY,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             tasks_completed=42,
             tasks_failed=3,
@@ -380,13 +380,13 @@ class TestRegistryRegistration:
         agent = await connected_registry.register(
             agent_id="claude-3",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
 
         assert agent.agent_id == "claude-3"
         assert agent.capabilities == {"debate", "code"}
-        assert agent.model == "claude-3-opus"
+        assert agent.model == "claude-fable-5-1"
         assert agent.provider == "anthropic"
         assert agent.status == AgentStatus.READY
 
@@ -450,13 +450,13 @@ class TestRegistryRegistration:
         await connected_registry.register(
             agent_id="get-test",
             capabilities=["debate"],
-            model="gpt-4",
+            model="gpt-6-astra",
         )
         agent = await connected_registry.get("get-test")
 
         assert agent is not None
         assert agent.agent_id == "get-test"
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_get_nonexistent(self, connected_registry: AgentRegistry):
@@ -968,7 +968,7 @@ class TestRegistryStats:
         await connected_registry.register(
             agent_id="a2",
             capabilities=["debate"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 
@@ -1048,7 +1048,7 @@ class TestRegistryIntegration:
         await connected_registry.register(
             agent_id="lifecycle",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
 

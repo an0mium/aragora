@@ -199,7 +199,7 @@ def test_demo_source_can_replay_cached_live_results_without_live_agents(handler)
     store = get_debate_store()
     store.save(cached_live["id"], cached_live["topic"], cached_live)
 
-    model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+    model_ids = ["anthropic/claude-fable-5.1", "openai/gpt-6-astra", "google/gemini-2.0-flash-001"]
     cache_key = normalize_cache_key(cached_live["topic"], model_ids, 2)
     store.save_cache_index(
         cache_key=cache_key,

@@ -424,18 +424,18 @@ class TestELORatingsPersistence:
         )
 
         now = datetime.now().isoformat()
-        cursor.execute("INSERT INTO agent_elo VALUES (?, ?, ?)", ("gpt-4", 1500.0, now))
+        cursor.execute("INSERT INTO agent_elo VALUES (?, ?, ?)", ("gpt-6-astra", 1500.0, now))
         conn.commit()
 
         # Update rating after a win
         new_rating = 1520.0
         cursor.execute(
             "UPDATE agent_elo SET rating = ?, updated_at = ? WHERE agent_name = ?",
-            (new_rating, now, "gpt-4"),
+            (new_rating, now, "gpt-6-astra"),
         )
         conn.commit()
 
-        cursor.execute("SELECT rating FROM agent_elo WHERE agent_name = ?", ("gpt-4",))
+        cursor.execute("SELECT rating FROM agent_elo WHERE agent_name = ?", ("gpt-6-astra",))
         result = cursor.fetchone()
 
         assert result[0] == 1520.0
@@ -457,7 +457,7 @@ class TestELORatingsPersistence:
         )
 
         # Insert multiple agents
-        agents = [("claude", 1550.0), ("gpt-4", 1500.0), ("gemini", 1480.0)]
+        agents = [("claude", 1550.0), ("gpt-6-astra", 1500.0), ("gemini", 1480.0)]
         cursor.executemany("INSERT INTO agent_elo VALUES (?, ?)", agents)
         conn.commit()
 

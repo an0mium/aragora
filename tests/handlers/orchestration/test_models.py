@@ -580,10 +580,10 @@ class TestOrchestrationRequest:
         req = OrchestrationRequest.from_dict(
             {
                 "question": "q",
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
             }
         )
-        assert req.agents == ["claude", "gpt-4"]
+        assert req.agents == ["claude", "gpt-6-astra"]
 
     def test_from_dict_require_consensus(self):
         req = OrchestrationRequest.from_dict(
@@ -674,7 +674,7 @@ class TestOrchestrationRequest:
             "knowledge_context": {"sources": ["github:org/repo"], "workspaces": ["ws-nested"]},
             "workspaces": ["ws-top"],
             "team_strategy": "diverse",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "output_channels": [
                 "slack:C002",
                 {"type": "email", "id": "admin@co.com"},
@@ -695,7 +695,7 @@ class TestOrchestrationRequest:
         assert len(req.knowledge_sources) == 2  # slack + github
         assert req.workspaces == ["ws-top"]  # direct overrides nested
         assert req.team_strategy is TeamStrategy.DIVERSE
-        assert req.agents == ["claude", "gpt-4"]
+        assert req.agents == ["claude", "gpt-6-astra"]
         assert len(req.output_channels) == 2
         assert req.output_format is OutputFormat.DECISION_RECEIPT
         assert req.require_consensus is False
@@ -796,7 +796,7 @@ class TestOrchestrationResult:
             consensus_reached=True,
             final_answer="Yes, adopt microservices.",
             confidence=0.87,
-            agents_participated=["claude", "gpt-4", "gemini"],
+            agents_participated=["claude", "gpt-6-astra", "gemini"],
             rounds_completed=5,
             duration_seconds=42.5,
             knowledge_context_used=["slack:C123", "confluence:pg-1"],

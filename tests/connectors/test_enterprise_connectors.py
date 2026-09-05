@@ -412,12 +412,12 @@ class TestSpecialistModelConfig:
         """Test creating config."""
         config = SpecialistModelConfig(
             vertical=Vertical.LEGAL,
-            base_model="llama-3.3-70b",
+            base_model="muse-spark-1.3",
             lora_rank=32,
         )
 
         assert config.vertical == Vertical.LEGAL
-        assert config.base_model == "llama-3.3-70b"
+        assert config.base_model == "muse-spark-1.3"
         assert config.lora_rank == 32
 
     def test_get_vertical_config(self):
@@ -449,7 +449,7 @@ class TestSpecialistModelRegistry:
 
         model = SpecialistModel(
             id="sm_legal_001",
-            base_model="llama-3.3-70b",
+            base_model="muse-spark-1.3",
             adapter_name="aragora-legal-v1",
             vertical=Vertical.LEGAL,
             org_id=None,
@@ -469,7 +469,7 @@ class TestSpecialistModelRegistry:
         # Register a ready model
         model = SpecialistModel(
             id="sm_healthcare_001",
-            base_model="llama-3.3-70b",
+            base_model="muse-spark-1.3",
             adapter_name="aragora-healthcare-v1",
             vertical=Vertical.HEALTHCARE,
             org_id=None,
@@ -490,7 +490,7 @@ class TestSpecialistModelRegistry:
         # Register org-specific model
         model = SpecialistModel(
             id="sm_legal_org1",
-            base_model="llama-3.3-70b",
+            base_model="muse-spark-1.3",
             adapter_name="org1-legal-v1",
             vertical=Vertical.LEGAL,
             org_id="org-1",

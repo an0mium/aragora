@@ -37,7 +37,7 @@ class TestFallbackModelChain:
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert "deepseek/deepseek-v4-pro-0813" in OPENROUTER_FALLBACK_MODELS
-        # Retargeted off the retired openai/gpt-5.5 to the live cheap/bulk
+        # Retargeted off the retired openai/gpt-6-astra to the live cheap/bulk
         # OpenAI route (frontier-model-refresh final review #3): a fallback
         # target is only useful if a live request to it succeeds.
         assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.6-terra"
@@ -66,7 +66,7 @@ class TestFallbackModelChain:
         assert (
             OPENROUTER_FALLBACK_MODELS["qwen/qwen3.5-plus-02-15"] == "deepseek/deepseek-v4-pro-0813"
         )
-        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-5"
+        assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k3"] == "anthropic/claude-opus-5"
         assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-5"
 
     def test_kimi_has_fallback(self):
@@ -81,7 +81,7 @@ class TestFallbackModelChain:
         """Test Llama models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "meta-llama/llama-3.3-70b-instruct" in OPENROUTER_FALLBACK_MODELS
+        assert "meta/muse-spark-1.3" in OPENROUTER_FALLBACK_MODELS
 
 
 # =============================================================================
@@ -114,9 +114,9 @@ class TestOpenRouterAgentInit:
         ):
             from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
-            agent = OpenRouterAgent(model="meta-llama/llama-3.3-70b-instruct")
+            agent = OpenRouterAgent(model="meta/muse-spark-1.3")
 
-            assert agent.model == "meta-llama/llama-3.3-70b-instruct"
+            assert agent.model == "meta/muse-spark-1.3"
 
     def test_init_with_custom_name(self):
         """Test initialization with custom name."""

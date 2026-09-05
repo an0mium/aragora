@@ -188,7 +188,7 @@ class ConcreteOpenAICompatibleAgent:
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
     def __init__(
         self,
@@ -293,7 +293,7 @@ class TestableAgent(OpenAICompatibleMixin, ConcreteOpenAICompatibleAgent):
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
     max_tokens = 4096
 
 
@@ -363,7 +363,7 @@ class TestOpenAICompatibleMixinInitialization:
     def test_default_values(self):
         """Should have sensible default values."""
         assert OpenAICompatibleMixin.OPENROUTER_MODEL_MAP == {}
-        # gpt-5.3 is retired (frontier-model-refresh, 2026-09-04); the mixin
+        # gpt-6-astra is retired (frontier-model-refresh, 2026-09-04); the mixin
         # default now points at the value-tier frontier sibling.
         assert OpenAICompatibleMixin.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.6-terra"
         assert OpenAICompatibleMixin.max_tokens == 4096
@@ -1080,7 +1080,7 @@ class TestProviderConfiguration:
         agent = TestableAgent(model="test-model")
         assert agent.get_fallback_model() == TestableAgent.DEFAULT_FALLBACK_MODEL
 
-        resolvable_agent = TestableAgent(model="gpt-5.5")
+        resolvable_agent = TestableAgent(model="gpt-6-astra")
         assert resolvable_agent.get_fallback_model() == "openai/gpt-6-astra"
 
     def test_get_fallback_model_default(self):

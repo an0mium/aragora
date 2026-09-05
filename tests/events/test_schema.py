@@ -119,14 +119,14 @@ class TestDebatePayloads:
     def test_critique(self):
         p = CritiquePayload(
             debate_id="d-1",
-            critic_agent="gpt-4",
+            critic_agent="gpt-6-astra",
             target_agent="claude",
             critique="Weak evidence",
         )
         assert p.severity == "medium"
 
     def test_vote(self):
-        p = VotePayload(debate_id="d-1", voter_agent="claude", voted_for="gpt-4")
+        p = VotePayload(debate_id="d-1", voter_agent="claude", voted_for="gpt-6-astra")
         assert p.confidence == 0.0
         assert p.reason is None
 
@@ -422,7 +422,7 @@ class TestConvenienceFunctions:
 class TestRoundTrip:
     def test_debate_start_round_trip(self):
         original = DebateStartPayload(
-            debate_id="d-1", question="q", agents=["claude", "gpt-4"], rounds=5
+            debate_id="d-1", question="q", agents=["claude", "gpt-6-astra"], rounds=5
         )
         d = original.to_dict()
         restored = DebateStartPayload.from_dict(d)

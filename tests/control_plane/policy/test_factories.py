@@ -32,11 +32,11 @@ class TestCreateProductionPolicy:
     def test_allowed_agents(self):
         """Test specifying allowed agents."""
         policy = create_production_policy(
-            allowed_agents=["claude-3-opus", "gpt-4"],
+            allowed_agents=["claude-fable-5-1", "gpt-6-astra"],
         )
-        assert "claude-3-opus" in policy.agent_allowlist
-        assert "gpt-4" in policy.agent_allowlist
-        assert policy.is_agent_allowed("claude-3-opus") is True
+        assert "claude-fable-5-1" in policy.agent_allowlist
+        assert "gpt-6-astra" in policy.agent_allowlist
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
         assert policy.is_agent_allowed("gpt-3.5-turbo") is False
 
     def test_blocked_agents(self):
@@ -91,10 +91,10 @@ class TestCreateAgentTierPolicy:
         """Test creating premium tier policy."""
         policy = create_agent_tier_policy(
             tier="premium",
-            allowed_agents=["claude-3-opus", "gpt-4", "gemini-ultra"],
+            allowed_agents=["claude-fable-5-1", "gpt-6-astra", "gemini-ultra"],
         )
         assert "premium" in policy.name.lower()
-        assert policy.is_agent_allowed("claude-3-opus") is True
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
         assert policy.is_agent_allowed("gpt-3.5-turbo") is False
 
     def test_standard_tier(self):
@@ -105,7 +105,7 @@ class TestCreateAgentTierPolicy:
         )
         assert "standard" in policy.name.lower()
         assert policy.is_agent_allowed("gpt-3.5-turbo") is True
-        assert policy.is_agent_allowed("claude-3-opus") is False
+        assert policy.is_agent_allowed("claude-fable-5-1") is False
 
     def test_tier_task_types(self):
         """Test tier-specific task types."""

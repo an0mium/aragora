@@ -1179,7 +1179,7 @@ class TestTeamPerformance:
                 debates_count=7,
             ),
             MagicMock(
-                agent_name="gpt-4",
+                agent_name="gpt-6-astra",
                 elo=1100,
                 wins=3,
                 losses=4,

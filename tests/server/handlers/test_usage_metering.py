@@ -81,7 +81,7 @@ class MockUsageBreakdown:
         if not self.by_model:
             self.by_model = [
                 {
-                    "model": "claude-3.5-sonnet",
+                    "model": "claude-fable-5-1",
                     "input_tokens": 2000000,
                     "output_tokens": 1000000,
                     "total_tokens": 3000000,

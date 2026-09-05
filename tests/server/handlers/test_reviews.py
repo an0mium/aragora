@@ -81,7 +81,7 @@ def tmp_reviews_dir(tmp_path):
     review_1 = {
         "id": "abc123",
         "created_at": "2026-02-14T10:00:00Z",
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-6-astra"],
         "pr_url": "https://github.com/org/repo/pull/42",
         "findings": {
             "unanimous_critiques": [

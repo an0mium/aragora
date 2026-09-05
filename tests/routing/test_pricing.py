@@ -47,8 +47,8 @@ class _FakeSpec:
 
 
 _FAKE_CATALOG = {
-    "claude-fable-5": _FakeSpec(input_per_mtok=10.00, output_per_mtok=50.00),
-    "gpt-5.6-sol": _FakeSpec(input_per_mtok=5.00, output_per_mtok=30.00),
+    "claude-fable-5-1": _FakeSpec(input_per_mtok=10.00, output_per_mtok=50.00),
+    "gpt-6-astra": _FakeSpec(input_per_mtok=5.00, output_per_mtok=30.00),
 }
 
 
@@ -88,7 +88,7 @@ class TestCatalogRung:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _use_fake_catalog(monkeypatch)
-        resolved = resolve_model_pricing("claude-fable-5")
+        resolved = resolve_model_pricing("claude-fable-5-1")
         assert resolved.source == PRICING_SOURCE_CATALOG
         assert resolved.input_per_mtok == pytest.approx(10.00)
         assert resolved.output_per_mtok == pytest.approx(50.00)
@@ -98,14 +98,14 @@ class TestCatalogRung:
     def test_catalog_takes_precedence_over_legacy_table(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Legacy table has claude-opus-4; give the catalog a diverging price
+        # Legacy table has claude-fable-5-1; give the catalog a diverging price
         # and verify the catalog wins.
         monkeypatch.setattr(
             pricing,
             "_by_any_id",
-            {"claude-opus-4": _FakeSpec(input_per_mtok=6.00, output_per_mtok=27.00)}.get,
+            {"claude-fable-5-1": _FakeSpec(input_per_mtok=6.00, output_per_mtok=27.00)}.get,
         )
-        resolved = resolve_model_pricing("claude-opus-4")
+        resolved = resolve_model_pricing("claude-fable-5-1")
         assert resolved.source == PRICING_SOURCE_CATALOG
         assert resolved.input_per_mtok == pytest.approx(6.00)
 
@@ -171,7 +171,7 @@ class TestConservativeDefaultRung:
 
     @pytest.mark.parametrize(
         "frontier_pin",
-        ["claude-fable-5", "gpt-5.6-sol", "grok-4.5", "gemini-3.0-pro", "openai/gpt-6"],
+        ["claude-fable-5-1", "gpt-6-astra", "grok-4.6", "gemini-3.0-pro", "openai/gpt-6"],
     )
     def test_frontier_pin_never_scores_zero(
         self, monkeypatch: pytest.MonkeyPatch, frontier_pin: str
@@ -188,7 +188,7 @@ class TestConservativeDefaultRung:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _use_no_catalog(monkeypatch)
-        frontier = resolve_model_pricing("claude-fable-5")
+        frontier = resolve_model_pricing("claude-fable-5-1")
         unknown = resolve_model_pricing("mystery-model-9000")
         assert frontier.estimate_debate_cost_usd() > unknown.estimate_debate_cost_usd()
         assert unknown.estimate_debate_cost_usd() > 0.0
@@ -202,7 +202,7 @@ class TestConservativeDefaultRung:
 class TestEffectiveCosts:
     def test_observed_cost_passes_through(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _use_no_catalog(monkeypatch)
-        m = ProviderMetrics(provider_name="claude-fable-5", avg_cost_per_debate=0.42)
+        m = ProviderMetrics(provider_name="claude-fable-5-1", avg_cost_per_debate=0.42)
         assert effective_cost_per_debate(m) == pytest.approx(0.42)
         (out,) = with_effective_costs([m])
         assert out is m
@@ -213,7 +213,7 @@ class TestEffectiveCosts:
     ) -> None:
         _use_fake_catalog(monkeypatch)
         m = ProviderMetrics(
-            provider_name="claude-fable-5",
+            provider_name="claude-fable-5-1",
             avg_cost_per_debate=0.0,
             avg_quality_score=0.9,
         )
@@ -233,13 +233,13 @@ class TestEffectiveCosts:
 def _store_with_free_frontier_pin() -> ProviderMetricsStore:
     """A store where a frontier pin was recorded with the default cost=0.0.
 
-    Before the catalog wiring, 'claude-fable-5' entered every cost comparison
+    Before the catalog wiring, 'claude-fable-5-1' entered every cost comparison
     at $0 and dominated cost-optimized selection.
     """
     store = ProviderMetricsStore()
     for _ in range(5):
-        store.record_debate_outcome("claude-fable-5", cost=0.0, quality=0.90)
-        store.record_debate_outcome("deepseek-chat", cost=0.005, quality=0.60)
+        store.record_debate_outcome("claude-fable-5-1", cost=0.0, quality=0.90)
+        store.record_debate_outcome("deepseek-v4-pro-0813", cost=0.005, quality=0.60)
     return store
 
 
@@ -258,15 +258,15 @@ class TestOptimizerWiring:
         _use_no_catalog(monkeypatch)
         optimizer = CostQualityOptimizer(_store_with_free_frontier_pin())
         selected = optimizer.select_provider(SelectionStrategy.COST_OPTIMIZED)
-        assert selected == "deepseek-chat"
+        assert selected == "deepseek-v4-pro-0813"
 
     def test_candidates_carry_estimated_cost_marker(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _use_no_catalog(monkeypatch)
         optimizer = CostQualityOptimizer(_store_with_free_frontier_pin())
         by_name = {m.provider_name: m for m in optimizer.get_candidates()}
-        assert by_name["claude-fable-5"].avg_cost_per_debate > 0.0
-        assert by_name["claude-fable-5"].cost_estimated is True
-        assert by_name["deepseek-chat"].cost_estimated is False
+        assert by_name["claude-fable-5-1"].avg_cost_per_debate > 0.0
+        assert by_name["claude-fable-5-1"].cost_estimated is True
+        assert by_name["deepseek-v4-pro-0813"].cost_estimated is False
 
     def test_budget_excludes_estimated_frontier_cost(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _use_no_catalog(monkeypatch)
@@ -274,7 +274,7 @@ class TestOptimizerWiring:
         # Frontier default estimate is 0.035/debate; a 0.01 budget excludes it
         # (previously it passed every budget at $0).
         candidates = optimizer.get_candidates(budget_remaining=0.01)
-        assert {m.provider_name for m in candidates} == {"deepseek-chat"}
+        assert {m.provider_name for m in candidates} == {"deepseek-v4-pro-0813"}
 
 
 # ---------------------------------------------------------------------------
@@ -289,9 +289,9 @@ class TestDecisionStakesWiring:
         rationale = router.route(2)
 
         considered = {m["provider"]: m for m in rationale.models_considered}
-        assert considered["claude-fable-5"]["avg_cost_per_debate"] > 0.0
-        assert considered["claude-fable-5"]["cost_source"] == "estimated_from_pricing"
-        assert considered["deepseek-chat"]["cost_source"] == "observed"
+        assert considered["claude-fable-5-1"]["avg_cost_per_debate"] > 0.0
+        assert considered["claude-fable-5-1"]["cost_source"] == "estimated_from_pricing"
+        assert considered["deepseek-v4-pro-0813"]["cost_source"] == "observed"
 
     def test_rationale_frontier_context_has_no_zero_costs(
         self, monkeypatch: pytest.MonkeyPatch

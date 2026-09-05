@@ -85,9 +85,9 @@ def mock_elo_system():
             elo=1650.0,
             domain_elos={"code": 1680.0, "legal": 1620.0, "general": 1650.0},
         ),
-        "gpt-4": MockAgentRating(agent_name="gpt-4", elo=1580.0),
-        "gemini-pro": MockAgentRating(agent_name="gemini-pro", elo=1520.0),
-        "mistral-large": MockAgentRating(agent_name="mistral-large", elo=1480.0),
+        "gpt-6-astra": MockAgentRating(agent_name="gpt-6-astra", elo=1580.0),
+        "gemini-3.1-pro-preview": MockAgentRating(agent_name="gemini-3.1-pro-preview", elo=1520.0),
+        "mistral-large-2512": MockAgentRating(agent_name="mistral-large-2512", elo=1480.0),
     }
 
     elo = MagicMock()
@@ -134,9 +134,9 @@ def mock_calibration_tracker():
 
     calibration_data = {
         "claude-opus": MockCalibrationSummary(accuracy=0.90, brier_score=0.15, ece=0.08),
-        "gpt-4": MockCalibrationSummary(accuracy=0.85, brier_score=0.20, ece=0.10),
-        "gemini-pro": MockCalibrationSummary(accuracy=0.80, brier_score=0.25, ece=0.12),
-        "mistral-large": MockCalibrationSummary(accuracy=0.75, brier_score=0.30, ece=0.15),
+        "gpt-6-astra": MockCalibrationSummary(accuracy=0.85, brier_score=0.20, ece=0.10),
+        "gemini-3.1-pro-preview": MockCalibrationSummary(accuracy=0.80, brier_score=0.25, ece=0.12),
+        "mistral-large-2512": MockCalibrationSummary(accuracy=0.75, brier_score=0.30, ece=0.15),
     }
 
     tracker = MagicMock()
@@ -152,18 +152,18 @@ def mock_calibration_tracker():
     tracker.get_brier_score = Mock(
         side_effect=lambda name, domain=None: {
             "claude-opus": 0.15,
-            "gpt-4": 0.20,
-            "gemini-pro": 0.25,
-            "mistral-large": 0.30,
+            "gpt-6-astra": 0.20,
+            "gemini-3.1-pro-preview": 0.25,
+            "mistral-large-2512": 0.30,
         }.get(name, 0.25)
     )
 
     tracker.get_brier_scores_batch = Mock(
         return_value={
             "claude-opus": 0.15,
-            "gpt-4": 0.20,
-            "gemini-pro": 0.25,
-            "mistral-large": 0.30,
+            "gpt-6-astra": 0.20,
+            "gemini-3.1-pro-preview": 0.25,
+            "mistral-large-2512": 0.30,
         }
     )
 
@@ -189,9 +189,9 @@ def mock_performance_monitor():
     # Set up agent_stats to return proper data for known agents
     monitor.agent_stats = {
         "claude-opus": MockAgentStats(success_rate=95.0, total_calls=100),
-        "gpt-4": MockAgentStats(success_rate=92.0, total_calls=80),
-        "gemini-pro": MockAgentStats(success_rate=88.0, total_calls=60),
-        "mistral-large": MockAgentStats(success_rate=85.0, total_calls=40),
+        "gpt-6-astra": MockAgentStats(success_rate=92.0, total_calls=80),
+        "gemini-3.1-pro-preview": MockAgentStats(success_rate=88.0, total_calls=60),
+        "mistral-large-2512": MockAgentStats(success_rate=85.0, total_calls=40),
     }
     monitor.get_agent_metrics = Mock(
         return_value={
@@ -221,10 +221,10 @@ def cv_builder(mock_elo_system, mock_calibration_tracker, mock_performance_monit
 def sample_agents():
     """Create sample Agent objects for testing."""
     return [
-        MockAgent(name="claude-opus", model="claude-3-opus"),
-        MockAgent(name="gpt-4", model="gpt-4-turbo"),
-        MockAgent(name="gemini-pro", model="gemini-1.5-pro"),
-        MockAgent(name="mistral-large", model="mistral-large"),
+        MockAgent(name="claude-opus", model="claude-fable-5-1"),
+        MockAgent(name="gpt-6-astra", model="gpt-6-astra"),
+        MockAgent(name="gemini-3.1-pro-preview", model="gemini-3.1-pro-preview"),
+        MockAgent(name="mistral-large-2512", model="mistral-large-2512"),
     ]
 
 
@@ -304,13 +304,13 @@ class TestCVBuilderGeneration:
 
     def test_cv_builder_batch_generation(self, cv_builder):
         """Verify batch CV generation works correctly."""
-        agent_ids = ["claude-opus", "gpt-4", "gemini-pro"]
+        agent_ids = ["claude-opus", "gpt-6-astra", "gemini-3.1-pro-preview"]
         cvs = cv_builder.build_cvs_batch(agent_ids)
 
         assert len(cvs) == 3
         assert "claude-opus" in cvs
-        assert "gpt-4" in cvs
-        assert "gemini-pro" in cvs
+        assert "gpt-6-astra" in cvs
+        assert "gemini-3.1-pro-preview" in cvs
 
         # Verify each CV is valid
         for agent_id, cv in cvs.items():

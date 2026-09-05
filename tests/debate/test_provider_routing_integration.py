@@ -114,14 +114,14 @@ class TestTeamSelectorProviderHints:
 
     def test_provider_hints_substring_matching(self):
         """Hints should match agents by substring (e.g., 'claude' matches 'claude-sonnet')."""
-        agents = [MockAgent("claude-sonnet-4"), MockAgent("gpt-4o")]
+        agents = [MockAgent("claude-fable-5-1"), MockAgent("gpt-6-astra")]
         selector = self._make_selector()
 
         hints = {"claude": 0.8}
         result = selector.select(agents, provider_hints=hints)
 
-        # claude-sonnet-4 should rank first because "claude" is a substring
-        assert result[0].name == "claude-sonnet-4"
+        # claude-fable-5-1 should rank first because "claude" is a substring
+        assert result[0].name == "claude-fable-5-1"
 
     def test_provider_hints_multiplicative_effect(self):
         """Provider hints should have a multiplicative effect on the score."""
@@ -269,9 +269,9 @@ class TestDebateServiceRuntimeRouting:
     @pytest.mark.asyncio
     async def test_provider_list_routes_runtime_roster_before_arena(self):
         agents = [
-            RuntimeAgent(name="anthropic-proposer", model="claude-sonnet-4"),
-            RuntimeAgent(name="openai-critic", model="gpt-4o"),
-            RuntimeAgent(name="google-analyst", model="gemini-2.0-flash"),
+            RuntimeAgent(name="anthropic-proposer", model="claude-fable-5-1"),
+            RuntimeAgent(name="openai-critic", model="gpt-6-astra"),
+            RuntimeAgent(name="google-analyst", model="gemini-3.8-flash"),
         ]
         debate_result = DebateResult(
             debate_id="debate-1",
@@ -288,7 +288,7 @@ class TestDebateServiceRuntimeRouting:
             service = DebateService(default_agents=agents)
             result = await service.run(
                 "Design a rate limiter",
-                provider_hints=["gpt-4o", "claude-sonnet-4"],
+                provider_hints=["gpt-6-astra", "claude-fable-5-1"],
                 agent_count=2,
                 min_providers=2,
             )
@@ -298,8 +298,8 @@ class TestDebateServiceRuntimeRouting:
             "openai-critic",
             "anthropic-proposer",
         ]
-        assert result.metadata["provider_hints"] == ["gpt-4o", "claude-sonnet-4"]
-        assert result.metadata["provider_names"] == ["gpt-4o", "claude-sonnet-4"]
+        assert result.metadata["provider_hints"] == ["gpt-6-astra", "claude-fable-5-1"]
+        assert result.metadata["provider_names"] == ["gpt-6-astra", "claude-fable-5-1"]
         assert result.metadata["provider_routing"]["routed_agent_names"] == [
             "openai-critic",
             "anthropic-proposer",
@@ -308,9 +308,9 @@ class TestDebateServiceRuntimeRouting:
     @pytest.mark.asyncio
     async def test_runtime_fill_preserves_provider_diversity_when_requested(self):
         agents = [
-            RuntimeAgent(name="openai-primary", model="gpt-4o"),
-            RuntimeAgent(name="openai-backup", model="gpt-4o-mini"),
-            RuntimeAgent(name="anthropic-backup", model="claude-sonnet-4"),
+            RuntimeAgent(name="openai-primary", model="gpt-6-astra"),
+            RuntimeAgent(name="openai-backup", model="gpt-5.6-terra"),
+            RuntimeAgent(name="anthropic-backup", model="claude-fable-5-1"),
         ]
         debate_result = DebateResult(
             debate_id="debate-2",
@@ -327,7 +327,7 @@ class TestDebateServiceRuntimeRouting:
             service = DebateService(default_agents=agents)
             await service.run(
                 "Design a rate limiter",
-                provider_hints=["gpt-4o"],
+                provider_hints=["gpt-6-astra"],
                 agent_count=2,
                 min_providers=2,
             )

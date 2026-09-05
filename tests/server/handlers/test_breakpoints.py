@@ -65,7 +65,7 @@ class MockSnapshot:
         self.round_num = 2
         self.task = "Evaluate rate limiter"
         self.current_confidence = 0.75
-        self.agent_names = ["claude", "gpt-4"]
+        self.agent_names = ["claude", "gpt-6-astra"]
 
 
 class MockTrigger:

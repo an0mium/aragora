@@ -74,7 +74,7 @@ class TestProviderMetrics:
 class TestProviderPathSummary:
     def test_config_present_does_not_imply_live_ready(self) -> None:
         summary = summarize_provider_path(
-            [("openai-api", "gpt-4o-mini")],
+            [("openai-api", "gpt-5.6-terra")],
             {
                 "openai-api": CredentialStatus(
                     agent_type="openai-api",
@@ -102,7 +102,7 @@ class TestProviderPathSummary:
 
     def test_first_verified_provider_response_sets_live_ready(self) -> None:
         summary = summarize_provider_path(
-            [("openai-api", "gpt-4o-mini")],
+            [("openai-api", "gpt-5.6-terra")],
             {
                 "openai-api": CredentialStatus(
                     agent_type="openai-api",
@@ -115,7 +115,7 @@ class TestProviderPathSummary:
                     status="configured",
                 )
             },
-            verified_live_agents=[("openai-api", "gpt-4o-mini")],
+            verified_live_agents=[("openai-api", "gpt-5.6-terra")],
         )
 
         payload = summary.to_dict()
@@ -391,18 +391,24 @@ class TestProviderPricing:
         expected = {
             "claude-opus-4",
             "claude-sonnet-4",
+            "claude-fable-5-1",
             "gpt-4o",
             "gpt-4o-mini",
+            "gpt-6-astra",
+            "gpt-5.6-terra",
             "deepseek-v4-pro",
             "deepseek-r1",
             "deepseek-chat",
+            "deepseek-v4-pro-0813",
             "mistral-large",
+            "mistral-large-2512",
             "gemini-2.0-flash",
+            "gemini-3.8-flash",
         }
         assert expected.issubset(set(PROVIDER_PRICING.keys()))
 
     def test_pricing_fields(self) -> None:
-        p = PROVIDER_PRICING["claude-opus-4"]
+        p = PROVIDER_PRICING["claude-fable-5-1"]
         assert p.provider_name == "anthropic"
         assert p.input_cost_per_1k > 0
         assert p.output_cost_per_1k > 0
@@ -444,7 +450,7 @@ class TestProviderPricing:
         assert len(tiny) <= len(models)
 
     def test_to_dict_from_dict_roundtrip(self) -> None:
-        original = PROVIDER_PRICING["claude-sonnet-4"]
+        original = PROVIDER_PRICING["claude-fable-5-1"]
         d = original.to_dict()
         restored = ProviderPricing.from_dict(d)
         assert restored == original

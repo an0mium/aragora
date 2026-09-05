@@ -37,7 +37,7 @@ def mock_agent():
 def mock_agents(mock_agent):
     """Create multiple mock agents."""
     agents = []
-    for name in ["claude", "gpt-4", "gemini"]:
+    for name in ["claude", "gpt-6-astra", "gemini"]:
         agent = MagicMock()
         agent.name = name
         agent.ask = AsyncMock(return_value=f"Response from {name}")
@@ -50,9 +50,9 @@ def mock_agents(mock_agent):
 def mock_selection_feedback_loop():
     """Create a mock SelectionFeedbackLoop."""
     loop = MagicMock()
-    loop.weights = {"claude": 1.0, "gpt-4": 1.0, "gemini": 1.0}
+    loop.weights = {"claude": 1.0, "gpt-6-astra": 1.0, "gemini": 1.0}
     loop.record_outcome = MagicMock()
-    loop.get_weights = MagicMock(return_value={"claude": 1.0, "gpt-4": 1.0, "gemini": 1.0})
+    loop.get_weights = MagicMock(return_value={"claude": 1.0, "gpt-6-astra": 1.0, "gemini": 1.0})
     loop.decay_unused = MagicMock()
     return loop
 

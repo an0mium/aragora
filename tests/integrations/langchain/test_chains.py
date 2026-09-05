@@ -25,7 +25,7 @@ class TestAragoraDebateChain:
         assert chain.pre_research is True
         assert chain.post_verify is True
         assert chain.max_rounds == 5
-        assert chain.default_agents == ["claude", "gpt-4", "gemini"]
+        assert chain.default_agents == ["claude", "gpt-6-astra", "gemini"]
 
     def test_custom_config(self):
         chain = AragoraDebateChain(

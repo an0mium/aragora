@@ -25,7 +25,7 @@ def fabric():
     return AgentFabric()
 
 
-def make_config(id: str = "a1", model: str = "claude-3-opus") -> AgentConfig:
+def make_config(id: str = "a1", model: str = "claude-fable-5-1") -> AgentConfig:
     return AgentConfig(id=id, model=model)
 
 
@@ -68,7 +68,7 @@ class TestFabricAgentManagement:
         await fabric.start()
         config = AgentConfig(
             id="a1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             budget=BudgetConfig(max_tokens_per_day=10000),
         )
         await fabric.spawn(config)

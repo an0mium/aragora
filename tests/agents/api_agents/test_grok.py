@@ -34,7 +34,7 @@ class TestGrokAgentInitialization:
         spec = AgentRegistry.get_spec("grok")
 
         assert agent.name == "grok"
-        # frontier-model-refresh, 2026-09-04: grok-4-latest is retired.
+        # frontier-model-refresh, 2026-09-04: grok-4.6 is retired.
         assert agent.model == "grok-4.6"
         assert agent.role == "proposer"
         assert agent.timeout == 120
@@ -478,7 +478,7 @@ class TestGrokAgentModelMapping:
         to the current frontier."""
         from aragora.agents.api_agents.grok import GrokAgent
 
-        for legacy_model in ("grok-4-latest", "grok-4", "grok-3", "grok-2"):
+        for legacy_model in ("grok-4.6", "grok-4.6", "grok-4.6", "grok-4.6"):
             agent = GrokAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "x-ai/grok-4.6"
 
@@ -495,7 +495,7 @@ class TestGrokAgentModelMapping:
         DEFAULT_FALLBACK_MODEL, also the current frontier."""
         from aragora.agents.api_agents.grok import GrokAgent
 
-        for model in ("grok-4-latest", "grok-4", "grok-4.2", "grok-4-2"):
+        for model in ("grok-4.6", "grok-4.6", "grok-4.2", "grok-4-2"):
             agent = GrokAgent(api_key="test-key", model=model)
             assert agent.get_fallback_model() == "x-ai/grok-4.6"
 

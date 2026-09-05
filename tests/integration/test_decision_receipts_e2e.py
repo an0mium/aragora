@@ -47,7 +47,7 @@ class TestDecisionReceiptGeneration:
                     "mitigation": "Implement rate limiting middleware",
                 }
             ],
-            "agents_involved": ["claude", "gpt-4", "gemini"],
+            "agents_involved": ["claude", "gpt-6-astra", "gemini"],
             "rounds_completed": 3,
             "duration_seconds": 45.2,
         }
@@ -245,7 +245,7 @@ class TestReceiptExport:
             verdict="APPROVED",
             confidence=0.92,
             risk_level="LOW",
-            agents_involved=["claude", "gpt-4"],
+            agents_involved=["claude", "gpt-6-astra"],
             rounds_completed=3,
             duration_seconds=30.5,
         )
@@ -304,14 +304,14 @@ class TestReceiptDissent:
     def test_create_dissent_record(self):
         """Test creating a dissent record."""
         dissent = ReceiptDissent(
-            agent="gpt-4",
+            agent="gpt-6-astra",
             type="partial_disagree",
             severity=0.6,
             reasons=["Security analysis incomplete", "Missing edge cases"],
             alternative="Recommend additional penetration testing",
         )
 
-        assert dissent.agent == "gpt-4"
+        assert dissent.agent == "gpt-6-astra"
         assert len(dissent.reasons) == 2
         assert dissent.alternative is not None
 

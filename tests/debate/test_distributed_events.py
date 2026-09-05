@@ -139,7 +139,7 @@ class TestDistributedDebateEvent:
             debate_id="debate-789",
             source_instance="instance-3",
             round_number=2,
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             data={"target": "claude-3", "rating": 0.7},
         )
 
@@ -178,7 +178,7 @@ class TestAgentProposal:
     def test_proposal_serialization(self):
         """Test proposal serialization."""
         proposal = AgentProposal(
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             instance_id="instance-2",
             content="Consider MongoDB for flexibility.",
             round_number=1,
@@ -186,7 +186,7 @@ class TestAgentProposal:
 
         data = proposal.to_dict()
 
-        assert data["agent_id"] == "gpt-4"
+        assert data["agent_id"] == "gpt-6-astra"
         assert data["instance_id"] == "instance-2"
         assert data["content"] == "Consider MongoDB for flexibility."
         assert data["round_number"] == 1
@@ -198,7 +198,7 @@ class TestAgentCritique:
     def test_critique_creation(self):
         """Test creating an agent critique."""
         critique = AgentCritique(
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             instance_id="instance-1",
             target_agent_id="claude-3",
             content="Good analysis but missing cost considerations.",
@@ -208,7 +208,7 @@ class TestAgentCritique:
             weaknesses=["No cost analysis", "Missing scalability discussion"],
         )
 
-        assert critique.agent_id == "gpt-4"
+        assert critique.agent_id == "gpt-6-astra"
         assert critique.target_agent_id == "claude-3"
         assert critique.rating == 0.7
         assert len(critique.strengths) == 2
@@ -219,7 +219,7 @@ class TestAgentCritique:
         critique = AgentCritique(
             agent_id="gemini",
             instance_id="instance-2",
-            target_agent_id="gpt-4",
+            target_agent_id="gpt-6-astra",
             content="Interesting perspective.",
             round_number=2,
         )
@@ -227,7 +227,7 @@ class TestAgentCritique:
         data = critique.to_dict()
 
         assert data["agent_id"] == "gemini"
-        assert data["target_agent_id"] == "gpt-4"
+        assert data["target_agent_id"] == "gpt-6-astra"
         assert data["round_number"] == 2
 
 
@@ -237,7 +237,7 @@ class TestConsensusVote:
     def test_vote_creation(self):
         """Test creating a consensus vote."""
         vote = ConsensusVote(
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             instance_id="instance-1",
             proposal_agent_id="claude-3",
             vote="support",
@@ -246,7 +246,7 @@ class TestConsensusVote:
             reasoning="Strong technical argument.",
         )
 
-        assert vote.agent_id == "gpt-4"
+        assert vote.agent_id == "gpt-6-astra"
         assert vote.proposal_agent_id == "claude-3"
         assert vote.vote == "support"
         assert vote.confidence == 0.9

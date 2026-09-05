@@ -51,7 +51,7 @@ class TestDebateSLOMetricsNoOp:
         from aragora.observability.metrics.debate_slo import record_agent_response_time
 
         record_agent_response_time("claude", 3.2, "proposal")
-        record_agent_response_time("gpt-4", 5.5, "critique")
+        record_agent_response_time("gpt-6-astra", 5.5, "critique")
         record_agent_response_time("gemini", 2.0, "vote")
         record_agent_response_time("mistral", 4.1, "synthesis")
 
@@ -180,7 +180,7 @@ class TestContextManagers:
         """track_agent_response_async should track async agent response time."""
         from aragora.observability.metrics.debate_slo import track_agent_response_async
 
-        async with track_agent_response_async("gpt-4", "critique"):
+        async with track_agent_response_async("gpt-6-astra", "critique"):
             await asyncio.sleep(0.01)
 
 
@@ -495,6 +495,6 @@ class TestConcurrentAccess:
 
         await asyncio.gather(
             record_many("claude", 10),
-            record_many("gpt-4", 10),
+            record_many("gpt-6-astra", 10),
             record_many("gemini", 10),
         )

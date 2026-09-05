@@ -101,7 +101,7 @@ class TestTaskOutcomeStorage:
         outcome = TaskOutcome(
             task_id="task_456",
             task_type="code_review",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             success=False,
             duration_seconds=30.0,
             error_message="Timeout",

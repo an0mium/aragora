@@ -157,7 +157,7 @@ def create_mock_session():
     session = MagicMock()
     session.id = "session-12345678"
     session.name = "Test Audit"
-    session.model = "gpt-4"
+    session.model = "gpt-6-astra"
     session.document_ids = ["doc1", "doc2", "doc3"]
     session.findings = []
     session.duration_seconds = 45.5

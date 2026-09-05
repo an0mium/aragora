@@ -251,14 +251,14 @@ class TestEventEmission:
             await stream_server.emit_agent_registered(
                 agent_id="agent-1",
                 capabilities=["debate", "analysis"],
-                model="gpt-4",
+                model="gpt-6-astra",
                 provider="openai",
             )
 
             message = await receive_with_timeout(ws)
             assert message["type"] == "agent_registered"
             assert message["data"]["agent_id"] == "agent-1"
-            assert message["data"]["model"] == "gpt-4"
+            assert message["data"]["model"] == "gpt-6-astra"
         finally:
             await ws.close()
 

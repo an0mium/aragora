@@ -49,7 +49,7 @@ def mock_session():
     """Create a mock audit session."""
     session = Mock(spec=AuditSession)
     session.id = "session-123"
-    session.model = "claude-3.5-sonnet"
+    session.model = "claude-fable-5-1"
     session.status = "running"
     return session
 

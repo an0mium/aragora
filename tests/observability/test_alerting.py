@@ -204,7 +204,7 @@ class TestMetricsSnapshot:
     def test_snapshot_with_values(self):
         """Snapshot with values works."""
         snapshot = MetricsSnapshot(
-            agent_failures={"claude": 2, "gpt-4": 3},
+            agent_failures={"claude": 2, "gpt-6-astra": 3},
             circuit_breaker_states={"claude": "open"},
             queue_size=850,
             queue_capacity=1000,
@@ -212,7 +212,7 @@ class TestMetricsSnapshot:
         )
 
         assert snapshot.agent_failures["claude"] == 2
-        assert snapshot.agent_failures["gpt-4"] == 3
+        assert snapshot.agent_failures["gpt-6-astra"] == 3
         assert snapshot.circuit_breaker_states["claude"] == "open"
         assert snapshot.queue_size == 850
         assert snapshot.memory_eviction_rate == 0.08
@@ -282,10 +282,10 @@ class TestMetricsCollector:
 
         collector.record_agent_failure("claude")
         collector.record_agent_failure("claude")
-        collector.record_agent_failure("gpt-4")
+        collector.record_agent_failure("gpt-6-astra")
 
         assert len(collector._agent_failure_window["claude"]) == 2
-        assert len(collector._agent_failure_window["gpt-4"]) == 1
+        assert len(collector._agent_failure_window["gpt-6-astra"]) == 1
 
     @pytest.mark.asyncio
     async def test_collect_includes_agent_failures(self):
@@ -805,13 +805,13 @@ class TestCriticalAlertRules:
 
         # Should fire with 2+ providers failing
         metrics_firing = {
-            "agent_failures": {"claude": 1, "gpt-4": 1, "gemini": 0},
+            "agent_failures": {"claude": 1, "gpt-6-astra": 1, "gemini": 0},
         }
         assert rule.condition(metrics_firing) is True
 
         # Should not fire with only 1 provider failing
         metrics_ok = {
-            "agent_failures": {"claude": 1, "gpt-4": 0, "gemini": 0},
+            "agent_failures": {"claude": 1, "gpt-6-astra": 0, "gemini": 0},
         }
         assert rule.condition(metrics_ok) is False
 
@@ -887,7 +887,7 @@ class TestCriticalAlertRules:
         assert (
             rule.condition(
                 {
-                    "circuit_breaker_states": {"claude": "open", "gpt-4": "closed"},
+                    "circuit_breaker_states": {"claude": "open", "gpt-6-astra": "closed"},
                 }
             )
             is True
@@ -897,7 +897,7 @@ class TestCriticalAlertRules:
         assert (
             rule.condition(
                 {
-                    "circuit_breaker_states": {"claude": "closed", "gpt-4": "closed"},
+                    "circuit_breaker_states": {"claude": "closed", "gpt-6-astra": "closed"},
                 }
             )
             is False

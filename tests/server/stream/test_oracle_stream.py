@@ -225,7 +225,7 @@ class TestProviderDispatch:
             mock_oai.return_value = fake_gen()
 
             tokens = []
-            async for t in _call_provider_llm_stream("openai", "gpt-4", "prompt"):
+            async for t in _call_provider_llm_stream("openai", "gpt-6-astra", "prompt"):
                 tokens.append(t)
             assert tokens == ["oai-token"]
 
@@ -246,7 +246,7 @@ class TestProviderDispatch:
             mock_xai.return_value = fake_gen()
 
             tokens = []
-            async for t in _call_provider_llm_stream("xai", "grok-2", "prompt"):
+            async for t in _call_provider_llm_stream("xai", "grok-4.6", "prompt"):
                 tokens.append(t)
             assert tokens == ["grok-token"]
 

@@ -52,7 +52,7 @@ def _make_checkpoint(
         agent_states=[
             AgentState(
                 agent_name="claude",
-                agent_model="claude-3-opus",
+                agent_model="claude-fable-5-1",
                 agent_role="proposer",
                 system_prompt="You are a helpful assistant.",
                 stance="in_favor",

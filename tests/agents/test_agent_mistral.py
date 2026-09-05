@@ -73,7 +73,7 @@ class TestCodestralAgentInitialization:
             agent = CodestralAgent()
 
         assert agent.name == "codestral"
-        assert agent.model == "codestral-latest"
+        assert agent.model == "mistral-medium-2604"
         assert agent.agent_type == "codestral"
 
     def test_custom_initialization(self):
@@ -377,11 +377,11 @@ class TestMistralModelMapping:
         assert agent.get_fallback_model() == "mistralai/mistral-large-2512"
 
     def test_fallback_uses_correct_model(self):
-        """ "codestral-latest" has no catalog row: falls back to
+        """ "mistral-medium-2604" has no catalog row: falls back to
         DEFAULT_FALLBACK_MODEL (the Mistral frontier)."""
         agent = MistralAPIAgent(
             api_key="test-key",
-            model="codestral-latest",
+            model="mistral-medium-2604",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):

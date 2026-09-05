@@ -48,14 +48,14 @@ class TestAnthropicAgentInitialization:
 
         agent = AnthropicAPIAgent(
             name="custom-claude",
-            model="claude-sonnet-4-20250514",
+            model="claude-fable-5-1",
             role="critic",
             timeout=60,
             enable_fallback=False,
         )
 
         assert agent.name == "custom-claude"
-        assert agent.model == "claude-sonnet-4-20250514"
+        assert agent.model == "claude-fable-5-1"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False

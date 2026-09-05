@@ -1417,7 +1417,7 @@ class TestDebateIntegration:
                                     "agent_binding": "strategy-debate",
                                     "binding_type": "debate_team",
                                     "config_overrides": {
-                                        "agents": ["claude-opus", "gpt-4", "gemini-ultra"],
+                                        "agents": ["claude-opus", "gpt-6-astra", "gemini-ultra"],
                                         "rounds": 4,
                                         "enable_cross_examination": True,
                                     },
@@ -1431,7 +1431,7 @@ class TestDebateIntegration:
                             body = json.loads(result.body)
                             assert body["binding"]["config_overrides"]["agents"] == [
                                 "claude-opus",
-                                "gpt-4",
+                                "gpt-6-astra",
                                 "gemini-ultra",
                             ]
 

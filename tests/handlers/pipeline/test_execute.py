@@ -865,7 +865,7 @@ class TestConvertToGoals:
     def test_assigned_agent_from_camelcase(self):
         h = _make_handler()
         orch_nodes = [
-            {"id": "n1", "label": "Test", "assignedAgent": "gpt-4", "orch_type": "agent_task"}
+            {"id": "n1", "label": "Test", "assignedAgent": "gpt-6-astra", "orch_type": "agent_task"}
         ]
         goals = h._convert_to_goals(orch_nodes, "pipe-123")
         # _assigned_agent is used internally but doesn't affect the goal

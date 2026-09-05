@@ -37,7 +37,7 @@ class TestOpenAIAgentInitialization:
         """Test agent with custom parameters."""
         agent = OpenAIAPIAgent(
             name="my-gpt",
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -45,7 +45,7 @@ class TestOpenAIAgentInitialization:
         )
 
         assert agent.name == "my-gpt"
-        assert agent.model == "gpt-4-turbo"
+        assert agent.model == "gpt-6-astra"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False
@@ -416,14 +416,14 @@ class TestOpenAIModelMapping:
 
     def test_model_mapping_exists(self):
         """A legacy model spelling resolves to the current frontier."""
-        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o")
+        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-6-astra")
         assert agent.get_fallback_model() == "openai/gpt-6-astra"
 
     def test_fallback_uses_correct_model(self):
         """Test fallback agent uses the resolved model via the mixin."""
         agent = OpenAIAPIAgent(
             api_key="test-key",
-            model="gpt-4o",
+            model="gpt-6-astra",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):

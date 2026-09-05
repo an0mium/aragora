@@ -118,7 +118,7 @@ def mock_anthropic_response():
         "type": "message",
         "role": "assistant",
         "content": [{"type": "text", "text": "This is a test response from Claude."}],
-        "model": "claude-opus-4-7",
+        "model": "claude-fable-5-1",
         "stop_reason": "end_turn",
         "stop_sequence": None,
         "usage": {"input_tokens": 100, "output_tokens": 50},
@@ -145,7 +145,7 @@ def mock_anthropic_web_search_response():
                 ],
             },
         ],
-        "model": "claude-opus-4-7",
+        "model": "claude-fable-5-1",
         "usage": {"input_tokens": 150, "output_tokens": 75},
     }
 
@@ -157,7 +157,7 @@ def mock_openai_response():
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "gpt-5.3",
+        "model": "gpt-6-astra",
         "choices": [
             {
                 "index": 0,
@@ -198,7 +198,7 @@ def mock_openrouter_response():
         "id": "gen-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "deepseek/deepseek-v4-pro-0813",
         "choices": [
             {
                 "index": 0,
@@ -451,7 +451,7 @@ def mock_grok_response():
         "id": "chatcmpl-grok-test123",
         "object": "chat.completion",
         "created": 1700000000,
-        "model": "grok-3",
+        "model": "grok-4.6",
         "choices": [
             {
                 "index": 0,

@@ -49,7 +49,7 @@ def sample_debate_result():
         final_answer="Redis is recommended for its richer data structures and persistence options.",
         consensus_reached=True,
         rounds_used=4,
-        winner="claude-3.5-sonnet",
+        winner="claude-fable-5-1",
         confidence=0.92,
     )
     result.debate_id = "test-debate-456"
@@ -432,7 +432,7 @@ class TestPostDebateSummary:
         assert "\u2705" in html  # Checkmark
         assert "Debate Completed" in html
         assert "Consensus:</b> Reached" in html
-        assert "Winner:</b> claude-3.5-sonnet" in html
+        assert "Winner:</b> claude-fable-5-1" in html
         assert "92%" in html  # Confidence
         assert "Rounds:</b> 4" in html
 
@@ -577,7 +577,7 @@ class TestSendLeaderboardUpdate:
 
         rankings = [
             {"name": "claude", "elo": 1650, "wins": 15},
-            {"name": "gpt-4", "elo": 1600, "wins": 12},
+            {"name": "gpt-6-astra", "elo": 1600, "wins": 12},
             {"name": "gemini", "elo": 1550, "wins": 10},
         ]
 
@@ -623,7 +623,7 @@ class TestSendDebateStarted:
         result = await telegram_integration.send_debate_started(
             debate_id="test-123",
             task="Design a rate limiter",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
         )
 
         assert result is True

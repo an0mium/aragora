@@ -50,7 +50,7 @@ def _make_debate_result(
     result.messages = []
     result.votes = []
     result.winner = "claude"
-    result.participants = ["claude", "gpt-4o"]
+    result.participants = ["claude", "gpt-6-astra"]
     result.dissenting_views = []
     result.debate_id = "test-debate-001"
     result.final_answer = "Use microservices for scalability"
@@ -78,7 +78,7 @@ def _make_cost_summary_dict(
                 "total_tokens_in": 1500,
                 "total_tokens_out": 500,
                 "call_count": 3,
-                "models_used": {"claude-sonnet-4": 3},
+                "models_used": {"claude-fable-5-1": 3},
             }
 
     return {
@@ -105,17 +105,17 @@ def _make_cost_summary_dict(
             },
         },
         "model_usage": {
-            "anthropic/claude-sonnet-4": {
+            "anthropic/claude-fable-5.1": {
                 "provider": "anthropic",
-                "model": "claude-sonnet-4",
+                "model": "claude-fable-5-1",
                 "total_cost_usd": "0.0150",
                 "total_tokens_in": 2000,
                 "total_tokens_out": 700,
                 "call_count": 4,
             },
-            "openai/gpt-4o": {
+            "openai/gpt-6-astra": {
                 "provider": "openai",
-                "model": "gpt-4o",
+                "model": "gpt-6-astra",
                 "total_cost_usd": "0.0084",
                 "total_tokens_in": 1000,
                 "total_tokens_out": 300,
@@ -174,7 +174,7 @@ class TestCollectCostData:
         mock_summary.total_calls = 6
         mock_summary.total_cost_usd = Decimal("0.0234")
         mock_summary.to_dict.return_value = _make_cost_summary_dict(
-            agents={"claude": Decimal("0.015"), "gpt-4o": Decimal("0.0084")}
+            agents={"claude": Decimal("0.015"), "gpt-6-astra": Decimal("0.0084")}
         )
 
         mock_tracker = MagicMock()
@@ -205,7 +205,7 @@ class TestCollectCostData:
         mock_summary.total_calls = 6
         mock_summary.total_cost_usd = Decimal("0.0234")
         expected_dict = _make_cost_summary_dict(
-            agents={"claude": Decimal("0.015"), "gpt-4o": Decimal("0.0084")}
+            agents={"claude": Decimal("0.015"), "gpt-6-astra": Decimal("0.0084")}
         )
         mock_summary.to_dict.return_value = expected_dict
 
@@ -237,7 +237,7 @@ class TestCollectCostData:
         coordinator = PostDebateCoordinator(config=PostDebateConfig())
         result = _make_debate_result(
             total_cost_usd=0.045,
-            per_agent_cost={"claude": 0.03, "gpt-4o": 0.015},
+            per_agent_cost={"claude": 0.03, "gpt-6-astra": 0.015},
         )
 
         with patch(
@@ -311,7 +311,7 @@ class TestCollectCostData:
         coordinator = PostDebateCoordinator(config=PostDebateConfig())
         result = _make_debate_result(
             total_cost_usd=0.05,
-            per_agent_cost={"claude": 0.03, "gpt-4o": 0.02},
+            per_agent_cost={"claude": 0.03, "gpt-6-astra": 0.02},
         )
 
         # Simulate tracker not available
@@ -356,7 +356,7 @@ class TestReceiptFromDebateResultWithCost:
     """Tests for DecisionReceipt.from_debate_result cost_summary param."""
 
     def test_receipt_includes_cost_when_provided(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         assert receipt.cost_summary is not None
@@ -418,7 +418,7 @@ class TestCostBreakdownStructure:
     """Validate the structure of cost breakdown dicts."""
 
     def test_per_agent_breakdown_structure(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         per_agent = cost_data["per_agent"]
 
         for agent_name, breakdown in per_agent.items():
@@ -468,7 +468,7 @@ class TestMarkdownCostRendering:
     """Tests for cost breakdown in markdown export."""
 
     def test_markdown_includes_cost_section(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         md = receipt.to_markdown()
@@ -476,13 +476,13 @@ class TestMarkdownCostRendering:
         assert "$0.0234" in md
 
     def test_markdown_includes_per_agent_table(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         md = receipt.to_markdown()
         assert "### Per-Agent Costs" in md
         assert "claude" in md
-        assert "gpt-4o" in md
+        assert "gpt-6-astra" in md
         assert "$0.015" in md
 
     def test_markdown_includes_model_usage(self):
@@ -491,8 +491,8 @@ class TestMarkdownCostRendering:
 
         md = receipt.to_markdown()
         assert "### Model Usage" in md
-        assert "anthropic/claude-sonnet-4" in md
-        assert "openai/gpt-4o" in md
+        assert "anthropic/claude-fable-5-1" in md
+        assert "openai/gpt-6-astra" in md
 
     def test_markdown_includes_token_counts(self):
         cost_data = _make_cost_summary_dict()
@@ -518,7 +518,7 @@ class TestHTMLCostRendering:
     """Tests for cost breakdown in HTML export."""
 
     def test_html_includes_cost_section(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         html = receipt.to_html()
@@ -526,13 +526,13 @@ class TestHTMLCostRendering:
         assert "$0.0234" in html
 
     def test_html_includes_per_agent_table(self):
-        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-6-astra": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         html = receipt.to_html()
         assert "Per-Agent Costs" in html
         assert "claude" in html
-        assert "gpt-4o" in html
+        assert "gpt-6-astra" in html
 
     def test_html_no_cost_section_when_absent(self):
         receipt = _make_receipt_with_cost(cost_summary=None)

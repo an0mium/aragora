@@ -77,7 +77,7 @@ class TestCatalogProjection:
     def test_soaking_but_active_models_are_still_candidates(self) -> None:
         """Final review #7: the routing roster must see the current
         frontier. Before the fix `gpt-6-astra` (the OpenAI default) was
-        excluded for soaking while retired `gpt-5.5` was offered."""
+        excluded for soaking while retired `gpt-6-astra` was offered."""
         table, _as_of = _snapshot_and_as_of()
         soaking = [s for s in CATALOG.values() if s.soak_until is not None and not s.retired]
         assert soaking, "fixture assumption: the catalog carries a soaking active row"
@@ -109,8 +109,8 @@ class TestCatalogProjection:
                 assert cost > 0.0, f"{model_id} still estimates $0"
 
     def test_estimated_cost_math_matches_catalog(self) -> None:
-        spec = CATALOG["claude-fable-5"]
-        cost = get_estimated_cost("claude-fable-5", 1_000_000, 1_000_000)
+        spec = CATALOG["claude-fable-5-1"]
+        cost = get_estimated_cost("claude-fable-5-1", 1_000_000, 1_000_000)
         assert cost == pytest.approx(spec.input_per_mtok + spec.output_per_mtok)
 
     def test_unknown_model_still_returns_zero(self) -> None:
@@ -118,8 +118,8 @@ class TestCatalogProjection:
 
     def test_legacy_hand_rows_survive_projection(self) -> None:
         """Non-catalog legacy models keep their hand-maintained rows."""
-        assert "claude-opus-4" in current_pricing_table()
-        assert get_estimated_cost("claude-opus-4", 1_000_000, 1_000_000) > 0.0
+        assert "claude-fable-5-1" in current_pricing_table()
+        assert get_estimated_cost("claude-fable-5-1", 1_000_000, 1_000_000) > 0.0
 
     def test_default_provider_order_entries_stay_enumerable(self) -> None:
         """P3 (#9364 round-6): DEFAULT_PROVIDER_ORDER drives round-robin via
@@ -189,7 +189,7 @@ class TestAliasesDoNotInflateEnumeration:
         and enumerate that model in a second slot. The applied table must
         contain no key that by_any_id resolves to a DIFFERENT canonical id.
 
-        (Verified while fixing: the review's `deepseek-r1` example does not
+        (Verified while fixing: the review's `deepseek-v4-pro-0813` example does not
         actually resolve — deepseek is not cataloged — so no live row is
         affected today; this pins the invariant against catalog growth.)
         """
@@ -203,7 +203,7 @@ class TestAliasesDoNotInflateEnumeration:
     def test_legacy_alias_keyed_hand_row_is_filtered_but_still_prices(self) -> None:
         """Simulate the residual directly: a legacy hand row keyed by a real
         alias spelling must be dropped by _apply_catalog_projection, while
-        genuinely non-catalog hand rows (deepseek-r1) are kept, and cost
+        genuinely non-catalog hand rows (deepseek-v4-pro-0813) are kept, and cost
         lookup on the dropped legacy key resolves to the canonical price."""
         kimi = CATALOG["kimi-k2.7-code"]
         legacy_alias_key = kimi.openrouter_id  # "moonshotai/kimi-k2.7-code"
@@ -215,7 +215,7 @@ class TestAliasesDoNotInflateEnumeration:
                 output_cost_per_1k=0.00099,
                 context_window=128_000,
             ),
-            "deepseek-r1": current_pricing_table()["deepseek-r1"],
+            "deepseek-v4-pro-0813": current_pricing_table()["deepseek-v4-pro-0813"],
         }
         _apply_catalog_projection(table)
 
@@ -223,7 +223,7 @@ class TestAliasesDoNotInflateEnumeration:
         assert legacy_alias_key not in table
         assert kimi.canonical_id in table
         # ...non-catalog hand rows survive untouched...
-        assert "deepseek-r1" in table
+        assert "deepseek-v4-pro-0813" in table
         # ...and the legacy spelling still prices at the canonical catalog
         # rate through the by_any_id fallback in get_estimated_cost.
         canonical_cost = get_estimated_cost(kimi.canonical_id, 2000, 1000)

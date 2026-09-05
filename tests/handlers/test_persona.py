@@ -114,7 +114,7 @@ def mock_persona_manager():
     )
     manager.add_persona(
         MockPersona(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             description="OpenAI's GPT-4 assistant",
             traits=["creative", "versatile"],
             expertise=["general knowledge", "coding"],
@@ -241,7 +241,7 @@ class TestPersonaHandlerListAll:
         assert body["count"] == 2
         agents = [p["agent_name"] for p in body["personas"]]
         assert "claude" in agents
-        assert "gpt-4" in agents
+        assert "gpt-6-astra" in agents
 
     @patch("aragora.server.handlers.persona._persona_limiter")
     def test_list_personas_no_manager(self, mock_limiter, mock_handler):

@@ -85,7 +85,7 @@ class MockAgentInfo:
 
     agent_id: str
     capabilities: list[str] = field(default_factory=list)
-    model: str = "claude-3-opus"
+    model: str = "claude-fable-5-1"
     provider: str = "anthropic"
     status: str = "available"
     metadata: dict = field(default_factory=dict)
@@ -353,13 +353,13 @@ def mock_coordinator():
     coordinator.agents["agent-1"] = MockAgentInfo(
         agent_id="agent-1",
         capabilities=["reasoning", "coding"],
-        model="claude-3-opus",
+        model="claude-fable-5-1",
         provider="anthropic",
     )
     coordinator.agents["agent-2"] = MockAgentInfo(
         agent_id="agent-2",
         capabilities=["reasoning"],
-        model="gpt-4",
+        model="gpt-6-astra",
         provider="openai",
     )
 
@@ -520,7 +520,7 @@ class TestRegisterAgent:
             body={
                 "agent_id": "new-agent",
                 "capabilities": ["reasoning"],
-                "model": "gemini-pro",
+                "model": "gemini-3.1-pro-preview",
                 "provider": "google",
             }
         )
@@ -529,7 +529,7 @@ class TestRegisterAgent:
             {
                 "agent_id": "new-agent",
                 "capabilities": ["reasoning"],
-                "model": "gemini-pro",
+                "model": "gemini-3.1-pro-preview",
                 "provider": "google",
             },
             http_handler,

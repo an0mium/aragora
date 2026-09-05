@@ -127,7 +127,7 @@ class TestAgentTelemetryInit:
             start_time=start,
             input_tokens=100,
             output_tokens=50,
-            metadata={"model": "claude-3-opus"},
+            metadata={"model": "claude-fable-5-1"},
         )
 
         assert telemetry.agent_name == "claude"
@@ -135,7 +135,7 @@ class TestAgentTelemetryInit:
         assert telemetry.start_time == start
         assert telemetry.input_tokens == 100
         assert telemetry.output_tokens == 50
-        assert telemetry.metadata == {"model": "claude-3-opus"}
+        assert telemetry.metadata == {"model": "claude-fable-5-1"}
 
 
 class TestAgentTelemetryComplete:
@@ -480,9 +480,9 @@ class TestTelemetryContextInit:
         """TelemetryContext stores model in metadata."""
         from aragora.agents.telemetry import TelemetryContext
 
-        ctx = TelemetryContext("claude", "generate", model="claude-3-opus")
+        ctx = TelemetryContext("claude", "generate", model="claude-fable-5-1")
 
-        assert ctx.telemetry.metadata["model"] == "claude-3-opus"
+        assert ctx.telemetry.metadata["model"] == "claude-fable-5-1"
 
 
 class TestTelemetryContextSetters:
@@ -681,10 +681,10 @@ class TestWithTelemetryAsync:
             async def generate(self, prompt: str) -> str:
                 return "Done"
 
-        agent = MyAgent(name="test", model="gpt-4-turbo")
+        agent = MyAgent(name="test", model="gpt-6-astra")
         await agent.generate("prompt")
 
-        assert received[0].metadata["model"] == "gpt-4-turbo"
+        assert received[0].metadata["model"] == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_async_decorator_records_string_output_tokens(self):

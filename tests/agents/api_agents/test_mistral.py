@@ -93,7 +93,7 @@ class TestCodestralAgentInitialization:
         agent = CodestralAgent()
 
         assert agent.name == "codestral"
-        assert agent.model == "codestral-latest"
+        assert agent.model == "mistral-medium-2604"
         assert agent.agent_type == "codestral"
         # Fallback is enabled by default for graceful degradation
         assert agent.enable_fallback is True
@@ -119,7 +119,7 @@ class TestCodestralAgentInitialization:
         spec = AgentRegistry.get_spec("codestral")
 
         assert spec is not None
-        assert spec.default_model == "codestral-latest"
+        assert spec.default_model == "mistral-medium-2604"
 
 
 class TestMistralGenerate:
@@ -340,13 +340,13 @@ class TestMistralModelMapping:
 
     def test_model_map_contains_mistral_models(self, mock_env_with_api_keys):
         """A still-served Mistral id resolves to its own OpenRouter slug;
-        "codestral-latest"/"ministral-8b-latest" have no catalog row and
+        "mistral-medium-2604"/"ministral-8b-latest" have no catalog row and
         fall back to DEFAULT_FALLBACK_MODEL."""
         from aragora.agents.api_agents.mistral import MistralAPIAgent
 
         served = MistralAPIAgent(api_key="test-key", model="mistral-large-2512")
         assert served.get_fallback_model() == "mistralai/mistral-large-2512"
-        for unresolvable in ("codestral-latest", "ministral-8b-latest"):
+        for unresolvable in ("mistral-medium-2604", "ministral-8b-latest"):
             agent = MistralAPIAgent(api_key="test-key", model=unresolvable)
             assert agent.get_fallback_model() == MistralAPIAgent.DEFAULT_FALLBACK_MODEL
 

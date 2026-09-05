@@ -428,7 +428,7 @@ class TestCheckpointWithAgentState:
 
             class DetailedAgent:
                 name = "expert-agent"
-                model = "gpt-4"
+                model = "gpt-6-astra"
                 role = "domain_expert"
                 system_prompt = "You are an expert in AI safety"
                 stance = "cautious"
@@ -449,7 +449,7 @@ class TestCheckpointWithAgentState:
             assert len(checkpoint.agent_states) == 1
             agent_state = checkpoint.agent_states[0]
             assert agent_state.agent_name == "expert-agent"
-            assert agent_state.agent_model == "gpt-4"
+            assert agent_state.agent_model == "gpt-6-astra"
             assert agent_state.agent_role == "domain_expert"
             assert agent_state.stance == "cautious"
 

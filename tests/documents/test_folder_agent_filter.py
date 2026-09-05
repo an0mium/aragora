@@ -505,12 +505,12 @@ class TestGetAgentFilter:
     def test_default_config(self):
         filter = get_agent_filter()
         assert isinstance(filter, AgentFileFilter)
-        assert filter.model == "gemini-2.0-flash"
+        assert filter.model == "gemini-3.8-flash"
         assert filter.batch_size == AgentFileFilter.DEFAULT_BATCH_SIZE
 
     def test_custom_config(self):
-        filter = get_agent_filter(model="claude-3-opus", batch_size=10)
-        assert filter.model == "claude-3-opus"
+        filter = get_agent_filter(model="claude-fable-5-1", batch_size=10)
+        assert filter.model == "claude-fable-5-1"
         assert filter.batch_size == 10
 
 
@@ -525,7 +525,7 @@ class TestAgentFileFilterGetClient:
 
     @pytest.mark.asyncio
     async def test_gemini_missing_api_key(self):
-        filter = AgentFileFilter(model="gemini-pro")
+        filter = AgentFileFilter(model="gemini-3.1-pro-preview")
 
         # Mock the google.generativeai import
         mock_genai = MagicMock()
@@ -548,7 +548,7 @@ class TestAgentFileFilterGetClient:
 
     @pytest.mark.asyncio
     async def test_gpt_missing_api_key(self):
-        filter = AgentFileFilter(model="gpt-4")
+        filter = AgentFileFilter(model="gpt-6-astra")
 
         with patch.dict("os.environ", {}, clear=True):
             with patch("aragora.config.secrets.get_secret", return_value=None):
@@ -557,7 +557,7 @@ class TestAgentFileFilterGetClient:
 
     @pytest.mark.asyncio
     async def test_client_reused(self):
-        filter = AgentFileFilter(model="gemini-pro")
+        filter = AgentFileFilter(model="gemini-3.1-pro-preview")
         mock_client = MagicMock()
         filter._client = mock_client
 

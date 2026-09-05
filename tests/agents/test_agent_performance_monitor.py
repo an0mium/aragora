@@ -49,7 +49,7 @@ class TestAgentMetric:
     def test_create_full_metric(self):
         """Test creating a metric with all fields."""
         metric = AgentMetric(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             operation="critique",
             start_time=1000.0,
             end_time=1005.0,
@@ -60,7 +60,7 @@ class TestAgentMetric:
             phase="debate",
             round_num=2,
         )
-        assert metric.agent_name == "gpt-4"
+        assert metric.agent_name == "gpt-6-astra"
         assert metric.operation == "critique"
         assert metric.duration_ms == 5000.0
         assert metric.success is True
@@ -308,7 +308,7 @@ class TestAgentPerformanceMonitor:
     def test_record_completion_failure(self):
         """Test recording failed completion."""
         monitor = AgentPerformanceMonitor()
-        tracking_id = monitor.track_agent_call("gpt-4", "critique")
+        tracking_id = monitor.track_agent_call("gpt-6-astra", "critique")
 
         monitor.record_completion(
             tracking_id,
@@ -322,7 +322,7 @@ class TestAgentPerformanceMonitor:
         assert metric.error == "API rate limit exceeded"
         assert metric.response_length == 0
 
-        assert monitor.agent_stats["gpt-4"].failed_calls == 1
+        assert monitor.agent_stats["gpt-6-astra"].failed_calls == 1
 
     def test_record_completion_unknown_tracking(self):
         """Test recording completion for unknown tracking ID."""
@@ -378,7 +378,7 @@ class TestAgentPerformanceMonitor:
         monitor = AgentPerformanceMonitor()
 
         # Add metrics for multiple agents
-        for name in ["claude", "gpt-4", "gemini"]:
+        for name in ["claude", "gpt-6-astra", "gemini"]:
             tracking_id = monitor.track_agent_call(name, "generate")
             monitor.record_completion(tracking_id, success=True, response="x" * 100)
 
@@ -391,7 +391,7 @@ class TestAgentPerformanceMonitor:
         assert insights["total_calls"] == 4
         assert "agent_stats" in insights
         assert "claude" in insights["agent_stats"]
-        assert "gpt-4" in insights["agent_stats"]
+        assert "gpt-6-astra" in insights["agent_stats"]
         assert "gemini" in insights["agent_stats"]
 
         claude_stats = insights["agent_stats"]["claude"]
@@ -579,7 +579,7 @@ class TestAgentPerformanceMonitor:
         monitor.record_completion(tracking_id, success=True)
 
         # Start another tracking (don't complete)
-        monitor.track_agent_call("gpt-4", "critique")
+        monitor.track_agent_call("gpt-6-astra", "critique")
 
         assert len(monitor.metrics) == 1
         assert len(monitor.agent_stats) == 1
@@ -599,7 +599,7 @@ class TestAgentPerformanceMonitorIntegration:
         """Test tracking a full debate round."""
         monitor = AgentPerformanceMonitor()
 
-        agents = ["claude", "gpt-4", "gemini"]
+        agents = ["claude", "gpt-6-astra", "gemini"]
         phases = ["context", "debate", "design"]
 
         for phase in phases:
@@ -678,7 +678,7 @@ class TestAgentPerformanceMonitorIntegration:
 
             # First session - collect metrics
             monitor1 = AgentPerformanceMonitor(session_dir=session_dir)
-            for agent in ["claude", "gpt-4"]:
+            for agent in ["claude", "gpt-6-astra"]:
                 for _ in range(5):
                     t = monitor1.track_agent_call(agent, "generate", phase="debate")
                     monitor1.record_completion(t, success=True, response="test response")
@@ -699,7 +699,7 @@ class TestAgentPerformanceMonitorIntegration:
 
         # Start multiple trackings
         tracking_ids = []
-        for agent in ["claude", "gpt-4", "gemini"]:
+        for agent in ["claude", "gpt-6-astra", "gemini"]:
             t = monitor.track_agent_call(agent, "generate")
             tracking_ids.append((agent, t))
 

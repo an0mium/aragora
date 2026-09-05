@@ -245,8 +245,8 @@ class TestMultiModelDebateRunner:
                 {
                     "name": "team-a",
                     "agents": [
-                        {"provider": "anthropic-api", "model": "claude-opus-4-7"},
-                        {"provider": "openai-api", "model": "gpt-4.1"},
+                        {"provider": "anthropic-api", "model": "claude-fable-5-1"},
+                        {"provider": "openai-api", "model": "gpt-6-astra"},
                     ],
                     "metadata": {"seed": "baseline"},
                 }
@@ -259,7 +259,7 @@ class TestMultiModelDebateRunner:
 
         assert entry.combination_name == "team-a"
         assert entry.agents[0]["provider"] == "anthropic-api"
-        assert entry.agents[0]["model"] == "claude-opus-4-7"
+        assert entry.agents[0]["model"] == "claude-fable-5-1"
         assert entry.agents[1]["role"] == "critic"
         assert entry.rounds_used == 4
         assert entry.metadata["combination_metadata"] == {"seed": "baseline"}

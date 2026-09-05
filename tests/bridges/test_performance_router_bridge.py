@@ -104,11 +104,11 @@ class TestPerformanceRouterBridge:
         """Test syncing performance data."""
         monitor = MockPerformanceMonitor()
         monitor.add_agent("claude", total_calls=100, success_rate=90.0)
-        monitor.add_agent("gpt-4", total_calls=50, success_rate=85.0)
+        monitor.add_agent("gpt-6-astra", total_calls=50, success_rate=85.0)
 
         router = MockAgentRouter()
         router._capabilities["claude"] = MockAgentCapabilities()
-        router._capabilities["gpt-4"] = MockAgentCapabilities()
+        router._capabilities["gpt-6-astra"] = MockAgentCapabilities()
 
         bridge = PerformanceRouterBridge(
             performance_monitor=monitor,
@@ -154,7 +154,7 @@ class TestPerformanceRouterBridge:
         """Test getting scores for all agents."""
         monitor = MockPerformanceMonitor()
         monitor.add_agent("claude", total_calls=100, success_rate=90.0)
-        monitor.add_agent("gpt-4", total_calls=50, success_rate=70.0)
+        monitor.add_agent("gpt-6-astra", total_calls=50, success_rate=70.0)
 
         bridge = PerformanceRouterBridge(
             performance_monitor=monitor,
@@ -163,8 +163,8 @@ class TestPerformanceRouterBridge:
 
         scores = bridge.get_agent_scores()
         assert "claude" in scores
-        assert "gpt-4" in scores
-        assert scores["claude"] > scores["gpt-4"]
+        assert "gpt-6-astra" in scores
+        assert scores["claude"] > scores["gpt-6-astra"]
 
     def test_auto_sync(self):
         """Test auto-sync mechanism."""

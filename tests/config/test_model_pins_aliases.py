@@ -44,7 +44,7 @@ class TestAliasesMatchFrontier:
 
     def test_grok_openrouter_pin_uses_live_soaked_frontier(self) -> None:
         # Re-pinned by the 2026-09-04 frontier-model-refresh: grok-4.6
-        # supersedes grok-4.5 as the devil's-advocate frontier.
+        # supersedes grok-4.6 as the devil's-advocate frontier.
         assert model_pins.GROK_4_VIA_OPENROUTER == "x-ai/grok-4.6"
 
 

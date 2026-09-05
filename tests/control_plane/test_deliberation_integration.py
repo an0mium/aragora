@@ -78,7 +78,7 @@ class TestDeliberationTask:
         task = DeliberationTask(
             question="What is the best approach?",
             context="We need to decide on architecture",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
 
         assert task.question == "What is the best approach?"
@@ -182,8 +182,8 @@ class TestDeliberationOutcome:
                     response_count=3,
                     final_position_correct=True,
                 ),
-                "gpt-4": AgentPerformance(
-                    agent_id="gpt-4",
+                "gpt-6-astra": AgentPerformance(
+                    agent_id="gpt-6-astra",
                     contributed_to_consensus=False,
                     response_count=3,
                     final_position_correct=False,
@@ -221,7 +221,7 @@ class TestDeliberationManager:
         """Test submitting a deliberation."""
         task_id = await manager.submit_deliberation(
             question="What approach should we use?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             priority="high",
             timeout_seconds=120.0,
         )

@@ -34,11 +34,11 @@ def agents():
     """Create a standard set of test agents."""
     return [
         _make_agent("claude-3"),
-        _make_agent("gpt-4"),
-        _make_agent("gemini-pro"),
+        _make_agent("gpt-6-astra"),
+        _make_agent("gemini-3.1-pro-preview"),
         _make_agent("llama-70b"),
-        _make_agent("deepseek-r1"),
-        _make_agent("mistral-large"),
+        _make_agent("deepseek-v4-pro-0813"),
+        _make_agent("mistral-large-2512"),
     ]
 
 
@@ -172,15 +172,15 @@ class TestBudgetWarn:
         # Should only include cheap agents: gemini, llama, deepseek, mistral
         names = [a.name for a in result]
         assert "claude-3" not in names
-        assert "gpt-4" not in names
-        assert "gemini-pro" in names
+        assert "gpt-6-astra" not in names
+        assert "gemini-3.1-pro-preview" in names
         assert "llama-70b" in names
-        assert "deepseek-r1" in names
-        assert "mistral-large" in names
+        assert "deepseek-v4-pro-0813" in names
+        assert "mistral-large-2512" in names
 
     def test_warn_falls_back_to_all_when_no_cheap(self, budget_manager):
         """WARN returns all agents if no cheap agents match."""
-        agents = [_make_agent("claude-3"), _make_agent("gpt-4")]
+        agents = [_make_agent("claude-3"), _make_agent("gpt-6-astra")]
         budget_manager.check_budget.return_value = (True, "Warning", BudgetAction.WARN)
         selector = TeamSelector(
             budget_manager=budget_manager,
@@ -393,7 +393,7 @@ class TestBudgetWithOtherFilters:
         """Budget filtering runs after domain filtering."""
         agents = [
             _make_agent("claude-3"),
-            _make_agent("deepseek-coder"),
+            _make_agent("deepseek-v4-pro-0813"),
             _make_agent("llama-70b"),
         ]
         budget_manager.check_budget.return_value = (True, "Warning", BudgetAction.WARN)
@@ -410,19 +410,19 @@ class TestBudgetWithOtherFilters:
         # Domain filter passes claude, deepseek, (llama doesn't match code)
         # Then budget WARN filters to cheap: deepseek
         names = [a.name for a in result]
-        assert "deepseek-coder" in names
+        assert "deepseek-v4-pro-0813" in names
 
     def test_budget_filter_with_circuit_breaker(self, budget_manager):
         """Budget filtering works alongside circuit breaker."""
         agents = [
             _make_agent("claude-3"),
             _make_agent("llama-70b"),
-            _make_agent("deepseek-r1"),
+            _make_agent("deepseek-v4-pro-0813"),
         ]
         budget_manager.check_budget.return_value = (True, "Warning", BudgetAction.WARN)
 
         circuit_breaker = MagicMock()
-        circuit_breaker.filter_available_agents.return_value = ["llama-70b", "deepseek-r1"]
+        circuit_breaker.filter_available_agents.return_value = ["llama-70b", "deepseek-v4-pro-0813"]
 
         selector = TeamSelector(
             budget_manager=budget_manager,
@@ -439,7 +439,7 @@ class TestBudgetWithOtherFilters:
         # Then circuit breaker removes claude too (already gone)
         # Result should be llama and deepseek
         assert "llama-70b" in names
-        assert "deepseek-r1" in names
+        assert "deepseek-v4-pro-0813" in names
         assert "claude-3" not in names
 
     def test_budget_exceeded_error_is_exception(self):

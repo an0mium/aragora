@@ -45,7 +45,7 @@ def basic_artifact() -> DebateArtifact:
         artifact_id="test-artifact-001",
         debate_id="debate-001",
         task="Analyze the security of the API",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3,
         message_count=12,
         critique_count=6,
@@ -60,7 +60,7 @@ def artifact_with_trace() -> DebateArtifact:
         artifact_id="test-artifact-002",
         debate_id="debate-002",
         task="Review code quality",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
         trace_data={
             "events": [
@@ -75,7 +75,7 @@ def artifact_with_trace() -> DebateArtifact:
                 {
                     "event_type": "message",
                     "round": 1,
-                    "agent": "gpt-4",
+                    "agent": "gpt-6-astra",
                     "role": "critic",
                     "content": "Good point, but we should also consider rate limiting.",
                     "timestamp": "2024-01-15T10:01:00Z",
@@ -83,7 +83,7 @@ def artifact_with_trace() -> DebateArtifact:
                 {
                     "event_type": "critique",
                     "round": 1,
-                    "agent": "gpt-4",
+                    "agent": "gpt-6-astra",
                     "target": "claude",
                     "severity": 0.6,
                     "issues": ["Missing edge cases", "No error handling"],
@@ -101,7 +101,7 @@ def artifact_with_trace() -> DebateArtifact:
                     "event_type": "critique",
                     "round": 2,
                     "agent": "claude",
-                    "target": "gpt-4",
+                    "target": "gpt-6-astra",
                     "severity": 0.3,
                     "issues": ["Minor style issue"],
                     "accepted": False,
@@ -118,14 +118,14 @@ def artifact_with_consensus() -> DebateArtifact:
         artifact_id="test-artifact-003",
         debate_id="debate-003",
         task="Decide on API design",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3,
         consensus_proof=ConsensusProof(
             reached=True,
             confidence=0.85,
             vote_breakdown={
                 "claude": True,
-                "gpt-4": True,
+                "gpt-6-astra": True,
                 "gemini": False,
             },
             final_answer="Use REST API with GraphQL for complex queries",
@@ -305,7 +305,7 @@ class TestCSVExporterCritiques:
         assert len(rows) == 3
 
         # Check first critique
-        assert rows[1][2] == "gpt-4"  # critic
+        assert rows[1][2] == "gpt-6-astra"  # critic
         assert rows[1][3] == "claude"  # target
         assert rows[1][4] == "0.6"  # severity
         assert rows[1][5] == "2"  # issue_count
@@ -448,7 +448,7 @@ class TestCSVExporterSummary:
         rows = list(reader)
 
         agents = rows[1][3]
-        assert agents == "claude;gpt-4;gemini"
+        assert agents == "claude;gpt-6-astra;gemini"
 
 
 # =============================================================================
@@ -544,7 +544,7 @@ class TestCSVExporterExportAll:
         artifact_with_trace.consensus_proof = ConsensusProof(
             reached=True,
             confidence=0.9,
-            vote_breakdown={"claude": True, "gpt-4": True},
+            vote_breakdown={"claude": True, "gpt-6-astra": True},
             final_answer="Agreed",
             rounds_used=2,
         )

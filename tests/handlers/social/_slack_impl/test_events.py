@@ -666,7 +666,7 @@ class TestHandleMessageEventCommands:
         """'agents' command with available agents."""
         agents = [
             SimpleNamespace(name="claude", elo=1600, wins=10, losses=2),
-            SimpleNamespace(name="gpt-4", elo=1550, wins=8, losses=4),
+            SimpleNamespace(name="gpt-6-astra", elo=1550, wins=8, losses=4),
             SimpleNamespace(name="gemini", elo=1500, wins=5, losses=5),
         ]
         mock_elo = MagicMock()

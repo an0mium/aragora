@@ -63,7 +63,7 @@ def sample_debate_data():
                 "type": "critique",
                 "summary": "Microservices add operational complexity",
                 "full_content": "Microservices add significant operational overhead",
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
                 "round_num": 1,
             },
             {
@@ -79,7 +79,7 @@ def sample_debate_data():
                 "type": "concession",
                 "summary": "Complexity is manageable with Kubernetes",
                 "full_content": "Complexity is manageable with proper tooling like K8s",
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
                 "round_num": 2,
             },
             {

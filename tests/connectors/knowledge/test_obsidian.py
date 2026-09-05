@@ -508,7 +508,7 @@ class TestObsidianConnectorWrite:
             consensus=True,
             confidence=0.92,
             dissent_trail=["Agent 2 disagreed on point X"],
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             evidence_ids=["ev_1", "ev_2", "ev_3"],
         )
 

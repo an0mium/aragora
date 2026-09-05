@@ -111,7 +111,7 @@ class TestAgentNameValidation:
 
     def test_valid_agent_name_with_dot(self):
         """Accept agent name with dot for versioning."""
-        is_valid, err = validate_agent_name("claude-3.5-sonnet")
+        is_valid, err = validate_agent_name("claude-fable-5-1")
         assert is_valid is True
         assert err is None
 

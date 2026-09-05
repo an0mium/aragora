@@ -36,9 +36,9 @@ def test_append_preserves_alias_disclosure_and_hash_chain(tmp_path: Path) -> Non
     second = recorder.append(
         CallOutcome(
             family="openai",
-            requested_model="gpt-5.5",
-            resolved_model="gpt-5.5",
-            response_model="gpt-5.5",
+            requested_model="gpt-6-astra",
+            resolved_model="gpt-6-astra",
+            response_model="gpt-6-astra",
             latency_ms=44,
             ok=True,
         )
@@ -84,8 +84,8 @@ def test_family_mismatch_is_recorded_fail_closed(tmp_path: Path) -> None:
         CallOutcome(
             family="claude",
             requested_model="claude-opus-4-8",
-            resolved_model="gpt-5.5",
-            response_model="gpt-5.5",
+            resolved_model="gpt-6-astra",
+            response_model="gpt-6-astra",
             alias_source="ARAGORA_VIBEPROXY_MODEL_MAP",
             latency_ms=10,
             ok=True,
@@ -117,7 +117,7 @@ def test_alias_requires_disclosure() -> None:
 def test_owner_bound_unknown_response_model_fails_closed() -> None:
     identity_ok, alias_ok, errors = verify_family_identity(
         family="kimi",
-        requested_model="kimi-k2",
+        requested_model="kimi-k3",
         resolved_model="k2",
         response_model="k2",
         alias_source="VibeProxy /v1/models owned_by=moonshot",
@@ -137,8 +137,8 @@ def test_owner_binding_cannot_override_known_cross_family_response() -> None:
     identity_ok, alias_ok, errors = verify_family_identity(
         family="grok",
         requested_model="grok-3-mini-fast",
-        resolved_model="gpt-5.5",
-        response_model="gpt-5.5",
+        resolved_model="gpt-6-astra",
+        response_model="gpt-6-astra",
         alias_source="VibeProxy /v1/models owned_by=xai",
         alias_family="grok",
         ok=True,
@@ -173,7 +173,7 @@ def test_proof_artifact_meets_exact_issue_9409_thresholds(tmp_path: Path) -> Non
     start = datetime(2026, 7, 1, tzinfo=timezone.utc)
     family_models = (
         ("claude", "claude-opus-4-8"),
-        ("openai", "gpt-5.5"),
+        ("openai", "gpt-6-astra"),
         ("gemini", "gemini-3.1-pro-preview"),
     )
     for index in range(100):
@@ -243,8 +243,8 @@ def test_proof_counts_identity_and_credential_errors(tmp_path: Path) -> None:
         CallOutcome(
             family="claude",
             requested_model="claude-opus-4-8",
-            resolved_model="gpt-5.5",
-            response_model="gpt-5.5",
+            resolved_model="gpt-6-astra",
+            response_model="gpt-6-astra",
             alias_source="map",
             latency_ms=1,
             ok=True,

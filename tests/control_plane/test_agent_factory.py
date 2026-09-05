@@ -40,7 +40,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         assert factory.resolve_agent_type(info) == "anthropic-api"
 
@@ -51,7 +51,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="openai",
-            model="gpt-4o",
+            model="gpt-6-astra",
         )
         assert factory.resolve_agent_type(info) == "openai-api"
 
@@ -62,7 +62,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="google",
-            model="gemini-pro",
+            model="gemini-3.1-pro-preview",
         )
         assert factory.resolve_agent_type(info) == "gemini"
 
@@ -73,7 +73,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="gemini",
-            model="gemini-1.5-pro",
+            model="gemini-3.1-pro-preview",
         )
         assert factory.resolve_agent_type(info) == "gemini"
 
@@ -84,7 +84,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="xai",
-            model="grok-2",
+            model="grok-4.6",
         )
         assert factory.resolve_agent_type(info) == "grok"
 
@@ -95,7 +95,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="mistral",
-            model="mistral-large",
+            model="mistral-large-2512",
         )
         assert factory.resolve_agent_type(info) == "mistral-api"
 
@@ -106,7 +106,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="deepseek",
-            model="deepseek-v4-pro",
+            model="deepseek-v4-pro-0813",
         )
         assert factory.resolve_agent_type(info) == "deepseek"
 
@@ -128,12 +128,12 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="unknown",
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
         )
         assert factory.resolve_agent_type(info) == "openai-api"
 
     def test_model_heuristic_fallback_o1(self):
-        """Unknown provider with o1 model should map to openai-api."""
+        """Unknown provider with gpt-6-astra model should map to openai-api."""
         factory = AgentFactory()
         info = MockAgentInfo(
             agent_id="a1",
@@ -221,7 +221,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -243,7 +243,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -264,7 +264,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -318,7 +318,7 @@ class TestAgentCreation:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -338,7 +338,7 @@ class TestAgentCreation:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         # Use default role
@@ -367,13 +367,13 @@ class TestBatchCreation:
                 agent_id="a1",
                 capabilities={"debate"},
                 provider="anthropic",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             ),
             MockAgentInfo(
                 agent_id="a2",
                 capabilities={"debate"},
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-6-astra",
             ),
         ]
         agents = await factory.create_agents(infos)

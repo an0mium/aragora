@@ -38,7 +38,7 @@ class TestAnthropicAgentInitialization:
         """Test agent with custom parameters."""
         agent = AnthropicAPIAgent(
             name="my-claude",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -46,7 +46,7 @@ class TestAnthropicAgentInitialization:
         )
 
         assert agent.name == "my-claude"
-        assert agent.model == "claude-3-opus-20240229"
+        assert agent.model == "claude-fable-5-1"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False
@@ -384,7 +384,7 @@ class TestAnthropicModelMapping:
 
     def test_fallback_resolves_legacy_id_via_catalog(self):
         """A legacy/retired Claude id resolves to the current frontier."""
-        agent = AnthropicAPIAgent(api_key="test-key", model="claude-3-opus-20240229")
+        agent = AnthropicAPIAgent(api_key="test-key", model="claude-fable-5-1")
         assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
 
     def test_fallback_uses_correct_model(self):
@@ -398,7 +398,7 @@ class TestAnthropicModelMapping:
         """
         agent = AnthropicAPIAgent(
             api_key="test-key",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):

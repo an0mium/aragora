@@ -366,7 +366,7 @@ class TestMockCoordinator:
         await mock_coordinator.register_agent(
             agent_id="agent-2",
             capabilities=["coding"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 
@@ -385,7 +385,7 @@ class TestMockCoordinator:
         await mock_coordinator.register_agent(
             agent_id="agent-2",
             capabilities=["coding"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 

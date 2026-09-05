@@ -170,7 +170,7 @@ def _make_mock_analytics(
             "agent-001": MockAgentContribution(),
             "agent-002": MockAgentContribution(
                 agent_id="agent-002",
-                agent_name="gpt-4",
+                agent_name="gpt-6-astra",
                 debates_participated=30,
                 consensus_contributions=24,
                 avg_confidence=0.78,

@@ -301,7 +301,7 @@ class TestCanHandle:
         assert not calibration_handler.can_handle("/api/v1/health")
 
     def test_various_agent_names(self, calibration_handler):
-        for name in ["claude", "gpt4", "mistral-large", "gemini_pro"]:
+        for name in ["claude", "gpt4", "mistral-large-2512", "gemini_pro"]:
             assert calibration_handler.can_handle(f"/api/v1/agent/{name}/calibration-curve")
             assert calibration_handler.can_handle(f"/api/v1/agent/{name}/calibration-summary")
 

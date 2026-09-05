@@ -86,7 +86,7 @@ class TestReceiptDissent:
     def test_create_with_alternative(self):
         """Test dissent with alternative view."""
         dissent = ReceiptDissent(
-            agent="gpt-4",
+            agent="gpt-6-astra",
             type="full_disagree",
             severity=0.9,
             reasons=["Approach is flawed"],
@@ -140,7 +140,7 @@ class TestDecisionReceipt:
             robustness_score=0.90,
             coverage_score=0.88,
             verification_coverage=0.75,
-            agents_involved=["claude", "gpt-4", "gemini"],
+            agents_involved=["claude", "gpt-6-astra", "gemini"],
             rounds_completed=3,
             duration_seconds=45.5,
         )
@@ -178,7 +178,7 @@ class TestDecisionReceipt:
 
         basic_receipt.dissenting_views = [
             ReceiptDissent(
-                agent="gpt-4",
+                agent="gpt-6-astra",
                 type="partial_disagree",
                 severity=0.5,
                 reasons=["Edge cases not considered"],
@@ -313,7 +313,7 @@ class TestDecisionReceipt:
             "total_calls": 6,
             "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
             "model_usage": {
-                "anthropic/claude-sonnet-4": {"total_cost_usd": "0.015", "call_count": 3}
+                "anthropic/claude-fable-5.1": {"total_cost_usd": "0.015", "call_count": 3}
             },
         }
 
@@ -329,7 +329,7 @@ class TestDecisionReceipt:
         md = detailed_receipt.to_markdown()
 
         assert "## Dissenting Views" in md
-        assert "gpt-4" in md
+        assert "gpt-6-astra" in md
         assert "partial_disagree" in md
 
     def test_to_markdown_with_verification(self, detailed_receipt: DecisionReceipt):
@@ -655,7 +655,7 @@ class TestDecisionReceiptPDF:
                     mitigation="Apply standard fix",
                 )
             ],
-            agents_involved=["claude", "gpt-4"],
+            agents_involved=["claude", "gpt-6-astra"],
             rounds_completed=3,
             duration_seconds=45.5,
         )

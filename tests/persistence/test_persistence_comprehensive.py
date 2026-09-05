@@ -351,7 +351,7 @@ class TestAgentMetricsModel:
             loop_id="test",
             cycle=1,
             agent_name="gpt4",
-            model="gpt-4",
+            model="gpt-6-astra",
             phase="design",
         )
         assert metrics.messages_sent == 0

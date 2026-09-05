@@ -558,7 +558,7 @@ class TestResponseBodyValidation:
         mock_store = MagicMock()
         mock_store.get_all_reputations.return_value = [
             MockReputation(
-                agent_name="gpt-4",
+                agent_name="gpt-6-astra",
                 reputation_score=0.88,
                 vote_weight=1.1,
                 proposal_acceptance_rate=0.7,
@@ -580,7 +580,7 @@ class TestResponseBodyValidation:
         assert "count" in body
         assert body["count"] == 1
         rep = body["reputations"][0]
-        assert rep["agent"] == "gpt-4"
+        assert rep["agent"] == "gpt-6-astra"
         assert rep["score"] == 0.88
         assert rep["vote_weight"] == 1.1
         assert rep["proposal_acceptance_rate"] == 0.7
@@ -935,7 +935,7 @@ class TestIntegration:
         mock_store = MagicMock()
         mock_store.get_all_reputations.return_value = [
             MockReputation("claude", 0.92, 1.2, 0.75, 0.88, 150),
-            MockReputation("gpt-4", 0.88, 1.1, 0.70, 0.85, 120),
+            MockReputation("gpt-6-astra", 0.88, 1.1, 0.70, 0.85, 120),
             MockReputation("gemini", 0.85, 1.0, 0.68, 0.82, 100),
         ]
         mock_get_store.return_value = mock_store

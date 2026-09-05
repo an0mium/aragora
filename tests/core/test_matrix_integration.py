@@ -86,8 +86,8 @@ def sample_debate_result():
     result.answer = "A combination of supervised and unsupervised methods works best."
     result.total_rounds = 4
     result.consensus_confidence = 0.90
-    result.participating_agents = ["claude", "gpt-4", "gemini", "mistral"]
-    result.participants = ["claude", "gpt-4", "gemini", "mistral"]
+    result.participating_agents = ["claude", "gpt-6-astra", "gemini", "mistral"]
+    result.participants = ["claude", "gpt-6-astra", "gemini", "mistral"]
     return result
 
 
@@ -530,7 +530,7 @@ class TestMatrixDebateSummary:
         payload = call_args.kwargs["json"]
 
         assert "claude" in payload["body"]
-        assert "gpt-4" in payload["body"]
+        assert "gpt-6-astra" in payload["body"]
 
     @pytest.mark.asyncio
     async def test_post_debate_summary_includes_link(
@@ -575,7 +575,7 @@ class TestMatrixConsensusAlert:
             debate_id="test-123",
             answer="The answer is clear",
             confidence=0.85,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
         assert result is True
         mock_aiohttp_session.put.assert_called_once()
@@ -661,14 +661,14 @@ class TestMatrixConsensusAlert:
             debate_id="test-123",
             answer="Answer",
             confidence=0.85,
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
         )
 
         call_args = mock_aiohttp_session.put.call_args
         payload = call_args.kwargs["json"]
 
         assert "claude" in payload["body"]
-        assert "gpt-4" in payload["body"]
+        assert "gpt-6-astra" in payload["body"]
 
     @pytest.mark.asyncio
     async def test_send_consensus_alert_truncates_long_answer(
@@ -793,7 +793,7 @@ class TestMatrixLeaderboardUpdate:
         """Sample leaderboard rankings."""
         return [
             {"name": "claude", "elo": 1650, "wins": 15, "losses": 5},
-            {"name": "gpt-4", "elo": 1600, "wins": 12, "losses": 8},
+            {"name": "gpt-6-astra", "elo": 1600, "wins": 12, "losses": 8},
             {"name": "gemini", "elo": 1550, "wins": 10, "losses": 10},
         ]
 

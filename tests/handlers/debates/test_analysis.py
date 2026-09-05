@@ -138,7 +138,7 @@ def mock_trace_file(mock_nomic_dir):
         "task": "Test debate task",
         "messages": [
             {"agent": "claude", "content": "Proposal 1", "role": "proposer", "round": 1},
-            {"agent": "gpt-4", "content": "Critique 1", "role": "critic", "round": 1},
+            {"agent": "gpt-6-astra", "content": "Critique 1", "role": "critic", "round": 1},
         ],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -161,7 +161,7 @@ def mock_replay_dir(mock_nomic_dir):
         },
         {
             "type": "critique",
-            "agent": "gpt-4",
+            "agent": "gpt-6-astra",
             "round": 1,
             "data": {"target": "claude", "severity": 0.5, "content": "Good point"},
         },
@@ -253,7 +253,7 @@ class TestMetaCritique:
         mock_result = MockDebateResult(
             messages=[
                 MockMessage("claude", "Proposal", "proposer", 1),
-                MockMessage("gpt-4", "Critique", "critic", 1),
+                MockMessage("gpt-6-astra", "Critique", "critic", 1),
             ]
         )
         mock_critique = MockMetaCritique()
@@ -320,10 +320,10 @@ class TestGraphStats:
         mock_result = MockDebateResult(
             messages=[
                 MockMessage("claude", "Proposal", "proposer", 1),
-                MockMessage("gpt-4", "Counter", "proposer", 1),
+                MockMessage("gpt-6-astra", "Counter", "proposer", 1),
             ],
             critiques=[
-                MockCritique("gpt-4", "claude", 0.6, "Needs evidence", 1),
+                MockCritique("gpt-6-astra", "claude", 0.6, "Needs evidence", 1),
             ],
         )
 
@@ -406,7 +406,7 @@ class TestRhetoricalObservations:
         mock_result = MockDebateResult(
             messages=[
                 MockMessage("claude", "I concede that point", "proposer", 1),
-                MockMessage("gpt-4", "Building on that...", "proposer", 2),
+                MockMessage("gpt-6-astra", "Building on that...", "proposer", 2),
             ]
         )
 
@@ -457,7 +457,7 @@ class TestTricksterStatus:
             rounds=[{}, {}, {}],
             messages=[
                 MockMessage("claude", "I agree", "proposer", 1),
-                MockMessage("gpt-4", "I agree too", "proposer", 1),
+                MockMessage("gpt-6-astra", "I agree too", "proposer", 1),
             ],
         )
 

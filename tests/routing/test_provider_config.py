@@ -32,12 +32,12 @@ def test_current_frontier_entries_have_positive_rates() -> None:
     expected = {
         "claude-opus-4-8",
         "anthropic/claude-opus-4.8",
-        "gpt-5.5",
-        "openai/gpt-5.5",
+        "gpt-6-astra",
+        "openai/gpt-6-astra",
         "gemini-3.1-pro-preview",
         "google/gemini-3.1-pro-preview",
-        "grok-4.5",
-        "x-ai/grok-4.5",
+        "grok-4.6",
+        "x-ai/grok-4.6",
         "mistral-large-2512",
         "mistralai/mistral-large-2512",
     }

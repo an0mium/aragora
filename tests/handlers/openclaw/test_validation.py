@@ -392,7 +392,7 @@ class TestValidateSessionConfig:
         assert err is None
 
     def test_simple_config(self):
-        valid, err = validate_session_config({"timeout": 30, "model": "gpt-4"})
+        valid, err = validate_session_config({"timeout": 30, "model": "gpt-6-astra"})
         assert valid is True
         assert err is None
 

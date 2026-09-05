@@ -45,14 +45,14 @@ class TestOpenRouterAgentInitialization:
 
         agent = OpenRouterAgent(
             name="custom-router",
-            model="anthropic/claude-3.5-sonnet",
+            model="anthropic/claude-fable-5.1",
             role="critic",
             timeout=180,
             system_prompt="You are a helpful assistant.",
         )
 
         assert agent.name == "custom-router"
-        assert agent.model == "anthropic/claude-3.5-sonnet"
+        assert agent.model == "anthropic/claude-fable-5.1"
         assert agent.role == "critic"
         assert agent.timeout == 180
         assert agent.system_prompt == "You are a helpful assistant."
@@ -555,9 +555,9 @@ class TestDeepSeekReasonerAgent:
 
         agent = DeepSeekReasonerAgent()
 
-        assert agent.name == "deepseek-r1"
+        assert agent.name == "deepseek-v4-pro-0813"
         assert agent.model == "deepseek/deepseek-v4-pro-0813"
-        assert agent.agent_type == "deepseek-r1"
+        assert agent.agent_type == "deepseek-v4-pro-0813"
 
 
 class TestLlamaAgent:

@@ -333,7 +333,7 @@ class TestCreateDebate:
         body_data = {
             "task": "Evaluate the new API design",
             "external_agent": "crewai-agent",
-            "verification_agents": ["claude", "gpt-4"],
+            "verification_agents": ["claude", "gpt-6-astra"],
             "consensus_threshold": 0.8,
             "max_rounds": 5,
             "domain": "engineering",
@@ -349,7 +349,7 @@ class TestCreateDebate:
         assert body["status"] == "completed"
         assert body["consensus_reached"] is True
         assert body["confidence"] == 0.85
-        assert body["verification_agents"] == ["claude", "gpt-4"]
+        assert body["verification_agents"] == ["claude", "gpt-6-astra"]
         assert body["consensus_threshold"] == 0.8
         assert body["max_rounds"] == 5
         assert body["domain"] == "engineering"

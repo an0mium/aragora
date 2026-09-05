@@ -107,7 +107,7 @@ class TestPublicDebate:
             title="Test Debate",
             topic="Is AI good?",
             created_at="2025-01-15T10:00:00Z",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=3,
             consensus_reached=True,
             winner="claude",
@@ -117,7 +117,7 @@ class TestPublicDebate:
         assert d["id"] == "abc123"
         assert d["title"] == "Test Debate"
         assert d["consensus_reached"] is True
-        assert d["agents"] == ["claude", "gpt-4"]
+        assert d["agents"] == ["claude", "gpt-6-astra"]
 
 
 class TestRateLimiting:

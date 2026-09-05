@@ -38,7 +38,7 @@ class TestGeminiAgentInitialization:
         """Test agent with custom parameters."""
         agent = GeminiAgent(
             name="my-gemini",
-            model="gemini-2.0-flash",
+            model="gemini-3.8-flash",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -46,7 +46,7 @@ class TestGeminiAgentInitialization:
         )
 
         assert agent.name == "my-gemini"
-        # "gemini-2.0-flash" has no catalog row of its own; resolve_model_id
+        # "gemini-3.8-flash" has no catalog row of its own; resolve_model_id
         # upgrades it to the current Google value-tier frontier
         # (frontier-model-refresh, 2026-09-04).
         assert agent.model == "gemini-3.8-flash"
@@ -488,7 +488,7 @@ class TestGeminiModelMapping:
         """Test fallback agent uses mapped model via mixin."""
         agent = GeminiAgent(
             api_key="test-key",
-            model="gemini-1.5-pro",
+            model="gemini-3.1-pro-preview",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):

@@ -156,7 +156,7 @@ class TestValidationVote:
     def test_custom_values(self):
         """Should accept custom values."""
         vote = ValidationVote(
-            validator_id="gpt-4",
+            validator_id="gpt-6-astra",
             vote_type=ValidationVoteType.PROPOSE_ALTERNATIVE,
             confidence=0.9,
             reasoning="The original claim is too narrow",
@@ -164,7 +164,7 @@ class TestValidationVote:
             weight=2.0,
             metadata={"source": "expert_review"},
         )
-        assert vote.validator_id == "gpt-4"
+        assert vote.validator_id == "gpt-6-astra"
         assert vote.vote_type == ValidationVoteType.PROPOSE_ALTERNATIVE
         assert vote.confidence == 0.9
         assert vote.reasoning == "The original claim is too narrow"
@@ -226,7 +226,7 @@ class TestValidationRequest:
             item_id="km_456",
             votes=[
                 ValidationVote(validator_id="claude", vote_type=ValidationVoteType.ACCEPT),
-                ValidationVote(validator_id="gpt-4", vote_type=ValidationVoteType.REJECT),
+                ValidationVote(validator_id="gpt-6-astra", vote_type=ValidationVoteType.REJECT),
             ],
         )
         assert request.votes_received == 2
@@ -321,7 +321,7 @@ class TestValidationRequest:
             item_id="km_456",
             contradiction_id="con_789",
             proposer_id="user_alice",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             required_votes=2,
             strategy=ValidationConsensusStrategy.MAJORITY,
             deadline=deadline,
@@ -333,7 +333,7 @@ class TestValidationRequest:
         assert d["item_id"] == "km_456"
         assert d["contradiction_id"] == "con_789"
         assert d["proposer_id"] == "user_alice"
-        assert d["validators"] == ["claude", "gpt-4"]
+        assert d["validators"] == ["claude", "gpt-6-astra"]
         assert d["required_votes"] == 2
         assert d["strategy"] == "majority"
         assert d["deadline"] == deadline.isoformat()
@@ -463,13 +463,13 @@ class TestMultiPartyValidatorCreation:
         validator = MultiPartyValidator()
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4", "gemini"],
+            validators=["claude", "gpt-6-astra", "gemini"],
             quorum=2,
         )
 
         assert request.request_id.startswith("val_")
         assert request.item_id == "km_123"
-        assert request.validators == ["claude", "gpt-4", "gemini"]
+        assert request.validators == ["claude", "gpt-6-astra", "gemini"]
         assert request.required_votes == 2
         assert request.state == ValidationState.PENDING
         assert request.deadline is not None
@@ -492,7 +492,7 @@ class TestMultiPartyValidatorCreation:
         validator = MultiPartyValidator()
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=10,  # More than validators
         )
 
@@ -509,7 +509,7 @@ class TestMultiPartyValidatorCreation:
         validator = MultiPartyValidator(config)
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4", "gemini", "mistral"],
+            validators=["claude", "gpt-6-astra", "gemini", "mistral"],
         )
 
         assert request.required_votes == 3
@@ -530,7 +530,7 @@ class TestMultiPartyValidatorVoting:
         validator = MultiPartyValidator()
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         result = await validator.submit_vote(
@@ -564,7 +564,7 @@ class TestMultiPartyValidatorVoting:
         validator = MultiPartyValidator()
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         result = await validator.submit_vote(
@@ -610,7 +610,7 @@ class TestMultiPartyValidatorVoting:
         validator = MultiPartyValidator(config)
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         # First vote
@@ -637,7 +637,7 @@ class TestMultiPartyValidatorVoting:
         validator = MultiPartyValidator()
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=1,
             strategy=ValidationConsensusStrategy.QUORUM,
         )
@@ -652,7 +652,7 @@ class TestMultiPartyValidatorVoting:
         # Try to vote after completion
         result = await validator.submit_vote(
             request_id=request.request_id,
-            validator_id="gpt-4",
+            validator_id="gpt-6-astra",
             vote_type=ValidationVoteType.REJECT,
         )
 
@@ -1450,13 +1450,13 @@ class TestNotifications:
 
         await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         assert len(notifications) == 2
         assert notifications[0][0] == "claude"
         assert notifications[0][1] == "validation_requested"
-        assert notifications[1][0] == "gpt-4"
+        assert notifications[1][0] == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_proposer_notification_on_complete(self):
@@ -1568,7 +1568,7 @@ class TestQueryMethods:
         # Create multiple requests
         await validator.create_validation_request(
             item_id="km_1",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
         await validator.create_validation_request(
             item_id="km_2",
@@ -1576,7 +1576,7 @@ class TestQueryMethods:
         )
         await validator.create_validation_request(
             item_id="km_3",
-            validators=["gpt-4"],
+            validators=["gpt-6-astra"],
         )
 
         pending = validator.get_pending_for_validator("claude")

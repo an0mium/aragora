@@ -160,12 +160,12 @@ class TestRLMBackendConfigNewFields:
 
         cfg = RLMBackendConfig(
             sub_backend="openrouter",
-            sub_backend_model="deepseek/deepseek-v4-pro",
+            sub_backend_model="deepseek/deepseek-v4-pro-0813",
             trajectory_log_dir="/var/log/rlm",
             custom_system_prompt="Analyse carefully.",
         )
         assert cfg.sub_backend == "openrouter"
-        assert cfg.sub_backend_model == "deepseek/deepseek-v4-pro"
+        assert cfg.sub_backend_model == "deepseek/deepseek-v4-pro-0813"
         assert cfg.trajectory_log_dir == "/var/log/rlm"
         assert cfg.custom_system_prompt == "Analyse carefully."
 
@@ -334,16 +334,16 @@ class TestInitOfficialRLM:
         """When sub_backend_model is None, should fall back to sub_model_name."""
         from aragora.rlm.bridge import RLMBackendConfig
 
-        # sub_model_name defaults to "gpt-4o-mini"
+        # sub_model_name defaults to "gpt-5.6-terra"
         inst, mock_cls, _ = self._build_rlm_with_mock(
             sub_backend="openrouter",
             sub_backend_model=None,
         )
         call_kwargs = mock_cls.call_args.kwargs
         assert call_kwargs.get("other_backends") == ["openrouter"]
-        # should fall back to sub_model_name (gpt-4o-mini) since no explicit sub_backend_model
+        # should fall back to sub_model_name (gpt-5.6-terra) since no explicit sub_backend_model
         backend_kwargs = call_kwargs.get("other_backend_kwargs", [{}])
-        assert backend_kwargs[0]["model_name"] == "gpt-4o-mini"
+        assert backend_kwargs[0]["model_name"] == "gpt-5.6-terra"
 
     def test_no_sub_backend_means_no_other_backends(self):
         """When sub_backend is None, other_backends should NOT be in kwargs."""
@@ -576,13 +576,13 @@ class TestCreateAragoraRLMNewParams:
 
         rlm = create_aragora_rlm(
             sub_backend="openrouter",
-            sub_model="deepseek/deepseek-v4-pro",
+            sub_model="deepseek/deepseek-v4-pro-0813",
             trajectory_log_dir="/opt/traj",
             persistent=True,
             debate_mode=True,
         )
         assert rlm.backend_config.sub_backend == "openrouter"
-        assert rlm.backend_config.sub_backend_model == "deepseek/deepseek-v4-pro"
+        assert rlm.backend_config.sub_backend_model == "deepseek/deepseek-v4-pro-0813"
         assert rlm.backend_config.trajectory_log_dir == "/opt/traj"
         assert rlm.backend_config.persistent is True
         assert rlm.backend_config.custom_system_prompt == DEBATE_RLM_SYSTEM_PROMPT
@@ -590,9 +590,9 @@ class TestCreateAragoraRLMNewParams:
     def test_backend_and_model_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
 
-        rlm = create_aragora_rlm(backend="anthropic", model="claude-3-opus")
+        rlm = create_aragora_rlm(backend="anthropic", model="claude-fable-5-1")
         assert rlm.backend_config.backend == "anthropic"
-        assert rlm.backend_config.model_name == "claude-3-opus"
+        assert rlm.backend_config.model_name == "claude-fable-5-1"
 
     def test_verbose_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm

@@ -398,7 +398,7 @@ class TestGenomeIDValidation:
 
     def test_genome_id_with_version(self):
         """Genome IDs with version dots are accepted."""
-        is_valid, _ = validate_genome_id("claude-3.5-sonnet")
+        is_valid, _ = validate_genome_id("claude-fable-5-1")
         assert is_valid
 
     def test_genome_id_simple(self):

@@ -66,7 +66,7 @@ def sample_replay(sample_timestamp: str) -> dict:
         "replay_id": "rpl-001",
         "debate_id": "deb-100",
         "task": "Evaluate rate limiting strategies",
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
         "events": [
             {
                 "event_type": "round_start",

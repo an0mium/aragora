@@ -64,8 +64,8 @@ class TestComputeDeltas:
 
     def test_indifferent_agent_total_is_modest(self) -> None:
         deltas, _ = smoke.compute_deltas()
-        total = sum(d.delta for d in deltas if d.agent_id == "gpt-4.1")
-        # gpt-4.1 predictions hover near 0.5 -> small-positive aggregate.
+        total = sum(d.delta for d in deltas if d.agent_id == "gpt-6-astra")
+        # gpt-6-astra predictions hover near 0.5 -> small-positive aggregate.
         assert 0.0 < abs(total) < 25.0
 
     def test_rows_align_with_deltas(self) -> None:
@@ -209,7 +209,7 @@ def test_store_scores_match_smoke_table_in_e2e_run(tmp_path: Path) -> None:
     assert rc == 0
     reloaded = ReputationStore.load_from_file(ledger)
     # Should have the canonical 3 agents.
-    assert set(reloaded.agent_ids()) == {"claude-opus-5", "gpt-4.1", "demo-anti"}
+    assert set(reloaded.agent_ids()) == {"claude-opus-5", "gpt-6-astra", "demo-anti"}
     # claude-opus-5 has been well-calibrated -> positive score even after decay.
     claude_score = reloaded.get_score("claude-opus-5")
     assert claude_score > 0.0

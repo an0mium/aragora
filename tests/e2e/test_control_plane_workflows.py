@@ -93,7 +93,7 @@ class TestAgentLifecycle:
         agent = await coordinator.register_agent(
             agent_id="test-agent-001",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             metadata={"version": "1.0"},
         )
@@ -101,7 +101,7 @@ class TestAgentLifecycle:
         assert agent.agent_id == "test-agent-001"
         assert "debate" in agent.capabilities
         assert "code" in agent.capabilities
-        assert agent.model == "claude-3-opus"
+        assert agent.model == "claude-fable-5-1"
         assert agent.provider == "anthropic"
         assert agent.status == AgentStatus.READY
         assert agent.metadata["version"] == "1.0"
@@ -113,8 +113,8 @@ class TestAgentLifecycle:
         for i, (model, caps) in enumerate(
             [
                 ("claude-3", ["debate", "critique"]),
-                ("gpt-4", ["code", "analysis"]),
-                ("gemini-pro", ["research", "summarize"]),
+                ("gpt-6-astra", ["code", "analysis"]),
+                ("gemini-3.1-pro-preview", ["research", "summarize"]),
             ]
         ):
             agent = await coordinator.register_agent(
@@ -675,7 +675,7 @@ class TestStatistics:
         await coordinator.register_agent(
             agent_id="stats-agent-2",
             capabilities=["research"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 
@@ -782,21 +782,21 @@ class TestIntegrationWorkflows:
         await coordinator.register_agent(
             agent_id="debater-claude",
             capabilities=["debate", "critique"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
 
         await coordinator.register_agent(
             agent_id="debater-gpt",
             capabilities=["debate", "analysis"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 
         await coordinator.register_agent(
             agent_id="judge-gemini",
             capabilities=["judge"],
-            model="gemini-pro",
+            model="gemini-3.1-pro-preview",
             provider="google",
         )
 

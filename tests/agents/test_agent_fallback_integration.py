@@ -435,24 +435,24 @@ class TestQuotaFallbackMixin:
         """get_fallback_model() resolves the current model through the
         catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
-        attribute: "gpt-4" is a legacy OpenAI spelling that upgrades to the
+        attribute: "gpt-6-astra" is a legacy OpenAI spelling that upgrades to the
         current frontier."""
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4": "openai/gpt-4",
+                "gpt-6-astra": "openai/gpt-4",
                 "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
             def __init__(self, model: str):
                 self.model = model
 
-        agent = TestAgent(model="gpt-4")
+        agent = TestAgent(model="gpt-6-astra")
         assert agent.get_fallback_model() == "openai/gpt-6-astra"
 
         agent = TestAgent(model="unknown-model")
-        assert agent.get_fallback_model() == "openai/gpt-4o"
+        assert agent.get_fallback_model() == "openai/gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_fallback_generate_no_key(self):

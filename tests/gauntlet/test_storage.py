@@ -64,7 +64,7 @@ def sample_result():
             if self.risk_summary is None:
                 self.risk_summary = {"critical": 0, "high": 1, "medium": 2, "low": 3}
             if self.agents_used is None:
-                self.agents_used = ["claude", "gpt-4"]
+                self.agents_used = ["claude", "gpt-6-astra"]
 
         def to_dict(self):
             return {
@@ -132,7 +132,7 @@ class TestGauntletInflightRun:
             input_hash="hash123",
             persona="security",
             profile="default",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             created_at=now,
             updated_at=now,
         )
@@ -595,7 +595,7 @@ class TestInflightRuns:
             input_hash="hash123",
             persona="security",
             profile="default",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
 
         assert gauntlet_id == "gauntlet-inflight-123"

@@ -176,7 +176,7 @@ class TestDebateWitness:
             agent_id="claude-opus",
             proposal_id="prop-1",
             content="My proposal",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             round_number=1,
         )
 
@@ -192,22 +192,22 @@ class TestDebateWitness:
     def test_observe_critique_message(self):
         """Test observing a critique message."""
         witness = DebateWitness(debate_id="debate-123")
-        witness.register_agent("gpt-4")
+        witness.register_agent("gpt-6-astra")
         witness.start_round(1)
 
         message = critique_message(
             debate_id="debate-123",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             critique_id="crit-1",
             proposal_id="prop-1",
             content="My critique",
-            model="gpt-4",
+            model="gpt-6-astra",
             round_number=1,
         )
 
         witness.observe(message)
 
-        agent = witness.get_agent_progress("gpt-4")
+        agent = witness.get_agent_progress("gpt-6-astra")
         assert agent.critiques_submitted == 1
 
     def test_detect_stalls_timeout(self):
@@ -394,7 +394,7 @@ class TestArgumentGraph:
         # Add critique targeting proposal
         critique = ArgumentNode(
             id="crit-1",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             content_hash="def",
             round_number=1,
             argument_type="critique",

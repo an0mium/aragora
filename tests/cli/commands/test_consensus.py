@@ -208,7 +208,7 @@ class TestConsensusStatus:
             "agreement_ratio": 0.85,
             "has_strong_consensus": True,
             "final_claim": "Use PostgreSQL",
-            "supporting_agents": ["claude", "gpt-4"],
+            "supporting_agents": ["claude", "gpt-6-astra"],
             "dissenting_agents": [],
             "claims_count": 3,
             "dissents_count": 0,

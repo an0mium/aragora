@@ -48,7 +48,7 @@ class TestDebateMemoryEntry:
             domain="engineering",
             timestamp=now,
             tier=AccessTier.HOT,
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
             consensus_reached=True,
             final_answer="Use Redis for caching.",
             key_insights=["Consider TTL", "Handle cache invalidation"],
@@ -229,12 +229,12 @@ class TestCrossDebateMemory:
         result.debate_id = "test_debate_001"
         result.task = "Design a rate limiter for API requests"
         result.domain = "engineering"
-        result.participants = ["claude", "gpt-4"]
+        result.participants = ["claude", "gpt-6-astra"]
         result.consensus_reached = True
         result.final_answer = "Use token bucket algorithm with Redis."
         result.messages = [
             MagicMock(agent="claude", content="I suggest using token bucket..."),
-            MagicMock(agent="gpt-4", content="Agreed, with distributed storage..."),
+            MagicMock(agent="gpt-6-astra", content="Agreed, with distributed storage..."),
         ]
         result.critiques = [
             MagicMock(summary="Consider edge cases for burst traffic"),
@@ -802,7 +802,7 @@ class TestCrossDebateMemoryRLMFallback:
             domain="engineering",
             timestamp=datetime.now(),
             tier=AccessTier.HOT,
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
             consensus_reached=True,
             final_answer="Use Redis with TTL of 1 hour.",
             key_insights=["Consider cache invalidation", "Handle race conditions"],

@@ -21,7 +21,7 @@ class TestContextConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = ContextConfig()
-        assert config.model == "gpt-4-turbo"
+        assert config.model == "gpt-6-astra"
         assert config.max_tokens is None
         assert config.strategy is None
         assert config.rag_top_k == 20
@@ -30,12 +30,12 @@ class TestContextConfig:
     def test_custom_config(self):
         """Test custom configuration."""
         config = ContextConfig(
-            model="gemini-3-pro",
+            model="gemini-3.1-pro-preview",
             max_tokens=500000,
             strategy=ContextStrategy.FULL,
             include_metadata=False,
         )
-        assert config.model == "gemini-3-pro"
+        assert config.model == "gemini-3.1-pro-preview"
         assert config.max_tokens == 500000
         assert config.strategy == ContextStrategy.FULL
         assert config.include_metadata is False
@@ -58,7 +58,7 @@ class TestContextWindow:
         window = ContextWindow(
             content="Test content",
             token_count=100,
-            model="gpt-4",
+            model="gpt-6-astra",
             strategy=ContextStrategy.FULL,
             document_ids=["doc1"],
             chunk_ids=["chunk1", "chunk2"],
@@ -85,7 +85,7 @@ class TestContextWindow:
         window = ContextWindow(
             content="Test",
             token_count=50,
-            model="gpt-4",
+            model="gpt-6-astra",
             strategy=ContextStrategy.RAG,
             document_ids=["doc1"],
             chunk_ids=["c1"],
@@ -161,7 +161,7 @@ class TestContextManager:
         # 1000 tokens should fit in most models
         strategy = manager.select_strategy(
             total_tokens=1000,
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
         )
         assert strategy == ContextStrategy.FULL
 
@@ -170,7 +170,7 @@ class TestContextManager:
         # 200K tokens won't fit in 128K context
         strategy = manager.select_strategy(
             total_tokens=200000,
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
         )
         # Should recommend RAG or CHUNKED for oversized docs
         assert strategy in [ContextStrategy.RAG, ContextStrategy.CHUNKED]
@@ -180,19 +180,19 @@ class TestContextManager:
         # 500K tokens should fit in Gemini 3 Pro (1M limit)
         strategy = manager.select_strategy(
             total_tokens=500000,
-            model="gemini-3-pro",
+            model="gemini-3.1-pro-preview",
         )
         assert strategy == ContextStrategy.FULL
 
     def test_select_strategy_respects_override(self, manager):
         """Test explicit strategy override."""
         config = ContextConfig(
-            model="gpt-4",
+            model="gpt-6-astra",
             strategy=ContextStrategy.RAG,
         )
         strategy = manager.select_strategy(
             total_tokens=100,  # Small enough for FULL
-            model="gpt-4",
+            model="gpt-6-astra",
             config=config,
         )
         assert strategy == ContextStrategy.RAG
@@ -201,13 +201,13 @@ class TestContextManager:
         """Test model recommendation for small documents."""
         model = manager.recommend_model(total_tokens=10000)
         # Should recommend efficient model for small docs
-        assert model in ["gpt-4-turbo", "claude-3.5-sonnet", "gemini-3-pro"]
+        assert model in ["gpt-6-astra", "claude-fable-5-1", "gemini-3.1-pro-preview"]
 
     def test_recommend_model_large_docs(self, manager):
         """Test model recommendation for large documents."""
         model = manager.recommend_model(total_tokens=600000)
         # Should recommend Gemini 3 Pro for very large docs
-        assert model == "gemini-3-pro"
+        assert model == "gemini-3.1-pro-preview"
 
     def test_recommend_model_prefers_reasoning(self, manager):
         """Test model recommendation with reasoning preference."""
@@ -215,12 +215,12 @@ class TestContextManager:
             total_tokens=50000,
             prefer_reasoning=True,
         )
-        assert model == "claude-3.5-sonnet"
+        assert model == "claude-fable-5-1"
 
     @pytest.mark.asyncio
     async def test_build_context_full(self, manager, sample_chunks):
         """Test building full context from chunks."""
-        config = ContextConfig(model="gpt-4-turbo")
+        config = ContextConfig(model="gpt-6-astra")
         window = await manager.build_context(
             chunks=sample_chunks,
             config=config,
@@ -235,7 +235,7 @@ class TestContextManager:
     async def test_build_context_preserves_order(self, manager, sample_chunks):
         """Test that context preserves document order."""
         config = ContextConfig(
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
             preserve_document_order=True,
         )
         window = await manager.build_context(
@@ -250,7 +250,7 @@ class TestContextManager:
     async def test_build_context_includes_metadata(self, manager, sample_chunks):
         """Test that metadata is included when enabled."""
         config = ContextConfig(
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
             include_metadata=True,
             include_page_numbers=True,
         )
@@ -278,7 +278,7 @@ class TestContextManager:
         ]
 
         config = ContextConfig(
-            model="gpt-4",  # 8K limit
+            model="gpt-6-astra",  # 8K limit
             max_tokens=8000,
         )
         window = await manager.build_context(
@@ -294,7 +294,7 @@ class TestContextManager:
         """Test cost estimation."""
         cost = manager.estimate_cost(
             total_tokens=100000,
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
         )
 
         assert "input_tokens" in cost

@@ -37,7 +37,7 @@ class FakeConsensusProof:
 
     reached: bool = True
     confidence: float = 0.9
-    supporting_agents: list[str] = field(default_factory=lambda: ["claude", "gpt-4"])
+    supporting_agents: list[str] = field(default_factory=lambda: ["claude", "gpt-6-astra"])
     dissenting_agents: list[str] = field(default_factory=lambda: ["gemini"])
 
 
@@ -274,11 +274,11 @@ class TestAgentReputation:
 
         with patch.object(service, "_get_erc8004_adapter", return_value=mock_adapter):
             count = await service.push_agent_reputation(
-                receipt, agent_elo_ratings={"claude": 1800.0, "gpt-4": 1750.0}
+                receipt, agent_elo_ratings={"claude": 1800.0, "gpt-6-astra": 1750.0}
             )
 
-        # Both claude and gpt-4 are in supporting_agents, gemini is dissenting
-        # but we only provided ELO for claude and gpt-4
+        # Both claude and gpt-6-astra are in supporting_agents, gemini is dissenting
+        # but we only provided ELO for claude and gpt-6-astra
         assert count >= 1
         assert mock_adapter.push_reputation.called
 

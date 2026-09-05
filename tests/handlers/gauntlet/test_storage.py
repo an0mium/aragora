@@ -628,7 +628,7 @@ class TestRecoverStaleGauntletRuns:
         mock_run.input_type = "proposal"
         mock_run.input_summary = "Test proposal"
         mock_run.persona = "adversarial"
-        mock_run.agents = ["claude", "gpt-4"]
+        mock_run.agents = ["claude", "gpt-6-astra"]
         mock_run.profile = "standard"
         mock_run.created_at = datetime.now(timezone.utc)
 
@@ -810,7 +810,7 @@ class TestRecoverStaleGauntletRuns:
         mock_run.input_type = "code"
         mock_run.input_summary = "Code review"
         mock_run.persona = "security"
-        mock_run.agents = ["claude", "gpt-4"]
+        mock_run.agents = ["claude", "gpt-6-astra"]
         mock_run.profile = "thorough"
         mock_run.created_at = datetime.now(timezone.utc)
 
@@ -830,7 +830,7 @@ class TestRecoverStaleGauntletRuns:
         assert run["input_type"] == "code"
         assert run["input_summary"] == "Code review"
         assert run["persona"] == "security"
-        assert run["agents"] == ["claude", "gpt-4"]
+        assert run["agents"] == ["claude", "gpt-6-astra"]
         assert run["profile"] == "thorough"
         assert run["progress_percent"] == 75.0
         assert run["current_phase"] == "revision"

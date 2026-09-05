@@ -104,7 +104,7 @@ class TestAgentContribution:
 
     def test_to_dict(self):
         contrib = AgentContribution(
-            agent_id="gpt-4o",
+            agent_id="gpt-6-astra",
             agent_name="GPT-4o",
             debates_participated=10,
             consensus_contributions=8,
@@ -112,7 +112,7 @@ class TestAgentContribution:
             contribution_score=0.8523,
         )
         d = contrib.to_dict()
-        assert d["agent_id"] == "gpt-4o"
+        assert d["agent_id"] == "gpt-6-astra"
         assert d["agent_name"] == "GPT-4o"
         assert d["debates_participated"] == 10
         assert d["consensus_contributions"] == 8
@@ -128,7 +128,7 @@ class TestOutcomeSummary:
             consensus_reached=True,
             confidence=0.9,
             rounds=3,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             duration_seconds=120.5,
             topic="architecture",
             created_at="2026-02-23T12:00:00Z",
@@ -231,7 +231,7 @@ class TestOutcomeAnalytics:
             rounds=3,
             consensus_reached=True,
             duration_seconds=120.0,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             protocol="architecture",
         )
         await da.record_debate(
@@ -247,7 +247,7 @@ class TestOutcomeAnalytics:
             rounds=2,
             consensus_reached=True,
             duration_seconds=80.0,
-            agents=["gpt-4", "gemini"],
+            agents=["gpt-6-astra", "gemini"],
             protocol="architecture",
         )
 
@@ -259,7 +259,7 @@ class TestOutcomeAnalytics:
             agent_name="Claude",
         )
         await da.record_agent_activity(
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             debate_id="debate-1",
             response_time_ms=200.0,
             agent_name="GPT-4",
@@ -318,7 +318,7 @@ class TestOutcomeAnalytics:
         """Agent contributions are computed from activity data."""
         scores = await populated_analytics.get_agent_contribution_scores(period="30d")
         assert isinstance(scores, dict)
-        # We recorded activity for claude and gpt-4
+        # We recorded activity for claude and gpt-6-astra
         for agent_id, contrib in scores.items():
             assert isinstance(contrib, AgentContribution)
             assert contrib.agent_id == agent_id
@@ -380,7 +380,7 @@ class TestOutcomeAnalytics:
         assert summary.debate_id == "debate-1"
         assert summary.consensus_reached is True
         assert summary.rounds == 3
-        assert summary.agents == ["claude", "gpt-4"]
+        assert summary.agents == ["claude", "gpt-6-astra"]
 
     @pytest.mark.asyncio
     async def test_get_outcome_summary_no_consensus(self, populated_analytics):
@@ -399,7 +399,7 @@ class TestOutcomeAnalytics:
         assert d["debate_id"] == "debate-3"
         assert d["consensus_reached"] is True
         assert d["rounds"] == 2
-        assert d["agents"] == ["gpt-4", "gemini"]
+        assert d["agents"] == ["gpt-6-astra", "gemini"]
 
 
 # ===========================================================================

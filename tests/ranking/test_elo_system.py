@@ -51,7 +51,7 @@ class TestAgentRegistration:
 
     def test_register_agent_with_model(self, elo_system):
         """Test registering an agent with model info."""
-        rating = elo_system.register_agent("claude", model="claude-3-opus")
+        rating = elo_system.register_agent("claude", model="claude-fable-5-1")
 
         assert rating.agent_name == "claude"
         # Model info may be stored in metadata or not exposed on rating

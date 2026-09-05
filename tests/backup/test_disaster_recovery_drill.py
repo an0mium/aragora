@@ -136,9 +136,9 @@ def production_database(temp_workspace: Path) -> Path:
     # Agents
     agents = [
         ("claude", "anthropic", 1650),
-        ("gpt-4", "openai", 1620),
-        ("gemini-pro", "google", 1580),
-        ("mistral-large", "mistral", 1560),
+        ("gpt-6-astra", "openai", 1620),
+        ("gemini-3.1-pro-preview", "google", 1580),
+        ("mistral-large-2512", "mistral", 1560),
         ("grok", "xai", 1540),
     ]
     for name, provider, elo in agents:

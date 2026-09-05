@@ -38,7 +38,7 @@ class MockDebateResult:
         self.confidence = confidence
         self.consensus_reached = consensus_reached
         self.messages = messages or []
-        self.participants = participants or ["claude", "gpt-4"]
+        self.participants = participants or ["claude", "gpt-6-astra"]
         self.rounds_used = rounds_used
         self.duration_seconds = duration_seconds
         self.completed_at = completed_at or datetime.now(timezone.utc)
@@ -128,7 +128,7 @@ def mock_trace_file(mock_nomic_dir):
                 "round": 1,
             },
             {
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
                 "content": "I agree with conditions",
                 "role": "proposer",
                 "round": 1,
@@ -354,7 +354,7 @@ class TestExplanationContent:
         proof = MockConsensusProof()
         proof.votes = [
             MockVote("claude", "agree", 0.9, "Strong evidence"),
-            MockVote("gpt-4", "agree", 0.8, "Reasonable conclusion"),
+            MockVote("gpt-6-astra", "agree", 0.8, "Reasonable conclusion"),
         ]
         result = MockDebateResult(consensus_proof=proof)
 
@@ -401,7 +401,7 @@ class TestExplanationContent:
         result = MockDebateResult(
             duration_seconds=150.5,
             rounds_used=4,
-            participants=["claude", "gpt-4", "gemini"],
+            participants=["claude", "gpt-6-astra", "gemini"],
             completed_at=completed_at,
             consensus_proof=proof,
         )

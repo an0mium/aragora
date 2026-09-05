@@ -219,11 +219,13 @@ class TestAnalyticsSelectionBridge:
             config=AnalyticsSelectionBridgeConfig(min_findings_for_boost=10)
         )
         bridge._metrics_cache["claude"] = MockAgentMetrics(agent_name="claude", total_findings=50)
-        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(agent_name="gpt-4", total_findings=30)
+        bridge._metrics_cache["gpt-6-astra"] = MockAgentMetrics(
+            agent_name="gpt-6-astra", total_findings=30
+        )
 
         boosts = bridge.get_all_selection_boosts()
         assert "claude" in boosts
-        assert "gpt-4" in boosts
+        assert "gpt-6-astra" in boosts
 
     def test_rank_agents_by_domain(self):
         """Test ranking agents by domain expertise."""
@@ -233,8 +235,8 @@ class TestAnalyticsSelectionBridge:
             primary_domain="security",
             domain_scores={"security": 0.7},
         )
-        bridge._domain_expertise_cache["gpt-4"] = DomainExpertise(
-            agent_name="gpt-4",
+        bridge._domain_expertise_cache["gpt-6-astra"] = DomainExpertise(
+            agent_name="gpt-6-astra",
             primary_domain="performance",
             domain_scores={"security": 0.3, "performance": 0.6},
         )
@@ -246,7 +248,9 @@ class TestAnalyticsSelectionBridge:
         """Test getting precision leaders."""
         bridge = AnalyticsSelectionBridge()
         bridge._metrics_cache["claude"] = MockAgentMetrics(agent_name="claude", precision=0.95)
-        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(agent_name="gpt-4", precision=0.85)
+        bridge._metrics_cache["gpt-6-astra"] = MockAgentMetrics(
+            agent_name="gpt-6-astra", precision=0.85
+        )
         bridge._metrics_cache["gemini"] = MockAgentMetrics(agent_name="gemini", precision=0.90)
 
         leaders = bridge.get_precision_leaders(top_n=2)

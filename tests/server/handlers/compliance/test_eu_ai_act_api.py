@@ -41,7 +41,7 @@ def sample_receipt():
         "confidence": 0.85,
         "agents": [
             {"name": "analyst-1", "model": "claude-3", "role": "proposer"},
-            {"name": "analyst-2", "model": "gpt-4", "role": "critic"},
+            {"name": "analyst-2", "model": "gpt-6-astra", "role": "critic"},
         ],
         "dissenting_agents": [],
         "rounds": 3,

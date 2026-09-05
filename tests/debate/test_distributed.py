@@ -43,8 +43,8 @@ def mock_agent_pool():
             estimated_latency_ms=10,
         ),
         MagicMock(
-            agent_id="gpt-4",
-            model="gpt-4",
+            agent_id="gpt-6-astra",
+            model="gpt-6-astra",
             capabilities=["debate"],
             is_local=False,
             estimated_latency_ms=25,
@@ -82,7 +82,7 @@ def make_result(
         confidence=confidence,
         rounds_completed=rounds_completed,
         participating_instances=["test-instance"],
-        participating_agents=["claude-3", "gpt-4"],
+        participating_agents=["claude-3", "gpt-6-astra"],
         duration_seconds=30.0,
         proposals=[],
         votes=[],
@@ -199,10 +199,10 @@ class TestDistributedDebateCoordinatorDebates:
         ):
             result = await coordinator.start_debate(
                 task="Architecture decision",
-                agents=["claude-3", "gpt-4", "gemini"],
+                agents=["claude-3", "gpt-6-astra", "gemini"],
             )
 
-        assert set(result.participating_agents) == {"claude-3", "gpt-4", "gemini"}
+        assert set(result.participating_agents) == {"claude-3", "gpt-6-astra", "gemini"}
 
     @pytest.mark.asyncio
     async def test_start_debate_with_context(self, coordinator, mock_event_bus):
@@ -369,10 +369,10 @@ class TestDistributedDebateResult:
             confidence=0.92,
             rounds_completed=3,
             participating_instances=["instance-1", "instance-2"],
-            participating_agents=["claude-3", "gpt-4"],
+            participating_agents=["claude-3", "gpt-6-astra"],
             duration_seconds=45.5,
             proposals=[{"agent_id": "claude-3", "content": "PostgreSQL"}],
-            votes=[{"agent_id": "gpt-4", "vote": "support"}],
+            votes=[{"agent_id": "gpt-6-astra", "vote": "support"}],
         )
 
         assert result.debate_id == "debate-123"
@@ -397,7 +397,7 @@ class TestDistributedDebateResult:
             confidence=0.0,
             rounds_completed=5,
             participating_instances=["instance-1"],
-            participating_agents=["claude-3", "gpt-4"],
+            participating_agents=["claude-3", "gpt-6-astra"],
             duration_seconds=120.0,
             proposals=[],
             votes=[],
@@ -415,13 +415,13 @@ class TestDistributedDebateResult:
             task="Service architecture",
             consensus_reached=True,
             final_answer="Microservices",
-            winning_agent="gpt-4",
+            winning_agent="gpt-6-astra",
             confidence=0.88,
             rounds_completed=4,
             participating_instances=["instance-1"],
-            participating_agents=["gpt-4"],
+            participating_agents=["gpt-6-astra"],
             duration_seconds=60.0,
-            proposals=[{"agent_id": "gpt-4", "content": "Microservices"}],
+            proposals=[{"agent_id": "gpt-6-astra", "content": "Microservices"}],
             votes=[],
         )
 
@@ -432,4 +432,4 @@ class TestDistributedDebateResult:
         assert data["consensus_reached"] is True
         assert data["final_answer"] == "Microservices"
         assert data["confidence"] == 0.88
-        assert data["winning_agent"] == "gpt-4"
+        assert data["winning_agent"] == "gpt-6-astra"

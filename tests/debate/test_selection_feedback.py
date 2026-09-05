@@ -104,14 +104,14 @@ class TestSelectionFeedbackLoop:
         """Test that processing updates agent states."""
         adjustments = feedback_loop.process_debate_outcome(
             debate_id="debate-1",
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
             winner="claude",
             domain="security",
         )
 
         # Check states were created
         claude_state = feedback_loop.get_agent_state("claude")
-        gpt_state = feedback_loop.get_agent_state("gpt-4")
+        gpt_state = feedback_loop.get_agent_state("gpt-6-astra")
 
         assert claude_state is not None
         assert gpt_state is not None
@@ -124,7 +124,7 @@ class TestSelectionFeedbackLoop:
         """Test that domain stats are updated."""
         feedback_loop.process_debate_outcome(
             debate_id="debate-1",
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
             winner="claude",
             domain="security",
         )
@@ -168,17 +168,17 @@ class TestSelectionFeedbackLoop:
         # Both debates lost
         feedback_loop_custom.process_debate_outcome(
             debate_id="debate-1",
-            participants=["claude", "gpt-4"],
-            winner="gpt-4",
+            participants=["claude", "gpt-6-astra"],
+            winner="gpt-6-astra",
         )
         feedback_loop_custom.process_debate_outcome(
             debate_id="debate-2",
-            participants=["claude", "gpt-4"],
-            winner="gpt-4",
+            participants=["claude", "gpt-6-astra"],
+            winner="gpt-6-astra",
         )
 
         claude_adj = feedback_loop_custom.get_selection_adjustment("claude")
-        gpt_adj = feedback_loop_custom.get_selection_adjustment("gpt-4")
+        gpt_adj = feedback_loop_custom.get_selection_adjustment("gpt-6-astra")
 
         assert claude_adj < 0  # Lost both
         assert gpt_adj > 0  # Won both
@@ -225,7 +225,7 @@ class TestSelectionFeedbackLoop:
         feedback_loop.record_prediction(
             agent_name="claude",
             predicted_winner="claude",
-            actual_winner="gpt-4",
+            actual_winner="gpt-6-astra",
             confidence=0.8,
         )
 
@@ -298,21 +298,21 @@ class TestSelectionFeedbackLoop:
         """Test getting all agent states."""
         feedback_loop.process_debate_outcome(
             debate_id="debate-1",
-            participants=["claude", "gpt-4", "gemini"],
+            participants=["claude", "gpt-6-astra", "gemini"],
             winner="claude",
         )
 
         states = feedback_loop.get_all_states()
         assert len(states) == 3
         assert "claude" in states
-        assert "gpt-4" in states
+        assert "gpt-6-astra" in states
         assert "gemini" in states
 
     def test_get_metrics(self, feedback_loop):
         """Test getting feedback loop metrics."""
         feedback_loop.process_debate_outcome(
             debate_id="debate-1",
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
             winner="claude",
         )
 

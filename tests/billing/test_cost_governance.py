@@ -107,11 +107,11 @@ class TestModelRestriction:
 
     def test_to_dict_minimal_fields(self):
         """Test serialization with minimal fields."""
-        restriction = ModelRestriction(model_pattern="gpt-4*")
+        restriction = ModelRestriction(model_pattern="gpt-6-astra*")
 
         data = restriction.to_dict()
 
-        assert data["model_pattern"] == "gpt-4*"
+        assert data["model_pattern"] == "gpt-6-astra*"
         assert data["allowed"] is True
         assert data["max_requests_per_hour"] is None
         assert data["max_tokens_per_request"] is None
@@ -121,7 +121,7 @@ class TestModelRestriction:
     def test_from_dict_all_fields(self):
         """Test deserialization with all fields."""
         data = {
-            "model_pattern": "gpt-4*",
+            "model_pattern": "gpt-6-astra*",
             "allowed": False,
             "max_requests_per_hour": 50,
             "max_tokens_per_request": 8000,
@@ -131,7 +131,7 @@ class TestModelRestriction:
 
         restriction = ModelRestriction.from_dict(data)
 
-        assert restriction.model_pattern == "gpt-4*"
+        assert restriction.model_pattern == "gpt-6-astra*"
         assert restriction.allowed is False
         assert restriction.max_requests_per_hour == 50
         assert restriction.max_tokens_per_request == 8000
@@ -190,18 +190,18 @@ class TestModelRestriction:
     def test_exact_match_pattern(self):
         """Test restriction with exact match pattern."""
         restriction = ModelRestriction(
-            model_pattern="claude-3-opus-20240229",
+            model_pattern="claude-fable-5-1",
             allowed=True,
             max_tokens_per_request=50000,
         )
 
-        assert restriction.model_pattern == "claude-3-opus-20240229"
+        assert restriction.model_pattern == "claude-fable-5-1"
         assert restriction.max_tokens_per_request == 50000
 
     def test_multiple_operations(self):
         """Test restriction with multiple allowed operations."""
         restriction = ModelRestriction(
-            model_pattern="gpt-4*",
+            model_pattern="gpt-6-astra*",
             allowed_operations=["chat", "completion", "analysis", "code_review"],
         )
 
@@ -251,20 +251,20 @@ class TestModelRestriction:
         restriction = ModelRestriction(
             model_pattern="claude-opus*",
             allowed=False,
-            fallback_model="claude-sonnet-4",
+            fallback_model="claude-fable-5-1",
         )
 
-        assert restriction.fallback_model == "claude-sonnet-4"
+        assert restriction.fallback_model == "claude-fable-5-1"
 
     def test_fallback_model_different_provider(self):
         """Test fallback model from different provider."""
         restriction = ModelRestriction(
             model_pattern="claude-opus*",
             allowed=False,
-            fallback_model="gpt-4-turbo",
+            fallback_model="gpt-6-astra",
         )
 
-        assert restriction.fallback_model == "gpt-4-turbo"
+        assert restriction.fallback_model == "gpt-6-astra"
 
 
 # =============================================================================
@@ -959,7 +959,7 @@ class TestPolicyViolation:
             message="Model not allowed",
             severity=CostPolicyEnforcement.HARD,
             action=CostPolicyAction.DENY,
-            details={"model": "claude-opus-4"},
+            details={"model": "claude-fable-5-1"},
         )
 
         data = violation.to_dict()
@@ -968,7 +968,7 @@ class TestPolicyViolation:
         assert data["violation_type"] == "model_not_allowed"
         assert data["severity"] == "hard"
         assert data["action"] == "deny"
-        assert data["details"]["model"] == "claude-opus-4"
+        assert data["details"]["model"] == "claude-fable-5-1"
 
 
 # =============================================================================
@@ -1411,13 +1411,13 @@ class TestCostGovernanceEngine:
         model_policy = CostGovernancePolicy(
             name="model",
             policy_type=CostPolicyType.MODEL_RESTRICTION,
-            model_restrictions=[ModelRestriction(model_pattern="gpt-4*", allowed=True)],
+            model_restrictions=[ModelRestriction(model_pattern="gpt-6-astra*", allowed=True)],
         )
         engine.add_policy(spending_policy)
         engine.add_policy(model_policy)
 
         context = PolicyEvaluationContext(
-            model="gpt-4-turbo",
+            model="gpt-6-astra",
             current_daily_spend=Decimal("50"),
         )
 
@@ -1434,7 +1434,7 @@ class TestCostGovernanceEngine:
 
         assert engine._count_recent_requests("claude-sonnet") == 2
         assert engine._count_recent_requests("claude-opus") == 1
-        assert engine._count_recent_requests("gpt-4") == 0
+        assert engine._count_recent_requests("gpt-6-astra") == 0
 
     def test_count_recent_requests_window(self, engine):
         """Test that old requests are cleaned from the window."""

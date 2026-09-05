@@ -187,7 +187,7 @@ class TestGetAgentLineageTool:
         mock_genome.generation = 3
         mock_genome.fitness_score = 0.85
         mock_genome.parent_genomes = ["gen-122"]
-        mock_genome.model_preference = "gpt-4"
+        mock_genome.model_preference = "gpt-6-astra"
         mock_genome.birth_debate_id = "debate-001"
 
         mock_parent = MagicMock()
@@ -196,7 +196,7 @@ class TestGetAgentLineageTool:
         mock_parent.generation = 2
         mock_parent.fitness_score = 0.8
         mock_parent.parent_genomes = []
-        mock_parent.model_preference = "gpt-4"
+        mock_parent.model_preference = "gpt-6-astra"
         mock_parent.birth_debate_id = "debate-000"
 
         mock_store = MagicMock()
@@ -303,7 +303,7 @@ class TestBreedAgentsTool:
         mock_offspring.name = "offspring"
         mock_offspring.generation = 2
         mock_offspring.parent_genomes = ["gen-a", "gen-b"]
-        mock_offspring.model_preference = "gpt-4"
+        mock_offspring.model_preference = "gpt-6-astra"
         mock_offspring.fitness_score = 0.5
         mock_offspring.traits = ["trait1"]
         mock_offspring.expertise = ["expertise1"]
@@ -376,7 +376,7 @@ class TestBreedAgentsTool:
         mock_offspring.name = "offspring"
         mock_offspring.generation = 2
         mock_offspring.parent_genomes = []
-        mock_offspring.model_preference = "gpt-4"
+        mock_offspring.model_preference = "gpt-6-astra"
         mock_offspring.fitness_score = 0.5
         mock_offspring.traits = []
         mock_offspring.expertise = []
@@ -441,7 +441,7 @@ class TestBreedAgentsTool:
         mock_offspring.name = "offspring"
         mock_offspring.generation = 2
         mock_offspring.parent_genomes = []
-        mock_offspring.model_preference = "gpt-4"
+        mock_offspring.model_preference = "gpt-6-astra"
         mock_offspring.fitness_score = 0.5
         mock_offspring.traits = []
         mock_offspring.expertise = []

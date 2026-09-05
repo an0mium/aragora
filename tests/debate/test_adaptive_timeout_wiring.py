@@ -310,7 +310,7 @@ class TestOrchestratorRunnerWiring:
 
         # Create concrete APIAgent instances for testing
         api_agent1 = ConcreteAPIAgent(name="claude", model="claude-3")
-        api_agent2 = ConcreteAPIAgent(name="gpt", model="gpt-4")
+        api_agent2 = ConcreteAPIAgent(name="gpt", model="gpt-6-astra")
         non_api_agent = MagicMock()
         non_api_agent.name = "non_api_agent"
 

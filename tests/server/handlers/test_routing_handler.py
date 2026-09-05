@@ -89,7 +89,7 @@ class TestBestTeamCombinations:
         """Should return team combinations when successful."""
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
-            {"agents": ["claude", "gpt-4"], "success_rate": 0.85, "debates": 10},
+            {"agents": ["claude", "gpt-6-astra"], "success_rate": 0.85, "debates": 10},
         ]
         mock_selector_class.return_value = mock_selector
 
@@ -307,7 +307,7 @@ class TestDomainLeaderboard:
         mock_selector = MagicMock()
         mock_selector.get_domain_leaderboard.return_value = [
             {"agent": "claude", "score": 0.95, "debates_in_domain": 50},
-            {"agent": "gpt-4", "score": 0.92, "debates_in_domain": 45},
+            {"agent": "gpt-6-astra", "score": 0.92, "debates_in_domain": 45},
         ]
         mock_selector_class.create_with_defaults.return_value = mock_selector
 
@@ -395,7 +395,7 @@ class TestResponseBodyValidation:
         """Best teams response should have expected JSON fields."""
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
-            {"agents": ["claude", "gpt-4"], "success_rate": 0.85, "debates": 10},
+            {"agents": ["claude", "gpt-6-astra"], "success_rate": 0.85, "debates": 10},
         ]
         mock_selector_class.return_value = mock_selector
 
@@ -817,11 +817,11 @@ class TestAutoRouteWithAllParameters:
     @patch("aragora.server.handlers.routing.DomainDetector")
     def test_auto_route_with_exclude(self, mock_detector, mock_selector_class):
         """Should accept exclude parameter."""
-        mock_agent = MockAgent(name="gpt-4", expertise={"code": 0.85})
+        mock_agent = MockAgent(name="gpt-6-astra", expertise={"code": 0.85})
         mock_team = MockTeam(
             task_id="task-456",
             agents=[mock_agent],
-            roles={"gpt-4": "lead"},
+            roles={"gpt-6-astra": "lead"},
             expected_quality=0.8,
             diversity_score=0.6,
             rationale="Selected after excluding claude",

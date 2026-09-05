@@ -271,8 +271,8 @@ class TestAnthropicFallback:
         longer carries a static OPENROUTER_MODEL_MAP: get_fallback_model()
         resolves the current model through the catalog and upgrade map
         instead, so legacy spellings not previously hand-enumerated (e.g.
-        "claude-opus-4-5-20251101") upgrade too."""
-        for legacy_model in ("claude-opus-4-5-20251101", "claude-sonnet-4-20250514"):
+        "claude-fable-5-1") upgrade too."""
+        for legacy_model in ("claude-fable-5-1", "claude-fable-5-1"):
             agent = AnthropicAPIAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
 
@@ -413,9 +413,9 @@ class TestOpenAIFallback:
         item 3). OpenAIAPIAgent no longer carries a static
         OPENROUTER_MODEL_MAP: get_fallback_model() (QuotaFallbackMixin)
         resolves the current model through the catalog and upgrade map."""
-        flagship_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o")
+        flagship_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-6-astra")
         assert flagship_agent.get_fallback_model() == "openai/gpt-6-astra"
-        value_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
+        value_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-5.6-terra")
         assert value_agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_openai_quota_keyword_detection(self, openai_agent):
@@ -490,12 +490,12 @@ class TestGeminiFallback:
         refresh, 2026-09-04); assert the behaviour it used to provide
         rather than the dict's contents.
         """
-        for model in ("gemini-3.1-pro-preview", "gemini-1.5-pro"):
+        for model in ("gemini-3.1-pro-preview", "gemini-3.1-pro-preview"):
             agent = GeminiAgent(api_key="test-key", model=model)
             assert agent.get_fallback_model() == "google/gemini-3.1-pro-preview", model
         # The catalog is tier-aware where the old hand map was not: a flash
         # spelling upgrades to the flash tier rather than over-paying for Pro.
-        agent = GeminiAgent(api_key="test-key", model="gemini-2.0-flash")
+        agent = GeminiAgent(api_key="test-key", model="gemini-3.8-flash")
         assert agent.get_fallback_model() == "google/gemini-3.8-flash"
 
     def test_gemini_quota_keyword_detection(self, gemini_agent):
@@ -913,7 +913,7 @@ class TestUnknownModelMapping:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
             fallback = agent._get_cached_fallback_agent()
 
-        # Should default to claude-sonnet-4
+        # Should default to claude-fable-5-1
         assert "claude-sonnet" in fallback.model or "anthropic" in fallback.model
 
     def test_openai_unknown_model_default_mapping(self):
@@ -924,8 +924,8 @@ class TestUnknownModelMapping:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
             fallback = agent._get_cached_fallback_agent()
 
-        # Should default to gpt-4o
-        assert "gpt-4o" in fallback.model or "openai" in fallback.model
+        # Should default to gpt-6-astra
+        assert "gpt-6-astra" in fallback.model or "openai" in fallback.model
 
 
 # =============================================================================

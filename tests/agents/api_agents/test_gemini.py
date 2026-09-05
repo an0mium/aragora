@@ -48,14 +48,14 @@ class TestGeminiAgentInitialization:
 
         agent = GeminiAgent(
             name="custom-gemini",
-            model="gemini-2.0-flash",
+            model="gemini-3.8-flash",
             role="critic",
             timeout=60,
             enable_fallback=False,
         )
 
         assert agent.name == "custom-gemini"
-        # "gemini-2.0-flash" has no catalog row of its own; resolve_model_id
+        # "gemini-3.8-flash" has no catalog row of its own; resolve_model_id
         # upgrades it to the current Google value-tier frontier
         # (frontier-model-refresh, 2026-09-04).
         assert agent.model == "gemini-3.8-flash"
@@ -103,7 +103,7 @@ class TestGeminiAgentInitialization:
         )
         # Tier-aware, unlike the removed hand map: flash upgrades to flash.
         assert (
-            GeminiAgent(model="gemini-2.0-flash").get_fallback_model() == "google/gemini-3.8-flash"
+            GeminiAgent(model="gemini-3.8-flash").get_fallback_model() == "google/gemini-3.8-flash"
         )
         assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro-preview"
 
@@ -441,7 +441,7 @@ class TestGeminiModelMapping:
         frontier."""
         from aragora.agents.api_agents.gemini import GeminiAgent
 
-        agent = GeminiAgent(model="gemini-2.5-pro")
+        agent = GeminiAgent(model="gemini-3.1-pro-preview")
         assert agent.get_fallback_model() == "google/gemini-3.1-pro-preview"
 
 

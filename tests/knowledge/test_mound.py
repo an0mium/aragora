@@ -225,7 +225,7 @@ class TestProvenanceChain:
             agent_id="claude",
             debate_id="debate_123",
         )
-        prov.add_transformation("refinement", agent_id="gpt-4")
+        prov.add_transformation("refinement", agent_id="gpt-6-astra")
 
         prov_dict = prov.to_dict()
         restored = ProvenanceChain.from_dict(prov_dict)

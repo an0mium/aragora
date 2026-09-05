@@ -27,7 +27,7 @@ def test_save_load_save_is_byte_identical(tmp_path: Path) -> None:
         repair_budget_per_turn=1,
         footer_mode="prompt_injected",
         worktree_cleanup_mode="operator_triggered",
-        participants=[Participant(role="reviewer", harness="codex", model="gpt-5.4")],
+        participants=[Participant(role="reviewer", harness="codex", model="gpt-6-astra")],
         worktree_path=str(tmp_path),
         worktree_agent_slug="codex",
     )
@@ -38,7 +38,7 @@ def test_save_load_save_is_byte_identical(tmp_path: Path) -> None:
             "reviewer": BridgeSession(
                 role="reviewer",
                 harness="codex",
-                model="gpt-5.4",
+                model="gpt-6-astra",
                 session_id=None,
                 worktree_agent_slug=None,
                 worktree_path=None,
@@ -80,7 +80,7 @@ def test_atomic_write_leaves_prior_run_file_intact_on_replace_failure(
         repair_budget_per_turn=1,
         footer_mode="prompt_injected",
         worktree_cleanup_mode="operator_triggered",
-        participants=[Participant(role="reviewer", harness="codex", model="gpt-5.4")],
+        participants=[Participant(role="reviewer", harness="codex", model="gpt-6-astra")],
         worktree_path=str(tmp_path),
         worktree_agent_slug="codex",
     )
@@ -137,7 +137,7 @@ def test_write_turn_transcript_uses_scoped_front_matter_and_repair_section(tmp_p
         turn_index=1,
         role="reviewer",
         harness="codex",
-        model="gpt-5.4",
+        model="gpt-6-astra",
         session_id="thread-1",
         started_at="2026-04-21T20:00:00Z",
         completed_at="2026-04-21T20:01:00Z",

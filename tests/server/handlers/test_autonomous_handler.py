@@ -675,7 +675,7 @@ class TestLearningHandlerGetRatings:
 
         mock_continuous_learner.elo_updater.get_all_ratings.return_value = {
             "claude": 1200,
-            "gpt-4": 1150,
+            "gpt-6-astra": 1150,
             "gemini": 1100,
         }
         set_continuous_learner(mock_continuous_learner)

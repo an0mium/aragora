@@ -15,7 +15,7 @@ from aragora.debate.molecules import MoleculeStatus, MoleculeType
 class SimpleAgent:
     """Simple agent for testing."""
 
-    def __init__(self, name: str, model: str = "gpt-4"):
+    def __init__(self, name: str, model: str = "gpt-6-astra"):
         self.name = name
         self.model = model
 

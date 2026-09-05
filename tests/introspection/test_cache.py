@@ -49,13 +49,13 @@ class TestIntrospectionCacheWarm:
         agent1 = MagicMock()
         agent1.name = "claude"
         agent2 = MagicMock()
-        agent2.name = "gpt-4"
+        agent2.name = "gpt-6-astra"
 
         # Mock the introspection API at the source module
         with patch("aragora.introspection.api.get_agent_introspection") as mock_get:
             mock_get.side_effect = [
                 IntrospectionSnapshot(agent_name="claude"),
-                IntrospectionSnapshot(agent_name="gpt-4"),
+                IntrospectionSnapshot(agent_name="gpt-6-astra"),
             ]
 
             cache.warm(agents=[agent1, agent2])

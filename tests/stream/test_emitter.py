@@ -418,13 +418,13 @@ class TestSyncEventEmitter:
         emitter = SyncEventEmitter()
 
         emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="claude"))
-        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="gpt-4"))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="gpt-6-astra"))
         emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="claude"))
 
         events = emitter.drain()
 
         assert events[0].agent_seq == 1  # claude #1
-        assert events[1].agent_seq == 1  # gpt-4 #1
+        assert events[1].agent_seq == 1  # gpt-6-astra #1
         assert events[2].agent_seq == 2  # claude #2
 
     def test_reset_sequences(self):
@@ -565,7 +565,7 @@ class TestStreamEvent:
             type=StreamEventType.AGENT_MESSAGE,
             data={"content": "Hello"},
             round=2,
-            agent="gpt-4",
+            agent="gpt-6-astra",
             loop_id="loop_001",
             seq=5,
             agent_seq=3,
@@ -576,7 +576,7 @@ class TestStreamEvent:
         assert d["type"] == "agent_message"
         assert d["data"] == {"content": "Hello"}
         assert d["round"] == 2
-        assert d["agent"] == "gpt-4"
+        assert d["agent"] == "gpt-6-astra"
         assert d["loop_id"] == "loop_001"
         assert d["seq"] == 5
         assert d["agent_seq"] == 3

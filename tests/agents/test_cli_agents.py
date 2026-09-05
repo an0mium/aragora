@@ -186,7 +186,7 @@ class TestCLIAgentFallback:
 
         assert not hasattr(CLIAgent, "OPENROUTER_MODEL_MAP")
 
-        for legacy_model in ("gpt-4o", "gemini-3-pro", "grok-4"):
+        for legacy_model in ("gpt-6-astra", "gemini-3.1-pro-preview", "grok-4.6"):
             agent = DummyCLIAgent(name="test-agent", model=legacy_model, enable_fallback=True)
             with patch("os.environ.get", return_value="test-api-key"):
                 with patch(
@@ -224,13 +224,13 @@ class TestCLIAgentFamilyAwareFallback:
             ("CodexAgent", "gpt-5.3-codex", "openai/gpt-6-astra"),
             ("CodexAgent", "gpt-4.1-codex", "openai/gpt-6-astra"),
             ("CodexAgent", "gpt-5.3-chat-latest", "openai/gpt-6-astra"),
-            ("GrokCLIAgent", "grok-4-1-fast", "x-ai/grok-4.6"),
+            ("GrokCLIAgent", "grok-4.6", "x-ai/grok-4.6"),
             ("DeepseekCLIAgent", "deepseek-coder", "deepseek/deepseek-v4-pro-0813"),
             ("DeepseekCLIAgent", "deepseek-v3.2", "deepseek/deepseek-v4-pro-0813"),
-            ("QwenCLIAgent", "qwen-2.5-coder", "qwen/qwen3.8-2.4t-a95b"),
+            ("QwenCLIAgent", "qwen3.8-2.4t-a95b", "qwen/qwen3.8-2.4t-a95b"),
             # No Codestral row in the catalog: resolves to the Mistral
             # family frontier, not to Anthropic.
-            ("CodexAgent", "codestral-latest", "mistralai/mistral-medium-3-5"),
+            ("CodexAgent", "mistral-medium-2604", "mistralai/mistral-medium-3-5"),
         ],
     )
     def test_legacy_cli_spelling_stays_in_family(self, agent_cls_name, model, expected):
@@ -436,16 +436,16 @@ class TestCodexAgent:
         """Test CodexAgent initialization."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-6-astra")
 
         assert agent.name == "codex-test"
-        assert agent.model == "gpt-4.1-codex"
+        assert agent.model == "gpt-6-astra"
 
     def test_extract_codex_response_filters_header(self):
         """Test response extraction filters header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-6-astra")
 
         output = "codex\nActual response text\ntokens used: 100"
         result = agent._extract_codex_response(output)
@@ -456,7 +456,7 @@ class TestCodexAgent:
         """Test response extraction handles plain output."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-6-astra")
 
         output = "Plain response text"
         result = agent._extract_codex_response(output)
@@ -483,7 +483,7 @@ class TestClaudeAgent:
         """Test ClaudeAgent initialization."""
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="claude-test", model="claude-sonnet-4")
+        agent = ClaudeAgent(name="claude-test", model="claude-fable-5-1")
 
         assert agent.name == "claude-test"
 
@@ -498,7 +498,7 @@ class TestClaudeAgent:
 
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="claude-test", model="claude-fable-5")
+        agent = ClaudeAgent(name="claude-test", model="claude-fable-5-1")
         captured: dict = {}
 
         async def fake_generate(command, *args, **kwargs):
@@ -517,7 +517,7 @@ class TestClaudeAgent:
         assert result == "ok"
         command = captured["command"]
         assert "--model" in command
-        assert command[command.index("--model") + 1] == "claude-fable-5"
+        assert command[command.index("--model") + 1] == "claude-fable-5-1"
 
 
 class TestGeminiCLIAgent:
@@ -539,7 +539,7 @@ class TestGeminiCLIAgent:
         """Test YOLO mode message is filtered."""
         from aragora.agents.cli_agents import GeminiCLIAgent
 
-        agent = GeminiCLIAgent(name="gemini-test", model="gemini-3-pro")
+        agent = GeminiCLIAgent(name="gemini-test", model="gemini-3.1-pro-preview")
 
         output = "YOLO mode is enabled\nActual response"
         result = agent._extract_gemini_response(output)
@@ -567,7 +567,7 @@ class TestGrokCLIAgent:
         """Test assistant response is extracted from JSON."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="grok-test", model="grok-4")
+        agent = GrokCLIAgent(name="grok-test", model="grok-4.6")
 
         output = '{"role": "assistant", "content": "Hello from Grok"}'
         result = agent._extract_grok_response(output)
@@ -578,7 +578,7 @@ class TestGrokCLIAgent:
         """Test plain text output is returned as-is."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="grok-test", model="grok-4")
+        agent = GrokCLIAgent(name="grok-test", model="grok-4.6")
 
         output = "Plain text response"
         result = agent._extract_grok_response(output)
@@ -665,7 +665,7 @@ class TestAntigravityAgent:
 
         agent = AntigravityAgent(
             name="agy-test",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
             enable_fallback=False,
             enable_circuit_breaker=False,
         )
@@ -694,7 +694,7 @@ class TestKimiCLIAgent:
 
         agent = KimiCLIAgent(
             name="kimi-test",
-            model="kimi-k2",
+            model="kimi-k3",
             enable_fallback=False,
             enable_circuit_breaker=False,
         )

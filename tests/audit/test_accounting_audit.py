@@ -52,7 +52,7 @@ def mock_session():
         id="session-accounting-test-123",
         created_by="user-123",
         document_ids=["financial_statement.pdf"],
-        model="claude-3.5-sonnet",
+        model="claude-fable-5-1",
     )
 
 
@@ -62,7 +62,7 @@ def audit_context(mock_session):
     return AuditContext(
         session=mock_session,
         workspace_id="ws-accounting-123",
-        model="claude-3.5-sonnet",
+        model="claude-fable-5-1",
     )
 
 

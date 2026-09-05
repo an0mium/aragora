@@ -75,7 +75,7 @@ def mock_storage():
     storage.get_debate.return_value = {
         "id": "debate-123",
         "task": "Test debate topic",
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-6-astra"],
         "verdict": "Consensus reached",
     }
     storage.get_debate_by_slug.return_value = storage.get_debate.return_value

@@ -152,7 +152,7 @@ class TestUsageTrackingTenantIsolation:
                 tokens_in=2000,
                 tokens_out=1000,
                 provider="openai",
-                model="gpt-4",
+                model="gpt-6-astra",
             )
             usage_tracker.record(event_b)
 
@@ -178,7 +178,7 @@ class TestUsageTrackingTenantIsolation:
             tokens_in=10000,
             tokens_out=5000,
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
         )
         usage_tracker.record(event_a)
 
@@ -189,7 +189,7 @@ class TestUsageTrackingTenantIsolation:
             tokens_in=10000,
             tokens_out=5000,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-6-astra",
         )
         usage_tracker.record(event_b)
 

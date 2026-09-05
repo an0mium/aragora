@@ -47,7 +47,7 @@ class TestRouterToDebateIntegration:
         router = get_agent_router()
         decision = router.route(
             "Implement a binary search tree in Python",
-            available_agents=["claude", "gpt-4", "codex", "gemini"],
+            available_agents=["claude", "gpt-6-astra", "codex", "gemini"],
             team_size=3,
         )
 
@@ -228,7 +228,7 @@ class TestTeamSelectionWithRouterIntegration:
         mock_agents = [
             MockAgent(name="claude"),
             MockAgent(name="codex"),
-            MockAgent(name="gpt-4"),
+            MockAgent(name="gpt-6-astra"),
         ]
 
         # Task that matches coding pattern
@@ -248,7 +248,7 @@ class TestTeamSelectionWithRouterIntegration:
         config = TeamSelectionConfig(enable_pattern_selection=True)
         selector = TeamSelector(config=config)
 
-        mock_agents = [MockAgent(name="claude"), MockAgent(name="gpt-4")]
+        mock_agents = [MockAgent(name="claude"), MockAgent(name="gpt-6-astra")]
 
         # Make some selections to generate telemetry
         selector.select(agents=mock_agents, task="Implement sorting", domain="coding")
@@ -273,7 +273,7 @@ class TestEndToEndRouterDebateLoop:
         # Step 1: Route a task (use clear coding keywords)
         decision = router.route(
             "Implement a binary search algorithm in Python",
-            available_agents=["claude", "gpt-4", "codex"],
+            available_agents=["claude", "gpt-6-astra", "codex"],
             team_size=2,
         )
 
@@ -296,7 +296,7 @@ class TestEndToEndRouterDebateLoop:
         # Step 4: Future routing should still work
         decision2 = router.route(
             "Implement another algorithm",
-            available_agents=["claude", "gpt-4", "codex"],
+            available_agents=["claude", "gpt-6-astra", "codex"],
             team_size=2,
         )
 
@@ -338,7 +338,7 @@ class TestRouterConstraints:
 
         decision = router.route(
             "Analyze this image and describe it",
-            available_agents=["claude", "gpt-4", "llama", "mistral"],
+            available_agents=["claude", "gpt-6-astra", "llama", "mistral"],
             team_size=2,
             constraints={"require_vision": True},
         )
@@ -354,7 +354,7 @@ class TestRouterConstraints:
 
         decision = router.route(
             "Quick summary needed",
-            available_agents=["claude", "claude-sonnet", "gpt-4", "gpt-4-turbo"],
+            available_agents=["claude", "claude-sonnet", "gpt-6-astra", "gpt-6-astra"],
             team_size=2,
             constraints={"prefer_speed": True},
         )
@@ -370,7 +370,7 @@ class TestRouterConstraints:
 
         decision = router.route(
             "Simple task",
-            available_agents=["claude", "claude-haiku", "gpt-4", "gpt-3.5-turbo"],
+            available_agents=["claude", "claude-haiku", "gpt-6-astra", "gpt-3.5-turbo"],
             team_size=2,
             constraints={"prefer_cost": True},
         )

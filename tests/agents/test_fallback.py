@@ -69,12 +69,14 @@ class MockAgentWithMixin:
     """Mock agent class using QuotaFallbackMixin."""
 
     OPENROUTER_MODEL_MAP = {
-        "gpt-4o": "openai/gpt-4o",
-        "claude-3-opus": "anthropic/claude-3-opus",
+        "gpt-6-astra": "openai/gpt-6-astra",
+        "claude-fable-5-1": "anthropic/claude-3-opus",
     }
-    DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+    DEFAULT_FALLBACK_MODEL = "anthropic/claude-fable-5.1"
 
-    def __init__(self, name: str = "test", model: str = "gpt-4o", enable_fallback: bool = True):
+    def __init__(
+        self, name: str = "test", model: str = "gpt-6-astra", enable_fallback: bool = True
+    ):
         self.name = name
         self.model = model
         self.enable_fallback = enable_fallback
@@ -91,11 +93,11 @@ class TestQuotaFallbackMixin:
         """get_fallback_model() resolves the current model through the
         catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
-        attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
+        attribute: "gpt-6-astra" is a legacy OpenAI spelling that upgrades to
         the current frontier."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
-        agent = MockAgentWithMixin(model="gpt-4o")
+        agent = MockAgentWithMixin(model="gpt-6-astra")
         # Add mixin method
         agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
             agent, MockAgentWithMixin
@@ -116,7 +118,7 @@ class TestQuotaFallbackMixin:
 
         result = agent.get_fallback_model()
 
-        assert result == "anthropic/claude-sonnet-4"
+        assert result == "anthropic/claude-fable-5.1"
 
     def test_is_quota_error_429(self):
         """Test 429 status is detected as quota error."""
@@ -798,7 +800,7 @@ class TestMultiProviderFallbackMixin:
 
         class MockAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {}
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-fable-5.1"
 
             def __init__(self, agent_name, agent_provider):
                 self.name = agent_name
@@ -1120,7 +1122,7 @@ class TestMultiProviderFallbackStream:
 
         class MockAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {}
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-fable-5.1"
 
             def __init__(self, agent_name, agent_provider):
                 self.name = agent_name
@@ -1257,7 +1259,7 @@ class TestFallbackChainEndToEnd:
 
         class MockAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {}
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-fable-5.1"
 
             def __init__(self, agent_name, agent_provider):
                 self.name = agent_name

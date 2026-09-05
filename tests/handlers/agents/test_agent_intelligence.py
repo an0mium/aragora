@@ -261,7 +261,7 @@ class TestGetMetadata:
             (
                 "claude",
                 "anthropic",
-                "claude-3-opus",
+                "claude-fable-5-1",
                 200000,
                 json.dumps(["reasoning", "analysis"]),
                 json.dumps(["nuanced thinking", "long context"]),
@@ -282,7 +282,7 @@ class TestGetMetadata:
             assert body["agent"] == "claude"
             meta = body["metadata"]
             assert meta["provider"] == "anthropic"
-            assert meta["model_id"] == "claude-3-opus"
+            assert meta["model_id"] == "claude-fable-5-1"
             assert meta["context_window"] == 200000
             assert meta["specialties"] == ["reasoning", "analysis"]
             assert meta["strengths"] == ["nuanced thinking", "long context"]
@@ -368,7 +368,7 @@ class TestGetMetadata:
             (
                 "claude",
                 "anthropic",
-                "claude-3-opus",
+                "claude-fable-5-1",
                 200000,
                 "not valid json",
                 "also not valid json",
@@ -416,7 +416,7 @@ class TestGetMetadata:
             (agent_name, provider, model_id, context_window, specialties, strengths, release_date, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("claude", "anthropic", "claude-3-opus", 200000, None, None, "2024-03-04", None),
+            ("claude", "anthropic", "claude-fable-5-1", 200000, None, None, "2024-03-04", None),
         )
         conn.commit()
         conn.close()

@@ -31,7 +31,7 @@ def test_assemble_package_preserves_provider_routing_metadata(mock_get_receipt_s
             "participants": ["claude", "gpt"],
             "metadata": {
                 "provider_names": ["anthropic", "openai"],
-                "provider_hints": ["claude-sonnet-4", "gpt-4o"],
+                "provider_hints": ["claude-fable-5-1", "gpt-6-astra"],
                 "provider_routing": {
                     "routing_applied": True,
                     "routing_strategy": "provider_router_selection",
@@ -48,7 +48,7 @@ def test_assemble_package_preserves_provider_routing_metadata(mock_get_receipt_s
     assert err is None
     assert package is not None
     assert package["provider_names"] == ["anthropic", "openai"]
-    assert package["provider_hints"] == ["claude-sonnet-4", "gpt-4o"]
+    assert package["provider_hints"] == ["claude-fable-5-1", "gpt-6-astra"]
     assert package["provider_routing"] == {
         "routing_applied": True,
         "routing_strategy": "provider_router_selection",

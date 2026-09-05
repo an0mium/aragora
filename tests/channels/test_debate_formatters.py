@@ -30,7 +30,7 @@ def debate_result() -> dict:
         "consensus_reached": True,
         "final_answer": "We should adopt the proposal with modifications.",
         "confidence": 0.85,
-        "participants": ["claude", "gpt-4", "gemini"],
+        "participants": ["claude", "gpt-6-astra", "gemini"],
         "task": "Evaluate the new rate-limiter design",
         "rounds": 3,
         "duration_seconds": 12.4,

@@ -383,19 +383,19 @@ class TestAgentFallbackChain:
         """get_fallback_model() resolves the current model through the
         catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
-        attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
+        attribute: "gpt-6-astra" is a legacy OpenAI spelling that upgrades to
         the current frontier; a truly unresolvable model falls back to
         DEFAULT_FALLBACK_MODEL."""
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-6-astra": "openai/gpt-6-astra",
                 "claude-3": "anthropic/claude-3",
             }
             DEFAULT_FALLBACK_MODEL = "meta-llama/llama-3"
 
         agent = TestAgent()
-        agent.model = "gpt-4o"
+        agent.model = "gpt-6-astra"
         assert agent.get_fallback_model() == "openai/gpt-6-astra"
 
         agent.model = "unknown-model"
@@ -409,7 +409,7 @@ class TestAgentFallbackChain:
         class TestAgent(QuotaFallbackMixin):
             name = "test-agent"
             model = "test-model"
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-fable-5.1"
 
         agent = TestAgent()
 

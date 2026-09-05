@@ -136,7 +136,7 @@ def mock_agent() -> Mock:
     agent = Mock()
     agent.name = "test_agent"
     agent.role = "proposer"
-    agent.model = "claude-3-opus"
+    agent.model = "claude-fable-5-1"
 
     async def mock_generate(*args, **kwargs):
         return "This is a test response from the agent."

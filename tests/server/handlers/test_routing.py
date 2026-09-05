@@ -72,8 +72,8 @@ class MockTeam:
 
     def __init__(self):
         self.task_id = "task-001"
-        self.agents = [MockAgent("claude"), MockAgent("gpt-4")]
-        self.roles = {"proposer": "claude", "critic": "gpt-4"}
+        self.agents = [MockAgent("claude"), MockAgent("gpt-6-astra")]
+        self.roles = {"proposer": "claude", "critic": "gpt-6-astra"}
         self.expected_quality = 0.85
         self.diversity_score = 0.7
         self.rationale = "Best team for general tasks"
@@ -154,7 +154,7 @@ class TestGetBestTeams:
     def test_best_teams_success(self, handler):
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
-            {"agents": ["claude", "gpt-4"], "win_rate": 0.85}
+            {"agents": ["claude", "gpt-6-astra"], "win_rate": 0.85}
         ]
         mock_selector_cls = MagicMock(return_value=mock_selector)
 

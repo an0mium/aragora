@@ -717,8 +717,8 @@ class TestVoiceStreamHandlerAudioFrames:
         session.is_active = True
         handler._sessions["s1"] = session
 
-        handler.set_speaking_agent("d1", "gpt-4")
-        assert handler.get_speaking_agent("d1") == "gpt-4"
+        handler.set_speaking_agent("d1", "gpt-6-astra")
+        assert handler.get_speaking_agent("d1") == "gpt-6-astra"
 
         handler.set_speaking_agent("d1", "")
         assert handler.get_speaking_agent("d1") == ""

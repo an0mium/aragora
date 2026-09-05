@@ -297,7 +297,7 @@ def test_active_conductor_processes_reports_colliding_work_and_filters_self(monk
   PID  PPID ELAPSED COMMAND
    42     1   00:05 python3 scripts/fable_goal_cycle.py --goal self
   100     1   10:00 python3 scripts/collect_quorum_evidence.py --token secret --pr 8982
-  101     1   03:00 python3 scripts/consult_claude.py --model claude-fable-5
+  101     1   03:00 python3 scripts/consult_claude.py --model claude-fable-5-1
   102     1   02:00 python3 scripts/unrelated.py
 """,
         )
@@ -310,7 +310,7 @@ def test_active_conductor_processes_reports_colliding_work_and_filters_self(monk
     assert "pid=100 elapsed=10:00 command=python3 collect_quorum_evidence.py" in body
     assert "pid=101 elapsed=03:00 command=python3 consult_claude.py" in body
     assert "--token secret" not in body
-    assert "--model claude-fable-5" not in body
+    assert "--model claude-fable-5-1" not in body
     assert "fable_goal_cycle.py --goal self" not in body
     assert "unrelated.py" not in body
 
@@ -384,7 +384,7 @@ def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
     )
 
@@ -397,14 +397,14 @@ def test_run_consult_sets_overall_timeout_and_bounded_outer_timeout(
 
 def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -> None:
     def fake_run(command, timeout, cwd=None):
-        return True, json.dumps({"ok": True, "model": "claude-fable-5"})
+        return True, json.dumps({"ok": True, "model": "claude-fable-5-1"})
 
     monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
 
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
     )
 
@@ -428,7 +428,7 @@ def test_run_consult_direct_mode_does_not_budget_proxy_attempts(
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
     )
 
@@ -478,7 +478,7 @@ def test_run_consult_required_mode_excludes_unreachable_fallbacks(
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
         openrouter_fallback=True,
     )
@@ -503,7 +503,7 @@ def test_run_consult_empty_transport_uses_direct_default(monkeypatch, tmp_path: 
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
     )
 
@@ -524,7 +524,7 @@ def test_run_consult_rejects_invalid_transport_without_running(monkeypatch, tmp_
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
     )
 
@@ -548,7 +548,7 @@ def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path)
     result = fable_goal_cycle.run_consult(
         tmp_path / "consult_claude.py",
         tmp_path / "packet.md",
-        "claude-fable-5",
+        "claude-fable-5-1",
         timeout=12.5,
         openrouter_fallback=True,
         openrouter_model="anthropic/claude-test",

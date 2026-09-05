@@ -243,7 +243,7 @@ def sample_agent() -> dict[str, Any]:
     return {
         "agent_id": "test-claude",
         "capabilities": ["debate", "code", "analysis"],
-        "model": "claude-3-opus",
+        "model": "claude-fable-5-1",
         "provider": "anthropic",
         "metadata": {"version": "1.0"},
     }
@@ -256,19 +256,19 @@ def sample_agents() -> list[dict[str, Any]]:
         {
             "agent_id": "agent-claude",
             "capabilities": ["debate", "code"],
-            "model": "claude-3-opus",
+            "model": "claude-fable-5-1",
             "provider": "anthropic",
         },
         {
             "agent_id": "agent-gpt",
             "capabilities": ["debate", "analysis"],
-            "model": "gpt-4",
+            "model": "gpt-6-astra",
             "provider": "openai",
         },
         {
             "agent_id": "agent-gemini",
             "capabilities": ["code", "research"],
-            "model": "gemini-pro",
+            "model": "gemini-3.1-pro-preview",
             "provider": "google",
         },
     ]

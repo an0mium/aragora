@@ -9,6 +9,6 @@ verification_refs:
   - "Round 30e reassessment"
 ---
 
-The round-30b AGT-04 Brier leaderboard tracks three calibrated agents: oracle-droid (a Droid agent with claude-opus-4-7 prior), bear-claude (a Claude agent with claude-sonnet-4-7 prior), and dove-codex (a Codex agent with gpt-5-codex prior). Each agent independently predicts merge probability for staged PRs and accumulates a Brier score over time, allowing model-family-level calibration tracking. After 2 markets resolved YES, oracle-droid leads with the lowest Brier loss.
+The round-30b AGT-04 Brier leaderboard tracks three calibrated agents: oracle-droid (a Droid agent with claude-fable-5-1 prior), bear-claude (a Claude agent with claude-sonnet-4-7 prior), and dove-codex (a Codex agent with gpt-5-codex prior). Each agent independently predicts merge probability for staged PRs and accumulates a Brier score over time, allowing model-family-level calibration tracking. After 2 markets resolved YES, oracle-droid leads with the lowest Brier loss.
 
 Review for accuracy. List any errors.

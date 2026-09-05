@@ -86,9 +86,9 @@ class TestTaskHandle:
 
 class TestAgentConfig:
     def test_create_minimal(self):
-        config = AgentConfig(id="a1", model="claude-3-opus")
+        config = AgentConfig(id="a1", model="claude-fable-5-1")
         assert config.id == "a1"
-        assert config.model == "claude-3-opus"
+        assert config.model == "claude-fable-5-1"
         assert config.tools == []
         assert config.pool_id is None
         assert config.max_concurrent_tasks == 1
@@ -96,7 +96,7 @@ class TestAgentConfig:
     def test_create_full(self):
         config = AgentConfig(
             id="a1",
-            model="gpt-4",
+            model="gpt-6-astra",
             tools=["shell", "browser"],
             isolation=IsolationConfig(level="container", memory_mb=1024),
             budget=BudgetConfig(max_tokens_per_day=100_000),
@@ -139,7 +139,7 @@ class TestBudgetConfig:
 
 class TestAgentHandle:
     def test_create(self):
-        config = AgentConfig(id="a1", model="claude-3-opus")
+        config = AgentConfig(id="a1", model="claude-fable-5-1")
         handle = AgentHandle(
             agent_id="a1",
             config=config,
@@ -154,7 +154,7 @@ class TestAgentInfo:
     def test_create(self):
         info = AgentInfo(
             agent_id="a1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             status=HealthStatus.HEALTHY,
             spawned_at=datetime.now(timezone.utc),
             last_heartbeat=datetime.now(timezone.utc),
@@ -229,7 +229,7 @@ class TestUsageModels:
             tokens_input=500,
             tokens_output=200,
             cost_usd=0.01,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         assert usage.agent_id == "a1"
         assert usage.tokens_input == 500

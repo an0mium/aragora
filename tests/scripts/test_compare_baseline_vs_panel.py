@@ -20,10 +20,10 @@ from scripts.compare_baseline_vs_panel import (
 
 PANEL_AGENTS = (
     "claude-haiku-4-5",
-    "gpt-4.1",
-    "gemini-3.1-pro",
-    "mistral-large",
-    "grok-4",
+    "gpt-6-astra",
+    "gemini-3.1-pro-preview",
+    "mistral-large-2512",
+    "grok-4.6",
     "openrouter/qwen",
 )
 
@@ -236,7 +236,7 @@ def test_successful_seeded_n_uses_dispatch_failures_not_attempted_only() -> None
         rate=0.5,
         successes=9,
         trials=18,
-        dispatch_failed_agents={"gpt-4.1"},
+        dispatch_failed_agents={"gpt-6-astra"},
     )
 
     comparison = build_comparison_receipt(
@@ -285,10 +285,10 @@ def test_top_level_n_per_class_is_used_when_metrics_omits_it() -> None:
 def test_openrouter_fallback_counts_as_openrouter_transport_not_direct_provider() -> None:
     agents = (
         "claude-haiku-4-5",
-        "openrouter:openai/gpt-5.5",
-        "gemini-3.1-pro",
-        "mistral-large",
-        "grok-4",
+        "openrouter:openai/gpt-6-astra",
+        "gemini-3.1-pro-preview",
+        "mistral-large-2512",
+        "grok-4.6",
         "openrouter/qwen",
     )
     baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, agents=agents)
@@ -298,11 +298,11 @@ def test_openrouter_fallback_counts_as_openrouter_transport_not_direct_provider(
         successes=9,
         agents=agents,
         metadata_by_agent={
-            "openrouter:openai/gpt-5.5": {
+            "openrouter:openai/gpt-6-astra": {
                 "requested_provider": "openai",
-                "requested_model": "gpt-5.5",
+                "requested_model": "gpt-6-astra",
                 "transport_provider": "openrouter",
-                "actual_model_id": "openai/gpt-5.5",
+                "actual_model_id": "openai/gpt-6-astra",
                 "fallback_used": True,
                 "fallback_reason": "direct_openai_insufficient_quota",
             }
@@ -351,7 +351,7 @@ def test_openrouter_dominance_above_half_is_insufficient() -> None:
         "openrouter:model-c",
         "openrouter:model-d",
         "claude-haiku-4-5",
-        "grok-4",
+        "grok-4.6",
     )
     baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, agents=agents)
     panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, agents=agents)

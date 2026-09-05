@@ -27,8 +27,8 @@ class TestModelConfig(unittest.TestCase):
 
     def test_basic_creation(self):
         """Should create config with required fields."""
-        config = ModelConfig(model_id="gpt-4", provider="openai")
-        self.assertEqual(config.model_id, "gpt-4")
+        config = ModelConfig(model_id="gpt-6-astra", provider="openai")
+        self.assertEqual(config.model_id, "gpt-6-astra")
         self.assertEqual(config.provider, "openai")
 
     def test_default_values(self):
@@ -47,7 +47,7 @@ class TestModelConfig(unittest.TestCase):
     def test_custom_values(self):
         """Should accept custom values."""
         config = ModelConfig(
-            model_id="claude-3-opus",
+            model_id="claude-fable-5-1",
             provider="anthropic",
             version="2024-01",
             temperature=0.5,
@@ -63,19 +63,19 @@ class TestModelConfigProviderInference(unittest.TestCase):
 
     def test_infer_openai_from_gpt(self):
         """Should infer openai from GPT models."""
-        self.assertEqual(ModelConfig._infer_provider("gpt-4"), "openai")
+        self.assertEqual(ModelConfig._infer_provider("gpt-6-astra"), "openai")
         self.assertEqual(ModelConfig._infer_provider("gpt-3.5-turbo"), "openai")
         self.assertEqual(ModelConfig._infer_provider("GPT-4-turbo"), "openai")
 
     def test_infer_anthropic_from_claude(self):
         """Should infer anthropic from Claude models."""
-        self.assertEqual(ModelConfig._infer_provider("claude-3-opus"), "anthropic")
+        self.assertEqual(ModelConfig._infer_provider("claude-fable-5-1"), "anthropic")
         self.assertEqual(ModelConfig._infer_provider("claude-2.1"), "anthropic")
         self.assertEqual(ModelConfig._infer_provider("Claude-3-Sonnet"), "anthropic")
 
     def test_infer_google_from_gemini(self):
         """Should infer google from Gemini models."""
-        self.assertEqual(ModelConfig._infer_provider("gemini-pro"), "google")
+        self.assertEqual(ModelConfig._infer_provider("gemini-3.1-pro-preview"), "google")
         self.assertEqual(ModelConfig._infer_provider("Gemini-1.5-Flash"), "google")
 
     def test_infer_codex(self):
@@ -100,17 +100,17 @@ class TestModelConfigFromAgent(unittest.TestCase):
     def test_from_agent_basic(self):
         """Should extract model from agent."""
         agent = MagicMock()
-        agent.model = "gpt-4-turbo"
+        agent.model = "gpt-6-astra"
         agent.system_prompt = None
 
         config = ModelConfig.from_agent(agent)
-        self.assertEqual(config.model_id, "gpt-4-turbo")
+        self.assertEqual(config.model_id, "gpt-6-astra")
         self.assertEqual(config.provider, "openai")
 
     def test_from_agent_with_system_prompt(self):
         """Should hash system prompt."""
         agent = MagicMock()
-        agent.model = "claude-3-opus"
+        agent.model = "claude-fable-5-1"
         agent.system_prompt = "You are a helpful assistant."
 
         config = ModelConfig.from_agent(agent)
@@ -122,7 +122,7 @@ class TestModelConfigFromAgent(unittest.TestCase):
     def test_from_agent_no_system_prompt_attr(self):
         """Should handle agents without system_prompt attr."""
         agent = MagicMock(spec=[])  # No system_prompt attr
-        agent.model = "gpt-4"
+        agent.model = "gpt-6-astra"
 
         config = ModelConfig.from_agent(agent)
         self.assertEqual(config.system_prompt_hash, "")
@@ -134,14 +134,14 @@ class TestModelConfigSerialization(unittest.TestCase):
     def test_to_dict(self):
         """Should serialize all fields to dict."""
         config = ModelConfig(
-            model_id="gpt-4",
+            model_id="gpt-6-astra",
             provider="openai",
             version="0613",
             temperature=0.5,
         )
 
         d = config.to_dict()
-        self.assertEqual(d["model_id"], "gpt-4")
+        self.assertEqual(d["model_id"], "gpt-6-astra")
         self.assertEqual(d["provider"], "openai")
         self.assertEqual(d["version"], "0613")
         self.assertEqual(d["temperature"], 0.5)
@@ -202,7 +202,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
     def test_config_hash_includes_agents(self):
         """Config hash should include agent configurations."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai"),
+            ModelConfig(model_id="gpt-6-astra", provider="openai"),
             ModelConfig(model_id="claude-3", provider="anthropic"),
         ]
         meta = DebateMetadata(
@@ -217,7 +217,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-6-astra", provider="openai")],
         )
         meta2 = DebateMetadata(
             debate_id="2",
@@ -232,7 +232,7 @@ class TestDebateMetadataSerialization(unittest.TestCase):
 
     def test_to_dict(self):
         """Should serialize to dictionary."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-6-astra", provider="openai")]
         meta = DebateMetadata(
             debate_id="debate-123",
             task="Test task",
@@ -267,7 +267,7 @@ class TestDebateMetadataSerialization(unittest.TestCase):
 
     def test_from_dict_roundtrip(self):
         """Should deserialize back to equivalent object."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai", temperature=0.5)]
+        agents = [ModelConfig(model_id="gpt-6-astra", provider="openai", temperature=0.5)]
         original = DebateMetadata(
             debate_id="debate-123",
             task="Test task",
@@ -296,7 +296,7 @@ class TestDebateMetadataComparison(unittest.TestCase):
 
     def test_is_similar_config_identical(self):
         """Identical configs should be similar."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-6-astra", provider="openai")]
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
@@ -357,13 +357,13 @@ class TestDebateMetadataComparison(unittest.TestCase):
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-6-astra", provider="openai")],
         )
         meta2 = DebateMetadata(
             debate_id="2",
             task="Test",
             agent_configs=[
-                ModelConfig(model_id="gpt-4", provider="openai"),
+                ModelConfig(model_id="gpt-6-astra", provider="openai"),
                 ModelConfig(model_id="claude-3", provider="anthropic"),
             ],
         )
@@ -387,11 +387,11 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         arena.protocol.consensus = "majority"
 
         agent1 = MagicMock()
-        agent1.model = "gpt-4"
+        agent1.model = "gpt-6-astra"
         agent1.system_prompt = None
 
         agent2 = MagicMock()
-        agent2.model = "claude-3-opus"
+        agent2.model = "claude-fable-5-1"
         agent2.system_prompt = "Be helpful"
 
         arena.agents = [agent1, agent2]
@@ -403,8 +403,8 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         self.assertEqual(meta.context, "For a web application")
         self.assertEqual(meta.max_rounds, 4)
         self.assertEqual(len(meta.agent_configs), 2)
-        self.assertEqual(meta.agent_configs[0].model_id, "gpt-4")
-        self.assertEqual(meta.agent_configs[1].model_id, "claude-3-opus")
+        self.assertEqual(meta.agent_configs[0].model_id, "gpt-6-astra")
+        self.assertEqual(meta.agent_configs[1].model_id, "claude-fable-5-1")
 
 
 class TestMetadataStore(unittest.TestCase):
@@ -458,7 +458,7 @@ class TestMetadataStore(unittest.TestCase):
 
     def test_find_similar(self):
         """Should find debates with similar configuration."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-6-astra", provider="openai")]
 
         # Store multiple debates with same config
         meta1 = DebateMetadata(
@@ -566,9 +566,9 @@ class TestMetadataStoreEdgeCases(unittest.TestCase):
     def test_store_with_multiple_agents(self):
         """Should preserve all agent configurations."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai", temperature=0.5),
+            ModelConfig(model_id="gpt-6-astra", provider="openai", temperature=0.5),
             ModelConfig(model_id="claude-3", provider="anthropic", temperature=0.8),
-            ModelConfig(model_id="gemini-pro", provider="google", temperature=0.6),
+            ModelConfig(model_id="gemini-3.1-pro-preview", provider="google", temperature=0.6),
         ]
         meta = DebateMetadata(
             debate_id="debate-123",
@@ -603,7 +603,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
     def test_find_previous_runs_of_same_experiment(self):
         """Should find previous runs with same config for comparison."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai"),
+            ModelConfig(model_id="gpt-6-astra", provider="openai"),
             ModelConfig(model_id="claude-3", provider="anthropic"),
         ]
 
@@ -635,7 +635,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
             debate_id="run-1",
             task="Test",
             max_rounds=3,
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-6-astra", provider="openai")],
         )
 
         # Second run with modified config
@@ -644,7 +644,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
             task="Test",
             max_rounds=5,  # Changed
             agent_configs=[
-                ModelConfig(model_id="gpt-4", provider="openai"),
+                ModelConfig(model_id="gpt-6-astra", provider="openai"),
                 ModelConfig(model_id="claude-3", provider="anthropic"),  # Added
             ],
         )

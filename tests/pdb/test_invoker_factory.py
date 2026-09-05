@@ -371,8 +371,8 @@ class TestBuildDefaultInvoker:
             env={
                 "ANTHROPIC_API_KEY": "sk-ant-test",
                 "OPENAI_API_KEY": "sk-oa-test",
-                CLAUDE_MODEL_ENV: "claude-opus-4-7",
-                OPENAI_MODEL_ENV: "gpt-5.5",
+                CLAUDE_MODEL_ENV: "claude-fable-5-1",
+                OPENAI_MODEL_ENV: "gpt-6-astra",
             },
             anthropic_agent_factory=_recording_claude,
             openai_agent_factory=_recording_gpt,
@@ -382,8 +382,8 @@ class TestBuildDefaultInvoker:
             mistral_agent_factory=_fake_agent,
         )
         by_family = {family: (model, key) for family, model, key in calls}
-        assert by_family["claude"][0] == "claude-opus-4-7"
-        assert by_family["gpt"][0] == "gpt-5.5"
+        assert by_family["claude"][0] == "claude-fable-5-1"
+        assert by_family["gpt"][0] == "gpt-6-astra"
         # API keys get passed through verbatim.
         assert by_family["claude"][1] == "sk-ant-test"
         assert by_family["gpt"][1] == "sk-oa-test"
@@ -618,11 +618,11 @@ class TestHeterodoxKeyWiring:
                 "GROK_API_KEY": "grok",
                 "OPENROUTER_API_KEY": "or",
                 "MISTRAL_API_KEY": "mi",
-                GEMINI_MODEL_ENV: "gemini-3-flash-preview",
+                GEMINI_MODEL_ENV: "gemini-3.8-flash",
                 GROK_MODEL_ENV: "grok-4-fast",
-                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-v4-pro",
-                KIMI_MODEL_ENV: "moonshotai/kimi-k2-thinking",
-                QWEN_MODEL_ENV: "qwen/qwen3.7-max",
+                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-v4-pro-0813",
+                KIMI_MODEL_ENV: "moonshotai/kimi-k3",
+                QWEN_MODEL_ENV: "qwen/qwen3.8-2.4t-a95b",
                 MISTRAL_MODEL_ENV: "mistral-medium-latest",
             },
             anthropic_agent_factory=_fake_claude,
@@ -632,14 +632,14 @@ class TestHeterodoxKeyWiring:
             openrouter_agent_factory=_make("openrouter"),
             mistral_agent_factory=_make("mistral"),
         )
-        assert calls["gemini"] == [("gemini-3-flash-preview", "goog")]
+        assert calls["gemini"] == [("gemini-3.8-flash", "goog")]
         assert calls["grok"] == [("grok-4-fast", "grok")]
         # Openrouter factory is called once per family.
         openrouter_models = {m for m, _ in calls["openrouter"]}
         assert openrouter_models == {
-            "deepseek/deepseek-v4-pro",
-            "moonshotai/kimi-k2-thinking",
-            "qwen/qwen3.7-max",
+            "deepseek/deepseek-v4-pro-0813",
+            "moonshotai/kimi-k3",
+            "qwen/qwen3.8-2.4t-a95b",
         }
         assert calls["mistral"] == [("mistral-medium-latest", "mi")]
 
@@ -671,6 +671,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
             "claude-sonnet-4-6",
             "claude-sonnet-4",
             "claude-haiku-4-5",
+            "claude-fable-5-1",
         }
     ),
     "openai": frozenset(
@@ -682,6 +683,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4o",
+            "gpt-6-astra",
         }
     ),
     "gemini": frozenset(
@@ -705,7 +707,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
             "grok-4-1-fast-non-reasoning",
             "grok-4-fast-reasoning",
             "grok-4-0709",
-            "grok-4-latest",
+            "grok-4.6",
         }
     ),
     "mistral": frozenset(
@@ -715,14 +717,14 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
             "mistral-large-latest",
             "mistral-medium-latest",
             "mistral-small-latest",
-            "codestral-latest",
+            "mistral-medium-2604",
             "ministral-8b-latest",
             "ministral-3b-latest",
         }
     ),
     "deepseek": frozenset(
         {
-            "deepseek/deepseek-v4-pro",
+            "deepseek/deepseek-v4-pro-0813",
         }
     ),
     "kimi": frozenset(

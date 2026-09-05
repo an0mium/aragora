@@ -174,8 +174,8 @@ class TestGetAgentName:
 
     def test_extracts_from_object(self):
         """Test extracting name from object."""
-        agent = MockAgent(name="gpt-4", agent_name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4"
+        agent = MockAgent(name="gpt-6-astra", agent_name="gpt-6-astra")
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_prefers_agent_name_attr(self):
         """Test agent_name attribute takes precedence."""

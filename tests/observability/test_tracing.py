@@ -533,7 +533,7 @@ class TestExternalServiceTracing:
 
         with trace_llm_call(
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             operation="generate",
             prompt_tokens=100,
         ) as span:
@@ -545,7 +545,7 @@ class TestExternalServiceTracing:
 
         with trace_llm_call(
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
         ) as span:
             assert span is not None
 

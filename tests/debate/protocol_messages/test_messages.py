@@ -522,7 +522,7 @@ class TestAgentEventMessage:
             debate_id="d1",
             agent_id="a1",
             agent_name="gpt",
-            model="gpt-4",
+            model="gpt-6-astra",
             role="critic",
             event_type=ProtocolMessageType.AGENT_FAILED,
             reason="timeout",

@@ -396,7 +396,7 @@ class TestTaskOutcomeStorage:
         outcome = TaskSchedulingOutcome(
             task_id="task_failed",
             task_type="code_review",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             pool_id="pool_1",
             priority=2,
             scheduled_at=time.time() - 60,

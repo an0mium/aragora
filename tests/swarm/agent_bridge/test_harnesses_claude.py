@@ -27,7 +27,7 @@ def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path)
     session_id = uuid.UUID("123e4567-e89b-42d3-a456-426614174000")
     transport = ClaudeTransport(
         cwd=tmp_path,
-        model="claude-opus-4-7",
+        model="claude-fable-5-1",
         runner=fake_runner,
         binary_resolver=lambda _: "/usr/bin/claude",
         uuid_factory=lambda: session_id,
@@ -45,7 +45,7 @@ def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path)
         "--session-id",
         str(session_id),
         "--model",
-        "claude-opus-4-7",
+        "claude-fable-5-1",
         "Review this",
     ]
     assert fake_runner.commands[1] == [
@@ -54,7 +54,7 @@ def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path)
         "--resume",
         str(session_id),
         "--model",
-        "claude-opus-4-7",
+        "claude-fable-5-1",
         "Repair this",
     ]
     assert resumed.session_id == str(session_id)

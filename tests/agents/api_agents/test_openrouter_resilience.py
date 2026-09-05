@@ -342,7 +342,7 @@ class TestGenerateDecoratorIntegration:
         from aragora.agents.api_agents.openrouter import OpenRouterAgent
         from tests.agents.api_agents.conftest import MockClientSession, MockResponse
 
-        # deepseek-v4-pro is superseded by deepseek-v4-pro-0813
+        # deepseek-v4-pro-0813 is superseded by deepseek-v4-pro-0813
         # (frontier-model-refresh, 2026-09-04); this exercises the real
         # OPENROUTER_FALLBACK_MODELS key for the DeepSeek family.
         agent = OpenRouterAgent(model="deepseek/deepseek-v4-pro-0813")

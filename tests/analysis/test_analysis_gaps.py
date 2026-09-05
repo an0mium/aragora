@@ -533,7 +533,7 @@ class TestQueryResult:
             chunks_searched=10,
             chunks_relevant=3,
             processing_time_ms=150,
-            model_used="claude-3.5-sonnet",
+            model_used="claude-fable-5-1",
         )
         defaults.update(overrides)
         return QueryResult(**defaults)
@@ -705,11 +705,11 @@ class TestDocumentQueryEngine:
         engine = DocumentQueryEngine(searcher=searcher)
 
         with patch.object(engine, "_call_llm", new_callable=AsyncMock) as mock_llm:
-            mock_llm.return_value = ("March 15th", "claude-3.5-sonnet")
+            mock_llm.return_value = ("March 15th", "claude-fable-5-1")
             result = await engine.query("What is the deadline?")
 
         assert result.answer == "March 15th"
-        assert result.model_used == "claude-3.5-sonnet"
+        assert result.model_used == "claude-fable-5-1"
         assert len(result.citations) == 1
         assert result.citations[0].document_id == "doc1"
 

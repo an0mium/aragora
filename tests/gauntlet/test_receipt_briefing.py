@@ -41,7 +41,7 @@ def _make_receipt(**overrides) -> DecisionReceipt:
         "consensus_proof": ConsensusProof(
             reached=True,
             confidence=0.87,
-            supporting_agents=["claude", "gpt-4", "gemini", "mistral"],
+            supporting_agents=["claude", "gpt-6-astra", "gemini", "mistral"],
             dissenting_agents=["grok"],
             method="majority",
         ),
@@ -151,7 +151,7 @@ class TestToBriefingText:
                 reached=False,
                 confidence=0.4,
                 supporting_agents=["claude"],
-                dissenting_agents=["gpt-4", "gemini"],
+                dissenting_agents=["gpt-6-astra", "gemini"],
                 method="majority",
             )
         )

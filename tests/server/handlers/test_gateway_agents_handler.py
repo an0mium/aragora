@@ -244,7 +244,7 @@ class TestRegisterAgent:
 
     def test_register_agent_with_config(self, handler: GatewayAgentsHandler) -> None:
         """Registration stores config field properly."""
-        config = {"model": "gpt-4", "temperature": 0.7}
+        config = {"model": "gpt-6-astra", "temperature": 0.7}
         body = valid_agent_body(config=config)
         mock_handler = make_mock_handler(body)
 
@@ -418,7 +418,7 @@ class TestGetAgentDetails:
             "framework_type": "crewai",
             "base_url": "https://service.example.com",
             "timeout": 45,
-            "config": {"model": "gpt-4"},
+            "config": {"model": "gpt-6-astra"},
         }
 
         mock_handler = make_mock_handler()
@@ -434,7 +434,7 @@ class TestGetAgentDetails:
         assert data["base_url"] == "https://service.example.com"
         assert data["timeout"] == 45
         assert data["status"] == "registered"
-        assert data["config"] == {"model": "gpt-4"}
+        assert data["config"] == {"model": "gpt-6-astra"}
 
     def test_get_agent_not_found(self, handler: GatewayAgentsHandler) -> None:
         """Getting a non-existent agent returns 404."""

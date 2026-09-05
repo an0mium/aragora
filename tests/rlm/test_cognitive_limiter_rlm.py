@@ -631,9 +631,7 @@ class TestRealRLMIntegration:
         # rlm_backend is deprecated but should still be accepted for backward compatibility
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            limiter = RLMCognitiveLoadLimiter(
-                rlm_backend="anthropic", rlm_model="claude-3-5-sonnet-20241022"
-            )
+            limiter = RLMCognitiveLoadLimiter(rlm_backend="anthropic", rlm_model="claude-fable-5-1")
             # Check deprecation warning was issued (may have additional warnings from RLM init)
             deprecation_warnings = [
                 warning
@@ -645,7 +643,7 @@ class TestRealRLMIntegration:
             assert "deprecated" in str(deprecation_warnings[0].message).lower()
 
         # Only rlm_model is stored
-        assert limiter._rlm_model == "claude-3-5-sonnet-20241022"
+        assert limiter._rlm_model == "claude-fable-5-1"
 
     def test_for_stress_level_accepts_rlm_model(self):
         """for_stress_level accepts RLM model parameter."""
@@ -654,7 +652,7 @@ class TestRealRLMIntegration:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             limiter = RLMCognitiveLoadLimiter.for_stress_level(
-                level="elevated", rlm_backend="openrouter", rlm_model="mistral-large"
+                level="elevated", rlm_backend="openrouter", rlm_model="mistral-large-2512"
             )
             # rlm_backend triggers deprecation warning (may have additional warnings from RLM init)
             deprecation_warnings = [
@@ -665,7 +663,7 @@ class TestRealRLMIntegration:
             ]
             assert len(deprecation_warnings) >= 1
 
-        assert limiter._rlm_model == "mistral-large"
+        assert limiter._rlm_model == "mistral-large-2512"
 
     def test_create_rlm_limiter_accepts_model_param(self):
         """create_rlm_limiter factory accepts RLM model parameter."""
@@ -674,12 +672,12 @@ class TestRealRLMIntegration:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             limiter = create_rlm_limiter(
-                stress_level="nominal", rlm_backend="anthropic", rlm_model="claude-3-opus-20240229"
+                stress_level="nominal", rlm_backend="anthropic", rlm_model="claude-fable-5-1"
             )
             # rlm_backend triggers deprecation warning
             assert len(w) == 1
 
-        assert limiter._rlm_model == "claude-3-opus-20240229"
+        assert limiter._rlm_model == "claude-fable-5-1"
 
     def test_stats_include_rlm_queries(self):
         """Stats track RLM queries separately from compressions."""
@@ -749,7 +747,7 @@ class TestRealRLMIntegration:
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             # rlm_backend is deprecated - use rlm_model only
-            limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+            limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-6-astra")
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
 
@@ -757,7 +755,7 @@ class TestRealRLMIntegration:
     async def test_real_rlm_query(self):
         """Real RLM query uses REPL-based approach."""
         # rlm_backend is deprecated - use rlm_model only
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-6-astra")
 
         messages = [MockMessage(content="Test content " * 100, round=i) for i in range(10)]
 

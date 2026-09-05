@@ -35,7 +35,7 @@ def test_allows_auto_execution_for_signed_diverse_consensus() -> None:
     result = _make_result()
     agents = [
         SimpleNamespace(name="claude", model="claude-opus-4-1", agent_type="anthropic-api"),
-        SimpleNamespace(name="gpt", model="gpt-4.1", agent_type="openai-api"),
+        SimpleNamespace(name="gpt", model="gpt-6-astra", agent_type="openai-api"),
     ]
     policy = ExecutionSafetyPolicy(
         require_verified_signed_receipt=True,
@@ -57,15 +57,9 @@ def test_blocks_obliteratus_style_low_diversity_ensemble() -> None:
     result = _make_result()
     # Simulate compromised homogeneous open-weight ensemble.
     agents = [
-        SimpleNamespace(
-            name="llama_a", model="meta-llama/llama-3.3-70b-instruct", agent_type="openrouter"
-        ),
-        SimpleNamespace(
-            name="llama_b", model="meta-llama/llama-3.3-70b-instruct", agent_type="openrouter"
-        ),
-        SimpleNamespace(
-            name="llama_c", model="meta-llama/llama-3.3-70b-instruct", agent_type="openrouter"
-        ),
+        SimpleNamespace(name="llama_a", model="meta/muse-spark-1.3", agent_type="openrouter"),
+        SimpleNamespace(name="llama_b", model="meta/muse-spark-1.3", agent_type="openrouter"),
+        SimpleNamespace(name="llama_c", model="meta/muse-spark-1.3", agent_type="openrouter"),
     ]
     policy = ExecutionSafetyPolicy(
         require_verified_signed_receipt=True,
@@ -88,7 +82,7 @@ def test_blocks_brainworm_style_context_taint_signal() -> None:
     }
     agents = [
         SimpleNamespace(name="claude", model="claude-opus-4-1", agent_type="anthropic-api"),
-        SimpleNamespace(name="gpt", model="gpt-4.1", agent_type="openai-api"),
+        SimpleNamespace(name="gpt", model="gpt-6-astra", agent_type="openai-api"),
     ]
     policy = ExecutionSafetyPolicy(block_on_context_taint=True)
 
@@ -115,7 +109,7 @@ def test_receipt_timestamp_guards_block_untrusted_receipts(
     result = _make_result()
     agents = [
         SimpleNamespace(name="claude", model="claude-opus-4-1", agent_type="anthropic-api"),
-        SimpleNamespace(name="gpt", model="gpt-4.1", agent_type="openai-api"),
+        SimpleNamespace(name="gpt", model="gpt-6-astra", agent_type="openai-api"),
     ]
     policy = ExecutionSafetyPolicy(
         require_signed_receipt_timestamp=True,
@@ -146,7 +140,7 @@ def test_receipt_signer_allowlist_blocks_unapproved_key(monkeypatch: pytest.Monk
     result = _make_result()
     agents = [
         SimpleNamespace(name="claude", model="claude-opus-4-1", agent_type="anthropic-api"),
-        SimpleNamespace(name="gpt", model="gpt-4.1", agent_type="openai-api"),
+        SimpleNamespace(name="gpt", model="gpt-6-astra", agent_type="openai-api"),
     ]
     policy = ExecutionSafetyPolicy(
         require_receipt_signer_allowlist=True,

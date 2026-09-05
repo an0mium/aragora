@@ -190,7 +190,7 @@ class TestGetDebateEventsPolling:
         active = {
             "debate-1": {
                 "task": "Should we ship now?",
-                "agents": ["claude", "gpt-5"],
+                "agents": ["claude", "gpt-6-astra"],
                 "mode": "epistemic_hygiene",
                 "settlement": {
                     "status": "pending_outcome",
@@ -214,7 +214,7 @@ class TestGetDebateEventsPolling:
         assert evt["seq"] == 1
         assert evt["loop_id"] == "debate-1"
         assert evt["data"]["task"] == "Should we ship now?"
-        assert evt["data"]["agents"] == ["claude", "gpt-5"]
+        assert evt["data"]["agents"] == ["claude", "gpt-6-astra"]
         assert evt["data"]["mode"] == "epistemic_hygiene"
         assert evt["data"]["settlement"]["resolver_type"] == "oracle"
         assert body["next_seq"] == 2
@@ -227,7 +227,7 @@ class TestGetDebateEventsPolling:
         active = {
             "debate-1": {
                 "task": "Should we ship now?",
-                "agents": ["claude", "gpt-5"],
+                "agents": ["claude", "gpt-6-astra"],
                 "mode": "epistemic_hygiene",
             }
         }

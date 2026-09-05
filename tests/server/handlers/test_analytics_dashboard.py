@@ -732,7 +732,7 @@ class TestRecentFlipsMethod:
         mock_flip_1.agent_name = "claude"
         mock_flip_1.flip_type = "contradiction"
         mock_flip_2 = MagicMock()
-        mock_flip_2.agent_name = "gpt-4"
+        mock_flip_2.agent_name = "gpt-6-astra"
         mock_flip_2.flip_type = "retraction"
 
         mock_detector = MagicMock()
@@ -800,7 +800,7 @@ class TestAgentConsistencyMethod:
                 return_value={"agent": "claude", "consistency": "92%"},
             ):
                 result = handler._get_agent_consistency(
-                    {"agents": "claude,gpt-4"}, handler=authed_handler
+                    {"agents": "claude,gpt-6-astra"}, handler=authed_handler
                 )
         assert result is not None
         assert result.status_code == 200
@@ -1627,7 +1627,7 @@ class TestProviderBreakdownAggregation:
         mock_rows = [
             {
                 "provider": "anthropic",
-                "model": "claude-sonnet-4",
+                "model": "claude-fable-5-1",
                 "tokens_in": 100000,
                 "tokens_out": 20000,
                 "cost": 30.0,
@@ -1635,7 +1635,7 @@ class TestProviderBreakdownAggregation:
             },
             {
                 "provider": "anthropic",
-                "model": "claude-opus-4",
+                "model": "claude-fable-5-1",
                 "tokens_in": 50000,
                 "tokens_out": 10000,
                 "cost": 50.0,
@@ -1643,7 +1643,7 @@ class TestProviderBreakdownAggregation:
             },
             {
                 "provider": "openai",
-                "model": "gpt-4o",
+                "model": "gpt-6-astra",
                 "tokens_in": 80000,
                 "tokens_out": 15000,
                 "cost": 25.0,
@@ -1833,7 +1833,7 @@ class TestFiltering:
         mock_flip_2.agent_name = "claude"
         mock_flip_2.flip_type = "retraction"
         mock_flip_3 = MagicMock()
-        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.agent_name = "gpt-6-astra"
         mock_flip_3.flip_type = "contradiction"
 
         mock_detector = MagicMock()
@@ -1865,7 +1865,7 @@ class TestFiltering:
         mock_flip_2.agent_name = "claude"
         mock_flip_2.flip_type = "retraction"
         mock_flip_3 = MagicMock()
-        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.agent_name = "gpt-6-astra"
         mock_flip_3.flip_type = "contradiction"
 
         mock_detector = MagicMock()

@@ -238,7 +238,7 @@ class TestAgentCV:
         """Test round-trip serialization."""
         original = AgentCV(
             agent_id="claude-opus",
-            model_name="claude-3-opus",
+            model_name="claude-fable-5-1",
             overall_elo=1150.0,
             overall_win_rate=0.72,
             total_debates=25,
@@ -558,7 +558,7 @@ class TestCVIntegration:
                 },
             ),
             AgentCV(
-                agent_id="gpt-4",
+                agent_id="gpt-6-astra",
                 overall_elo=1100.0,
                 brier_score=0.2,
                 reliability=ReliabilityMetrics(success_rate=0.92),

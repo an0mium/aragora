@@ -81,10 +81,10 @@ class TestSessionCRUD:
         store = OpenClawGatewayStore()
         session = store.create_session(
             user_id="user1",
-            config={"model": "gpt-4"},
+            config={"model": "gpt-6-astra"},
             metadata={"source": "api"},
         )
-        assert session.config == {"model": "gpt-4"}
+        assert session.config == {"model": "gpt-6-astra"}
         assert session.metadata == {"source": "api"}
 
 

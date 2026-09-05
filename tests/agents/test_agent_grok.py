@@ -34,7 +34,7 @@ class TestGrokAgentInitialization:
         """Test agent with custom parameters."""
         agent = GrokAgent(
             name="my-grok",
-            model="grok-2",
+            model="grok-4.6",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -42,7 +42,7 @@ class TestGrokAgentInitialization:
         )
 
         assert agent.name == "my-grok"
-        assert agent.model == "grok-2"
+        assert agent.model == "grok-4.6"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False
@@ -257,7 +257,7 @@ class TestGrokModelMapping:
 
     def test_model_mapping_exists(self):
         """A legacy model spelling resolves to the current frontier."""
-        agent = GrokAgent(api_key="test-key", model="grok-3")
+        agent = GrokAgent(api_key="test-key", model="grok-4.6")
         assert agent.get_fallback_model() == "x-ai/grok-4.6"
 
     def test_fallback_uses_correct_model(self):

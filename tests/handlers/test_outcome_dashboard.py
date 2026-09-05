@@ -84,7 +84,7 @@ class MockAgentPerformance:
     agent_id: str = "agent-001"
     agent_name: str = "claude"
     provider: str = "anthropic"
-    model: str = "claude-3-opus"
+    model: str = "claude-fable-5-1"
     debates_participated: int = 50
     messages_sent: int = 200
     avg_response_time_ms: float = 1500.0
@@ -166,9 +166,9 @@ def _make_mock_debate_analytics(stats: MockDebateStats | None = None):
             MockAgentPerformance(),
             MockAgentPerformance(
                 agent_id="agent-002",
-                agent_name="gpt-4",
+                agent_name="gpt-6-astra",
                 provider="openai",
-                model="gpt-4-turbo",
+                model="gpt-6-astra",
                 current_elo=1620.0,
                 elo_change_period=-10.0,
                 rank=2,

@@ -108,7 +108,7 @@ class TestDebateRoundCostDistribution:
         # Simulate costs from different agents
         agent_costs = {
             "claude": Decimal("0.80"),
-            "gpt-4": Decimal("0.60"),
+            "gpt-6-astra": Decimal("0.60"),
             "gemini": Decimal("0.40"),
         }
 
@@ -127,7 +127,7 @@ class TestDebateRoundCostDistribution:
 
         assert summary.total_cost_usd == Decimal("1.80")
         # Check model breakdown
-        assert "claude" in summary.cost_by_model or "gpt-4" in summary.cost_by_model
+        assert "claude" in summary.cost_by_model or "gpt-6-astra" in summary.cost_by_model
 
     def test_multiple_debates_tracked_separately(self, cost_attributor):
         """Costs from different debates are tracked separately."""
@@ -520,7 +520,7 @@ class TestCostAttributionSummary:
         )
         cost_attributor.record_cost(
             cost_usd=Decimal("0.70"),
-            model="gpt-4",
+            model="gpt-6-astra",
             user_id="user-1",
         )
         cost_attributor.record_cost(
@@ -533,7 +533,7 @@ class TestCostAttributionSummary:
 
         # Claude-sonnet should have 0.50 + 0.30 = 0.80
         assert summary.cost_by_model.get("claude-sonnet") == Decimal("0.80")
-        assert summary.cost_by_model.get("gpt-4") == Decimal("0.70")
+        assert summary.cost_by_model.get("gpt-6-astra") == Decimal("0.70")
 
     def test_time_bounded_summary(self, cost_attributor):
         """Summary can be bounded by time period."""

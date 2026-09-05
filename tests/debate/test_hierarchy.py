@@ -144,14 +144,14 @@ class TestAgentHierarchy:
                 task_affinity={"security": 0.9},
             ),
             AgentProfile(
-                name="gpt-4",
+                name="gpt-6-astra",
                 agent_type="codex",
                 elo_rating=1700.0,
                 capabilities={"analysis", "quality_assessment", "reasoning"},
                 task_affinity={"api": 0.8},
             ),
             AgentProfile(
-                name="gemini-pro",
+                name="gemini-3.1-pro-preview",
                 agent_type="gemini",
                 elo_rating=1600.0,
                 capabilities={"research", "analysis"},

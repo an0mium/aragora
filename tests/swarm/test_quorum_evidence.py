@@ -381,10 +381,10 @@ def test_claude_reviewer_command_pins_model_by_default(monkeypatch: pytest.Monke
 
 
 def test_claude_reviewer_command_model_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_MODEL", "claude-opus-4-7")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_MODEL", "claude-fable-5-1")
     cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
 
-    assert cmd[cmd.index("--model") + 1 :] == ["claude-opus-4-7"]
+    assert cmd[cmd.index("--model") + 1 :] == ["claude-fable-5-1"]
 
 
 def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
@@ -799,7 +799,7 @@ def test_run_openai_reviewer_preserves_actionable_error_tail_and_redacts_prompt(
         return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=stderr)
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5.5")
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-6-astra")
     monkeypatch.setattr(qe.subprocess, "run", fake_run)
 
     result = qe._run_openai_reviewer(prompt)

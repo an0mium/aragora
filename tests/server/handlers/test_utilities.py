@@ -74,7 +74,7 @@ class _AgentObj:
 class _AgentObjAltName:
     """Mock agent with agent_name instead of name."""
 
-    def __init__(self, agent_name: str = "gpt-4"):
+    def __init__(self, agent_name: str = "gpt-6-astra"):
         self.agent_name = agent_name
 
 
@@ -195,19 +195,19 @@ class TestGetAgentName:
         assert get_agent_name({"name": "claude"}) == "claude"
 
     def test_dict_with_agent_name(self):
-        assert get_agent_name({"agent_name": "gpt-4"}) == "gpt-4"
+        assert get_agent_name({"agent_name": "gpt-6-astra"}) == "gpt-6-astra"
 
     def test_dict_agent_name_priority(self):
         # agent_name should take priority over name
-        assert get_agent_name({"agent_name": "gpt-4", "name": "claude"}) == "gpt-4"
+        assert get_agent_name({"agent_name": "gpt-6-astra", "name": "claude"}) == "gpt-6-astra"
 
     def test_object_with_name(self):
         agent = _AgentObj(name="claude")
         assert get_agent_name(agent) == "claude"
 
     def test_object_with_agent_name(self):
-        agent = _AgentObjAltName(agent_name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4"
+        agent = _AgentObjAltName(agent_name="gpt-6-astra")
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_dict_empty(self):
         assert get_agent_name({}) is None

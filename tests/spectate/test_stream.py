@@ -494,13 +494,13 @@ class TestEmitJson:
     def test_json_full_event(self):
         data = self._emit_json(
             event_type=SpectatorEvents.CRITIQUE,
-            agent="gpt-4",
+            agent="gpt-6-astra",
             details="weak argument",
             metric=0.42,
             round_number=2,
         )
         assert data["type"] == "critique"
-        assert data["agent"] == "gpt-4"
+        assert data["agent"] == "gpt-6-astra"
         assert data["details"] == "weak argument"
         assert data["metric"] == 0.42
         assert data["round"] == 2

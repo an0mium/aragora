@@ -37,7 +37,7 @@ class _StubDebateResult:
     confidence: float = 0.85
     consensus_reached: bool = True
     consensus_strength: str = "strong"
-    participants: list[str] = field(default_factory=lambda: ["claude", "gpt-4"])
+    participants: list[str] = field(default_factory=lambda: ["claude", "gpt-6-astra"])
     messages: list[Any] = field(default_factory=list)
     critiques: list[Any] = field(default_factory=list)
     votes: list[Any] = field(default_factory=list)

@@ -244,7 +244,7 @@ AGENT_PERF = {
             "draws": 0,
         },
         {
-            "name": "gpt-4",
+            "name": "gpt-6-astra",
             "elo": 1200,
             "debates_count": 18,
             "win_rate": 0.65,
@@ -262,7 +262,7 @@ AGENT_PERF = {
             "draws": 0,
         },
         {
-            "name": "mistral-large",
+            "name": "mistral-large-2512",
             "elo": 1100,
             "debates_count": 12,
             "win_rate": 0.5,
@@ -495,7 +495,7 @@ class TestGetDashboardDebate:
                         "timestamp": "2026-04-05T12:02:31Z",
                     },
                     "total_cost_usd": 0.42,
-                    "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+                    "per_agent_cost": {"claude": 0.24, "gpt-6-astra": 0.18},
                     "metadata": {
                         "provider": "anthropic",
                         "provider_route": "anthropic->openai-fallback",
@@ -520,7 +520,7 @@ class TestGetDashboardDebate:
             "provider_names": ["anthropic", "openai"],
             "provider_routing": {"routing_applied": True},
             "total_cost_usd": 0.42,
-            "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+            "per_agent_cost": {"claude": 0.24, "gpt-6-astra": 0.18},
         }
 
     def test_backfills_receipt_store_proof_when_artifact_is_sparse(self):
@@ -536,7 +536,7 @@ class TestGetDashboardDebate:
                 "total_cost_usd": "0.17",
                 "per_agent": {
                     "claude": {"total_cost_usd": "0.10"},
-                    "gpt-4.1": {"cost": "0.07"},
+                    "gpt-6-astra": {"cost": "0.07"},
                 },
             },
         )
@@ -558,7 +558,7 @@ class TestGetDashboardDebate:
             "receipt_hash": "sha256:receipt-proof",
             "receipt_timestamp": "2026-04-05T12:03:00Z",
             "total_cost_usd": 0.17,
-            "per_agent_cost": {"claude": 0.1, "gpt-4.1": 0.07},
+            "per_agent_cost": {"claude": 0.1, "gpt-6-astra": 0.07},
         }
 
     def test_empty_debate_id(self, handler):
@@ -1626,7 +1626,7 @@ class TestTeamDetailEdgeCases:
         members = _body(result)["members"]
         assert len(members) == 2
         member_names = {m["name"] for m in members}
-        assert "gpt-4" in member_names
+        assert "gpt-6-astra" in member_names
         assert "gpt-3.5" in member_names
 
     def test_detail_partial_prefix_match(self):

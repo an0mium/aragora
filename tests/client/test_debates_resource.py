@@ -54,14 +54,14 @@ class TestDebatesAPICreate:
 
         response = debates_api.create(
             task="Test task",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=5,
             consensus="unanimous",
         )
 
         assert response.debate_id == "test-456"
         call_data = mock_client._post.call_args[0][1]
-        assert call_data["agents"] == ["claude", "gpt-4"]
+        assert call_data["agents"] == ["claude", "gpt-6-astra"]
         assert call_data["rounds"] == 5
         assert call_data["consensus"] == "unanimous"
 

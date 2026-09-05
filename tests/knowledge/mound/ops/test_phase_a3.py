@@ -200,11 +200,11 @@ class TestCalibrationFusion:
 
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a", 0.85, 0.12),
-            AgentPrediction("gpt-4", 0.75, "winner_a", 0.8, 0.15),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a", 0.8, 0.15),
             AgentPrediction("gemini", 0.7, "winner_a", 0.75, 0.18),
         ]
 
-        weights = {"claude": 0.9, "gpt-4": 0.85, "gemini": 0.75}
+        weights = {"claude": 0.9, "gpt-6-astra": 0.85, "gemini": 0.75}
 
         result = engine.fuse_predictions(predictions, weights)
 
@@ -219,7 +219,7 @@ class TestCalibrationFusion:
 
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a", 0.85, 0.12),
-            AgentPrediction("gpt-4", 0.75, "winner_b", 0.8, 0.15),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_b", 0.8, 0.15),
             AgentPrediction("gemini", 0.6, "winner_a", 0.75, 0.18),
         ]
 
@@ -234,7 +234,7 @@ class TestCalibrationFusion:
 
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a", 0.85, 0.12),
-            AgentPrediction("gpt-4", 0.82, "winner_a", 0.8, 0.15),
+            AgentPrediction("gpt-6-astra", 0.82, "winner_a", 0.8, 0.15),
             AgentPrediction("gemini", 0.15, "winner_b", 0.75, 0.40),  # Outlier
         ]
 
@@ -284,7 +284,7 @@ class TestMultiPartyValidation:
 
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4", "gemini"],
+            validators=["claude", "gpt-6-astra", "gemini"],
             quorum=2,
         )
 
@@ -300,7 +300,7 @@ class TestMultiPartyValidation:
 
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -408,7 +408,7 @@ class TestQualitySignals:
         signals = engine.compute_quality_signals(
             item_id="km_123",
             raw_confidence=0.85,
-            contributors=["claude", "gpt-4"],
+            contributors=["claude", "gpt-6-astra"],
         )
 
         assert isinstance(signals, QualitySignals)
@@ -427,7 +427,7 @@ class TestQualitySignals:
                 "calibration_total": 100,
                 "calibration_brier_sum": 12.0,  # 0.12 average Brier
             },
-            "gpt-4": {
+            "gpt-6-astra": {
                 "calibration_accuracy": 0.80,
                 "calibration_total": 80,
                 "calibration_brier_sum": 12.0,  # 0.15 average Brier
@@ -437,7 +437,7 @@ class TestQualitySignals:
         signals = engine.compute_quality_signals(
             item_id="km_123",
             raw_confidence=0.90,
-            contributors=["claude", "gpt-4"],
+            contributors=["claude", "gpt-6-astra"],
             contributor_ratings=contributor_ratings,
         )
 

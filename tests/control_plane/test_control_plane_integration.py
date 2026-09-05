@@ -163,7 +163,7 @@ class TestAgentRegistrationToTaskAssignment:
         agent = await coord.register_agent(
             agent_id="claude-1",
             capabilities=["debate", "analysis"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
         assert agent.status == AgentStatus.READY
@@ -224,13 +224,13 @@ class TestAgentRegistrationToTaskAssignment:
         await coord.register_agent(
             agent_id="debater",
             capabilities=["debate"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
         await coord.register_agent(
             agent_id="coder",
             capabilities=["code"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 

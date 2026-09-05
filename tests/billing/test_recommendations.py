@@ -40,7 +40,7 @@ def sample_model_alternative():
     """Sample ModelAlternative for testing."""
     return ModelAlternative(
         provider="openai",
-        model="gpt-4o-mini",
+        model="gpt-5.6-terra",
         cost_per_1k_input=Decimal("0.00015"),
         cost_per_1k_output=Decimal("0.0006"),
         quality_score=0.85,
@@ -201,7 +201,7 @@ class TestModelAlternative:
     def test_create_model_alternative(self, sample_model_alternative):
         """Test creating a model alternative."""
         assert sample_model_alternative.provider == "openai"
-        assert sample_model_alternative.model == "gpt-4o-mini"
+        assert sample_model_alternative.model == "gpt-5.6-terra"
         assert sample_model_alternative.cost_per_1k_input == Decimal("0.00015")
         assert sample_model_alternative.cost_per_1k_output == Decimal("0.0006")
         assert sample_model_alternative.quality_score == 0.85
@@ -540,7 +540,7 @@ class TestOptimizationRecommendationToDict:
 
         assert data["model_alternative"] is not None
         assert data["model_alternative"]["provider"] == "openai"
-        assert data["model_alternative"]["model"] == "gpt-4o-mini"
+        assert data["model_alternative"]["model"] == "gpt-5.6-terra"
         assert data["model_alternative"]["cost_per_1k_input"] == "0.00015"
         assert data["model_alternative"]["quality_score"] == 0.85
 
@@ -656,7 +656,7 @@ class TestOptimizationRecommendationFromDict:
     def test_from_dict_lists(self):
         """Test from_dict parses list fields."""
         data = {
-            "affected_agents": ["claude", "gpt-4", "gemini"],
+            "affected_agents": ["claude", "gpt-6-astra", "gemini"],
             "affected_operations": ["summarize", "translate"],
         }
 

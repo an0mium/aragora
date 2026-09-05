@@ -112,7 +112,7 @@ class TestAgentTypeAttribute:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
             agent = DeepSeekReasonerAgent()
 
-        assert agent.agent_type == "deepseek-r1"
+        assert agent.agent_type == "deepseek-v4-pro-0813"
 
     def test_llama_agent_has_correct_type(self):
         """Test LlamaAgent has correct agent_type."""
@@ -178,9 +178,9 @@ class TestAgentAttributes:
         from aragora.agents.api_agents import GeminiAgent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
-            agent = GeminiAgent(model="gemini-2.0-flash")
+            agent = GeminiAgent(model="gemini-3.8-flash")
 
-        # "gemini-2.0-flash" has no catalog row of its own; resolve_model_id
+        # "gemini-3.8-flash" has no catalog row of its own; resolve_model_id
         # upgrades it to the current Google value-tier frontier
         # (frontier-model-refresh, 2026-09-04).
         assert agent.model == "gemini-3.8-flash"
@@ -307,10 +307,10 @@ class TestCreateAgentFactory:
         from aragora.agents.base import create_agent
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
-            agent = create_agent("deepseek-r1", name="test-reasoner")
+            agent = create_agent("deepseek-v4-pro-0813", name="test-reasoner")
 
         assert agent.name == "test-reasoner"
-        assert agent.agent_type == "deepseek-r1"
+        assert agent.agent_type == "deepseek-v4-pro-0813"
 
     def test_create_llama_agent(self):
         """Test factory creates LlamaAgent."""
@@ -346,10 +346,10 @@ class TestCreateAgentFactory:
         from aragora.agents.base import create_agent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
-            agent = create_agent("gemini", model="gemini-2.5-pro")
+            agent = create_agent("gemini", model="gemini-3.1-pro-preview")
 
         assert agent.model == "gemini-3.1-pro-preview"
-        assert agent._original_model == "gemini-2.5-pro"
+        assert agent._original_model == "gemini-3.1-pro-preview"
 
 
 class TestAgentStance:

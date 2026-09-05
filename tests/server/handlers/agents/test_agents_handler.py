@@ -35,25 +35,25 @@ def mock_elo_system():
     elo.get_leaderboard = MagicMock(
         return_value=[
             {"agent": "claude", "elo": 1650, "wins": 15, "losses": 3},
-            {"agent": "gpt-4", "elo": 1600, "wins": 12, "losses": 5},
+            {"agent": "gpt-6-astra", "elo": 1600, "wins": 12, "losses": 5},
             {"agent": "gemini", "elo": 1550, "wins": 10, "losses": 7},
         ]
     )
     elo.get_cached_leaderboard = MagicMock(
         return_value=[
             {"agent": "claude", "elo": 1650, "wins": 15, "losses": 3},
-            {"agent": "gpt-4", "elo": 1600, "wins": 12, "losses": 5},
+            {"agent": "gpt-6-astra", "elo": 1600, "wins": 12, "losses": 5},
         ]
     )
     elo.get_cached_recent_matches = MagicMock(
         return_value=[
-            {"id": "match_1", "agents": ["claude", "gpt-4"], "winner": "claude"},
+            {"id": "match_1", "agents": ["claude", "gpt-6-astra"], "winner": "claude"},
             {"id": "match_2", "agents": ["gemini", "claude"], "winner": "claude"},
         ]
     )
     elo.get_recent_matches = MagicMock(
         return_value=[
-            {"id": "match_1", "agents": ["claude", "gpt-4"], "winner": "claude"},
+            {"id": "match_1", "agents": ["claude", "gpt-6-astra"], "winner": "claude"},
         ]
     )
     elo.get_agent_stats = MagicMock(
@@ -65,7 +65,7 @@ def mock_elo_system():
     )
     elo.get_rivals = MagicMock(
         return_value=[
-            {"agent": "gpt-4", "matches": 5, "wins": 3, "losses": 2},
+            {"agent": "gpt-6-astra", "matches": 5, "wins": 3, "losses": 2},
         ]
     )
     elo.get_allies = MagicMock(
@@ -119,7 +119,7 @@ def mock_flip_detector():
     detector.get_agents_consistency_batch = MagicMock(
         return_value={
             "claude": 0.85,
-            "gpt-4": 0.90,
+            "gpt-6-astra": 0.90,
             "gemini": 0.80,
         }
     )
@@ -169,7 +169,7 @@ def mock_calibration_tracker():
             "total_predictions": 100,
         }
     )
-    tracker.get_all_agents = MagicMock(return_value=["claude", "gpt-4", "gemini"])
+    tracker.get_all_agents = MagicMock(return_value=["claude", "gpt-6-astra", "gemini"])
     tracker.get_domain_breakdown = MagicMock(
         return_value={
             "general": {"brier": 0.10, "ece": 0.04},
@@ -389,7 +389,7 @@ class TestGetHeadToHead:
 
     def test_get_head_to_head_success(self, agents_handler):
         """Get head-to-head returns matchup stats."""
-        result = agents_handler._get_head_to_head("claude", "gpt-4")
+        result = agents_handler._get_head_to_head("claude", "gpt-6-astra")
 
         assert result is not None
         assert result.status_code == 200
@@ -473,14 +473,14 @@ class TestCompareAgents:
 
     def test_compare_agents_success(self, agents_handler):
         """Compare agents returns comparison data."""
-        result = agents_handler._compare_agents(["claude", "gpt-4"])
+        result = agents_handler._compare_agents(["claude", "gpt-6-astra"])
 
         assert result is not None
         assert result.status_code == 200
 
     def test_compare_multiple_agents(self, agents_handler):
         """Compare multiple agents works."""
-        result = agents_handler._compare_agents(["claude", "gpt-4", "gemini"])
+        result = agents_handler._compare_agents(["claude", "gpt-6-astra", "gemini"])
 
         assert result is not None
         assert result.status_code == 200

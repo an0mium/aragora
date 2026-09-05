@@ -49,7 +49,7 @@ def basic_artifact() -> DebateArtifact:
         artifact_id="test-artifact-001",
         debate_id="debate-001",
         task="Analyze the security of the API",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3,
         message_count=12,
         critique_count=6,
@@ -65,7 +65,7 @@ def artifact_with_consensus() -> DebateArtifact:
         artifact_id="test-artifact-002",
         debate_id="debate-002",
         task="Decide on API design approach for the new microservices",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3,
         message_count=15,
         critique_count=8,
@@ -76,7 +76,7 @@ def artifact_with_consensus() -> DebateArtifact:
             confidence=0.85,
             vote_breakdown={
                 "claude": True,
-                "gpt-4": True,
+                "gpt-6-astra": True,
                 "gemini": False,
             },
             final_answer="Use REST API with GraphQL for complex queries",
@@ -92,7 +92,7 @@ def artifact_no_consensus() -> DebateArtifact:
         artifact_id="test-artifact-003",
         debate_id="debate-003",
         task="Debate architecture choices",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=5,
         created_at="2024-01-15T10:00:00Z",
         consensus_proof=ConsensusProof(
@@ -100,7 +100,7 @@ def artifact_no_consensus() -> DebateArtifact:
             confidence=0.45,
             vote_breakdown={
                 "claude": True,
-                "gpt-4": False,
+                "gpt-6-astra": False,
             },
             final_answer="No agreement reached",
             rounds_used=5,
@@ -130,7 +130,7 @@ def artifact_with_graph() -> DebateArtifact:
                 },
                 "node-3": {
                     "node_type": "critique",
-                    "agent_id": "gpt-4",
+                    "agent_id": "gpt-6-astra",
                     "content": "Missing edge case handling",
                 },
                 "node-4": {
@@ -166,7 +166,7 @@ def artifact_with_trace() -> DebateArtifact:
                 },
                 {
                     "event_type": "agent_critique",
-                    "agent": "gpt-4",
+                    "agent": "gpt-6-astra",
                     "round_num": 1,
                     "content": {"issues": ["Missing auth", "No rate limiting"]},
                 },
@@ -505,7 +505,7 @@ class TestStaticHTMLExporterTimelineView:
 
         assert 'class="timeline-item' in result
         assert "claude" in result
-        assert "gpt-4" in result
+        assert "gpt-6-astra" in result
 
     def test_includes_timeline_controls(self, artifact_with_trace: DebateArtifact):
         """Should include timeline playback controls."""

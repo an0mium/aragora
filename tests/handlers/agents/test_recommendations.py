@@ -395,8 +395,8 @@ class TestCostEstimation:
             assert body["recommendations"][0]["estimated_cost_per_1k_tokens"] == 0.002
 
     def test_prefix_cost_match(self, handler, mock_http_handler):
-        """Prefix matching works for agent names like 'claude-3-opus'."""
-        agents = [MockAgent(name="claude-3-opus")]
+        """Prefix matching works for agent names like 'claude-fable-5-1'."""
+        agents = [MockAgent(name="claude-fable-5-1")]
         mock_elo = _make_mock_elo(leaderboard=agents)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)

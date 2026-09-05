@@ -420,7 +420,7 @@ class TestGetDebateBySlug:
             "d-active": {
                 "task": "Active debate",
                 "status": "starting",
-                "agents": "claude,gpt-4",
+                "agents": "claude,gpt-6-astra",
                 "rounds": 3,
             }
         }
@@ -430,7 +430,7 @@ class TestGetDebateBySlug:
         body = _body(result)
         assert body["id"] == "d-active"
         assert body["in_progress"] is True
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
         assert body["rounds"] == 3
 
     def test_get_debate_in_progress_agents_as_list(self):
@@ -440,11 +440,11 @@ class TestGetDebateBySlug:
         h = _make_handler(storage=storage)
         handler = _mock_http_handler()
 
-        active = {"d-active": {"task": "Active", "agents": ["claude", "gpt-4"]}}
+        active = {"d-active": {"task": "Active", "agents": ["claude", "gpt-6-astra"]}}
         with _patch_active_debates(active):
             result = h._get_debate_by_slug(handler, "d-active")
         body = _body(result)
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
 
     def test_get_debate_in_progress_includes_mode_and_settlement(self):
         """In-progress payload should include mode/settlement when present on active state."""
@@ -456,7 +456,7 @@ class TestGetDebateBySlug:
         active = {
             "d-active": {
                 "task": "Active",
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
                 "mode": "epistemic_hygiene",
                 "settlement": {
                     "claim": "Should we deploy?",
@@ -643,7 +643,7 @@ class TestGetDebateMessages:
             "id": "d1",
             "messages": [
                 {"role": "assistant", "content": "Hello", "agent": "claude", "round": 1},
-                {"role": "assistant", "content": "World", "agent": "gpt-4", "round": 1},
+                {"role": "assistant", "content": "World", "agent": "gpt-6-astra", "round": 1},
             ],
         }
         h = _make_handler(storage=storage)

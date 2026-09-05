@@ -120,7 +120,7 @@ def agent(vertical_config):
     """Create a test agent."""
     return ConcreteVerticalAgent(
         name="test-agent",
-        model="gpt-4",
+        model="gpt-6-astra",
         config=vertical_config,
         role="analyst",
         api_key="test-key",
@@ -142,7 +142,7 @@ class TestVerticalSpecialistAgentInit:
 
     def test_model_set(self, agent):
         """Test model is set."""
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-6-astra"
 
     def test_role_set(self, agent):
         """Test role is set."""
@@ -402,7 +402,7 @@ class TestVerticalSpecialistAgentSerialization:
         """Test to_dict has correct values."""
         d = agent.to_dict()
         assert d["name"] == "test-agent"
-        assert d["model"] == "gpt-4"
+        assert d["model"] == "gpt-6-astra"
         assert d["role"] == "analyst"
         assert d["vertical_id"] == "software"
 

@@ -292,8 +292,8 @@ class TestGetReceiptJSON:
                 "response": "Use Redis for coordination.",
                 "provider": "anthropic",
                 "provider_display": "Anthropic",
-                "model": "claude-sonnet-4",
-                "llm_label": "claude-sonnet-4 via Anthropic",
+                "model": "claude-fable-5-1",
+                "llm_label": "claude-fable-5-1 via Anthropic",
             }
         ]
         runs = get_gauntlet_runs()
@@ -312,7 +312,7 @@ class TestGetReceiptJSON:
         assert _status(result) == 200
         data = _parse(result)
         assert data["receipt_id"] == "receipt-abc123"
-        assert data["agent_responses"][0]["llm_label"] == "claude-sonnet-4 via Anthropic"
+        assert data["agent_responses"][0]["llm_label"] == "claude-fable-5-1 via Anthropic"
 
     @pytest.mark.asyncio
     async def test_returns_receipt_with_result_obj(self, mixin, mock_receipt):
@@ -759,8 +759,8 @@ class TestGetReceiptConstruction:
                     "response": "Use Redis for coordination.",
                     "provider": "anthropic",
                     "provider_display": "Anthropic",
-                    "model": "claude-sonnet-4",
-                    "llm_label": "claude-sonnet-4 via Anthropic",
+                    "model": "claude-fable-5-1",
+                    "llm_label": "claude-fable-5-1 via Anthropic",
                 }
             ],
         }
@@ -775,7 +775,7 @@ class TestGetReceiptConstruction:
             result = await mixin._get_receipt("g-stored", {"signed": "false"})
 
         assert _status(result) == 200
-        assert captured["agent_responses"][0]["llm_label"] == "claude-sonnet-4 via Anthropic"
+        assert captured["agent_responses"][0]["llm_label"] == "claude-fable-5-1 via Anthropic"
 
 
 class TestDecisionReceiptAgentResponses:
@@ -808,11 +808,11 @@ class TestDecisionReceiptAgentResponses:
                 "agent_models": {
                     "claude": {
                         "provider": "anthropic",
-                        "model": "claude-sonnet-4",
+                        "model": "claude-fable-5-1",
                     },
                     "gpt": {
                         "provider": "openai",
-                        "model": "gpt-4.1",
+                        "model": "gpt-6-astra",
                     },
                 }
             },
@@ -821,8 +821,8 @@ class TestDecisionReceiptAgentResponses:
         receipt = DecisionReceipt.from_debate_result(debate_result)
 
         assert [response.agent for response in receipt.agent_responses] == ["claude", "gpt"]
-        assert receipt.agent_responses[0].llm_label == "claude-sonnet-4 via Anthropic"
-        assert receipt.agent_responses[1].llm_label == "gpt-4.1 via OpenAI"
+        assert receipt.agent_responses[0].llm_label == "claude-fable-5-1 via Anthropic"
+        assert receipt.agent_responses[1].llm_label == "gpt-6-astra via OpenAI"
 
     @pytest.mark.asyncio
     async def test_receipt_defaults_for_missing_fields(self, mixin, mock_storage):

@@ -60,7 +60,7 @@ def sample_usage():
         agent_name="claude",
         debate_id="debate-42",
         provider="anthropic",
-        model="claude-3-opus",
+        model="claude-fable-5-1",
         tokens_in=1000,
         tokens_out=500,
         latency_ms=200.0,
@@ -106,7 +106,7 @@ class TestTokenUsage:
     def test_calculate_cost_returns_decimal(self):
         """calculate_cost delegates to calculate_token_cost and stores result."""
         usage = TokenUsage(
-            provider="anthropic", model="claude-3-opus", tokens_in=500, tokens_out=100
+            provider="anthropic", model="claude-fable-5-1", tokens_in=500, tokens_out=100
         )
         cost = usage.calculate_cost()
         assert isinstance(cost, Decimal)
@@ -313,7 +313,7 @@ class TestCostTrackerRecording:
             workspace_id="ws-1",
             agent_name="c",
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             tokens_in=500,
             tokens_out=100,
         )

@@ -19,7 +19,7 @@ def _body(
     heading: str,
     *,
     model_family: str | None = None,
-    model_id: str = "gpt-5.5",
+    model_id: str = "gpt-6-astra",
     receipt: str | None = "/tmp/review.md",
 ) -> str:
     text = f"## {heading}\n\n"
@@ -43,12 +43,12 @@ def test_router_heading_requires_model_family_disclosure() -> None:
 
 def test_router_heading_with_canonical_family_counts_by_model_family() -> None:
     identity = _resolve_model_review_identity(
-        _body("Factory focused dogfood", model_family="openai", model_id="gpt-5.5")
+        _body("Factory focused dogfood", model_family="openai", model_id="gpt-6-astra")
     )
 
     assert identity.surface_reviewer_id == "factory"
     assert identity.model_family == "openai"
-    assert identity.model_id == "gpt-5.5"
+    assert identity.model_id == "gpt-6-astra"
     assert identity.identity_source == "model_family_metadata"
 
 
@@ -64,7 +64,7 @@ def test_direct_family_heading_self_maps_without_model_family_metadata() -> None
 
 def test_direct_heading_conflicting_model_family_is_rejected() -> None:
     identity = _resolve_model_review_identity(
-        _body("Claude independent semantic review", model_family="openai", model_id="gpt-5.5")
+        _body("Claude independent semantic review", model_family="openai", model_id="gpt-6-astra")
     )
 
     assert identity.surface_reviewer_id == "claude"
@@ -87,7 +87,7 @@ def test_body_only_metadata_does_not_override_unknown_heading() -> None:
         "## Aragora Code Review\n\n"
         "**Reviewer harness:** factory\n"
         "**Model family:** openai\n"
-        "**Model id:** gpt-5.5\n"
+        "**Model id:** gpt-6-astra\n"
         "**Receipt artifact:** /tmp/review.md\n"
     )
 
@@ -116,7 +116,7 @@ def test_later_heading_metadata_does_not_override_first_heading() -> None:
         "No metadata near the first heading.\n\n"
         "## Claude follow-up\n\n"
         "**Model family:** claude\n"
-        "**Model id:** claude-opus-4-7\n"
+        "**Model id:** claude-fable-5-1\n"
         "**Receipt artifact:** /tmp/review.md\n"
     )
 

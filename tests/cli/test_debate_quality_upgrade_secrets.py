@@ -54,8 +54,8 @@ class TestCreateRevisionAgent:
                 return_value=None,
             ),
         ):
-            _create_revision_agent("grok", name="quality_upgrade_grok_2", model="grok-4")
+            _create_revision_agent("grok", name="quality_upgrade_grok_2", model="grok-4.6")
 
         kwargs = create_mock.call_args.kwargs
         assert kwargs["api_key"] is None
-        assert kwargs["model"] == "grok-4"
+        assert kwargs["model"] == "grok-4.6"

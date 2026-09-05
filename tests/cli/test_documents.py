@@ -130,7 +130,7 @@ class TestCreateDocumentsParser:
                 "--filter-prompt",
                 "Only relevant docs",
                 "--filter-model",
-                "gpt-4",
+                "gpt-6-astra",
                 "--dry-run",
                 "--config",
                 "config.yaml",
@@ -148,7 +148,7 @@ class TestCreateDocumentsParser:
         assert args.max_files == 500
         assert args.agent_filter is True
         assert args.filter_prompt == "Only relevant docs"
-        assert args.filter_model == "gpt-4"
+        assert args.filter_model == "gpt-6-astra"
         assert args.dry_run is True
         assert args.config == "config.yaml"
         assert args.follow_symlinks is True
@@ -353,7 +353,7 @@ class TestCmdUpload:
         args.max_files = 1000
         args.agent_filter = False
         args.filter_prompt = ""
-        args.filter_model = "gemini-2.0-flash"
+        args.filter_model = "gemini-3.8-flash"
         args.dry_run = False
         args.config = None
         args.follow_symlinks = False
@@ -372,7 +372,7 @@ class TestCmdUpload:
         args.include = []
         args.agent_filter = False
         args.filter_prompt = ""
-        args.filter_model = "gemini-2.0-flash"
+        args.filter_model = "gemini-3.8-flash"
         args.dry_run = False
         args.config = None
         args.follow_symlinks = False
@@ -633,7 +633,7 @@ class TestCmdUpload:
         args.max_files = 1000
         args.agent_filter = False
         args.filter_prompt = ""
-        args.filter_model = "gemini-2.0-flash"
+        args.filter_model = "gemini-3.8-flash"
         args.dry_run = True
         args.config = None
         args.follow_symlinks = False

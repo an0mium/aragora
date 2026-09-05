@@ -72,7 +72,7 @@ class TestCostEntry:
             tokens_input=1000,
             tokens_output=500,
             cost=0.015,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             workspace_id="ws_123",
             user_id="user_456",
         )
@@ -83,7 +83,7 @@ class TestCostEntry:
         assert entry.tokens_input == 1000
         assert entry.tokens_output == 500
         assert entry.cost == 0.015
-        assert entry.model == "claude-3-opus"
+        assert entry.model == "claude-fable-5-1"
         assert entry.workspace_id == "ws_123"
         assert entry.user_id == "user_456"
 
@@ -96,7 +96,7 @@ class TestCostEntry:
             tokens_input=500,
             tokens_output=200,
             cost=0.008,
-            model="gpt-4",
+            model="gpt-6-astra",
             workspace_id="ws_123",
         )
 
@@ -256,7 +256,7 @@ class TestRecordCost:
                 tokens_input=1000,
                 tokens_output=500,
                 cost=0.015,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 workspace_id="ws_123",
             )
 
@@ -275,7 +275,7 @@ class TestRecordCost:
                 tokens_input=500,
                 tokens_output=200,
                 cost=0.008,
-                model="gpt-4",
+                model="gpt-6-astra",
                 workspace_id="ws_456",
                 user_id="user_789",
             )
@@ -781,8 +781,8 @@ class TestEfficiencyHandler:
                 "total_api_calls": 5000,
                 "total_cost_usd": Decimal("150.00"),
                 "cost_by_model": {
-                    "claude-3-opus": Decimal("100.00"),
-                    "gpt-4": Decimal("50.00"),
+                    "claude-fable-5-1": Decimal("100.00"),
+                    "gpt-6-astra": Decimal("50.00"),
                 },
             }
         )

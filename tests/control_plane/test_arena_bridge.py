@@ -101,13 +101,13 @@ class TestArenaEventAdapter:
         """Test debate start event."""
         await adapter.on_debate_start(
             task="Test question",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=3,
         )
 
         assert adapter._total_rounds == 3
         assert "claude" in adapter._agent_metrics
-        assert "gpt-4" in adapter._agent_metrics
+        assert "gpt-6-astra" in adapter._agent_metrics
 
     @pytest.mark.asyncio
     async def test_on_round_start(self, adapter):
@@ -149,20 +149,20 @@ class TestArenaEventAdapter:
     async def test_on_critique(self, adapter):
         """Test critique tracking."""
         await adapter.on_critique(
-            critic="gpt-4",
+            critic="gpt-6-astra",
             target="claude",
             issues=["Issue 1", "Issue 2"],
             severity=7.5,
         )
 
-        metrics = adapter.get_agent_metrics()["gpt-4"]
+        metrics = adapter.get_agent_metrics()["gpt-6-astra"]
         assert metrics.critique_count == 1
 
     def test_summarize_votes(self, adapter):
         """Test vote summarization."""
         votes = {
             "claude": "option_a",
-            "gpt-4": "option_a",
+            "gpt-6-astra": "option_a",
             "gemini": "option_b",
         }
 
@@ -232,8 +232,8 @@ class TestArenaControlPlaneBridge:
                 total_confidence=1.6,
                 position_history=["pos1", "pos1"],
             ),
-            "gpt-4": AgentMetrics(
-                agent_id="gpt-4",
+            "gpt-6-astra": AgentMetrics(
+                agent_id="gpt-6-astra",
                 response_count=2,
                 vote_count=2,
                 total_confidence=1.4,
@@ -244,12 +244,12 @@ class TestArenaControlPlaneBridge:
         performances = bridge._extract_agent_performance(result, adapter_metrics)
 
         assert "claude" in performances
-        assert "gpt-4" in performances
+        assert "gpt-6-astra" in performances
         assert performances["claude"].agent_id == "claude"
         assert performances["claude"].response_count == 3
         assert performances["claude"].average_confidence == 0.8
         assert performances["claude"].contributed_to_consensus is True
-        assert performances["gpt-4"].position_changed is True
+        assert performances["gpt-6-astra"].position_changed is True
 
 
 class TestBridgeSingleton:

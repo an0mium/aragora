@@ -41,8 +41,8 @@ class TestTokenCounter:
         """Test counting with specific model."""
         text = "The quick brown fox jumps over the lazy dog."
 
-        gpt4_tokens = counter.count(text, model="gpt-4")
-        claude_tokens = counter.count(text, model="claude-3-opus")
+        gpt4_tokens = counter.count(text, model="gpt-6-astra")
+        claude_tokens = counter.count(text, model="claude-fable-5-1")
 
         # Both should return reasonable counts
         assert gpt4_tokens > 0
@@ -81,11 +81,11 @@ class TestTokenCounter:
         long_text = "word " * 10000  # Very long
 
         # Short text should fit in any model
-        assert counter.fits_context(short_text, "gpt-4") is True
+        assert counter.fits_context(short_text, "gpt-6-astra") is True
 
         # Long text might not fit in small models
-        fits_gpt4 = counter.fits_context(long_text, "gpt-4", max_tokens=8192)
-        fits_gemini = counter.fits_context(long_text, "gemini-3-pro", max_tokens=1000000)
+        fits_gpt4 = counter.fits_context(long_text, "gpt-6-astra", max_tokens=8192)
+        fits_gemini = counter.fits_context(long_text, "gemini-3.1-pro-preview", max_tokens=1000000)
 
         # Gemini with 1M tokens should fit more
         if not fits_gpt4:
@@ -128,7 +128,7 @@ class TestGlobalTokenCounter:
 
     def test_count_tokens_with_model(self):
         """Test convenience function with model."""
-        tokens = count_tokens("Test", model="claude-3-opus")
+        tokens = count_tokens("Test", model="claude-fable-5-1")
         assert tokens > 0
 
 
@@ -141,10 +141,10 @@ class TestTiktokenIntegration:
 
         # Known token counts for GPT-4
         text = "Hello, world!"
-        tokens = counter.count(text, model="gpt-4")
+        tokens = counter.count(text, model="gpt-6-astra")
 
         # tiktoken should give consistent results
-        tokens2 = counter.count(text, model="gpt-4")
+        tokens2 = counter.count(text, model="gpt-6-astra")
         assert tokens == tokens2
 
     def test_tiktoken_different_encodings(self):
@@ -153,8 +153,8 @@ class TestTiktokenIntegration:
 
         text = "Hello, world! This is a test."
 
-        gpt4_tokens = counter.count(text, model="gpt-4")
-        gpt4o_tokens = counter.count(text, model="gpt-4o")
+        gpt4_tokens = counter.count(text, model="gpt-6-astra")
+        gpt4o_tokens = counter.count(text, model="gpt-6-astra")
 
         # Different models may have different token counts
         # Both should be reasonable
@@ -173,7 +173,7 @@ class TestApproximateCounter:
         text = "The quick brown fox jumps over the lazy dog."
 
         # Claude uses approximation (not tiktoken)
-        tokens = counter.count(text, model="claude-3-opus")
+        tokens = counter.count(text, model="claude-fable-5-1")
 
         # Should be roughly 10-15 tokens for this sentence
         assert 5 < tokens < 25

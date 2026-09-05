@@ -179,7 +179,7 @@ class TestDebateStateManager:
 
     def test_debate_state_operations(self, manager):
         """Test debate state get/set/remove."""
-        state = {"round": 3, "agents": ["claude", "gpt-4"]}
+        state = {"round": 3, "agents": ["claude", "gpt-6-astra"]}
 
         manager.set_debate_state("loop_001", state)
 

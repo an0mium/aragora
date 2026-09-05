@@ -400,7 +400,7 @@ class TestUsageTracking:
             tokens_in=1000,
             tokens_out=500,
             provider="anthropic",
-            model="claude-sonnet-4",
+            model="claude-fable-5-1",
         )
 
         assert event.user_id == "user-123"
@@ -439,7 +439,7 @@ class TestUsageTracking:
                 tokens_in=1000,
                 tokens_out=500,
                 provider="anthropic",
-                model="claude-sonnet-4",
+                model="claude-fable-5-1",
             )
 
             assert event.id is not None
@@ -779,7 +779,7 @@ class TestBillingIntegration:
                     tokens_in=1000,
                     tokens_out=500,
                     provider="anthropic",
-                    model="claude-sonnet-4",
+                    model="claude-fable-5-1",
                 )
 
             # Check org limits

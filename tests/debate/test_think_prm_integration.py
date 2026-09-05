@@ -270,7 +270,7 @@ class TestRunThinkPRMVerification:
         ctx = MockDebateContext(
             context_messages=[
                 Message(role="proposer", agent="claude-3", content="Test proposal", round=0),
-                Message(role="critic", agent="gpt-4", content="Test critique", round=1),
+                Message(role="critic", agent="gpt-6-astra", content="Test critique", round=1),
             ]
         )
 
@@ -284,17 +284,17 @@ class TestRunThinkPRMVerification:
     @pytest.mark.asyncio
     async def test_uses_first_agent_as_fallback(self) -> None:
         """Test that first agent is used when configured agent not found."""
-        arena = MockArena(agents=[MockAgent(name="gpt-4")])
+        arena = MockArena(agents=[MockAgent(name="gpt-6-astra")])
         arena.protocol.think_prm_verifier_agent = "nonexistent"
         ctx = MockDebateContext(
             context_messages=[
-                Message(role="proposer", agent="gpt-4", content="Test", round=0),
+                Message(role="proposer", agent="gpt-6-astra", content="Test", round=0),
             ]
         )
 
         result = await _run_think_prm_verification(arena, ctx)
 
-        # Should succeed using gpt-4 as fallback
+        # Should succeed using gpt-6-astra as fallback
         assert result is not None
 
     @pytest.mark.asyncio

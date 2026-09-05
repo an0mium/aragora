@@ -36,7 +36,7 @@ class TestProposalThinkingMetadata:
     def test_proposal_without_thinking_has_no_key(self):
         """Agent without thinking should return None for thinking key."""
         agent = MagicMock()
-        agent.name = "gpt-4"
+        agent.name = "gpt-6-astra"
         agent.get_metadata.return_value = {
             "thinking": None,
             "thinking_budget": None,

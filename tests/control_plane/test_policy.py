@@ -199,11 +199,11 @@ class TestControlPlanePolicy:
         """Test agent allowlist."""
         policy = ControlPlanePolicy(
             name="premium-agents",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
         )
 
-        assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is True
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
+        assert policy.is_agent_allowed("gpt-6-astra") is True
         assert policy.is_agent_allowed("gpt-3.5-turbo") is False
 
     def test_agent_blocklist(self):
@@ -213,19 +213,19 @@ class TestControlPlanePolicy:
             agent_blocklist=["gpt-3.5-turbo", "claude-instant"],
         )
 
-        assert policy.is_agent_allowed("claude-3-opus") is True
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
         assert policy.is_agent_allowed("gpt-3.5-turbo") is False
 
     def test_agent_blocklist_overrides_allowlist(self):
         """Test blocklist takes precedence."""
         policy = ControlPlanePolicy(
             name="mixed",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
-            agent_blocklist=["gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
+            agent_blocklist=["gpt-6-astra"],
         )
 
-        assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is False
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
+        assert policy.is_agent_allowed("gpt-6-astra") is False
 
     def test_region_constraint_integration(self):
         """Test region constraint within policy."""
@@ -344,7 +344,7 @@ class TestControlPlanePolicyManager:
         """Test evaluation denies agent not in allowlist."""
         policy = ControlPlanePolicy(
             name="premium-only",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
         )
         manager.add_policy(policy)
 
@@ -622,13 +622,13 @@ class TestFactoryFunctions:
     def test_create_production_policy(self):
         """Test production policy factory."""
         policy = create_production_policy(
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
             allowed_regions=["us-east-1"],
         )
 
         assert policy.name == "production-environment"
         assert "production-deployment" in policy.task_types
-        assert "claude-3-opus" in policy.agent_allowlist
+        assert "claude-fable-5-1" in policy.agent_allowlist
         assert policy.region_constraint is not None
         assert "us-east-1" in policy.region_constraint.allowed_regions
         assert policy.sla is not None
@@ -650,12 +650,12 @@ class TestFactoryFunctions:
         """Test agent tier policy factory."""
         policy = create_agent_tier_policy(
             tier="premium",
-            agents=["claude-3-opus", "gpt-4o"],
+            agents=["claude-fable-5-1", "gpt-6-astra"],
             task_types=["high-value-task"],
         )
 
         assert policy.name == "premium-agent-tier"
-        assert "claude-3-opus" in policy.agent_allowlist
+        assert "claude-fable-5-1" in policy.agent_allowlist
         assert "high-value-task" in policy.task_types
 
     def test_create_sla_policy(self):
@@ -834,29 +834,29 @@ class TestPolicyConflictDetector:
         policies = [
             ControlPlanePolicy(
                 name="allow-claude",
-                agent_allowlist=["claude-3-opus"],
+                agent_allowlist=["claude-fable-5-1"],
             ),
             ControlPlanePolicy(
                 name="block-claude",
-                agent_blocklist=["claude-3-opus"],
+                agent_blocklist=["claude-fable-5-1"],
             ),
         ]
 
         conflicts = detector.detect_conflicts(policies)
         assert len(conflicts) == 1
         assert conflicts[0].conflict_type == "agent"
-        assert "claude-3-opus" in conflicts[0].description
+        assert "claude-fable-5-1" in conflicts[0].description
 
     def test_detects_non_overlapping_allowlists(self, detector):
         """Test detection of non-overlapping agent allowlists."""
         policies = [
             ControlPlanePolicy(
                 name="only-claude",
-                agent_allowlist=["claude-3-opus"],
+                agent_allowlist=["claude-fable-5-1"],
             ),
             ControlPlanePolicy(
                 name="only-gpt",
-                agent_allowlist=["gpt-4"],
+                agent_allowlist=["gpt-6-astra"],
             ),
         ]
 
@@ -1340,7 +1340,7 @@ class TestGovernanceIntegration:
         # Add production policy
         manager.add_policy(
             create_production_policy(
-                agent_allowlist=["claude-3-opus", "gpt-4"],
+                agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
                 allowed_regions=["us-east-1", "us-west-2"],
             )
         )
@@ -1350,7 +1350,7 @@ class TestGovernanceIntegration:
             ControlPlanePolicy(
                 name="dev-all-agents",
                 task_types=["production-deployment"],  # Same task type as production
-                agent_blocklist=["claude-3-opus"],  # Conflicts with production allowlist
+                agent_blocklist=["claude-fable-5-1"],  # Conflicts with production allowlist
                 enforcement_level=EnforcementLevel.WARN,
             )
         )
@@ -1371,12 +1371,12 @@ class TestGovernanceIntegration:
         # Verify conflict detected
         assert result["conflicts_detected"] > 0
         assert len(detected) > 0
-        assert any("claude-3-opus" in c.description for c in detected)
+        assert any("claude-fable-5-1" in c.description for c in detected)
 
         # Verify policy evaluation still works
         eval_result = manager.evaluate_task_dispatch(
             task_type="production-deployment",
-            agent_id="claude-3-opus",
+            agent_id="claude-fable-5-1",
             region="us-east-1",
         )
         assert eval_result.allowed is True  # First matching policy allows

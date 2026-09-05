@@ -23,9 +23,9 @@ def _make_full_debate_result() -> dict[str, Any]:
     return {
         "agent_scores": {
             "claude-sonnet": 0.92,
-            "gpt-4o": 0.88,
-            "gemini-pro": 0.75,
-            "deepseek-r1": 0.60,
+            "gpt-6-astra": 0.88,
+            "gemini-3.1-pro-preview": 0.75,
+            "deepseek-v4-pro-0813": 0.60,
         },
         "dissent": [
             {"concern": "Token bucket may not handle bursts well"},

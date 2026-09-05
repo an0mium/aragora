@@ -105,7 +105,7 @@ class TestAgentCostEfficiency:
     def test_with_custom_values(self):
         """Test AgentCostEfficiency with custom values."""
         eff = AgentCostEfficiency(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             calibration_score=0.85,
             accuracy_score=0.90,
             cost_per_call=Decimal("0.05"),
@@ -116,7 +116,7 @@ class TestAgentCostEfficiency:
             recommendation="efficient",
         )
 
-        assert eff.agent_name == "gpt-4"
+        assert eff.agent_name == "gpt-6-astra"
         assert eff.calibration_score == 0.85
         assert eff.efficiency_score == 0.80
         assert eff.recommendation == "efficient"
@@ -271,7 +271,7 @@ class TestComputeCostEfficiency:
         """Test computation for overconfident agent."""
         tracker = MockCalibrationTracker(
             {
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     ece=0.2,
                     accuracy=0.85,
                     total_predictions=100,
@@ -282,7 +282,7 @@ class TestComputeCostEfficiency:
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        result = bridge.compute_cost_efficiency("gpt-4")
+        result = bridge.compute_cost_efficiency("gpt-6-astra")
 
         assert result.is_overconfident is True
         assert result.confidence_reliability <= 0.7  # Reduced for overconfident
@@ -440,7 +440,7 @@ class TestEstimateTaskCost:
         """Test cost multiplier for overconfident agent."""
         tracker = MockCalibrationTracker(
             {
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     total_predictions=100,
                     is_overconfident=True,
                 )
@@ -449,7 +449,7 @@ class TestEstimateTaskCost:
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
         cost = bridge.estimate_task_cost(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             base_cost=Decimal("0.01"),
             rounds=3,
         )
@@ -531,7 +531,7 @@ class TestRecommendCostEfficientAgent:
                     accuracy=0.92,
                     total_predictions=100,
                 ),
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     ece=0.15,
                     accuracy=0.85,
                     total_predictions=100,
@@ -545,7 +545,7 @@ class TestRecommendCostEfficientAgent:
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        result = bridge.recommend_cost_efficient_agent(["claude", "gpt-4", "gemini"])
+        result = bridge.recommend_cost_efficient_agent(["claude", "gpt-6-astra", "gemini"])
 
         assert result == "claude"  # Highest efficiency
 
@@ -558,7 +558,7 @@ class TestRecommendCostEfficientAgent:
                     accuracy=0.65,  # Below threshold
                     total_predictions=100,
                 ),
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     ece=0.10,
                     accuracy=0.75,  # Above threshold
                     total_predictions=100,
@@ -568,11 +568,11 @@ class TestRecommendCostEfficientAgent:
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
         result = bridge.recommend_cost_efficient_agent(
-            ["claude", "gpt-4"],
+            ["claude", "gpt-6-astra"],
             min_accuracy=0.70,
         )
 
-        assert result == "gpt-4"  # claude filtered out
+        assert result == "gpt-6-astra"  # claude filtered out
 
     def test_no_candidates(self):
         """Test when no candidates meet criteria."""
@@ -600,7 +600,7 @@ class TestRecommendCostEfficientAgent:
                 "claude": MockCalibrationSummary(
                     total_predictions=5,  # Insufficient
                 ),
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     accuracy=0.85,
                     total_predictions=100,  # Sufficient
                 ),
@@ -608,9 +608,9 @@ class TestRecommendCostEfficientAgent:
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        result = bridge.recommend_cost_efficient_agent(["claude", "gpt-4"])
+        result = bridge.recommend_cost_efficient_agent(["claude", "gpt-6-astra"])
 
-        assert result == "gpt-4"
+        assert result == "gpt-6-astra"
 
     def test_empty_agent_list(self):
         """Test with empty agent list."""
@@ -636,7 +636,7 @@ class TestRankAgentsByCostEfficiency:
                     accuracy=0.92,
                     total_predictions=100,
                 ),
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     ece=0.20,
                     accuracy=0.80,
                     total_predictions=100,
@@ -645,7 +645,7 @@ class TestRankAgentsByCostEfficiency:
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        rankings = bridge.rank_agents_by_cost_efficiency(["claude", "gpt-4"])
+        rankings = bridge.rank_agents_by_cost_efficiency(["claude", "gpt-6-astra"])
 
         assert len(rankings) == 2
         assert rankings[0][0] == "claude"  # Higher efficiency
@@ -900,16 +900,16 @@ class TestCacheManagement:
         tracker = MockCalibrationTracker(
             {
                 "claude": MockCalibrationSummary(total_predictions=100),
-                "gpt-4": MockCalibrationSummary(total_predictions=100),
+                "gpt-6-astra": MockCalibrationSummary(total_predictions=100),
             }
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        count = bridge.refresh_cache(["claude", "gpt-4"])
+        count = bridge.refresh_cache(["claude", "gpt-6-astra"])
 
         assert count == 2
         assert "claude" in bridge._efficiency_cache
-        assert "gpt-4" in bridge._efficiency_cache
+        assert "gpt-6-astra" in bridge._efficiency_cache
 
     def test_refresh_cache_all_agents(self):
         """Test refreshing cache for all agents."""
@@ -957,7 +957,7 @@ class TestGetStats:
                     ece=0.05,
                     is_overconfident=False,
                 ),
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     ece=0.20,
                     is_overconfident=True,
                 ),
@@ -975,7 +975,7 @@ class TestGetStats:
         assert stats["calibration_tracker_attached"] is True
         assert stats["cost_tracker_attached"] is True
         assert stats["well_calibrated_agents"] == 1  # claude
-        assert stats["overconfident_agents"] == 1  # gpt-4
+        assert stats["overconfident_agents"] == 1  # gpt-6-astra
 
     def test_stats_cache_validity(self):
         """Test stats includes cache validity."""
@@ -1234,7 +1234,7 @@ class TestGetAvgCost:
         cost_tracker.add_workspace_stats(
             "ws1",
             {
-                "by_agent": {"gpt-4": Decimal("10.00")},
+                "by_agent": {"gpt-6-astra": Decimal("10.00")},
                 "api_calls": 50,
             },
         )
@@ -1500,7 +1500,7 @@ class TestEstimateTaskCostExtended:
         """Test task cost estimation with single round."""
         tracker = MockCalibrationTracker(
             {
-                "gpt-4": MockCalibrationSummary(
+                "gpt-6-astra": MockCalibrationSummary(
                     total_predictions=100,
                     is_overconfident=True,
                 )
@@ -1508,7 +1508,7 @@ class TestEstimateTaskCostExtended:
         )
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        cost = bridge.estimate_task_cost("gpt-4", Decimal("0.05"), rounds=1)
+        cost = bridge.estimate_task_cost("gpt-6-astra", Decimal("0.05"), rounds=1)
         expected = Decimal("0.05") * 1 * Decimal("1.3")
         assert cost == expected
 

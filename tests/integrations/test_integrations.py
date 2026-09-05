@@ -342,7 +342,7 @@ class TestDiscordIntegrationAsync:
             result = await integration.send_debate_start(
                 debate_id="test-123",
                 topic="Test topic",
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
                 config={"rounds": 3, "consensus_mode": "majority"},
             )
             assert result is True
@@ -404,7 +404,7 @@ class TestDiscordIntegrationAsync:
                 round_number=2,
                 total_rounds=5,
                 summary="Agents discussed the pros and cons.",
-                agent_positions={"claude": "For", "gpt-4": "Against"},
+                agent_positions={"claude": "For", "gpt-6-astra": "Against"},
             )
             assert result is True
 

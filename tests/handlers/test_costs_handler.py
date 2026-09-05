@@ -1051,8 +1051,8 @@ class TestGetEfficiency:
             "total_api_calls": 1000,
             "total_cost_usd": "70.00",
             "cost_by_model": {
-                "claude-3-opus": Decimal("50.00"),
-                "gpt-4": Decimal("20.00"),
+                "claude-fable-5-1": Decimal("50.00"),
+                "gpt-6-astra": Decimal("20.00"),
             },
         }
 

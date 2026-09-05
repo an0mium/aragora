@@ -412,7 +412,7 @@ def test_evaluate_issue_handles_model_error(tmp_path: Path):
     )
 
     async def generator(member: PanelMember, prompt: str) -> str:
-        if member.model_id == "gpt-4.1":
+        if member.model_id == "gpt-6-astra":
             raise RuntimeError("api down")
         return '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
 

@@ -148,10 +148,10 @@ def _make_consensus_stats():
         },
         "by_agent": [
             {"agent": "claude", "consensus_rate": "82.0%"},
-            {"agent": "gpt-4", "consensus_rate": "75.0%"},
+            {"agent": "gpt-6-astra", "consensus_rate": "75.0%"},
         ],
         "top_teams": [
-            {"team": ["claude", "gpt-4"], "rate": "90.0%"},
+            {"team": ["claude", "gpt-6-astra"], "rate": "90.0%"},
             {"team": ["claude", "gemini"], "rate": "85.0%"},
         ],
     }
@@ -176,7 +176,7 @@ def _make_performance_stats():
         ],
         "cost_by_agent": {
             "claude": 0.03,
-            "gpt-4": 0.02,
+            "gpt-6-astra": 0.02,
         },
     }
 

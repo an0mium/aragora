@@ -420,7 +420,7 @@ class TestSkillsArenaIntegration:
         debate_context = {
             "round": 2,
             "topic": "AI Ethics",
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
 

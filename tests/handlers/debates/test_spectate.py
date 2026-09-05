@@ -280,12 +280,12 @@ class TestPushSpectatorEvent:
         q: asyncio.Queue = asyncio.Queue(maxsize=10)
         _active_collectors["d1"] = {q}
         push_spectator_event(
-            "d1", "round_end", agent="gpt-4", details="Summary", metric=0.9, round_number=2
+            "d1", "round_end", agent="gpt-6-astra", details="Summary", metric=0.9, round_number=2
         )
         event = q.get_nowait()
         assert set(event.keys()) == {"type", "timestamp", "agent", "details", "metric", "round"}
         assert event["type"] == "round_end"
-        assert event["agent"] == "gpt-4"
+        assert event["agent"] == "gpt-6-astra"
         assert event["details"] == "Summary"
         assert event["metric"] == 0.9
         assert event["round"] == 2
@@ -688,7 +688,7 @@ class TestIntegration:
 
         push_spectator_event("d1", "round_start", round_number=1)
         push_spectator_event("d1", "proposal", agent="claude")
-        push_spectator_event("d1", "critique", agent="gpt-4")
+        push_spectator_event("d1", "critique", agent="gpt-6-astra")
 
         f1 = await gen.__anext__()
         f2 = await gen.__anext__()

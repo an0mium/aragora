@@ -761,7 +761,7 @@ class TestInvalidateAgentCache:
 
     def test_with_agent_name(self):
         _cache.set("agent:claude-opus:profile", "data")
-        _cache.set("agent:gpt-4:profile", "data")
+        _cache.set("agent:gpt-6-astra:profile", "data")
         cleared = invalidate_agent_cache("claude-opus")
         assert cleared == 1
         assert len(_cache) == 1

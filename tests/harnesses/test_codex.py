@@ -68,7 +68,7 @@ def codex_config():
     """Create a CodexConfig for testing."""
     return CodexConfig(
         timeout_seconds=60,
-        model="gpt-4o",
+        model="gpt-6-astra",
         temperature=0.2,
         api_key="test-key",
     )
@@ -94,14 +94,14 @@ class TestCodexConfig:
         """Test default configuration values."""
         config = CodexConfig()
 
-        assert config.model == "gpt-4o"
+        assert config.model == "gpt-6-astra"
         assert config.temperature == 0.2
         assert config.max_tokens == 4096
         assert config.api_key is None
 
     def test_custom_config(self, codex_config):
         """Test custom configuration."""
-        assert codex_config.model == "gpt-4o"
+        assert codex_config.model == "gpt-6-astra"
         assert codex_config.api_key == "test-key"
         assert codex_config.timeout_seconds == 60
 
@@ -148,7 +148,7 @@ class TestCodexHarnessInit:
         harness = CodexHarness()
 
         assert harness.config is not None
-        assert harness.config.model == "gpt-4o"
+        assert harness.config.model == "gpt-6-astra"
         assert harness._client is None
 
     def test_custom_config_initialization(self, codex_config):
@@ -156,7 +156,7 @@ class TestCodexHarnessInit:
         harness = CodexHarness(codex_config)
 
         assert harness.config.api_key == "test-key"
-        assert harness.config.model == "gpt-4o"
+        assert harness.config.model == "gpt-6-astra"
 
 
 class TestCodexHarnessProperties:
@@ -838,7 +838,7 @@ class TestConvenienceFunctions:
         harness = create_codex_harness()
 
         assert harness.name == "codex"
-        assert harness.config.model == "gpt-4o"
+        assert harness.config.model == "gpt-6-astra"
 
     def test_create_codex_harness_custom(self):
         """Test creating harness with custom settings."""
@@ -903,5 +903,5 @@ class TestCodexIntegration:
             assert finding.confidence == 0.85
 
             # Verify metadata
-            assert result.metadata["model"] == "gpt-4o"
+            assert result.metadata["model"] == "gpt-6-astra"
             assert result.metadata["files_analyzed"] >= 1

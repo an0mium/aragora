@@ -100,9 +100,9 @@ class TestSourceReference:
 
     def test_source_reference_creation(self):
         """Test basic source reference creation."""
-        ref = SourceReference(source_type="agent", identifier="claude-3-opus")
+        ref = SourceReference(source_type="agent", identifier="claude-fable-5-1")
         assert ref.source_type == "agent"
-        assert ref.identifier == "claude-3-opus"
+        assert ref.identifier == "claude-fable-5-1"
         assert ref.timestamp is not None
 
     def test_source_reference_with_metadata(self):

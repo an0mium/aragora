@@ -38,7 +38,7 @@ def mock_preset():
     preset.audit_types = ["security", "compliance"]
     preset.custom_rules = [{"severity": "high", "title": "PII Detection", "category": "privacy"}]
     preset.consensus_threshold = 0.8
-    preset.agents = ["claude", "gpt-4"]
+    preset.agents = ["claude", "gpt-6-astra"]
     preset.parameters = {"depth": "thorough"}
     return preset
 
@@ -358,7 +358,7 @@ class TestCreateAudit:
         mock_args.types = "security,compliance"
         mock_args.preset = None
         mock_args.name = "Test Audit"
-        mock_args.model = "gemini-1.5-flash"
+        mock_args.model = "gemini-3.8-flash"
 
         mock_auditor = MagicMock()
         mock_auditor.create_session = AsyncMock(return_value=mock_session)
@@ -382,7 +382,7 @@ class TestCreateAudit:
         mock_args.types = None
         mock_args.preset = "Legal Due Diligence"
         mock_args.name = None
-        mock_args.model = "gemini-1.5-flash"
+        mock_args.model = "gemini-3.8-flash"
 
         mock_registry.get_preset.return_value = mock_preset
         mock_auditor = MagicMock()

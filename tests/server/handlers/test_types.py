@@ -230,7 +230,7 @@ class TestDebateRequestTypes:
     def test_create_debate_request(self):
         req: CreateDebateRequest = {
             "task": "Design a rate limiter",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "rounds": 3,
         }
         assert req["task"] == "Design a rate limiter"
@@ -326,7 +326,7 @@ class TestMetricsTypes:
         m: ConvergenceMetrics = {
             "status": "converged",
             "similarity": 0.95,
-            "per_agent": {"claude": 0.98, "gpt-4": 0.92},
+            "per_agent": {"claude": 0.98, "gpt-6-astra": 0.92},
         }
         assert m["similarity"] == 0.95
 

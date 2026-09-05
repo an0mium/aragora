@@ -492,7 +492,7 @@ class TestCreateDebateRequest:
         req: CreateDebateRequest = {
             "task": "Design API gateway",
             "question": "How to handle auth?",
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "mode": "adversarial",
             "rounds": 5,
             "consensus": "unanimous",
@@ -544,7 +544,7 @@ class TestDebateSummaryResponse:
             "task": "Test debate",
             "status": "active",
             "created_at": "2026-01-15T10:00:00Z",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "round_count": 3,
         }
         assert resp["id"] == "debate-123"
@@ -887,7 +887,7 @@ class TestGauntletRunRequest:
         req: GauntletRunRequest = {
             "input_content": "code here",
             "input_type": "code",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "persona": "security-auditor",
             "profile": "comprehensive",
         }
@@ -1010,7 +1010,7 @@ class TestAgentConfigRequest:
     def test_create_full(self):
         req: AgentConfigRequest = {
             "name": "custom-agent",
-            "model": "gpt-4",
+            "model": "gpt-6-astra",
             "temperature": 0.7,
             "max_tokens": 4096,
             "system_prompt": "You are an expert.",
@@ -1026,7 +1026,7 @@ class TestAgentStatusResponse:
         resp: AgentStatusResponse = {
             "name": "claude",
             "status": "available",
-            "model": "claude-3-opus",
+            "model": "claude-fable-5-1",
         }
         assert resp["status"] == "available"
 
@@ -1034,7 +1034,7 @@ class TestAgentStatusResponse:
         resp: AgentStatusResponse = {
             "name": "claude",
             "status": "busy",
-            "model": "claude-3-opus",
+            "model": "claude-fable-5-1",
             "elo_rating": 1850,
             "total_debates": 150,
         }
@@ -1244,7 +1244,7 @@ class TestConvergenceMetrics:
         m: ConvergenceMetrics = {
             "status": "converged",
             "similarity": 0.95,
-            "per_agent": {"claude": 0.98, "gpt-4": 0.92},
+            "per_agent": {"claude": 0.98, "gpt-6-astra": 0.92},
         }
         assert m["status"] == "converged"
 
@@ -1329,7 +1329,7 @@ class TestAgentPerformanceMetrics:
 
     def test_create_with_calibration(self):
         m: AgentPerformanceMetrics = {
-            "agent_name": "gpt-4",
+            "agent_name": "gpt-6-astra",
             "elo_rating": 1800.0,
             "win_rate": 0.68,
             "debates_participated": 80,
