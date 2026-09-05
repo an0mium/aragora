@@ -166,6 +166,8 @@ def test_published_key_matches_documented_custody_record():
     spec = (ROOT / "docs/specs/OPEN_DECISION_RECEIPT.md").read_text()
     assert path.name in spec
     assert "/.well-known/aragora-odr-signing-key" in spec
+    assert "not a production trust anchor" in spec
+    assert "revoke" in spec and "trusted channel" in spec
 
 
 @pytest.mark.parametrize("mode", ["missing", "garbage", "ec", "unset", "empty", "valid"])
