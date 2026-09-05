@@ -84,6 +84,8 @@ SKIP_PATHS: tuple[str, ...] = (
     "tests/scripts/test_refresh_model_literals.py",
 )
 
+DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "baselines" / "retired_model_literals_allowlist.txt"
+
 
 def replacement(old: str) -> str:
     spec = CATALOG[UPGRADES[old]]
@@ -107,18 +109,42 @@ def _is_skip_path(f: Path) -> bool:
     return False
 
 
-def iter_files(paths: list[str]):
+def _allowlist_key(f: Path) -> str:
+    """Normalize ``f`` to the form allowlist entries are written in.
+
+    The allowlist (``scripts/baselines/retired_model_literals_allowlist.txt``)
+    is generated via ``git ls-files`` from the repo root, so its entries are
+    repo-root-relative POSIX paths regardless of the cwd or --paths spelling
+    (relative or absolute) the sweep happens to be invoked with. Normalize
+    the scanned file the same way — relative to REPO_ROOT when it is under
+    the repo, else its absolute POSIX path — so membership testing doesn't
+    silently no-op just because the sweep ran from a different directory.
+    """
+    resolved = f.resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
+def iter_files(paths: list[str]) -> list[Path]:
+    found: list[Path] = []
     for p in paths:
         root = Path(p)
-        files = [root] if root.is_file() else root.rglob("*")
-        for f in files:
+        candidates = [root] if root.is_file() else root.rglob("*")
+        for f in candidates:
             if not f.is_file() or f.name in SKIP_NAMES or f.suffix in SKIP_SUFFIXES:
                 continue
             if any(part in SKIP_DIRS for part in f.parts):
                 continue
             if _is_skip_path(f):
                 continue
-            yield f
+            found.append(f)
+    # Deterministic order: --check output and --write iteration order must
+    # not depend on filesystem/rglob discovery order (which varies by OS,
+    # directory entry layout, and run-to-run).
+    found.sort(key=lambda f: f.as_posix())
+    return found
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,10 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--check", action="store_true")
-    ap.add_argument(
-        "--allowlist",
-        default="scripts/baselines/retired_model_literals_allowlist.txt",
-    )
+    ap.add_argument("--allowlist", default=str(DEFAULT_ALLOWLIST))
     a = ap.parse_args(argv)
     if a.write == a.check:
         print("choose exactly one of --write / --check", file=sys.stderr)
@@ -155,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
             text = f.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if str(f) in allow:
+        if _allowlist_key(f) in allow:
             continue
         if not RETIRED_PATTERN.search(text):
             continue
@@ -171,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
                 changed += 1
 
     if a.check:
+        offenders.sort(key=lambda o: (o[0], o[1]))
         for path, ln, lit in offenders:
             print(f"{path}:{ln}: retired model id {lit}")
         print(f"{len(offenders)} retired literal(s) outside allowlist")
