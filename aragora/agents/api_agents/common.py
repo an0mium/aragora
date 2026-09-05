@@ -584,6 +584,25 @@ class SSEStreamParser:
         # changing the yielded text-chunk interface other consumers rely on.
         self.stop_reason: str | None = None
         self.stop_details: dict[str, Any] | None = None
+        # Populated from an Anthropic "message_start" event: the model the
+        # server ACTUALLY answered with, which can differ from the requested
+        # id when a server-side fallback fires (the refusal fallback this
+        # agent enables by default). None for providers whose streams carry
+        # no such event.
+        self.served_model: str | None = None
+
+    def _capture_message_start_model(self, event: dict[str, Any]) -> None:
+        """Record the served model id from an Anthropic "message_start"
+        event (``{"type": "message_start", "message": {"model": ...}}``).
+        A no-op for every other event type/provider shape."""
+        if event.get("type") != "message_start":
+            return
+        message: Any = event.get("message")
+        if not isinstance(message, dict):
+            return
+        model: Any = message.get("model")
+        if isinstance(model, str) and model:
+            self.served_model = model
 
     def _capture_message_delta_stop_info(self, event: dict[str, Any]) -> None:
         """Record stop_reason/stop_details from an Anthropic "message_delta"
@@ -660,6 +679,7 @@ class SSEStreamParser:
                                 "[%s] Unexpected JSON type: %s", agent_name, type(event).__name__
                             )
                             continue
+                        self._capture_message_start_model(event)
                         self._capture_message_delta_stop_info(event)
                         content: str = self.content_extractor(event)
                         if content:

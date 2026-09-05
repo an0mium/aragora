@@ -149,6 +149,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     # instances so the notice does not repeat on every single call.
     _ADAPTIVE_THINKING_LOGGED: ClassVar[set[str]] = set()
 
+    # (requested, served) pairs already logged by _note_served_model.
+    # Process-lifetime and shared across instances, like the set above, so a
+    # steady-state server-side fallback logs once rather than per call.
+    _SERVED_MODEL_LOGGED: ClassVar[set[tuple[str, str]]] = set()
+
     def __init__(
         self,
         name: str = "claude-api",
@@ -201,11 +206,50 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         self.enable_web_search = True  # Enable web search tool by default
         self.thinking_budget = thinking_budget
         self._last_thinking_trace: str | None = None
+        self._last_served_model: str | None = None
 
     @property
     def last_thinking_trace(self) -> str | None:
         """Return the thinking trace from the most recent generation."""
         return self._last_thinking_trace
+
+    @property
+    def last_served_model(self) -> str | None:
+        """Model the server actually answered with on the most recent
+        generation, when it DIFFERED from the requested id; ``None``
+        otherwise. See :meth:`_note_served_model`."""
+        return self._last_served_model
+
+    def _note_served_model(self, served: str | None) -> None:
+        """Record the response's ``model`` field when it differs from the id
+        we asked for.
+
+        Anthropic echoes the model that actually produced the response. With
+        the server-side refusal fallback enabled by default for Fable 5.1 /
+        Opus 5, a request can legitimately be answered by a DIFFERENT model,
+        and a receipt that attributes the output to the requested id is then
+        wrong about which model made the decision (finding C-P3 on #9989).
+        Surfaced through ``get_metadata()["served_model"]`` and logged once
+        per (requested, served) pair at INFO -- it is normal operation, not a
+        fault, but it must be visible.
+
+        Reset to ``None`` on every call, so a stale value from an earlier
+        generation can never be attributed to this one.
+        """
+        if not served or served == self.model:
+            self._last_served_model = None
+            return
+        self._last_served_model = served
+        pair = (self.model, served)
+        if pair not in self._SERVED_MODEL_LOGGED:
+            self._SERVED_MODEL_LOGGED.add(pair)
+            logger.info(
+                "[%s] Anthropic served %s for requested model %s "
+                "(server-side fallback); recorded as served_model",
+                self.name,
+                served,
+                self.model,
+            )
 
     @staticmethod
     def _parse_content_blocks(
@@ -247,11 +291,15 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         """Return metadata about the last generation, including thinking trace.
 
         Returns:
-            Dict with ``thinking`` (str or None) and ``thinking_budget`` (int or None).
+            Dict with ``thinking`` (str or None), ``thinking_budget`` (int or
+            None) and ``served_model`` (str or None -- set only when the
+            server answered with a model other than the requested one, e.g.
+            via the server-side refusal fallback).
         """
         return {
             "thinking": self._last_thinking_trace,
             "thinking_budget": self.thinking_budget,
+            "served_model": self._last_served_model,
         }
 
     def _needs_web_search(self, prompt: str) -> bool:
@@ -590,6 +638,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
                     data = await response.json()
 
+                    # The server echoes the model that actually answered; with
+                    # the server-side refusal fallback on by default that can
+                    # differ from what we asked for (finding C-P3).
+                    self._note_served_model(data.get("model"))
+
                     # Record token usage for billing
                     usage = data.get("usage", {})
                     input_tokens = usage.get("input_tokens", 0)
@@ -801,6 +854,12 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         yield content
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
+                finally:
+                    # A stream carries the served model on its "message_start"
+                    # event rather than in a response body (finding C-P3). In
+                    # a finally so a stream that errors part-way still records
+                    # which model produced what was already yielded.
+                    self._note_served_model(parser.served_model)
 
                 # A streamed refusal carries stop_reason on a "message_delta"
                 # event rather than in the (nonexistent, for a stream) single
