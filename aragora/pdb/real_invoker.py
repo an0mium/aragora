@@ -264,9 +264,11 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "jamba-large-1.7": (2.00, 8.00),
     "jamba-large": (2.00, 8.00),
     # Mistral (direct API)
-    "mistral-large-2512": (2.00, 6.00),
-    "mistral-large-2411": (2.00, 6.00),
-    "mistral-large-latest": (2.00, 6.00),
+    # Live catalog 2026-09-04 (frontier-model-refresh): mistral-large-2512
+    # is $0.50/$1.50 per MTok, not the pre-refresh $2.00/$6.00 legacy price.
+    "mistral-large-2512": (0.50, 1.50),
+    "mistral-large-2411": (0.50, 1.50),
+    "mistral-large-latest": (0.50, 1.50),
     "mistral-medium-latest": (0.40, 2.00),
     "mistral-small-latest": (0.10, 0.30),
     "codestral-latest": (0.30, 0.90),

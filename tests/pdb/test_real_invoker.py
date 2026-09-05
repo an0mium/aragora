@@ -858,7 +858,7 @@ class TestNewFamilyCostTracking:
                 tokens_in=1_000_000,
                 tokens_out=1_000_000,
             )
-            == pytest.approx(8.0)  # 2.00 + 6.00
+            == pytest.approx(2.0)  # 0.50 + 1.50 (mistral-large-2512, live catalog 2026-09-04)
         )
 
 

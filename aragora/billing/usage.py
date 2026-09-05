@@ -105,8 +105,10 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "grok-4-output": Decimal("15.00"),
     },
     "mistral": {
-        "mistral-large-3": Decimal("2.00"),
-        "mistral-large-3-output": Decimal("6.00"),
+        # Live catalog 2026-09-04 (frontier-model-refresh): mistral-large is
+        # $0.50/$1.50 per MTok, not the pre-refresh $2.00/$6.00 legacy price.
+        "mistral-large-3": Decimal("0.50"),
+        "mistral-large-3-output": Decimal("1.50"),
     },
     "openrouter": {
         "default": Decimal("2.00"),

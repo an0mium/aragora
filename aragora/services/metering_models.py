@@ -125,8 +125,10 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("10.00"),
     },
     "mistral": {
-        "mistral-large": Decimal("2.00"),
-        "mistral-large-output": Decimal("6.00"),
+        # Live catalog 2026-09-04 (frontier-model-refresh): mistral-large is
+        # $0.50/$1.50 per MTok, not the pre-refresh $2.00/$6.00 legacy price.
+        "mistral-large": Decimal("0.50"),
+        "mistral-large-output": Decimal("1.50"),
         "codestral": Decimal("0.20"),
         "codestral-output": Decimal("0.60"),
         "default": Decimal("2.00"),

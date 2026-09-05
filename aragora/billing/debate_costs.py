@@ -57,8 +57,10 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "gemini-pro": (Decimal("1.25"), Decimal("5.00")),
     },
     "mistral": {
-        "mistral-large-3": (Decimal("2.00"), Decimal("6.00")),
-        "mistral-large": (Decimal("2.00"), Decimal("6.00")),
+        # Live catalog 2026-09-04 (frontier-model-refresh): mistral-large is
+        # $0.50/$1.50 per MTok, not the pre-refresh $2.00/$6.00 legacy price.
+        "mistral-large-3": (Decimal("0.50"), Decimal("1.50")),
+        "mistral-large": (Decimal("0.50"), Decimal("1.50")),
         "codestral": (Decimal("0.30"), Decimal("0.90")),
     },
     "xai": {
