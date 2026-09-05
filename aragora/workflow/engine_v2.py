@@ -239,6 +239,10 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         self._metrics_callback = metrics_callback
         self._start_time: float | None = None
         self._parallel_semaphore: asyncio.Semaphore | None = None
+        # Declared here (not only reset in execute()) so its element type is
+        # inferable: mypy cannot type an attribute whose first and only
+        # assignment is an empty list literal.
+        self._results: list[StepResult] = []
 
     @property
     def limits(self) -> ResourceLimits:
