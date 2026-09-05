@@ -45,7 +45,7 @@ from aragora.config.model_pins import (
 )
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
-from aragora.models.catalog import CATALOG, spec_or_none
+from aragora.models.catalog import CATALOG, frontier_for, spec_or_none
 from aragora.models.upgrade_map import resolve_model_id
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
 
@@ -244,6 +244,14 @@ class CLIAgent(CritiqueMixin, Agent):
     # CLI model spelling (not just a hand-enumerated subset) transparently
     # upgrades to its frontier via OpenRouter.
 
+    # Catalog family this CLI's provider belongs to ("openai", "anthropic",
+    # "google", "xai", "moonshot", "qwen", "deepseek", ...). Used as the LAST
+    # resort in _get_fallback_agent(): a bare model spelling the catalog and
+    # the upgrade map both miss falls back to THIS family's frontier rather
+    # than cross-family to Anthropic. A subclass that genuinely has no single
+    # family (kilocode, which brokers several providers) leaves it empty.
+    MODEL_FAMILY: str = ""
+
     def __init__(
         self,
         name: str,
@@ -295,6 +303,25 @@ class CLIAgent(CritiqueMixin, Agent):
             return False
         return not self._circuit_breaker.can_execute()
 
+    def _family_frontier_openrouter_id(self) -> str:
+        """OpenRouter id of this agent class's own family frontier.
+
+        Falls back to the Anthropic frontier only when the class declares no
+        family, or when the declared family has no active catalog row.
+        """
+        family = getattr(self, "MODEL_FAMILY", "") or ""
+        if family:
+            try:
+                return frontier_for(family).openrouter_id
+            except (KeyError, ValueError):
+                logger.warning(
+                    "[%s] no active catalog row for family %r; using %s",
+                    self.name,
+                    family,
+                    FABLE_51_VIA_OPENROUTER,
+                )
+        return FABLE_51_VIA_OPENROUTER
+
     def _get_fallback_agent(self) -> OpenRouterAgent | None:
         """Get or create the OpenRouter fallback agent.
 
@@ -328,7 +355,13 @@ class CLIAgent(CritiqueMixin, Agent):
                 else:
                     openrouter_model = self.model
             else:
-                openrouter_model = FABLE_51_VIA_OPENROUTER  # Default fallback model
+                # Last resort: this agent class's OWN family frontier. Sending
+                # an unrecognised OpenAI/Grok/DeepSeek spelling to Anthropic
+                # silently changes provider, which is exactly what an explicit
+                # model pin was asking us not to do. Only a class with no
+                # single family (or one whose family has no active row) lands
+                # on Fable.
+                openrouter_model = self._family_frontier_openrouter_id()
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -703,6 +736,8 @@ class CodexAgent(CLIAgent):
     Falls back to OpenRouter (OpenAI GPT-5.5) on CLI failures if enabled.
     """
 
+    MODEL_FAMILY = "openai"
+
     _CODEX_WARNING_PREFIXES: tuple[str, ...] = (
         "`collab` is deprecated.",
         "Enable it with `--enable multi_agent`",
@@ -802,6 +837,8 @@ class ClaudeAgent(CLIAgent):
     Falls back to OpenRouter (Anthropic Claude) on CLI failures if enabled.
     """
 
+    MODEL_FAMILY = "anthropic"
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using claude CLI via stdin.
 
@@ -842,6 +879,8 @@ class GeminiCLIAgent(CLIAgent):
 
     Falls back to OpenRouter (Google Gemini) on CLI failures if enabled.
     """
+
+    MODEL_FAMILY = "google"
 
     def _extract_gemini_response(self, result: str) -> str:
         """Filter out YOLO mode message from gemini output."""
@@ -1019,6 +1058,8 @@ class GrokCLIAgent(CLIAgent):
     Falls back to OpenRouter (xAI Grok) on CLI failures if enabled.
     """
 
+    MODEL_FAMILY = "xai"
+
     def _extract_grok_response(self, output: str) -> str:
         """Extract the final assistant response from Grok CLI JSON output."""
         lines = output.strip().split("\n")
@@ -1118,6 +1159,8 @@ class GrokBuildAgent(CLIAgent):
     failure if enabled.
     """
 
+    MODEL_FAMILY = "xai"
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Grok Build CLI (``--no-plan`` headless single-shot)."""
         full_prompt = self._build_full_prompt(prompt, context)
@@ -1152,6 +1195,8 @@ class AntigravityAgent(CLIAgent):
     enabled.
     """
 
+    MODEL_FAMILY = "google"
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
         full_prompt = self._build_full_prompt(prompt, context)
@@ -1182,6 +1227,8 @@ class KimiCLIAgent(CLIAgent):
     never auto-selects a likely-wrong command. Kimi maps to the ``moonshot``/
     ``kimi`` model family. Falls back to OpenRouter (Kimi) on CLI failure.
     """
+
+    MODEL_FAMILY = "moonshot"
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Kimi CLI (invocation unverified — see class docstring)."""
@@ -1227,6 +1274,8 @@ class QwenCLIAgent(CLIAgent):
     Falls back to OpenRouter (Qwen) on CLI failures if enabled.
     """
 
+    MODEL_FAMILY = "qwen"
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using qwen CLI.
 
@@ -1266,6 +1315,8 @@ class DeepseekCLIAgent(CLIAgent):
     Falls back to OpenRouter (Deepseek) on CLI failures if enabled.
     """
 
+    MODEL_FAMILY = "deepseek"
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using deepseek CLI.
 
@@ -1302,6 +1353,8 @@ class OpenAIAgent(CLIAgent):
 
     Falls back to OpenRouter (OpenAI GPT) on CLI failures if enabled.
     """
+
+    MODEL_FAMILY = "openai"
 
     def __init__(
         self,

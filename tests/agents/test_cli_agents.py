@@ -198,6 +198,92 @@ class TestCLIAgentFallback:
             assert "/" in fallback.model
 
 
+class TestCLIAgentFamilyAwareFallback:
+    """A CLI model pin must never fall back cross-family.
+
+    Removing the hand-written OPENROUTER_MODEL_MAPs sent eight real CLI
+    spellings (Codex model names, a seeded DeepSeek agent id, ...) to the
+    *Anthropic* frontier, because the last resort was one Anthropic constant.
+    An explicit model pin is exactly the thing that must keep its provider.
+    """
+
+    @staticmethod
+    def _fallback_model(agent):
+        with patch("os.environ.get", return_value="test-api-key"):
+            with patch(
+                "aragora.agents.api_agents.openrouter.get_api_key",
+                return_value="test-api-key",
+            ):
+                fallback = agent._get_fallback_agent()
+        assert fallback is not None
+        return fallback.model
+
+    @pytest.mark.parametrize(
+        ("agent_cls_name", "model", "expected"),
+        [
+            ("CodexAgent", "gpt-5.3-codex", "openai/gpt-6-astra"),
+            ("CodexAgent", "gpt-4.1-codex", "openai/gpt-6-astra"),
+            ("CodexAgent", "gpt-5.3-chat-latest", "openai/gpt-6-astra"),
+            ("GrokCLIAgent", "grok-4-1-fast", "x-ai/grok-4.6"),
+            ("DeepseekCLIAgent", "deepseek-coder", "deepseek/deepseek-v4-pro-0813"),
+            ("DeepseekCLIAgent", "deepseek-v3.2", "deepseek/deepseek-v4-pro-0813"),
+            ("QwenCLIAgent", "qwen-2.5-coder", "qwen/qwen3.8-2.4t-a95b"),
+            # No Codestral row in the catalog: resolves to the Mistral
+            # family frontier, not to Anthropic.
+            ("CodexAgent", "codestral-latest", "mistralai/mistral-medium-3-5"),
+        ],
+    )
+    def test_legacy_cli_spelling_stays_in_family(self, agent_cls_name, model, expected):
+        import aragora.agents.cli_agents as cli_agents
+
+        agent_cls = getattr(cli_agents, agent_cls_name)
+        agent = agent_cls(name="test-agent", model=model, enable_fallback=True)
+        assert self._fallback_model(agent) == expected
+
+    @pytest.mark.parametrize(
+        ("agent_cls_name", "expected"),
+        [
+            ("CodexAgent", "openai/gpt-6-astra"),
+            ("OpenAIAgent", "openai/gpt-6-astra"),
+            ("ClaudeAgent", "anthropic/claude-fable-5.1"),
+            ("GeminiCLIAgent", "google/gemini-3.1-pro-preview"),
+            ("GrokCLIAgent", "x-ai/grok-4.6"),
+            ("GrokBuildAgent", "x-ai/grok-4.6"),
+            ("QwenCLIAgent", "qwen/qwen3.8-2.4t-a95b"),
+            ("DeepseekCLIAgent", "deepseek/deepseek-v4-pro-0813"),
+            ("KimiCLIAgent", "moonshotai/kimi-k3"),
+            ("AntigravityAgent", "google/gemini-3.1-pro-preview"),
+        ],
+    )
+    def test_unknown_model_falls_back_to_own_family_frontier(self, agent_cls_name, expected):
+        """A spelling neither the catalog nor the upgrade map knows resolves
+        to THIS agent class's family frontier."""
+        import aragora.agents.cli_agents as cli_agents
+        from aragora.models.catalog import spec_or_none
+        from aragora.models.upgrade_map import resolve_model_id
+
+        unknown = "totally-unknown-model-xyz"
+        assert spec_or_none(resolve_model_id(unknown)) is None, "fixture id must stay unknown"
+
+        agent_cls = getattr(cli_agents, agent_cls_name)
+        # Not every CLI subclass forwards enable_fallback through __init__
+        # (e.g. OpenAIAgent narrows the signature); set it after construction.
+        agent = agent_cls(name="test-agent", model=unknown)
+        agent.enable_fallback = True
+        assert self._fallback_model(agent) == expected
+
+    def test_class_with_no_family_falls_back_to_fable(self):
+        """Only a class that declares no family lands on the Anthropic
+        frontier (kilocode brokers several providers)."""
+        from aragora.config.model_pins import FABLE_51_VIA_OPENROUTER
+
+        agent = DummyCLIAgent(
+            name="test-agent", model="totally-unknown-model-xyz", enable_fallback=True
+        )
+        assert agent.MODEL_FAMILY == ""
+        assert self._fallback_model(agent) == FABLE_51_VIA_OPENROUTER
+
+
 class TestCLIAgentSanitization:
     """Test CLI argument sanitization."""
 

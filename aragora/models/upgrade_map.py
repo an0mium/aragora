@@ -108,6 +108,12 @@ UPGRADES: dict[str, str] = {
             "gpt-5.4",
             "gpt-5.5",
             "gpt-5.6-sol",
+            # Codex/chat CLI spellings. Real names a user config or Codex
+            # harness can still pin; without them the CLI fallback would send
+            # an OpenAI pin cross-family to Anthropic.
+            "gpt-5.3-codex",
+            "gpt-4.1-codex",
+            "gpt-5.3-chat-latest",
             "openai/gpt-4o",
             "openai/gpt-5.3",
             # Orphan spelling from aragora/server/stream/debate_executor.py's
@@ -188,6 +194,8 @@ UPGRADES: dict[str, str] = {
             "grok-3-mini",
             "grok-4",
             "grok-4-latest",
+            # xAI "fast" variant spelling used by CLI pins.
+            "grok-4-1-fast",
             "grok-4.3",
             "grok-4.5",
             "x-ai/grok-4",
@@ -210,7 +218,16 @@ UPGRADES: dict[str, str] = {
     },
     **{
         k: _MISTRAL_MEDIUM
-        for k in ("mistral-medium", "mistral-medium-3.1", "mistralai/mistral-medium-3.1")
+        for k in (
+            "mistral-medium",
+            "mistral-medium-3.1",
+            "mistralai/mistral-medium-3.1",
+            # The catalog carries no Codestral row, so the code-model
+            # spelling resolves to the Mistral family frontier. Recorded here
+            # rather than left to the CLI fallback so the SKU change is
+            # visible in one place (see the PR body's tradeoffs).
+            "codestral-latest",
+        )
     },
     # OpenRouter-routed families
     **{
@@ -224,6 +241,9 @@ UPGRADES: dict[str, str] = {
             "deepseek/deepseek-v4-pro",
             "deepseek-chat",
             "deepseek/deepseek-chat",
+            # Seeded agent id (scripts/seed_agents.py) and the v3.2 line.
+            "deepseek-coder",
+            "deepseek-v3.2",
         )
     },
     # NOTE: "qwen3.8-max" and "qwen/qwen3.8-max" are deliberately absent —
@@ -240,6 +260,7 @@ UPGRADES: dict[str, str] = {
             "qwen/qwen3.7-max",
             "qwen3-coder",
             "qwen/qwen3-coder",
+            "qwen-2.5-coder",
         )
     },
     **{
