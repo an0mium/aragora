@@ -545,7 +545,7 @@ async function demonstrateAgentAnalytics(): Promise<void> {
   console.log('-'.repeat(40));
 
   try {
-    const comparison = await client.analytics.compareAgents(['claude', 'gpt-4', 'gemini']) as {
+    const comparison = await client.analytics.compareAgents(['claude', 'gpt-6-astra', 'gemini']) as {
       agents: Array<{
         name: string;
         elo: number;

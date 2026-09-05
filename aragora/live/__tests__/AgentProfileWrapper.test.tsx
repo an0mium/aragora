@@ -13,7 +13,7 @@ import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
 import { AgentProfileWrapper } from '../src/app/(app)/agent/[[...name]]/AgentProfileWrapper';
 import { mockRouter, useParams } from 'next/navigation';
 
-const mockParams = { name: ['claude-3-opus'] };
+const mockParams = { name: ['claude-fable-5-1'] };
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -28,7 +28,7 @@ global.fetch = mockFetch;
 
 // Sample response data
 const mockProfileData = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   ranking: {
     rating: {
       elo: 1650,
@@ -73,10 +73,10 @@ const mockMomentsData = {
 };
 
 const mockNetworkData = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   rivals: [
-    { agent: 'gpt-4o', score: 0.8, debate_count: 10 },
-    { agent: 'gemini-pro', score: 0.6, debate_count: 5 },
+    { agent: 'gpt-6-astra', score: 0.8, debate_count: 10 },
+    { agent: 'gemini-3.1-pro-preview', score: 0.6, debate_count: 5 },
   ],
   allies: [
     { agent: 'claude-3-sonnet', score: 0.7, debate_count: 8 },
@@ -86,7 +86,7 @@ const mockNetworkData = {
 };
 
 const mockDomainsData = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   overall_elo: 1650,
   domains: [
     { domain: 'technology', elo: 1700, relative: 50 },
@@ -96,7 +96,7 @@ const mockDomainsData = {
 };
 
 const mockPerformanceData = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   elo: 1650,
   total_games: 40,
   wins: 25,
@@ -116,12 +116,12 @@ const mockPerformanceData = {
 };
 
 const mockHistoryData = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   history: [
     {
       debate_id: 'debate-1',
       topic: 'AI Ethics',
-      opponent: 'gpt-4o',
+      opponent: 'gpt-6-astra',
       result: 'win',
       elo_change: 15,
       elo_after: 1650,
@@ -130,7 +130,7 @@ const mockHistoryData = {
     {
       debate_id: 'debate-2',
       topic: 'Climate Policy',
-      opponent: 'gemini-pro',
+      opponent: 'gemini-3.1-pro-preview',
       result: 'loss',
       elo_change: -10,
       elo_after: 1635,
@@ -140,8 +140,8 @@ const mockHistoryData = {
 };
 
 const mockHeadToHeadData = {
-  agent: 'claude-3-opus',
-  opponent: 'gpt-4o',
+  agent: 'claude-fable-5-1',
+  opponent: 'gpt-6-astra',
   matches: 10,
   wins: 6,
   losses: 3,
@@ -200,7 +200,7 @@ describe('AgentProfileWrapper', () => {
       renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
     });
 

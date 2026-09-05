@@ -92,7 +92,7 @@ class PreflightHealthCheck:
     # Provider configurations: (env_var, provider_name, model_hint)
     PROVIDER_CHECKS = [
         ("ANTHROPIC_API_KEY", "anthropic", "claude"),
-        ("OPENAI_API_KEY", "openai", "gpt-4"),
+        ("OPENAI_API_KEY", "openai", "gpt-6-astra"),
         ("GEMINI_API_KEY", "gemini", "gemini"),
         ("OPENROUTER_API_KEY", "openrouter", "openrouter"),
         ("XAI_API_KEY", "xai", "grok"),
@@ -104,7 +104,7 @@ class PreflightHealthCheck:
         "codex-engineer": "openai",
         "gemini-visionary": "gemini",
         "grok-lateral-thinker": "xai",
-        "deepseek-v4-pro": "openrouter",
+        "deepseek-v4-pro-0813": "openrouter",
     }
 
     def __init__(self, min_required_agents: int = 2):
@@ -359,7 +359,7 @@ class PreflightHealthCheck:
                 # Just check auth by making a minimal request
                 await asyncio.wait_for(
                     client.messages.create(
-                        model="claude-3-haiku-20240307",
+                        model="claude-fable-5-1",
                         max_tokens=1,
                         messages=[{"role": "user", "content": "ping"}],
                     ),

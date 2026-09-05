@@ -92,7 +92,7 @@ export interface RelationshipSummary {
  * @example
  * ```typescript
  * // Get relationship between two agents
- * const relationship = await client.relationships.get('gpt-4', 'claude');
+ * const relationship = await client.relationships.get('gpt-6-astra', 'claude');
  * console.log(`Agreement rate: ${relationship.agreement_rate}%`);
  *
  * // Get full relationship graph

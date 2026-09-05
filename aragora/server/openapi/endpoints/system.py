@@ -862,7 +862,7 @@ call it before any credentials are set up.
                                     "available": True,
                                     "model": "claude-opus-5",
                                 },
-                                "openai": {"available": True, "model": "gpt-5.3"},
+                                "openai": {"available": True, "model": "gpt-6-astra"},
                                 "openrouter": {
                                     "available": False,
                                     "reason": "OPENROUTER_API_KEY not set",

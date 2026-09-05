@@ -110,7 +110,7 @@ class SelectionFeedbackLoop:
         # After each debate
         adjustments = feedback.process_debate_outcome(
             debate_id="debate-123",
-            participants=["claude", "gpt-4", "gemini"],
+            participants=["claude", "gpt-6-astra", "gemini"],
             winner="claude",
             domain="security",
         )

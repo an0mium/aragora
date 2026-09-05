@@ -376,7 +376,7 @@ class DocumentsAPI:
         self,
         document_id: str,
         max_tokens: int = 100000,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-3.8-flash",
     ) -> DocumentContext:
         """
         Get LLM-ready context from a document.
@@ -400,7 +400,7 @@ class DocumentsAPI:
         self,
         document_id: str,
         max_tokens: int = 100000,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-3.8-flash",
     ) -> DocumentContext:
         """Async version of context()."""
         params = {"max_tokens": max_tokens, "model": model}
@@ -417,7 +417,7 @@ class DocumentsAPI:
         self,
         document_ids: builtins.list[str],
         audit_types: builtins.list[str] | None = None,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-3.8-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
         """
@@ -427,7 +427,7 @@ class DocumentsAPI:
             document_ids: List of document IDs to audit.
             audit_types: Types of audits to run (security, compliance, consistency, quality).
                         Defaults to all types if not specified.
-            model: Model to use for analysis (default: gemini-1.5-flash).
+            model: Model to use for analysis (default: gemini-3.8-flash).
             **options: Additional audit options.
 
         Returns:
@@ -447,7 +447,7 @@ class DocumentsAPI:
         self,
         document_ids: builtins.list[str],
         audit_types: builtins.list[str] | None = None,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-3.8-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
         """Async version of create_audit()."""

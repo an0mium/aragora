@@ -58,8 +58,8 @@ ELEVENLABS_VOICES = {
 
 # OpenRouter fallback models for each provider
 FALLBACK_MODELS = {
-    "anthropic-api": "anthropic/claude-sonnet-4",
-    "openai-api": "openai/gpt-4o",
+    "anthropic-api": "anthropic/claude-fable-5.1",
+    "openai-api": "openai/gpt-6-astra",
     "gemini": "google/gemini-3.1-pro-preview",
     "grok": "x-ai/grok-2-1212",
     "mistral-api": "mistralai/mistral-large-2411",
@@ -75,7 +75,7 @@ AGENT_TIMEOUTS = {
     "grok": 600,
     "mistral-api": 600,
     "deepseek": 600,
-    "deepseek-r1": 600,
+    "deepseek-v4-pro-0813": 600,
     "qwen": 600,
     "yi": 600,
     "kimi": 600,
@@ -280,7 +280,7 @@ AGENT_CONFIGS = [
         "Technical strategist, deep reasoning, cost-efficiency focus",
     ),
     AgentConfig(
-        "deepseek-r1",
+        "deepseek-v4-pro-0813",
         "deepseek_r1",
         "DeepSeek R1 (Reasoning)",
         ELEVENLABS_VOICES["deepseek_r1"],

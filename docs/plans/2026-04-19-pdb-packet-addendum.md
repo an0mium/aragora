@@ -68,7 +68,7 @@ Each step is a separate draft PR, reviewable in under 10 minutes, with its own v
 ```python
 @dataclass(frozen=True)
 class PacketSource:
-    agent: str           # e.g. "claude-opus-4-7"
+    agent: str           # e.g. "claude-fable-5-1"
     model: str           # pinned model ID
     confidence: float    # 0..1 from critique phase
     latency_ms: int

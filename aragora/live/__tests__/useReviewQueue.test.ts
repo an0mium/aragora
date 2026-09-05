@@ -118,7 +118,7 @@ describe('getBriefState', () => {
         current_phase: 'findings',
         cost_usd_so_far: 0.07,
         started_at: new Date(Date.now() - 5000).toISOString(),
-        panel_models: ['claude-opus-4-8', 'gpt-4.1'],
+        panel_models: ['claude-opus-4-8', 'gpt-6-astra'],
         roles_complete: 2,
         roles_total: 8,
       },
@@ -127,7 +127,7 @@ describe('getBriefState', () => {
     expect(snap.state).toBe('running');
     expect(snap.phase).toBe('findings');
     expect(snap.costUsdSoFar).toBeCloseTo(0.07);
-    expect(snap.panelModels).toEqual(['claude-opus-4-8', 'gpt-4.1']);
+    expect(snap.panelModels).toEqual(['claude-opus-4-8', 'gpt-6-astra']);
     expect(snap.rolesComplete).toBe(2);
     expect(snap.rolesTotal).toBe(8);
     expect(snap.elapsedSeconds).toBeGreaterThanOrEqual(4);

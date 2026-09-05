@@ -667,6 +667,7 @@ models:
     - claude-opus-4
     - claude-sonnet-4
     - claude-haiku-4-5
+    - claude-fable-5-1
     # Legacy (still supported via API)
     - claude-3-opus
     - claude-3.5-sonnet
@@ -676,19 +677,21 @@ models:
     - gpt-4-turbo
     - o1
     - o1-mini
+    - gpt-6-astra
   google:
     - gemini-3.1-pro-preview
     - gemini-1.5-pro
-    - gemini-2.0-flash
+    - gemini-3.8-flash
   xai:
     - grok-2
     - grok-3
+    - grok-4.6
   mistral:
-    - mistral-large
+    - mistral-large-2512
     - codestral
   openrouter:
-    - deepseek-v4-pro
-    - llama-3.3-70b
+    - deepseek-v4-pro-0813
+    - muse-spark-1.3
     - qwen-72b
     - yi-large
     - kimi-k1

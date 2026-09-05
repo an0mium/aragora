@@ -348,7 +348,7 @@ ALLOWED_AGENT_TYPES = frozenset(
         "codestral",  # Legacy - use Mistral API directly
         # API-based (via OpenRouter)
         "deepseek",
-        "deepseek-r1",
+        "deepseek-v4-pro-0813",
         "llama",
         "mistral",
         "qwen",

@@ -161,7 +161,7 @@ PERSONA_TO_AGENT = {
     "qwen": "qwen",  # Registered in openrouter.py with default model
     "qwen-max": "qwen-max",  # Registered in openrouter.py
     "deepseek": "deepseek",  # Registered in openrouter.py
-    "deepseek-r1": "deepseek-r1",  # Registered in openrouter.py
+    "deepseek-v4-pro-0813": "deepseek-v4-pro-0813",  # Registered in openrouter.py
     "kimi": "kimi",  # Registered in openrouter.py
     # Compliance personas
     "sox": "anthropic-api",
@@ -299,7 +299,7 @@ Guidelines:
 
         try:
             response = await self.client.messages.create(
-                model="claude-opus-4-7",
+                model="claude-fable-5-1",
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}],
             )

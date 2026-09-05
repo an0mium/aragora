@@ -166,12 +166,12 @@ describe('ExplainabilityAPI Namespace', () => {
 
       const result = await api.generateCounterfactual('d_123', {
         hypothesis: 'What if we had a larger budget?',
-        affected_agents: ['gpt-4', 'claude'],
+        affected_agents: ['gpt-6-astra', 'claude'],
       });
 
       expect(mockClient.generateCounterfactual).toHaveBeenCalledWith('d_123', {
         hypothesis: 'What if we had a larger budget?',
-        affected_agents: ['gpt-4', 'claude'],
+        affected_agents: ['gpt-6-astra', 'claude'],
       });
       expect(result.predicted_outcome).toContain('comprehensive');
     });
@@ -191,7 +191,7 @@ describe('ExplainabilityAPI Namespace', () => {
         ],
         reasoning_chain: [
           { step: 1, agent: 'claude', action: 'Proposed microservices', source_refs: ['doc_1'] },
-          { step: 2, agent: 'gpt-4', action: 'Agreed with caveats', source_refs: ['d_100'] },
+          { step: 2, agent: 'gpt-6-astra', action: 'Agreed with caveats', source_refs: ['d_100'] },
         ],
       };
       mockClient.getProvenance.mockResolvedValue(mockProvenance);
@@ -348,7 +348,7 @@ describe('ExplainabilityAPI Namespace', () => {
         pivot_threshold: 0.5,
         votes: [
           { agent_id: 'claude', vote: 'for', influence_score: 0.8, reasoning: 'Strong evidence' },
-          { agent_id: 'gpt-4', vote: 'for', influence_score: 0.6, reasoning: 'Cost effective' },
+          { agent_id: 'gpt-6-astra', vote: 'for', influence_score: 0.6, reasoning: 'Cost effective' },
         ],
       };
       mockClient.getDebateVotePivots.mockResolvedValue(mockPivots);

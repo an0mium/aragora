@@ -29,7 +29,7 @@ async def main() -> None:
         print("Creating debate...")
         debate = await client.debates.create(
             task="Should AI systems be required to explain their decisions?",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             rounds=2,
             consensus="weighted",
         )

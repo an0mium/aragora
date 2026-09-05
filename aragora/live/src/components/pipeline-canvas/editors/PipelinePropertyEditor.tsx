@@ -378,7 +378,7 @@ function OrchestrationEditor({
         label="Assigned Agent"
         value={String(getMirroredNodeField(node, 'assignedAgent', 'assigned_agent') ?? '')}
         onChange={(v) => onUpdate({ assignedAgent: v })}
-        placeholder="e.g., claude, gpt-4"
+        placeholder="e.g., claude, gpt-6-astra"
       />
       <InputField
         label="Agent Type"

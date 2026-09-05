@@ -273,7 +273,7 @@ async def create_agents():
                 "anthropic-api",
                 name="claude_philosopher",
                 role="synthesizer",
-                model="claude-sonnet-4-20250514",
+                model="claude-fable-5-1",
                 enable_fallback=True,  # V2: Enable OpenRouter fallback
             )
         )
@@ -286,7 +286,7 @@ async def create_agents():
                 "openai-api",
                 name="gpt_pragmatist",
                 role="analyst",
-                model="gpt-4o",
+                model="gpt-6-astra",
                 enable_fallback=True,  # V2: Enable OpenRouter fallback
             )
         )
@@ -299,7 +299,7 @@ async def create_agents():
                 "gemini",
                 name="gemini_creative",
                 role="proposer",
-                model="gemini-2.0-flash",
+                model="gemini-3.8-flash",
                 enable_fallback=True,  # V2: Enable OpenRouter fallback
             )
         )
@@ -312,7 +312,7 @@ async def create_agents():
                 "grok",
                 name="grok_contrarian",
                 role="devil_advocate",
-                model="grok-2",
+                model="grok-4.6",
                 enable_fallback=True,  # V2: Enable OpenRouter fallback
             )
         )
@@ -327,7 +327,7 @@ async def create_agents():
                 "openrouter",
                 name="deepseek_engineer",
                 role="critic",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
         )
         logger.info("Added DeepSeek V3 (engineer/critic) via OpenRouter")
@@ -379,7 +379,7 @@ async def create_agents():
                     "openrouter",
                     name="llama_generalist",
                     role="proposer",
-                    model="meta-llama/llama-3.3-70b-instruct",
+                    model="meta/muse-spark-1.3",
                 )
             )
             logger.info("Added Llama 3.3 70B (generalist) via OpenRouter")

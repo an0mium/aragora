@@ -130,7 +130,7 @@ StepDefinition(
     step_type="debate",
     config={
         "topic": "Analyze contract for risks",
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-6-astra"],
         "rounds": 3,
         "consensus_threshold": 0.8,
     },
@@ -313,7 +313,7 @@ workflow = loader.load_template(
     variables={
         "repository": "github.com/org/repo",
         "branch": "main",
-        "reviewers": ["claude", "gpt-4"],
+        "reviewers": ["claude", "gpt-6-astra"],
     },
 )
 ```

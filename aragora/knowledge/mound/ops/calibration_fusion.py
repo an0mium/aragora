@@ -25,12 +25,12 @@ Usage:
     engine = CalibrationFusionEngine()
     predictions = [
         AgentPrediction("claude", 0.8, "winner_a"),
-        AgentPrediction("gpt-4", 0.75, "winner_a"),
+        AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         AgentPrediction("gemini", 0.6, "winner_b"),
     ]
     consensus = engine.fuse_predictions(
         predictions,
-        weights={"claude": 0.9, "gpt-4": 0.85, "gemini": 0.7},
+        weights={"claude": 0.9, "gpt-6-astra": 0.85, "gemini": 0.7},
     )
 """
 

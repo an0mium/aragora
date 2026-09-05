@@ -96,7 +96,7 @@ When TRUE RLM is unavailable, uses `HierarchicalCompressor`:
 ```python
 from aragora.rlm import HierarchicalCompressor, AbstractionLevel
 
-compressor = HierarchicalCompressor(model="claude-sonnet-4-20250514")
+compressor = HierarchicalCompressor(model="claude-fable-5-1")
 hierarchy = await compressor.compress(
     content=long_document,
     target_levels=[

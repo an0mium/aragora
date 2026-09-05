@@ -26,7 +26,7 @@ Usage:
     # Start distributed debate
     result = await coordinator.start_debate(
         task="Should we adopt microservices?",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
     )
 """
 

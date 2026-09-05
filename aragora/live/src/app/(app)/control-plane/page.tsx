@@ -285,10 +285,10 @@ export default function ControlPlanePage() {
     } catch {
       // Demo mode: use mock data if endpoint not available
       setAgents([
-        { id: 'claude', name: 'Claude', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 45, tokens_used: 125000 },
-        { id: 'gemini', name: 'Gemini', model: 'gemini-3-pro', status: 'working', current_task: 'Document audit scan', requests_today: 32, tokens_used: 890000 },
-        { id: 'gpt4', name: 'GPT-4', model: 'gpt-4-turbo', status: 'idle', requests_today: 28, tokens_used: 78000 },
-        { id: 'codex', name: 'Codex', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 15, tokens_used: 45000 },
+        { id: 'claude', name: 'Claude', model: 'claude-fable-5-1', status: 'idle', requests_today: 45, tokens_used: 125000 },
+        { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-pro-preview', status: 'working', current_task: 'Document audit scan', requests_today: 32, tokens_used: 890000 },
+        { id: 'gpt4', name: 'GPT-4', model: 'gpt-6-astra', status: 'idle', requests_today: 28, tokens_used: 78000 },
+        { id: 'codex', name: 'Codex', model: 'claude-fable-5-1', status: 'idle', requests_today: 15, tokens_used: 45000 },
       ]);
       return false; // Used mock (demo mode)
     }
@@ -984,9 +984,9 @@ export default function ControlPlanePage() {
                             <div className="text-xs text-text-muted">Model for initial document scanning</div>
                           </div>
                           <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
-                            <option>gemini-3-pro</option>
-                            <option>claude-3.5-sonnet</option>
-                            <option>gpt-4-turbo</option>
+                            <option>gemini-3.1-pro-preview</option>
+                            <option>claude-fable-5-1</option>
+                            <option>gpt-6-astra</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between">
@@ -995,8 +995,8 @@ export default function ControlPlanePage() {
                             <div className="text-xs text-text-muted">Model for finding verification</div>
                           </div>
                           <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
-                            <option>claude-3.5-sonnet</option>
-                            <option>gpt-4-turbo</option>
+                            <option>claude-fable-5-1</option>
+                            <option>gpt-6-astra</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between">

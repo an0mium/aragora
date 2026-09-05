@@ -251,7 +251,7 @@ class CLIErrorHandler:
                     RecoverySuggestion(
                         title="Use different agents",
                         steps=["Try agents from a different provider"],
-                        command="aragora ask 'your question' --agents gemini,mistral-large",
+                        command="aragora ask 'your question' --agents gemini,mistral-large-2512",
                     )
                 )
             else:

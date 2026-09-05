@@ -26,7 +26,7 @@
    catalog pollution.
 
 Positive contribution for balance: gemini's G1 round also produced one
-genuine P2 (missing `openai/gpt-5.5` / `anthropic/claude-opus-4.8` alias
+genuine P2 (missing `openai/gpt-6-astra` / `anthropic/claude-opus-4.8` alias
 pricing rows), fixed at 53bb7798a449.
 
 ## Founder-directed disposition

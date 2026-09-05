@@ -215,7 +215,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
         enable_agent_filter=getattr(args, "agent_filter", False)
         or agent_filter_config.get("enabled", False),
         agent_filter_model=getattr(args, "filter_model", None)
-        or agent_filter_config.get("model", "gemini-2.0-flash"),
+        or agent_filter_config.get("model", "gemini-3.8-flash"),
         agent_filter_prompt=getattr(args, "filter_prompt", "")
         or agent_filter_config.get("prompt", ""),
     )

@@ -123,7 +123,7 @@ class ControlPlaneCoordinator:
         await coordinator.register_agent(
             agent_id="claude-3",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         # Submit tasks

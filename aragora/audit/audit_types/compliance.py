@@ -326,7 +326,7 @@ class ComplianceAuditor:
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agent = AnthropicAPIAgent(name="compliance_analyst", model="claude-3.5-sonnet")
+            agent = AnthropicAPIAgent(name="compliance_analyst", model="claude-fable-5-1")
 
             prompt = f"""Analyze this document for compliance issues:
 

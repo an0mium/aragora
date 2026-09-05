@@ -288,7 +288,7 @@ AgentType = Literal[
     "grok",
     # API-based (via OpenRouter)
     "deepseek",
-    "deepseek-r1",
+    "deepseek-v4-pro-0813",
     "llama",
     "mistral",
     "qwen",

@@ -1432,7 +1432,7 @@ def trace_llm_call(
         The span object
 
     Example:
-        with trace_llm_call("anthropic", "claude-3-opus", "generate") as span:
+        with trace_llm_call("anthropic", "claude-fable-5-1", "generate") as span:
             response = await claude.generate(prompt)
             span.set_attribute("llm.completion_tokens", response.usage.output_tokens)
             span.set_attribute("llm.total_tokens", response.usage.total_tokens)

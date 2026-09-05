@@ -34,7 +34,7 @@ Usage:
     from aragora.rlm.bridge import AragoraRLM, DebateContextAdapter
 
     # Create RLM with Aragora integration
-    rlm = AragoraRLM(backend="openai", model="gpt-4")
+    rlm = AragoraRLM(backend="openai", model="gpt-6-astra")
 
     # Process long debate history
     adapter = DebateContextAdapter()
@@ -171,8 +171,8 @@ class RLMBackendConfig:
     """Configuration for RLM backend."""
 
     backend: str = "openai"  # openai, anthropic, openrouter, litellm
-    model_name: str = "gpt-4o"
-    sub_model_name: str = "gpt-4o-mini"
+    model_name: str = "gpt-6-astra"
+    sub_model_name: str = "gpt-5.6-terra"
     fallback_backend: str | None = None
     fallback_model_name: str | None = None
 
@@ -1478,7 +1478,7 @@ Please provide an improved answer based on the feedback."""
 # Convenience function
 def create_aragora_rlm(
     backend: str = "openai",
-    model: str = "gpt-4o",
+    model: str = "gpt-6-astra",
     verbose: bool = False,
     knowledge_mound: Any | None = None,
     enable_caching: bool = True,

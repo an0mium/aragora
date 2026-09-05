@@ -72,7 +72,7 @@ const PAGE_SHELL_MAX_WIDTH = "1240px";
 const RECORDED_SAMPLE: RecordedDebate = {
   id: "demo_showcase_001",
   topic: DEMO_TOPIC,
-  agents: ["claude-opus", "gpt-5", "gemini-pro", "mistral-large", "grok"],
+  agents: ["claude-opus", "gpt-6-astra", "gemini-3.1-pro-preview", "mistral-large-2512", "grok"],
   rounds: 2,
   confidence: 0.82,
   verdict:
@@ -90,7 +90,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "proposal",
-      agent: "gpt-5",
+      agent: "gpt-6-astra",
       model: "GPT-5.4",
       content:
         "Mandatory is too strong. AI review tools have 15-25% false positive rates on complex codebases. Making it mandatory creates alert fatigue and slows velocity. Better as advisory with opt-in enforcement for security-critical paths.",
@@ -99,7 +99,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "critique",
-      agent: "gemini-pro",
+      agent: "gemini-3.1-pro-preview",
       model: "Gemini 3.1 Pro",
       content:
         "Both proposals miss the cost dimension. AI review at scale costs $0.02-0.15 per PR. For a team doing 200 PRs/week, that is $200-1,500/month. The ROI depends on your current bug escape rate.",
@@ -108,7 +108,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "critique",
-      agent: "mistral-large",
+      agent: "mistral-large-2512",
       model: "Mistral Large",
       content:
         "The benchmark-based security claim does not map cleanly onto production code. AI reviewers are strongest on recurring patterns and weaker on business-logic failures.",
@@ -136,7 +136,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "vote",
-      agent: "gpt-5",
+      agent: "gpt-6-astra",
       model: "GPT-5.4",
       content:
         "Tiered enforcement addresses my velocity concern while maintaining security coverage.",
@@ -179,14 +179,14 @@ function formatAgentName(agent: string): string {
     "claude-opus": "Claude Opus 5",
     "claude-sonnet": "Claude Sonnet 4.6",
     gpt: "GPT",
-    "gpt-5": "GPT-5.4",
+    "gpt-6-astra": "GPT-5.4",
     "gpt-4o": "GPT-4o",
     grok: "Grok 3",
-    "grok-2": "Grok 2",
+    "grok-4.6": "Grok 2",
     gemini: "Gemini",
-    "gemini-pro": "Gemini 3.1 Pro",
+    "gemini-3.1-pro-preview": "Gemini 3.1 Pro",
     mistral: "Mistral",
-    "mistral-large": "Mistral Large",
+    "mistral-large-2512": "Mistral Large",
     deepseek: "DeepSeek V3",
     system: "Consensus Engine",
   };

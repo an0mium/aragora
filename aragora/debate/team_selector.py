@@ -42,17 +42,17 @@ DOMAIN_CAPABILITY_MAP: dict[str, list[str]] = {
     "programming": ["claude", "codex", "codestral", "deepseek", "gpt"],
     "technical": ["claude", "codex", "codestral", "deepseek", "gpt", "gemini"],
     # Research and analysis tasks
-    "research": ["claude", "gemini", "gpt", "deepseek-r1"],
-    "analysis": ["claude", "gemini", "gpt", "deepseek-r1"],
-    "science": ["claude", "gemini", "gpt", "deepseek-r1"],
+    "research": ["claude", "gemini", "gpt", "deepseek-v4-pro-0813"],
+    "analysis": ["claude", "gemini", "gpt", "deepseek-v4-pro-0813"],
+    "science": ["claude", "gemini", "gpt", "deepseek-v4-pro-0813"],
     # Creative tasks
     "creative": ["claude", "gpt", "gemini", "llama"],
     "writing": ["claude", "gpt", "gemini"],
     "storytelling": ["claude", "gpt", "gemini", "llama"],
     # Reasoning-heavy tasks
-    "reasoning": ["claude", "deepseek-r1", "gpt", "gemini"],
-    "logic": ["claude", "deepseek-r1", "gpt"],
-    "math": ["claude", "deepseek-r1", "gpt", "gemini"],
+    "reasoning": ["claude", "deepseek-v4-pro-0813", "gpt", "gemini"],
+    "logic": ["claude", "deepseek-v4-pro-0813", "gpt"],
+    "math": ["claude", "deepseek-v4-pro-0813", "gpt", "gemini"],
     # General/default - no filtering
     "general": [],
 }

@@ -296,7 +296,7 @@ class OnboardingWizard:
                         {
                             "name": "default_agent",
                             "type": "select",
-                            "options": ["claude", "gpt-4", "gemini"],
+                            "options": ["claude", "gpt-6-astra", "gemini"],
                         },
                         {"name": "notifications", "type": "checkbox", "default": True},
                         {"name": "timezone", "type": "timezone"},

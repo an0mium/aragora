@@ -202,7 +202,7 @@ def record_fallback_activation(
     """Record when a fallback provider is activated.
 
     Args:
-        primary_agent: The agent that failed (e.g., "claude", "gpt-4")
+        primary_agent: The agent that failed (e.g., "claude", "gpt-6-astra")
         fallback_provider: The fallback used (e.g., "openrouter")
         error_type: Type of error that triggered fallback (e.g., "rate_limit", "quota")
     """

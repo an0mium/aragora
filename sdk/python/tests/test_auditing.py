@@ -40,15 +40,17 @@ class TestAuditingCapabilityProbe:
     def test_probe_capability_with_config(self) -> None:
         """Probe agent capability with configuration."""
         with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"agent": "gpt-4", "score": 0.88}
+            mock_request.return_value = {"agent": "gpt-6-astra", "score": 0.88}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
             config = {"temperature": 0.5, "max_tokens": 1000}
-            client.auditing.probe_capability(agent="gpt-4", task="Summarization", config=config)
+            client.auditing.probe_capability(
+                agent="gpt-6-astra", task="Summarization", config=config
+            )
 
             call_args = mock_request.call_args
             json_data = call_args[1]["json"]
-            assert json_data["agent"] == "gpt-4"
+            assert json_data["agent"] == "gpt-6-astra"
             assert json_data["task"] == "Summarization"
             assert json_data["config"] == config
             client.close()
@@ -100,7 +102,7 @@ class TestAuditingDeepAudit:
             client = AragoraClient(base_url="https://api.aragora.ai")
             client.auditing.deep_audit(
                 task="Code review",
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
                 depth="deep",
                 config={"focus": "security"},
             )
@@ -108,7 +110,7 @@ class TestAuditingDeepAudit:
             call_args = mock_request.call_args
             json_data = call_args[1]["json"]
             assert json_data["task"] == "Code review"
-            assert json_data["agents"] == ["claude", "gpt-4"]
+            assert json_data["agents"] == ["claude", "gpt-6-astra"]
             assert json_data["depth"] == "deep"
             assert json_data["config"] == {"focus": "security"}
             client.close()

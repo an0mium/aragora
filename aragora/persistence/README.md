@@ -516,12 +516,12 @@ artifact = DebateArtifact(
     cycle_number=5,
     phase="debate",
     task="Design a rate limiter",
-    agents=["claude", "gpt-4", "gemini"],
+    agents=["claude", "gpt-6-astra", "gemini"],
     transcript=[{"role": "agent", "content": "..."}],
     consensus_reached=True,
     confidence=0.85,
     winning_proposal="Token bucket algorithm...",
-    vote_tally={"claude": 2, "gpt-4": 1},
+    vote_tally={"claude": 2, "gpt-6-astra": 1},
 )
 ```
 

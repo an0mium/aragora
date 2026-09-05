@@ -29,7 +29,7 @@ Usage:
     await coordinator.register_agent(
         agent_id="claude-3",
         capabilities=["debate", "code", "analysis"],
-        metadata={"model": "claude-3-opus", "provider": "anthropic"}
+        metadata={"model": "claude-fable-5-1", "provider": "anthropic"}
     )
 
     # Submit a task

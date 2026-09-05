@@ -3678,7 +3678,7 @@ paths:
       - name: name
         in: path
         required: true
-        description: Agent name (e.g., 'claude', 'gpt-4', 'gemini')
+        description: Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini')
         schema:
           type: string
       responses:
@@ -14113,7 +14113,7 @@ paths:
                   task: Is GraphQL better than REST for mobile apps?
                   agents:
                   - claude
-                  - gpt-4
+                  - gpt-6-astra
                   - gemini
                   rounds: 9
                   consensus: judge
@@ -42509,7 +42509,7 @@ paths:
       - name: name
         in: path
         required: true
-        description: Agent name (e.g., 'claude', 'gpt-4', 'gemini')
+        description: Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini')
         schema:
           type: string
       responses:
@@ -71716,7 +71716,7 @@ paths:
                   task: Is GraphQL better than REST for mobile apps?
                   agents:
                   - claude
-                  - gpt-4o
+                  - gpt-6-astra
                   - gemini
                   rounds: 9
                   consensus: judge
@@ -72298,7 +72298,7 @@ paths:
         description: Comma-separated model types
         schema:
           type: string
-        example: claude-sonnet-4,gpt-4o,gemini-pro
+        example: claude-fable-5-1,gpt-6-astra,gemini-3.1-pro-preview
       responses:
         '200':
           description: Cost estimate
@@ -75478,7 +75478,7 @@ paths:
                     proposals: 3
                     critiques: 2
                     error: null
-                  - name: gpt-4o
+                  - name: gpt-6-astra
                     provider: openai
                     status: failed
                     rounds_participated: 0
@@ -75491,7 +75491,7 @@ paths:
                     confidence: 0.0
                   receipt_generated: false
                   suggestions:
-                  - Agent gpt-4o did not participate - verify OPENAI_API_KEY is set and valid
+                  - Agent gpt-6-astra did not participate - verify OPENAI_API_KEY is set and valid
                   - No consensus reached after 3 rounds - consider increasing round count or reducing agent count
                   - Consider adding OPENROUTER_API_KEY as fallback for failed providers
         '404':
@@ -120955,7 +120955,7 @@ paths:
                       model: claude-opus-5
                     openai:
                       available: true
-                      model: gpt-5.3
+                      model: gpt-6-astra
                     openrouter:
                       available: false
                       reason: OPENROUTER_API_KEY not set
@@ -145943,7 +145943,7 @@ components:
           description: List of agent specs to participate. If empty, auto_select is used.
           example:
           - claude
-          - gpt-4
+          - gpt-6-astra
           - gemini
           minItems: 0
           maxItems: 8
@@ -146159,7 +146159,7 @@ components:
         task: Should we adopt microservices architecture for our e-commerce platform?
         agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
         rounds: 9
         consensus: judge
@@ -146190,7 +146190,7 @@ components:
           description: Agents participating in the debate
           example:
           - claude
-          - gpt-4
+          - gpt-6-astra
           - gemini
         websocket_url:
           type: string
@@ -146212,7 +146212,7 @@ components:
         task: Should we adopt microservices architecture?
         agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
         websocket_url: wss://api.aragora.ai/ws/debates/deb_abc123xyz
         estimated_duration: 120
@@ -151214,7 +151214,7 @@ components:
         format: audio
         voices:
           claude: alloy
-          gpt-4: echo
+          gpt-6-astra: echo
     DebateCloneRequest:
       type: object
       description: Clone an existing debate with fresh state
@@ -151452,15 +151452,15 @@ components:
             type: string
           example:
           - claude-opus-5
-          - gpt-4o
-          - gemini-pro
+          - gpt-6-astra
+          - gemini-3.1-pro-preview
       example:
         num_agents: 3
         num_rounds: 9
         model_types:
         - claude-opus-5
-        - gpt-4o
-        - gemini-pro
+        - gpt-6-astra
+        - gemini-3.1-pro-preview
     DebateCostEstimateResponse:
       type: object
       description: Estimated cost breakdown for a debate

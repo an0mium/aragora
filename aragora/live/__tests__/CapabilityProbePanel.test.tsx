@@ -22,14 +22,14 @@ global.fetch = mockFetch;
 
 // Mock data
 const mockAgents = [
-  { name: 'claude-3-opus', elo: 1650 },
-  { name: 'gemini-2.0-flash', elo: 1580 },
-  { name: 'gpt-4', elo: 1620 },
+  { name: 'claude-fable-5-1', elo: 1650 },
+  { name: 'gemini-3.8-flash', elo: 1580 },
+  { name: 'gpt-6-astra', elo: 1620 },
 ];
 
 const mockProbeReport = {
   report_id: 'probe-report-001',
-  target_agent: 'claude-3-opus',
+  target_agent: 'claude-fable-5-1',
   probes_configured: 6,
   by_type: {
     contradiction: [
@@ -71,7 +71,7 @@ function setupSuccessfulFetch() {
 
 const waitForAgentSelection = async () => {
   await waitFor(() => {
-    expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+    expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
   });
 };
 const expandPanel = async () => {
@@ -175,10 +175,10 @@ describe('CapabilityProbePanel', () => {
 
       // Wait for agents to load and first one to be selected
 
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-4' } });
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-6-astra' } });
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('gpt-4');
+        expect(screen.getByRole('combobox')).toHaveValue('gpt-6-astra');
       });
     });
   });
@@ -312,7 +312,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -325,7 +325,7 @@ describe('CapabilityProbePanel', () => {
         expect(postCall).toBeDefined();
 
         const body = JSON.parse(postCall![1]!.body as string);
-        expect(body.agent_name).toBe('claude-3-opus');
+        expect(body.agent_name).toBe('claude-fable-5-1');
         expect(body.probe_types).toContain('contradiction');
         expect(body.probe_types).toContain('hallucination');
       });
@@ -350,7 +350,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -389,7 +389,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -409,7 +409,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -427,7 +427,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -445,7 +445,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -462,7 +462,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -503,7 +503,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));
@@ -523,7 +523,7 @@ describe('CapabilityProbePanel', () => {
       await expandPanel();
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('claude-3-opus');
+        expect(screen.getByRole('combobox')).toHaveValue('claude-fable-5-1');
       });
 
       fireEvent.click(screen.getByText('Run Capability Probes'));

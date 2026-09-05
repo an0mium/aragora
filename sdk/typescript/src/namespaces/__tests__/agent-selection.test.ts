@@ -183,14 +183,14 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockScores);
 
       const result = await api.scoreAgents({
-        agents: ['claude', 'gpt-4', 'gemini'],
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
       });
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'POST',
         '/api/v1/agent-selection/score',
         {
-          json: { agents: ['claude', 'gpt-4', 'gemini'] },
+          json: { agents: ['claude', 'gpt-6-astra', 'gemini'] },
         }
       );
       expect(result.scores[0].overall_score).toBe(0.92);
@@ -214,7 +214,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockScores);
 
       const result = await api.scoreAgents({
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         context: 'security code review',
         dimensions: ['accuracy', 'speed', 'cost'],
         scorer: 'custom-scorer',
@@ -227,7 +227,7 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/score',
         {
           json: {
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
             context: 'security code review',
             dimensions: ['accuracy', 'speed', 'cost'],
             scorer: 'custom-scorer',
@@ -250,7 +250,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockBest);
 
       const result = await api.getBestAgent({
-        pool: ['claude', 'gpt-4', 'gemini'],
+        pool: ['claude', 'gpt-6-astra', 'gemini'],
         task_type: 'code_review',
       });
 
@@ -259,7 +259,7 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/best',
         {
           json: {
-            pool: ['claude', 'gpt-4', 'gemini'],
+            pool: ['claude', 'gpt-6-astra', 'gemini'],
             task_type: 'code_review',
           },
         }
@@ -270,7 +270,7 @@ describe('AgentSelectionAPI', () => {
 
     it('should get best agent with context', async () => {
       const mockBest = {
-        agent_id: 'gpt-4',
+        agent_id: 'gpt-6-astra',
         agent_name: 'GPT-4',
         score: 0.93,
         reasoning: 'Best for creative tasks',
@@ -279,7 +279,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockBest);
 
       const result = await api.getBestAgent({
-        pool: ['claude', 'gpt-4'],
+        pool: ['claude', 'gpt-6-astra'],
         task_type: 'creative',
         context: 'Writing marketing copy',
       });
@@ -289,13 +289,13 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/best',
         {
           json: {
-            pool: ['claude', 'gpt-4'],
+            pool: ['claude', 'gpt-6-astra'],
             task_type: 'creative',
             context: 'Writing marketing copy',
           },
         }
       );
-      expect(result.agent_id).toBe('gpt-4');
+      expect(result.agent_id).toBe('gpt-6-astra');
     });
   });
 
@@ -316,7 +316,7 @@ describe('AgentSelectionAPI', () => {
             selection_reasoning: 'Best overall candidate',
           },
           {
-            agent_id: 'gpt-4',
+            agent_id: 'gpt-6-astra',
             agent_name: 'GPT-4',
             role: 'reviewer',
             score: 0.88,
@@ -334,14 +334,14 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockTeam);
 
       const result = await api.selectTeam({
-        pool: ['claude', 'gpt-4', 'gemini', 'mistral'],
+        pool: ['claude', 'gpt-6-astra', 'gemini', 'mistral'],
       });
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'POST',
         '/api/v1/agent-selection/select-team',
         {
-          json: { pool: ['claude', 'gpt-4', 'gemini', 'mistral'] },
+          json: { pool: ['claude', 'gpt-6-astra', 'gemini', 'mistral'] },
         }
       );
       expect(result.team).toHaveLength(2);
@@ -370,7 +370,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockTeam);
 
       const result = await api.selectTeam({
-        pool: ['claude', 'gpt-4', 'gemini'],
+        pool: ['claude', 'gpt-6-astra', 'gemini'],
         task_requirements: { domain: 'security', complexity: 'high' },
         team_size: 3,
         constraints: { max_cost: 100 },
@@ -388,7 +388,7 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/select-team',
         {
           json: {
-            pool: ['claude', 'gpt-4', 'gemini'],
+            pool: ['claude', 'gpt-6-astra', 'gemini'],
             task_requirements: { domain: 'security', complexity: 'high' },
             team_size: 3,
             constraints: { max_cost: 100 },
@@ -416,7 +416,7 @@ describe('AgentSelectionAPI', () => {
             reasoning: 'Best analytical skills for lead role',
           },
           {
-            agent_id: 'gpt-4',
+            agent_id: 'gpt-6-astra',
             agent_name: 'GPT-4',
             role: 'reviewer',
             confidence: 0.88,
@@ -429,7 +429,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockAssignments);
 
       const result = await api.assignRoles({
-        members: ['claude', 'gpt-4'],
+        members: ['claude', 'gpt-6-astra'],
         roles: ['lead', 'reviewer'],
       });
 
@@ -438,7 +438,7 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/assign-roles',
         {
           json: {
-            members: ['claude', 'gpt-4'],
+            members: ['claude', 'gpt-6-astra'],
             roles: ['lead', 'reviewer'],
           },
         }
@@ -463,7 +463,7 @@ describe('AgentSelectionAPI', () => {
       mockClient.request.mockResolvedValueOnce(mockAssignments);
 
       const result = await api.assignRoles({
-        members: ['claude', 'gpt-4'],
+        members: ['claude', 'gpt-6-astra'],
         roles: ['architect', 'developer'],
         task_context: 'Designing a microservices architecture',
         assigner: 'custom-assigner',
@@ -474,7 +474,7 @@ describe('AgentSelectionAPI', () => {
         '/api/v1/agent-selection/assign-roles',
         {
           json: {
-            members: ['claude', 'gpt-4'],
+            members: ['claude', 'gpt-6-astra'],
             roles: ['architect', 'developer'],
             task_context: 'Designing a microservices architecture',
             assigner: 'custom-assigner',
@@ -497,7 +497,7 @@ describe('AgentSelectionAPI', () => {
             id: 'sel-001',
             timestamp: '2024-01-15T10:30:00Z',
             selection_type: 'team',
-            request: { pool: ['claude', 'gpt-4'] },
+            request: { pool: ['claude', 'gpt-6-astra'] },
             result: { team: ['claude'] },
             duration_ms: 200,
           },
@@ -735,7 +735,7 @@ describe('AgentSelectionAPI', () => {
       const primaryTeam = {
         team: [
           { agent_id: 'claude', agent_name: 'Claude', role: 'lead', score: 0.95, strengths: [], selection_reasoning: '' },
-          { agent_id: 'gpt-4', agent_name: 'GPT-4', role: 'reviewer', score: 0.88, strengths: [], selection_reasoning: '' },
+          { agent_id: 'gpt-6-astra', agent_name: 'GPT-4', role: 'reviewer', score: 0.88, strengths: [], selection_reasoning: '' },
         ],
         team_score: 0.92,
         diversity_score: 0.85,
@@ -763,7 +763,7 @@ describe('AgentSelectionAPI', () => {
         .mockResolvedValueOnce(altTeam1);
 
       const result = await api.selectTeamWithAlternatives(
-        { pool: ['claude', 'gpt-4', 'gemini', 'mistral', 'llama'] },
+        { pool: ['claude', 'gpt-6-astra', 'gemini', 'mistral', 'llama'] },
         1
       );
 
@@ -790,7 +790,7 @@ describe('AgentSelectionAPI', () => {
         .mockRejectedValueOnce(new Error('Not enough agents'));
 
       const result = await api.selectTeamWithAlternatives(
-        { pool: ['claude', 'gpt-4'] },
+        { pool: ['claude', 'gpt-6-astra'] },
         2
       );
 

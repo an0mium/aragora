@@ -46,7 +46,7 @@ export function OrchPropertyEditor({ data, onChange, onExecute, onDelete }: Orch
 
       <div>
         <label className="block text-xs text-text-muted mb-1">Assigned Agent</label>
-        <input type="text" value={data.assignedAgent} onChange={(e) => onChange({ assignedAgent: e.target.value })} placeholder="e.g. claude, gpt-4, gemini..." className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm text-text" />
+        <input type="text" value={data.assignedAgent} onChange={(e) => onChange({ assignedAgent: e.target.value })} placeholder="e.g. claude, gpt-6-astra, gemini..." className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm text-text" />
       </div>
 
       <div>

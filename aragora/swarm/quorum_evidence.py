@@ -442,7 +442,7 @@ _FAMILY_ALIASES: dict[str, str] = {
     # agent surface on the gemini family must collapse here or demoted gemini
     # dissent re-enters through protocol["dissenting_views"] (#9363 rounds 5-6).
     # "antigravity" is the current primary Gemini surface (agy CLI,
-    # default_model=gemini-3.5-flash) and "gemini-cli" the legacy one. Pinned by
+    # default_model=gemini-3.8-flash) and "gemini-cli" the legacy one. Pinned by
     # test_every_gemini_registry_surface_is_demoted, which walks AgentRegistry
     # so a future Gemini agent cannot be added without a mapping.
     "gemini-cli": "gemini",

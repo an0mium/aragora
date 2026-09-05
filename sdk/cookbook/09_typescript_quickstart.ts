@@ -29,8 +29,8 @@ async function runSimpleDebate(options: RunOptions): Promise<DebateResult | obje
 
   // Define our three agents - each brings a different perspective
   const agents: Agent[] = [
-    { name: 'claude', model: 'claude-sonnet-4-20250514' },
-    { name: 'gpt', model: 'gpt-4o' },
+    { name: 'claude', model: 'claude-fable-5-1' },
+    { name: 'gpt', model: 'gpt-6-astra' },
     { name: 'gemini', model: 'gemini-3.1-pro-preview' },
   ];
 

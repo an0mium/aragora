@@ -127,11 +127,11 @@ class AHMADConfig:
     static_fallback: dict[str, list[str]] = field(
         default_factory=lambda: {
             "proposer": ["claude", "gpt", "gemini"],
-            "critic": ["claude", "deepseek-r1", "gpt"],
+            "critic": ["claude", "deepseek-v4-pro-0813", "gpt"],
             "synthesizer": ["claude", "gpt", "gemini"],
-            "fact_checker": ["claude", "deepseek-r1"],
+            "fact_checker": ["claude", "deepseek-v4-pro-0813"],
             "devil_advocate": ["gpt", "llama", "mistral"],
-            "domain_expert": ["claude", "deepseek-r1", "gemini"],
+            "domain_expert": ["claude", "deepseek-v4-pro-0813", "gemini"],
             "generalist": ["claude", "gpt", "gemini", "llama"],
             "mediator": ["claude", "gpt"],
         }
@@ -174,9 +174,9 @@ class AHMADRoleSpecializer:
         # Get team composition
         team = specializer.assign_roles(
             roles=roles,
-            available_agents=["claude", "gpt-4", "gemini", "deepseek-r1"],
-            elo_scores={"claude": 1600, "gpt-4": 1580, ...},
-            calibration_scores={"claude": 0.15, "gpt-4": 0.18, ...},
+            available_agents=["claude", "gpt-6-astra", "gemini", "deepseek-v4-pro-0813"],
+            elo_scores={"claude": 1600, "gpt-6-astra": 1580, ...},
+            calibration_scores={"claude": 0.15, "gpt-6-astra": 0.18, ...},
         )
 
         for assignment in team.assignments:

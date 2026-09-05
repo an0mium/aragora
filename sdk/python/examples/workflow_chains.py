@@ -64,7 +64,7 @@ async def simple_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
     debate1 = await client.debates.create(
         task="What are the key factors to consider when choosing a cloud provider?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
     )
     await wait_for_debate(client, debate1["debate_id"])
@@ -84,7 +84,7 @@ async def simple_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
     debate2 = await client.debates.create(
         task=f"Given that '{key_factor}' is important, how should we evaluate it specifically?",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=2,
         context={"previous_debate": debate1["debate_id"]},
     )
@@ -102,7 +102,7 @@ async def simple_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
     debate3 = await client.debates.create(
         task="Based on our analysis, what is the final recommendation?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=1,
         context={
             "analysis_debate": debate1["debate_id"],
@@ -137,7 +137,7 @@ async def conditional_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
     debate = await client.debates.create(
         task="Is implementing a caching layer primarily a performance problem or a data consistency problem?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
     )
     await wait_for_debate(client, debate["debate_id"])
@@ -160,7 +160,7 @@ async def conditional_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
         debate2 = await client.debates.create(
             task="What caching strategies best optimize for performance (latency, throughput)?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         )
     else:
@@ -169,7 +169,7 @@ async def conditional_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
         debate2 = await client.debates.create(
             task="What caching strategies best maintain data consistency?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         )
 
@@ -201,17 +201,17 @@ async def parallel_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
     tasks = [
         client.debates.create(
             task="What are the security considerations for a REST API?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         ),
         client.debates.create(
             task="What are the performance considerations for a REST API?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         ),
         client.debates.create(
             task="What are the usability considerations for a REST API?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         ),
     ]
@@ -246,7 +246,7 @@ async def parallel_chain(client: AragoraAsyncClient) -> list[WorkflowStep]:
 
     synthesis = await client.debates.create(
         task="Given security, performance, and usability analyses, what is the balanced API design approach?",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=2,
         context={
             "security_debate": debate_ids[0],

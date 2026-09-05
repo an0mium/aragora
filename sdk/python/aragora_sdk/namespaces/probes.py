@@ -27,7 +27,7 @@ class ProbesAPI:
         >>> result = client.probes.probe_capability(
         ...     agent="claude", capability="reasoning"
         ... )
-        >>> report = client.probes.run(agents=["claude", "gpt-4"])
+        >>> report = client.probes.run(agents=["claude", "gpt-6-astra"])
     """
 
     def __init__(self, client: AragoraClient):
@@ -104,7 +104,7 @@ class AsyncProbesAPI:
         ...     result = await client.probes.probe_capability(
         ...         agent="claude", capability="reasoning"
         ...     )
-        ...     report = await client.probes.run(agents=["claude", "gpt-4"])
+        ...     report = await client.probes.run(agents=["claude", "gpt-6-astra"])
     """
 
     def __init__(self, client: AragoraAsyncClient):

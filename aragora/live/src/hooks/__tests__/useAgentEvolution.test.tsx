@@ -59,7 +59,7 @@ describe('usePendingChanges', () => {
       changes: [
         {
           id: 'pc-live-1',
-          agent_name: 'claude-3-opus',
+          agent_name: 'claude-fable-5-1',
           change_type: 'prompt_rewrite',
           nomic_cycle_id: 'nomic-101',
           proposed_at: '2026-04-07T10:00:00Z',

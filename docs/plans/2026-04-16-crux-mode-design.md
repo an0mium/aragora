@@ -458,7 +458,7 @@ def add_crux_parser(subparsers):
     find.add_argument("question")
     find.add_argument("--top-k", type=int, default=5)
     find.add_argument("--min-score", type=float, default=0.3)
-    find.add_argument("--agents", nargs="+", default=["claude", "gpt-4o", "mistral-large"])
+    find.add_argument("--agents", nargs="+", default=["claude", "gpt-6-astra", "mistral-large-2512"])
     find.add_argument("--rounds", type=int, default=3)
     find.add_argument("--receipt", help="Write signed receipt JSON to this path")
     find.add_argument("--format", choices=["markdown", "json"], default="markdown")

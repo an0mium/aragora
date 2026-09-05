@@ -82,7 +82,7 @@ class PromptInterrogator:
 
             self._agent = AnthropicAPIAgent(
                 name="interrogator",
-                model="claude-sonnet-4-6",
+                model="claude-fable-5-1",
                 thinking_budget=4000,
             )
             return self._agent

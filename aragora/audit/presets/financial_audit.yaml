@@ -85,10 +85,10 @@ custom_rules:
 consensus_threshold: 0.85
 
 agents:
-  primary: claude-3.5-sonnet
+  primary: claude-fable-5-1
   verification:
-    - gpt-4
-    - gemini-pro
+    - gpt-6-astra
+    - gemini-3.1-pro-preview
 
 parameters:
   confidence_threshold: 0.7

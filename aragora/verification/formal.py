@@ -469,7 +469,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                     "Content-Type": "application/json",
                 }
                 payload = {
-                    "model": "gpt-4o",
+                    "model": "gpt-6-astra",
                     "max_tokens": 2048,
                     "messages": [{"role": "user", "content": prompt}],
                 }
@@ -743,7 +743,7 @@ Examples of MATCHING:
                     "Content-Type": "application/json",
                 }
                 payload = {
-                    "model": "gpt-4o",
+                    "model": "gpt-6-astra",
                     "max_tokens": 512,
                     "messages": [{"role": "user", "content": prompt}],
                 }

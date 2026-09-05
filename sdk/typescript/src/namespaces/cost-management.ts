@@ -412,7 +412,7 @@ interface CostManagementClientInterface {
  * const { recommendations } = await client.costManagement.getRecommendations();
  *
  * // Estimate cost before running a task
- * const estimate = await client.costManagement.estimateCost({ task: 'analyze document', model: 'claude-3-opus' });
+ * const estimate = await client.costManagement.estimateCost({ task: 'analyze document', model: 'claude-fable-5-1' });
  *
  * // Simulate switching to a cheaper model
  * const simulation = await client.costManagement.simulateScenario({

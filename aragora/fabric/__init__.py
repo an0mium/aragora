@@ -14,7 +14,7 @@ Usage:
     from aragora.fabric import AgentFabric
 
     fabric = AgentFabric()
-    agent = await fabric.spawn(AgentConfig(model="claude-3-opus"))
+    agent = await fabric.spawn(AgentConfig(model="claude-fable-5-1"))
     result = await fabric.schedule(task, agent.id)
 
 For GUPP hook persistence:

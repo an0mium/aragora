@@ -43,7 +43,7 @@ Counted PR-comment evidence must use this structure:
 
 **Reviewer harness:** factory
 **Model family:** openai
-**Model id:** gpt-5.5
+**Model id:** gpt-6-astra
 **Receipt artifact:** <local path or URL>
 ```
 

@@ -212,7 +212,7 @@ async def get_security_debate_agents() -> list[Agent]:
         agents.append(
             OpenAIAPIAgent(
                 name="compliance-auditor",
-                model="gpt-4o",
+                model="gpt-6-astra",
             )
         )
     except (ImportError, Exception) as e:

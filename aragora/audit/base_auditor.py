@@ -62,7 +62,7 @@ class AuditContext:
     user_id: str | None = None
 
     # Configuration
-    model: str = "claude-3.5-sonnet"
+    model: str = "claude-fable-5-1"
     max_findings_per_chunk: int = 50
     confidence_threshold: float = 0.5
     include_low_severity: bool = True

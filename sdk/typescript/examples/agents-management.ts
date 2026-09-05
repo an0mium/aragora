@@ -388,7 +388,7 @@ async function demonstratePerformanceTracking(): Promise<void> {
   console.log('-'.repeat(40));
 
   try {
-    const h2h = await client.agents.getHeadToHead(targetAgent, 'gpt-4');
+    const h2h = await client.agents.getHeadToHead(targetAgent, 'gpt-6-astra');
 
     console.log(`  ${h2h.agent} vs ${h2h.opponent}`);
     console.log(`  Total Matchups: ${h2h.total_matchups}`);
@@ -527,7 +527,7 @@ async function demonstrateRelationships(): Promise<void> {
   console.log('-'.repeat(40));
 
   try {
-    const relationship = await client.agents.getRelationship(targetAgent, 'gpt-4');
+    const relationship = await client.agents.getRelationship(targetAgent, 'gpt-6-astra');
 
     console.log(`  ${relationship.agent_a} <-> ${relationship.agent_b}`);
     console.log(`  Type: ${relationship.relationship_type}`);
@@ -549,7 +549,7 @@ async function demonstrateRelationships(): Promise<void> {
   console.log('-'.repeat(40));
 
   try {
-    const comparison = await client.agents.compare(['claude', 'gpt-4', 'gemini']);
+    const comparison = await client.agents.compare(['claude', 'gpt-6-astra', 'gemini']);
 
     console.log(`  Comparing: ${comparison.agents.join(' vs ')}\n`);
 

@@ -164,7 +164,7 @@ async def basic_streaming(client: AragoraAsyncClient) -> None:
     print("Creating debate...")
     debate = await client.debates.create(
         task="What is the most important skill for a software engineer?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
     )
 
@@ -210,7 +210,7 @@ async def user_voting(client: AragoraAsyncClient) -> None:
     # Create a debate with voting enabled
     debate = await client.debates.create(
         task="Should code reviews be mandatory for all pull requests?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
         options={
             "allow_user_votes": True,
@@ -266,7 +266,7 @@ async def user_suggestions(client: AragoraAsyncClient) -> None:
     # Create a debate with suggestions enabled
     debate = await client.debates.create(
         task="How can we improve developer productivity?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=3,
         options={
             "allow_user_suggestions": True,
@@ -369,7 +369,7 @@ async def event_filtering(client: AragoraAsyncClient) -> None:
 
     debate = await client.debates.create(
         task="What is the best approach?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
     )
 

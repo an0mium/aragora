@@ -331,7 +331,7 @@ def main() -> None:
     robust = RobustAragoraClient(client, max_retries=3)
     debate = robust.create_debate_with_retry(
         task="What should we decide?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
     )
     """)
 

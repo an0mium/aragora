@@ -36,10 +36,10 @@ def semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
         agent = None
         if _has_api_key("OPENROUTER_API_KEY"):
             agent = create_agent(
-                "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-v4-pro"
+                "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-v4-pro-0813"
             )
         elif _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY"):
-            agent = create_agent("gemini", name="dedup", role="proposer", model="gemini-2.0-flash")
+            agent = create_agent("gemini", name="dedup", role="proposer", model="gemini-3.8-flash")
         if agent is None:
             return issues
 

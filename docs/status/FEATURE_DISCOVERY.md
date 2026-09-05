@@ -83,7 +83,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
 | **Anthropic** | API | Claude 3.5, Claude Opus 4.5 | `aragora/agents/api_agents/anthropic.py` |
-| **OpenAI** | API | GPT-4o, GPT-4 Turbo, o1, o3 | `aragora/agents/api_agents/openai.py` |
+| **OpenAI** | API | GPT-4o, GPT-4 Turbo, gpt-6-astra, gpt-6-astra | `aragora/agents/api_agents/openai.py` |
 | **Google** | API | Gemini Pro, Gemini Ultra | `aragora/agents/api_agents/gemini.py` |
 | **Mistral** | API | Mistral Large, Codestral | `aragora/agents/api_agents/mistral.py` |
 | **xAI** | API | Grok | `aragora/agents/api_agents/grok.py` |

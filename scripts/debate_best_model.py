@@ -428,14 +428,14 @@ async def main():
 
     codex = CodexAgent(
         name="GPT-5.2-Codex",
-        model="o3",  # GPT 5.2 xhigh via codex
+        model="gpt-6-astra",  # GPT 5.2 xhigh via codex
         role="proposer",
         timeout=1200,  # Doubled from 600
     )
 
     gemini = GeminiCLIAgent(
         name="Gemini-3-Pro",
-        model="gemini-3-pro",
+        model="gemini-3.1-pro-preview",
         role="proposer",
         timeout=1200,  # Doubled from 600
     )

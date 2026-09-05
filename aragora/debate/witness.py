@@ -169,7 +169,7 @@ class DebateWitness:
 
         # Register agents
         witness.register_agent("claude-opus")
-        witness.register_agent("gpt-4")
+        witness.register_agent("gpt-6-astra")
 
         # Observe protocol messages
         witness.observe(proposal_message)

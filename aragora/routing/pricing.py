@@ -8,7 +8,7 @@ The Pareto cost/quality optimizer and the decision-stakes router reason about
 2. The legacy ``PROVIDER_PRICING`` table in ``provider_config.py``, which
    predates the July-2026 frontier models entirely — ``get_estimated_cost``
    returns ``0.0`` for any model it does not know, so every frontier pin
-   (claude-fable-5, gpt-5.6-sol, grok-4.5, ...) scored $0 and corrupted the
+   (claude-fable-5-1, gpt-6-astra, grok-4.6, ...) scored $0 and corrupted the
    cost/quality tradeoff.
 
 This module resolves real prices through a fallback ladder:

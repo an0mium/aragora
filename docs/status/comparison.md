@@ -160,10 +160,10 @@ Track agent performance across debates with skill-based ranking:
 from aragora.ranking.elo import EloRankingSystem
 
 elo = EloRankingSystem()
-elo.record_outcome(debate_id="d-123", winner="claude", loser="gpt-4")
+elo.record_outcome(debate_id="d-123", winner="claude", loser="gpt-6-astra")
 
 # Rankings influence team selection for future debates
-rankings = elo.get_rankings()  # {"claude": 1520, "gpt-4": 1480, ...}
+rankings = elo.get_rankings()  # {"claude": 1520, "gpt-6-astra": 1480, ...}
 ```
 
 ### Nomic Loop Self-Improvement (Unique)

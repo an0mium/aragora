@@ -155,7 +155,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
                     "rank": 1,
                 },
                 {
-                    "agent_id": "gpt-4o",
+                    "agent_id": "gpt-6-astra",
                     "agent_name": "GPT-4o",
                     "elo": 1792,
                     "win_rate": 0.71,
@@ -163,7 +163,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
                     "rank": 2,
                 },
                 {
-                    "agent_id": "gemini-pro",
+                    "agent_id": "gemini-3.1-pro-preview",
                     "agent_name": "Gemini Pro",
                     "elo": 1734,
                     "win_rate": 0.65,
@@ -179,7 +179,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
                     "rank": 4,
                 },
                 {
-                    "agent_id": "mistral-large",
+                    "agent_id": "mistral-large-2512",
                     "agent_name": "Mistral Large",
                     "elo": 1688,
                     "win_rate": 0.58,
@@ -198,10 +198,10 @@ def _demo_response(normalized: str) -> HandlerResult | None:
             },
             "by_agent": {
                 "claude-opus": {"tokens": 168200, "percentage": 39.4},
-                "gpt-4o": {"tokens": 124600, "percentage": 29.2},
-                "gemini-pro": {"tokens": 72400, "percentage": 17.0},
+                "gpt-6-astra": {"tokens": 124600, "percentage": 29.2},
+                "gemini-3.1-pro-preview": {"tokens": 72400, "percentage": 17.0},
                 "claude-sonnet": {"tokens": 38900, "percentage": 9.1},
-                "mistral-large": {"tokens": 22700, "percentage": 5.3},
+                "mistral-large-2512": {"tokens": 22700, "percentage": 5.3},
             },
         },
         "/api/analytics/usage/costs": {
@@ -214,11 +214,11 @@ def _demo_response(normalized: str) -> HandlerResult | None:
                 "Mistral": {"cost": "0.32", "percentage": 2.6},
             },
             "by_model": {
-                "claude-opus-4": {"cost": "5.82", "percentage": 46.7},
-                "gpt-4o": {"cost": "3.91", "percentage": 31.4},
+                "claude-fable-5-1": {"cost": "5.82", "percentage": 46.7},
+                "gpt-6-astra": {"cost": "3.91", "percentage": 31.4},
                 "claude-opus-4-8": {"cost": "1.64", "percentage": 13.1},
-                "gemini-1.5-pro": {"cost": "0.78", "percentage": 6.3},
-                "mistral-large": {"cost": "0.32", "percentage": 2.6},
+                "gemini-3.1-pro-preview": {"cost": "0.78", "percentage": 6.3},
+                "mistral-large-2512": {"cost": "0.32", "percentage": 2.6},
             },
         },
         "/api/analytics/usage/active_users": {

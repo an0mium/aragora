@@ -44,7 +44,7 @@ const createConsensusEvent = (
 });
 
 describe('ConsensusMeter', () => {
-  const defaultAgents = ['claude', 'gpt-4', 'gemini'];
+  const defaultAgents = ['claude', 'gpt-6-astra', 'gemini'];
 
   describe('initial state', () => {
     it('renders header', () => {
@@ -108,7 +108,7 @@ describe('ConsensusMeter', () => {
     it('groups votes by choice', () => {
       const events = [
         createVoteEvent('claude', 'Option A', 0.9),
-        createVoteEvent('gpt-4', 'Option A', 0.85),
+        createVoteEvent('gpt-6-astra', 'Option A', 0.85),
         createVoteEvent('gemini', 'Option B', 0.7),
       ];
 
@@ -137,7 +137,7 @@ describe('ConsensusMeter', () => {
     it('shows DIVERGING when votes are split', () => {
       const events = [
         createVoteEvent('claude', 'Option A'),
-        createVoteEvent('gpt-4', 'Option B'),
+        createVoteEvent('gpt-6-astra', 'Option B'),
       ];
 
       render(<ConsensusMeter events={events} agents={defaultAgents} />);
@@ -148,7 +148,7 @@ describe('ConsensusMeter', () => {
     it('shows CONVERGING when majority agrees', () => {
       const events = [
         createVoteEvent('claude', 'Option A'),
-        createVoteEvent('gpt-4', 'Option A'),
+        createVoteEvent('gpt-6-astra', 'Option A'),
         createVoteEvent('gemini', 'Option B'),
       ];
 
@@ -160,7 +160,7 @@ describe('ConsensusMeter', () => {
     it('shows CONSENSUS when consensus event received', () => {
       const events = [
         createVoteEvent('claude', 'Option A'),
-        createVoteEvent('gpt-4', 'Option A'),
+        createVoteEvent('gpt-6-astra', 'Option A'),
         createVoteEvent('gemini', 'Option A'),
         createConsensusEvent(true, 'Option A is the answer'),
       ];
@@ -203,7 +203,7 @@ describe('ConsensusMeter', () => {
     it('calculates 67% when 2 of 3 agree', () => {
       const events = [
         createVoteEvent('claude', 'Option A'),
-        createVoteEvent('gpt-4', 'Option A'),
+        createVoteEvent('gpt-6-astra', 'Option A'),
       ];
 
       render(<ConsensusMeter events={events} agents={defaultAgents} />);
@@ -214,7 +214,7 @@ describe('ConsensusMeter', () => {
     it('calculates 100% when all agree', () => {
       const events = [
         createVoteEvent('claude', 'Option A'),
-        createVoteEvent('gpt-4', 'Option A'),
+        createVoteEvent('gpt-6-astra', 'Option A'),
         createVoteEvent('gemini', 'Option A'),
       ];
 

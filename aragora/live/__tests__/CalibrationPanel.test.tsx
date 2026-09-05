@@ -19,7 +19,7 @@ global.fetch = mockFetch;
 const mockLeaderboardData = {
   agents: [
     {
-      name: 'claude-3-opus',
+      name: 'claude-fable-5-1',
       elo: 1650,
       calibration_score: 0.85,
       brier_score: 0.12,
@@ -27,7 +27,7 @@ const mockLeaderboardData = {
       games: 25,
     },
     {
-      name: 'gemini-2.0-flash',
+      name: 'gemini-3.8-flash',
       elo: 1580,
       calibration_score: 0.72,
       brier_score: 0.18,
@@ -35,7 +35,7 @@ const mockLeaderboardData = {
       games: 22,
     },
     {
-      name: 'grok-2',
+      name: 'grok-4.6',
       elo: 1520,
       calibration_score: 0.55,
       brier_score: 0.28,
@@ -46,7 +46,7 @@ const mockLeaderboardData = {
 };
 
 const mockAgentCalibration = {
-  agent: 'claude-3-opus',
+  agent: 'claude-fable-5-1',
   ece: 0.08,
   buckets: [
     { bucket: '0.0-0.2', predicted: 0.1, actual: 0.12, count: 5 },
@@ -106,11 +106,11 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
-      expect(screen.getByText('grok-2')).toBeInTheDocument();
+      expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
+      expect(screen.getByText('grok-4.6')).toBeInTheDocument();
     });
 
     it('displays calibration scores as percentages', async () => {
@@ -171,12 +171,12 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       // Click on the agent
       await act(async () => {
-        fireEvent.click(screen.getByText('claude-3-opus'));
+        fireEvent.click(screen.getByText('claude-fable-5-1'));
       });
 
       await waitFor(() => {
@@ -192,11 +192,11 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       await act(async () => {
-        fireEvent.click(screen.getByText('claude-3-opus'));
+        fireEvent.click(screen.getByText('claude-fable-5-1'));
       });
 
       await waitFor(() => {
@@ -213,11 +213,11 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       await act(async () => {
-        fireEvent.click(screen.getByText('claude-3-opus'));
+        fireEvent.click(screen.getByText('claude-fable-5-1'));
       });
 
       await waitFor(() => {
@@ -234,20 +234,20 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       // Select agent
       await act(async () => {
-        fireEvent.click(screen.getByText('claude-3-opus'));
+        fireEvent.click(screen.getByText('claude-fable-5-1'));
       });
 
       await waitFor(() => {
         expect(screen.getByText('Calibration by confidence:')).toBeInTheDocument();
       });
 
-      // Deselect by clicking again (there are now two claude-3-opus elements, click the first one in the list)
-      const agentElements = screen.getAllByText('claude-3-opus');
+      // Deselect by clicking again (there are now two claude-fable-5-1 elements, click the first one in the list)
+      const agentElements = screen.getAllByText('claude-fable-5-1');
       await act(async () => {
         fireEvent.click(agentElements[0]);
       });
@@ -276,7 +276,7 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       // Click header to collapse
@@ -286,7 +286,7 @@ describe('CalibrationPanel', () => {
 
       // Should show expand indicator and hide content
       expect(screen.getByText('[+]')).toBeInTheDocument();
-      expect(screen.queryByText('claude-3-opus')).not.toBeInTheDocument();
+      expect(screen.queryByText('claude-fable-5-1')).not.toBeInTheDocument();
     });
 
     it('expands when collapsed header is clicked', async () => {
@@ -300,7 +300,7 @@ describe('CalibrationPanel', () => {
         fireEvent.click(screen.getByText('[CALIBRATION]'));
       });
 
-      expect(screen.queryByText('claude-3-opus')).not.toBeInTheDocument();
+      expect(screen.queryByText('claude-fable-5-1')).not.toBeInTheDocument();
 
       // Expand
       await act(async () => {
@@ -308,7 +308,7 @@ describe('CalibrationPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
     });
   });

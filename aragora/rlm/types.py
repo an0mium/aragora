@@ -82,7 +82,7 @@ class RLMConfig:
 
     # Model configuration
     root_model: str = "claude"  # Model for root LM
-    sub_model: str = "gpt-4o-mini"  # Model for sub-LM calls (cheaper)
+    sub_model: str = "gpt-5.6-terra"  # Model for sub-LM calls (cheaper)
 
     # Recursion limits
     max_depth: int = 2  # Maximum recursion depth

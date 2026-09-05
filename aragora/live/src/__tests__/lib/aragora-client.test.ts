@@ -230,7 +230,7 @@ describe('DebatesAPI', () => {
         debate_id: 'test-123',
         task: 'Test task',
         status: 'completed',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         rounds: [],
       };
 
@@ -284,7 +284,7 @@ describe('DebatesAPI', () => {
 
       await client.debates.create({
         task: 'Compare frameworks',
-        agents: ['claude', 'gpt-4', 'gemini'],
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
         max_rounds: 5,
       });
 
@@ -293,7 +293,7 @@ describe('DebatesAPI', () => {
         expect.objectContaining({
           body: JSON.stringify({
             task: 'Compare frameworks',
-            agents: ['claude', 'gpt-4', 'gemini'],
+            agents: ['claude', 'gpt-6-astra', 'gemini'],
             max_rounds: 5,
           }),
         })
@@ -922,7 +922,7 @@ describe('AgentsAPI', () => {
     const agentsData = {
       agents: [
         { agent_id: 'claude', name: 'Claude', provider: 'anthropic' },
-        { agent_id: 'gpt-4', name: 'GPT-4', provider: 'openai' },
+        { agent_id: 'gpt-6-astra', name: 'GPT-4', provider: 'openai' },
       ],
     };
 
@@ -976,7 +976,7 @@ describe('LeaderboardAPI', () => {
         Promise.resolve({
           entries: [
             { agent_id: 'claude', elo_rating: 1600, rank: 1 },
-            { agent_id: 'gpt-4', elo_rating: 1550, rank: 2 },
+            { agent_id: 'gpt-6-astra', elo_rating: 1550, rank: 2 },
           ],
         }),
     });
@@ -1055,7 +1055,7 @@ describe('AnalyticsAPI', () => {
         Promise.resolve({
           analysis: {
             total_cost_usd: 150.5,
-            cost_by_model: { 'gpt-4': 100, claude: 50.5 },
+            cost_by_model: { 'gpt-6-astra': 100, claude: 50.5 },
             projected_monthly_cost: 450,
           },
         }),

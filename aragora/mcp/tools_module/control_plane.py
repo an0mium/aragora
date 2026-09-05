@@ -53,7 +53,7 @@ async def register_agent_tool(
     Args:
         agent_id: Unique identifier for the agent
         capabilities: Comma-separated capabilities (e.g., "debate,code,analysis")
-        model: Model name (e.g., "claude-3-opus", "gpt-4")
+        model: Model name (e.g., "claude-fable-5-1", "gpt-6-astra")
         provider: Provider name (e.g., "anthropic", "openai")
 
     Returns:

@@ -34,7 +34,7 @@ time curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "content-type: application/json" \
   -H "anthropic-version: 2023-06-01" \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"claude-fable-5-1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}'
 ```
 
 ### 3. Check database latency

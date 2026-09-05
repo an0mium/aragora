@@ -78,7 +78,7 @@ retriever = AragoraRetriever(
 )
 
 # Use in a LangChain agent
-llm = ChatAnthropic(model="claude-sonnet-4-20250514")
+llm = ChatAnthropic(model="claude-fable-5-1")
 agent = initialize_agent(
     tools=[aragora_tool],
     llm=llm,

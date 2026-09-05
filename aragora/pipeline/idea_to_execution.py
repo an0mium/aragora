@@ -3702,14 +3702,14 @@ class IdeaToExecutionPipeline:
                 "id": "agent-researcher",
                 "name": "Researcher",
                 "type": "anthropic-api",
-                "model": "claude-opus-4",
+                "model": "claude-fable-5-1",
                 "capabilities": ["research", "analysis", "synthesis"],
             },
             {
                 "id": "agent-designer",
                 "name": "Designer",
                 "type": "openai-api",
-                "model": "gpt-4o",
+                "model": "gpt-6-astra",
                 "capabilities": ["design", "architecture", "planning"],
             },
             {
@@ -3723,7 +3723,7 @@ class IdeaToExecutionPipeline:
                 "id": "agent-tester",
                 "name": "Tester",
                 "type": "anthropic-api",
-                "model": "claude-opus-4",
+                "model": "claude-fable-5-1",
                 "capabilities": ["testing", "verification", "validation"],
             },
             {

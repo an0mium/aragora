@@ -86,7 +86,7 @@ class PromptDecomposer:
 
             self._agent = AnthropicAPIAgent(
                 name="decomposer",
-                model="claude-sonnet-4-6",
+                model="claude-fable-5-1",
                 thinking_budget=8000,
             )
             return self._agent

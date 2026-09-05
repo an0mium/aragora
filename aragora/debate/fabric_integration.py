@@ -12,7 +12,7 @@ Usage:
 
     async with AgentFabric() as fabric:
         # Create a debate agent pool
-        pool = await fabric.create_pool("debate-agents", "claude-opus-4", min_agents=3)
+        pool = await fabric.create_pool("debate-agents", "claude-fable-5-1", min_agents=3)
 
         # Run a debate through the fabric
         runner = FabricDebateRunner(fabric)

@@ -108,7 +108,7 @@ detector = FlipDetector()
 
 # Get consistency scores
 scores = await detector.calculate_consistency_scores(
-    agent_names=["claude", "gpt-4", "gemini"],
+    agent_names=["claude", "gpt-6-astra", "gemini"],
     time_window_days=30,
 )
 

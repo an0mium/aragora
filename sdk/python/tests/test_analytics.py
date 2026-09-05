@@ -155,11 +155,11 @@ class TestAnalyticsAgentPerformance:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"comparison": []}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            client.analytics.compare_agents(["claude", "gpt-4", "gemini"])
+            client.analytics.compare_agents(["claude", "gpt-6-astra", "gemini"])
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/analytics/agents/comparison",
-                params={"agents": "claude,gpt-4,gemini"},
+                params={"agents": "claude,gpt-6-astra,gemini"},
             )
             client.close()
 

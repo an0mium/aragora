@@ -739,8 +739,8 @@ class TeamsIntegrationHandler(BaseHandler):
             if not agent_list:
                 agent_list = [
                     {"name": "anthropic-api", "model": "claude-3"},
-                    {"name": "openai-api", "model": "gpt-4"},
-                    {"name": "gemini", "model": "gemini-pro"},
+                    {"name": "openai-api", "model": "gpt-6-astra"},
+                    {"name": "gemini", "model": "gemini-3.1-pro-preview"},
                 ]
 
             connector = get_teams_connector()

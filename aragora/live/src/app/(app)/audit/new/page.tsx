@@ -24,9 +24,9 @@ const AUDIT_TYPES = [
 ];
 
 const MODELS = [
-  { id: 'gemini-3-pro', name: 'Gemini 3 Pro', description: '1M token context - best for large documents' },
-  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Deep reasoning for complex analysis' },
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Balanced performance and accuracy' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3 Pro', description: '1M token context - best for large documents' },
+  { id: 'claude-fable-5-1', name: 'Claude 3.5 Sonnet', description: 'Deep reasoning for complex analysis' },
+  { id: 'gpt-6-astra', name: 'GPT-4 Turbo', description: 'Balanced performance and accuracy' },
 ];
 
 function NewAuditContent() {
@@ -38,7 +38,7 @@ function NewAuditContent() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['security', 'compliance', 'consistency', 'quality']));
-  const [selectedModel, setSelectedModel] = useState('gemini-3-pro');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.1-pro-preview');
   const [sessionName, setSessionName] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

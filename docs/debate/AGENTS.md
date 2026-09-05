@@ -29,7 +29,7 @@ Call provider APIs directly:
 
 OpenRouter-backed unified access:
 
-- `deepseek`, `deepseek-r1`, `llama`, `mistral`, `qwen`, `qwen-max`, `yi`,
+- `deepseek`, `deepseek-v4-pro-0813`, `llama`, `mistral`, `qwen`, `qwen-max`, `yi`,
   `kimi`, `kimi-thinking`, `llama4-maverick`, `llama4-scout`, `sonar`,
   `command-r`, `jamba`, `openrouter`
 

@@ -352,7 +352,7 @@ class AragoraTeamsBot:
         if command == "debate" and result.data:
             debate_id = result.data.get("debate_id", "")
             topic = result.data.get("topic", result.message or "Debate in progress")
-            agents = result.data.get("agents", ["claude", "gpt-4", "gemini"])
+            agents = result.data.get("agents", ["claude", "gpt-6-astra", "gemini"])
             return create_debate_card(
                 debate_id=debate_id,
                 topic=topic,

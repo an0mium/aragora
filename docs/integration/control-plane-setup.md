@@ -48,7 +48,7 @@ agent_info = AgentInfo(
     agent_id="claude-agent-001",
     capabilities=["reasoning", "code_review"],
     endpoint="http://agent1:8080",
-    metadata={"model": "claude-3-opus"},
+    metadata={"model": "claude-fable-5-1"},
 )
 await registry.register(agent_info)
 

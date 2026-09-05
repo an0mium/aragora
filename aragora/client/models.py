@@ -853,7 +853,7 @@ class AuditSession(BaseModel):
     status: AuditSessionStatus = AuditSessionStatus.PENDING
     progress: float = 0.0
     finding_count: int = 0
-    model: str = "gemini-1.5-flash"
+    model: str = "gemini-3.8-flash"
     created_at: datetime
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -867,7 +867,7 @@ class AuditSessionCreateRequest(BaseModel):
     audit_types: list[str] = Field(
         default_factory=lambda: ["security", "compliance", "consistency", "quality"]
     )
-    model: str = "gemini-1.5-flash"
+    model: str = "gemini-3.8-flash"
     options: dict[str, Any] = Field(default_factory=dict)
 
 

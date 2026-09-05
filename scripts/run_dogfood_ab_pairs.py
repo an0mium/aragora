@@ -23,8 +23,8 @@ from typing import Any
 
 DEFAULT_AGENTS = ",".join(
     [
-        "openrouter|anthropic/claude-sonnet-4||proposer",
-        "openrouter|openai/gpt-4o||critic",
+        "openrouter|anthropic/claude-fable-5.1||proposer",
+        "openrouter|openai/gpt-6-astra||critic",
         "openrouter|google/gemini-2.0-flash-001||synthesizer",
     ]
 )

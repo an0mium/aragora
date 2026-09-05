@@ -31,7 +31,7 @@ const client = createClient({
 // Run a debate
 const result = await client.runDebate({
   task: 'Should we use TypeScript or JavaScript?',
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   rounds: 3
 });
 

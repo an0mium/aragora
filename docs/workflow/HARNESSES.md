@@ -223,7 +223,7 @@ from aragora.harnesses.base import AnalysisType
 # Create harness with custom config
 config = ClaudeCodeConfig(
     timeout_seconds=120,
-    model="claude-sonnet-4-20250514",
+    model="claude-fable-5-1",
 )
 harness = ClaudeCodeHarness(config)
 

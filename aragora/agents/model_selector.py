@@ -295,10 +295,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.96,
         supports_vision=True,
     ),
-    # gemini-3-flash-preview is retired/uncataloged; "gemini-flash" now
+    # gemini-3.8-flash is retired/uncataloged; "gemini-3.8-flash" now
     # points at the Gemini 3.8 Flash value tier (frontier-model-refresh,
     # 2026-09-04).
-    "gemini-flash": ModelProfile(
+    "gemini-3.8-flash": ModelProfile(
         model_id=CATALOG["gemini-3.8-flash"].direct_id,
         display_name="Gemini 3.8 Flash",
         provider="google",
@@ -350,8 +350,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.95,
         supports_vision=True,
     ),
-    # DeepSeek. "deepseek"/"deepseek-r1" now point at the fully-cataloged
-    # deepseek-v4-pro-0813 row (deepseek-v4-pro was an uncataloged legacy
+    # DeepSeek. "deepseek"/"deepseek-v4-pro-0813" now point at the fully-cataloged
+    # deepseek-v4-pro-0813 row (deepseek-v4-pro-0813 was an uncataloged legacy
     # spelling; frontier-model-refresh, 2026-09-04).
     "deepseek": ModelProfile(
         model_id=CATALOG["deepseek-v4-pro-0813"].direct_id,
@@ -376,7 +376,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         avg_latency_ms=500,
         reliability_score=0.92,
     ),
-    "deepseek-r1": ModelProfile(
+    "deepseek-v4-pro-0813": ModelProfile(
         model_id=CATALOG["deepseek-v4-pro-0813"].direct_id,
         display_name="DeepSeek V4 Pro (0813)",
         provider="deepseek",
@@ -399,7 +399,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         avg_latency_ms=1800,  # Slower due to reasoning
         reliability_score=0.92,
     ),
-    # Grok. "grok-4-latest" is retired; "grok" now points at the current
+    # Grok. "grok-4.6" is retired; "grok" now points at the current
     # frontier (frontier-model-refresh, 2026-09-04).
     "grok": ModelProfile(
         model_id=CATALOG["grok-4.6"].direct_id,

@@ -27,16 +27,16 @@ def _ts() -> str:
 # ---------------------------------------------------------------------------
 
 _DEMO_AGENTS = [
-    {"name": "claude", "model": "claude-sonnet-4-6", "elo": 1520, "wins": 34, "losses": 12},
-    {"name": "gpt-4", "model": "gpt-4.1", "elo": 1495, "wins": 30, "losses": 16},
+    {"name": "claude", "model": "claude-fable-5-1", "elo": 1520, "wins": 34, "losses": 12},
+    {"name": "gpt-6-astra", "model": "gpt-6-astra", "elo": 1495, "wins": 30, "losses": 16},
     {"name": "gemini", "model": "gemini-3.1-pro-preview", "elo": 1480, "wins": 28, "losses": 18},
-    {"name": "grok", "model": "grok-4-latest", "elo": 1460, "wins": 25, "losses": 21},
+    {"name": "grok", "model": "grok-4.6", "elo": 1460, "wins": 25, "losses": 21},
 ]
 
 
 def _make_debate(task: str, agents: list[str] | None = None, rounds: int = 3) -> dict[str, Any]:
     debate_id = f"demo-{_uid()}"
-    agent_list = agents or ["claude", "gpt-4", "gemini"]
+    agent_list = agents or ["claude", "gpt-6-astra", "gemini"]
     return {
         "debate_id": debate_id,
         "task": task,
@@ -93,7 +93,7 @@ def _make_receipt(debate_id: str, task: str) -> dict[str, Any]:
         "algorithm": "sha256",
         "consensus_reached": True,
         "confidence": 0.87,
-        "agents_participated": ["claude", "gpt-4", "gemini"],
+        "agents_participated": ["claude", "gpt-6-astra", "gemini"],
         "rounds_completed": 3,
     }
 
@@ -171,7 +171,7 @@ def _handle_gauntlet_run(json: dict[str, Any] | None = None, **_: Any) -> dict[s
                 "severity": "medium",
                 "category": "reasoning",
                 "description": "Potential confirmation bias detected in round 2",
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
             },
             {
                 "severity": "low",

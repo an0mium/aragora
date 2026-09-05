@@ -109,7 +109,7 @@ def validate_anthropic(key: str) -> bool:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-3-haiku-20240307",
+                "model": "claude-fable-5-1",
                 "max_tokens": 1,
                 "messages": [{"role": "user", "content": "hi"}],
             },

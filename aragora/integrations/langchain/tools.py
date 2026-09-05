@@ -132,7 +132,7 @@ class AragoraDebateInput(BaseModel):
     task: str = Field(description="The question or task to debate")
     agents: list[str] | None = Field(
         default=None,
-        description="List of agents to participate (e.g., ['claude', 'gpt-4']). If not specified, uses defaults.",
+        description="List of agents to participate (e.g., ['claude', 'gpt-6-astra']). If not specified, uses defaults.",
     )
     max_rounds: int | None = Field(
         default=None,
@@ -164,7 +164,7 @@ class AragoraDebateTool(BaseTool):
     # Configuration
     aragora_url: str = "http://localhost:8080"
     api_token: str | None = None
-    default_agents: list[str] = ["claude", "gpt-4", "gemini"]
+    default_agents: list[str] = ["claude", "gpt-6-astra", "gemini"]
     default_max_rounds: int = 5
     timeout_seconds: float = 120.0
 

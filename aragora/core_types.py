@@ -710,7 +710,7 @@ class Agent(ABC):
 
     Attributes:
         name: Unique identifier for the agent
-        model: The underlying model (e.g., "claude-3-opus", "gpt-4o")
+        model: The underlying model (e.g., "claude-fable-5-1", "gpt-6-astra")
         role: The agent's role in the debate (proposer, critic, synthesizer, judge)
         system_prompt: Custom system prompt for the agent
         agent_type: Agent type identifier for routing and role assignment

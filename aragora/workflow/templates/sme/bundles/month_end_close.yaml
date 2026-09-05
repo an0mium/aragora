@@ -70,7 +70,7 @@ steps:
     config:
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
       rounds: 3
       consensus_mode: synthesis

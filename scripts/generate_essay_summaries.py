@@ -39,9 +39,9 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 MODELS: dict[str, str] = {
     "claude": "anthropic/claude-opus-5",
-    "gpt": "openai/gpt-5.3",
-    "grok": "x-ai/grok-4.1-fast",
-    "deepseek": "deepseek/deepseek-v4-pro",
+    "gpt": "openai/gpt-6-astra",
+    "grok": "x-ai/grok-4.6",
+    "deepseek": "deepseek/deepseek-v4-pro-0813",
     "gemini": "google/gemini-3.1-pro-preview",
     "mistral": "mistralai/mistral-large-2512",
 }

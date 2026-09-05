@@ -133,7 +133,12 @@ PROVIDERS: dict[str, ProviderSpec] = {
         name="deepseek",
         display_name="DeepSeek",
         env_vars=("DEEPSEEK_API_KEY",),
-        aliases=("deepseek-v4-pro", "deepseek-v3", "deepseek-r1", "deepseek-reasoner"),
+        aliases=(
+            "deepseek-v4-pro",
+            "deepseek-v3",
+            "deepseek-r1",
+            "deepseek-reasoner",
+        ),
     ),
     "kimi": ProviderSpec(
         name="kimi",
@@ -570,7 +575,7 @@ def _probe_provider_key(spec: ProviderSpec, value: str) -> tuple[str, str]:
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-3-haiku-20240307",
+                    "model": "claude-fable-5-1",
                     "max_tokens": 1,
                     "messages": [{"role": "user", "content": "ping"}],
                 },

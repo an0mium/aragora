@@ -127,7 +127,7 @@ kubectl -n aragora logs deployment/aragora-backend | grep "rate_limit\|429\|time
 curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2024-01-01" \
-  -d '{"model":"claude-3-opus-20240229","max_tokens":1,"messages":[{"role":"user","content":"test"}]}'
+  -d '{"model":"claude-fable-5-1","max_tokens":1,"messages":[{"role":"user","content":"test"}]}'
 ```
 
 **Resolution:**

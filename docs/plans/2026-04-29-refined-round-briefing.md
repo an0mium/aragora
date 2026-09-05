@@ -22,7 +22,7 @@ Tier 1. Disposable worktree `.worktrees/phase-a-root-hygiene` on branch `docs/20
 
 Three additive fixes lifted out of the 2026-04-28 dry-run that did not fit the dogfood scope:
 
-1. **B1: `aragora/agents/api_agents/grok.py` default model.** Updated to `grok-4-latest` to match `AGENTS.md` registry table.
+1. **B1: `aragora/agents/api_agents/grok.py` default model.** Updated to `grok-4.6` to match `AGENTS.md` registry table.
 2. **B3: `aragora/gauntlet/runner.py` imports.** Removed the dead `from typing import Optional` import that was breaking strict-mode lint.
 3. **Plan docs:** `docs/plans/2026-04-28-agt-cascade-settlement-packets.md` and `docs/plans/2026-04-28-pr-6795-recommendation.md` (carry-over plans that were already drafted but never landed).
 

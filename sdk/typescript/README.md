@@ -41,7 +41,7 @@ const client = createClient({
 // Create a debate
 const result = await client.createDebate({
   task: 'What is the best programming language for web development?',
-  agents: ['claude', 'gpt-4', 'gemini'],
+  agents: ['claude', 'gpt-6-astra', 'gemini'],
   rounds: 3,
   consensus: 'majority'
 });
@@ -168,7 +168,7 @@ const debate = await client.getDebate('debate-id');
 // Create a debate
 const result = await client.createDebate({
   task: 'Your question here',
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   rounds: 3,
   consensus: 'majority' // 'majority' | 'unanimous' | 'weighted' | 'semantic'
 });
@@ -196,7 +196,7 @@ const profile = await client.getAgentProfile('claude');
 const { agents } = await client.getLeaderboard();
 
 // Compare agents
-const comparison = await client.compareAgents(['claude', 'gpt-4']);
+const comparison = await client.compareAgents(['claude', 'gpt-6-astra']);
 ```
 
 ### Explainability
@@ -246,7 +246,7 @@ const { template_id, workflow } = await client.instantiatePattern('pattern-id', 
   name: 'My Security Workflow',
   description: 'Custom security analysis',
   category: 'security',
-  agents: ['claude', 'gpt-4']
+  agents: ['claude', 'gpt-6-astra']
 });
 
 // Run a workflow template

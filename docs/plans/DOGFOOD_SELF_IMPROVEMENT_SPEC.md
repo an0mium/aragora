@@ -262,7 +262,7 @@ Pass threshold:
 {
   "goal": "Dogfood Aragora self-improvement to produce execution-grade specs with reduced single-model bias and reliable synthesis output.",
   "constraints": {
-    "required_models": ["claude-opus-4.7", "gpt-5.3-codex", "gemini-3.1-pro-preview", "grok-4.20"],
+    "required_models": ["claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview", "grok-4.20"],
     "spec_first": true,
     "preserve_dissent": true,
     "require_test_and_rollback_per_task": true,

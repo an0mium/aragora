@@ -171,7 +171,7 @@ DEBATE_REQUEST_SCHEMAS: dict[str, Any] = {
         },
         "example": {
             "format": "audio",
-            "voices": {"claude": "alloy", "gpt-4": "echo"},
+            "voices": {"claude": "alloy", "gpt-6-astra": "echo"},
         },
     },
     "DebateCloneRequest": {
@@ -447,13 +447,13 @@ DEBATE_REQUEST_SCHEMAS: dict[str, Any] = {
                 "type": "array",
                 "description": "Model types to use",
                 "items": {"type": "string"},
-                "example": ["claude-opus-5", "gpt-4o", "gemini-pro"],
+                "example": ["claude-opus-5", "gpt-6-astra", "gemini-3.1-pro-preview"],
             },
         },
         "example": {
             "num_agents": 3,
             "num_rounds": 9,
-            "model_types": ["claude-opus-5", "gpt-4o", "gemini-pro"],
+            "model_types": ["claude-opus-5", "gpt-6-astra", "gemini-3.1-pro-preview"],
         },
     },
     "DebateCostEstimateResponse": {

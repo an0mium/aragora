@@ -38,10 +38,10 @@ class TestDebatesCreate:
             mock_request.return_value = {"debate_id": "deb_123"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            client.debates.create(task="Debate topic", agents=["claude", "gpt-4", "gemini"])
+            client.debates.create(task="Debate topic", agents=["claude", "gpt-6-astra", "gemini"])
 
             call_args = mock_request.call_args
-            assert call_args[1]["json"]["agents"] == ["claude", "gpt-4", "gemini"]
+            assert call_args[1]["json"]["agents"] == ["claude", "gpt-6-astra", "gemini"]
             client.close()
 
     def test_create_debate_with_protocol(self) -> None:
@@ -297,12 +297,12 @@ class TestDebatesAdvancedFeatures:
             mock_request.return_value = {"debate_id": "deb_forked"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            client.debates.fork("deb_123", changes={"agents": ["gpt-4"]})
+            client.debates.fork("deb_123", changes={"agents": ["gpt-6-astra"]})
 
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/debates/deb_123/fork",
-                json={"agents": ["gpt-4"]},
+                json={"agents": ["gpt-6-astra"]},
             )
             client.close()
 

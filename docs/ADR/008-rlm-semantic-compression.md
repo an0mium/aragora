@@ -40,7 +40,7 @@ class AbstractionLevel(Enum):
 @dataclass
 class RLMConfig:
     root_model: str = "claude"     # Model for root LM
-    sub_model: str = "gpt-4o-mini" # Model for sub-LM calls
+    sub_model: str = "gpt-5.6-terra" # Model for sub-LM calls
     max_depth: int = 2             # Maximum recursion depth
     max_sub_calls: int = 10        # Maximum sub-LM calls per level
     target_tokens: int = 4000      # Target context per level
@@ -87,7 +87,7 @@ class RLMConfig:
 - Complexity in debugging compression decisions
 
 **Mitigations:**
-- Use cheaper models (gpt-4o-mini) for sub-calls
+- Use cheaper models (gpt-5.6-terra) for sub-calls
 - Cache aggressively with 1-hour TTL
 - Preserve FULL level for critical operations
 - Include citation format for traceability

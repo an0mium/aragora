@@ -35,7 +35,7 @@ global.fetch = mockFetch;
 // Mock data
 const mockTraits = [
   {
-    agent: 'claude-3-opus',
+    agent: 'claude-fable-5-1',
     trait: 'logical_reasoning',
     domain: 'technical',
     confidence: 0.85,
@@ -43,7 +43,7 @@ const mockTraits = [
     detected_at: '2026-01-05T10:00:00Z',
   },
   {
-    agent: 'gemini-2.0-flash',
+    agent: 'gemini-3.8-flash',
     trait: 'creative_synthesis',
     domain: 'creative',
     confidence: 0.72,
@@ -54,8 +54,8 @@ const mockTraits = [
 
 const mockPollinations = [
   {
-    source_agent: 'claude-3-opus',
-    target_agent: 'gemini-2.0-flash',
+    source_agent: 'claude-fable-5-1',
+    target_agent: 'gemini-3.8-flash',
     trait: 'conciseness',
     expected_improvement: 0.15,
     rationale: 'Observed verbose responses in target agent during technical debates.',
@@ -151,7 +151,7 @@ describe('LaboratoryPanel', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
     });
   });
@@ -192,8 +192,8 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-        expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
       });
     });
 
@@ -252,7 +252,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('POLLINATIONS'));
@@ -267,7 +267,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('EVOLUTION'));
@@ -284,7 +284,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('PATTERNS'));
@@ -301,7 +301,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       // Switch to patterns then back to traits
@@ -309,7 +309,7 @@ describe('LaboratoryPanel', () => {
       fireEvent.click(screen.getByText('EMERGENT TRAITS'));
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
     });
   });
@@ -320,7 +320,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('POLLINATIONS'));
@@ -358,7 +358,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('EVOLUTION'));
@@ -375,7 +375,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('EVOLUTION'));
@@ -391,7 +391,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('EVOLUTION'));
@@ -409,7 +409,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('PATTERNS'));
@@ -425,7 +425,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('PATTERNS'));
@@ -456,7 +456,7 @@ describe('LaboratoryPanel', () => {
       });
 
       // Should still show traits
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     it('has retry button on error', async () => {
@@ -479,7 +479,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       const initialCalls = mockFetch.mock.calls.length;
@@ -506,7 +506,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('[-]'));
@@ -520,7 +520,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       // Collapse first
@@ -539,7 +539,7 @@ describe('LaboratoryPanel', () => {
       renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('[-]'));

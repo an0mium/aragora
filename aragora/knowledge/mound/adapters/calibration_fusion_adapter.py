@@ -19,7 +19,7 @@ Usage:
     # Fuse predictions from multiple agents
     predictions = [
         AgentPrediction("claude", 0.8, "winner_a"),
-        AgentPrediction("gpt-4", 0.75, "winner_a"),
+        AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         AgentPrediction("gemini", 0.6, "winner_b"),
     ]
     consensus = adapter.fuse_predictions(predictions, debate_id="debate_123")
@@ -102,7 +102,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         >>> adapter = CalibrationFusionAdapter()
         >>> predictions = [
         ...     AgentPrediction("claude", 0.8, "winner_a"),
-        ...     AgentPrediction("gpt-4", 0.75, "winner_a"),
+        ...     AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ... ]
         >>> consensus = adapter.fuse_predictions(predictions, "debate_123")
         >>> print(f"Fused confidence: {consensus.fused_confidence:.2f}")

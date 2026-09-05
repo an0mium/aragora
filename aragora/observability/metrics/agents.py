@@ -582,7 +582,7 @@ def track_agent_provider_call(
         AgentCallTracker instance for recording tokens and errors
 
     Example:
-        with track_agent_provider_call("anthropic", model="claude-3-opus") as tracker:
+        with track_agent_provider_call("anthropic", model="claude-fable-5-1") as tracker:
             response = await client.messages.create(...)
             tracker.record_tokens(
                 input_tokens=response.usage.input_tokens,
@@ -679,7 +679,7 @@ def with_agent_provider_metrics(
         model: Optional model name
 
     Example:
-        @with_agent_provider_metrics("openai", model="gpt-4")
+        @with_agent_provider_metrics("openai", model="gpt-6-astra")
         async def call_openai(prompt: str) -> str:
             ...
     """
@@ -722,7 +722,7 @@ def with_agent_provider_metrics_sync(
         model: Optional model name
 
     Example:
-        @with_agent_provider_metrics_sync("openai", model="gpt-4")
+        @with_agent_provider_metrics_sync("openai", model="gpt-6-astra")
         def call_openai(prompt: str) -> str:
             ...
     """

@@ -147,7 +147,7 @@ class AirlockProxy:
     and fallback behavior.
 
     Usage:
-        agent = GeminiAgent(name="gemini", model="gemini-3-pro")
+        agent = GeminiAgent(name="gemini", model="gemini-3.1-pro-preview")
         safe_agent = AirlockProxy(agent)
 
         # Use safe_agent exactly like the original agent

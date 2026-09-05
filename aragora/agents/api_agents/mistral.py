@@ -34,7 +34,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
     - mistral-large-latest: Most capable, best for complex reasoning
     - mistral-medium-latest: Balanced performance/cost
     - mistral-small-latest: Fast and efficient
-    - codestral-latest: Optimized for code generation
+    - mistral-medium-2604: Optimized for code generation
     - ministral-8b-latest: Small but capable
     - ministral-3b-latest: Fastest, for simple tasks
     """
@@ -80,7 +80,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
 
 @AgentRegistry.register(
     "codestral",
-    default_model="codestral-latest",
+    default_model="mistral-medium-2604",
     default_name="codestral",
     agent_type="API",
     env_vars="MISTRAL_API_KEY",
@@ -93,7 +93,7 @@ class CodestralAgent(MistralAPIAgent):
     def __init__(
         self,
         name: str = "codestral",
-        model: str = "codestral-latest",
+        model: str = "mistral-medium-2604",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

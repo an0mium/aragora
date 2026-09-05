@@ -73,7 +73,7 @@ class DocumentChunk:
 
     # Token accounting
     token_count: int = 0
-    token_model: str = ""  # Model used for counting (e.g., "gpt-4", "claude-3")
+    token_model: str = ""  # Model used for counting (e.g., "gpt-6-astra", "claude-3")
 
     # Metadata
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

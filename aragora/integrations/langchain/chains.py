@@ -113,7 +113,7 @@ class AragoraDebateChain(_ChainBase):
     api_token: str | None = None
     pre_research: bool = True
     post_verify: bool = True
-    default_agents: list[str] = ["claude", "gpt-4", "gemini"]
+    default_agents: list[str] = ["claude", "gpt-6-astra", "gemini"]
     max_rounds: int = 5
     timeout_seconds: float = 180.0
 
@@ -392,7 +392,7 @@ class AragoraResearchDebateChain(_ChainBase):
                     f"{self.aragora_url}/api/debate/start",
                     json={
                         "task": f"Research analysis: {topic}\n\nContext:\n{full_context}",
-                        "agents": ["claude", "gpt-4", "gemini"],
+                        "agents": ["claude", "gpt-6-astra", "gemini"],
                         "max_rounds": 5,
                     },
                     headers=headers,

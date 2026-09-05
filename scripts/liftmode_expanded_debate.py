@@ -334,7 +334,7 @@ Consider both short-term survival and long-term growth opportunities."""
         grok = AgentRegistry.create(
             "grok",
             name="cfo-advisor",
-            model="grok-4",
+            model="grok-4.6",
             role="critic",
             use_cache=False,
             timeout=300,
@@ -352,7 +352,7 @@ Focus on unit economics and break-even analysis."""
         claude = AgentRegistry.create(
             "anthropic-api",
             name="marketing-lead",
-            model="claude-sonnet-4-20250514",
+            model="claude-fable-5-1",
             role="proposer",
             use_cache=False,
             timeout=300,
@@ -368,7 +368,7 @@ Consider brand positioning, channel strategy, and product-market fit."""
     # Agent 4: DeepSeek - Technology & Operations
     try:
         deepseek = AgentRegistry.create(
-            "deepseek-r1",
+            "deepseek-v4-pro-0813",
             name="tech-ops-advisor",
             role="critic",
             use_cache=False,

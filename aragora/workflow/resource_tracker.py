@@ -68,7 +68,7 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "codestral": {"input": 0.001, "output": 0.003},
     # xAI
     "grok": {"input": 0.005, "output": 0.015},
-    "grok-2": {"input": 0.005, "output": 0.015},
+    "grok-4.6": {"input": 0.005, "output": 0.015},
     # DeepSeek
     "deepseek": {"input": 0.00174, "output": 0.00348},
     "deepseek-v4-pro": {"input": 0.00174, "output": 0.00348},
@@ -166,7 +166,7 @@ class ResourceUsage:
 
         Args:
             step_id: Step that used the tokens
-            agent_type: Type of agent/model (e.g., "claude", "gpt-4")
+            agent_type: Type of agent/model (e.g., "claude", "gpt-6-astra")
             input_tokens: Number of input/prompt tokens
             output_tokens: Number of output/completion tokens
 

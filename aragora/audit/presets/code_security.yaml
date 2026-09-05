@@ -106,10 +106,10 @@ custom_rules:
 consensus_threshold: 0.75
 
 agents:
-  primary: claude-3.5-sonnet
+  primary: claude-fable-5-1
   verification:
     - codex-mini
-    - gpt-4
+    - gpt-6-astra
 
 parameters:
   confidence_threshold: 0.6

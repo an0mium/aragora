@@ -79,13 +79,13 @@ class SpecialistAgentFactory:
 
         # Base model mappings for fallback
         self._base_models: dict[str, str] = {
-            "llama-3.3-70b": "openrouter:meta-llama/llama-3.3-70b-instruct",
+            "llama-3.3-70b": "openrouter:meta/muse-spark-1.3",
             "llama-3.1-8b": "openrouter:meta-llama/llama-3.1-8b-instruct",
             "qwen-2.5-72b": "openrouter:qwen/qwen-2.5-72b-instruct",
             "qwen-3-32b": "openrouter:qwen/qwen3-32b",
-            "deepseek-v3": "openrouter:deepseek/deepseek-v4-pro",
-            "deepseek-v4-pro": "openrouter:deepseek/deepseek-v4-pro",
-            "deepseek-r1": "openrouter:deepseek/deepseek-v4-pro",
+            "deepseek-v3": "openrouter:deepseek/deepseek-v4-pro-0813",
+            "deepseek-v4-pro": "openrouter:deepseek/deepseek-v4-pro-0813",
+            "deepseek-r1": "openrouter:deepseek/deepseek-v4-pro-0813",
         }
 
         # Vertical-specific system prompts
@@ -225,7 +225,7 @@ Adapt your approach based on the specific task requirements.""",
                 base_model = base_model.replace("70b", "8b").replace("72b", "7b")
 
         # Get OpenRouter model ID
-        openrouter_model = self._base_models.get(base_model, "meta-llama/llama-3.3-70b-instruct")
+        openrouter_model = self._base_models.get(base_model, "meta/muse-spark-1.3")
 
         # Get the vertical-specific prompt
         system_prompt = self._get_system_prompt(config)

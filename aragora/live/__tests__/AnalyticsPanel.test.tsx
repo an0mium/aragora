@@ -23,7 +23,7 @@ const mockDisagreements = [
   {
     debate_id: 'debate-001',
     topic: 'Should AI be regulated?',
-    agents: ['claude-3-opus', 'gemini-2.0-flash'],
+    agents: ['claude-fable-5-1', 'gemini-3.8-flash'],
     dissent_count: 3,
     consensus_reached: false,
     confidence: 0.45,
@@ -32,7 +32,7 @@ const mockDisagreements = [
   {
     debate_id: 'debate-002',
     topic: 'Is functional programming better?',
-    agents: ['claude-3-opus', 'gpt-4'],
+    agents: ['claude-fable-5-1', 'gpt-6-astra'],
     dissent_count: 2,
     consensus_reached: true,
     confidence: 0.72,
@@ -42,12 +42,12 @@ const mockDisagreements = [
 
 const mockRoleRotations = [
   {
-    agent: 'claude-3-opus',
+    agent: 'claude-fable-5-1',
     role_counts: { proposer: 15, critic: 12, synthesizer: 8 },
     total_debates: 35,
   },
   {
-    agent: 'gemini-2.0-flash',
+    agent: 'gemini-3.8-flash',
     role_counts: { proposer: 10, critic: 18, synthesizer: 7 },
     total_debates: 35,
   },
@@ -285,8 +285,8 @@ describe('AnalyticsPanel', () => {
       fireEvent.click(screen.getByText('ROLES'));
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-        expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
       });
     });
 

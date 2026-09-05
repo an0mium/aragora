@@ -28,13 +28,13 @@ describe('normalizeDecisionPackage', () => {
     const normalized = normalizeDecisionPackage(
       {
         id: 'debate-2',
-        agents: ['claude', 7, null, 'gpt-5'],
+        agents: ['claude', 7, null, 'gpt-6-astra'],
         next_steps: ['step one', { bad: true }, 'step two'],
       },
       'fallback-id'
     );
 
-    expect(normalized.agents).toEqual(['claude', 'gpt-5']);
+    expect(normalized.agents).toEqual(['claude', 'gpt-6-astra']);
     expect(normalized.next_steps).toEqual([
       { action: 'step one', priority: 'medium' },
       { action: 'step two', priority: 'medium' },
@@ -68,12 +68,12 @@ describe('normalizeDecisionPackage', () => {
         consensus_reached: true,
         explanation_summary: 'Agents aligned on shipping with minor caveats.',
         final_answer: 'Ship the release.',
-        participants: ['claude', 'gpt-4'],
+        participants: ['claude', 'gpt-6-astra'],
         cost: {
           total_cost_usd: 0.0042,
           per_agent_cost: {
             claude: 0.002,
-            'gpt-4': 0.0022,
+            'gpt-6-astra': 0.0022,
           },
         },
         next_steps: [
@@ -96,11 +96,11 @@ describe('normalizeDecisionPackage', () => {
     expect(normalized.debate_status_source).toBe('synthetic');
     expect(normalized.synthetic).toBe(true);
     expect(normalized.explanation).toBe('Agents aligned on shipping with minor caveats.');
-    expect(normalized.agents).toEqual(['claude', 'gpt-4']);
+    expect(normalized.agents).toEqual(['claude', 'gpt-6-astra']);
     expect(normalized.total_cost).toBe(0.0042);
     expect(normalized.cost_breakdown).toEqual([
       { agent: 'claude', tokens: 0, cost: 0.002 },
-      { agent: 'gpt-4', tokens: 0, cost: 0.0022 },
+      { agent: 'gpt-6-astra', tokens: 0, cost: 0.0022 },
     ]);
     expect(normalized.next_steps).toEqual([
       { action: 'Ship the release.', priority: 'high' },
@@ -120,7 +120,7 @@ describe('normalizeDecisionPackage', () => {
     const normalized = normalizeDecisionPackage(
       {
         debate_id: 'debate-43',
-        participants: ['claude', 'gpt-4'],
+        participants: ['claude', 'gpt-6-astra'],
         receipt: {
           checksum: 'cost123',
           created_at: '2026-03-25T12:34:56Z',
@@ -137,14 +137,14 @@ describe('normalizeDecisionPackage', () => {
                 total_tokens_out: 400,
                 call_count: 3,
                 models_used: {
-                  'claude-sonnet-4': 3,
+                  'claude-fable-5-1': 3,
                 },
               },
             },
             model_usage: {
-              'anthropic/claude-sonnet-4': {
+              'anthropic/claude-fable-5.1': {
                 provider: 'anthropic',
-                model: 'claude-sonnet-4',
+                model: 'claude-fable-5-1',
                 total_cost_usd: '0.020',
                 total_tokens_in: 2000,
                 total_tokens_out: 700,
@@ -164,12 +164,12 @@ describe('normalizeDecisionPackage', () => {
     expect(costSummary?.per_agent).toEqual([
       expect.objectContaining({
         agent: 'claude',
-        models_used: [{ model: 'claude-sonnet-4', call_count: 3 }],
+        models_used: [{ model: 'claude-fable-5-1', call_count: 3 }],
       }),
     ]);
     expect(costSummary?.model_usage).toEqual([
       expect.objectContaining({
-        label: 'anthropic/claude-sonnet-4',
+        label: 'anthropic/claude-fable-5.1',
         call_count: 4,
       }),
     ]);

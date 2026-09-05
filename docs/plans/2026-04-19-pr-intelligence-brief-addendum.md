@@ -249,7 +249,7 @@ Two new event types extend `shift_ledger.jsonl`:
   "protocol": "B",
   "protocol_version": "pdb-b.1.0",
   "synthesizer_slot": "pdb.core.claude",
-  "synthesizer_model_id": "claude-opus-4.7",
+  "synthesizer_model_id": "claude-fable-5-1",
   "dual_synthesis": false,
   "verdict": "approve_candidate",
   "confidence": 4,

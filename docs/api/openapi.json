@@ -6455,7 +6455,7 @@
             "name": "name",
             "in": "path",
             "required": true,
-            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
+            "description": "Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -24333,7 +24333,7 @@
                     "task": "Is GraphQL better than REST for mobile apps?",
                     "agents": [
                       "claude",
-                      "gpt-4",
+                      "gpt-6-astra",
                       "gemini"
                     ],
                     "rounds": 9,
@@ -72722,7 +72722,7 @@
             "name": "name",
             "in": "path",
             "required": true,
-            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
+            "description": "Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -124010,7 +124010,7 @@
                     "task": "Is GraphQL better than REST for mobile apps?",
                     "agents": [
                       "claude",
-                      "gpt-4o",
+                      "gpt-6-astra",
                       "gemini"
                     ],
                     "rounds": 9,
@@ -125136,7 +125136,7 @@
             "schema": {
               "type": "string"
             },
-            "example": "claude-sonnet-4,gpt-4o,gemini-pro"
+            "example": "claude-fable-5-1,gpt-6-astra,gemini-3.1-pro-preview"
           }
         ],
         "responses": {
@@ -130800,7 +130800,7 @@
                         "error": null
                       },
                       {
-                        "name": "gpt-4o",
+                        "name": "gpt-6-astra",
                         "provider": "openai",
                         "status": "failed",
                         "rounds_participated": 0,
@@ -130816,7 +130816,7 @@
                     },
                     "receipt_generated": false,
                     "suggestions": [
-                      "Agent gpt-4o did not participate - verify OPENAI_API_KEY is set and valid",
+                      "Agent gpt-6-astra did not participate - verify OPENAI_API_KEY is set and valid",
                       "No consensus reached after 3 rounds - consider increasing round count or reducing agent count",
                       "Consider adding OPENROUTER_API_KEY as fallback for failed providers"
                     ]
@@ -213047,7 +213047,7 @@
                       },
                       "openai": {
                         "available": true,
-                        "model": "gpt-5.3"
+                        "model": "gpt-6-astra"
                       },
                       "openrouter": {
                         "available": false,
@@ -258667,7 +258667,7 @@
             "description": "List of agent specs to participate. If empty, auto_select is used.",
             "example": [
               "claude",
-              "gpt-4",
+              "gpt-6-astra",
               "gemini"
             ],
             "minItems": 0,
@@ -258957,7 +258957,7 @@
           "task": "Should we adopt microservices architecture for our e-commerce platform?",
           "agents": [
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             "gemini"
           ],
           "rounds": 9,
@@ -258996,7 +258996,7 @@
             "description": "Agents participating in the debate",
             "example": [
               "claude",
-              "gpt-4",
+              "gpt-6-astra",
               "gemini"
             ]
           },
@@ -259025,7 +259025,7 @@
           "task": "Should we adopt microservices architecture?",
           "agents": [
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             "gemini"
           ],
           "websocket_url": "wss://api.aragora.ai/ws/debates/deb_abc123xyz",
@@ -266390,7 +266390,7 @@
           "format": "audio",
           "voices": {
             "claude": "alloy",
-            "gpt-4": "echo"
+            "gpt-6-astra": "echo"
           }
         }
       },
@@ -266711,8 +266711,8 @@
             },
             "example": [
               "claude-opus-5",
-              "gpt-4o",
-              "gemini-pro"
+              "gpt-6-astra",
+              "gemini-3.1-pro-preview"
             ]
           }
         },
@@ -266721,8 +266721,8 @@
           "num_rounds": 9,
           "model_types": [
             "claude-opus-5",
-            "gpt-4o",
-            "gemini-pro"
+            "gpt-6-astra",
+            "gemini-3.1-pro-preview"
           ]
         }
       },

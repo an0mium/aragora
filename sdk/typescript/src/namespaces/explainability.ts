@@ -210,7 +210,7 @@ export class ExplainabilityAPI {
    * ```typescript
    * const counterfactual = await client.explainability.generateCounterfactual('debate-123', {
    *   hypothesis: 'What if we had a larger budget?',
-   *   affected_agents: ['gpt-4', 'claude']
+   *   affected_agents: ['gpt-6-astra', 'claude']
    * });
    * console.log('Predicted outcome:', counterfactual.predicted_outcome);
    * ```

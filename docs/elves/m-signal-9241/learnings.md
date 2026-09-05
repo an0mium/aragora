@@ -24,7 +24,7 @@ Session-derived facts the run must not rediscover the hard way (2026-07-11):
    pristine-main full-suite timeouts are infra_error by contract (#9175), never red evidence.
 8. **VibeProxy is the debate-gate provider.** /Applications/VibeProxy.app, listening on
    127.0.0.1:8317, speaks BOTH OpenAI (/v1/models) and Anthropic (/v1/messages) shapes,
-   subscription-backed (verified live 2026-07-11 CT: claude-sonnet-4-6 answered). For the gate:
+   subscription-backed (verified live 2026-07-11 CT: claude-fable-5-1 answered). For the gate:
    ANTHROPIC_BASE_URL=http://127.0.0.1:8317 ANTHROPIC_API_KEY=vibeproxy-local → anthropic-api
    agent works keylessly. Heterogeneous pair: claude-via-VibeProxy + codex CLI (openai family)
    via per-PR collect_quorum_evidence. kimi via VibeProxy is Chinese-routed: advisory only.

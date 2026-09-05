@@ -75,8 +75,8 @@ DEFAULT_PERSONAS = {
         expertise={"architecture": 0.6, "api_design": 0.5, "code_style": 0.7},
         temperature=0.7,  # Balanced default
     ),
-    "deepseek-r1": Persona(
-        agent_name="deepseek-r1",
+    "deepseek-v4-pro-0813": Persona(
+        agent_name="deepseek-v4-pro-0813",
         description="Chain-of-thought reasoning specialist, shows working step-by-step",
         traits=["thorough", "innovative", "contrarian"],  # R1 tends to challenge assumptions
         expertise={

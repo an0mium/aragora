@@ -61700,7 +61700,7 @@ export interface components {
          *       "task": "Should we adopt microservices architecture for our e-commerce platform?",
          *       "agents": [
          *         "claude",
-         *         "gpt-4",
+         *         "gpt-6-astra",
          *         "gemini"
          *       ],
          *       "rounds": 9,
@@ -61723,7 +61723,7 @@ export interface components {
              * @description List of agent specs to participate. If empty, auto_select is used.
              * @example [
              *       "claude",
-             *       "gpt-4",
+             *       "gpt-6-astra",
              *       "gemini"
              *     ]
              */
@@ -61910,7 +61910,7 @@ export interface components {
          *       "task": "Should we adopt microservices architecture?",
          *       "agents": [
          *         "claude",
-         *         "gpt-4",
+         *         "gpt-6-astra",
          *         "gemini"
          *       ],
          *       "websocket_url": "wss://api.aragora.ai/ws/debates/deb_abc123xyz",
@@ -61939,7 +61939,7 @@ export interface components {
              * @description Agents participating in the debate
              * @example [
              *       "claude",
-             *       "gpt-4",
+             *       "gpt-6-astra",
              *       "gemini"
              *     ]
              */
@@ -64301,7 +64301,7 @@ export interface components {
          *       "format": "audio",
          *       "voices": {
          *         "claude": "alloy",
-         *         "gpt-4": "echo"
+         *         "gpt-6-astra": "echo"
          *       }
          *     }
          */
@@ -64513,8 +64513,8 @@ export interface components {
          *       "num_rounds": 9,
          *       "model_types": [
          *         "claude-opus-5",
-         *         "gpt-4o",
-         *         "gemini-pro"
+         *         "gpt-6-astra",
+         *         "gemini-3.1-pro-preview"
          *       ]
          *     }
          */
@@ -64533,8 +64533,8 @@ export interface components {
              * @description Model types to use
              * @example [
              *       "claude-opus-5",
-             *       "gpt-4o",
-             *       "gemini-pro"
+             *       "gpt-6-astra",
+             *       "gemini-3.1-pro-preview"
              *     ]
              */
             model_types?: string[];
@@ -67102,7 +67102,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Agent name (e.g., 'claude', 'gpt-4', 'gemini') */
+                /** @description Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini') */
                 name: string;
             };
             cookie?: never;
@@ -98423,7 +98423,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Agent name (e.g., 'claude', 'gpt-4', 'gemini') */
+                /** @description Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini') */
                 name: string;
             };
             cookie?: never;
@@ -123671,7 +123671,7 @@ export interface operations {
                 num_rounds?: number;
                 /**
                  * @description Comma-separated model types
-                 * @example claude-sonnet-4,gpt-4o,gemini-pro
+                 * @example claude-fable-5-1,gpt-6-astra,gemini-3.1-pro-preview
                  */
                 model_types?: string;
             };

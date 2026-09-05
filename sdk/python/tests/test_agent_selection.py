@@ -44,11 +44,11 @@ class TestAgentScoring:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"scores": [{"agent": "claude", "score": 0.95}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.agent_selection.score_agents(agents=["claude", "gpt-4"])
+            result = client.agent_selection.score_agents(agents=["claude", "gpt-6-astra"])
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/agent-selection/score",
-                json={"agents": ["claude", "gpt-4"]},
+                json={"agents": ["claude", "gpt-6-astra"]},
             )
             assert result["scores"][0]["agent"] == "claude"
             client.close()
@@ -58,7 +58,7 @@ class TestAgentScoring:
             mock_request.return_value = {"scores": []}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.agent_selection.score_agents(
-                agents=["claude", "gpt-4", "gemini"],
+                agents=["claude", "gpt-6-astra", "gemini"],
                 context="security code review",
                 dimensions=["accuracy", "speed", "cost"],
                 scorer="elo_scorer",
@@ -69,7 +69,7 @@ class TestAgentScoring:
                 "POST",
                 "/api/v1/agent-selection/score",
                 json={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "context": "security code review",
                     "dimensions": ["accuracy", "speed", "cost"],
                     "scorer": "elo_scorer",
@@ -99,23 +99,23 @@ class TestAgentScoring:
             mock_request.return_value = {"agent": "claude", "score": 0.92}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = client.agent_selection.get_best_agent(
-                pool=["claude", "gpt-4", "gemini"],
+                pool=["claude", "gpt-6-astra", "gemini"],
                 task_type="code_review",
             )
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/agent-selection/best",
-                json={"pool": ["claude", "gpt-4", "gemini"], "task_type": "code_review"},
+                json={"pool": ["claude", "gpt-6-astra", "gemini"], "task_type": "code_review"},
             )
             assert result["agent"] == "claude"
             client.close()
 
     def test_get_best_agent_with_context(self) -> None:
         with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"agent": "gpt-4", "score": 0.88}
+            mock_request.return_value = {"agent": "gpt-6-astra", "score": 0.88}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.agent_selection.get_best_agent(
-                pool=["claude", "gpt-4"],
+                pool=["claude", "gpt-6-astra"],
                 task_type="creative",
                 context="Write marketing copy for a SaaS product",
             )
@@ -123,7 +123,7 @@ class TestAgentScoring:
                 "POST",
                 "/api/v1/agent-selection/best",
                 json={
-                    "pool": ["claude", "gpt-4"],
+                    "pool": ["claude", "gpt-6-astra"],
                     "task_type": "creative",
                     "context": "Write marketing copy for a SaaS product",
                 },
@@ -142,12 +142,12 @@ class TestTeamSelection:
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = client.agent_selection.select_team(
-                pool=["claude", "gpt-4", "gemini", "mistral"],
+                pool=["claude", "gpt-6-astra", "gemini", "mistral"],
             )
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/agent-selection/select-team",
-                json={"pool": ["claude", "gpt-4", "gemini", "mistral"]},
+                json={"pool": ["claude", "gpt-6-astra", "gemini", "mistral"]},
             )
             assert result["team_score"] == 0.91
             client.close()
@@ -157,7 +157,7 @@ class TestTeamSelection:
             mock_request.return_value = {"team": [], "team_score": 0.85}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.agent_selection.select_team(
-                pool=["claude", "gpt-4", "gemini", "mistral", "deepseek"],
+                pool=["claude", "gpt-6-astra", "gemini", "mistral", "deepseek"],
                 task_requirements={"domain": "security", "complexity": "high"},
                 team_size=3,
                 constraints={"max_cost": 100},
@@ -171,7 +171,7 @@ class TestTeamSelection:
                 "POST",
                 "/api/v1/agent-selection/select-team",
                 json={
-                    "pool": ["claude", "gpt-4", "gemini", "mistral", "deepseek"],
+                    "pool": ["claude", "gpt-6-astra", "gemini", "mistral", "deepseek"],
                     "task_requirements": {"domain": "security", "complexity": "high"},
                     "team_size": 3,
                     "constraints": {"max_cost": 100},
@@ -189,7 +189,7 @@ class TestTeamSelection:
             mock_request.return_value = {"team": []}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.agent_selection.select_team(
-                pool=["claude", "gpt-4", "gemini"],
+                pool=["claude", "gpt-6-astra", "gemini"],
                 min_team_size=2,
                 max_team_size=4,
             )
@@ -204,19 +204,19 @@ class TestTeamSelection:
             mock_request.return_value = {
                 "assignments": [
                     {"agent": "claude", "role": "lead"},
-                    {"agent": "gpt-4", "role": "reviewer"},
+                    {"agent": "gpt-6-astra", "role": "reviewer"},
                 ]
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = client.agent_selection.assign_roles(
-                members=["claude", "gpt-4"],
+                members=["claude", "gpt-6-astra"],
                 roles=["lead", "reviewer"],
             )
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/agent-selection/assign-roles",
                 json={
-                    "members": ["claude", "gpt-4"],
+                    "members": ["claude", "gpt-6-astra"],
                     "roles": ["lead", "reviewer"],
                 },
             )
@@ -228,7 +228,7 @@ class TestTeamSelection:
             mock_request.return_value = {"assignments": []}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
             client.agent_selection.assign_roles(
-                members=["claude", "gpt-4", "gemini"],
+                members=["claude", "gpt-6-astra", "gemini"],
                 roles=["lead", "critic", "synthesizer"],
                 task_context="Debate on API design patterns",
                 assigner="capability_match",
@@ -237,7 +237,7 @@ class TestTeamSelection:
                 "POST",
                 "/api/v1/agent-selection/assign-roles",
                 json={
-                    "members": ["claude", "gpt-4", "gemini"],
+                    "members": ["claude", "gpt-6-astra", "gemini"],
                     "roles": ["lead", "critic", "synthesizer"],
                     "task_context": "Debate on API design patterns",
                     "assigner": "capability_match",
@@ -296,7 +296,7 @@ class TestAsyncAgentSelection:
             mock_request.return_value = {"scores": [{"agent": "claude", "score": 0.95}]}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = await client.agent_selection.score_agents(
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
                 context="data analysis",
                 dimensions=["accuracy", "speed"],
             )
@@ -304,7 +304,7 @@ class TestAsyncAgentSelection:
                 "POST",
                 "/api/v1/agent-selection/score",
                 json={
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "context": "data analysis",
                     "dimensions": ["accuracy", "speed"],
                 },
@@ -321,7 +321,7 @@ class TestAsyncAgentSelection:
             }
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = await client.agent_selection.select_team(
-                pool=["claude", "gpt-4", "gemini"],
+                pool=["claude", "gpt-6-astra", "gemini"],
                 task_requirements={"domain": "security"},
                 team_size=2,
             )
@@ -329,7 +329,7 @@ class TestAsyncAgentSelection:
                 "POST",
                 "/api/v1/agent-selection/select-team",
                 json={
-                    "pool": ["claude", "gpt-4", "gemini"],
+                    "pool": ["claude", "gpt-6-astra", "gemini"],
                     "task_requirements": {"domain": "security"},
                     "team_size": 2,
                 },

@@ -43,7 +43,7 @@ test.describe('Live Debate Intervention', () => {
               data: {
                 debate_id: id,
                 task: 'Intervention E2E debate',
-                agents: ['claude', 'gpt-5'],
+                agents: ['claude', 'gpt-6-astra'],
               },
             });
             this.emit({

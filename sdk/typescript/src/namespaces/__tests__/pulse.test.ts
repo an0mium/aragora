@@ -110,7 +110,7 @@ describe('PulseAPI Namespace', () => {
           score: 450,
         },
         suggested_task: 'Debate the merits of AI regulation in the EU',
-        suggested_agents: ['claude', 'gpt-4', 'gemini'],
+        suggested_agents: ['claude', 'gpt-6-astra', 'gemini'],
         relevance_score: 0.92,
         controversy_score: 0.75,
         timeliness_score: 0.95,
@@ -218,14 +218,14 @@ describe('PulseAPI Namespace', () => {
       mockClient.request.mockResolvedValue(mockResult);
 
       await api.startDebate('t_1', {
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         protocol: { rounds: 5 },
       });
 
       expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/pulse/debate-topic', {
         json: {
           topic_id: 't_1',
-          agents: ['claude', 'gpt-4'],
+          agents: ['claude', 'gpt-6-astra'],
           protocol: { rounds: 5 },
         },
       });

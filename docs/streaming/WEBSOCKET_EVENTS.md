@@ -596,7 +596,7 @@ Emitted when an agent registers with the control plane.
   "data": {
     "agent_id": "agent-abc123",
     "capabilities": ["debate", "critique", "summarize"],
-    "model": "claude-3-opus",
+    "model": "claude-fable-5-1",
     "provider": "anthropic"
   }
 }

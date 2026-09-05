@@ -185,7 +185,7 @@ class OpenRouterAgent(APIAgent):
     - ai21/jamba-large-1.7 (Jamba Large 1.7)
     - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
     - anthropic/claude-opus-5
-    - openai/gpt-5.5
+    - openai/gpt-6-astra
     """
 
     def __init__(
@@ -682,7 +682,7 @@ class DeepSeekAgent(OpenRouterAgent):
 
 
 @AgentRegistry.register(
-    "deepseek-r1",
+    "deepseek-v4-pro-0813",
     default_model=DEEPSEEK_V4_PRO_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
@@ -693,7 +693,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
 
     def __init__(
         self,
-        name: str = "deepseek-r1",
+        name: str = "deepseek-v4-pro-0813",
         role: AgentRole = "analyst",
         model: str = DEEPSEEK_V4_PRO_MODEL,
         system_prompt: str | None = None,
@@ -704,7 +704,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
             model=model,
             system_prompt=system_prompt,
         )
-        self.agent_type = "deepseek-r1"
+        self.agent_type = "deepseek-v4-pro-0813"
 
 
 class DeepSeekV3Agent(OpenRouterAgent):
@@ -712,7 +712,7 @@ class DeepSeekV3Agent(OpenRouterAgent):
 
     def __init__(
         self,
-        name: str = "deepseek-v3",
+        name: str = "deepseek-v4-pro-0813",
         role: AgentRole = "analyst",
         system_prompt: str | None = None,
     ):
@@ -722,7 +722,7 @@ class DeepSeekV3Agent(OpenRouterAgent):
             model=DEEPSEEK_V4_PRO_MODEL,
             system_prompt=system_prompt,
         )
-        self.agent_type = "deepseek-v3"
+        self.agent_type = "deepseek-v4-pro-0813"
 
 
 @AgentRegistry.register(

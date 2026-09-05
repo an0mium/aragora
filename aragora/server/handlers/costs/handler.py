@@ -1555,7 +1555,7 @@ class CostHandler:
             operation = body.get("operation", "unknown")
             tokens_input = body.get("tokens_input", 0)
             tokens_output = body.get("tokens_output", 0)
-            model = body.get("model", "claude-opus-4")
+            model = body.get("model", "claude-fable-5-1")
             provider = body.get("provider", "anthropic")
 
             # Use canonical pricing from billing module

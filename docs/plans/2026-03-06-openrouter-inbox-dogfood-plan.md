@@ -27,7 +27,7 @@ This document is therefore no longer a pre-merge implementation plan. It is the 
 
 - The direct provider agent classes were used with no native provider keys present.
 - `anthropic-api` resolved to OpenRouter fallback model `anthropic/claude-opus-4.7`.
-- `openai-api` resolved to OpenRouter fallback model `openai/gpt-5.4`.
+- `openai-api` resolved to OpenRouter fallback model `openai/gpt-6-astra`.
 - `gemini` resolved to OpenRouter fallback model `google/gemini-3.1-pro-preview`.
 - The live debate completed with consensus, `0.8` confidence, and `gemini_synthesizer` as the winning synthesizer/judge.
 - The live debate converged on the same narrow wedge the audit suggested: inbox triage plus gated `gmail.modify` actioning, with reply/send explicitly deferred.

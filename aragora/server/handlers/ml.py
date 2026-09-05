@@ -238,14 +238,14 @@ class MLHandler(BaseHandler):
         Request body:
             {
                 "task": "Implement a caching layer",
-                "available_agents": ["claude", "gpt-4", "codex"],
+                "available_agents": ["claude", "gpt-6-astra", "codex"],
                 "team_size": 3,
                 "constraints": {"require_code": true}
             }
 
         Response:
             {
-                "selected_agents": ["codex", "claude", "gpt-4"],
+                "selected_agents": ["codex", "claude", "gpt-6-astra"],
                 "task_type": "coding",
                 "confidence": 0.85,
                 "reasoning": ["task_type=coding", "codex_strong_at_coding"],

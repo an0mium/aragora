@@ -123,7 +123,7 @@ class DocumentBatchHandler(BaseHandler):
             max_tokens = safe_query_int(
                 query_params, "max_tokens", default=4096, min_val=1, max_val=128000
             )
-            model = query_params.get("model", ["gpt-4"])[0]
+            model = query_params.get("model", ["gpt-6-astra"])[0]
             return self._get_document_context(doc_id, max_tokens, model)
 
         return None
@@ -466,7 +466,7 @@ class DocumentBatchHandler(BaseHandler):
         )
 
     def _get_document_context(
-        self, doc_id: str, max_tokens: int = 4096, model: str = "gpt-4"
+        self, doc_id: str, max_tokens: int = 4096, model: str = "gpt-6-astra"
     ) -> HandlerResult:
         """
         Get LLM-ready context from a document.
@@ -475,7 +475,7 @@ class DocumentBatchHandler(BaseHandler):
 
         Query params:
             max_tokens: Maximum tokens to include (default 4096)
-            model: Model for token counting (default gpt-4)
+            model: Model for token counting (default gpt-6-astra)
         """
         # For now, try to get from legacy document store
         store = self.ctx.get("document_store")

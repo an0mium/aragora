@@ -58,7 +58,7 @@ class CVStore(SQLiteStore):
         cv = await store.refresh_cv("claude-opus")
 
         # Get multiple CVs
-        cvs = await store.get_cvs_batch(["claude", "gpt-4", "gemini"])
+        cvs = await store.get_cvs_batch(["claude", "gpt-6-astra", "gemini"])
     """
 
     SCHEMA_NAME = "agent_cv"

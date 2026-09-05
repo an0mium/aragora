@@ -70,7 +70,7 @@ _FAST_TIER_JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTA
 _FAST_TRIAGE_PROVIDERS = (
     ExtractionProvider(
         agent_type="gemini",
-        model="gemini-2.0-flash",
+        model="gemini-3.8-flash",
         role="analyst",
         name="triage-fast",
         env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),
@@ -78,7 +78,7 @@ _FAST_TRIAGE_PROVIDERS = (
     ),
     ExtractionProvider(
         agent_type="openai-api",
-        model="gpt-5.4",
+        model="gpt-6-astra",
         role="analyst",
         name="triage-fast",
         env_vars=("OPENAI_API_KEY",),
@@ -94,7 +94,7 @@ _FAST_TRIAGE_PROVIDERS = (
     ),
     ExtractionProvider(
         agent_type="openrouter",
-        model="deepseek/deepseek-v4-pro",
+        model="deepseek/deepseek-v4-pro-0813",
         role="analyst",
         name="triage-fast",
         env_vars=("OPENROUTER_API_KEY",),
@@ -432,7 +432,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openai-api",
             name="triage-proposer",
             role="proposer",
-            model="gpt-5.4",
+            model="gpt-6-astra",
         )
     elif _has_api_key("ANTHROPIC_API_KEY"):
         _append_agent(
@@ -454,14 +454,14 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openrouter",
             name="triage-critic",
             role="critic",
-            model="deepseek/deepseek-v4-pro",
+            model="deepseek/deepseek-v4-pro-0813",
         )
     elif _has_api_key("OPENAI_API_KEY"):
         _append_agent(
             "openai-api",
             name="triage-critic",
             role="critic",
-            model="gpt-5.4",
+            model="gpt-6-astra",
         )
     elif _has_api_key("ANTHROPIC_API_KEY"):
         _append_agent(
@@ -483,7 +483,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openai-api",
             name="triage-reviewer",
             role="synthesizer",
-            model="gpt-5.4",
+            model="gpt-6-astra",
         )
     elif _has_api_key("OPENROUTER_API_KEY") and len(agents) < 3:
         # Use a different model family for heterogeneous consensus

@@ -55,7 +55,7 @@ tracker.record_debate(
     tokens_in=5000,
     tokens_out=2000,
     provider="anthropic",
-    model="claude-opus-4"
+    model="claude-fable-5-1"
 )
 
 # Get usage summary
@@ -86,7 +86,7 @@ await meter.record_tokens(
     tokens_in=1000,
     tokens_out=500,
     provider="openai",
-    model="gpt-4o"
+    model="gpt-6-astra"
 )
 
 # Get billing summary
@@ -114,7 +114,7 @@ await meter.initialize()
 # Record token usage with full attribution
 record = await meter.record_token_usage(
     provider="anthropic",
-    model="claude-opus-4",
+    model="claude-fable-5-1",
     tokens_in=15000,
     tokens_out=3000,
     tenant_id="tenant_123",
@@ -180,7 +180,7 @@ usage = await record_usage(
     workspace_id="ws_123",
     agent_name="claude",
     provider="anthropic",
-    model="claude-opus-4",
+    model="claude-fable-5-1",
     tokens_in=10000,
     tokens_out=5000,
     debate_id="debate_789"
@@ -605,12 +605,12 @@ The module includes current pricing for major LLM providers (per 1M tokens):
 
 | Provider | Model | Input | Output |
 |----------|-------|-------|--------|
-| Anthropic | claude-opus-4 | $15.00 | $75.00 |
-| Anthropic | claude-sonnet-4 | $3.00 | $15.00 |
-| OpenAI | gpt-4o | $2.50 | $10.00 |
-| OpenAI | gpt-4o-mini | $0.15 | $0.60 |
-| Google | gemini-pro | $1.25 | $5.00 |
-| DeepSeek | deepseek-v3 | $0.14 | $0.28 |
+| Anthropic | claude-fable-5-1 | $15.00 | $75.00 |
+| Anthropic | claude-fable-5-1 | $3.00 | $15.00 |
+| OpenAI | gpt-6-astra | $2.50 | $10.00 |
+| OpenAI | gpt-5.6-terra | $0.15 | $0.60 |
+| Google | gemini-3.1-pro-preview | $1.25 | $5.00 |
+| DeepSeek | deepseek-v4-pro-0813 | $0.14 | $0.28 |
 | OpenRouter | default | $2.00 | $8.00 |
 
 ## API Reference

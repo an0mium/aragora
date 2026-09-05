@@ -276,7 +276,7 @@ class RecommendationsResponse(BaseModel):
 class EstimateRequest(BaseModel):
     """Request to estimate debate cost."""
 
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-fable-5-1"
     rounds: int = 3
     agents: int = 4
     estimated_tokens_per_round: int = 2000

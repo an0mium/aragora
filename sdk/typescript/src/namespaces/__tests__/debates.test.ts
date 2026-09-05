@@ -125,13 +125,13 @@ describe('DebatesAPI Namespace', () => {
 
       const result = await api.create({
         task: 'Should we use microservices?',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         rounds: 3,
       });
 
       expect(mockClient.createDebate).toHaveBeenCalledWith({
         task: 'Should we use microservices?',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         rounds: 3,
       });
       expect(result.debate_id).toBe('new-debate');
@@ -166,7 +166,7 @@ describe('DebatesAPI Namespace', () => {
       const mockMessages = {
         messages: [
           { role: 'assistant', agent: 'claude', content: 'First message' },
-          { role: 'assistant', agent: 'gpt-4', content: 'Second message' },
+          { role: 'assistant', agent: 'gpt-6-astra', content: 'Second message' },
         ],
       };
       mockClient.getDebateMessages.mockResolvedValue(mockMessages);
@@ -615,11 +615,11 @@ describe('DebatesAPI Namespace', () => {
       });
 
       const result = await api.createCounterfactual('debate-123', {
-        agents: ['claude', 'gpt-4', 'gemini'],
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
       });
 
       expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/debates/debate-123/explainability/counterfactual', {
-        body: { agents: ['claude', 'gpt-4', 'gemini'] },
+        body: { agents: ['claude', 'gpt-6-astra', 'gemini'] },
       });
       expect(result.predicted_outcome).toBe('Different conclusion');
     });

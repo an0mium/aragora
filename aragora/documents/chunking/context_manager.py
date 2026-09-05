@@ -13,7 +13,7 @@ Usage:
     context = await manager.build_context(
         document_ids=["doc1", "doc2"],
         query="Find security vulnerabilities",
-        model="gemini-3-pro",
+        model="gemini-3.1-pro-preview",
         max_tokens=500000,
     )
 """
@@ -78,7 +78,7 @@ class ContextConfig:
     """Configuration for context building."""
 
     # Target model (affects strategy selection)
-    model: str = "gpt-4-turbo"
+    model: str = "gpt-6-astra"
 
     # Maximum tokens to use (None = use model's limit)
     max_tokens: int | None = None
@@ -205,22 +205,22 @@ class ContextManager:
         """
         if total_tokens > 500000:
             # Need Gemini 3 Pro for very large documents
-            return "gemini-3-pro"
+            return "gemini-3.1-pro-preview"
         elif total_tokens > 100000:
             # Large but manageable
             if prefer_reasoning:
-                return "claude-3.5-sonnet"
-            return "gemini-3-pro"
+                return "claude-fable-5-1"
+            return "gemini-3.1-pro-preview"
         elif total_tokens > 50000:
             # Medium documents
             if prefer_reasoning:
-                return "claude-3.5-sonnet"
-            return "gpt-4-turbo"
+                return "claude-fable-5-1"
+            return "gpt-6-astra"
         else:
             # Small documents - any model works
             if prefer_reasoning:
-                return "claude-3.5-sonnet"
-            return "gpt-4-turbo"
+                return "claude-fable-5-1"
+            return "gpt-6-astra"
 
     async def build_context(
         self,

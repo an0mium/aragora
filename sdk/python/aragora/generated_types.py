@@ -357,7 +357,7 @@ class DebateCreateRequest(BaseModel):
         list[str | Agents] | None,
         Field(
             description="List of agent specs to participate. If empty, auto_select is used.",
-            example=["claude", "gpt-4", "gemini"],
+            example=["claude", "gpt-6-astra", "gemini"],
             max_items=8,
             min_items=0,
         ),
@@ -478,7 +478,7 @@ class DebateCreateResponse(BaseModel):
     agents: Annotated[
         list[str] | None,
         Field(
-            description="Agents participating in the debate", example=["claude", "gpt-4", "gemini"]
+            description="Agents participating in the debate", example=["claude", "gpt-6-astra", "gemini"]
         ),
     ] = None
     websocket_url: Annotated[
@@ -3030,7 +3030,7 @@ class DebateCostEstimateRequest(BaseModel):
     num_rounds: Annotated[int | None, Field(description="Number of debate rounds", ge=1, le=12)] = 9
     model_types: Annotated[
         list[str] | None,
-        Field(description="Model types to use", example=["claude-opus-5", "gpt-4o", "gemini-pro"]),
+        Field(description="Model types to use", example=["claude-opus-5", "gpt-6-astra", "gemini-3.1-pro-preview"]),
     ] = None
 
 

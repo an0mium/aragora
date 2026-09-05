@@ -40,7 +40,7 @@ class CodexConfig(HarnessConfig):
     """Configuration for OpenAI Codex harness."""
 
     # Model settings
-    model: str = "gpt-4o"  # or gpt-4-turbo, gpt-3.5-turbo
+    model: str = "gpt-6-astra"  # or gpt-6-astra, gpt-3.5-turbo
     temperature: float = 0.2
     max_tokens: int = 4096
 
@@ -655,7 +655,7 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
 
 # Convenience function
 def create_codex_harness(
-    model: str = "gpt-4o",
+    model: str = "gpt-6-astra",
     api_key: str | None = None,
 ) -> CodexHarness:
     """Create a CodexHarness with custom configuration."""

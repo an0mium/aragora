@@ -1244,7 +1244,7 @@ Create a new workflow definition.
       "type": "debate",
       "config": {
         "topic": "{{input.code_diff}}",
-        "agents": ["claude", "gpt-4", "deepseek-r1"],
+        "agents": ["claude", "gpt-6-astra", "deepseek-v4-pro-0813"],
         "rounds": 3
       }
     },
@@ -1499,7 +1499,7 @@ Start an ad-hoc debate. **Rate limited**.
 
 **Parameters:**
 - `question` (string, required): Topic/question to debate
-- `agents` (string, default="grok,anthropic-api,openai-api,deepseek-r1"): Comma-separated agent list (max 10)
+- `agents` (string, default="grok,anthropic-api,openai-api,deepseek-v4-pro-0813"): Comma-separated agent list (max 10)
 - `rounds` (int, default=3): Number of debate rounds
 - `consensus` (string, default="majority"): Consensus method
 
@@ -1509,23 +1509,23 @@ API (direct):
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
-| `openai-api` | gpt-5.3 | OpenAI API, streaming |
-| `gemini` | gemini-3-pro-preview | Google API, streaming |
-| `grok` | grok-4-latest | xAI API, streaming |
+| `anthropic-api` | claude-fable-5-1 | Anthropic API, streaming |
+| `openai-api` | gpt-6-astra | OpenAI API, streaming |
+| `gemini` | gemini-3.1-pro-preview | Google API, streaming |
+| `grok` | grok-4.6 | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
-| `codestral` | codestral-latest | Mistral code model |
+| `codestral` | mistral-medium-2604 | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
 | `lm-studio` | local-model | Local LM Studio |
-| `kimi` | moonshot-v1-8k | Moonshot API |
+| `kimi` | kimi-k3 | Moonshot API |
 
 OpenRouter:
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `openrouter` | deepseek/deepseek-v4-pro | Model via `model` parameter |
-| `deepseek` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro |
-| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
-| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `openrouter` | deepseek/deepseek-v4-pro-0813 | Model via `model` parameter |
+| `deepseek` | deepseek/deepseek-v4-pro-0813 | DeepSeek V4 Pro |
+| `deepseek-v4-pro-0813` | deepseek/deepseek-v4-pro-0813 | DeepSeek V4 Pro compatibility alias |
+| `llama` | meta/muse-spark-1.3 | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
 | `qwen` | qwen/qwen3.8-max | Qwen 3.8 Max |
 | `qwen-max` | qwen/qwen3.8-max | Qwen 3.8 Max |
@@ -1535,13 +1535,13 @@ CLI:
 
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `claude` | claude-opus-4-5-20251101 | Claude CLI |
-| `codex` | gpt-5.3-codex | Codex CLI |
-| `openai` | gpt-5.3 | OpenAI CLI |
-| `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
-| `grok-cli` | grok-4-latest | Grok CLI |
-| `qwen-cli` | qwen3-coder | Qwen CLI |
-| `deepseek-cli` | deepseek-v4-pro | DeepSeek CLI |
+| `claude` | claude-fable-5-1 | Claude CLI |
+| `codex` | gpt-6-astra | Codex CLI |
+| `openai` | gpt-6-astra | OpenAI CLI |
+| `gemini-cli` | gemini-3.1-pro-preview | Gemini CLI |
+| `grok-cli` | grok-4.6 | Grok CLI |
+| `qwen-cli` | qwen3.8-2.4t-a95b | Qwen CLI |
+| `deepseek-cli` | deepseek-v4-pro-0813 | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |
 
 **Response:**
@@ -5221,7 +5221,7 @@ Returns detailed usage breakdown by the specified dimension.
         "percentage": 68.0
       },
       {
-        "name": "gpt-4",
+        "name": "gpt-6-astra",
         "cost_usd": "4.00",
         "percentage": 32.0
       }
@@ -5422,12 +5422,12 @@ Returns usage data as downloadable file.
   },
   "by_agent": {
     "claude": "8.50",
-    "gpt-4": "4.00"
+    "gpt-6-astra": "4.00"
   },
   "by_model": {
-    "claude-3-opus": "5.00",
+    "claude-fable-5-1": "5.00",
     "claude-3-sonnet": "3.50",
-    "gpt-4-turbo": "4.00"
+    "gpt-6-astra": "4.00"
   },
   "roi": {
     "time_saved_hours": 45.0,
@@ -5669,8 +5669,8 @@ Response:
   "round": 3,
   "state": {
     "current_round": 3,
-    "agents": ["claude-3", "gpt-4"],
-    "votes": {"claude-3": 2, "gpt-4": 1}
+    "agents": ["claude-3", "gpt-6-astra"],
+    "votes": {"claude-3": 2, "gpt-6-astra": 1}
   },
   "created_at": "2026-01-18T10:00:00Z",
   "resumable": true

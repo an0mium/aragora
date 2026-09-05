@@ -68,7 +68,7 @@ steps:
       topic: "Select the best {tool_category} tool for our needs. Research: {step.research_tools}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
       rounds: 4
       consensus: qualified_majority

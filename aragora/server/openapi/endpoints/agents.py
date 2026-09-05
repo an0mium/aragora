@@ -164,7 +164,7 @@ Includes display-ready fields like rank badges, formatted ratings, and trend ind
                     "name": "name",
                     "in": "path",
                     "required": True,
-                    "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
+                    "description": "Agent name (e.g., 'claude', 'gpt-6-astra', 'gemini')",
                     "schema": {"type": "string"},
                 }
             ],

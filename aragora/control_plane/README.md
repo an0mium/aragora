@@ -12,9 +12,9 @@ coordinator = await ControlPlaneCoordinator.create()
 
 # Register agent
 await coordinator.register_agent(
-    agent_id="claude-3-opus",
+    agent_id="claude-fable-5-1",
     capabilities=["debate", "code", "analysis"],
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     provider="anthropic"
 )
 
@@ -112,7 +112,7 @@ chain = DeliberationChain(
         DeliberationStage(
             id="review",
             topic_template="Review: {context.code}",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             required_consensus=0.7,
             next_on_success="security"
         ),

@@ -54,7 +54,7 @@ async function runDebateWithStreaming(): Promise<void> {
 
     const debate = await client.debates.create({
       task: 'What is the most effective approach to reducing technical debt in a large codebase?',
-      agents: ['claude', 'gpt-4', 'gemini'],
+      agents: ['claude', 'gpt-6-astra', 'gemini'],
       rounds: 3,
       consensus: 'weighted',
       context: 'Focus on practical strategies for engineering teams.',
@@ -249,7 +249,7 @@ async function runDebateWithCallbacks(): Promise<void> {
     // Create a debate
     const debate = await client.debates.create({
       task: 'What are the best practices for API versioning?',
-      agents: ['claude', 'gpt-4'],
+      agents: ['claude', 'gpt-6-astra'],
       rounds: 2,
     });
 

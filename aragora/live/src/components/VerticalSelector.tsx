@@ -74,7 +74,7 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     icon: '\u2696\uFE0F', // Balance scale
     expertiseAreas: ['Contract Analysis', 'Regulatory', 'Risk Assessment', 'IP'],
     complianceFrameworks: ['GDPR', 'SOX', 'HIPAA', 'PCI-DSS', 'CCPA'],
-    suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
+    suggestedAgents: ['claude', 'gpt-6-astra', 'gemini'],
     costTier: 'enterprise',
     keywords: ['legal', 'contract', 'compliance', 'regulation', 'law', 'liability', 'terms', 'privacy', 'gdpr'],
     personas: [
@@ -90,7 +90,7 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     icon: '\uD83C\uDFE5', // Hospital
     expertiseAreas: ['Clinical', 'Research', 'Policy', 'Bioethics'],
     complianceFrameworks: ['HIPAA', 'FDA', 'HL7 FHIR', '21 CFR Part 11'],
-    suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
+    suggestedAgents: ['claude', 'gpt-6-astra', 'gemini'],
     costTier: 'enterprise',
     keywords: ['health', 'medical', 'clinical', 'patient', 'treatment', 'diagnosis', 'healthcare', 'hipaa', 'fda'],
     personas: [
@@ -106,7 +106,7 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     icon: '\uD83C\uDFE6', // Bank
     expertiseAreas: ['Payments', 'Trading', 'Risk Management', 'Regulatory', 'Fraud Detection'],
     complianceFrameworks: ['PCI-DSS', 'SOC2', 'AML/KYC', 'MiFID II', 'Basel III'],
-    suggestedAgents: ['claude', 'gpt-4o', 'deepseek'],
+    suggestedAgents: ['claude', 'gpt-6-astra', 'deepseek'],
     costTier: 'enterprise',
     keywords: ['payment', 'trading', 'bank', 'fintech', 'transaction', 'fraud', 'kyc', 'aml', 'pci'],
     personas: [
@@ -122,7 +122,7 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     icon: '\uD83D\uDCB0', // Money bag
     expertiseAreas: ['Audit', 'Tax', 'Financial Analysis', 'Reporting', 'Internal Controls'],
     complianceFrameworks: ['SOX', 'GAAP', 'IFRS', 'PCAOB'],
-    suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
+    suggestedAgents: ['claude', 'gpt-6-astra', 'gemini'],
     costTier: 'professional',
     keywords: ['finance', 'accounting', 'tax', 'audit', 'budget', 'revenue', 'cost', 'sox', 'gaap'],
     personas: [
@@ -138,7 +138,7 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     icon: '\uD83C\uDF93', // Graduation cap
     expertiseAreas: ['Research Methods', 'Literature Review', 'Data Analysis', 'Peer Review', 'Ethics'],
     complianceFrameworks: ['IRB', 'NIH Guidelines', 'CONSORT', 'PRISMA'],
-    suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
+    suggestedAgents: ['claude', 'gpt-6-astra', 'gemini'],
     costTier: 'professional',
     keywords: ['research', 'study', 'analysis', 'data', 'hypothesis', 'methodology', 'academic', 'peer-review', 'publication'],
     personas: [

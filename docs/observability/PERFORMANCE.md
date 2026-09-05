@@ -151,10 +151,10 @@ Concurrent Debates    Duration(avg)    Memory    CPU    Errors
 |----------|-------|----------|----------|------------|
 | Anthropic | claude-sonnet | 2,500 | 8,000 | 60 RPM |
 | Anthropic | claude-haiku | 1,200 | 4,000 | 100 RPM |
-| OpenAI | gpt-4o | 3,000 | 12,000 | 60 RPM |
-| OpenAI | gpt-4o-mini | 800 | 3,000 | 200 RPM |
-| Google | gemini-pro | 2,000 | 7,000 | 60 RPM |
-| Mistral | mistral-large | 2,200 | 8,500 | 50 RPM |
+| OpenAI | gpt-6-astra | 3,000 | 12,000 | 60 RPM |
+| OpenAI | gpt-5.6-terra | 800 | 3,000 | 200 RPM |
+| Google | gemini-3.1-pro-preview | 2,000 | 7,000 | 60 RPM |
+| Mistral | mistral-large-2512 | 2,200 | 8,500 | 50 RPM |
 
 ---
 

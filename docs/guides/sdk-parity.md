@@ -194,7 +194,7 @@ Both SDKs support all 18 WebSocket event types:
 from aragora import AragoraClient
 
 client = AragoraClient(api_key="...")
-debate = await client.create_debate("Should we use AI?", ["claude", "gpt-4"])
+debate = await client.create_debate("Should we use AI?", ["claude", "gpt-6-astra"])
 ```
 
 ```typescript
@@ -204,7 +204,7 @@ import { createClient } from '@aragora/sdk';
 const client = createClient({ apiKey: '...' });
 const debate = await client.debates.create({
   task: 'Should we use AI?',
-  agents: ['claude', 'gpt-4']
+  agents: ['claude', 'gpt-6-astra']
 });
 ```
 

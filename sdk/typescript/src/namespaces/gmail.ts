@@ -308,7 +308,7 @@ export class GmailAPI {
    * const config = await client.gmail.createDebateConfig({
    *   name: 'Contract Review',
    *   trigger_conditions: { subject_contains: 'contract' },
-   *   agents: ['claude', 'gpt-4'],
+   *   agents: ['claude', 'gpt-6-astra'],
    *   auto_reply: true
    * });
    * ```

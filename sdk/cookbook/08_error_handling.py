@@ -59,7 +59,7 @@ async def retry_pattern_example(dry_run: bool = False) -> dict:
         result = await client.run_debate(
             DebateConfig(
                 topic="Retry pattern test",
-                agents=[Agent(name="claude", model="claude-sonnet-4-20250514")],
+                agents=[Agent(name="claude", model="claude-fable-5-1")],
                 rounds=1,
             )
         )
@@ -81,23 +81,23 @@ async def fallback_agent_example(dry_run: bool = False) -> dict:
     # Define agents with fallback chain
     primary_agent = Agent(
         name="claude",
-        model="claude-sonnet-4-20250514",
+        model="claude-fable-5-1",
         fallback=FallbackAgent(
-            agent=Agent(name="gpt_fallback", model="gpt-4o"),
+            agent=Agent(name="gpt_fallback", model="gpt-6-astra"),
             # Use fallback on these errors
             trigger_on=(RateLimitError, AgentError),
             fallback=FallbackAgent(
                 # Second-level fallback (OpenRouter)
-                agent=Agent(name="openrouter_fallback", model="anthropic/claude-3-haiku"),
+                agent=Agent(name="openrouter_fallback", model="anthropic/claude-fable-5.1"),
                 trigger_on=(RateLimitError, AgentError),
             ),
         ),
     )
 
     if dry_run:
-        print("[DRY RUN] Primary: claude-sonnet-4-20250514")
-        print("[DRY RUN] Fallback 1: gpt-4o")
-        print("[DRY RUN] Fallback 2: anthropic/claude-3-haiku (via OpenRouter)")
+        print("[DRY RUN] Primary: claude-fable-5-1")
+        print("[DRY RUN] Fallback 1: gpt-6-astra")
+        print("[DRY RUN] Fallback 2: anthropic/claude-fable-5.1 (via OpenRouter)")
         return {"pattern": "fallback", "status": "dry_run"}
 
     client = ArenaClient()
@@ -163,7 +163,7 @@ async def circuit_breaker_example(dry_run: bool = False) -> dict:
         result = await client.run_debate(
             DebateConfig(
                 topic="Circuit breaker test",
-                agents=[Agent(name="claude", model="claude-sonnet-4-20250514")],
+                agents=[Agent(name="claude", model="claude-fable-5-1")],
                 rounds=1,
             )
         )

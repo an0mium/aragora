@@ -87,9 +87,9 @@ describe('DebateViewer live debates', () => {
       ...baseLiveState,
       status: 'streaming',
       task: 'Discuss the best approach for feature X',
-      agents: ['claude-3-opus', 'gemini-2.0-flash'],
+      agents: ['claude-fable-5-1', 'gemini-3.8-flash'],
       messages: [
-        { agent: 'claude-3-opus', content: 'Test message', timestamp: 1700000000 },
+        { agent: 'claude-fable-5-1', content: 'Test message', timestamp: 1700000000 },
       ],
     });
 
@@ -97,8 +97,8 @@ describe('DebateViewer live debates', () => {
 
     expect(screen.getByText(/live debate/i)).toBeInTheDocument();
     expect(screen.getByText(/discuss the best approach for feature x/i)).toBeInTheDocument();
-    expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-    expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
+    expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+    expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
     expect(screen.getByText(/test message/i)).toBeInTheDocument();
     expect(screen.getByText(/id: adhoc_live-123/i)).toBeInTheDocument();
   });
@@ -127,15 +127,15 @@ describe('DebateViewer archived debates', () => {
       cycle_number: 3,
       phase: 'debate',
       task: 'Should we adopt X?',
-      agents: ['claude-3-opus', 'gpt-4o'],
+      agents: ['claude-fable-5-1', 'gpt-6-astra'],
       transcript: [
-        { agent: 'claude-3-opus', content: 'Yes, adopt X', role: 'proposer', round: 1, timestamp: 1700000000 },
-        { agent: 'gpt-4o', content: 'No, avoid X', role: 'critic', round: 1, timestamp: 1700000001 },
+        { agent: 'claude-fable-5-1', content: 'Yes, adopt X', role: 'proposer', round: 1, timestamp: 1700000000 },
+        { agent: 'gpt-6-astra', content: 'No, avoid X', role: 'critic', round: 1, timestamp: 1700000001 },
       ],
       consensus_reached: true,
       confidence: 0.82,
       winning_proposal: 'Adopt X with safeguards.',
-      vote_tally: { 'claude-3-opus': 2, 'gpt-4o': 1 },
+      vote_tally: { 'claude-fable-5-1': 2, 'gpt-6-astra': 1 },
       created_at: '2026-01-01T00:00:00Z',
     };
 

@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # Model pricing (approximate, per 1K tokens)
 MODEL_PRICING = {
     # Anthropic
-    "claude-3-opus": {"input": 0.015, "output": 0.075},
+    "claude-fable-5-1": {"input": 0.015, "output": 0.075},
     "claude-3-sonnet": {"input": 0.003, "output": 0.015},
     "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
     "claude-3-5-sonnet": {"input": 0.003, "output": 0.015},
@@ -76,10 +76,10 @@ MODEL_PRICING = {
     "gpt-4o": {"input": 0.005, "output": 0.015},
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
     # Google
-    "gemini-pro": {"input": 0.00025, "output": 0.0005},
+    "gemini-3.1-pro-preview": {"input": 0.00025, "output": 0.0005},
     "gemini": {"input": 0.00025, "output": 0.0005},
     # Mistral
-    "mistral-large": {"input": 0.004, "output": 0.012},
+    "mistral-large-2512": {"input": 0.004, "output": 0.012},
     "mistral": {"input": 0.004, "output": 0.012},
     # Others
     "grok": {"input": 0.005, "output": 0.015},

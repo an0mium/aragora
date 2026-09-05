@@ -13,7 +13,7 @@ Usage:
     # Add agent restriction
     policy_manager.add_policy(ControlPlanePolicy(
         name="restrict-production-agents",
-        agent_allowlist=["claude-3-opus", "gpt-4"],
+        agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
         task_types=["production-deployment"],
     ))
 

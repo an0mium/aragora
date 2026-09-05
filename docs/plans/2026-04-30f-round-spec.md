@@ -152,9 +152,9 @@ Already defined in `aragora/review/threshold_recalibration.py` as `ThresholdUpda
   "receipt_id": "sha256-of-body",
   "produced_at": "2026-04-30T...",
   "panel_models": [
-    "claude-opus-4-7", "claude-sonnet-4-7",
-    "gpt-5.4", "gemini-3.1-pro-preview",
-    "kimi-k2.5", "glm-5.1"
+    "claude-fable-5-1", "claude-sonnet-4-7",
+    "gpt-6-astra", "gemini-3.1-pro-preview",
+    "kimi-k3", "glm-5.1"
   ],
   "n_panelists": 6,
   "n_prompts": 20,

@@ -239,7 +239,7 @@ def create_budget_allocation_workflow(
                 name="Allocation Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "topic": f"How to allocate ${total_budget:,.0f} across {len(budget_categories)} categories?",
                     "rounds": 3,
                     "categories": budget_categories,
@@ -351,7 +351,7 @@ def create_feature_prioritization_workflow(
                 name="Prioritization Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "mistral"],
+                    "agents": ["claude", "gpt-6-astra", "mistral"],
                     "topic": f"How should we prioritize: {', '.join(features[:3])}...?",
                     "rounds": 3,
                     "criteria": criteria,
@@ -465,7 +465,7 @@ def create_sprint_planning_workflow(
                 name="Sprint Scope Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "topic": f"What should we commit to in {sprint_name}?",
                     "rounds": 2,
                     "backlog": backlog_items,
@@ -580,7 +580,7 @@ def create_contract_review_workflow(
                 name="Risk Assessment Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "topic": f"What are the risks in this {contract_type}?",
                     "rounds": 3,
                     "focus_terms": terms_focus,
@@ -710,7 +710,7 @@ def create_business_decision_workflow(
                 name="Strategic Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "topic": decision_topic,
                     "rounds": 4,
                     "perspectives": ["optimist", "skeptic", "pragmatist"],

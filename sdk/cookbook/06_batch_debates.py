@@ -36,8 +36,8 @@ async def run_single_debate(
             }
 
         agents = [
-            Agent(name="claude", model="claude-sonnet-4-20250514"),
-            Agent(name="gpt", model="gpt-4o"),
+            Agent(name="claude", model="claude-fable-5-1"),
+            Agent(name="gpt", model="gpt-6-astra"),
         ]
 
         config = DebateConfig(topic=topic, agents=agents, rounds=2)

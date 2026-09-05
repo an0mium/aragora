@@ -152,10 +152,10 @@ async def run_debate() -> dict:
                     "grok",
                     name="grok_proposer",
                     role="proposer",
-                    model="grok-4-latest",
+                    model="grok-4.6",
                 )
             )
-            agent_specs.append({"type": "grok", "role": "proposer", "model": "grok-4-latest"})
+            agent_specs.append({"type": "grok", "role": "proposer", "model": "grok-4.6"})
         except Exception as e:  # noqa: BLE001
             print(f"WARN: grok proposer failed: {e}", file=sys.stderr)
 
@@ -165,10 +165,10 @@ async def run_debate() -> dict:
                     "grok",
                     name="grok_critic",
                     role="critic",
-                    model="grok-4-latest",
+                    model="grok-4.6",
                 )
             )
-            agent_specs.append({"type": "grok", "role": "critic", "model": "grok-4-latest"})
+            agent_specs.append({"type": "grok", "role": "critic", "model": "grok-4.6"})
         except Exception as e:  # noqa: BLE001
             print(f"WARN: grok critic failed: {e}", file=sys.stderr)
 

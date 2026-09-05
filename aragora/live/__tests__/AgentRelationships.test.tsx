@@ -39,16 +39,16 @@ jest.mock('../src/utils/agentColors', () => ({
 const mockRivalsResponse = {
   rivals: [
     {
-      agent_a: 'claude-3-opus',
-      agent_b: 'gpt-4o',
+      agent_a: 'claude-fable-5-1',
+      agent_b: 'gpt-6-astra',
       rivalry_score: 0.85,
       alliance_score: 0.1,
       relationship: 'rival',
       debate_count: 15,
     },
     {
-      agent_a: 'gemini-pro',
-      agent_b: 'claude-3-opus',
+      agent_a: 'gemini-3.1-pro-preview',
+      agent_b: 'claude-fable-5-1',
       rivalry_score: 0.65,
       alliance_score: 0.2,
       relationship: 'rival',
@@ -60,7 +60,7 @@ const mockRivalsResponse = {
 const mockAlliesResponse = {
   allies: [
     {
-      agent_a: 'claude-3-opus',
+      agent_a: 'claude-fable-5-1',
       agent_b: 'claude-3-sonnet',
       rivalry_score: 0.1,
       alliance_score: 0.75,
@@ -92,7 +92,7 @@ describe('AgentRelationships', () => {
     it('shows loading skeleton initially', () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      const { container } = render(<AgentRelationships agentName="claude-3-opus" />);
+      const { container } = render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
     });
@@ -102,7 +102,7 @@ describe('AgentRelationships', () => {
     it('displays error message when fetch fails', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('Failed to load relationships')).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe('AgentRelationships', () => {
         json: () => Promise.resolve({ rivals: [], allies: [] }),
       });
 
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('No relationship data yet')).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe('AgentRelationships', () => {
     });
 
     it('displays rivals section header', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('Rivals')).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('AgentRelationships', () => {
     });
 
     it('displays allies section header', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('Allies')).toBeInTheDocument();
@@ -147,16 +147,16 @@ describe('AgentRelationships', () => {
     });
 
     it('displays rival agent names', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
-        expect(screen.getByText('gpt-4o')).toBeInTheDocument();
-        expect(screen.getByText('gemini-pro')).toBeInTheDocument();
+        expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.1-pro-preview')).toBeInTheDocument();
       });
     });
 
     it('displays ally agent names', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-sonnet')).toBeInTheDocument();
@@ -164,7 +164,7 @@ describe('AgentRelationships', () => {
     });
 
     it('displays rivalry scores as percentages', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('85% rivalry')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('AgentRelationships', () => {
     });
 
     it('displays alliance scores as percentages', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('75% alliance')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('AgentRelationships', () => {
     });
 
     it('displays debate counts', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('15 debates together')).toBeInTheDocument();
@@ -197,8 +197,8 @@ describe('AgentRelationships', () => {
             ok: true,
             json: () => Promise.resolve({
               rivals: [{
-                agent_a: 'claude-3-opus',
-                agent_b: 'gpt-4o',
+                agent_a: 'claude-fable-5-1',
+                agent_b: 'gpt-6-astra',
                 rivalry_score: 0.5,
                 alliance_score: 0.1,
                 relationship: 'rival',
@@ -210,7 +210,7 @@ describe('AgentRelationships', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ allies: [] }) });
       });
 
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('1 debate together')).toBeInTheDocument();
@@ -225,7 +225,7 @@ describe('AgentRelationships', () => {
 
     it('renders compact badges when compact prop is true', async () => {
       const { container } = render(
-        <AgentRelationships agentName="claude-3-opus" compact />
+        <AgentRelationships agentName="claude-fable-5-1" compact />
       );
 
       await waitFor(() => {
@@ -236,17 +236,17 @@ describe('AgentRelationships', () => {
     });
 
     it('limits displayed rivals to 2 in compact mode', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" compact />);
+      render(<AgentRelationships agentName="claude-fable-5-1" compact />);
 
       await waitFor(() => {
         // Both rivals should be visible in compact mode (we only have 2)
-        expect(screen.getByText('gpt-4o')).toBeInTheDocument();
-        expect(screen.getByText('gemini-pro')).toBeInTheDocument();
+        expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.1-pro-preview')).toBeInTheDocument();
       });
     });
 
     it('shows rivalry score in tooltip for compact view', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" compact />);
+      render(<AgentRelationships agentName="claude-fable-5-1" compact />);
 
       await waitFor(() => {
         const rivalBadge = screen.getByTitle('Rivalry score: 85%');
@@ -255,7 +255,7 @@ describe('AgentRelationships', () => {
     });
 
     it('shows alliance score in tooltip for compact view', async () => {
-      render(<AgentRelationships agentName="claude-3-opus" compact />);
+      render(<AgentRelationships agentName="claude-fable-5-1" compact />);
 
       await waitFor(() => {
         const allyBadge = screen.getByTitle('Alliance score: 75%');
@@ -268,7 +268,7 @@ describe('AgentRelationships', () => {
     it('fetches with encoded agent name', async () => {
       setupSuccessfulFetch();
 
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -288,7 +288,7 @@ describe('AgentRelationships', () => {
             ok: true,
             json: () => Promise.resolve({
               rivals: [{
-                agent_a: 'claude-3-opus',
+                agent_a: 'claude-fable-5-1',
                 agent_b: 'opponent-agent',
                 rivalry_score: 0.5,
                 alliance_score: 0.1,
@@ -301,7 +301,7 @@ describe('AgentRelationships', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ allies: [] }) });
       });
 
-      render(<AgentRelationships agentName="claude-3-opus" />);
+      render(<AgentRelationships agentName="claude-fable-5-1" />);
 
       await waitFor(() => {
         expect(screen.getByText('opponent-agent')).toBeInTheDocument();
@@ -315,7 +315,7 @@ describe('AgentRelationships', () => {
 
       render(
         <AgentRelationships
-          agentName="claude-3-opus"
+          agentName="claude-fable-5-1"
           apiBase="https://custom-api.example.com"
         />
       );

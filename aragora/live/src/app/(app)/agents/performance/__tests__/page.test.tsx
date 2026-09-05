@@ -29,7 +29,7 @@ const mockAgents = [
   },
   {
     id: 'agent-2',
-    name: 'gpt-4',
+    name: 'gpt-6-astra',
     elo: 1520,
     eloHistory: [
       { date: '2026-01-01', elo: 1550 },
@@ -76,7 +76,7 @@ describe('AgentPerformancePage', () => {
   it('renders agent names in the table', () => {
     render(<AgentPerformancePage />);
     expect(screen.getByText('claude-opus')).toBeInTheDocument();
-    expect(screen.getByText('gpt-4')).toBeInTheDocument();
+    expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
   });
 
   it('renders summary stat cards', () => {

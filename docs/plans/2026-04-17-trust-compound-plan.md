@@ -143,7 +143,7 @@ Each step was chosen for **leverage per week** and for compatibility with the su
 |------|---------------------|-------------|
 | TCP-1 | Codex autopilot (issue spec is well-bounded) or Claude Code | This doc + the existing `docs/status/claims/proof_first_claims.yaml` template |
 | TCP-2 | Founder, no delegation | This doc |
-| TCP-3 | Droid deep audit (`droid exec -m claude-opus-4-7 -r high --auto low`); split proposals only, no PRs | Droid dispatch packet drafted in joint-assessment session; extend with split mandate |
+| TCP-3 | Droid deep audit (`droid exec -m claude-fable-5-1 -r high --auto low`); split proposals only, no PRs | Droid dispatch packet drafted in joint-assessment session; extend with split mandate |
 | TCP-4 | Claude Code session | This doc + `docs/STRANDED_FEATURES_AUDIT.md` |
 | TCP-5 | Codex autopilot | This doc |
 | TCP-6 | Founder, no delegation | This doc |

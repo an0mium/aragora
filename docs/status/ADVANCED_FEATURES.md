@@ -45,7 +45,7 @@ from aragora.rlm import AragoraRLM, DebateContextAdapter, HAS_OFFICIAL_RLM
 # Check if official RLM is available
 if HAS_OFFICIAL_RLM:
     # Create RLM instance with official library (TRUE RLM)
-    rlm = AragoraRLM(backend="openai", model="gpt-4o")
+    rlm = AragoraRLM(backend="openai", model="gpt-6-astra")
     adapter = DebateContextAdapter(rlm)
 
     # Query a debate with REPL-based context access
@@ -70,8 +70,8 @@ from aragora.rlm import AragoraRLM, RLMBackendConfig, RLMConfig
 # Configure the backend
 backend_config = RLMBackendConfig(
     backend="openai",           # openai, anthropic, openrouter, litellm
-    model_name="gpt-4o",
-    sub_model_name="gpt-4o-mini",  # Cheaper model for sub-calls
+    model_name="gpt-6-astra",
+    sub_model_name="gpt-5.6-terra",  # Cheaper model for sub-calls
     environment_type="local",   # local, docker, modal
     environment_timeout=120,
     max_depth=1,                # Maximum recursion depth
@@ -126,7 +126,7 @@ RLM maintains content at multiple abstraction levels for efficient navigation:
 from aragora.rlm import DebateContextAdapter, create_aragora_rlm
 
 # Create RLM for debate analysis
-rlm = create_aragora_rlm(backend="anthropic", model="claude-3-5-sonnet-20241022")
+rlm = create_aragora_rlm(backend="anthropic", model="claude-fable-5-1")
 adapter = DebateContextAdapter(rlm)
 
 # Load a debate result
@@ -287,7 +287,7 @@ tracker = ProvenanceTracker()
 tracker.record_claim(
     claim_id="claim_001",
     text="Market cap is $1T",
-    source="agent:gpt-4",
+    source="agent:gpt-6-astra",
     evidence_ids=["ev_001", "ev_002"]
 )
 
@@ -509,7 +509,7 @@ print(summary)
 #
 # ### Most Influential Votes
 # - **claude** voted 'microservices' (influence: 45%)
-# - **gpt-4** voted 'microservices' (influence: 35%)
+# - **gpt-6-astra** voted 'microservices' (influence: 35%)
 #
 # ### Confidence Factors
 # - consensus_strength: Agreement level among agents (85% margin)

@@ -39,7 +39,7 @@ print(f"Quality: {score.overall:.2f}, High quality: {score.is_high_quality}")
 predictor = get_consensus_predictor()
 prediction = predictor.predict([
     ("claude", "I recommend approach A"),
-    ("gpt-4", "I agree, approach A is best"),
+    ("gpt-6-astra", "I agree, approach A is best"),
 ])
 print(f"Consensus probability: {prediction.probability:.2f}")
 
@@ -47,7 +47,7 @@ print(f"Consensus probability: {prediction.probability:.2f}")
 router = get_agent_router()
 decision = router.route(
     task="Implement a binary search algorithm",
-    available_agents=["claude", "gpt-4", "codex"],
+    available_agents=["claude", "gpt-6-astra", "codex"],
     team_size=2,
 )
 print(f"Selected: {decision.selected_agents}")
@@ -67,7 +67,7 @@ Request:
 ```json
 {
   "task": "Implement a caching layer",
-  "available_agents": ["claude", "gpt-4", "codex", "gemini"],
+  "available_agents": ["claude", "gpt-6-astra", "codex", "gemini"],
   "team_size": 3,
   "constraints": {"require_code": true}
 }
@@ -76,11 +76,11 @@ Request:
 Response:
 ```json
 {
-  "selected_agents": ["codex", "claude", "gpt-4"],
+  "selected_agents": ["codex", "claude", "gpt-6-astra"],
   "task_type": "coding",
   "confidence": 0.85,
   "reasoning": ["task_type=coding", "codex_strong_at_coding"],
-  "agent_scores": {"codex": 0.92, "claude": 0.85, "gpt-4": 0.78},
+  "agent_scores": {"codex": 0.92, "claude": 0.85, "gpt-6-astra": 0.78},
   "diversity_score": 0.67
 }
 ```
@@ -206,7 +206,7 @@ gate = QualityGate(threshold=0.6)
 # Filter responses
 responses = [
     ("claude", "Comprehensive analysis..."),
-    ("gpt-4", "ok"),  # Low quality, will be filtered
+    ("gpt-6-astra", "ok"),  # Low quality, will be filtered
 ]
 
 filtered = gate.filter_responses(responses, context="Design task")
@@ -332,7 +332,7 @@ Improve routing over time:
 ```python
 router.record_performance("claude", "coding", success=True)
 router.record_performance("codex", "coding", success=True)
-router.record_performance("gpt-4", "creative", success=False)
+router.record_performance("gpt-6-astra", "creative", success=False)
 
 # Check stats
 stats = router.get_agent_stats("claude")

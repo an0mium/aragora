@@ -20,7 +20,7 @@ describe('DecisionPackageView', () => {
           cost_breakdown: [],
           next_steps: [],
           provider_names: ['anthropic', 'openai'],
-          provider_hints: ['claude-sonnet-4', 'gpt-4o'],
+          provider_hints: ['claude-fable-5-1', 'gpt-6-astra'],
           provider_routing: {
             routing_applied: true,
             routing_strategy: 'provider_router_selection',
@@ -43,8 +43,8 @@ describe('DecisionPackageView', () => {
     expect(screen.getAllByText('anthropic').length).toBeGreaterThan(0);
     expect(screen.getAllByText('openai').length).toBeGreaterThan(0);
     expect(screen.getByText('provider_router_selection')).toBeInTheDocument();
-    expect(screen.getByText('claude-sonnet-4')).toBeInTheDocument();
-    expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+    expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+    expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
   });
 
   it('renders a truth badge for simulated debate packages', () => {

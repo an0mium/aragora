@@ -93,7 +93,7 @@ class QueryConfig:
 
     # Model selection
     model: str = "claude-opus-5"  # Primary model for answer generation
-    fallback_model: str = "gemini-3-flash-preview"  # Fallback if primary fails
+    fallback_model: str = "gemini-3.8-flash"  # Fallback if primary fails
 
     # Query enhancement
     expand_query: bool = True  # Generate query variations

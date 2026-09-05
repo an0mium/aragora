@@ -10,13 +10,13 @@ Usage:
     counter = TokenCounter()
 
     # Count tokens for a specific model
-    tokens = counter.count("Hello world", model="gpt-4")
+    tokens = counter.count("Hello world", model="gpt-6-astra")
 
     # Count tokens for Claude (approximation)
-    tokens = counter.count("Hello world", model="claude-3-opus")
+    tokens = counter.count("Hello world", model="claude-fable-5-1")
 
     # Get appropriate encoder for model
-    encoder = counter.get_encoder("gpt-4")
+    encoder = counter.get_encoder("gpt-6-astra")
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ class TokenCounter:
     approximations for other providers.
     """
 
-    def __init__(self, default_model: str = "gpt-4"):
+    def __init__(self, default_model: str = "gpt-6-astra"):
         """
         Initialize token counter.
 
@@ -337,7 +337,7 @@ def get_token_counter() -> TokenCounter:
     return _token_counter
 
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
+def count_tokens(text: str, model: str = "gpt-6-astra") -> int:
     """Convenience function to count tokens."""
     return get_token_counter().count(text, model)
 

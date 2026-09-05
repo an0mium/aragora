@@ -72,7 +72,7 @@ def _agent_factory(name: str):
     """
     from aragora.agents import create_agent
 
-    return create_agent("grok", name=name, role="critic", model="grok-4-latest")
+    return create_agent("grok", name=name, role="critic", model="grok-4.6")
 
 
 async def run_gauntlet() -> dict:

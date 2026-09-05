@@ -127,7 +127,7 @@ class AgentFabric:
     Usage:
         async with AgentFabric() as fabric:
             # Create a pool
-            pool = await fabric.create_pool("workers", "claude-3-opus", min_agents=5)
+            pool = await fabric.create_pool("workers", "claude-fable-5-1", min_agents=5)
 
             # Schedule work to the pool
             task = Task(id="task-1", type="debate", payload={...})

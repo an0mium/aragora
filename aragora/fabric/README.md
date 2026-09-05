@@ -9,7 +9,7 @@ from aragora.fabric import AgentFabric, Task, AgentConfig
 
 async with AgentFabric() as fabric:
     # Create agent pool
-    pool = await fabric.create_pool("workers", "claude-3-opus", min_agents=5)
+    pool = await fabric.create_pool("workers", "claude-fable-5-1", min_agents=5)
 
     # Schedule task
     task = Task(id="task-1", type="debate", payload={"question": "..."})
@@ -92,7 +92,7 @@ Core principle: *"If there is work on your Hook, YOU MUST RUN IT"*
 async with AgentFabric() as fabric:
     pool = await fabric.create_pool(
         name="analysts",
-        model="claude-3-opus",
+        model="claude-fable-5-1",
         min_agents=3,
         max_agents=10
     )

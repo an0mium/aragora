@@ -205,7 +205,7 @@ def create_hiring_decision_workflow(
                 name="Team Fit Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "topic": f"Is {candidate_name} a good fit for {position}?",
                     "rounds": 3,
                     "focus_areas": ["skills", "culture", "growth_potential"],
@@ -441,7 +441,7 @@ def create_remote_work_policy_workflow(
                 name="Policy Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "topic": "What remote work policy best balances flexibility and productivity?",
                     "rounds": 3,
                     "perspectives": ["employee", "manager", "executive"],

@@ -133,7 +133,7 @@ debate = client.debates.get("debate-id")
 # Create a debate
 result = client.debates.create(
     task="Your question here",
-    agents=["claude", "gpt-4"],
+    agents=["claude", "gpt-6-astra"],
     rounds=3,
     consensus="majority"  # "majority" | "unanimous" | "weighted" | "semantic"
 )
@@ -161,7 +161,7 @@ profile = client.agents.get_profile("claude")
 leaderboard = client.agents.leaderboard()
 
 # Compare agents
-comparison = client.agents.compare(["claude", "gpt-4"])
+comparison = client.agents.compare(["claude", "gpt-6-astra"])
 ```
 
 ### Explainability
@@ -205,7 +205,7 @@ workflow = client.workflows.instantiate_pattern("pattern-id",
     name="My Security Workflow",
     description="Custom security analysis",
     category="security",
-    agents=["claude", "gpt-4"]
+    agents=["claude", "gpt-6-astra"]
 )
 
 # Execute workflow

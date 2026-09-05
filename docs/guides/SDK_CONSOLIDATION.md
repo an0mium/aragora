@@ -244,7 +244,7 @@ const client = new AragoraClient({
 
 const debate = await client.debates.run({
   task: 'Evaluate the pros and cons of microservices',
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   rounds: 3,
 });
 
@@ -258,7 +258,7 @@ const client = new AragoraClient({
 
 const debate = await client.debates.create({
   task: 'Evaluate the pros and cons of microservices',
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   rounds: 3,
 });
 ```

@@ -181,7 +181,7 @@ curl -s http://localhost:8080/api/circuit-breakers | jq .
 
 # 3. Test specific provider
 curl -H "Authorization: Bearer $ANTHROPIC_API_KEY" \
-  https://api.anthropic.com/v1/messages -d '{"model":"claude-sonnet-4-20250514","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+  https://api.anthropic.com/v1/messages -d '{"model":"claude-fable-5-1","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
 
 # 4. If all providers down, check OpenRouter
 curl -H "Authorization: Bearer $OPENROUTER_API_KEY" \

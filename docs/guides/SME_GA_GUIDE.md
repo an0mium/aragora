@@ -249,7 +249,7 @@ custom_template = client.templates.clone(
     name="my_hiring_decision",
     modifications={
         "rounds": 4,
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
         "evaluation_criteria": [
             "technical_skills",
             "culture_fit",

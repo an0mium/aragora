@@ -44,7 +44,7 @@ const client = createClient({ apiKey: 'your-key' });
 
 const debate = await client.debates.create({
   task: 'Should we use microservices or a monolith for our new product?',
-  agents: ['claude', 'gpt-4', 'gemini'],
+  agents: ['claude', 'gpt-6-astra', 'gemini'],
   protocol: { rounds: 3 }
 });
 

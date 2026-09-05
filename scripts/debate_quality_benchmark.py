@@ -677,11 +677,11 @@ async def run_benchmark(
         # Live mode: use real agents
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-        single_agent = AnthropicAPIAgent(name="single-agent", model="claude-sonnet-4-20250514")
+        single_agent = AnthropicAPIAgent(name="single-agent", model="claude-fable-5-1")
         debate_agents = [
-            AnthropicAPIAgent(name="agent-alpha", model="claude-sonnet-4-20250514"),
-            AnthropicAPIAgent(name="agent-beta", model="claude-sonnet-4-20250514"),
-            AnthropicAPIAgent(name="agent-gamma", model="claude-sonnet-4-20250514"),
+            AnthropicAPIAgent(name="agent-alpha", model="claude-fable-5-1"),
+            AnthropicAPIAgent(name="agent-beta", model="claude-fable-5-1"),
+            AnthropicAPIAgent(name="agent-gamma", model="claude-fable-5-1"),
         ]
         judge = LLMJudge(JudgeConfig(use_case="debate"))
 

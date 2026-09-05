@@ -153,7 +153,7 @@ DEFAULT_PANEL: tuple[PanelMember, ...] = (
     ),
     PanelMember(
         agent_type="openai-api",
-        model_id="gpt-4.1",
+        model_id="gpt-6-astra",
         estimated_input_cost_per_1k=0.005,
         estimated_output_cost_per_1k=0.020,
         nickname="gpt",

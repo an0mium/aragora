@@ -36,7 +36,7 @@ async function main() {
 
     const debate = await client.debates.create({
       task: 'Should our company adopt a 4-day work week?',
-      agents: ['claude', 'gpt-4', 'gemini'],
+      agents: ['claude', 'gpt-6-astra', 'gemini'],
       rounds: 3,
       consensus: 'majority',
       context: 'We are a tech company with 150 employees. Current productivity is strong but employee satisfaction scores have declined by 15% this year.',
@@ -142,7 +142,7 @@ async function main() {
     console.log('Generating custom counterfactual...');
     const customCF = await client.explainability.generateCounterfactual(debateId, {
       hypothesis: 'What if we had unlimited budget for this initiative?',
-      affected_agents: ['gpt-4', 'gemini'],
+      affected_agents: ['gpt-6-astra', 'gemini'],
     });
 
     console.log(`\nCustom Counterfactual:`);

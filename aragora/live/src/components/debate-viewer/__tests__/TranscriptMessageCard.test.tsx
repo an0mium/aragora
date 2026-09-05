@@ -94,7 +94,7 @@ describe('TranscriptMessageCard', () => {
     });
 
     it('applies agent colors', () => {
-      const message = createMessage({ agent: 'gpt-4' });
+      const message = createMessage({ agent: 'gpt-6-astra' });
       const { container } = render(<TranscriptMessageCard message={message} />);
 
       // Check that the wrapper has the expected classes
@@ -243,7 +243,7 @@ describe('TranscriptMessageCard', () => {
         {
           claim_id: 'crux-2',
           statement: 'This text does not appear',
-          author: 'gpt-4',
+          author: 'gpt-6-astra',
         },
       ];
 
@@ -280,7 +280,7 @@ describe('TranscriptMessageCard', () => {
       const onChallenge = jest.fn();
       render(
         <TranscriptMessageCard
-          message={createMessage({ agent: 'gpt-4', content: 'This is a bold claim that needs challenging' })}
+          message={createMessage({ agent: 'gpt-6-astra', content: 'This is a bold claim that needs challenging' })}
           onChallenge={onChallenge}
         />
       );
@@ -290,7 +290,7 @@ describe('TranscriptMessageCard', () => {
       expect(onChallenge).toHaveBeenCalledTimes(1);
       expect(onChallenge).toHaveBeenCalledWith(
         expect.stringContaining('This is a bold claim'),
-        'gpt-4'
+        'gpt-6-astra'
       );
     });
 

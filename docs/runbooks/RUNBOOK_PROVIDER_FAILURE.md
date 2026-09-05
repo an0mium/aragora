@@ -65,7 +65,7 @@ sudo systemctl restart aragora
 # Test connectivity
 curl -H "x-api-key: $ANTHROPIC_API_KEY" \
   https://api.anthropic.com/v1/messages \
-  -d '{"model":"claude-sonnet-4-20250514","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"claude-fable-5-1","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
 ```
 
 ### OpenAI

@@ -2323,14 +2323,14 @@ All stabilization items addressed:
 ### Active Agents (default config, 8 total)
 | Agent | Model | API |
 |-------|-------|-----|
-| `grok` | grok-4-latest | xAI |
-| `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
-| `openai-api` | gpt-5.3 | OpenAI |
-| `deepseek` | deepseek/deepseek-v4-pro | OpenRouter |
+| `grok` | grok-4.6 | xAI |
+| `anthropic-api` | claude-fable-5-1 | Anthropic |
+| `openai-api` | gpt-6-astra | OpenAI |
+| `deepseek` | deepseek/deepseek-v4-pro-0813 | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
-| `gemini` | gemini-3-pro-preview | Google |
-| `qwen-max` | qwen/qwen3-max | OpenRouter |
-| `kimi` | moonshot-v1-8k | Moonshot |
+| `gemini` | gemini-3.1-pro-preview | Google |
+| `qwen-max` | qwen/qwen3.8-2.4t-a95b | OpenRouter |
+| `kimi` | kimi-k3 | Moonshot |
 
 ### Recent Changes (2026-01-27)
 - **RBAC Permission Compatibility**:

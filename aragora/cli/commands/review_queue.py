@@ -4473,7 +4473,7 @@ def _normalize_model_family(value: str) -> str:
         # still counts at the gate (mirrors canonical_family in quorum_evidence).
         "codex": "openai",
         "gpt": "openai",
-        "gpt-5": "openai",
+        "gpt-6-astra": "openai",
         "gpt5": "openai",
         "chatgpt": "openai",
     }
@@ -4490,7 +4490,7 @@ def _normalize_model_family(value: str) -> str:
         return resolved
 
     # Agents commonly disclose the family with a trailing parenthetical detail,
-    # e.g. ``openai (gpt-5.5, codex exec --sandbox read-only)`` or
+    # e.g. ``openai (gpt-6-astra, codex exec --sandbox read-only)`` or
     # ``claude (opus-5)``. The parenthetical is descriptive metadata, not part
     # of the canonical family token, so a literal lookup of the whole string used
     # to fail and de-count an otherwise-valid reviewer.
@@ -4499,10 +4499,10 @@ def _normalize_model_family(value: str) -> str:
     # parenthetical suffix: ``<token> (<detail>)`` with nothing but optional
     # whitespace after the closing ``)``. The match captures the text before the
     # ``(`` as ``head`` and the canonical token is the head's *single*
-    # whitespace-delimited word (which covers ``openai (gpt-5.5)``). This keeps
+    # whitespace-delimited word (which covers ``openai (gpt-6-astra)``). This keeps
     # the gate fail-closed for everything the PR intends to remain blocked:
     #   - no parenthetical at all (``openai claude``) -> no match -> "".
-    #   - text *after* the closing paren (``openai (gpt-5.5) claude``) -> the
+    #   - text *after* the closing paren (``openai (gpt-6-astra) claude``) -> the
     #     ``$`` anchor rejects it -> "".
     #   - unclosed parenthetical (``openai (``, ``openai (not closed``) -> no
     #     ``)`` -> no match -> "".

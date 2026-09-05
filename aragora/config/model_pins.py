@@ -78,7 +78,7 @@ GPT56_TERRA_DIRECT, GPT56_TERRA_VIA_OPENROUTER = _pin("gpt-5.6-terra")
 
 # Google Gemini 3.1 Pro - top-tier long-context + multimodal; the researcher
 # role default. ``gemini-3.1-pro-preview`` is the real Gemini API code (the
-# bare "gemini-3.1-pro" spelling is not a valid direct-provider id).
+# bare "gemini-3.1-pro-preview" spelling is not a valid direct-provider id).
 GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER = _pin("gemini-3.1-pro-preview")
 
 # Google Gemini 3.8 Flash - cheap tier, added alongside Gemini 3.1 Pro.

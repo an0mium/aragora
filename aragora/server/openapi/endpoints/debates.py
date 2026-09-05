@@ -163,7 +163,7 @@ DEBATE_ENDPOINTS = {
                                 "summary": "Debate with specific agents",
                                 "value": {
                                     "task": "Is GraphQL better than REST for mobile apps?",
-                                    "agents": ["claude", "gpt-4", "gemini"],
+                                    "agents": ["claude", "gpt-6-astra", "gemini"],
                                     "rounds": 9,
                                     "consensus": "judge",
                                 },
@@ -771,7 +771,7 @@ real-time debate progress (proposals, critiques, votes, consensus events).""",
                                 "summary": "Debate with specific agents",
                                 "value": {
                                     "task": "Is GraphQL better than REST for mobile apps?",
-                                    "agents": ["claude", "gpt-4o", "gemini"],
+                                    "agents": ["claude", "gpt-6-astra", "gemini"],
                                     "rounds": 9,
                                     "consensus": "judge",
                                 },
@@ -1901,7 +1901,7 @@ failed, timed out, or produced unexpected results without reading server logs.
                                     "error": None,
                                 },
                                 {
-                                    "name": "gpt-4o",
+                                    "name": "gpt-6-astra",
                                     "provider": "openai",
                                     "status": "failed",
                                     "rounds_participated": 0,
@@ -1917,7 +1917,7 @@ failed, timed out, or produced unexpected results without reading server logs.
                             },
                             "receipt_generated": False,
                             "suggestions": [
-                                "Agent gpt-4o did not participate - verify OPENAI_API_KEY is set and valid",
+                                "Agent gpt-6-astra did not participate - verify OPENAI_API_KEY is set and valid",
                                 "No consensus reached after 3 rounds - consider increasing round count or reducing agent count",
                                 "Consider adding OPENROUTER_API_KEY as fallback for failed providers",
                             ],

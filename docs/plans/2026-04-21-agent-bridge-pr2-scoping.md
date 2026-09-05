@@ -353,12 +353,12 @@ Exact on-disk shape:
     {
       "role": "implementer",
       "harness": "codex",
-      "model": "gpt-5.4"
+      "model": "gpt-6-astra"
     },
     {
       "role": "reviewer",
       "harness": "claude_code",
-      "model": "claude-opus-4-7"
+      "model": "claude-fable-5-1"
     }
   ]
 }
@@ -377,7 +377,7 @@ Exact on-disk shape:
     "implementer": {
       "role": "implementer",
       "harness": "codex",
-      "model": "gpt-5.4",
+      "model": "gpt-6-astra",
       "session_id": "019db172-4d01-7072-860c-99114afe8792",
       "worktree_agent_slug": "bridge-pr6306-implementer",
       "worktree_path": "<repo-root>/.worktrees/codex-auto/bridge-pr6306-implementer",
@@ -390,7 +390,7 @@ Exact on-disk shape:
     "reviewer": {
       "role": "reviewer",
       "harness": "claude_code",
-      "model": "claude-opus-4-7",
+      "model": "claude-fable-5-1",
       "session_id": null,
       "worktree_agent_slug": "bridge-pr6306-reviewer",
       "worktree_path": "<repo-root>/.worktrees/codex-auto/bridge-pr6306-reviewer",
@@ -428,7 +428,7 @@ One JSON object per line. Exact example `turn.result` record:
       "resume",
       "--json",
       "--model",
-      "gpt-5.4",
+      "gpt-6-astra",
       "019db172-4d01-7072-860c-99114afe8792",
       "Review the plan and emit the footer."
     ],
@@ -463,7 +463,7 @@ run_id: bridge_20260421T191953Z_pr6306
 turn_index: 1
 role: implementer
 harness: codex
-model: gpt-5.4
+model: gpt-6-astra
 session_id: 019db172-4d01-7072-860c-99114afe8792
 started_at: 2026-04-21T19:23:40Z
 completed_at: 2026-04-21T19:24:09Z

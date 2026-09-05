@@ -297,11 +297,11 @@ describe('settingsStore', () => {
     it('setBackendConfig can update default agents', () => {
       act(() => {
         useSettingsStore.getState().setBackendConfig({
-          defaultAgents: ['claude-3', 'gpt-4'],
+          defaultAgents: ['claude-3', 'gpt-6-astra'],
         });
       });
 
-      expect(useSettingsStore.getState().backend.defaultAgents).toEqual(['claude-3', 'gpt-4']);
+      expect(useSettingsStore.getState().backend.defaultAgents).toEqual(['claude-3', 'gpt-6-astra']);
     });
   });
 

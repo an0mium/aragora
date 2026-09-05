@@ -168,7 +168,7 @@ Each model reports confidence (0-1) for each task recommendation. Post-execution
 Report format:
 ```json
 {
-  "model": "claude-opus-4-7",
+  "model": "claude-fable-5-1",
   "task_id": "T1",
   "confidence": 0.85,
   "actual_pass": true,
@@ -496,7 +496,7 @@ This dissent is wrong in the specific case (the tasks duplicate existing work) b
 - Achieve completed baseline and enhanced runs with real final answer payloads, then score objectively.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-6-astra` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**: `--no-post-consensus-quality --no-learn --no-calibration --no-evidence-weighting --no-trending`
@@ -556,7 +556,7 @@ Summary:
 - Enforce required section headings and grounding fail-closed during generation, then compare baseline vs enhanced context quality with deterministic scoring.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-6-astra` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Hard gates in run command**:
@@ -625,7 +625,7 @@ Summary:
 - Test whether prompt-only duplicate-suppression rules can reduce `duplicate_existing_create_ratio` without regressing quality or grounding.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-6-astra` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Common guardrails**:
@@ -697,7 +697,7 @@ Summary:
   - keeping strict timeout reports enabled
 
 ### Configuration
-- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-4o` critic, `gemini-2.0-flash-001` synthesizer)
+- **Team**: 3 agents via OpenRouter (`claude-fable-5-1` proposer, `gpt-6-astra` critic, `gemini-2.0-flash-001` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**:
@@ -768,7 +768,7 @@ Summary:
 - Validate whether doubling benchmark timeout from `240s` to `480s` eliminates timeout-driven A/B invalidation under the same runtime profile.
 
 ### Configuration
-- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-4o` critic, `gemini-2.0-flash-001` synthesizer)
+- **Team**: 3 agents via OpenRouter (`claude-fable-5-1` proposer, `gpt-6-astra` critic, `gemini-2.0-flash-001` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**:

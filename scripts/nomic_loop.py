@@ -3216,7 +3216,7 @@ Aragora should grow more powerful over time, not be stripped down."""
         )
 
         use_api_codex = os.environ.get("NOMIC_CODEX_USE_API", "0") == "1"
-        codex_api_model = os.environ.get("NOMIC_CODEX_API_MODEL", "gpt-5.3")
+        codex_api_model = os.environ.get("NOMIC_CODEX_API_MODEL", "gpt-6-astra")
         if use_api_codex:
             self.codex = OpenAIAPIAgent(
                 name="codex-engineer",
@@ -3227,7 +3227,7 @@ Aragora should grow more powerful over time, not be stripped down."""
         else:
             self.codex = CodexAgent(
                 name="codex-engineer",
-                model="gpt-5.3-codex",
+                model="gpt-6-astra",
                 role="proposer",
                 timeout=1200,  # Doubled - Codex has known latency issues
             )
@@ -3294,14 +3294,14 @@ Never propose removing the nomic loop or core debate infrastructure."""
         if use_api_grok:
             self.grok = GrokAgent(
                 name="grok-lateral-thinker",
-                model="grok-4",  # Grok 4 full
+                model="grok-4.6",  # Grok 4 full
                 role="proposer",
                 timeout=1200,  # Doubled to 20 min for thorough codebase exploration
             )
         else:
             self.grok = GrokCLIAgent(
                 name="grok-lateral-thinker",
-                model="grok-4",  # Grok 4 full
+                model="grok-4.6",  # Grok 4 full
                 role="proposer",
                 timeout=1200,  # Doubled to 20 min for thorough codebase exploration
             )
@@ -3330,7 +3330,7 @@ The most valuable proposals are those that others wouldn't think of."""
 
         # DeepSeek V4 Pro - latest frontier model via OpenRouter
         self.deepseek = DeepSeekV3Agent(
-            name="deepseek-v4-pro",
+            name="deepseek-v4-pro-0813",
             role="proposer",
         )
         self.deepseek.system_prompt = (
@@ -8186,7 +8186,9 @@ Synthesize these suggestions into a coherent, working implementation.
                         # Ensure at least 2 branches for meaningful fork
                         if len(branches) < 2:
                             agent1 = arena.agents[0].name if arena.agents else "claude"
-                            agent2 = arena.agents[1].name if len(arena.agents) > 1 else "gpt-4"
+                            agent2 = (
+                                arena.agents[1].name if len(arena.agents) > 1 else "gpt-6-astra"
+                            )
                             branches = [
                                 {"hypothesis": fork_topic, "lead_agent": agent1},
                                 {

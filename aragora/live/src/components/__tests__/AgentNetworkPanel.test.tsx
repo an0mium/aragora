@@ -11,7 +11,7 @@ describe('AgentNetworkPanel', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ leaderboard: [{ name: 'claude' }, { name: 'gpt-4' }] }),
+      json: async () => ({ leaderboard: [{ name: 'claude' }, { name: 'gpt-6-astra' }] }),
     });
   });
 
@@ -30,6 +30,6 @@ describe('AgentNetworkPanel', () => {
     });
 
     expect(screen.getByRole('option', { name: 'claude' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'gpt-4' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'gpt-6-astra' })).toBeInTheDocument();
   });
 });

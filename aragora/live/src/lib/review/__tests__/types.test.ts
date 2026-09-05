@@ -222,7 +222,7 @@ describe("python-json payloads parse as TS types", () => {
 
   test("DissentingView shape (optional role)", () => {
     const payload = {
-      agent: "grok-3",
+      agent: "grok-4.6",
       position: "request_changes",
       reason: "Security concern.",
     };

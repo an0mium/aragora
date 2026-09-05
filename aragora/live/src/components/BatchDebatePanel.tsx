@@ -171,7 +171,7 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
             rows={8}
-            placeholder='[&#10;  { "question": "What is AI?", "agents": "claude,gpt-4o", "rounds": 3 },&#10;  { "question": "Is Rust better than Go?" }&#10;]'
+            placeholder='[&#10;  { "question": "What is AI?", "agents": "claude,gpt-6-astra", "rounds": 3 },&#10;  { "question": "Is Rust better than Go?" }&#10;]'
             className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none"
           />
         </div>

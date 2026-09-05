@@ -210,7 +210,7 @@ panel:
   core:
     - slot: pdb.core.claude
       provider: anthropic
-      model: claude-opus-4-7
+      model: claude-fable-5-1
     - slot: pdb.core.gpt
       provider: openai
       model: gpt-5-3
@@ -220,16 +220,16 @@ panel:
       model: gemini-2-5-pro
     - slot: pdb.heterodox.grok
       provider: grok
-      model: grok-4
+      model: grok-4.6
     - slot: pdb.heterodox.deepseek
       provider: openrouter
-      model: deepseek/deepseek-v4-pro
+      model: deepseek/deepseek-v4-pro-0813
     - slot: pdb.heterodox.kimi
       provider: openrouter
       model: moonshotai/kimi-k2-0905
     - slot: pdb.heterodox.qwen
       provider: openrouter
-      model: qwen/qwen3-max
+      model: qwen/qwen3.8-2.4t-a95b
   regulatory:
     - slot: pdb.regulatory.mistral
       provider: mistral

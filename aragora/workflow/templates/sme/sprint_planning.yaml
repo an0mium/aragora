@@ -67,7 +67,7 @@ steps:
       topic: "Plan the optimal sprint given capacity of {team_capacity}. Backlog analysis: {step.analyze_backlog}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
       rounds: 2
       consensus: qualified_majority
       evaluation_criteria:

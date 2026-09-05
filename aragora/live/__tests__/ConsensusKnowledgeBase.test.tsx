@@ -47,7 +47,7 @@ const mockDissents = {
       topic: 'Caching Strategy',
       majority_view: 'Redis for all caching',
       dissenting_view: 'In-memory for hot data',
-      dissenting_agent: 'gpt-4',
+      dissenting_agent: 'gpt-6-astra',
       confidence: 0.78,
       reasoning: 'Network latency overhead is significant for hot paths',
     },

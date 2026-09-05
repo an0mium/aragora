@@ -174,7 +174,7 @@ class AISystemsAuditor(BaseAuditor):
         # Model Configuration Issues
         AIVulnerabilityPattern(
             name="hardcoded_model_version",
-            pattern=r"model\s*=\s*['\"](?:gpt-3|gpt-4|claude-2|claude-3)['\"](?!.*(?:config|env|settings))",
+            pattern=r"model\s*=\s*['\"](?:gpt-3|gpt-6-astra|claude-2|claude-3)['\"](?!.*(?:config|env|settings))",
             category=AIRiskCategory.MODEL_CONFIG,
             severity=FindingSeverity.LOW,
             description="Hardcoded model version - may miss updates and security patches",

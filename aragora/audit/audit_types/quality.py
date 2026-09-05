@@ -462,7 +462,7 @@ class QualityAuditor:
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agent = AnthropicAPIAgent(name="quality_analyst", model="claude-3.5-sonnet")
+            agent = AnthropicAPIAgent(name="quality_analyst", model="claude-fable-5-1")
 
             prompt = f"""Analyze this document for quality issues:
 

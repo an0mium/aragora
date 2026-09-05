@@ -25,9 +25,9 @@ global.fetch = mockFetch;
 
 const mockLeaderboardData = {
   agents: [
-    { name: 'claude-3-opus', elo: 1650, wins: 15, losses: 5, draws: 2, win_rate: 75, games: 22, consistency: 0.85, consistency_class: 'high' },
-    { name: 'gemini-2.0-flash', elo: 1580, wins: 12, losses: 8, draws: 3, win_rate: 60, games: 23, consistency: 0.72, consistency_class: 'medium' },
-    { name: 'grok-2', elo: 1520, wins: 10, losses: 10, draws: 2, win_rate: 50, games: 22, consistency: 0.55, consistency_class: 'low' },
+    { name: 'claude-fable-5-1', elo: 1650, wins: 15, losses: 5, draws: 2, win_rate: 75, games: 22, consistency: 0.85, consistency_class: 'high' },
+    { name: 'gemini-3.8-flash', elo: 1580, wins: 12, losses: 8, draws: 3, win_rate: 60, games: 23, consistency: 0.72, consistency_class: 'medium' },
+    { name: 'grok-4.6', elo: 1520, wins: 10, losses: 10, draws: 2, win_rate: 50, games: 22, consistency: 0.55, consistency_class: 'low' },
   ],
   domains: ['technology', 'philosophy', 'science'],
 };
@@ -36,10 +36,10 @@ const mockMatchesData = {
   matches: [
     {
       debate_id: 'debate-1',
-      winner: 'claude-3-opus',
-      participants: ['claude-3-opus', 'gemini-2.0-flash'],
+      winner: 'claude-fable-5-1',
+      participants: ['claude-fable-5-1', 'gemini-3.8-flash'],
       domain: 'technology',
-      elo_changes: { 'claude-3-opus': 15, 'gemini-2.0-flash': -15 },
+      elo_changes: { 'claude-fable-5-1': 15, 'gemini-3.8-flash': -15 },
       created_at: '2024-01-15T10:30:00Z',
     },
   ],
@@ -47,13 +47,13 @@ const mockMatchesData = {
 
 const mockReputationData = {
   reputations: [
-    { agent: 'claude-3-opus', score: 0.85, vote_weight: 1.2, proposal_acceptance_rate: 0.75, critique_value: 0.9, debates_participated: 22 },
+    { agent: 'claude-fable-5-1', score: 0.85, vote_weight: 1.2, proposal_acceptance_rate: 0.75, critique_value: 0.9, debates_participated: 22 },
   ],
 };
 
 const mockTeamsData = {
   combinations: [
-    { agents: ['claude-3-opus', 'gemini-2.0-flash'], success_rate: 0.78, total_debates: 9, wins: 7 },
+    { agents: ['claude-fable-5-1', 'gemini-3.8-flash'], success_rate: 0.78, total_debates: 9, wins: 7 },
   ],
 };
 
@@ -63,14 +63,14 @@ const mockStatsData = {
   total_agents: 8,
   total_matches: 45,
   rating_distribution: { '1600': 2, '1500': 4, '1400': 2 },
-  trending_up: ['claude-3-opus'],
-  trending_down: ['grok-2'],
+  trending_up: ['claude-fable-5-1'],
+  trending_down: ['grok-4.6'],
 };
 
 const mockIntrospectionData = {
   agents: {
-    'claude-3-opus': {
-      agent: 'claude-3-opus',
+    'claude-fable-5-1': {
+      agent: 'claude-fable-5-1',
       self_model: { strengths: ['reasoning'], weaknesses: ['verbosity'], biases: ['formality'] },
       confidence_calibration: 0.82,
       recent_performance_assessment: 'Performing well in technical debates',
@@ -160,11 +160,11 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
-    expect(screen.getByText('grok-2')).toBeInTheDocument();
+    expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
+    expect(screen.getByText('grok-4.6')).toBeInTheDocument();
     expect(screen.getByText('1650')).toBeInTheDocument(); // ELO score
   });
 
@@ -189,7 +189,7 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     // Switch to Matches tab
@@ -197,7 +197,7 @@ describe('LeaderboardPanel', () => {
       fireEvent.click(screen.getByText('Matches'));
     });
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus wins')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1 wins')).toBeInTheDocument();
     });
 
     // Switch to Stats tab
@@ -262,7 +262,7 @@ describe('LeaderboardPanel', () => {
 
     await waitFor(() => {
       // Should still show rankings even if other endpoints fail
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     // Should show partial error (consolidated uses "section(s)")
@@ -332,7 +332,7 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(1); // 1 consolidated endpoint
@@ -353,7 +353,7 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -375,7 +375,7 @@ describe('LeaderboardPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     const leaderboardCall = mockFetch.mock.calls.find((call: string[]) =>

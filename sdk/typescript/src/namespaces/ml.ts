@@ -215,7 +215,7 @@ interface MLClientInterface {
  * // Get agent routing recommendation
  * const routing = await client.ml.route({
  *   task: 'Implement a caching layer',
- *   availableAgents: ['claude', 'gpt-4', 'codex'],
+ *   availableAgents: ['claude', 'gpt-6-astra', 'codex'],
  *   teamSize: 3,
  * });
  * console.log(routing.selected_agents);

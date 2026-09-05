@@ -124,7 +124,7 @@ from aragora.computer_use import (
 )
 
 config = ComputerUseConfig(
-    model="claude-sonnet-4-20250514",
+    model="claude-fable-5-1",
     max_steps=50,
     action_timeout_seconds=10.0,
     total_timeout_seconds=300.0,

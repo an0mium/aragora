@@ -65,7 +65,7 @@ steps:
       topic: "Design an effective remote work policy for this organization. Context: {step.gather_inputs}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
       rounds: 3
       consensus: qualified_majority

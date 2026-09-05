@@ -69,7 +69,7 @@ record_cost(
     tokens_input=1200,
     tokens_output=800,
     cost=1.42,
-    model="claude-sonnet-4-20250514",
+    model="claude-fable-5-1",
     workspace_id="default",
     user_id="user_123",
 )

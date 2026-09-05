@@ -15,7 +15,7 @@ from aragora.agents.api_agents import (
 )
 
 # Create an agent with automatic fallback
-agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-5-20251101")
+agent = AnthropicAPIAgent(name="claude-debate", model="claude-fable-5-1")
 
 # Generate a response
 response = await agent.generate("Analyze the trade-offs of microservices vs monoliths")
@@ -93,28 +93,28 @@ Agent (core.py)
 
 | Provider | Agent Class | Default Model | Env Var | Capabilities |
 |----------|-------------|---------------|---------|--------------|
-| Anthropic | `AnthropicAPIAgent` | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
-| OpenAI | `OpenAIAPIAgent` | gpt-5.3 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
-| Google | `GeminiAgent` | gemini-3-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
-| xAI | `GrokAgent` | grok-4-latest | `XAI_API_KEY` | Streaming, Fallback |
+| Anthropic | `AnthropicAPIAgent` | claude-fable-5-1 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
+| OpenAI | `OpenAIAPIAgent` | gpt-6-astra | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
+| Google | `GeminiAgent` | gemini-3.1-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
+| xAI | `GrokAgent` | grok-4.6 | `XAI_API_KEY` | Streaming, Fallback |
 | Mistral | `MistralAPIAgent` | mistral-large-2512 | `MISTRAL_API_KEY` | Streaming, Fallback |
-| Mistral | `CodestralAgent` | codestral-latest | `MISTRAL_API_KEY` | Code-optimized |
+| Mistral | `CodestralAgent` | mistral-medium-2604 | `MISTRAL_API_KEY` | Code-optimized |
 
 ### OpenRouter Models (via `OPENROUTER_API_KEY`)
 
 | Agent Class | Model | Description |
 |-------------|-------|-------------|
-| `DeepSeekAgent` | deepseek-v4-pro | Frontier long-context model |
-| `DeepSeekReasonerAgent` | deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
-| `LlamaAgent` | llama-3.3-70b | Meta's flagship open model |
-| `Llama4MaverickAgent` | llama-4-maverick | 400B MoE, 1M context |
-| `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
+| `DeepSeekAgent` | deepseek-v4-pro-0813 | Frontier long-context model |
+| `DeepSeekReasonerAgent` | deepseek-v4-pro-0813 | DeepSeek V4 Pro compatibility alias |
+| `LlamaAgent` | muse-spark-1.3 | Meta's flagship open model |
+| `Llama4MaverickAgent` | muse-spark-1.3 | 400B MoE, 1M context |
+| `Llama4ScoutAgent` | muse-spark-1.3 | 109B MoE, 10M context |
 | `QwenAgent` | qwen3.8-max | Alibaba's frontier model |
 | `QwenMaxAgent` | qwen3.8-max | 1M-context frontier model |
-| `MistralAgent` | mistral-large-2411 | Via OpenRouter |
+| `MistralAgent` | mistral-large-2512 | Via OpenRouter |
 | `YiAgent` | yi-large | 01.AI flagship |
 | `KimiK3Agent` | kimi-k3 | Latest frontier Kimi model on OpenRouter |
-| `KimiThinkingAgent` | kimi-k2-thinking | Reasoning model |
+| `KimiThinkingAgent` | kimi-k3 | Reasoning model |
 | `SonarAgent` | sonar-reasoning-pro | Advanced reasoning + web search |
 | `CommandRAgent` | command-a | Tool use and RAG |
 | `JambaAgent` | jamba-large-1.7 | SSM-Transformer hybrid |
@@ -130,10 +130,10 @@ Agent (core.py)
 
 | Agent Class | Base Model | Description |
 |-------------|------------|-------------|
-| `TinkerAgent` | llama-3.3-70b | Aragora debate-tuned |
-| `TinkerLlamaAgent` | llama-3.3-70b | Llama preset |
+| `TinkerAgent` | muse-spark-1.3 | Aragora debate-tuned |
+| `TinkerLlamaAgent` | muse-spark-1.3 | Llama preset |
 | `TinkerQwenAgent` | qwen-2.5-72b | Qwen preset |
-| `TinkerDeepSeekAgent` | deepseek-v3 | DeepSeek preset |
+| `TinkerDeepSeekAgent` | deepseek-v4-pro-0813 | DeepSeek preset |
 
 ## Rate Limiting
 
@@ -193,18 +193,18 @@ When a provider fails (rate limit, quota exceeded, auth error), agents automatic
 agent = AnthropicAPIAgent(enable_fallback=True)
 
 # Fallback chain for OpenRouter models
-# qwen/qwen3-235b -> deepseek/deepseek-v4-pro -> openai/gpt-5.3-chat
+# qwen/qwen3-235b -> deepseek/deepseek-v4-pro-0813 -> openai/gpt-6-astra
 ```
 
 #### Fallback Model Chain
 
 ```python
 OPENROUTER_FALLBACK_MODELS = {
-    "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro",
-    "deepseek/deepseek-v4-pro": "openai/gpt-5.3-chat",
+    "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro-0813",
+    "deepseek/deepseek-v4-pro-0813": "openai/gpt-6-astra",
     "moonshotai/kimi-k3": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-5",
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
+    "moonshotai/kimi-k3": "anthropic/claude-opus-5",
+    "meta/muse-spark-1.3": "openai/gpt-5.6-terra",
     # ... more mappings
 }
 ```
@@ -237,9 +237,9 @@ class MyProviderAgent(OpenAICompatibleMixin, APIAgent):
 
     # Map models to OpenRouter equivalents for fallback
     OPENROUTER_MODEL_MAP = {
-        "my-model-v1": "openai/gpt-4o",
+        "my-model-v1": "openai/gpt-6-astra",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
     def __init__(
         self,
@@ -465,7 +465,7 @@ response = await agent.generate(
 critique = await agent.critique(
     proposal="We should implement a simple rate limiter...",
     task="Design a rate limiting system",
-    target_agent="gpt-4",
+    target_agent="gpt-6-astra",
 )
 
 print(f"Severity: {critique.severity}")
@@ -520,10 +520,10 @@ if await agent.is_available():
 from aragora.agents.api_agents import OpenRouterAgent, DeepSeekAgent
 
 # Generic OpenRouter with any model
-agent = OpenRouterAgent(model="anthropic/claude-3.5-sonnet")
+agent = OpenRouterAgent(model="anthropic/claude-fable-5.1")
 
 # Or use model-specific class for defaults
-agent = DeepSeekAgent()  # Uses deepseek-v4-pro
+agent = DeepSeekAgent()  # Uses deepseek-v4-pro-0813
 ```
 
 ### Fine-Tuned Models
@@ -532,11 +532,11 @@ agent = DeepSeekAgent()  # Uses deepseek-v4-pro
 from aragora.agents.api_agents import TinkerAgent
 
 # Base model
-agent = TinkerAgent(model="llama-3.3-70b")
+agent = TinkerAgent(model="muse-spark-1.3")
 
 # With LoRA adapter
 agent = TinkerAgent(
-    model="llama-3.3-70b",
+    model="muse-spark-1.3",
     adapter="security-expert",
 )
 

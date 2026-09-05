@@ -236,7 +236,7 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'jamba': 'AI21 Jamba',
   'yi': 'Yi Large',
   'openrouter': 'OpenRouter',
-  'deepseek-r1': 'DeepSeek R1',
+  'deepseek-v4-pro-0813': 'DeepSeek R1',
   'ollama': 'Ollama (Local)',
 };
 
