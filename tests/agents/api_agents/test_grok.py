@@ -499,13 +499,6 @@ class TestGrokAgentModelMapping:
             agent = GrokAgent(api_key="test-key", model=model)
             assert agent.get_fallback_model() == "x-ai/grok-4.6"
 
-    def test_model_map_values_are_openrouter_format(self, mock_env_with_api_keys):
-        """Model map values should be in OpenRouter format."""
-        from aragora.agents.api_agents.grok import GrokAgent
-
-        for model, openrouter_model in GrokAgent.OPENROUTER_MODEL_MAP.items():
-            assert "/" in openrouter_model  # OpenRouter format: provider/model
-
 
 class TestGrokQuotaDetection:
     """Tests for Grok-specific quota/fallback trigger detection."""

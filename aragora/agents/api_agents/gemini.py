@@ -75,25 +75,11 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     Uses QuotaFallbackMixin for shared quota detection and fallback logic.
     """
 
-    # Model mapping from Gemini to OpenRouter format (used by QuotaFallbackMixin)
-    OPENROUTER_MODEL_MAP = {
-        # Every Gemini ID maps to Gemini 3.1 Pro via OpenRouter so weaker
-        # historical models are transparently upgraded and a missing
-        # GEMINI_API_KEY / GOOGLE_API_KEY never blocks a debate.
-        "gemini-3.1-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3.1-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-flash-preview": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-flash": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-2.5-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-2.5-flash": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-2.0-flash": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-2.0-flash-001": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-1.5-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-1.5-flash": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-    }
+    # No OPENROUTER_MODEL_MAP: QuotaFallbackMixin.get_fallback_model()
+    # resolves the current model through the catalog/upgrade-map instead
+    # (frontier-model-refresh, 2026-09-04), so every legacy or retired
+    # Gemini spelling upgrades to its family frontier, not just a
+    # hand-enumerated subset. A map here would be read by nothing.
     DEFAULT_FALLBACK_MODEL = GEMINI_31_PRO_VIA_OPENROUTER
 
     def __init__(

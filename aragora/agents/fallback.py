@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
 
 from aragora.core_types import AgentRole
+from aragora.config.model_pins import OPUS_5_VIA_OPENROUTER
 from aragora.models.catalog import spec_or_none
 from aragora.models.upgrade_map import resolve_model_id
 from aragora.observability.metrics.agent import (
@@ -119,17 +120,23 @@ class QuotaFallbackMixin:
         - role: str - Agent role (optional, defaults to "proposer")
         - system_prompt: str - System prompt (optional)
 
+    Fallback target resolution (``get_fallback_model``) is catalog-driven as
+    of the frontier-model-refresh (2026-09-04): ``self.model`` is normalised
+    through ``resolve_model_id`` (upgrading any legacy or retired spelling)
+    and the resulting catalog row's ``openrouter_id`` is used. A subclass
+    therefore does NOT need a hand-written model map -- every legacy
+    spelling of its family upgrades, not just a hand-enumerated subset, and
+    tier is preserved (a "flash"/"mini" spelling resolves to the value tier
+    rather than over-paying for the flagship).
+
     Class attributes that can be overridden:
-        - OPENROUTER_MODEL_MAP: dict[str, str] - Maps provider models to OpenRouter models
-        - DEFAULT_FALLBACK_MODEL: str - Default model if no mapping found
+        - DEFAULT_FALLBACK_MODEL: str - target used only when ``self.model``
+          has no catalog row at all. Set it to your provider's frontier so
+          an uncatalogued spelling stays inside its own family.
 
     Usage:
         class MyAgent(APIAgent, QuotaFallbackMixin):
-            OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-5.4",
-                "gpt-4": "openai/gpt-4",
-            }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.4"
+            DEFAULT_FALLBACK_MODEL = GPT6_ASTRA_VIA_OPENROUTER
 
             async def generate(self, prompt, context):
                 # ... make API call ...
@@ -140,9 +147,10 @@ class QuotaFallbackMixin:
                     raise RuntimeError("Quota exceeded and fallback unavailable")
     """
 
-    # Override these in subclasses for provider-specific model mappings
+    # Retained only for backwards compatibility with third-party subclasses
+    # that still define one: get_fallback_model() no longer reads it.
     OPENROUTER_MODEL_MAP: dict[str, str] = {}
-    DEFAULT_FALLBACK_MODEL: str = "anthropic/claude-opus-5"
+    DEFAULT_FALLBACK_MODEL: str = OPUS_5_VIA_OPENROUTER
 
     # Instance-level cached fallback agent (set by _get_cached_fallback_agent)
     _fallback_agent: OpenRouterAgent | None = None

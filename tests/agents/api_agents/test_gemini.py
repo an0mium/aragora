@@ -97,11 +97,14 @@ class TestGeminiAgentInitialization:
         """
         from aragora.agents.api_agents.gemini import GeminiAgent
 
-        agent = GeminiAgent()
-
-        assert hasattr(GeminiAgent, "OPENROUTER_MODEL_MAP")
-        assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert "gemini-2.0-flash" in GeminiAgent.OPENROUTER_MODEL_MAP
+        assert (
+            GeminiAgent(model="gemini-3.1-pro-preview").get_fallback_model()
+            == "google/gemini-3.1-pro-preview"
+        )
+        # Tier-aware, unlike the removed hand map: flash upgrades to flash.
+        assert (
+            GeminiAgent(model="gemini-2.0-flash").get_fallback_model() == "google/gemini-3.8-flash"
+        )
         assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro-preview"
 
 

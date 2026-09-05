@@ -483,14 +483,20 @@ class TestGeminiFallback:
 
                     assert result == "Fallback response"
 
-    def test_gemini_fallback_model_mapping(self, gemini_agent):
-        """Test that Gemini models are mapped correctly to OpenRouter."""
-        assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert (
-            GeminiAgent.OPENROUTER_MODEL_MAP["gemini-3.1-pro-preview"]
-            == "google/gemini-3.1-pro-preview"
-        )
-        assert "gemini-1.5-pro" in GeminiAgent.OPENROUTER_MODEL_MAP
+    def test_gemini_fallback_model_mapping(self):
+        """Gemini models resolve to an OpenRouter slug through the catalog.
+
+        The hand-written OPENROUTER_MODEL_MAP is gone (frontier-model-
+        refresh, 2026-09-04); assert the behaviour it used to provide
+        rather than the dict's contents.
+        """
+        for model in ("gemini-3.1-pro-preview", "gemini-1.5-pro"):
+            agent = GeminiAgent(api_key="test-key", model=model)
+            assert agent.get_fallback_model() == "google/gemini-3.1-pro-preview", model
+        # The catalog is tier-aware where the old hand map was not: a flash
+        # spelling upgrades to the flash tier rather than over-paying for Pro.
+        agent = GeminiAgent(api_key="test-key", model="gemini-2.0-flash")
+        assert agent.get_fallback_model() == "google/gemini-3.8-flash"
 
     def test_gemini_quota_keyword_detection(self, gemini_agent):
         """Test Gemini quota error detection."""
