@@ -211,6 +211,50 @@ class BudgetsAPI:
         )
 
     # =========================================================================
+    # Overrides
+    # =========================================================================
+
+    def add_override(
+        self,
+        budget_id: str,
+        user_id: str,
+        limit: float,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Add a user-specific budget override.
+
+        Useful for giving specific users higher limits for their work.
+
+        Args:
+            budget_id: Budget identifier
+            user_id: User to override
+            limit: Override limit in USD
+            reason: Reason for the override
+
+        Returns:
+            Override confirmation
+        """
+        data: dict[str, Any] = {"user_id": user_id, "limit": limit}
+        if reason:
+            data["reason"] = reason
+
+        return self._client._request("POST", f"/api/v1/budgets/{budget_id}/overrides", json=data)
+
+    def remove_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
+        """
+        Remove a user-specific budget override.
+
+        Args:
+            budget_id: Budget identifier
+            user_id: User to remove override for
+
+        Returns:
+            Removal confirmation
+        """
+        return self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}")
+
+    # =========================================================================
     # Period Management
     # =========================================================================
 
@@ -480,6 +524,32 @@ class AsyncBudgetsAPI:
         """Acknowledge a budget alert."""
         return await self._client._request(
             "POST", f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge"
+        )
+
+    # =========================================================================
+    # Overrides
+    # =========================================================================
+
+    async def add_override(
+        self,
+        budget_id: str,
+        user_id: str,
+        limit: float,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a user-specific budget override."""
+        data: dict[str, Any] = {"user_id": user_id, "limit": limit}
+        if reason:
+            data["reason"] = reason
+
+        return await self._client._request(
+            "POST", f"/api/v1/budgets/{budget_id}/overrides", json=data
+        )
+
+    async def remove_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
+        """Remove a user-specific budget override."""
+        return await self._client._request(
+            "DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}"
         )
 
     # =========================================================================
