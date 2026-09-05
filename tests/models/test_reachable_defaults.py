@@ -1,9 +1,18 @@
 """Every model a default can reach must be a priced, active catalog row."""
 
-import importlib
 import pytest
 from aragora.models.catalog import spec_or_none
 from aragora.models.upgrade_map import resolve_model_id
+
+# Reviewer families PR 2 (Task 10) still needs to add a catalog row for /
+# move the reviewer map for. Literal allow-list (NOT computed from
+# spec_or_none) so a genuine regression in any OTHER reviewer/codex_default
+# entry cannot silently mask itself as an expected failure -- computing the
+# xfail predicate from the same spec_or_none(resolve_model_id(...)) check
+# the test itself asserts would make every marked row un-failable and every
+# unmarked row un-xfailable by construction, defeating the point of this
+# reverse-completeness test.
+_PR2_PENDING_FAMILIES = frozenset({"tencent", "bytedance"})
 
 
 def _reachable_defaults() -> list[tuple[str, str]]:
@@ -49,26 +58,22 @@ def _reachable_defaults() -> list[tuple[str, str]]:
         out.append(("cost_estimation.DEFAULT_MODELS", m))
     from aragora.swarm import quorum_evidence as qe
 
-    def _entry(where: str, slug: str):
-        # Controller ruling 2 (frontier-model-refresh, 2026-09-04): only
-        # xfail entries whose resolved spec is retired or missing TODAY.
-        # PR 2 (Task 10) moves the reviewer map; until then a handful of
-        # families (e.g. tencent, bytedance) have no catalog row yet.
-        # Entries that already resolve stay unmarked so a real regression
-        # in them still fails the suite.
-        spec = spec_or_none(resolve_model_id(slug))
-        if spec is None or spec.retired:
-            return pytest.param(
-                where,
-                slug,
-                marks=pytest.mark.xfail(strict=True, reason="PR 2 moves the reviewer map"),
-            )
-        return (where, slug)
-
     for fam, slug in qe._OPENROUTER_REVIEWER_MODELS.items():
-        out.append(_entry(f"reviewer.{fam}", slug))
+        where = f"reviewer.{fam}"
+        if fam in _PR2_PENDING_FAMILIES:
+            out.append(
+                pytest.param(
+                    where,
+                    slug,
+                    marks=pytest.mark.xfail(
+                        strict=True, reason="PR 2 adds catalog rows / moves the reviewer map"
+                    ),
+                )
+            )
+        else:
+            out.append((where, slug))
     for m in qe._CODEX_DEFAULT_MODELS:
-        out.append(_entry("codex_default", m))
+        out.append(("codex_default", m))
     return out
 
 
