@@ -226,11 +226,13 @@ UPGRADES: dict[str, str] = {
             "mistral-medium",
             "mistral-medium-3.1",
             "mistralai/mistral-medium-3.1",
-            # The catalog carries no Codestral row, so the code-model
-            # spelling resolves to the Mistral family frontier. Recorded here
-            # rather than left to the CLI fallback so the SKU change is
-            # visible in one place (see the PR body's tradeoffs).
-            "codestral-latest",
+            # NOTE: "codestral-latest" is deliberately absent here — it is a
+            # live Mistral SKU (see aragora/agents/api_agents/mistral.py),
+            # not a retired id. Its CLI/agent fallback comes from the
+            # family-aware last resort in
+            # aragora/agents/cli_agents.py::_get_fallback_agent /
+            # _family_frontier_openrouter_id (Mistral family -> the Mistral
+            # frontier's OpenRouter slug), not from this upgrade map.
         )
     },
     # OpenRouter-routed families

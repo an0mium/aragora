@@ -228,9 +228,6 @@ class TestCLIAgentFamilyAwareFallback:
             ("DeepseekCLIAgent", "deepseek-coder", "deepseek/deepseek-v4-pro-0813"),
             ("DeepseekCLIAgent", "deepseek-v3.2", "deepseek/deepseek-v4-pro-0813"),
             ("QwenCLIAgent", "qwen-2.5-coder", "qwen/qwen3.8-2.4t-a95b"),
-            # No Codestral row in the catalog: resolves to the Mistral
-            # family frontier, not to Anthropic.
-            ("CodexAgent", "codestral-latest", "mistralai/mistral-medium-3-5"),
         ],
     )
     def test_legacy_cli_spelling_stays_in_family(self, agent_cls_name, model, expected):
@@ -239,6 +236,27 @@ class TestCLIAgentFamilyAwareFallback:
         agent_cls = getattr(cli_agents, agent_cls_name)
         agent = agent_cls(name="test-agent", model=model, enable_fallback=True)
         assert self._fallback_model(agent) == expected
+
+    def test_codestral_latest_falls_back_to_agents_own_family(self):
+        """``codestral-latest`` is a live Mistral SKU, not an UPGRADES entry
+        (aragora/models/upgrade_map.py), and the catalog carries no
+        Codestral row either. From a non-Mistral CLI agent it must NOT
+        resolve to Mistral -- it falls back to THIS agent class's own
+        family frontier via ``_family_frontier_openrouter_id`` (the same
+        family-aware last resort as ``test_unknown_model_falls_back_to_own_family_frontier``)."""
+        import aragora.agents.cli_agents as cli_agents
+        from aragora.models.catalog import spec_or_none
+        from aragora.models.upgrade_map import resolve_model_id
+
+        assert spec_or_none(resolve_model_id("codestral-latest")) is None, (
+            "fixture assumption: codestral-latest must stay unresolvable via "
+            "the catalog/upgrade map"
+        )
+
+        agent = cli_agents.CodexAgent(
+            name="test-agent", model="codestral-latest", enable_fallback=True
+        )
+        assert self._fallback_model(agent) == "openai/gpt-6-astra"
 
     @pytest.mark.parametrize(
         ("agent_cls_name", "expected"),
