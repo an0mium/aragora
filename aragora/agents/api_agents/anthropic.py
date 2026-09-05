@@ -67,6 +67,25 @@ _DEFAULT_MAX_TOKENS_STREAM = 64_000
 # server-side-fallback beta header — gated by settings.anthropic_refusal_fallback.
 _REFUSAL_FALLBACK_MODEL_IDS = frozenset({"claude-fable-5-1", "claude-opus-5"})
 
+# PAIRING RULE (verified against the Claude API reference; 2026-09-05
+# merge-gate ruling on finding C-P3 of #9989). The refusal fallback beta has
+# exactly two request shapes, and the payload form and the beta header are
+# NOT interchangeable -- mixing them is a 400:
+#
+#   scalar form   payload {"fallbacks": "default"}
+#                 header  anthropic-beta: server-side-fallback-2026-07-01
+#   array form    payload {"fallbacks": [{"model": ...}, ...]}
+#                 header  anthropic-beta: server-side-fallback-2026-06-01
+#
+# Aragora ships the SCALAR form only (server-side default target, no
+# hand-picked fallback list), so the 07-01 header is the only one it ever
+# sends and "fallbacks" is always a str, never a list. Changing one of these
+# two constants without the other is the bug this comment exists to prevent;
+# tests/agents/api_agents/test_request_shapes.py pins the pairing in both
+# directions.
+_REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
+_REFUSAL_FALLBACK_PAYLOAD_VALUE = "default"
+
 # Patterns that indicate web search would be helpful
 WEB_SEARCH_INDICATORS = [
     r"https?://",  # URLs
@@ -306,7 +325,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         if use_web_search:
             beta_values.append("web-search-2025-03-05")
         if self._refusal_fallback_enabled():
-            beta_values.append("server-side-fallback-2026-07-01")
+            beta_values.append(_REFUSAL_FALLBACK_BETA)
         if beta_values:
             headers["anthropic-beta"] = ", ".join(beta_values)
         return headers
@@ -394,7 +413,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         strip_sampling_params(payload, self.model)
 
         if self._refusal_fallback_enabled():
-            payload["fallbacks"] = "default"
+            # Scalar form only -- see the _REFUSAL_FALLBACK_BETA pairing rule.
+            payload["fallbacks"] = _REFUSAL_FALLBACK_PAYLOAD_VALUE
 
         if self.system_prompt:
             payload["system"] = self.system_prompt

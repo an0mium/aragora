@@ -104,6 +104,41 @@ def test_anthropic_refusal_fallback_disabled_by_setting(monkeypatch: pytest.Monk
         get_settings.cache_clear()
 
 
+def test_anthropic_refusal_fallback_beta_pairing_rule() -> None:
+    """The payload form and the beta header must stay paired.
+
+    2026-09-05 merge-gate ruling on finding C-P3 of #9989: the refusal
+    fallback beta has two request shapes and mixing them is a 400 --
+    the SCALAR ``"fallbacks": "default"`` pairs with the 2026-07-01 beta,
+    the ARRAY ``"fallbacks": [{"model": ...}]`` with the 2026-06-01 beta.
+    Aragora ships the scalar form only, so the payload must never carry the
+    array form with the 07-01 header, and the header must never be the
+    06-01 one while the payload is scalar.
+    """
+    from aragora.agents.api_agents import anthropic as anthropic_mod
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    array_beta = "server-side-fallback-2026-06-01"
+    assert anthropic_mod._REFUSAL_FALLBACK_BETA == "server-side-fallback-2026-07-01"
+    assert anthropic_mod._REFUSAL_FALLBACK_PAYLOAD_VALUE == "default"
+
+    for model in sorted(anthropic_mod._REFUSAL_FALLBACK_MODEL_IDS):
+        agent = AnthropicAPIAgent(name="a", model=model, api_key="test-key")
+        for stream in (False, True):
+            payload = agent._build_payload("hello", stream=stream)
+            fallbacks = payload["fallbacks"]
+            # Scalar form, never the array form.
+            assert isinstance(fallbacks, str), f"{model}: array form sent with the 07-01 header"
+            assert not isinstance(fallbacks, (list, tuple))
+            assert fallbacks == "default"
+        for use_web_search in (False, True):
+            beta = agent._request_headers(use_web_search=use_web_search)["anthropic-beta"]
+            betas = {v.strip() for v in beta.split(",")}
+            assert "server-side-fallback-2026-07-01" in betas
+            # The array-form beta must never accompany the scalar payload.
+            assert array_beta not in betas, f"{model}: 06-01 beta sent with the scalar form"
+
+
 def test_anthropic_refusal_fallback_not_applied_to_other_models() -> None:
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
