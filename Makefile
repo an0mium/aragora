@@ -421,6 +421,8 @@ readiness-lint-root:
 		--baseline scripts/baselines/root-vulture.json \
 		--report-json "$(READINESS_REPORT_DIR)/root-vulture.report.json" \
 		-- vulture aragora --min-confidence 80 && \
+	python3 scripts/ci/check_mypy_overrides.py \
+		--baseline scripts/baselines/root-mypy-overrides.json && \
 	deptry . && \
 	npx --yes jscpd@$(JSCPD_VERSION) --config .jscpd.json && \
 	python3 scripts/ci/check_file_sizes.py \
@@ -430,6 +432,7 @@ readiness-lint-root:
 readiness-typecheck-root:
 	@$(READINESS_T0); \
 	command -v mypy >/dev/null 2>&1 || { echo "SKIP root: mypy not found (put .venv/bin on PATH)"; exit 0; }; \
+	[ "$$(mypy --version | awk '{print $$2}')" = "2.1.0" ] || { echo "readiness-typecheck-root: mypy 2.1.0 required (CI pin; put .venv/bin on PATH)"; exit 1; }; \
 	git rev-parse --verify -q "$(READINESS_BASE_REF)" >/dev/null || { echo "readiness-typecheck-root: base ref $(READINESS_BASE_REF) not found (set READINESS_BASE_REF)"; exit 1; }; \
 	files=$$(git diff --name-only --diff-filter=d "$(READINESS_BASE_REF)...HEAD" -- ':(glob)aragora/**/*.py' ':(glob)scripts/**/*.py'); \
 	if [ -z "$$files" ]; then echo "no changed python files ($(READINESS_BASE_REF)...HEAD)"; $(READINESS_DONE); exit 0; fi; \

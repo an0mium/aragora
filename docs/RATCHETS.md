@@ -207,6 +207,7 @@ appends its baselines here, one row per file:
 | `scripts/baselines/root-ruff-naming.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-naming.json --update -- ruff check aragora --select N --output-format concise` |
 | `scripts/baselines/root-ruff-complexity.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | `scripts/baselines/root-vulture.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
+| `scripts/baselines/root-mypy-overrides.json` | `readiness-lint-root` | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
 | `scripts/baselines/file_size_baseline.json` (legacy format) | `readiness-lint-root` | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 
 The convention for every row: the regeneration command is the wired check
@@ -241,9 +242,17 @@ lands in a later feature, which replaces the marked comment in place.
   `eslint --prune-suppressions` to shrink) for `naming-convention` and `complexity`
   instead of this runner; document the files, the prune command, and the
   shrink-only expectation here. -->
-- **mypy override-count ratchet (M2).** `scripts/ci/check_mypy_overrides.py`
-  enforces a shrink-only count of `[[tool.mypy.overrides]]` entries; documented
-  when it lands.
+- **mypy module-exemption ratchet.** `scripts/ci/check_mypy_overrides.py`
+  uses the shared runner's comparison and update logic with tool
+  `mypy-overrides`. Each distinct module exempted from `disallow_untyped_defs`
+  has one key, `pyproject.toml::<module>::disallow_untyped_defs`, with value 1.
+  The global flag must remain true; wildcard relaxations are rejected.
+  Existing error-code-only overrides do not count. Same-count replacements
+  still fail because membership, not just the total, is ratcheted.
+  `--pyproject` and `--baseline` resolve relative paths from the repository
+  root regardless of cwd. Exit codes: 0 subset, 1 growth (added names printed),
+  2 baseline/config/usage error. `--update` creates or shrinks the baseline;
+  growth requires `--update --allow-grow --reason "<why>"`.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
   runner with `--tool todo` and a fixed scan scope; documented when it lands.
 - **Dependency cooldown (uv).** See [Dependency release age](#dependency-release-age)

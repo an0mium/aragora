@@ -17,6 +17,7 @@ key; the runner also enforces each key's occurrence count.
 | Ruff naming (N) | `scripts/baselines/root-ruff-naming.json` | 191 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-naming.json --update -- ruff check aragora --select N --output-format concise` |
 | Ruff complexity (C901, max 15) | `scripts/baselines/root-ruff-complexity.json` | 744 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | Vulture (confidence 80) | `scripts/baselines/root-vulture.json` | 67 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
+| Mypy untyped-definition exemptions | `scripts/baselines/root-mypy-overrides.json` | 862 | Python core maintainers | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
 | File size (2,000 lines) | `scripts/baselines/file_size_baseline.json` | 35 | Python core maintainers | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 
 Run checks through `make readiness-lint-root`. Shared-runner JSON reports go
@@ -30,6 +31,14 @@ files. Other apps can supply repeatable `--glob` patterns and `--baseline`.
   and 750 complexity occurrences across 744 keys. C901 is enabled only in
   the readiness ratchet, not the default ruff selection.
 - Vulture 2.16 reports 92 occurrences across 67 keys at confidence 80.
+- Mypy 2.1.0 found 2,641 missing-definition annotations in 862 modules
+  (737 in `aragora/`, 122 in `scripts/`, two in `aragora-debate/`, and one in
+  `aragora-verify/`; both small packages inherit the root configuration).
+  One sorted override block exempts
+  only these explicit module names from `disallow_untyped_defs`; existing
+  error-code overrides stay unchanged. The baseline tracks module membership
+  (862 keys / 862 occurrences), not annotation counts. Remove modules from
+  the block as they become typed, then run the shrink-only update.
 - The operator authorized one file-size re-adoption on 2026-09-05 before
   enabling the gate. Three tracked files already exceeded 2,000 lines at
   mission-base but were absent from the original 32-entry census:

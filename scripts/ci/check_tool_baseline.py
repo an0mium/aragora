@@ -380,9 +380,9 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     args.command = command
     if args.allow_grow and not args.update:
         parser.error("--allow-grow only makes sense together with --update")
-    if args.allow_grow and not args.reason:
+    if args.allow_grow and (not args.reason or not args.reason.strip()):
         parser.error("--allow-grow requires --reason TEXT")
-    if args.reason and not args.allow_grow:
+    if args.reason is not None and not args.allow_grow:
         parser.error("--reason only makes sense together with --allow-grow")
     if not args.cwd.is_dir():
         parser.error(f"--cwd is not a directory: {args.cwd}")
@@ -502,15 +502,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return EXIT_TOOL_FAILED
 
+    return check_findings(
+        baseline_path,
+        baseline,
+        findings,
+        update=args.update,
+        allow_grow=args.allow_grow,
+        reason=args.reason,
+        report_json=args.report_json,
+    )
+
+
+def check_findings(
+    baseline_path: Path,
+    baseline: Baseline,
+    findings: Sequence[Finding],
+    *,
+    update: bool = False,
+    allow_grow: bool = False,
+    reason: str | None = None,
+    report_json: Path | None = None,
+) -> int:
+    """Apply the shared ratchet to keyed findings, including config-only checks."""
+    if (allow_grow and (not update or not reason or not reason.strip())) or (
+        reason is not None and not allow_grow
+    ):
+        raise BaselineError("growth requires --update --allow-grow --reason TEXT")
+    tool = baseline.tool
     current = count_findings(findings)
     cmp = Comparison(current=current, baseline=baseline.findings)
     exit_code = EXIT_OK
 
-    if args.update:
+    if update:
         # Initial creation (no file yet) is not growth: there is nothing to shrink from.
         grew = bool(cmp.new_keys) and baseline.exists
-        if grew and not args.allow_grow:
-            _print_new_findings(args.tool, baseline_path, cmp, findings)
+        if grew and not allow_grow:
+            _print_new_findings(tool, baseline_path, cmp, findings)
             print(
                 f"REFUSED: --update would grow {baseline_path} by "
                 f"{len(cmp.new_keys)} key(s); the baseline is shrink-only. "
@@ -519,11 +546,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             exit_code = EXIT_NEW_FINDINGS
         elif cmp.unchanged and baseline.exists:
-            print(f"{args.tool}: baseline {baseline_path} unchanged (not rewritten)")
-            _print_summary(args.tool, cmp)
+            print(f"{tool}: baseline {baseline_path} unchanged (not rewritten)")
+            _print_summary(tool, cmp)
         else:
             new_baseline = Baseline(
-                tool=args.tool,
+                tool=tool,
                 findings=current,
                 generated_at=_utc_now(),
                 growth_log=list(baseline.growth_log),
@@ -532,27 +559,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 new_baseline.growth_log.append(
                     {
                         "at": new_baseline.generated_at,
-                        "reason": args.reason,
+                        "reason": reason,
                         "added": len(cmp.new_keys),
                     }
                 )
             write_baseline(baseline_path, new_baseline)
             verb = "created" if not baseline.exists else ("grew" if grew else "shrank")
             print(
-                f"{args.tool}: baseline {baseline_path} {verb}: "
+                f"{tool}: baseline {baseline_path} {verb}: "
                 f"{len(current)} key(s) / {sum(current.values())} occurrence(s) "
                 f"(was {len(baseline.findings)} key(s); "
                 f"{len(cmp.new_keys)} added, {len(cmp.resolved_keys)} resolved)"
             )
     elif cmp.new_keys:
-        _print_new_findings(args.tool, baseline_path, cmp, findings)
+        _print_new_findings(tool, baseline_path, cmp, findings)
         exit_code = EXIT_NEW_FINDINGS
     else:
-        _print_summary(args.tool, cmp)
+        _print_summary(tool, cmp)
 
     _write_report(
-        args.report_json,
-        tool=args.tool,
+        report_json,
+        tool=tool,
         baseline=baseline_path,
         exit_code=exit_code,
         new_keys=cmp.new_keys,
