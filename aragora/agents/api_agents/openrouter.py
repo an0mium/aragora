@@ -46,9 +46,18 @@ from aragora.observability.metrics.agents import (
 
 logger = logging.getLogger(__name__)
 
-DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
+DEEPSEEK_V4_PRO_MODEL = CATALOG["deepseek-v4-pro-0813"].openrouter_id
 KIMI_K3_MODEL = CATALOG["kimi-k3"].openrouter_id
+# Direct Moonshot API id (used by KimiLegacyAgent below, which hits
+# api.moonshot.cn directly rather than OpenRouter).
+KIMI_K3_DIRECT_MODEL = CATALOG["kimi-k3"].direct_id
 QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
+# Meta family frontier (frontier-model-refresh, 2026-09-04): supersedes the
+# retired Llama 3.3/4 lines for the "llama"/"llama4-maverick"/"llama4-scout"
+# registrations below (kept as distinct registry entries for backward
+# compatibility even though they now share one underlying model).
+MUSE_SPARK_MODEL = CATALOG["muse-spark-1.3"].openrouter_id
+MISTRAL_LARGE_MODEL = CATALOG["mistral-large-2512"].openrouter_id
 # OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
@@ -124,14 +133,11 @@ class OpenRouterAgent(APIAgent):
     and others through an OpenAI-compatible API.
 
     Supported models (via model parameter):
-    - deepseek/deepseek-v4-pro (DeepSeek V4 Pro, 1M context)
-    - meta-llama/llama-4-maverick (Llama 4 Maverick 400B MoE)
-    - meta-llama/llama-4-scout (Llama 4 Scout 109B MoE)
-    - meta-llama/llama-3.3-70b-instruct
+    - deepseek/deepseek-v4-pro-0813 (DeepSeek V4 Pro, 1M context)
+    - meta/muse-spark-1.3 (supersedes retired Llama 3.3/4 lines)
     - mistralai/mistral-large-2512 (Mistral Large 3)
-    - qwen/qwen3.8-max (Qwen 3.8 Max)
+    - qwen/qwen3.8-2.4t-a95b (Qwen 3.8, supersedes retired qwen3.8-max)
     - qwen/qwen3.7-max (Qwen 3.7 Max compatibility)
-    - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k3 (Kimi K3)
     - perplexity/sonar-reasoning-pro (Sonar Reasoning Pro)
     - cohere/command-a (Command A)
@@ -680,19 +686,20 @@ class DeepSeekV3Agent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "llama",
-    default_model="meta-llama/llama-3.3-70b-instruct",
+    default_model=MUSE_SPARK_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Llama 3.3 70B Instruct",
+    description="Meta Muse Spark 1.3 (supersedes retired Llama 3.3 70B Instruct)",
 )
 class LlamaAgent(OpenRouterAgent):
-    """Llama 3.3 70B via OpenRouter."""
+    """Meta Muse Spark 1.3 via OpenRouter (frontier-model-refresh, 2026-09-04;
+    supersedes the retired Llama 3.3 70B Instruct)."""
 
     def __init__(
         self,
         name: str = "llama",
         role: AgentRole = "analyst",
-        model: str = "meta-llama/llama-3.3-70b-instruct",
+        model: str = MUSE_SPARK_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -706,7 +713,7 @@ class LlamaAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "mistral",
-    default_model="mistralai/mistral-large-2512",
+    default_model=MISTRAL_LARGE_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
     description="Mistral Large 3 - 675B MoE, 256K context, multimodal",
@@ -718,7 +725,7 @@ class MistralAgent(OpenRouterAgent):
         self,
         name: str = "mistral",
         role: AgentRole = "analyst",
-        model: str = "mistralai/mistral-large-2512",
+        model: str = MISTRAL_LARGE_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -782,56 +789,13 @@ class QwenMaxAgent(OpenRouterAgent):
         self.agent_type = "qwen-max"
 
 
-@AgentRegistry.register(
-    "qwen-3.5",
-    default_model="qwen/qwen3.5-plus-02-15",
-    agent_type="API (OpenRouter)",
-    env_vars="OPENROUTER_API_KEY",
-    description="Qwen3.5 Plus - Alibaba's latest, native multimodal, 1M context (hosted)",
-)
-class Qwen35PlusAgent(OpenRouterAgent):
-    """Alibaba Qwen3.5 Plus via OpenRouter - native multimodal with 1M context."""
-
-    def __init__(
-        self,
-        name: str = "qwen-3.5",
-        role: AgentRole = "analyst",
-        model: str = "qwen/qwen3.5-plus-02-15",
-        system_prompt: str | None = None,
-    ):
-        super().__init__(
-            name=name,
-            role=role,
-            model=model,
-            system_prompt=system_prompt,
-        )
-        self.agent_type = "qwen-3.5"
-
-
-@AgentRegistry.register(
-    "yi",
-    default_model="01-ai/yi-large",
-    agent_type="API (OpenRouter)",
-    env_vars="OPENROUTER_API_KEY",
-    description="Yi Large - 01.AI's flagship model with balanced capabilities",
-)
-class YiAgent(OpenRouterAgent):
-    """01.AI Yi Large via OpenRouter - balanced reasoning with cross-cultural perspective."""
-
-    def __init__(
-        self,
-        name: str = "yi",
-        role: AgentRole = "analyst",
-        model: str = "01-ai/yi-large",
-        system_prompt: str | None = None,
-    ):
-        super().__init__(
-            name=name,
-            role=role,
-            model=model,
-            system_prompt=system_prompt,
-        )
-        self.agent_type = "yi"
+# NOTE (frontier-model-refresh, 2026-09-04): the "qwen-3.5" (Qwen3.5 Plus,
+# qwen/qwen3.5-plus-02-15) and "yi" (01.AI Yi Large, 01-ai/yi-large)
+# registrations were removed here. Qwen3.5 Plus is superseded by
+# qwen3.8-2.4t-a95b (see QwenAgent/QwenMaxAgent above); Yi Large is retired
+# with no catalog row. Both spellings still resolve via
+# aragora.models.upgrade_map.resolve_model_id / OPENROUTER_FALLBACK_MODELS
+# for any caller still pinning them.
 
 
 @AgentRegistry.register(
@@ -866,19 +830,21 @@ KimiK2Agent = KimiK3Agent
 
 @AgentRegistry.register(
     "kimi-thinking",
-    default_model="moonshotai/kimi-k2-thinking",
+    default_model=KIMI_K3_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2 Thinking - reasoning model that outperforms GPT-5 on agentic tasks",
+    description=(
+        "Kimi K3 (supersedes retired Kimi K2 Thinking; frontier-model-refresh, 2026-09-04)"
+    ),
 )
 class KimiThinkingAgent(OpenRouterAgent):
-    """Moonshot AI Kimi K2 Thinking via OpenRouter - reasoning model with chain-of-thought."""
+    """Moonshot AI Kimi K3 via OpenRouter (supersedes the retired Kimi K2 Thinking)."""
 
     def __init__(
         self,
         name: str = "kimi-thinking",
         role: AgentRole = "analyst",
-        model: str = "moonshotai/kimi-k2-thinking",
+        model: str = KIMI_K3_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -893,10 +859,10 @@ class KimiThinkingAgent(OpenRouterAgent):
 # Legacy Kimi agent using direct Moonshot API (requires KIMI_API_KEY)
 @AgentRegistry.register(
     "kimi-legacy",
-    default_model="moonshot-v1-8k",
+    default_model=KIMI_K3_DIRECT_MODEL,
     agent_type="API (Kimi/Moonshot)",
     env_vars="KIMI_API_KEY",
-    description="Kimi Legacy - direct Moonshot API (requires KIMI_API_KEY)",
+    description="Kimi K3 - direct Moonshot API (requires KIMI_API_KEY)",
 )
 class KimiLegacyAgent(APIAgent):
     """Moonshot AI Kimi - strong reasoning and Chinese language capabilities.
@@ -908,7 +874,7 @@ class KimiLegacyAgent(APIAgent):
         self,
         name: str = "kimi",
         role: AgentRole = "analyst",
-        model: str = "moonshot-v1-8k",
+        model: str = KIMI_K3_DIRECT_MODEL,
         system_prompt: str | None = None,
         api_key: str | None = None,
     ):
@@ -1007,24 +973,24 @@ REASONING: explanation"""
         return self._parse_critique(response, target_agent or "proposal", proposal)
 
 
-# === Llama 4 Models ===
+# === Llama 4 Models (superseded 2026-09-04 by Meta Muse Spark 1.3) ===
 
 
 @AgentRegistry.register(
     "llama4-maverick",
-    default_model="meta-llama/llama-4-maverick",
+    default_model=MUSE_SPARK_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Llama 4 Maverick - 400B MoE, 1M context, native multimodal",
+    description="Meta Muse Spark 1.3 (supersedes retired Llama 4 Maverick)",
 )
 class Llama4MaverickAgent(OpenRouterAgent):
-    """Meta Llama 4 Maverick via OpenRouter - 400B MoE with 1M token context."""
+    """Meta Muse Spark 1.3 via OpenRouter (supersedes the retired Llama 4 Maverick)."""
 
     def __init__(
         self,
         name: str = "llama4-maverick",
         role: AgentRole = "analyst",
-        model: str = "meta-llama/llama-4-maverick",
+        model: str = MUSE_SPARK_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -1038,19 +1004,19 @@ class Llama4MaverickAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "llama4-scout",
-    default_model="meta-llama/llama-4-scout",
+    default_model=MUSE_SPARK_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Llama 4 Scout - 109B MoE, 10M context window, multimodal",
+    description="Meta Muse Spark 1.3 (supersedes retired Llama 4 Scout)",
 )
 class Llama4ScoutAgent(OpenRouterAgent):
-    """Meta Llama 4 Scout via OpenRouter - 109B MoE with 10M token context."""
+    """Meta Muse Spark 1.3 via OpenRouter (supersedes the retired Llama 4 Scout)."""
 
     def __init__(
         self,
         name: str = "llama4-scout",
         role: AgentRole = "analyst",
-        model: str = "meta-llama/llama-4-scout",
+        model: str = MUSE_SPARK_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -1192,8 +1158,6 @@ __all__ = [
     "MistralAgent",
     "QwenAgent",
     "QwenMaxAgent",
-    "Qwen35PlusAgent",
-    "YiAgent",
     "KimiK3Agent",
     "KimiK2Agent",
     "KimiThinkingAgent",

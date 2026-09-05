@@ -36,17 +36,20 @@ class TestFallbackModelChain:
         """Test DeepSeek models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"] == "openai/gpt-5.5"
+        assert "deepseek/deepseek-v4-pro-0813" in OPENROUTER_FALLBACK_MODELS
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.5"
 
     def test_qwen_has_fallback(self):
         """Test Qwen models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.8-max"] == "deepseek/deepseek-v4-pro"
+        assert (
+            OPENROUTER_FALLBACK_MODELS["qwen/qwen3.8-2.4t-a95b"] == "deepseek/deepseek-v4-pro-0813"
+        )
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
         assert (
-            OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
+            OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"]
+            == "deepseek/deepseek-v4-pro-0813"
         )
 
     def test_legacy_default_keys_keep_fallback(self):
@@ -54,10 +57,12 @@ class TestFallbackModelChain:
         callers still pinning the old ids must not lose retry fallback."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-max"] == "deepseek/deepseek-v4-pro"
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.7-max"] == "deepseek/deepseek-v4-pro"
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-235b-a22b"] == "deepseek/deepseek-v4-pro"
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.5-plus-02-15"] == "deepseek/deepseek-v4-pro"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-max"] == "deepseek/deepseek-v4-pro-0813"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3.7-max"] == "deepseek/deepseek-v4-pro-0813"
+        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen3-235b-a22b"] == "deepseek/deepseek-v4-pro-0813"
+        assert (
+            OPENROUTER_FALLBACK_MODELS["qwen/qwen3.5-plus-02-15"] == "deepseek/deepseek-v4-pro-0813"
+        )
         assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.6"] == "anthropic/claude-opus-5"
         assert OPENROUTER_FALLBACK_MODELS["moonshotai/kimi-k2.7-code"] == "anthropic/claude-opus-5"
 
@@ -95,7 +100,7 @@ class TestOpenRouterAgentInit:
             agent = OpenRouterAgent()
 
             assert agent.name == "openrouter"
-            assert agent.model == "deepseek/deepseek-v4-pro"
+            assert agent.model == "deepseek/deepseek-v4-pro-0813"
             assert agent.agent_type == "openrouter"
 
     def test_init_with_custom_model(self):
@@ -310,12 +315,6 @@ class TestProviderSpecificAgents:
 
         assert KimiK2Agent is KimiK3Agent
 
-    def test_yi_agent_exists(self):
-        """Test YiAgent class exists."""
-        from aragora.agents.api_agents.openrouter import YiAgent
-
-        assert YiAgent is not None
-
 
 # =============================================================================
 # Agent Registry Integration Tests
@@ -411,7 +410,6 @@ class TestModuleExports:
             LlamaAgent,
             MistralAgent,
             QwenAgent,
-            YiAgent,
         )
 
         assert DeepSeekAgent is not None
@@ -419,7 +417,6 @@ class TestModuleExports:
         assert LlamaAgent is not None
         assert MistralAgent is not None
         assert QwenAgent is not None
-        assert YiAgent is not None
 
 
 # =============================================================================
