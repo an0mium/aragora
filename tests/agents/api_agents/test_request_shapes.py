@@ -283,6 +283,48 @@ def test_openai_payload_for_astra() -> None:
     assert payload["reasoning_effort"] == "high"
 
 
+def test_openai_payload_default_max_tokens_is_reasoning_safe() -> None:
+    """A reasoning model with no explicit cap must not inherit the flat 4096.
+
+    On OpenAI reasoning models the reasoning tokens are billed and capped
+    inside ``max_completion_tokens``; at ``reasoning_effort: "high"`` a 4096
+    total budget routinely returns ``finish_reason: "length"`` with empty
+    ``content``. Mirrors the Anthropic builder's ``_resolve_max_tokens``.
+    """
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+    from aragora.models.catalog import spec_or_none
+
+    agent = OpenAIAPIAgent(name="o", model="gpt-6-astra", api_key="test-key")
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert payload["max_completion_tokens"] >= 16_000
+    spec = spec_or_none("gpt-6-astra")
+    assert spec is not None
+    assert payload["max_completion_tokens"] == min(spec.max_output_tokens, 16_000)
+
+
+def test_openai_payload_explicit_max_tokens_respected() -> None:
+    """An explicit caller cap wins over the reasoning-safe default."""
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+    agent = OpenAIAPIAgent(name="o", model="gpt-6-astra", api_key="test-key")
+    agent.max_tokens = 2048
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert payload["max_completion_tokens"] == 2048
+
+
+def test_openai_payload_uncataloged_reasoning_model_gets_flat_floor() -> None:
+    """No catalog row + reasoning_effort being sent -> the flat 16k floor."""
+    from aragora.agents.api_agents.openai import OpenAIAPIAgent
+    from aragora.models.catalog import spec_or_none
+
+    agent = OpenAIAPIAgent(
+        name="o", model="brand-new-reasoner", reasoning_effort="high", api_key="test-key"
+    )
+    assert spec_or_none("brand-new-reasoner") is None
+    payload = agent._build_payload([{"role": "user", "content": "hi"}])
+    assert payload["max_tokens"] == 16_000
+
+
 def test_openai_payload_for_non_reasoning_model_unchanged() -> None:
     from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
@@ -291,7 +333,7 @@ def test_openai_payload_for_non_reasoning_model_unchanged() -> None:
     )
     payload = agent._build_payload([{"role": "user", "content": "hi"}])
     assert (
-        "max_tokens" in payload
+        payload["max_tokens"] == 4096
         and payload["temperature"] == 0.3
         and "reasoning_effort" not in payload
     )
