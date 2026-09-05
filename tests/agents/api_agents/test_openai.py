@@ -1029,8 +1029,15 @@ class TestOpenAICompatibleMixin:
         assert messages[0]["role"] == "user"
 
     def test_build_payload_basic(self, mock_env_with_api_keys):
-        """Should build correct payload."""
+        """Should build correct payload.
+
+        The default model (gpt-6-astra) is a catalog row with
+        max_tokens_param="max_completion_tokens" (Task 7,
+        frontier-model-refresh): the output-token cap must use that field
+        name, not the classic "max_tokens".
+        """
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.models.compat import max_tokens_param
 
         agent = OpenAIAPIAgent()
         messages = [{"role": "user", "content": "Test"}]
@@ -1039,7 +1046,7 @@ class TestOpenAICompatibleMixin:
 
         assert payload["model"] == "gpt-6-astra"
         assert payload["messages"] == messages
-        assert "max_tokens" in payload
+        assert max_tokens_param(agent.model) in payload
         assert "stream" not in payload or payload.get("stream") is False
 
     def test_build_payload_with_stream(self, mock_env_with_api_keys):
@@ -1054,10 +1061,19 @@ class TestOpenAICompatibleMixin:
         assert payload["stream"] is True
 
     def test_build_payload_with_temperature(self, mock_env_with_api_keys):
-        """Should include temperature when set."""
+        """Should include temperature when set, for a model whose catalog row
+        (or absence from the catalog) still accepts sampling params.
+
+        gpt-6-astra (the agent default) rejects sampling params entirely
+        (Task 7, frontier-model-refresh) — see
+        test_request_shapes.py::test_openai_payload_for_astra for that
+        behaviour. This test pins a plain, uncataloged model id so it keeps
+        exercising "temperature flows through when set" independently of
+        that model-specific hardening.
+        """
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        agent = OpenAIAPIAgent()
+        agent = OpenAIAPIAgent(model="gpt-4-turbo")
         agent.temperature = 0.8
         messages = [{"role": "user", "content": "Test"}]
 

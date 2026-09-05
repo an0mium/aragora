@@ -117,6 +117,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
         model_transport: ModelTransportPolicy | None = None,  # None = from env
+        reasoning_effort: str | None = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
     ) -> None:
         import os
 
@@ -130,8 +133,14 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
             or get_primary_api_key("OPENAI_API_KEY", allow_openrouter_fallback=True),
             # OPENAI_BASE_URL supports BYOK gateways/proxies (issue #9304).
             base_url=_resolve_openai_base_url(),
+            temperature=temperature,
+            top_p=top_p,
         )
         self.agent_type = "openai"
+        # Explicit per-instance override (e.g. the reviewer role passing
+        # "xhigh"); falls back to the catalog's reasoning_effort_default for
+        # the model when unset (see OpenAICompatibleMixin._build_payload).
+        self.reasoning_effort = reasoning_effort
         # Use config setting if not explicitly provided
         if enable_fallback is None:
             from aragora.agents.fallback import get_default_fallback_enabled

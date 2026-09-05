@@ -62,6 +62,11 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.config.model_pins import GPT56_TERRA_VIA_OPENROUTER
+from aragora.models.compat import (
+    max_tokens_param,
+    reasoning_effort_default,
+    rejects_sampling_params,
+)
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -176,22 +181,37 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         return messages
 
     def _build_payload(self, messages: list[dict], stream: bool = False) -> dict:
-        """Build request payload. Override to add provider-specific fields."""
-        payload = {
+        """Build request payload. Override to add provider-specific fields.
+
+        Catalog-driven (Task 7, frontier-model-refresh): the output-token cap
+        uses whichever field name the model's catalog row declares
+        (``max_tokens`` or ``max_completion_tokens``, e.g. GPT-6 Astra),
+        sampling params (temperature/top_p/frequency_penalty) are omitted
+        entirely for a model whose catalog row rejects them, and
+        ``reasoning_effort`` is populated from an explicit instance override
+        or the catalog default when the model documents one.
+        """
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": self.max_tokens,
+            max_tokens_param(self.model): self.max_tokens,
         }
         if stream:
             payload["stream"] = True
 
-        # Apply generation parameters from persona if set (from APIAgent)
-        if hasattr(self, "temperature") and self.temperature is not None:
-            payload["temperature"] = self.temperature
-        if hasattr(self, "top_p") and self.top_p is not None:
-            payload["top_p"] = self.top_p
-        if hasattr(self, "frequency_penalty") and self.frequency_penalty is not None:
-            payload["frequency_penalty"] = self.frequency_penalty
+        # Apply generation parameters from persona if set (from APIAgent),
+        # unless this model's catalog row rejects sampling params entirely.
+        if not rejects_sampling_params(self.model):
+            if hasattr(self, "temperature") and self.temperature is not None:
+                payload["temperature"] = self.temperature
+            if hasattr(self, "top_p") and self.top_p is not None:
+                payload["top_p"] = self.top_p
+            if hasattr(self, "frequency_penalty") and self.frequency_penalty is not None:
+                payload["frequency_penalty"] = self.frequency_penalty
+
+        effort = getattr(self, "reasoning_effort", None) or reasoning_effort_default(self.model)
+        if effort:
+            payload["reasoning_effort"] = effort
 
         extra = self._build_extra_payload()
         if extra:
