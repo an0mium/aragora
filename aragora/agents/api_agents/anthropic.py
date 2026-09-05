@@ -103,6 +103,9 @@ WEB_SEARCH_INDICATORS = [
 ]
 
 
+_ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com/v1"
+
+
 def _resolve_base_url(env_name: str, default: str) -> str:
     """Resolve the API base URL from the environment (issue #9304).
 
@@ -158,16 +161,18 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         temperature: float | None = None,
         top_p: float | None = None,
     ) -> None:
-        import os
-
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
         # ids pass through untouched. See upgrade_retired_model_id. Skipped
         # for a custom ANTHROPIC_BASE_URL (BYOK gateway/proxy, issue #9304):
         # that endpoint may serve ids under names the public catalog does
         # not recognize, so rewriting them would silently target the wrong
-        # model on someone else's endpoint.
-        if not os.environ.get("ANTHROPIC_BASE_URL", "").strip():
+        # model on someone else's endpoint. Compared against the RESOLVED
+        # (normalized) URL rather than raw env-var presence, so an env var
+        # set to a spelling of the same official endpoint (e.g. missing the
+        # /v1 suffix) still counts as official.
+        resolved_base_url = _resolve_base_url("ANTHROPIC_BASE_URL", _ANTHROPIC_DEFAULT_BASE_URL)
+        if resolved_base_url == _ANTHROPIC_DEFAULT_BASE_URL:
             model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
@@ -180,7 +185,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             # enterprise API gateways, local proxies) — issue #9304: the
             # hardcoded endpoint made secured providers architecturally
             # unsupported. Accepts values with or without a trailing /v1.
-            base_url=_resolve_base_url("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
+            base_url=resolved_base_url,
             temperature=temperature,
             top_p=top_p,
         )

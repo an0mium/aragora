@@ -63,16 +63,18 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
     ) -> None:
-        import os
-
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
         # ids pass through untouched. See upgrade_retired_model_id. Skipped
         # for a custom XAI_BASE_URL (BYOK gateway/proxy, issue #9304): that
         # endpoint may serve ids under names the public catalog does not
         # recognize, so rewriting them would silently target the wrong
-        # model on someone else's endpoint.
-        if not os.environ.get("XAI_BASE_URL", "").strip():
+        # model on someone else's endpoint. Compared against the RESOLVED
+        # (normalized) URL rather than raw env-var presence, so an env var
+        # set to a spelling of the same official endpoint (e.g. missing the
+        # /v1 suffix) still counts as official.
+        resolved_base_url = _resolve_base_url("XAI_BASE_URL", _GROK_DEFAULT_BASE_URL)
+        if resolved_base_url == _GROK_DEFAULT_BASE_URL:
             model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
@@ -87,7 +89,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
             ),
             # XAI_BASE_URL supports BYOK gateways/proxies (LiteLLM,
             # enterprise API gateways, local proxies) — issue #9304.
-            base_url=_resolve_base_url("XAI_BASE_URL", _GROK_DEFAULT_BASE_URL),
+            base_url=resolved_base_url,
         )
         self.agent_type = "grok"
         # Use config setting if not explicitly provided
