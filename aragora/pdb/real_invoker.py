@@ -268,10 +268,12 @@ _LEGACY_PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Live catalog 2026-09-04 (frontier-model-refresh): mistral-large-2512
     # is $0.50/$1.50 per MTok, not the pre-refresh $2.00/$6.00 legacy price.
     "mistral-large-2512": (0.50, 1.50),
-    # distinct SKU, not the 2512 row: mistral-large-2411 is an older model
-    # with no catalog row and no generated mirror row, so this hand value is
-    # authoritative. Repricing it to the 2512 rate would re-price every
-    # historical receipt naming it at 25% of what was actually charged.
+    # Retired SKU, priced from its catalog row (aragora/models/catalog.py's
+    # mistral-large-2411 entry, cataloged 2026-09-05 with these exact rates):
+    # a distinct model, NOT the 2512 row. Repricing it to the 2512 rate would
+    # re-price every historical receipt naming it at 25% of what was actually
+    # charged. This legacy row and the generated mirror row now agree by
+    # construction; tests/models/test_catalog.py enforces it.
     "mistral-large-2411": (2.00, 6.00),
     "mistral-large-latest": (0.50, 1.50),
     "mistral-medium-latest": (0.40, 2.00),

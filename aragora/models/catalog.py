@@ -573,6 +573,30 @@ CATALOG: dict[str, ModelSpec] = {
             aliases=("mistral-large-latest",),
         ),
         ModelSpec(
+            # RETIRED, and kept priced at its OWN historical rate. Cataloged
+            # in the 2026-09-05 gate-fix wave (finding C-P3 on #9989): with no
+            # row of its own, ``_catalog_token_price`` reached this spelling
+            # only through the upgrade map and priced it at its SUCCESSOR's
+            # ($0.50/$1.50) rate, so every historical receipt naming it
+            # re-priced at 25% of what was actually charged. Mistral La
+            # Plateforme published $2.00/$6.00 per MTok for Large 2411; the
+            # hand row in aragora/pdb/real_invoker.py carried exactly that and
+            # is now mirrored from here. The UPGRADES entry 2411 -> 2512 stays,
+            # so a LIVE request still upgrades; only PRICING resolves here.
+            canonical_id="mistral-large-2411",
+            provider="mistral",
+            family="mistral",
+            tier="fallback",
+            retired=True,
+            direct_id="mistral-large-2411",
+            openrouter_id="mistralai/mistral-large-2411",
+            input_per_mtok=2.0,
+            output_per_mtok=6.0,
+            context_window=131_072,
+            max_output_tokens=131_072,
+            release_date=date(2024, 11, 18),
+        ),
+        ModelSpec(
             canonical_id="deepseek-v4-pro-0813",
             provider="openrouter",
             family="deepseek",
@@ -673,6 +697,7 @@ ENFORCED_MODELS: tuple[str, ...] = (
     "grok-4.3",
     "mistral-medium-2604",
     "mistral-large-2512",
+    "mistral-large-2411",
     "sonar-reasoning-pro",
     "command-a",
     "jamba-large-1.7",

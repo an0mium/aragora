@@ -107,9 +107,35 @@ def test_by_any_id_resolves_every_spelling() -> None:
 # ---------------------------------------------------------------------------
 
 
+# Catalog rows whose OpenRouter slug is DELISTED from the live catalog, so
+# ``scripts/model_catalog_drift.py --refresh`` (the only writer of
+# catalog_snapshot.json -- the file is never hand-edited) cannot produce a row
+# for them. Their rates come from the model provider's own published pricing
+# instead, recorded per entry. Every entry must be a RETIRED row: a live model
+# missing from the snapshot is a genuine gap, not an exemption.
+_DELISTED_FROM_OPENROUTER: dict[str, str] = {
+    "mistralai/mistral-large-2411": (
+        "Mistral Large 2411 is gone from openrouter.ai/api/v1/models (verified "
+        "2026-09-05; only 2512/2407/mistral-large remain). Rates are Mistral La "
+        "Plateforme's published $2.00/$6.00 per MTok, mirrored by the hand row "
+        "in aragora/pdb/real_invoker.py that predates the catalog entry."
+    ),
+}
+
+
 def test_catalog_matches_committed_snapshot() -> None:
     snapshot = load_snapshot()
     for spec in CATALOG.values():
+        if spec.openrouter_id in _DELISTED_FROM_OPENROUTER:
+            assert spec.retired, (
+                f"{spec.canonical_id}: only a RETIRED row may be exempted from "
+                "the snapshot -- a live model absent from the capture is a gap"
+            )
+            assert spec.openrouter_id not in snapshot, (
+                f"{spec.openrouter_id} is back in the snapshot -- drop it from "
+                f"_DELISTED_FROM_OPENROUTER ({_DELISTED_FROM_OPENROUTER[spec.openrouter_id]})"
+            )
+            continue
         row = snapshot.get(spec.openrouter_id)
         assert row is not None, f"snapshot missing {spec.openrouter_id}"
         assert float(row["input_per_mtok"]) == pytest.approx(spec.input_per_mtok), (

@@ -215,6 +215,27 @@ class TestCalculateTokenCost:
         assert kimi_cost == moonshot_cost == Decimal("18.00")
         assert kimi_cost != default_cost
 
+    def test_retired_mistral_large_2411_prices_at_its_own_rate(self):
+        """C-P3 (#9989 merge-gate, round 2): with no catalog row of its own,
+        the retired 2411 SKU resolved through the upgrade map and priced at
+        its SUCCESSOR's ($0.50/$1.50) rate -- 2.00 against a true 8.00 -- so
+        every historical receipt naming it re-priced at 25% of what was
+        actually charged. It is now a RETIRED catalog row at its own
+        published $2.00/$6.00, while UPGRADES still routes LIVE requests to
+        mistral-large-2512."""
+        from aragora.models.upgrade_map import resolve_model_id
+
+        assert calculate_token_cost(
+            "mistral", "mistral-large-2411", 1_000_000, 1_000_000
+        ) == Decimal("8.00")
+        # The successor's own rate is different, so the assertion above
+        # cannot pass by coincidence.
+        assert calculate_token_cost(
+            "mistral", "mistral-large-2512", 1_000_000, 1_000_000
+        ) == Decimal("2.00")
+        # Live requests still upgrade.
+        assert resolve_model_id("mistral-large-2411") == "mistral-large-2512"
+
     def test_unknown_provider_uses_openrouter_default(self):
         """Test unknown provider falls back to OpenRouter pricing."""
         cost = calculate_token_cost("unknown_provider", "unknown_model", 1_000_000, 1_000_000)
