@@ -165,7 +165,7 @@ class OpenAICompatibleAgent(APIAgent):
         name: str,
         api_key: str,
         base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-5.3",
+        model: str = "gpt-6-astra",
         role: str = "proposer",
         timeout: int = 120,
     ):
@@ -243,7 +243,7 @@ class AnthropicAgent(APIAgent):
     def __init__(
         self,
         name: str = "anthropic-api",
-        model: str = "claude-opus-4-5-20251101",
+        model: str = "claude-fable-5-1",
         api_key: str | None = None,
         role: str = "proposer",
         timeout: int = 120,
@@ -621,13 +621,13 @@ Synthesize these into a single, coherent response that captures the best insight
 agents:
   claude-expert:
     type: anthropic-api
-    model: claude-opus-4-5-20251101
+    model: claude-fable-5-1
     role: proposer
     system_prompt: "You are a helpful expert assistant."
 
   gpt-analyst:
     type: openai-api
-    model: gpt-5.3
+    model: gpt-6-astra
     role: critic
     system_prompt: "You are a careful analyst who examines evidence."
 
@@ -728,7 +728,7 @@ chain = AgentFallbackChain(
 )
 chain.register_provider("anthropic", lambda: AnthropicAPIAgent())
 chain.register_provider("openai", lambda: OpenAIAPIAgent())
-chain.register_provider("openrouter", lambda: OpenRouterAgent(model="anthropic/claude-sonnet-4"))
+chain.register_provider("openrouter", lambda: OpenRouterAgent(model="anthropic/claude-fable-5.1"))
 
 # Generate with automatic fallback
 response = await chain.generate("Summarize the trade-offs", context=None)

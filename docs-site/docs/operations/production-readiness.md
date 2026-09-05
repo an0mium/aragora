@@ -341,7 +341,7 @@ echo "Creating test debate..."
 DEBATE_ID=$(curl -sf -X POST "$BASE_URL/api/debates" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"topic": "Smoke test debate", "agents": ["claude", "gpt-4"], "max_rounds": 1}' \
+  -d '{"topic": "Smoke test debate", "agents": ["claude", "gpt-6-astra"], "max_rounds": 1}' \
   | jq -r '.debate_id')
 
 if [ "$DEBATE_ID" == "null" ] || [ -z "$DEBATE_ID" ]; then

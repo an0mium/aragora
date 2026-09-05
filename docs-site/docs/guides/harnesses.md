@@ -91,7 +91,7 @@ from aragora.harnesses import ClaudeCodeHarness, ClaudeCodeConfig
 # Custom configuration
 config = ClaudeCodeConfig(
     claude_code_path="claude",           # CLI path
-    model="claude-sonnet-4-20250514",    # Model to use
+    model="claude-fable-5-1",    # Model to use
     timeout_seconds=600,                  # 10 minute timeout
     max_thinking_tokens=10000,
     include_file_contents=True,
@@ -205,7 +205,7 @@ config = ClaudeCodeConfig(
 
     # Claude Code specific
     claude_code_path="claude",
-    model="claude-sonnet-4-20250514",
+    model="claude-fable-5-1",
     max_thinking_tokens=10000,
     include_file_contents=True,
     use_mcp_tools=True,

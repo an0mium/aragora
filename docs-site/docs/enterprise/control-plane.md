@@ -49,7 +49,7 @@ coordinator = await create_control_plane()
 await coordinator.register_agent(
     agent_id="claude-3",
     capabilities=["debate", "code", "analysis"],
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     provider="anthropic",
     metadata={"version": "3.5"}
 )
@@ -90,7 +90,7 @@ curl -X POST http://localhost:8080/api/control-plane/agents \
   -d '{
     "agent_id": "claude-3",
     "capabilities": ["debate", "code"],
-    "model": "claude-3-opus",
+    "model": "claude-fable-5-1",
     "provider": "anthropic"
   }'
 
@@ -189,7 +189,7 @@ agent = await coordinator.register_agent(
         AgentCapability.CODE,
         "custom-capability",  # Custom string capability
     ],
-    model="gpt-4",
+    model="gpt-6-astra",
     provider="openai",
     metadata={
         "version": "1.0",
@@ -385,7 +385,7 @@ Response:
       "agent_id": "claude-3",
       "capabilities": ["debate", "code"],
       "status": "ready",
-      "model": "claude-3-opus",
+      "model": "claude-fable-5-1",
       "provider": "anthropic",
       "tasks_completed": 42,
       "avg_latency_ms": 1234.5

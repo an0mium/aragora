@@ -122,7 +122,7 @@ agents:
       model: claude-3-5-sonnet-latest
     - name: gpt4
       provider: openai
-      model: gpt-4o
+      model: gpt-6-astra
 
 debate:
   default_rounds: 3

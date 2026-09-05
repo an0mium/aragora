@@ -50,7 +50,7 @@ from aragora.analysis import DocumentQueryEngine, QueryConfig
 config = QueryConfig(
     max_chunks=15,
     min_relevance=0.4,
-    model="claude-3.5-sonnet",
+    model="claude-fable-5-1",
     include_quotes=True,
 )
 
@@ -119,8 +119,8 @@ The engine automatically detects query intent or you can specify the mode explic
 | `max_answer_length` | `500` | Maximum answer length in words |
 | `include_quotes` | `True` | Include direct quotes from sources |
 | `require_citations` | `True` | Always cite sources in answers |
-| `model` | `claude-3.5-sonnet` | Primary model for answer generation |
-| `fallback_model` | `gemini-1.5-flash` | Fallback if primary fails |
+| `model` | `claude-fable-5-1` | Primary model for answer generation |
+| `fallback_model` | `gemini-3.8-flash` | Fallback if primary fails |
 | `expand_query` | `True` | Generate query variations for better retrieval |
 | `detect_intent` | `True` | Auto-detect question type/intent |
 | `enable_context` | `True` | Use conversation history |
@@ -241,7 +241,7 @@ curl -X POST http://localhost:8080/api/knowledge/query \
   "chunks_searched": 42,
   "chunks_relevant": 8,
   "processing_time_ms": 1250,
-  "model_used": "claude-3.5-sonnet"
+  "model_used": "claude-fable-5-1"
 }
 ```
 
