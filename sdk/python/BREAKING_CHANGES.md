@@ -108,6 +108,39 @@ declared by the audio handler even though no POST branch serves it yet.
 | `media.get_audio(audio_id)` | `GET /api/v1/media/audio/{id}` | `media.get_audio_url(debate_id)` builds the served `/audio/{debate_id}.mp3` URL; there is no per-file metadata route |
 | `media.delete_audio(audio_id)` | `DELETE /api/v1/media/audio/{id}` | No replacement; audio deletion is not served |
 
+Removed 6 `agents` methods (sync `AgentsAPI` and async `AsyncAgentsAPI`) that
+targeted routes no server handler dispatches: the agents handler rewrites
+`/api/v1/agents/{name}/...` to `/api/agent/{name}/...`, dispatches only
+read-only sub-routes (`profile`, `history`, `calibration`, `consistency`,
+`flips`, `network`, `rivals`, `allies`, `moments`, `positions`, `domains`,
+`performance`, `metadata`, `introspect`) and has no POST or PUT branch, and
+`/api/v1/agents/stats` is rejected as an invalid agent path. Every call below
+failed (404; 400 for `get_stats`), so no working integration depended on them.
+`agents.get_elo` / `agents.update_elo` (also unrouted) follow in the next batch.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `agents.get_stats()` | `GET /api/v1/agents/stats` | `ranking.get_stats()` (`GET /api/v1/ranking/stats`; `total_agents`, `total_matches`, `avg_elo`, `top_agent`, `elo_range`) for aggregate ranking statistics, or `client.request("GET", "/api/v1/agents", params={"include_stats": "true"})` for per-agent ELO and match counts (`agents.list()` sends no params). Per-agent stats also exist as `GET /api/v2/agents/{agent_id}/stats` on the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`), served but not in the spec |
+| `agents.calibrate(name, options)` | `POST /api/v1/agents/{name}/calibrate` | No replacement; calibration is recorded by the debate loop, not triggered over HTTP. Read the result with `agents.get_calibration_summary(name)` / `agents.get_calibration_curve(name)` (`GET /api/v1/agent/{name}/calibration-summary` and `.../calibration-curve`) |
+| `agents.enable(name)` | `POST /api/v1/agents/{name}/enable` | No replacement; there is no per-agent enable/disable switch on the HTTP server. Registration is the only lifecycle control: `agents.register(agent_id, ...)` / `agents.unregister(agent_id)` (`POST` / `DELETE /api/v1/control-plane/agents[/{id}]`, served but not in the spec) |
+| `agents.disable(name, reason)` | `POST /api/v1/agents/{name}/disable` | See `agents.enable` |
+| `agents.get_quota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
+| `agents.set_quota(name, limits)` | `PUT /api/v1/agents/{name}/quota` | `quotas.request_increase(resource, requested_limit=..., justification=...)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
+
+Removed 4 `backups` methods (sync `BackupsAPI` and async `AsyncBackupsAPI`) that
+targeted routes no server handler dispatches. The backup handler accepts only
+`/api/v2/backups...` paths and below a backup id serves only `verify`,
+`verify-comprehensive` and `restore-test`, so every call below returned 404.
+The retained Python `backups` methods still target `/api/v1/backups...`, which
+the handler also rejects; a follow-up repoints them to `/api/v2/backups...`.
+
+| Removed Method | Route | Migration |
+|----------------|-------|-----------|
+| `backups.restore(backup_id, target_namespace, data_types, dry_run)` | `POST /api/v1/backups/{id}/restore` | No served Python replacement: `backups.test_restore(backup_id, target_path)` posts to `/api/v1/backups/{backup_id}/restore-test`, which the v2-only backup handler rejects. For a dry-run restore into a server-side scratch path use the TypeScript `backups.testRestore(backupId, targetPath)` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) or `client.request("POST", f"/api/v2/backups/{backup_id}/restore-test", json={"target_path": ...})`; a real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
+| `backups.schedule(schedule, backup_type, retention_days, enabled)` | `POST /api/v1/backups/schedules` | No replacement; the backup schedule is server configuration (`BACKUP_ENABLED`, `BACKUP_DAILY_TIME`, `BACKUP_DR_DRILL_ENABLED`, `BACKUP_DR_DRILL_INTERVAL_DAYS`), not an API resource |
+| `backups.list_schedules()` | `GET /api/v1/backups/schedules` | No replacement; see `backups.schedule` |
+| `backups.delete_schedule(schedule_id)` | `DELETE /api/v1/backups/schedules/{id}` | No replacement; see `backups.schedule` |
+
 ---
 
 ### v2.4.0 (2026-01-25)
