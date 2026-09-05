@@ -378,6 +378,8 @@ READINESS_EXTRA_TESTS ?=
 # Where readiness-test-<app> writes junit XML. Defaults outside the worktree so
 # the gate leaves no untracked artifacts behind.
 READINESS_JUNIT_DIR ?= /tmp/aragora-readiness/junit
+# Machine-readable ratchet summaries, kept outside the worktree by default.
+READINESS_REPORT_DIR ?= /tmp/aragora-readiness/ratchet-reports
 # Coverage floor for readiness-test-root, read from [tool.coverage.report]
 # fail_under in pyproject.toml so the Makefile and pytest agree on one number.
 READINESS_ROOT_COV_FAIL_UNDER = $$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["tool"]["coverage"]["report"]["fail_under"])')
@@ -398,8 +400,25 @@ readiness-test: readiness-test-root readiness-test-debate readiness-test-verify 
 readiness-lint-root:
 	@$(READINESS_T0); \
 	command -v ruff >/dev/null 2>&1 || { echo "SKIP root: ruff not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v python3 >/dev/null 2>&1 || { echo "SKIP root: python3 not found"; exit 0; }; \
+	command -v vulture >/dev/null 2>&1 || { echo "SKIP root: vulture not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v git >/dev/null 2>&1 || { echo "SKIP root: git not found"; exit 0; }; \
 	ruff check aragora tests scripts && \
 	ruff format --check aragora tests scripts && \
+	python3 scripts/ci/check_tool_baseline.py --tool ruff \
+		--baseline scripts/baselines/root-ruff-naming.json \
+		--report-json "$(READINESS_REPORT_DIR)/root-ruff-naming.report.json" \
+		-- ruff check aragora --select N --output-format concise && \
+	python3 scripts/ci/check_tool_baseline.py --tool ruff \
+		--baseline scripts/baselines/root-ruff-complexity.json \
+		--report-json "$(READINESS_REPORT_DIR)/root-ruff-complexity.report.json" \
+		-- ruff check aragora --select C901 --output-format concise && \
+	python3 scripts/ci/check_tool_baseline.py --tool vulture \
+		--baseline scripts/baselines/root-vulture.json \
+		--report-json "$(READINESS_REPORT_DIR)/root-vulture.report.json" \
+		-- vulture aragora --min-confidence 80 && \
+	python3 scripts/ci/check_file_sizes.py \
+		--baseline scripts/baselines/file_size_baseline.json && \
 	$(READINESS_DONE)
 
 readiness-typecheck-root:

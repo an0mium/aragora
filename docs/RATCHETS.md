@@ -197,14 +197,15 @@ everything you need: the finding key, the baseline path, and both remedies.
 
 ### Wired baselines and their regeneration commands
 
-At M1 no repository baseline is wired yet: this section is vacuous until M2
-(`m2-python-core-gates`) lands the first root ratchets in
-`make readiness-lint-root`. Each later milestone appends its baselines here,
-one row per file, in the form:
+The root Python gates run in `make readiness-lint-root`. Each later milestone
+appends its baselines here, one row per file:
 
 | Baseline | Wired in | Regeneration command |
 |---|---|---|
-| _(none yet)_ | | |
+| `scripts/baselines/root-ruff-naming.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-naming.json --update -- ruff check aragora --select N --output-format concise` |
+| `scripts/baselines/root-ruff-complexity.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
+| `scripts/baselines/root-vulture.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
+| `scripts/baselines/file_size_baseline.json` (legacy format) | `readiness-lint-root` | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 
 The convention for every row: the regeneration command is the wired check
 command plus `--update`, run from the repository root, e.g.
@@ -214,6 +215,14 @@ python scripts/ci/check_tool_baseline.py --tool ruff \
   --baseline scripts/baselines/root-ruff-naming.json --update \
   -- ruff check aragora --select N --output-format concise
 ```
+
+The legacy file-size checker uses `--freeze` instead of `--update`; it still
+refuses growth. Its default scope remains `aragora/**/*.py`, including
+untracked-but-not-ignored files so local checks catch newcomers before staging.
+For other apps, pass quoted, repository-relative patterns such as
+`--glob 'app/src/**/*.ts' --glob 'app/src/**/*.tsx'` (or
+`--glob 'app/src/**/*.{ts,tsx}'`) and a per-app `--baseline` path.
+`**/` includes zero or more directories, so top-level source files count too.
 
 `docs/TECH_DEBT.md` (created in M2) carries a `## Ratchets` table with one row
 per baseline (Tool | Baseline file | Current count | Owner | Regeneration
