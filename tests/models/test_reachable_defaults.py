@@ -109,6 +109,28 @@ def _reachable_defaults() -> list[tuple[str, str]]:
         else:
             out.append(("codex_default", m))
 
+    # The three per-provider OpenRouter fallback maps. These live on the live
+    # server path and were the last unmigrated model tables in the repo.
+    from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+    from aragora.server.handlers.agents import agents as agents_handler
+    from aragora.server.stream import debate_executor
+
+    for provider, slug in debate_executor._OPENROUTER_FALLBACK_MODELS.items():
+        out.append((f"debate_executor.fallback.{provider}", slug))
+    out.append(
+        (
+            "debate_executor.generic_fallback",
+            debate_executor._OPENROUTER_GENERIC_FALLBACK_MODEL,
+        )
+    )
+    for provider, slug in agents_handler._OPENROUTER_FALLBACK_MODELS.items():
+        out.append((f"agents_handler.fallback.{provider}", slug))
+    # Only the VALUES: the keys are deliberately legacy/retired spellings a
+    # caller may still pin, and the point of the table is to route them to a
+    # live model.
+    for primary, slug in OPENROUTER_FALLBACK_MODELS.items():
+        out.append((f"openrouter.fallback_for[{primary}]", slug))
+
     # Native-provider entry points (see _NATIVE_ID_EXEMPT): listed so the gap
     # is named and pinned rather than merely absent from this test.
     import aragora.agents.api_agents.openrouter  # noqa: F401 - registers kimi-legacy

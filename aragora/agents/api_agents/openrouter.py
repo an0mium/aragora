@@ -33,6 +33,16 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config.model_pins import (
+    FABLE_51_VIA_OPENROUTER,
+    GEMINI_31_PRO_VIA_OPENROUTER,
+    GEMINI_38_FLASH_VIA_OPENROUTER,
+    GPT6_ASTRA_VIA_OPENROUTER,
+    GPT56_TERRA_VIA_OPENROUTER,
+    GROK_46_VIA_OPENROUTER,
+    MISTRAL_MEDIUM_VIA_OPENROUTER,
+    OPUS_5_VIA_OPENROUTER,
+)
 from aragora.exceptions import ExternalServiceError
 from aragora.models import CATALOG
 from aragora.models.compat import strip_sampling_params
@@ -63,6 +73,8 @@ QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
 # compatibility even though they now share one underlying model).
 MUSE_SPARK_MODEL = CATALOG["muse-spark-1.3"].openrouter_id
 MISTRAL_LARGE_MODEL = CATALOG["mistral-large-2512"].openrouter_id
+GLM_MODEL = CATALOG["glm-5.2"].openrouter_id
+MINIMAX_MODEL = CATALOG["minimax-m3"].openrouter_id
 # OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
@@ -74,8 +86,18 @@ MISTRAL_LARGE_MODEL = CATALOG["mistral-large-2512"].openrouter_id
 # and pricing (TODO in billing/usage.py) before enabling for real debates.
 FUSION_MODEL = "openrouter/fusion"
 
-# Fallback model chain for resilience when primary models fail
-# Maps primary model -> fallback model (used after max_retries exhausted)
+# Fallback model chain for resilience when primary models fail.
+# Maps primary model -> fallback model (used after max_retries exhausted).
+#
+# Two invariants (frontier-model-refresh, 2026-09-04):
+#  1. Every VALUE is an ACTIVE catalog row. A fallback target is only useful
+#     if a live request to it succeeds; the table previously routed nearly
+#     everything to the now-retired "openai/gpt-5.5" (and "x-ai/grok-4"
+#     retired->retired), so the resilience path itself was dead.
+#  2. Every current default has a KEY. The new frontier slugs had no entry at
+#     all, meaning the models the fleet actually runs had no fallback.
+# A fallback should also be cross-family wherever possible: a provider outage
+# that takes out the primary usually takes out its siblings too.
 OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # Qwen models -> DeepSeek
     QWEN_3_8_MAX_MODEL: DEEPSEEK_V4_PRO_MODEL,
@@ -84,43 +106,57 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.7-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.5-plus-02-15": DEEPSEEK_V4_PRO_MODEL,
-    # DeepSeek -> GPT-5.5 (fast, reliable). Keep legacy keys so
-    # callers that pin an older OpenRouter id still get a safe fallback.
-    DEEPSEEK_V4_PRO_MODEL: "openai/gpt-5.5",
-    "deepseek/deepseek-chat": "openai/gpt-5.5",
-    "deepseek/deepseek-chat-v3-0324": "openai/gpt-5.5",
-    "deepseek/deepseek-v3.2": "openai/gpt-5.5",
-    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.5",
-    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.5",
-    "deepseek/deepseek-r1": "openai/gpt-5.5",
-    "deepseek/deepseek-reasoner": "openai/gpt-5.5",
+    # DeepSeek -> the cheap/bulk OpenAI route (fast, reliable). Keep legacy
+    # keys so callers that pin an older OpenRouter id still get a safe
+    # fallback.
+    DEEPSEEK_V4_PRO_MODEL: GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-chat": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-chat-v3-0324": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-v3.2": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-v3.2-exp": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-chat-v3.1": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-r1": GPT56_TERRA_VIA_OPENROUTER,
+    "deepseek/deepseek-reasoner": GPT56_TERRA_VIA_OPENROUTER,
     # Kimi -> Claude Opus 5
-    KIMI_K3_MODEL: "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2.7-code": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2.5": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-5",
-    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-5",
+    KIMI_K3_MODEL: OPUS_5_VIA_OPENROUTER,
+    "moonshotai/kimi-k2.7-code": OPUS_5_VIA_OPENROUTER,
+    "moonshotai/kimi-k2.6": OPUS_5_VIA_OPENROUTER,
+    "moonshotai/kimi-k2.5": OPUS_5_VIA_OPENROUTER,
+    "moonshotai/kimi-k2-0905": OPUS_5_VIA_OPENROUTER,
+    "moonshotai/kimi-k2-thinking": OPUS_5_VIA_OPENROUTER,
+    "moonshot/moonshot-v1-128k": OPUS_5_VIA_OPENROUTER,
     # Retired OpenRouter defaults -> live replacements. The replacement rows
     # themselves retain a separate frontier fallback for provider outages.
     "perplexity/sonar-reasoning": "perplexity/sonar-reasoning-pro",
-    "perplexity/sonar-reasoning-pro": "openai/gpt-5.5",
+    "perplexity/sonar-reasoning-pro": GPT56_TERRA_VIA_OPENROUTER,
     "cohere/command-r-plus": "cohere/command-a",
-    "cohere/command-a": "openai/gpt-5.5",
+    "cohere/command-a": GPT56_TERRA_VIA_OPENROUTER,
     "ai21/jamba-1.6-large": "ai21/jamba-large-1.7",
-    "ai21/jamba-large-1.7": "openai/gpt-5.5",
-    "x-ai/grok-4": "x-ai/grok-4.5",
-    "x-ai/grok-4.5": "openai/gpt-5.5",
-    # Mistral -> GPT-5.5
-    "mistralai/mistral-large-2411": "openai/gpt-5.5",
-    "mistralai/mistral-large-2512": "openai/gpt-5.5",
+    "ai21/jamba-large-1.7": GPT56_TERRA_VIA_OPENROUTER,
+    "x-ai/grok-4": GROK_46_VIA_OPENROUTER,
+    "x-ai/grok-4.5": GROK_46_VIA_OPENROUTER,
+    # Mistral -> the cheap/bulk OpenAI route
+    "mistralai/mistral-large-2411": GPT56_TERRA_VIA_OPENROUTER,
+    MISTRAL_LARGE_MODEL: GPT56_TERRA_VIA_OPENROUTER,
+    MISTRAL_MEDIUM_VIA_OPENROUTER: GPT56_TERRA_VIA_OPENROUTER,
     # Yi -> DeepSeek
     "01-ai/yi-large": DEEPSEEK_V4_PRO_MODEL,
-    # Llama -> GPT-5.5
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.5",
-    "meta-llama/llama-4-maverick": "openai/gpt-5.5",
-    "meta-llama/llama-4-scout": "openai/gpt-5.5",
+    # Llama -> the cheap/bulk OpenAI route
+    "meta-llama/llama-3.3-70b-instruct": GPT56_TERRA_VIA_OPENROUTER,
+    "meta-llama/llama-4-maverick": GPT56_TERRA_VIA_OPENROUTER,
+    "meta-llama/llama-4-scout": GPT56_TERRA_VIA_OPENROUTER,
+    # Current frontier defaults. Without these the models the fleet actually
+    # runs today had no fallback entry at all.
+    FABLE_51_VIA_OPENROUTER: GPT6_ASTRA_VIA_OPENROUTER,
+    OPUS_5_VIA_OPENROUTER: GPT6_ASTRA_VIA_OPENROUTER,
+    GPT6_ASTRA_VIA_OPENROUTER: FABLE_51_VIA_OPENROUTER,
+    GPT56_TERRA_VIA_OPENROUTER: FABLE_51_VIA_OPENROUTER,
+    GROK_46_VIA_OPENROUTER: GPT6_ASTRA_VIA_OPENROUTER,
+    GEMINI_31_PRO_VIA_OPENROUTER: FABLE_51_VIA_OPENROUTER,
+    GEMINI_38_FLASH_VIA_OPENROUTER: GPT56_TERRA_VIA_OPENROUTER,
+    MUSE_SPARK_MODEL: GPT56_TERRA_VIA_OPENROUTER,
+    GLM_MODEL: DEEPSEEK_V4_PRO_MODEL,
+    MINIMAX_MODEL: DEEPSEEK_V4_PRO_MODEL,
 }
 
 

@@ -313,8 +313,43 @@ class TestOpenRouterModelFallback:
             == "deepseek/deepseek-v4-pro-0813"
         )
 
-        # DeepSeek -> GPT-5.5
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.5"
+        # DeepSeek -> the cheap/bulk OpenAI route
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.6-terra"
+
+    def test_every_fallback_target_is_an_active_catalog_row(self, mock_env_with_api_keys):
+        """A fallback target is only useful if a live request to it succeeds.
+
+        The table previously routed nearly every entry to the retired
+        "openai/gpt-5.5" (and "x-ai/grok-4" retired -> retired), so the
+        resilience path itself was dead.
+        """
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+        from aragora.models.catalog import spec_or_none
+
+        dead = {}
+        for primary, target in OPENROUTER_FALLBACK_MODELS.items():
+            spec = spec_or_none(target)
+            if spec is None or spec.retired:
+                dead[primary] = target
+        assert not dead, f"fallback targets that are missing or retired: {dead}"
+
+    def test_every_current_default_has_a_fallback_entry(self, mock_env_with_api_keys):
+        """The models the fleet actually runs must have a fallback of their own."""
+        from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+        from aragora.config import model_pins as mp
+
+        frontier = {
+            mp.FABLE_51_VIA_OPENROUTER,
+            mp.OPUS_5_VIA_OPENROUTER,
+            mp.GPT6_ASTRA_VIA_OPENROUTER,
+            mp.GPT56_TERRA_VIA_OPENROUTER,
+            mp.GROK_46_VIA_OPENROUTER,
+            mp.GEMINI_31_PRO_VIA_OPENROUTER,
+            mp.GEMINI_38_FLASH_VIA_OPENROUTER,
+            mp.MISTRAL_MEDIUM_VIA_OPENROUTER,
+        }
+        missing = frontier - set(OPENROUTER_FALLBACK_MODELS)
+        assert not missing, f"current defaults with no fallback entry: {missing}"
 
     @pytest.mark.parametrize(
         ("retired", "replacement", "frontier_fallback"),
@@ -322,11 +357,14 @@ class TestOpenRouterModelFallback:
             (
                 "perplexity/sonar-reasoning",
                 "perplexity/sonar-reasoning-pro",
-                "openai/gpt-5.5",
+                "openai/gpt-5.6-terra",
             ),
-            ("cohere/command-r-plus", "cohere/command-a", "openai/gpt-5.5"),
-            ("ai21/jamba-1.6-large", "ai21/jamba-large-1.7", "openai/gpt-5.5"),
-            ("x-ai/grok-4", "x-ai/grok-4.5", "openai/gpt-5.5"),
+            ("cohere/command-r-plus", "cohere/command-a", "openai/gpt-5.6-terra"),
+            ("ai21/jamba-1.6-large", "ai21/jamba-large-1.7", "openai/gpt-5.6-terra"),
+            # grok-4 used to fall forward to the now-retired grok-4.5; both
+            # retired spellings go straight to the live family frontier.
+            ("x-ai/grok-4", "x-ai/grok-4.6", "openai/gpt-6-astra"),
+            ("x-ai/grok-4.5", "x-ai/grok-4.6", "openai/gpt-6-astra"),
         ],
     )
     def test_retired_defaults_fall_forward_then_fail_over(

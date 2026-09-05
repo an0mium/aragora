@@ -110,6 +110,10 @@ UPGRADES: dict[str, str] = {
             "gpt-5.6-sol",
             "openai/gpt-4o",
             "openai/gpt-5.3",
+            # Orphan spelling from aragora/server/stream/debate_executor.py's
+            # generic fallback: absent from the catalog, so PR 3's sweep would
+            # otherwise leave it behind as a dead slug.
+            "openai/gpt-5.3-chat",
             "openai/gpt-5.4",
             "openai/gpt-5.5",
             "openai/gpt-5.6-sol",
@@ -129,6 +133,9 @@ UPGRADES: dict[str, str] = {
             "gpt-5.4-mini",
             "gpt-5.6-luna",
             "openai/gpt-4o-mini",
+            # Orphan spelling from aragora/server/handlers/agents/agents.py's
+            # per-provider fallback map (see openai/gpt-5.3-chat above).
+            "openai/gpt-4.1-mini",
             "openai/gpt-5.4-mini",
             "openai/gpt-5.6-luna",
             "o1-mini",
@@ -184,6 +191,9 @@ UPGRADES: dict[str, str] = {
             "grok-4.3",
             "grok-4.5",
             "x-ai/grok-4",
+            # Orphan spelling from aragora/server/stream/debate_executor.py
+            # (see openai/gpt-5.3-chat above).
+            "x-ai/grok-4.1-fast",
             "x-ai/grok-4.3",
             "x-ai/grok-4.5",
         )
