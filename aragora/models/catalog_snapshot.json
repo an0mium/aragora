@@ -24,6 +24,11 @@
       "input_per_mtok": 10.0,
       "output_per_mtok": 50.0
     },
+    "anthropic/claude-haiku-4.5": {
+      "context_length": 200000,
+      "input_per_mtok": 1.0,
+      "output_per_mtok": 5.0
+    },
     "anthropic/claude-opus-4.8": {
       "context_length": 1000000,
       "input_per_mtok": 5.0,

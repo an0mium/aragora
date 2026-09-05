@@ -215,6 +215,38 @@ CATALOG: dict[str, ModelSpec] = {
             thinking_default_on=True,
         ),
         ModelSpec(
+            # Cataloged by the 2026-09-05 merge-gate fix wave (finding C-P3
+            # on #9989): the id was in the pre-refresh Anthropic model map
+            # and is still a live value-tier SKU, but had no catalog row, so
+            # AnthropicAPIAgent(model="claude-haiku-4-5-20251001")
+            # .get_fallback_model() fell through to the agent's
+            # DEFAULT_FALLBACK_MODEL (Opus 5) — a ~5x-priced flagship — while
+            # every other legacy Claude spelling upgraded correctly.
+            canonical_id="claude-haiku-4-5-20251001",
+            provider="anthropic",
+            # Pretraining lineage, same as every other Claude row. tier
+            # "value" is what keeps it from displacing claude-fable-5-1 as
+            # the anthropic frontier (frontier_for() considers only
+            # tier="flagship"), so the family must NOT be a synthetic
+            # per-tier bucket -- see
+            # test_secondary_tier_rows_keep_lineage_family_not_flagship_tier.
+            family="anthropic",
+            tier="value",
+            direct_id="claude-haiku-4-5-20251001",
+            openrouter_id="anthropic/claude-haiku-4.5",
+            input_per_mtok=1.00,
+            output_per_mtok=5.00,
+            context_window=200_000,
+            max_output_tokens=64_000,
+            release_date=date(2025, 10, 1),
+            aliases=("claude-haiku-4-5", "claude-haiku-4.5"),
+            # 4.5-era capability flags: sampling params still accepted (the
+            # 4.7+ removal does not apply to this line) and thinking is not
+            # on by default.
+            supports_sampling_params=True,
+            thinking_default_on=False,
+        ),
+        ModelSpec(
             canonical_id="gpt-5.6-sol",
             provider="openai",
             family="openai",
@@ -600,38 +632,58 @@ CATALOG: dict[str, ModelSpec] = {
 
 
 # Models whose runtime-table rows are ENFORCED against this catalog by
-# tests/models/test_catalog.py. Grows as legacy rows are adjudicated (several
-# older mirror rows are known-stale vs the live snapshot — e.g. the deepseek
-# and qwen3-max rows — and enter enforcement only once their discrepancies
-# are resolved, not silently overwritten).
+# tests/models/test_catalog.py.
 #
-# Deliberately NOT ``tuple(CATALOG)``: the frontier-model-refresh (2026-09-04)
-# added thirteen new rows whose runtime-table mirrors (pdb/billing/metering/
-# provider_config/model_selector/openrouter fallback) have not been migrated
-# yet — that migration is later-task scope. Auto-enforcing them here would
-# fail the mirror-consistency tests below for rows that were never meant to
-# be wired yet. ``qwen3.8-max`` is dropped (not replaced by
-# ``qwen3.8-2.4t-a95b``) for the same reason: its canonical/direct id changed,
-# and the mirror tables still key on the old spelling. It is resolvable via
-# the ``aliases`` tuple on the new ``qwen3.8-2.4t-a95b`` row (``by_any_id``),
-# but not yet enforced under the new id; the two runtime modules that used
-# to subscript ``CATALOG["qwen3.8-max"]`` directly were updated to the new
-# canonical id instead (frontier-model-refresh controller ruling 2 — no
-# duplicate ``CATALOG`` keys).
+# The frontier-model-refresh (2026-09-04) first landed its thirteen new rows
+# OUTSIDE this tuple, on the grounds that their runtime-table mirrors had not
+# been migrated yet. The 2026-09-05 merge-gate review showed why that was the
+# wrong call (finding C-P3 on #9989): the excluded rows were exactly the
+# models the refresh makes the DEFAULTS, so the mirror-consistency tests
+# below covered none of them — which is precisely how the P1 pricing-bucket
+# bug (every OpenRouter-spelled frontier default billed at the $2/$8 default)
+# passed a thousand green tests. Task 6 generated those mirrors from this
+# catalog via ``aragora.models.pricing_mirror``, so every row is now wired
+# and every row is now enforced. ``claude-haiku-4-5-20251001`` (cataloged in
+# the same fix wave) is enforced for the same reason.
+#
+# Still deliberately NOT written as ``tuple(CATALOG)``: enforcement is an
+# adjudication, not a default. A newly added row must be listed here by hand,
+# which is what forces its mirrors to be checked before it can ship — writing
+# it as a comprehension would make every future row silently self-enforcing
+# and re-open exactly the gap above from the other direction.
+#
+# ``qwen3.8-max`` is absent because it is not a canonical id: it is an
+# ``aliases`` entry on ``qwen3.8-2.4t-a95b`` (``by_any_id`` resolves it), and
+# that canonical id is what is enforced (frontier-model-refresh controller
+# ruling 2 — no duplicate ``CATALOG`` keys).
 ENFORCED_MODELS: tuple[str, ...] = (
     "claude-fable-5",
+    "claude-fable-5-1",
     "claude-opus-5",
     "claude-opus-4-8",
+    "claude-haiku-4-5-20251001",
+    "gpt-6-astra",
+    "gpt-5.6-terra",
     "gpt-5.6-sol",
     "gpt-5.5",
+    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
+    "grok-4.6",
     "grok-4.5",
     "grok-4.3",
+    "mistral-medium-2604",
+    "mistral-large-2512",
     "sonar-reasoning-pro",
     "command-a",
     "jamba-large-1.7",
+    "qwen3.8-2.4t-a95b",
     "qwen3.7-max",
     "kimi-k3",
     "kimi-k2.7-code",
+    "deepseek-v4-pro-0813",
+    "muse-spark-1.3",
+    "glm-5.2",
+    "minimax-m3",
 )
 
 _ID_INDEX: dict[str, ModelSpec] = {}

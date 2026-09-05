@@ -126,7 +126,6 @@ UPGRADES: dict[str, str] = {
             "o1",
             "o3",
             "o3-pro",
-            "o4-mini",
         )
     },
     **{
@@ -146,6 +145,11 @@ UPGRADES: dict[str, str] = {
             "openai/gpt-5.6-luna",
             "o1-mini",
             "o3-mini",
+            # "o4-mini" is a mini SKU and belongs with its siblings on the
+            # value tier: it used to map to the Astra flagship while
+            # "o3-mini"/"gpt-4o-mini" mapped to Terra, an inconsistency the
+            # 2026-09-05 merge-gate review caught (finding C-P3 on #9989).
+            "o4-mini",
         )
     },
     # Google. NOTE: "google/gemini-3.1-pro" is deliberately absent — Task 1
