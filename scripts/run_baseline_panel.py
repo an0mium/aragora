@@ -2,9 +2,14 @@
 """Round 31b Phase 1 — Single-family baseline panel runner.
 
 Runs 6 single-family panelists with varied temperatures so the panel is
-heterogeneous-by-temperature but homogeneous-by-family. The default provider is
-Anthropic (claude-haiku-4-5 panelists, claude-sonnet-4-5 judge); OpenAI remains
-available via BASELINE_PROVIDER=openai.
+heterogeneous-by-temperature but homogeneous-by-family. The JUDGE is
+deliberately drawn from a DIFFERENT family than the panel, so it can score
+the panel's output independently. Both models come from
+``aragora.config.model_pins`` (Anthropic Fable 5.1 and OpenAI GPT-6 Astra),
+so a catalog refresh moves them without editing this script.
+``BASELINE_PROVIDER`` picks which of the two runs the panel: the default
+``anthropic`` gives a Fable panel judged by Astra, and ``openai`` swaps the
+roles.
 
 The baseline covers 5 composition-matched prompts: 3 seeded classes
 (single_seeded_error, multi_seeded_error, red_team_paraphrase) plus 2
@@ -38,6 +43,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from aragora.config.model_pins import FABLE_51_DIRECT, GPT6_ASTRA_DIRECT
+from aragora.models.catalog import spec_or_none
 from aragora.heterogeneity.judge import (
     build_judge_prompt,
     parse_judge_output,
@@ -60,12 +67,32 @@ RECEIPTS_DIR = REPO_ROOT / "docs" / "receipts" / "heterogeneity"
 
 PROVIDER = os.environ.get("BASELINE_PROVIDER", "anthropic")
 
+# Panel and judge must stay in DIFFERENT model families (2026-09-04
+# controller ruling, wave 3). A judge drawn from the panel's own family
+# cannot independently score the panel's output, and this file previously
+# pinned two same-family ids per branch -- which PR 3's trial sweep then
+# collapsed onto ONE id, erasing the panel/judge distinction outright.
+# Both ids come from the pins module, so a catalog refresh moves them here
+# for free and neither can drift into a retired spelling again.
 if PROVIDER == "openai":
-    PANEL_MODEL = "gpt-4o-mini"
-    JUDGE_MODEL = "gpt-4.1-mini"
+    PANEL_MODEL, JUDGE_MODEL = GPT6_ASTRA_DIRECT, FABLE_51_DIRECT
 else:
-    PANEL_MODEL = "claude-haiku-4-5"
-    JUDGE_MODEL = "claude-sonnet-4-5"  # different model than panel; same family for baseline
+    PANEL_MODEL, JUDGE_MODEL = FABLE_51_DIRECT, GPT6_ASTRA_DIRECT
+
+
+# Which native endpoint each model is called through, derived from its
+# catalog row rather than from BASELINE_PROVIDER -- panel and judge are now
+# different providers, so one process-wide provider string is no longer
+# enough to route a call.
+def _provider_for(model_id: str) -> str:
+    spec = spec_or_none(model_id)
+    if spec is None:  # pragma: no cover - a pin always has a catalog row
+        raise RuntimeError(f"no catalog row for pinned model {model_id!r}")
+    return spec.provider
+
+
+PANEL_PROVIDER = _provider_for(PANEL_MODEL)
+JUDGE_PROVIDER = _provider_for(JUDGE_MODEL)
 
 PANELIST_TEMPERATURES = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
@@ -77,13 +104,14 @@ PROMPT_FILES = [
     PROMPTS_ROOT / "null_negative" / "02_no_error_implicit_pressure.md",
 ]
 
-PRICE_PER_MTOK = {
-    "gpt-4o-mini": {"input": 0.150, "output": 0.600},
-    "gpt-4.1-mini": {"input": 0.400, "output": 1.600},
-    "claude-haiku-4-5": {"input": 1.000, "output": 5.000},
-    "claude-sonnet-4-5": {"input": 3.000, "output": 15.000},
-}
 
+# NOTE (frontier-model-refresh wave 3, 2026-09-05): these rails were sized
+# for the retired mini SKUs this script used to pin (~$0.15-$3 per MTok).
+# The pinned frontier models cost ~$10/$50 per MTok, so a full 5-prompt x 6-
+# temperature run now projects well past the trip and the estimator will
+# skip panelists mid-run. Raising the caps is a spend decision, deliberately
+# NOT made here: run this script only with caps a human has re-approved for
+# the frontier rates.
 BUDGET_HARD_CAP_USD = 1.00
 BUDGET_ESTIMATOR_TRIP_USD = 0.85
 
@@ -93,10 +121,16 @@ MAX_JUDGE_TOKENS = 400
 
 
 def _estimate_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    rates = PRICE_PER_MTOK[model]
-    return (input_tokens / 1_000_000) * rates["input"] + (output_tokens / 1_000_000) * rates[
-        "output"
-    ]
+    """Budget-rail estimate from the catalog's own rates.
+
+    Was a four-row hand table keyed on the retired ids this script used to
+    pin; the catalog is the single priced source, so the rail can no longer
+    quote a stale rate (or KeyError) after a model refresh."""
+    spec = spec_or_none(model)
+    if spec is None:  # pragma: no cover - a pin always has a catalog row
+        raise RuntimeError(f"no catalog row for {model!r}; cannot price the budget rail")
+    rate_in, rate_out = spec.rates_for(input_tokens)
+    return (input_tokens / 1_000_000) * rate_in + (output_tokens / 1_000_000) * rate_out
 
 
 def _approx_tokens(text: str) -> int:
@@ -111,19 +145,19 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def _load_client():
-    """Load provider client with key resolved through SecretManager."""
+def _load_client(provider: str):
+    """Load a provider client with its key resolved through SecretManager."""
     from aragora.config.secrets import SecretManager
 
     sm = SecretManager()
-    if PROVIDER == "openai":
+    if provider == "openai":
         api_key = sm.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY missing from SecretManager")
         from openai import OpenAI  # type: ignore
 
         return ("openai", OpenAI(api_key=api_key))
-    if PROVIDER == "anthropic":
+    if provider == "anthropic":
         api_key = sm.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY missing from SecretManager")
@@ -133,7 +167,7 @@ def _load_client():
             return ("anthropic", anthropic.Anthropic(api_key=api_key))
         except ModuleNotFoundError:
             return ("anthropic_http", api_key)
-    raise RuntimeError(f"unknown PROVIDER: {PROVIDER}")
+    raise RuntimeError(f"unknown provider: {provider}")
 
 
 def _call_openai_impl(
@@ -359,7 +393,10 @@ def main() -> int:
     print(f"panel: {len(panel_models)} panelists (temps: {PANELIST_TEMPERATURES})")
     print(f"judge: {JUDGE_MODEL}")
 
-    client = _load_client()
+    panel_client = _load_client(PANEL_PROVIDER)
+    judge_client = (
+        panel_client if JUDGE_PROVIDER == PANEL_PROVIDER else _load_client(JUDGE_PROVIDER)
+    )
 
     cumulative_estimate_usd = 0.0
     cumulative_actual_usd = 0.0
@@ -398,7 +435,7 @@ def main() -> int:
 
             # 1. Panelist call
             panel_resp = _call_provider(
-                client,
+                panel_client,
                 model=PANEL_MODEL,
                 system_prompt=PANELIST_SYSTEM_PROMPT,
                 user_prompt=panel_user_prompt,
@@ -435,7 +472,7 @@ def main() -> int:
             # 2. Judge call
             judge_user_prompt = build_judge_prompt(prompt, panel_resp["text"][:4000])
             judge_resp = _call_provider(
-                client,
+                judge_client,
                 model=JUDGE_MODEL,
                 system_prompt=JUDGE_SYSTEM_PROMPT,
                 user_prompt=judge_user_prompt,
@@ -567,7 +604,7 @@ def main() -> int:
             f"All 6 panelists are {PANEL_MODEL} with varied temperatures "
             "(0.0, 0.2, 0.4, 0.6, 0.8, 1.0) - homogeneous family, "
             "heterogeneous decoding.",
-            f"Judge: {JUDGE_MODEL} (different model than panel) at temperature 0.0.",
+            f"Judge: {JUDGE_MODEL} (a DIFFERENT family than the panel) at temperature 0.0.",
             "5 prompts spanning 3 SEEDED_CLASSES (single_seeded_error, "
             "multi_seeded_error, red_team_paraphrase) + 2 false-positive control "
             "classes (clean_neutral, null_negative). N_seeded_trials = 18 "

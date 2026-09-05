@@ -174,6 +174,26 @@ def _reachable_defaults() -> list[tuple[str, str]]:
     # UPGRADES map declares dead, and OpenRouterAgent performs no
     # construction-time upgrade -- so the slot sent a dead id and had no
     # fallback entry to fall back to.
+    # The seven hand-maintained tables PR 1's spec inventory missed, wired
+    # to the catalog in the 2026-09-05 wave-3 pass. Most of them are keyed
+    # BY model, so they define no default; these three name one.
+    from aragora.documents.chunking.context_manager import ContextConfig, ContextManager
+    from aragora.documents.chunking.token_counter import TokenCounter
+
+    out.append(("context_manager.ContextConfig.model", ContextConfig().model))
+    out.append(("token_counter.TokenCounter.default_model", TokenCounter().default_model))
+    # recommend_model() hands a model id straight back to the caller for a
+    # real run, so each branch's return value is a reachable default.
+    _recommender = ContextManager()
+    for total_tokens in (10_000, 60_000, 200_000, 600_000):
+        for prefer_reasoning in (False, True):
+            out.append(
+                (
+                    "context_manager.recommend_model",
+                    _recommender.recommend_model(total_tokens, prefer_reasoning),
+                )
+            )
+
     from aragora.pdb import invoker_factory as pdb_invoker_factory
 
     for const in (
