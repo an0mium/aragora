@@ -568,9 +568,9 @@ class TestTokenCostCalculation:
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # mistral-large input: $2/1M, output: $6/1M
-        assert input_cost == Decimal("2.00")
-        assert output_cost == Decimal("6.00")
+        # mistral-large-2512 live catalog 2026-09-04
+        assert input_cost == Decimal("0.50")
+        assert output_cost == Decimal("1.50")
 
     def test_known_model_mistral_codestral(self):
         """Test cost calculation for Codestral."""
