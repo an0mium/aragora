@@ -260,3 +260,99 @@ def test_openai_upgrade_gate_is_separate_from_the_vibeproxy_routing_flag(
     assert agent._uses_official_openai_endpoint is False
     assert openai_mod._targets_official_openai_endpoint() is True
     assert agent.model == GPT6_ASTRA_DIRECT
+
+
+# ---------------------------------------------------------------------------
+# Wire id is direct_id, never canonical_id (finding C-P3, round 2)
+# ---------------------------------------------------------------------------
+
+
+class TestWireIdIsTheDirectId:
+    """``resolve_model_id()`` answers with a ``canonical_id`` -- the catalog's
+    INTERNAL name for a row. Every native row in today's catalog happens to
+    have ``canonical_id == direct_id``, so using the canonical spelling as the
+    wire id works by coincidence; a row like Cohere's ``command-a-03-2025``
+    (canonical) / ``command-a`` (direct) breaks it silently, sending an id no
+    endpoint accepts.
+
+    A synthetic row where the two genuinely differ is the only way to make
+    that difference observable, so these tests inject one.
+    """
+
+    @pytest.fixture
+    def split_id_row(self, monkeypatch: pytest.MonkeyPatch):
+        from datetime import date
+
+        from aragora.models import catalog as catalog_mod
+        from aragora.models.catalog import ModelSpec
+
+        row = ModelSpec(
+            canonical_id="testfam-flagship-20990101",
+            provider="testfam",
+            family="testfam",
+            direct_id="testfam-flagship",
+            openrouter_id="testfam/testfam-flagship",
+            input_per_mtok=1.0,
+            output_per_mtok=2.0,
+            context_window=100_000,
+            max_output_tokens=8_000,
+            release_date=date(2099, 1, 1),
+        )
+        retired = ModelSpec(
+            canonical_id="testfam-old",
+            provider="testfam",
+            family="testfam",
+            retired=True,
+            direct_id="testfam-old",
+            openrouter_id="testfam/testfam-old",
+            input_per_mtok=1.0,
+            output_per_mtok=2.0,
+            context_window=100_000,
+            max_output_tokens=8_000,
+            release_date=date(2098, 1, 1),
+        )
+        patched_catalog = {
+            **catalog_mod.CATALOG,
+            row.canonical_id: row,
+            retired.canonical_id: retired,
+        }
+        patched_index = dict(catalog_mod._ID_INDEX)
+        for spec in (row, retired):
+            for mid in spec.all_ids():
+                patched_index[mid] = spec
+        monkeypatch.setattr(catalog_mod, "CATALOG", patched_catalog)
+        monkeypatch.setattr(catalog_mod, "_ID_INDEX", patched_index)
+        return row
+
+    def test_canonical_and_direct_really_differ(self, split_id_row) -> None:
+        """Guard-rail: without this the assertions below pass vacuously."""
+        assert split_id_row.canonical_id != split_id_row.direct_id
+
+    def test_native_model_id_returns_the_direct_id(self, split_id_row) -> None:
+        assert common.native_model_id("testfam-old") == "testfam-flagship"
+        assert common.native_model_id("testfam-flagship-20990101") == "testfam-flagship"
+
+    def test_upgrade_retired_model_id_returns_the_direct_id(self, split_id_row) -> None:
+        from aragora.models.upgrade_map import resolve_model_id
+
+        # The bare resolver still answers with the canonical spelling...
+        assert resolve_model_id("testfam-old") == "testfam-flagship-20990101"
+        # ...but the wire id the agent sends is the direct one.
+        assert common.upgrade_retired_model_id("testfam-old") == "testfam-flagship"
+
+    def test_unknown_spelling_is_still_returned_verbatim(self, split_id_row) -> None:
+        assert common.native_model_id("testfam-model-from-the-future") == (
+            "testfam-model-from-the-future"
+        )
+        assert common.native_model_id("") == ""
+
+    def test_gemini_agent_sends_the_direct_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """gemini.py resolves its id at construction and that value is the
+        wire id for generativelanguage.googleapis.com."""
+        from aragora.agents.api_agents.gemini import GeminiAgent
+        from aragora.models.catalog import spec_or_none
+
+        agent = GeminiAgent(model="gemini-3.1-pro", api_key="test-key")
+        spec = spec_or_none(agent.model)
+        assert spec is not None
+        assert agent.model == spec.direct_id

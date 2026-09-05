@@ -348,6 +348,37 @@ def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False)
 _LOGGED_MODEL_UPGRADES: set[tuple[str, str]] = set()
 
 
+def native_model_id(model: str) -> str:
+    """The code a NATIVE provider endpoint accepts for ``model``.
+
+    ``resolve_model_id()`` answers with a ``canonical_id`` -- the catalog's
+    internal name for a row, which is NOT guaranteed to be the code the
+    provider's own API takes. It happens to coincide for every native row in
+    the catalog today, but a row like ``command-a-03-2025`` (canonical) with
+    ``command-a`` (direct) would break the coincidence silently, sending a
+    wire id no endpoint accepts (finding C-P3 on #9989).
+
+    So: resolve, then take the resolved row's ``direct_id``. A spelling that
+    resolves to no catalog row is returned unchanged -- a model newer than
+    the catalog must still be callable.
+
+    Caveat (documented on ``ModelSpec.direct_id``): for a ``provider ==
+    "openrouter"`` row, ``direct_id`` is a placeholder equal to
+    ``canonical_id`` and is not a native code at all. Native agents are not
+    pinned to those rows; the call sites that ARE keep their own verified
+    native codes (see ``_NATIVE_ID_EXEMPT`` in
+    ``tests/models/test_reachable_defaults.py``).
+    """
+    from aragora.models.catalog import spec_or_none
+    from aragora.models.upgrade_map import resolve_model_id
+
+    if not model:
+        return model
+    resolved = resolve_model_id(model) or model
+    spec = spec_or_none(resolved)
+    return spec.direct_id if spec is not None else resolved
+
+
 def upgrade_retired_model_id(model: str) -> str:
     """Rewrite a RETIRED or known-dead model id to its current spelling.
 
@@ -366,9 +397,13 @@ def upgrade_retired_model_id(model: str) -> str:
     An UNKNOWN spelling is returned unchanged too — a model newer than the
     catalog must still be callable, which is why this is deliberately not a
     blanket ``resolve_model_id()``.
+
+    The rewritten value is the successor row's ``direct_id`` (via
+    ``native_model_id``), not its ``canonical_id``: the caller sends it
+    straight to a native endpoint (finding C-P3 on #9989).
     """
     from aragora.models.catalog import spec_or_none
-    from aragora.models.upgrade_map import UPGRADES, resolve_model_id
+    from aragora.models.upgrade_map import UPGRADES
 
     if not model:
         return model
@@ -376,7 +411,7 @@ def upgrade_retired_model_id(model: str) -> str:
     is_dead = model in UPGRADES or (spec is not None and spec.retired)
     if not is_dead:
         return model
-    upgraded = resolve_model_id(model) or model
+    upgraded = native_model_id(model)
     if upgraded != model and (model, upgraded) not in _LOGGED_MODEL_UPGRADES:
         _LOGGED_MODEL_UPGRADES.add((model, upgraded))
         logger.warning("retired model id %s upgraded to %s", model, upgraded)
@@ -788,4 +823,5 @@ __all__: list[str] = [
     "SSEStreamParser",
     "create_openai_sse_parser",
     "create_anthropic_sse_parser",
+    "native_model_id",
 ]

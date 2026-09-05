@@ -29,11 +29,11 @@ from aragora.agents.api_agents.common import (
     get_stream_buffer_size,
     handle_agent_errors,
     iter_chunks_with_timeout,
+    native_model_id,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
 from aragora.config.model_pins import GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER
-from aragora.models.upgrade_map import resolve_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,12 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     ) -> None:
         # Normalize legacy/short names via the shared catalog + upgrade map
         # (frontier-model-refresh, 2026-09-04) instead of a hand-maintained
-        # GEMINI_MODEL_ALIASES dict.
-        normalized_model = resolve_model_id(model)
+        # GEMINI_MODEL_ALIASES dict. ``native_model_id`` (not the bare
+        # ``resolve_model_id``) because this value is the WIRE id for
+        # generativelanguage.googleapis.com: the catalog's ``canonical_id``
+        # is an internal name that is not guaranteed to be a code the
+        # provider accepts (finding C-P3 on #9989).
+        normalized_model = native_model_id(model)
         super().__init__(
             name=name,
             model=normalized_model,
