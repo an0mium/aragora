@@ -14,6 +14,12 @@ active ``"claude-fable-5-1"`` — never falsely matches. This script reuses
 that pattern directly rather than re-wrapping it in another boundary
 layer.
 
+ADVISORY, not enforcing, at this commit: nothing in ``.github/`` invokes this
+script, and ``--check`` still reports thousands of retired literals outside
+the allowlist. Landing the ``--write`` sweep is PR 3's scope and wiring the
+check into CI is PR 4's; until then a non-zero exit here is information, not
+a gate.
+
 One class of retired literal is deliberately NOT rewritten: a bare
 (native-shaped) spelling whose current row is reachable only through
 OpenRouter has no real native id to be rewritten to. ``--write`` leaves it

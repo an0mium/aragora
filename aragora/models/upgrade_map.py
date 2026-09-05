@@ -2,8 +2,11 @@
 
 Runtime: ``resolve_model_id`` normalises any legacy or superseded spelling
 before catalog or pricing lookups. Build time:
-``scripts/refresh_model_literals.py`` rewrites literals with the same table,
-so the repo never disagrees with the runtime.
+``scripts/refresh_model_literals.py`` rewrites literals with the same table.
+Bringing the repo's literals into agreement with the runtime is the sweep's
+job (PR 3) and keeping them there is its CI job's (PR 4); until both land the
+check is ADVISORY and thousands of retired literals remain outside the
+allowlist -- run ``--check`` for the current count.
 
 Contract (frontier-model-refresh, Task 2, 2026-09-04 controller rulings):
 
