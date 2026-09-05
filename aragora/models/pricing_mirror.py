@@ -107,6 +107,13 @@ def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
        shadows its ``alibaba``-provider sibling ``qwen3.7-max`` down to the
        default rate — trading the reviewer's bug for a narrower copy of it.
        For the common case (``family == provider``) this rule is a no-op.
+    4. every ``family == "moonshot"`` row, additionally under a ``kimi``
+       bucket. Rule 3 is a no-op here (``family == provider == "moonshot"``
+       for these rows), but the live runtime label is ``"kimi"`` --
+       ``OpenRouterAgent.agent_type`` for the Kimi agent classes
+       (``aragora/agents/api_agents/openrouter.py``) -- so without this,
+       ``calculate_token_cost("kimi", ...)`` never finds a ``"kimi"``
+       bucket and silently falls back to the ``openrouter`` default.
 
     Rates are identical across buckets — this is one row's price made
     reachable under every provider label a caller legitimately uses for
@@ -120,6 +127,8 @@ def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
             buckets.append((_OPENROUTER, slugs))
     if spec.family and spec.family != spec.provider:
         buckets.append((spec.family, ids))
+    if spec.family == "moonshot":
+        buckets.append(("kimi", ids))
     return tuple(buckets)
 
 

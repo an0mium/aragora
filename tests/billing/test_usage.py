@@ -195,6 +195,18 @@ class TestCalculateTokenCost:
         expected = Decimal("1.74") + Decimal("3.48")
         assert cost == expected
 
+    def test_kimi_provider_matches_moonshot_bucket(self):
+        """ "kimi" is the live provider label OpenRouterAgent.agent_type uses
+        for the Kimi agent classes (aragora/agents/api_agents/openrouter.py),
+        while the catalog rows are family/provider "moonshot". Without a
+        dedicated "kimi" bucket (aragora/models/pricing_mirror.py::_bucketed),
+        this silently fell back to the openrouter default rate."""
+        kimi_cost = calculate_token_cost("kimi", "kimi-k3", 1_000_000, 1_000_000)
+        moonshot_cost = calculate_token_cost("moonshot", "kimi-k3", 1_000_000, 1_000_000)
+        default_cost = calculate_token_cost("unknown_provider", "kimi-k3", 1_000_000, 1_000_000)
+        assert kimi_cost == moonshot_cost
+        assert kimi_cost != default_cost
+
     def test_unknown_provider_uses_openrouter_default(self):
         """Test unknown provider falls back to OpenRouter pricing."""
         cost = calculate_token_cost("unknown_provider", "unknown_model", 1_000_000, 1_000_000)
