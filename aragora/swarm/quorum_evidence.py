@@ -373,7 +373,6 @@ FAMILY_DISPLAY: dict[str, str] = {
     "deepseek": "DeepSeek",
     "qwen": "Qwen",
     "kimi": "Kimi",
-    "yi": "Yi",
     "glm": "GLM",
     "minimax": "MiniMax",
     "tencent": "Tencent Hy3",
