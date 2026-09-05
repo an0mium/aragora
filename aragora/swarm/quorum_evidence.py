@@ -59,12 +59,30 @@ from aragora.cli.commands.review_queue_transport import (
     GITHUB_TRANSPORT_BLOCKED_STATUS,
     _is_github_transport_error,
 )
-from aragora.config.model_pins import FABLE_51_DIRECT, GPT6_ASTRA_DIRECT
-from aragora.models.catalog import CATALOG
 from aragora.swarm import merge_quorum_io
 
 if TYPE_CHECKING:
     from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
+
+# Direct (non-OpenRouter) catalog ids for the frontier reviewer/harness pins,
+# equal to aragora.config.model_pins.FABLE_51_DIRECT / GPT6_ASTRA_DIRECT and
+# aragora.models.catalog.CATALOG["claude-fable-5-1"/"gpt-6-astra"].direct_id.
+# Deliberately hardcoded rather than imported from either module: this module
+# (via aragora.cli.commands.review_queue, which re-exports several names from
+# it) is the Tier-4 "canonical exact-ref policy" module that
+# tests/governance/test_contract_drift_measurement_authority_tier.py requires
+# to (a) import cleanly under `python -I -S` (isolated, stdlib-only, no
+# third-party packages -- aragora.config.model_pins pulls in
+# aragora.config.secrets, which needs pydantic) and (b) never grow its
+# reachable-module closure with anything outside the Tier-4-classified
+# authority set (aragora.models.catalog is not currently classified Tier 4,
+# so importing it here -- even just for CATALOG -- fails that check too).
+# tests/models/test_reachable_defaults.py is the staleness guard: it resolves
+# every value here (and in _OPENROUTER_REVIEWER_MODELS below) against the live
+# catalog from ordinary test-process imports, which are NOT part of this
+# module's reachable closure, so a retired/renamed id is still caught by CI.
+_FABLE_51_DIRECT = "claude-fable-5-1"
+_GPT6_ASTRA_DIRECT = "gpt-6-astra"
 
 logger = logging.getLogger(__name__)
 
@@ -624,7 +642,7 @@ _CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
 # Founder decision 2026-09-04 (chat, recorded on #9069): GPT-6 Astra drives
 # reviewer evidence from day two, overriding the 14-day soak rule once. Soak
 # metadata on the catalog row is unchanged for every other consumer.
-_CODEX_DEFAULT_MODELS = (GPT6_ASTRA_DIRECT, "gpt-5.6-sol")
+_CODEX_DEFAULT_MODELS = (_GPT6_ASTRA_DIRECT, "gpt-5.6-sol")
 _CODEX_DEFAULT_MODEL = _CODEX_DEFAULT_MODELS[0]
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
@@ -2058,13 +2076,13 @@ def _claude_empty_mcp_config_file() -> Iterator[Path]:
 def _claude_reviewer_model() -> str:
     """Resolve the claude CLI reviewer's model, honoring an env override.
 
-    Defaults to :data:`FABLE_51_DIRECT` (Claude Fable 5.1, the 2026-09-04
+    Defaults to :data:`_FABLE_51_DIRECT` (Claude Fable 5.1, the 2026-09-04
     frontier refresh). The profile's ``settings.json`` default model is NOT
     load-bearing enough for a merge-gate reviewer -- it can drift silently
     per-profile -- so the argv always names a model explicitly.
     """
     override = os.environ.get(_CLAUDE_MODEL_ENV, "").strip()
-    return override or FABLE_51_DIRECT
+    return override or _FABLE_51_DIRECT
 
 
 def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
@@ -2429,30 +2447,37 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
     return _run_api_agent("gemini", prompt)
 
 
-# Same-tier OpenRouter model per family for the failure-only fallback. Slugs are
-# resolved from the model catalog (aragora/models/catalog.py) so a family's pin
-# and its reviewer slug cannot drift; a per-family override is read from
-# ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so a stale slug never silently
-# no-ops the fallback. Mapped to the highest-quality slug per family so a fallback
-# review is as trustworthy as the subscription path it replaces.
+# Same-tier OpenRouter model per family for the failure-only fallback. Slugs
+# are verified against the model catalog (aragora/models/catalog.py) by
+# tests/models/test_reachable_defaults.py, not imported from it directly: this
+# module is the Tier-4 "canonical exact-ref policy" import closure
+# (tests/governance/test_contract_drift_measurement_authority_tier.py), which
+# must stay both hermetically importable (`python -I -S`, no third-party
+# packages) and confined to Tier-4-classified modules -- aragora.models.catalog
+# is neither, so hardcoding here and letting the reachable-defaults test (an
+# ordinary, out-of-closure test import) catch drift is the safe alternative. A
+# per-family override is read from ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so
+# a stale slug never silently no-ops the fallback. Mapped to the highest-quality
+# slug per family so a fallback review is as trustworthy as the subscription
+# path it replaces.
 #
 # Founder decision 2026-09-04 (chat, recorded on #9069): GPT-6 Astra drives
 # reviewer evidence from day two, overriding the 14-day soak rule once. Soak
 # metadata on the catalog row is unchanged for every other consumer.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
-    "claude": CATALOG["claude-fable-5-1"].openrouter_id,
-    "openai": CATALOG["gpt-6-astra"].openrouter_id,
-    "grok": CATALOG["grok-4.6"].openrouter_id,
-    "gemini": CATALOG["gemini-3.1-pro-preview"].openrouter_id,
+    "claude": "anthropic/claude-fable-5.1",
+    "openai": "openai/gpt-6-astra",
+    "grok": "x-ai/grok-4.6",
+    "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
-    "deepseek": CATALOG["deepseek-v4-pro-0813"].openrouter_id,
-    "qwen": CATALOG["qwen3.8-2.4t-a95b"].openrouter_id,
-    "kimi": CATALOG["kimi-k3"].openrouter_id,
-    "meta": CATALOG["muse-spark-1.3"].openrouter_id,
-    "glm": CATALOG["glm-5.2"].openrouter_id,
-    "minimax": CATALOG["minimax-m3"].openrouter_id,
+    "deepseek": "deepseek/deepseek-v4-pro-0813",
+    "qwen": "qwen/qwen3.8-2.4t-a95b",
+    "kimi": "moonshotai/kimi-k3",
+    "meta": "meta/muse-spark-1.3",
+    "glm": "z-ai/glm-5.2",
+    "minimax": "minimax/minimax-m3",
     # tencent/bytedance are deliberately NOT mapped here: neither has a priced,
     # active catalog row (test_reachable_defaults.py requires every reachable
     # default to be one), so routing them through OpenRouter would silently
