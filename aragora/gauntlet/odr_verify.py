@@ -506,7 +506,7 @@ def _validate_signatures(errors: list[str], value: Any) -> None:
             errors,
             f"signatures[{i}]",
             sig,
-            frozenset({"alg", "key_id", "signature", "signed_at"}),
+            frozenset({"alg", "key_id", "signature", "issuer", "role", "signed_at", "expires_at"}),
         )
         for field_name in ("alg", "key_id", "signature"):
             if not isinstance(sig.get(field_name), str) or not sig.get(field_name):
@@ -516,6 +516,11 @@ def _validate_signatures(errors: list[str], value: Any) -> None:
         # signed_at is optional but strictly a string when present: a non-string
         # value would silently corrupt the signing-time audit trail.
         _optional_string(errors, f"signatures[{i}]", sig, "signed_at")
+        _optional_string(errors, f"signatures[{i}]", sig, "expires_at")
+        if "issuer" in sig and (not isinstance(sig["issuer"], str) or not sig["issuer"]):
+            errors.append(f"signatures[{i}].issuer: must be a non-empty string")
+        if "role" in sig and sig["role"] not in ("emitter", "reviewer", "attestor", "notary"):
+            errors.append(f"signatures[{i}].role: must be emitter, reviewer, attestor, or notary")
 
 
 def _validate_source(errors: list[str], value: Any) -> None:
