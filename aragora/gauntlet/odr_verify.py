@@ -539,7 +539,7 @@ def _validate_extensions(errors: list[str], doc: dict[str, Any], schema: dict[st
     def member(value: Any, spec: dict[str, Any], path: str) -> None:
         if "$ref" in spec:
             spec = schema["$defs"][spec["$ref"].rsplit("/", 1)[1]]
-        types = {
+        types: dict[str, type | tuple[type, ...]] = {
             "object": dict,
             "array": list,
             "string": str,
