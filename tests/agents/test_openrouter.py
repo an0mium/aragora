@@ -37,7 +37,10 @@ class TestFallbackModelChain:
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert "deepseek/deepseek-v4-pro-0813" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.5"
+        # Retargeted off the retired openai/gpt-5.5 to the live cheap/bulk
+        # OpenAI route (frontier-model-refresh final review #3): a fallback
+        # target is only useful if a live request to it succeeds.
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro-0813"] == "openai/gpt-5.6-terra"
 
     def test_qwen_has_fallback(self):
         """Test Qwen models have fallbacks."""

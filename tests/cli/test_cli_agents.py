@@ -1479,8 +1479,13 @@ class TestCLIAgentModelMapping:
         agent = QwenCLIAgent(name="test", model="qwen3-coder", enable_fallback=True)
         assert self._fallback_model(agent) == "qwen/qwen3.8-2.4t-a95b"
 
-    def test_unknown_model_uses_default(self):
-        """Unknown models should use default fallback model."""
+    def test_unknown_model_uses_own_family_frontier(self):
+        """An unrecognised spelling must stay inside the agent's own family.
+
+        Falling back to one Anthropic constant silently changed provider on
+        exactly the case an explicit model pin exists for (frontier-model-
+        refresh final review #4).
+        """
         agent = CodexAgent(name="test", model="unknown-model-xyz", enable_fallback=True)
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
@@ -1490,8 +1495,26 @@ class TestCLIAgentModelMapping:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # Should default to the current frontier Claude model.
-                assert call_kwargs["model"] == "anthropic/claude-fable-5.1"
+                # Codex is an OpenAI-family CLI, so the OpenAI frontier.
+                assert call_kwargs["model"] == "openai/gpt-6-astra"
+
+    def test_unknown_model_on_a_familyless_agent_uses_fable(self):
+        """Only a class that declares no family lands on the Anthropic
+        frontier (kilocode brokers several providers)."""
+        from aragora.agents.cli_agents import KiloCodeAgent
+
+        # KiloCodeAgent narrows __init__ and does not forward enable_fallback.
+        agent = KiloCodeAgent(name="test", model="unknown-model-xyz")
+        agent.enable_fallback = True
+        assert agent.MODEL_FAMILY == ""
+
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
+            with patch("aragora.agents.api_agents.OpenRouterAgent") as mock_or:
+                mock_or.return_value = MagicMock()
+
+                agent._get_fallback_agent()
+
+                assert mock_or.call_args[1]["model"] == "anthropic/claude-fable-5.1"
 
 
 # =============================================================================
