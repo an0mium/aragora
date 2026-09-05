@@ -101,6 +101,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--pyproject", type=Path, default=Path("pyproject.toml"))
     parser.add_argument("--baseline", type=Path, default=Path(DEFAULT_BASELINE))
+    parser.add_argument("--report-json", type=Path, help="Write the shared runner's JSON report.")
     parser.add_argument("--update", action="store_true", help="Create or shrink the baseline.")
     parser.add_argument(
         "--allow-grow", action="store_true", help="Allow growth with --update and --reason."
@@ -136,6 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             update=args.update,
             allow_grow=args.allow_grow,
             reason=args.reason,
+            report_json=REPO_ROOT / args.report_json if args.report_json is not None else None,
         )
     except (BaselineError, OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -208,6 +208,7 @@ appends its baselines here, one row per file:
 | `scripts/baselines/root-ruff-complexity.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | `scripts/baselines/root-vulture.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
 | `scripts/baselines/root-mypy-overrides.json` | `readiness-lint-root` | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
+| `scripts/baselines/root-todo.json` | `readiness-lint-root` | `python scripts/ci/check_todo_ratchet.py --baseline scripts/baselines/root-todo.json --update` |
 | `scripts/baselines/file_size_baseline.json` (legacy format) | `readiness-lint-root` | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 
 The convention for every row: the regeneration command is the wired check
@@ -254,7 +255,18 @@ lands in a later feature, which replaces the marked comment in place.
   2 baseline/config/usage error. `--update` creates or shrinks the baseline;
   growth requires `--update --allow-grow --reason "<why>"`.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
-  runner with `--tool todo` and a fixed scan scope; documented when it lands.
+  runner with `--tool todo`: case-sensitive matching lines in `*.py` under
+  `aragora/`, `scripts/`, and `tests/`, including untracked files and strings,
+  not just comments. It excludes `docs/`, `baselines/` directories (including
+  `scripts/baselines/`), and its own source. `--cwd` changes the scan root
+  (default repository root); relative baseline/report paths resolve there.
+  Missing scope directories are empty, not permission to scan other paths.
+  `--update`, `--allow-grow --reason`, and `--report-json` use the shared
+  runner unchanged. Grep exit 1 means no matches (success); an unavailable
+  or broken grep exits 3 without updating the baseline.
+  This and the unchanged push-lane `scripts/todo_audit.py` +
+  `aragora/.todo_baseline` mechanism coexist until a later cleanup.
+  Their distinct scopes and counts are recorded in [TECH_DEBT.md](TECH_DEBT.md).
 - **Dependency cooldown (uv).** See [Dependency release age](#dependency-release-age)
   below: `scripts/ci/uv_lock_with_cooldown.sh` is the only place the uv
   cooldown applies.

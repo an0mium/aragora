@@ -51,6 +51,17 @@ def test_help_names_baseline_and_exit_codes() -> None:
         assert phrase in result.stdout
 
 
+def test_report_json_uses_shared_runner(adopted: tuple[Path, Path], tmp_path: Path) -> None:
+    project, baseline = adopted
+    report = tmp_path / "reports/mypy.json"
+    result = run("--pyproject", project, "--baseline", baseline, "--report-json", report)
+    assert result.returncode == 0, result.stderr
+    data = json.loads(report.read_text())
+    assert data["tool"] == "mypy-overrides"
+    assert data["exit_code"] == data["new_count"] == 0
+    assert data["current_keys"] == 2
+
+
 def test_initial_update_sorted_shared_format_and_idempotent(adopted: tuple[Path, Path]) -> None:
     project, baseline = adopted
     before = baseline.read_bytes()

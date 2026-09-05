@@ -140,6 +140,10 @@ dev = [
     # in CI (tests/gauntlet/test_odr_walkthrough_fixture.py).
     "hatchling>=1.30.1,<2.0",
 ]
+readiness = [
+    "vulture>=2.16,<3.0",
+    "deptry>=0.25.1,<1.0",
+]
 all = [
     "fastapi>=0.139.0,<1.0",
     "uvicorn>=0.50.0,<1.0",
@@ -151,6 +155,8 @@ all = [
     "aiokafka>=0.14.0,<1.0",
     "aio-pika>=9.6.2,<10.0",
     "playwright>=1.61.0,<2.0",
+    "vulture>=2.16,<3.0",
+    "deptry>=0.25.1,<1.0",
 ]
 
 [project.urls]
@@ -245,7 +251,10 @@ exclude = [
     "\\.venv",
     "node_modules",
 ]
-pep621_dev_dependency_groups = ["dev", "test", "readiness"]
+# The convenience bundle repeats runtime extras plus readiness tools. Runtime
+# deps remain classified by their own extras; do not reclassify the tools as
+# runtime merely because they also appear in all.
+pep621_dev_dependency_groups = ["dev", "test", "readiness", "all"]
 # Optional-provider imports are lazily guarded; DEP001/DEP003 enforcement
 # is tracked in docs/TECH_DEBT.md rather than blocking optional integrations.
 ignore = ["DEP001", "DEP003"]

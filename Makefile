@@ -407,6 +407,7 @@ readiness-lint-root:
 	command -v deptry >/dev/null 2>&1 || { echo "SKIP root: deptry not found (put .venv/bin on PATH)"; exit 0; }; \
 	command -v npx >/dev/null 2>&1 || { echo "SKIP root: npx not found"; exit 0; }; \
 	command -v git >/dev/null 2>&1 || { echo "SKIP root: git not found"; exit 0; }; \
+	command -v grep >/dev/null 2>&1 || { echo "SKIP root: grep not found"; exit 0; }; \
 	ruff check aragora tests scripts && \
 	ruff format --check aragora tests scripts && \
 	python3 scripts/ci/check_tool_baseline.py --tool ruff \
@@ -422,7 +423,11 @@ readiness-lint-root:
 		--report-json "$(READINESS_REPORT_DIR)/root-vulture.report.json" \
 		-- vulture aragora --min-confidence 80 && \
 	python3 scripts/ci/check_mypy_overrides.py \
-		--baseline scripts/baselines/root-mypy-overrides.json && \
+		--baseline scripts/baselines/root-mypy-overrides.json \
+		--report-json "$(READINESS_REPORT_DIR)/root-mypy-overrides.report.json" && \
+	python3 scripts/ci/check_todo_ratchet.py \
+		--baseline scripts/baselines/root-todo.json \
+		--report-json "$(READINESS_REPORT_DIR)/root-todo.report.json" && \
 	deptry . && \
 	npx --yes jscpd@$(JSCPD_VERSION) --config .jscpd.json && \
 	python3 scripts/ci/check_file_sizes.py \

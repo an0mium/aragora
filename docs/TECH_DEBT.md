@@ -18,12 +18,20 @@ key; the runner also enforces each key's occurrence count.
 | Ruff complexity (C901, max 15) | `scripts/baselines/root-ruff-complexity.json` | 744 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | Vulture (confidence 80) | `scripts/baselines/root-vulture.json` | 67 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
 | Mypy untyped-definition exemptions | `scripts/baselines/root-mypy-overrides.json` | 862 | Python core maintainers | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
-| File size (2,000 lines) | `scripts/baselines/file_size_baseline.json` | 35 | Python core maintainers | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
+| File size (2,000 lines); M2 re-adoption 32 → 35: `aragora/server/handlers/receipts.py`, `aragora/swarm/preflight.py`, `aragora/swarm/quorum_evidence.py` exceeded the limit while the checker was unwired | `scripts/baselines/file_size_baseline.json` | 35 | Python core maintainers | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
+| TODO/FIXME (`check_todo_ratchet.py`); case-sensitive matching lines in `aragora/ scripts/ tests/` `*.py`, strings and comments; excludes `docs/`, `baselines/` directories (including `scripts/baselines/`), and its own source. Both TODO mechanisms coexist until a later cleanup | `scripts/baselines/root-todo.json` | 200 | Python core maintainers | `python scripts/ci/check_todo_ratchet.py --baseline scripts/baselines/root-todo.json --update` |
+| Legacy TODO/FIXME/HACK/XXX (`scripts/todo_audit.py`); case-insensitive comment-start markers in `aragora/**/*.py`; `lint.yml` job `todo-audit`, push-only in the normal PR/push flow (the unchanged non-PR condition also admits manual/merge-group runs). Both TODO mechanisms coexist until a later cleanup | `aragora/.todo_baseline` | 1 | Python core maintainers | `python scripts/todo_audit.py --mode count --root aragora` (inspect count; baseline changes require separate review) |
+| Deptry (DEP002 ignore count; also one DEP004 exception, DEP001/DEP003 disabled) | `pyproject.toml` `[tool.deptry]` | 1 | Python core maintainers | `deptry .` (review per-rule exceptions in config, no generated baseline) |
+| jscpd 5.1.1 (Python, `minTokens` 70, hard 2.1% line threshold; 4,221 sources / 1,938 clones) | `.jscpd.json`; no `root-jscpd.json`, threshold-only | 2.0001% lines | Python core maintainers | `npx --yes jscpd@5.1.1 --config .jscpd.json` (measure, no baseline regeneration) |
 
 Run checks through `make readiness-lint-root`. Shared-runner JSON reports go
 to `READINESS_REPORT_DIR` (default `/tmp/aragora-readiness/ratchet-reports`).
 The file-size checker includes tracked and untracked-but-not-ignored Python
 files. Other apps can supply repeatable `--glob` patterns and `--baseline`.
+The advisory `lint.yml` job `ratchets` installs `.[dev,test,readiness]`, rejects
+`SKIP root:` output, summarizes its log, and uploads the shared-runner JSON
+reports. It is independent of required-check umbrellas. The existing
+`todo-audit` job and its semantics remain unchanged.
 
 ## Known debt items
 
@@ -31,6 +39,32 @@ files. Other apps can supply repeatable `--glob` patterns and `--baseline`.
   and 750 complexity occurrences across 744 keys. C901 is enabled only in
   the readiness ratchet, not the default ruff selection.
 - Vulture 2.16 reports 92 occurrences across 67 keys at confidence 80.
+- The new marker baseline records 201 matching lines across 200 keys
+  (including ratchet tests and Python strings, not just unfinished comments).
+  The legacy audit currently measures two comment markers against its
+  baseline of one and permits growth by one. These independent mechanisms
+  coexist until a later cleanup; they deliberately measure different scopes.
+- Deptry DEP001/DEP003 enforcement is deferred for optional-provider imports.
+  Under the committed final `[tool.deptry]` scope, deptry 0.25.1 measured
+  **110 distinct DEP001 modules / 579 occurrences** and
+  **11 distinct DEP003 modules / 204 occurrences** across 4,414 scanned files.
+  Reproduce the deferred-debt census with
+  `deptry . --ignore DEP002 --json-output /tmp/aragora-readiness/deptry-deferred.json`
+  (expected exit 1); this overrides the global ignore list while keeping the
+  per-rule exceptions. Normal `deptry .` reports zero issues.
+  The single DEP002 exception, `python-dateutil`, preserves botocore's AWS
+  timestamp-parser compatibility floor, used transitively rather than
+  imported directly. The single DEP004 exception, `boto3`, covers guarded
+  optional runtime AWS imports while `[test]` provides it for the tests.
+  DEP002 and DEP004 remain enabled for every other dependency.
+  The `all` convenience extra is classified with the dev groups so it does
+  not reclassify readiness tools as unused runtime dependencies; every
+  bundled runtime dependency is still checked through its original extra.
+- jscpd's adoption measurement is 2.0001% duplicated lines, below the hard
+  2.1% threshold at 70 minimum tokens. No clone baseline is needed; run the
+  real root config and verify the source count before trusting a percentage.
+  The root `.npmrc` three-day release cooldown applies to the pinned npx
+  command, both locally and in CI.
 - Mypy 2.1.0 found 2,641 missing-definition annotations in 862 modules
   (737 in `aragora/`, 122 in `scripts/`, two in `aragora-debate/`, and one in
   `aragora-verify/`; both small packages inherit the root configuration).
