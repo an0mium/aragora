@@ -580,3 +580,72 @@ class TestUsagePattern:
         assert pattern.model == "claude-sonnet-4"
         assert pattern.count == 100
         assert pattern.avg_tokens_in == 5000.0
+
+
+class TestCatalogDerivedTiers:
+    """MODEL_TIERS gained a row per active catalog model (2026-09-04
+    wave-3 ruling): before this the downgrade analyzer could only ever
+    recommend the 2024-era roster it shipped with."""
+
+    def test_every_active_catalog_model_has_a_tier_row(self):
+        from aragora.models.catalog import CATALOG
+
+        for spec in CATALOG.values():
+            if spec.retired:
+                continue
+            assert spec.canonical_id in MODEL_TIERS, spec.canonical_id
+            row = MODEL_TIERS[spec.canonical_id]
+            assert row["provider"] == spec.provider
+            assert row["tier"] in (1, 2, 3)
+            assert 0.0 < row["quality"] <= 1.0
+
+    def test_only_canonical_ids_are_emitted_so_one_model_is_one_candidate(self):
+        """``_find_alternatives`` enumerates this table as a candidate list,
+        so an alias row would let one model occupy several downgrade slots."""
+        from aragora.models.catalog import CATALOG
+
+        for spec in CATALOG.values():
+            if spec.retired:
+                continue
+            aliases = set(spec.all_ids()) - {spec.canonical_id}
+            for alias in aliases:
+                # An alias may only appear if a HAND-curated legacy row put
+                # it there on purpose.
+                if alias in MODEL_TIERS:
+                    from aragora.billing.optimizer import _LEGACY_MODEL_TIERS
+
+                    assert alias in _LEGACY_MODEL_TIERS, alias
+
+    def test_hand_curated_rows_win_a_key_collision(self):
+        """Tier and quality are hand-tuned judgements, not catalog facts."""
+        from aragora.billing.optimizer import _LEGACY_MODEL_TIERS
+
+        for model, row in _LEGACY_MODEL_TIERS.items():
+            assert MODEL_TIERS[model] == row
+
+    def test_frontier_flagships_are_top_band_and_value_skus_are_cheap_band(self):
+        assert MODEL_TIERS["gpt-6-astra"]["tier"] == 1
+        assert MODEL_TIERS["claude-fable-5-1"]["tier"] == 1
+        assert MODEL_TIERS["gemini-3.8-flash"]["tier"] == 3
+        assert MODEL_TIERS["gpt-5.6-terra"]["tier"] == 3
+
+    def test_a_frontier_flagship_can_now_be_downgraded(self):
+        """Traffic on the current OpenAI flagship used to be skipped
+        entirely -- the analyzer had no tier row for it."""
+        analyzer = ModelDowngradeAnalyzer()
+        recommendations = analyzer.analyze(
+            [
+                UsagePattern(
+                    model="gpt-6-astra",
+                    provider="openai",
+                    operation="summarize",
+                    count=100,
+                    total_tokens_in=500000,
+                    total_tokens_out=100000,
+                    total_cost=Decimal("50.00"),
+                ),
+            ],
+            "ws-123",
+        )
+        assert recommendations
+        assert recommendations[0].projected_cost_usd < recommendations[0].current_cost_usd

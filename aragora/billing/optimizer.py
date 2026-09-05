@@ -31,14 +31,63 @@ from aragora.billing.recommendations import (
     RecommendationType,
 )
 from aragora.billing.usage import PROVIDER_PRICING
+from aragora.models.catalog import CATALOG
 
 if TYPE_CHECKING:
     from aragora.billing.cost_tracker import CostTracker, TokenUsage
 
 logger = logging.getLogger(__name__)
 
-# Model capability tiers for downgrade analysis
-MODEL_TIERS: dict[str, dict[str, Any]] = {
+# Downgrade-analysis tier and quality score per catalog product tier.
+#
+# ModelSpec.tier is the catalog's own product classification; this table is
+# the only place it is turned into the optimizer's 1/2/3 capability band and
+# a quality score. "flagship" and "fallback" are both top-band (an Opus-line
+# fallback is not a cheaper model, just an older one); "code" is the middle
+# band; "value" is the cheap/fast band the analyzer downgrades TO. The
+# quality numbers stay just under the hand-tuned legacy scores so a
+# generated row never outranks a curated one at equal price.
+_CATALOG_TIER_BANDS: dict[str, tuple[int, float]] = {
+    "flagship": (1, 0.95),
+    "fallback": (1, 0.90),
+    "code": (2, 0.80),
+    "value": (3, 0.72),
+}
+
+
+def _catalog_tier_rows() -> dict[str, dict[str, Any]]:
+    """One MODEL_TIERS row per canonical id of every ACTIVE catalog row.
+
+    Keyed on ``canonical_id`` only, not every spelling: ``_find_alternatives``
+    enumerates this table as a candidate list, so emitting a row per alias
+    would have one model occupy several downgrade slots. ``provider`` is the
+    catalog ``provider``, which is exactly the bucket
+    ``billing.usage.PROVIDER_PRICING`` prices the row under -- the invariant
+    ``tests/billing/test_optimizer.py`` asserts for every entry here.
+    """
+    rows: dict[str, dict[str, Any]] = {}
+    for spec in CATALOG.values():
+        if spec.retired:
+            continue
+        band = _CATALOG_TIER_BANDS.get(spec.tier)
+        if band is None:
+            continue
+        tier, quality = band
+        rows[spec.canonical_id] = {
+            "tier": tier,
+            "provider": spec.provider,
+            "quality": quality,
+        }
+    return rows
+
+
+# Model capability tiers for downgrade analysis. Hand-curated HISTORICAL
+# rows (kept verbatim, and they WIN a key collision: tier and quality are
+# hand-tuned judgements, not catalog facts) plus one generated row per
+# active catalog model, so the analyzer can actually recommend a current
+# frontier model instead of only the 2024-era roster it shipped with
+# (2026-09-04 controller ruling, wave 3).
+_LEGACY_MODEL_TIERS: dict[str, dict[str, Any]] = {
     # Tier 1: Most capable (complex reasoning, coding)
     "claude-fable-5": {"tier": 1, "provider": "anthropic", "quality": 1.0},
     "claude-opus-5": {"tier": 1, "provider": "anthropic", "quality": 1.0},
@@ -67,6 +116,8 @@ MODEL_TIERS: dict[str, dict[str, Any]] = {
     "deepseek-v3": {"tier": 3, "provider": "deepseek", "quality": 0.75},
     "gemini-3.5-flash": {"tier": 3, "provider": "google", "quality": 0.72},
 }
+
+MODEL_TIERS: dict[str, dict[str, Any]] = {**_catalog_tier_rows(), **_LEGACY_MODEL_TIERS}
 
 # Task complexity indicators
 SIMPLE_TASK_INDICATORS = [
