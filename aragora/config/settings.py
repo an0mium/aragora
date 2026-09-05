@@ -260,6 +260,20 @@ class AgentSettings(BaseSettings):
         description="Prioritize local LLMs over cloud providers when available",
     )
 
+    # Anthropic server-side refusal fallback (frontier-model-refresh,
+    # 2026-09-04): Fable 5.1 / Opus 5 can retry a cyber-classifier refusal
+    # against a fallback model server-side when the request carries
+    # "fallbacks": "default" and the matching anthropic-beta header. Default
+    # on; set ARAGORA_ANTHROPIC_REFUSAL_FALLBACK=false to opt out.
+    anthropic_refusal_fallback: bool = Field(
+        default=True,
+        alias="ARAGORA_ANTHROPIC_REFUSAL_FALLBACK",
+        description=(
+            "Enable Anthropic server-side refusal fallback (fallbacks: default + "
+            "anthropic-beta: server-side-fallback-2026-07-01) for Fable 5.1 / Opus 5"
+        ),
+    )
+
     @property
     def default_agent_list(self) -> list[str]:
         """Get default agents as a list."""

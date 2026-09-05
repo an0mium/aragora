@@ -112,12 +112,20 @@ class AgentAPIError(AgentError):
         status_code: int | None = None,
         error_type: str | None = None,
         cause: Exception | None = None,
+        reason: str | None = None,
+        category: str | None = None,
     ) -> None:
         # 4xx errors are generally not recoverable (bad request, auth)
         recoverable = status_code is None or status_code >= 500
         super().__init__(message, agent_name, cause, recoverable=recoverable)
         self.status_code = status_code
         self.error_type = error_type
+        # Structured cause for provider-declared non-HTTP failures, e.g. an
+        # Anthropic 200 response with stop_reason == "refusal": reason is the
+        # coarse kind ("refusal"), category is the provider's finer-grained
+        # stop_details.category (e.g. "cyber") when it supplies one.
+        self.reason = reason
+        self.category = category
 
 
 class AgentResponseError(AgentError):

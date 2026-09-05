@@ -9,7 +9,7 @@ import asyncio
 import logging
 import re
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, ClassVar
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
@@ -32,7 +32,13 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
 from aragora.config.model_pins import FABLE_51_DIRECT, OPUS_5_VIA_OPENROUTER
-from aragora.models.compat import first_text_block, strip_sampling_params
+from aragora.models.catalog import spec_or_none
+from aragora.models.compat import (
+    allows_forced_tool_choice,
+    first_text_block,
+    strip_sampling_params,
+    thinks_by_default,
+)
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -46,6 +52,20 @@ logger = logging.getLogger(__name__)
 
 # Frontier pick for the Anthropic API agent (2026-09-04 frontier-model-refresh).
 DEFAULT_MODEL = FABLE_51_DIRECT
+
+# Fallback default max_tokens for a model with no catalog row (today's
+# historical default, unchanged by the Task 7 request-shape hardening).
+_UNKNOWN_MODEL_DEFAULT_MAX_TOKENS = 4096
+# Default max_tokens caps for a cataloged model when the caller does not pass
+# one explicitly: min(catalog max_output_tokens, this cap).
+_DEFAULT_MAX_TOKENS_NON_STREAM = 16_000
+_DEFAULT_MAX_TOKENS_STREAM = 64_000
+
+# Models whose refusal-fallback is wired up server-side (Task 7,
+# frontier-model-refresh): only these canonical ids, and only within the
+# "anthropic" catalog family, ever get "fallbacks": "default" + the
+# server-side-fallback beta header — gated by settings.anthropic_refusal_fallback.
+_REFUSAL_FALLBACK_MODEL_IDS = frozenset({"claude-fable-5-1", "claude-opus-5"})
 
 # Patterns that indicate web search would be helpful
 WEB_SEARCH_INDICATORS = [
@@ -101,6 +121,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     # its frontier via OpenRouter.
     DEFAULT_FALLBACK_MODEL = OPUS_5_VIA_OPENROUTER
 
+    # Model ids we've already logged the "ignoring thinking_budget" notice
+    # for (see _log_adaptive_thinking_once); process-lifetime, shared across
+    # instances so the notice does not repeat on every single call.
+    _ADAPTIVE_THINKING_LOGGED: ClassVar[set[str]] = set()
+
     def __init__(
         self,
         name: str = "claude-api",
@@ -110,6 +135,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
         thinking_budget: int | None = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -123,6 +150,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             # hardcoded endpoint made secured providers architecturally
             # unsupported. Accepts values with or without a trailing /v1.
             base_url=_resolve_base_url("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
+            temperature=temperature,
+            top_p=top_p,
         )
         self.agent_type = "anthropic"
         # Use config setting if not explicitly provided
@@ -203,6 +232,175 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                 return True
         return False
 
+    def _supports_refusal_fallback(self) -> bool:
+        """True when ``self.model`` is one of the two catalog rows the
+        server-side refusal fallback is wired up for (Fable 5.1, Opus 5),
+        resolved via the catalog so any known spelling/alias of those ids
+        qualifies. A model outside the "anthropic" catalog family, or absent
+        from the catalog entirely, never qualifies."""
+        spec = spec_or_none(self.model)
+        if spec is None or spec.family != "anthropic":
+            return False
+        return spec.canonical_id in _REFUSAL_FALLBACK_MODEL_IDS
+
+    def _refusal_fallback_enabled(self) -> bool:
+        """``_supports_refusal_fallback()`` gated by the
+        ``anthropic_refusal_fallback`` setting (default on)."""
+        if not self._supports_refusal_fallback():
+            return False
+        try:
+            from aragora.config import get_settings
+
+            return bool(get_settings().agent.anthropic_refusal_fallback)
+        except (ImportError, AttributeError):
+            # Settings unavailable for some reason: default to the
+            # documented default (on) rather than silently disabling a
+            # reliability feature.
+            return True
+
+    def _log_adaptive_thinking_once(self) -> None:
+        """Log (once per model id) that an explicit thinking_budget is being
+        ignored because the model thinks by default and cannot be given an
+        explicit budget the way older models can."""
+        if self.model in self._ADAPTIVE_THINKING_LOGGED:
+            return
+        self._ADAPTIVE_THINKING_LOGGED.add(self.model)
+        logger.info(
+            "[%s] %s thinks by default; ignoring explicit thinking_budget "
+            "(adaptive thinking has no budget_tokens knob)",
+            self.name,
+            self.model,
+        )
+
+    def _resolve_max_tokens(self, requested: int | None, *, stream: bool) -> int:
+        """Resolve the ``max_tokens`` payload value.
+
+        * No catalog row for ``self.model``: keep today's flat 4096 default,
+          respecting whatever the caller explicitly requested (uncapped —
+          there is no catalog ceiling to enforce).
+        * Cataloged model, caller passed nothing: ``min(catalog
+          max_output_tokens, 64_000 if stream else 16_000)``.
+        * Cataloged model, caller passed a value: respected, but capped at
+          the catalog's ``max_output_tokens``.
+        """
+        spec = spec_or_none(self.model)
+        if spec is None:
+            return requested if requested is not None else _UNKNOWN_MODEL_DEFAULT_MAX_TOKENS
+        if requested is None:
+            cap = _DEFAULT_MAX_TOKENS_STREAM if stream else _DEFAULT_MAX_TOKENS_NON_STREAM
+            return min(spec.max_output_tokens, cap)
+        return min(requested, spec.max_output_tokens)
+
+    def _request_headers(self, *, use_web_search: bool = False) -> dict[str, str]:
+        """Build request headers shared by ``generate`` and
+        ``generate_stream``. Combines every ``anthropic-beta`` value this
+        request needs (web search, refusal fallback, ...) into one
+        comma-joined header rather than overwriting one with the other."""
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            **get_trace_headers(),  # Distributed tracing
+        }
+        beta_values: list[str] = []
+        if use_web_search:
+            beta_values.append("web-search-2025-03-05")
+        if self._refusal_fallback_enabled():
+            beta_values.append("server-side-fallback-2026-07-01")
+        if beta_values:
+            headers["anthropic-beta"] = ", ".join(beta_values)
+        return headers
+
+    def _build_payload(
+        self,
+        prompt: str,
+        *,
+        stream: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        thinking_budget: int | None = None,
+        use_web_search: bool = False,
+        tool_choice: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build the Anthropic Messages API request payload.
+
+        Shared by ``generate`` and ``generate_stream`` so every catalog-driven
+        behaviour (sampling-param support, thinking-by-default, forced
+        ``tool_choice``, refusal fallback, max_tokens defaults/caps) is
+        applied in exactly one place instead of two independently-drifting
+        inline builders.
+        """
+        spec = spec_or_none(self.model)
+        resolved_max_tokens = self._resolve_max_tokens(max_tokens, stream=stream)
+
+        message_content = prompt
+        resolved_tool_choice = tool_choice
+        if tool_choice is not None:
+            choice_type = tool_choice.get("type") if isinstance(tool_choice, dict) else None
+            if choice_type in ("any", "tool") and not allows_forced_tool_choice(self.model):
+                tool_name = tool_choice.get("name") if isinstance(tool_choice, dict) else None
+                hint = f"Use the {tool_name} tool." if tool_name else "Use the appropriate tool."
+                message_content = f"{hint}\n\n{message_content}" if message_content else hint
+                resolved_tool_choice = {"type": "auto"}
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": resolved_max_tokens,
+            "messages": [{"role": "user", "content": message_content}],
+        }
+        if stream:
+            payload["stream"] = True
+        if resolved_tool_choice is not None:
+            payload["tool_choice"] = resolved_tool_choice
+
+        model_thinks_by_default = thinks_by_default(self.model)
+        effective_thinking_budget = (
+            thinking_budget if thinking_budget is not None else self.thinking_budget
+        )
+        effective_temperature = self.temperature if self.temperature is not None else temperature
+
+        if model_thinks_by_default:
+            if effective_thinking_budget and effective_thinking_budget > 0:
+                # Thinking is already on for this family; there is no
+                # budget_tokens knob to set, so no "thinking" key is emitted.
+                self._log_adaptive_thinking_once()
+        elif effective_thinking_budget and effective_thinking_budget > 0:
+            payload["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": effective_thinking_budget,
+            }
+            effective_temperature = None  # Anthropic constraint: thinking + temperature conflict
+            bumped = max(payload["max_tokens"], effective_thinking_budget + 4096)
+            payload["max_tokens"] = min(bumped, spec.max_output_tokens) if spec else bumped
+
+        if effective_temperature is not None:
+            payload["temperature"] = effective_temperature
+        if self.top_p is not None:
+            payload["top_p"] = self.top_p
+
+        if use_web_search:
+            payload["tools"] = [
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                }
+            ]
+
+        # Claude Opus 4.7+ (incl. Opus 5 / Sonnet 5 / Fable 5.1) removed
+        # sampling parameters: a non-default temperature/top_p/top_k returns
+        # a 400. Strip them centrally so persona configs (e.g. the vertical
+        # specialists, which set temperature 0.1-0.3 + top_p) do not
+        # hard-fail on those models. Guide behaviour with prompting instead.
+        strip_sampling_params(payload, self.model)
+
+        if self._refusal_fallback_enabled():
+            payload["fallbacks"] = "default"
+
+        if self.system_prompt:
+            payload["system"] = self.system_prompt
+
+        return payload
+
     @handle_agent_errors(
         max_retries=3,
         retry_delay=1.0,
@@ -273,64 +471,20 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         # Check if web search is needed
         use_web_search = self._needs_web_search(full_prompt)
-
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-            **get_trace_headers(),  # Distributed tracing
-        }
-
-        # Add beta header for web search if enabled
         if use_web_search:
             logger.info("[%s] Enabling web search tool for web content", self.name)
-            headers["anthropic-beta"] = "web-search-2025-03-05"
 
-        payload: dict[str, Any] = {
-            "model": self.model,
-            "max_tokens": kwargs.get("max_tokens", 4096),
-            "messages": [{"role": "user", "content": full_prompt}],
-        }
-        if "temperature" in kwargs:
-            payload["temperature"] = kwargs["temperature"]
+        headers = self._request_headers(use_web_search=use_web_search)
 
-        # Extended thinking support
-        thinking_budget = kwargs.get("thinking_budget", self.thinking_budget)
-        if thinking_budget and thinking_budget > 0:
-            payload["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": thinking_budget,
-            }
-            payload.pop("temperature", None)  # Anthropic constraint
-            payload["max_tokens"] = max(
-                payload.get("max_tokens", 4096),
-                thinking_budget + 4096,
-            )
-
-        # Add web search tool if enabled
-        if use_web_search:
-            payload["tools"] = [
-                {
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                }
-            ]
-
-        # Apply generation parameters from persona if set
-        if self.temperature is not None and "thinking" not in payload:
-            payload["temperature"] = self.temperature
-        if self.top_p is not None:
-            payload["top_p"] = self.top_p
-
-        # Claude Opus 4.7+ (incl. Opus 5 / Sonnet 5 / Fable 5) removed sampling
-        # parameters: a non-default temperature/top_p/top_k returns a 400. Strip
-        # them centrally so persona configs (e.g. the vertical specialists,
-        # which set temperature 0.1-0.3 + top_p) do not hard-fail on those
-        # models. Guide behaviour with prompting instead.
-        strip_sampling_params(payload, self.model)
-
-        if self.system_prompt:
-            payload["system"] = self.system_prompt
+        payload = self._build_payload(
+            full_prompt,
+            stream=False,
+            max_tokens=kwargs.get("max_tokens"),
+            temperature=kwargs.get("temperature"),
+            thinking_budget=kwargs.get("thinking_budget", self.thinking_budget),
+            use_web_search=use_web_search,
+            tool_choice=kwargs.get("tool_choice"),
+        )
 
         try:
             async with create_client_session(timeout=self.timeout) as session:
@@ -407,6 +561,33 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         tokens_in=input_tokens,
                         tokens_out=output_tokens,
                     )
+
+                    # A 200 response can still be a declared refusal (e.g. the
+                    # cyber-classifier on Fable 5.1 / Opus 5): surface it as a
+                    # structured failure, never as empty-string output.
+                    if data.get("stop_reason") == "refusal":
+                        stop_details = data.get("stop_details")
+                        category = (
+                            stop_details.get("category") if isinstance(stop_details, dict) else None
+                        )
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_failure()
+                        record_provider_call(
+                            provider="anthropic",
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=self.model,
+                        )
+                        message = "Anthropic declined to generate a response (stop_reason=refusal)"
+                        if category:
+                            message = f"{message}: {category}"
+                        raise AgentAPIError(
+                            message,
+                            agent_name=self.name,
+                            reason="refusal",
+                            category=category,
+                        )
 
                     try:
                         # A response with no "content" key at all is malformed,
@@ -528,47 +709,17 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         # Check if web search is needed
         use_web_search = self._needs_web_search(full_prompt)
-
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-            **get_trace_headers(),  # Distributed tracing
-        }
-
-        # Add beta header for web search if enabled
         if use_web_search:
             logger.info("[%s] Enabling web search tool for streaming", self.name)
-            headers["anthropic-beta"] = "web-search-2025-03-05"
 
-        payload = {
-            "model": self.model,
-            "max_tokens": 4096,
-            "messages": [{"role": "user", "content": full_prompt}],
-            "stream": True,
-        }
+        headers = self._request_headers(use_web_search=use_web_search)
 
-        # Add web search tool if enabled
-        if use_web_search:
-            payload["tools"] = [
-                {
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                }
-            ]
-
-        # Apply generation parameters from persona if set
-        if self.temperature is not None:
-            payload["temperature"] = self.temperature
-        if self.top_p is not None:
-            payload["top_p"] = self.top_p
-
-        # Claude Opus 4.7+ (incl. the Opus 5 default) reject sampling
-        # params with a 400. No-ops for every other model.
-        strip_sampling_params(payload, self.model)
-
-        if self.system_prompt:
-            payload["system"] = self.system_prompt
+        payload = self._build_payload(
+            full_prompt,
+            stream=True,
+            thinking_budget=self.thinking_budget,
+            use_web_search=use_web_search,
+        )
 
         async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
