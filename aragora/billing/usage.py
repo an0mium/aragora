@@ -11,6 +11,7 @@ import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
+from collections.abc import Iterable
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -218,9 +219,12 @@ def _catalog_token_price(model: str, prompt_tokens: int = 0) -> tuple[Decimal, D
     return dec(input_rate), dec(output_rate)
 
 
-def _any_bucket_token_price(model: str) -> tuple[Decimal | None, Decimal | None]:
+def _any_bucket_token_price(
+    model: str, tables: "Iterable[dict[str, Decimal]] | None" = None
+) -> tuple[Decimal | None, Decimal | None]:
     """First ``(input, output)`` price found for the EXACT ``model``
-    spelling under ANY ``PROVIDER_PRICING`` bucket.
+    spelling under ANY bucket of ``tables`` (default: every
+    ``PROVIDER_PRICING`` bucket).
 
     A spelling has ONE price, and which provider LABEL a caller happens to
     pass is not information about that price: ``CLIAgent`` never sets
@@ -235,7 +239,7 @@ def _any_bucket_token_price(model: str) -> tuple[Decimal | None, Decimal | None]
     in_price: Decimal | None = None
     out_price: Decimal | None = None
     output_key = f"{model}-output"
-    for table in PROVIDER_PRICING.values():
+    for table in PROVIDER_PRICING.values() if tables is None else tables:
         if in_price is None:
             in_price = table.get(model)
         if out_price is None:
@@ -251,6 +255,8 @@ def calculate_token_cost(
     tokens_in: int,
     tokens_out: int,
     tokens_cached: int = 0,
+    *,
+    extra_prices: "dict[str, dict[str, Decimal]] | None" = None,
 ) -> Decimal:
     """
     Calculate cost for token usage.
@@ -261,11 +267,21 @@ def calculate_token_cost(
         tokens_in: Input tokens (non-cached)
         tokens_out: Output tokens
         tokens_cached: Cached input tokens (charged at 10% of input price)
+        extra_prices: An additional ``PROVIDER_PRICING``-shaped table this
+            caller owns. It takes PRECEDENCE over the shared table for an
+            exact same-provider hit, and supplies the per-provider
+            ``default`` row before the global $2/$8. Exists so
+            ``services.usage_metering`` -- which carries historical rows
+            ``PROVIDER_PRICING`` never had (``o1``, ``claude-haiku-4``,
+            ``codestral``, per-provider defaults) -- can keep pricing them
+            without maintaining a SECOND implementation of this resolution
+            ladder (2026-09-05 wave-2 re-review). Data, not logic.
 
     Returns:
         Cost in USD
     """
     provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
+    caller_prices = (extra_prices or {}).get(provider, {})
 
     # Resolution order (#9989 merge-gate, round 2 -- findings O-P2b and the
     # scoped re-review's Important #1):
@@ -279,7 +295,14 @@ def calculate_token_cost(
     #      spelling, independent of the label the caller passed (a CLI agent
     #      passes "unknown", several API agents pass a label matching neither
     #      their model's provider nor its family);
-    #   4. the $2/$8 default.
+    #   4. the same two steps over ``extra_prices``, when the caller supplied
+    #      one (see the argument's docstring);
+    #   5. the caller's per-provider default row, then this table's, then
+    #      the $2/$8 default.
+    #
+    # ``extra_prices``' own provider bucket is consulted BEFORE step 2: a
+    # caller that ships its own table has the more specific knowledge of
+    # what it bills.
     #
     # There is deliberately NO upgrade leg anywhere in this order: see
     # ``_catalog_token_price``. Steps 1 and 2 cannot disagree today -- every
@@ -299,16 +322,24 @@ def calculate_token_cost(
         input_price, output_price = catalog_price
     else:
         output_key = f"{model}-output"
-        input_price = provider_prices.get(model)
-        output_price = provider_prices.get(output_key)
+        input_price = caller_prices.get(model, provider_prices.get(model))
+        output_price = caller_prices.get(output_key, provider_prices.get(output_key))
         if input_price is None or output_price is None:
             any_in, any_out = _any_bucket_token_price(model)
             input_price = any_in if input_price is None else input_price
             output_price = any_out if output_price is None else output_price
+        if (input_price is None or output_price is None) and extra_prices:
+            any_in, any_out = _any_bucket_token_price(model, extra_prices.values())
+            input_price = any_in if input_price is None else input_price
+            output_price = any_out if output_price is None else output_price
         if input_price is None:
-            input_price = provider_prices.get("default", Decimal("2.00"))
+            input_price = caller_prices.get(
+                "default", provider_prices.get("default", Decimal("2.00"))
+            )
         if output_price is None:
-            output_price = provider_prices.get("default-output", Decimal("8.00"))
+            output_price = caller_prices.get(
+                "default-output", provider_prices.get("default-output", Decimal("8.00"))
+            )
 
     # Calculate cost (prices are per 1M tokens)
     input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
