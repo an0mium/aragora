@@ -45,6 +45,23 @@ def test_usage_rows_cover_every_spelling_including_aliases() -> None:
             assert rows[s.provider][f"{spelling}-output"] == Decimal(str(s.output_per_mtok))
 
 
+def test_usage_rows_emit_a_cache_read_column_only_where_documented() -> None:
+    """``billing.usage.calculate_token_cost`` bills a cached prompt token at
+    the DOCUMENTED rate; a row without one keeps the 10%-of-input heuristic
+    rather than gaining an invented price (finding O-P2a on #9989)."""
+    rows = pm.usage_rows()
+    documented = [s for s in CATALOG.values() if s.cache_read_per_mtok is not None]
+    assert documented, "no catalog row documents a cache-read rate"
+    for s in documented:
+        for spelling in s.all_ids():
+            assert rows[s.provider][f"{spelling}-cache-read"] == Decimal(str(s.cache_read_per_mtok))
+    for s in CATALOG.values():
+        if s.cache_read_per_mtok is not None:
+            continue
+        for spelling in s.all_ids():
+            assert f"{spelling}-cache-read" not in rows[s.provider], spelling
+
+
 def test_pdb_rows_cover_every_spelling() -> None:
     rows = pm.pdb_rows()
     for s in CATALOG.values():

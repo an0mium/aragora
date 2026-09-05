@@ -1750,18 +1750,20 @@ class TestLongContextThresholdCountsCachedInput:
     The threshold was evaluated against ``tokens_in`` alone, so a
     long-context request served mostly from cache dropped back to the flat
     rate even though the provider saw a long prompt (2026-09-05 wave-2
-    re-review). Cached tokens are still BILLED at 10% of the input rate --
-    only the threshold decision changes.
+    re-review). Only the threshold decision is under test here; what the
+    cached tokens themselves are billed at is
+    ``TestCachedInputUsesTheDocumentedCacheReadRate`` below.
     """
 
     def test_mostly_cached_long_prompt_crosses_the_threshold(self):
-        # gpt-6-astra: threshold 272_000; flat $10/$50, long $20/$75.
+        # gpt-6-astra: threshold 272_000; flat $10/$50, long $20/$75, and a
+        # documented cache-read rate of $1.00 with no tiered counterpart.
         fresh, cached, out = 20_000, 300_000, 1_000
         cost = calculate_token_cost("openai", "gpt-6-astra", fresh, out, tokens_cached=cached)
         expected = (
             Decimal(fresh) / Decimal("1000000") * Decimal("20.00")
             + Decimal(out) / Decimal("1000000") * Decimal("75.00")
-            + Decimal(cached) / Decimal("1000000") * Decimal("20.00") * Decimal("0.1")
+            + Decimal(cached) / Decimal("1000000") * Decimal("1.00")
         )
         assert cost == expected
 
@@ -1771,7 +1773,7 @@ class TestLongContextThresholdCountsCachedInput:
         expected = (
             Decimal(fresh) / Decimal("1000000") * Decimal("10.00")
             + Decimal(out) / Decimal("1000000") * Decimal("50.00")
-            + Decimal(cached) / Decimal("1000000") * Decimal("10.00") * Decimal("0.1")
+            + Decimal(cached) / Decimal("1000000") * Decimal("1.00")
         )
         assert cost == expected
 
@@ -1779,3 +1781,81 @@ class TestLongContextThresholdCountsCachedInput:
         """The fix must not move any answer for a request with no cache."""
         assert calculate_token_cost("openai", "gpt-6-astra", 300_000, 10_000) == Decimal("6.7500")
         assert calculate_token_cost("openai", "gpt-6-astra", 1_000, 1_000) == Decimal("0.060")
+
+
+class TestCachedInputUsesTheDocumentedCacheReadRate:
+    """A cached prompt token bills at the rate the provider DOCUMENTS.
+
+    ``calculate_token_cost`` hard-coded ``input_price * 0.1`` while the
+    catalog already carried ``cache_read_per_mtok`` -- claude-fable-5-1
+    documents $0.25/MTok against a $10.00 input rate, so a cached Fable
+    prompt billed at $1.00/MTok, 4x the real rate (finding O-P2a on
+    #9989). The heuristic survives only where nothing documents a rate.
+    """
+
+    def test_fable_cached_million_tokens_bills_the_catalog_rate(self):
+        cost = calculate_token_cost("anthropic", "claude-fable-5-1", 0, 0, tokens_cached=1_000_000)
+        assert cost == Decimal("0.25")
+        # What the old heuristic would have charged, for contrast.
+        assert cost != Decimal("1.00")
+
+    def test_every_spelling_of_the_row_bills_the_same_cache_rate(self):
+        """Alias/openrouter spellings resolve through the same catalog row."""
+        for spelling in ("claude-fable-5.1", "anthropic/claude-fable-5-1"):
+            assert calculate_token_cost(
+                "anthropic", spelling, 0, 0, tokens_cached=1_000_000
+            ) == Decimal("0.25"), spelling
+
+    def test_row_without_a_documented_rate_keeps_the_heuristic(self):
+        """grok-4.6 has no ``cache_read_per_mtok``; nothing invents one."""
+        from aragora.models.catalog import CATALOG
+
+        spec = CATALOG["grok-4.6"]
+        assert spec.cache_read_per_mtok is None
+        cached = 10_000
+        cost = calculate_token_cost("xai", "grok-4.6", 0, 0, tokens_cached=cached)
+        expected = (
+            Decimal(cached)
+            / Decimal("1000000")
+            * Decimal(str(spec.input_per_mtok))
+            * Decimal("0.1")
+        )
+        assert cost == expected
+
+    def test_uncataloged_spelling_keeps_the_heuristic(self):
+        """No catalog row, no bucket column -> the rule of thumb stands."""
+        cached = 1_000_000
+        cost = calculate_token_cost("openrouter", "not-a-real-model", 0, 0, tokens_cached=cached)
+        assert cost == Decimal("2.00") * Decimal("0.1")
+
+    def test_extra_prices_may_document_a_cache_rate_for_its_own_spelling(self):
+        """The ``extra_prices`` table can carry the column for a spelling the
+        shared tables have never heard of."""
+        extra = {
+            "anthropic": {
+                "byok-model-x": Decimal("6.00"),
+                "byok-model-x-output": Decimal("18.00"),
+                "byok-model-x-cache-read": Decimal("0.05"),
+            }
+        }
+        cost = calculate_token_cost(
+            "anthropic", "byok-model-x", 0, 0, tokens_cached=1_000_000, extra_prices=extra
+        )
+        assert cost == Decimal("0.05")
+        # Without the column the same table falls back to the heuristic.
+        no_column = {"anthropic": {k: v for k, v in extra["anthropic"].items() if "cache" not in k}}
+        assert calculate_token_cost(
+            "anthropic", "byok-model-x", 0, 0, tokens_cached=1_000_000, extra_prices=no_column
+        ) == Decimal("6.00") * Decimal("0.1")
+
+    def test_generated_buckets_publish_the_cache_read_column(self):
+        """The consumer reads it off ``PROVIDER_PRICING``; only rows with a
+        documented rate emit it."""
+        from aragora.billing.usage import PROVIDER_PRICING
+        from aragora.models.catalog import CATALOG
+
+        assert PROVIDER_PRICING["anthropic"]["claude-fable-5-1-cache-read"] == Decimal("0.25")
+        assert "grok-4.6-cache-read" not in PROVIDER_PRICING["xai"]
+        for spelling in CATALOG["claude-sonnet-5"].all_ids():
+            bucket = "openrouter" if "/" in spelling else "anthropic"
+            assert PROVIDER_PRICING[bucket][f"{spelling}-cache-read"] == Decimal("0.20")

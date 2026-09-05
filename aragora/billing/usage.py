@@ -278,6 +278,71 @@ def _any_bucket_token_price(
     return in_price, out_price
 
 
+# Suffix of the generated cache-read column in ``PROVIDER_PRICING`` (see
+# ``pricing_mirror.usage_rows``): "<spelling>-cache-read" carries the rate
+# the provider DOCUMENTS for a cached prompt token, for the rows that
+# publish one.
+_CACHE_READ_SUFFIX = "-cache-read"
+
+# Share of the input rate charged for a cached prompt token when NOTHING
+# documents a real cache-read rate for the spelling. A rule of thumb, not a
+# price: it is right for some rows by coincidence (gpt-6-astra's documented
+# $1.00 is exactly 10% of its $10.00 input rate) and wrong for others
+# (claude-fable-5-1 documents $0.25 against a $10.00 input rate, so the
+# heuristic over-billed cached Fable 4x -- finding O-P2a on #9989).
+_CACHE_READ_HEURISTIC = Decimal("0.1")
+
+
+def _cache_read_price(
+    model: str,
+    caller_prices: "dict[str, Decimal]",
+    provider_prices: "dict[str, Decimal]",
+    extra_prices: "dict[str, dict[str, Decimal]] | None",
+) -> "Decimal | None":
+    """The DOCUMENTED cache-read rate for ``model``, or ``None``.
+
+    ``None`` means "nobody publishes one for this spelling", which is the
+    only case where ``calculate_token_cost`` falls back to
+    ``_CACHE_READ_HEURISTIC``.
+
+    Same resolution order as the input rate, for the same reasons: the
+    model's OWN catalog row first (the canonical, most recently verified
+    source, and the one that resolves alias/direct/openrouter spellings),
+    then the ``-cache-read`` column of the caller's label bucket, then any
+    other bucket -- one rate per spelling, independent of the label the
+    caller passed -- then the caller's ``extra_prices``, which may document
+    a cache-read rate for a spelling the shared tables have never heard of.
+
+    Unlike the input rate this is deliberately NOT tier-aware: a catalog row
+    carries exactly ONE documented cache-read rate and no ``*_long``
+    counterpart, so a long-context request bills its cached tokens at the
+    published rate rather than at a rate this module would have to invent.
+    A provider that publishes a tiered cache-read rate needs a
+    ``cache_read_per_mtok_long`` field on ``ModelSpec`` first.
+    """
+    from aragora.models.catalog import spec_or_none
+
+    spec = spec_or_none(model)
+    if spec is not None and spec.cache_read_per_mtok is not None:
+        return dec(spec.cache_read_per_mtok)
+
+    key = f"{model}{_CACHE_READ_SUFFIX}"
+    price = _caller_model_price(caller_prices, key)
+    if price is None:
+        price = provider_prices.get(key)
+    if price is None:
+        for table in PROVIDER_PRICING.values():
+            price = table.get(key)
+            if price is not None:
+                break
+    if price is None and extra_prices and key not in _SHARED_PRICED_SPELLINGS:
+        for table in extra_prices.values():
+            price = table.get(key)
+            if price is not None:
+                break
+    return price
+
+
 def calculate_token_cost(
     provider: str,
     model: str,
@@ -295,7 +360,11 @@ def calculate_token_cost(
         model: Model name
         tokens_in: Input tokens (non-cached)
         tokens_out: Output tokens
-        tokens_cached: Cached input tokens (charged at 10% of input price)
+        tokens_cached: Cached input tokens. Billed at the rate the
+            provider DOCUMENTS for a cache read when the spelling
+            resolves to one (``ModelSpec.cache_read_per_mtok``, or a
+            bucket's ``-cache-read`` row); at ``_CACHE_READ_HEURISTIC``
+            times the input rate only when nothing documents one.
         extra_prices: An additional ``PROVIDER_PRICING``-shaped table this
             caller owns. It may ADD model spellings the shared table has
             never heard of, and supplies the per-provider ``default`` row
@@ -386,10 +455,14 @@ def calculate_token_cost(
     input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price
     output_cost = (Decimal(tokens_out) / Decimal("1000000")) * output_price
 
-    # Cached tokens charged at 10% of input price
+    # Cached tokens charged at the DOCUMENTED cache-read rate where one
+    # exists, and only otherwise at a share of the input rate.
     cache_cost = Decimal("0")
     if tokens_cached > 0:
-        cache_cost = (Decimal(tokens_cached) / Decimal("1000000")) * input_price * Decimal("0.1")
+        cache_price = _cache_read_price(model, caller_prices, provider_prices, extra_prices)
+        if cache_price is None:
+            cache_price = input_price * _CACHE_READ_HEURISTIC
+        cache_cost = (Decimal(tokens_cached) / Decimal("1000000")) * cache_price
 
     return input_cost + output_cost + cache_cost
 

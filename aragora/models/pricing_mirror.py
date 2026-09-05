@@ -216,9 +216,11 @@ def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 def usage_rows() -> dict[str, dict[str, Decimal]]:
     """Shape of ``aragora.billing.usage.PROVIDER_PRICING``: provider ->
-    {id: input_rate, f"{id}-output": output_rate}, one entry per spelling
-    in ``ModelSpec.all_ids()`` so canonical/direct/openrouter/alias ids all
-    resolve, under every bucket ``_bucketed`` emits the row for.
+    {id: input_rate, f"{id}-output": output_rate}, plus
+    f"{id}-cache-read" for a row that documents a cache-read rate, one
+    entry per spelling in ``ModelSpec.all_ids()`` so canonical/direct/
+    openrouter/alias ids all resolve, under every bucket ``_bucketed``
+    emits the row for.
 
     The emitted rates are FLAT (``input_per_mtok``/``output_per_mtok``) and
     stay flat: the two-key-per-spelling shape this table must produce cannot
@@ -227,7 +229,17 @@ def usage_rows() -> dict[str, dict[str, Decimal]]:
     therefore the catalog's job -- ``ModelSpec.rates_for(prompt_tokens)``,
     which ``billing.usage.calculate_token_cost`` consults BEFORE these
     buckets (finding O-P2b on #9989) -- and these rows remain the correct
-    answer for the spellings the catalog cannot resolve at all."""
+    answer for the spellings the catalog cannot resolve at all.
+
+    The ``-cache-read`` column exists for the same reason the ``-output``
+    one does: ``calculate_token_cost`` is the only consumer of these
+    tables that bills a cached prompt token at all, and it charged a
+    hard-coded 10% of the input rate while the catalog carried the
+    provider's DOCUMENTED rate (Fable 5.1: $0.25/MTok against a $10.00
+    input rate, so cached Fable billed at $1.00 -- finding O-P2a on
+    #9989). Only rows with ``cache_read_per_mtok`` set emit the column, so
+    a spelling without a documented rate keeps the heuristic rather than
+    gaining an invented price."""
     out: dict[str, dict[str, Decimal]] = {}
     for s in _active():
         for bucket, spellings in _bucketed(s):
@@ -235,6 +247,8 @@ def usage_rows() -> dict[str, dict[str, Decimal]]:
             for spelling in spellings:
                 prov[spelling] = _dec(s.input_per_mtok)
                 prov[f"{spelling}-output"] = _dec(s.output_per_mtok)
+                if s.cache_read_per_mtok is not None:
+                    prov[f"{spelling}-cache-read"] = _dec(s.cache_read_per_mtok)
     return out
 
 
@@ -261,7 +275,11 @@ def metering_rows() -> dict[str, dict[str, Decimal]]:
     """Shape of ``aragora.services.metering_models.MODEL_PRICING``: same
     provider -> {id: input, f"{id}-output": output} shape as
     ``usage_rows()`` (verified against the hand-written dict before writing
-    this — the two tables are documented as aligned)."""
+    this — the two tables are documented as aligned), including its
+    ``-cache-read`` column. The tenant-billing path hands ``MODEL_PRICING``
+    straight to ``calculate_token_cost`` as ``extra_prices``, which is the
+    consumer that reads that column, so keeping the two tables identical
+    keeps one price per spelling rather than splitting the shape."""
     return usage_rows()
 
 
