@@ -27,6 +27,7 @@ from datetime import date
 from functools import lru_cache
 from typing import Literal
 
+from aragora.config.model_pins import GPT6_ASTRA_DIRECT
 from aragora.models.catalog import CATALOG
 from aragora.utils.cache_registry import register_lru_cache
 
@@ -159,12 +160,20 @@ class TokenCounter:
     approximations for other providers.
     """
 
-    def __init__(self, default_model: str = "gpt-4"):
+    def __init__(self, default_model: str = GPT6_ASTRA_DIRECT):
         """
         Initialize token counter.
 
         Args:
-            default_model: Default model to use for counting
+            default_model: Default model to use for counting. Defaults to
+                the catalog's current OpenAI frontier rather than the
+                retired "gpt-4" spelling it used to name: that literal is
+                an UPGRADES key, so the counter's default silently depended
+                on the upgrade map to reach an active row, and it selected
+                ``cl100k_base`` when every current OpenAI model tokenizes
+                with ``o200k_base`` (2026-09-05 merge-gate addendum on
+                #9989). The encoding follows from the catalog via
+                MODEL_ENCODINGS; no hand row is needed.
         """
         self.default_model = default_model
         self._cache: dict[tuple[str, str], int] = {}
@@ -385,7 +394,7 @@ def get_token_counter() -> TokenCounter:
     return _token_counter
 
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
+def count_tokens(text: str, model: str = GPT6_ASTRA_DIRECT) -> int:
     """Convenience function to count tokens."""
     return get_token_counter().count(text, model)
 

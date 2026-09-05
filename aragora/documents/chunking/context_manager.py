@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from aragora.config.model_pins import GPT6_ASTRA_DIRECT
 from aragora.documents.models import DocumentChunk, MODEL_TOKEN_LIMITS
 from aragora.documents.chunking.token_counter import TokenCounter, get_token_counter
 from aragora.models.catalog import CATALOG
@@ -117,8 +118,12 @@ class ContextWindow:
 class ContextConfig:
     """Configuration for context building."""
 
-    # Target model (affects strategy selection)
-    model: str = "gpt-4-turbo"
+    # Target model (affects strategy selection). Pinned to the catalog's
+    # current OpenAI frontier: the previous default "gpt-4-turbo" is an
+    # UPGRADES key, so the config's model depended on the upgrade map to
+    # name anything live, and its 128K context limit under-sized every
+    # window this config built (2026-09-05 merge-gate addendum on #9989).
+    model: str = GPT6_ASTRA_DIRECT
 
     # Maximum tokens to use (None = use model's limit)
     max_tokens: int | None = None
