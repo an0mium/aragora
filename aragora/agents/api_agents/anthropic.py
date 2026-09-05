@@ -251,9 +251,27 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         otherwise. See :meth:`_note_served_model`."""
         return self._last_served_model
 
+    @staticmethod
+    def _is_same_model(requested: str, served: str) -> bool:
+        """True when two model spellings name the SAME catalog row.
+
+        Falls back to string equality for a spelling the catalog does not
+        carry, so an id newer than the catalog still compares sanely against
+        itself and still counts as a swap against anything else.
+        """
+        if requested == served:
+            return True
+        from aragora.models.catalog import spec_or_none
+
+        requested_spec = spec_or_none(requested)
+        served_spec = spec_or_none(served)
+        if requested_spec is None or served_spec is None:
+            return False
+        return requested_spec.canonical_id == served_spec.canonical_id
+
     def _note_served_model(self, served: str | None) -> None:
-        """Record the response's ``model`` field when it differs from the id
-        we asked for.
+        """Record the response's ``model`` field when it names a DIFFERENT
+        model from the one we asked for.
 
         Anthropic echoes the model that actually produced the response. With
         the server-side refusal fallback enabled by default for Fable 5.1 /
@@ -264,10 +282,20 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         per (requested, served) pair at INFO -- it is normal operation, not a
         fault, but it must be visible.
 
+        "Different" is decided through the CATALOG, not by string equality:
+        an agent pinned to the active alias ``claude-fable-5.1`` sends that
+        spelling verbatim and the server echoes the canonical
+        ``claude-fable-5-1``, which the first cut reported as a server-side
+        fallback -- a receipt claiming a model swap that never happened (the
+        round-4 re-review of the same finding). Two spellings that resolve to
+        one catalog row are one model. A served id the catalog does not know
+        IS recorded: an unrecognized answer is exactly the case a receipt
+        must not silently absorb.
+
         Reset to ``None`` on every call, so a stale value from an earlier
         generation can never be attributed to this one.
         """
-        if not served or served == self.model:
+        if not served or self._is_same_model(self.model, served):
             self._last_served_model = None
             return
         self._last_served_model = served

@@ -118,6 +118,72 @@ class TestNonStreamingServedModel:
         assert _SERVED in records[0].getMessage()
 
 
+class TestAliasSpellingsAreNotAFallback:
+    """An active alias pin is not a model swap.
+
+    ``AnthropicAPIAgent(model="claude-fable-5.1")`` sends the dotted alias
+    verbatim and the server echoes the canonical ``claude-fable-5-1``. String
+    equality read that as a server-side fallback and wrote a
+    ``{"requested": ..., "served": ...}`` pair into the receipt for a swap
+    that never happened (round-4 re-review of finding C-P3 on #9989).
+    """
+
+    _ALIAS = "claude-fable-5.1"
+    _CANONICAL = "claude-fable-5-1"
+
+    @pytest.fixture
+    def alias_agent(self) -> AnthropicAPIAgent:
+        return AnthropicAPIAgent(model=self._ALIAS, api_key="test-key")
+
+    def test_the_two_spellings_really_are_one_catalog_row(self) -> None:
+        """Guards the premise: if Task 1 ever dropped the alias, the rest of
+        this class would be asserting nothing."""
+        from aragora.models.catalog import spec_or_none
+
+        assert spec_or_none(self._ALIAS) is not None
+        assert spec_or_none(self._ALIAS).canonical_id == self._CANONICAL
+        assert spec_or_none(self._CANONICAL).canonical_id == self._CANONICAL
+
+    @pytest.mark.asyncio
+    async def test_canonical_answer_to_an_alias_pin_records_no_fallback(self, alias_agent) -> None:
+        assert alias_agent.model == self._ALIAS
+        payload = {"model": self._CANONICAL, "content": [{"type": "text", "text": "hi"}]}
+        with _session_patch(_json_response(payload)):
+            assert await alias_agent.generate("prompt") == "hi"
+        assert alias_agent.last_served_model is None
+        assert alias_agent.get_metadata()["served_model"] is None
+
+    @pytest.mark.asyncio
+    async def test_a_real_swap_is_still_recorded_for_an_alias_pin(self, alias_agent) -> None:
+        payload = {"model": _SERVED, "content": [{"type": "text", "text": "hi"}]}
+        with _session_patch(_json_response(payload)):
+            await alias_agent.generate("prompt")
+        assert alias_agent.get_metadata()["served_model"] == _SERVED
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_served_id_is_still_recorded(self, alias_agent) -> None:
+        """A model the catalog cannot resolve is exactly what a receipt must
+        not silently absorb."""
+        from aragora.models.catalog import spec_or_none
+
+        unknown = "claude-something-the-catalog-never-heard-of"
+        assert spec_or_none(unknown) is None
+        payload = {"model": unknown, "content": [{"type": "text", "text": "hi"}]}
+        with _session_patch(_json_response(payload)):
+            await alias_agent.generate("prompt")
+        assert alias_agent.get_metadata()["served_model"] == unknown
+
+    @pytest.mark.asyncio
+    async def test_streaming_path_uses_the_same_comparison(self, alias_agent) -> None:
+        events = [
+            '{"type": "message_start", "message": {"model": "%s"}}' % self._CANONICAL,
+            '{"type": "content_block_delta", "delta": {"type": "text_delta", "text": "hi"}}',
+        ]
+        with _session_patch(_sse_response(events)):
+            [c async for c in alias_agent.generate_stream("prompt")]
+        assert alias_agent.get_metadata()["served_model"] is None
+
+
 class TestStreamingServedModel:
     @pytest.mark.asyncio
     async def test_message_start_model_is_recorded(self, agent) -> None:
