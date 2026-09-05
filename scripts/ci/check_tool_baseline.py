@@ -38,10 +38,11 @@ Exit codes
     0 -- no new findings (resolved/stale baseline entries are fine).
     1 -- new findings (each key is printed with the baseline path and both
          remedies), or ``--update`` refused because the set grew.
-    2 -- baseline problem (corrupt JSON, wrong shape, tool mismatch, missing
-         file without ``--update``) or a usage error.
-    3 -- the tool failed to run (not found / OSError) or exited non-zero with
-         no parseable findings. The baseline is never rewritten in this case.
+    2 -- baseline problem (unreadable file, corrupt JSON, wrong shape, tool
+         mismatch, missing file without ``--update``) or a usage error.
+    3 -- the tool failed to run, exited outside its clean/finding exit codes
+         (even with partial findings), or signalled findings but none parsed.
+         The baseline is never rewritten in this case.
 """
 
 from __future__ import annotations
@@ -80,11 +81,11 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
 class BaselineError(RuntimeError):
-    """Baseline shape/tool/JSON problem (exit 2)."""
+    """Baseline read/shape/tool/JSON problem (exit 2)."""
 
 
 class ToolFailed(RuntimeError):
-    """The tool could not run or produced nothing parseable (exit 3)."""
+    """The tool failed or signalled findings but none parsed (exit 3)."""
 
 
 # --- Baseline I/O -----------------------------------------------------------
@@ -115,6 +116,8 @@ def load_baseline(path: Path, tool: str) -> Baseline:
         raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise BaselineError(f"baseline not found: {path} (create it with --update)") from None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise BaselineError(f"cannot read baseline: {path}: {exc}") from None
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -244,14 +247,17 @@ def collect_findings(
     spec: ToolSpec, command: Sequence[str], cwd: Path
 ) -> tuple[list[Finding], int]:
     rc, stdout, stderr = run_tool(command, cwd)
-    findings = key_findings(spec.parse(stdout), spec, cwd)
-    if not findings and rc not in spec.clean_exit_codes:
+    findings = spec.parse(stdout)
+    if rc not in spec.clean_exit_codes | spec.finding_exit_codes or (
+        not findings and rc not in spec.clean_exit_codes
+    ):
         tail = "\n".join((stderr or stdout).strip().splitlines()[-8:])
         detail = f"\n{tail}" if tail else ""
+        parsed = f"{len(findings)}" if findings else "no"
         raise ToolFailed(
-            f"tool exited {rc} with no parseable findings (tool failed to run?){detail}"
+            f"tool exited {rc} with {parsed} parseable findings (tool failed to run?){detail}"
         )
-    return findings, rc
+    return key_findings(findings, spec, cwd), rc
 
 
 # --- Comparison -------------------------------------------------------------
@@ -299,9 +305,10 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "exit codes: 0 no new findings; 1 new findings (or --update refused "
-            "because the set grew); 2 baseline corrupt/mismatched/missing or usage "
-            "error; 3 tool failed to run or exited non-zero with no parseable "
-            "findings (baseline never rewritten). "
+            "because the set grew); 2 baseline unreadable/corrupt/mismatched/missing "
+            "or usage error; 3 tool failed to run, exited outside its clean/finding "
+            "exit codes (even with partial findings), or signalled findings but "
+            "none parsed (baseline never rewritten). "
             f"Baselines live in {BASELINES_DIR}/<app>-<tool>[-<variant>].json."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

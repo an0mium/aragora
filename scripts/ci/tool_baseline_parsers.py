@@ -73,6 +73,9 @@ class ToolSpec:
     # Exit codes that mean "ran fine, zero findings" when stdout parses to
     # nothing. Any other exit code with zero parsed findings is a tool crash.
     clean_exit_codes: frozenset[int] = field(default_factory=lambda: frozenset({0}))
+    # Codes signalling findings. Codes outside clean | finding are failures,
+    # even if stdout contains parseable partial findings.
+    finding_exit_codes: frozenset[int] = field(default_factory=frozenset)
     # True when the parser leaves ``symbol`` empty and the runner must hash the
     # offending source line read from ``--cwd``.
     symbol_from_line: bool = False
@@ -87,6 +90,7 @@ def register(
     description: str,
     example_command: str,
     clean_exit_codes: frozenset[int] | set[int] = frozenset({0}),
+    finding_exit_codes: frozenset[int] | set[int] = frozenset(),
     symbol_from_line: bool = False,
 ) -> Callable[[ParseFn], ParseFn]:
     """Decorator registering ``parse`` under ``--tool <name>``."""
@@ -100,6 +104,7 @@ def register(
             description=description,
             example_command=example_command,
             clean_exit_codes=frozenset(clean_exit_codes),
+            finding_exit_codes=frozenset(finding_exit_codes),
             symbol_from_line=symbol_from_line,
         )
         return fn
@@ -147,10 +152,10 @@ def _sub_object(container: dict[str, Any], key: str) -> dict[str, Any]:
 
 # ``ruff check --output-format concise``:
 #   pkg/mod.py:1:8: F401 [*] `os` imported but unused
-#   pkg/mod.py:3:1: SyntaxError: unexpected indentation
+#   pkg/mod.py:3:1: invalid-syntax: unexpected indentation
 _RUFF_RE = re.compile(
     r"^(?P<path>[^:\n]+?):(?P<line>\d+):(?P<col>\d+): "
-    r"(?P<rule>[A-Za-z][A-Za-z0-9]*):? (?:\[\*\] )?(?P<msg>.*)$"
+    r"(?P<rule>[A-Za-z][A-Za-z0-9-]*):? (?:\[\*\] )?(?P<msg>.*)$"
 )
 
 
@@ -159,6 +164,7 @@ _RUFF_RE = re.compile(
     description="ruff check, concise output; key = line-content hash",
     example_command="ruff check <paths> --select N --output-format concise",
     clean_exit_codes={0},
+    finding_exit_codes={1},
     symbol_from_line=True,
 )
 def parse_ruff(stdout: str) -> list[Finding]:
@@ -195,6 +201,7 @@ _MYPY_RE = re.compile(
     description="mypy text output (errors and warnings; notes ignored); key = line-content hash",
     example_command="mypy --ignore-missing-imports <paths>",
     clean_exit_codes={0},
+    finding_exit_codes={1},
     symbol_from_line=True,
 )
 def parse_mypy(stdout: str) -> list[Finding]:
@@ -230,6 +237,7 @@ _TODO_MARKER_RE = re.compile(r"\b(TODO|FIXME|XXX|HACK)\b")
     example_command="grep -rn --include='*.py' -E 'TODO|FIXME' .",
     # grep exits 1 when nothing matches: that is zero findings, not a crash.
     clean_exit_codes={0, 1},
+    finding_exit_codes={0},
 )
 def parse_todo(stdout: str) -> list[Finding]:
     findings: list[Finding] = []
@@ -271,6 +279,7 @@ _VULTURE_RULE_RE = re.compile(r"^(?P<rule>[a-z]+(?: [a-z]+)*?)(?: after| '| \()"
     description="vulture dead-code report; key = symbol name, rule = unused-<kind>",
     example_command="vulture <paths> --min-confidence 80",
     clean_exit_codes={0},
+    finding_exit_codes={3},
 )
 def parse_vulture(stdout: str) -> list[Finding]:
     findings: list[Finding] = []
@@ -313,6 +322,7 @@ def parse_vulture(stdout: str) -> list[Finding]:
     description="deptry --json-output; key = module name, rule = DEP code",
     example_command="deptry <root> --json-output /dev/stdout",
     clean_exit_codes={0},
+    finding_exit_codes={1},
 )
 def parse_deptry(stdout: str) -> list[Finding]:
     data = _load_json_prefix(stdout)
@@ -360,6 +370,7 @@ def parse_deptry(stdout: str) -> list[Finding]:
         "cat DIR/jscpd-report.json'"
     ),
     clean_exit_codes={0},
+    finding_exit_codes={0},
 )
 def parse_jscpd(stdout: str) -> list[Finding]:
     data = _load_json_prefix(stdout)
@@ -410,6 +421,7 @@ def parse_jscpd(stdout: str) -> list[Finding]:
     description="eslint -f json; key = line-content hash, rule = ruleId",
     example_command="eslint -f json <paths>",
     clean_exit_codes={0},
+    finding_exit_codes={1},
     symbol_from_line=True,
 )
 def parse_eslint(stdout: str) -> list[Finding]:
@@ -458,6 +470,7 @@ def parse_eslint(stdout: str) -> list[Finding]:
     description="golangci-lint v2 JSON (--output.json.path stdout); key = line-content hash, rule = linter",
     example_command="golangci-lint run --output.json.path stdout --show-stats=false ./...",
     clean_exit_codes={0},
+    finding_exit_codes={1},
     symbol_from_line=True,
 )
 def parse_golangci_lint(stdout: str) -> list[Finding]:

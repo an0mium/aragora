@@ -187,9 +187,9 @@ def test_parse_ruff_concise_fixture():
 
 
 def test_parse_ruff_handles_syntax_error_lines():
-    out = "a.py:3:1: SyntaxError: unexpected indentation\n"
+    out = "a.py:3:1: invalid-syntax: unexpected indentation\n"
     (finding,) = parsers.parse_ruff(out)
-    assert (finding.path, finding.line, finding.rule) == ("a.py", 3, "SyntaxError")
+    assert (finding.path, finding.line, finding.rule) == ("a.py", 3, "invalid-syntax")
 
 
 def test_parse_mypy_fixture_skips_notes_and_summary():
@@ -539,13 +539,78 @@ def test_exit_code_3_on_tool_crash_never_rewrites_even_with_update(fx: Path, cap
     assert baseline.read_bytes() == before
 
 
-def test_exit_code_3_only_when_no_findings_parsed(fx: Path):
-    # A non-zero exit WITH parseable findings is the normal "tool found things" case.
+def test_finding_exit_code_with_parseable_findings_is_normal(fx: Path):
+    # A declared finding exit code with parseable findings is a normal run.
     baseline = fx / "b.json"
     assert _run("ruff", baseline, fx, _fake_tool(fx, RUFF_OUT, rc=1), "--update") == 0
     assert _run("ruff", baseline, fx, _fake_tool(fx, RUFF_OUT, rc=1)) == 0
     # A clean exit with empty stdout is zero findings, not a crash.
     assert _run("ruff", baseline, fx, _fake_tool(fx, "", rc=0)) == 0
+
+
+@pytest.mark.parametrize("rc", [2, 9])
+@pytest.mark.parametrize(
+    "flags",
+    [(), ("--update",), ("--update", "--allow-grow", "--reason", "cannot trust a crash")],
+    ids=["check", "update", "allow-grow"],
+)
+def test_partial_output_crash_exits_3_and_never_shrinks_baseline(fx: Path, capsys, rc, flags):
+    baseline = fx / "b.json"
+    full = "\n".join(RUFF_OUT.splitlines()[1:3]) + "\n"
+    assert _run("ruff", baseline, fx, _fake_tool(fx, full, rc=1), "--update") == 0
+    assert len(json.loads(baseline.read_text())["findings"]) == 2
+    before = baseline.read_bytes()
+    partial = full.splitlines()[0] + "\n"
+    assert len(parsers.parse_ruff(partial)) == 1
+    report = fx / "report.json"
+    assert (
+        _run(
+            "ruff",
+            baseline,
+            fx,
+            _fake_tool(fx, partial, rc=rc),
+            *flags,
+            "--report-json",
+            str(report),
+        )
+        == 3
+    )
+    err = capsys.readouterr().err
+    assert "ERROR: ruff:" in err and f"exited {rc}" in err and "left untouched" in err
+    assert baseline.read_bytes() == before
+    assert json.loads(report.read_text())["exit_code"] == 3
+
+
+@pytest.mark.parametrize(
+    ("tool", "out", "rc"),
+    [
+        ("ruff", RUFF_OUT, 1),
+        ("mypy", MYPY_OUT, 1),
+        ("todo", TODO_OUT, 0),
+        ("vulture", VULTURE_OUT, 3),
+        ("deptry", DEPTRY_OUT, 1),
+        ("jscpd", JSCPD_OUT, 0),
+        ("eslint", ESLINT_OUT, 1),
+        ("golangci-lint", GOLANGCI_OUT, 1),
+    ],
+    ids=["ruff", "mypy", "todo", "vulture", "deptry", "jscpd", "eslint", "golangci-lint"],
+)
+def test_each_tool_enforces_its_finding_exit_codes(fx: Path, tool, out, rc):
+    spec = parsers.PARSERS[tool]
+    assert spec.finding_exit_codes == frozenset({rc})
+    baseline = fx / "b.json"
+    assert _run(tool, baseline, fx, _fake_tool(fx, out, rc=rc), "--update") == 0
+    before = baseline.read_bytes()
+    assert _run(tool, baseline, fx, _fake_tool(fx, out, rc=9), "--update") == 3
+    assert baseline.read_bytes() == before
+
+
+def test_ruff_invalid_syntax_is_a_finding_not_a_tool_failure(fx: Path, capsys):
+    baseline = fx / "b.json"
+    assert _run("ruff", baseline, fx, _fake_tool(fx, "", rc=0), "--update") == 0
+    out = "a.py:3:1: invalid-syntax: unexpected indentation\n"
+    assert _run("ruff", baseline, fx, _fake_tool(fx, out, rc=1)) == 1
+    assert "::invalid-syntax" in capsys.readouterr().out
 
 
 # --- todo: grep semantics ----------------------------------------------------
@@ -634,9 +699,10 @@ def test_jscpd_clone_baselined_and_new_clone_exits_1(fx: Path, capsys):
     extra["firstFile"]["name"] = "src/c.js"
     extra["fragment"] = "function other() { return 1; }"
     report["duplicates"].append(extra)
-    assert _run("jscpd", baseline, fx, _fake_tool(fx, json.dumps(report), rc=1)) == 1
+    assert _run("jscpd", baseline, fx, _fake_tool(fx, json.dumps(report), rc=0)) == 1
     assert "NEW src/c.js::" in capsys.readouterr().out
-    # Over-threshold exit 1 with a clone-free report is a crash (nothing parsed).
+    # The cat wrapper exits 0 with findings; exit 1 is a failure even with clones.
+    assert _run("jscpd", baseline, fx, _fake_tool(fx, JSCPD_OUT, rc=1)) == 3
     empty = '{"duplicates": [], "statistics": {}}'
     assert _run("jscpd", baseline, fx, _fake_tool(fx, empty, rc=1)) == 3
     assert _run("jscpd", baseline, fx, _fake_tool(fx, empty, rc=0)) == 0
@@ -821,6 +887,34 @@ def test_corrupt_baseline_exits_2_with_diagnostic(fx: Path, capsys, content: str
     # Even --update must not "repair" a corrupt file silently.
     assert _run("ruff", baseline, fx, _fake_tool(fx, RUFF_OUT, rc=1), "--update") == 2
     assert baseline.read_bytes() == before
+
+
+@pytest.mark.parametrize("flags", [(), ("--update",)], ids=["check", "update"])
+@pytest.mark.parametrize("kind", ["directory", "non-utf8", "permission", "os-error"])
+def test_unreadable_baseline_exits_2_naming_path(fx: Path, capsys, monkeypatch, flags, kind):
+    baseline = fx / "b.json"
+    command = _fake_tool(fx, RUFF_OUT, rc=1)
+    if kind == "directory":
+        baseline.mkdir()
+    else:
+        baseline.write_bytes(b"\xff\xfe" if kind == "non-utf8" else b"unreadable")
+    before = None if baseline.is_dir() else baseline.read_bytes()
+    if kind in {"permission", "os-error"}:
+        read_text = Path.read_text
+
+        def fail_read(path, *args, **kwargs):
+            if path == baseline:
+                error = PermissionError if kind == "permission" else OSError
+                raise error("fixture read failure")
+            return read_text(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", fail_read)
+    assert _run("ruff", baseline, fx, command, *flags) == 2
+    err = capsys.readouterr().err
+    assert "ERROR:" in err and str(baseline) in err
+    assert "Traceback" not in err
+    if before is not None:
+        assert baseline.read_bytes() == before
 
 
 # --- --report-json ------------------------------------------------------------

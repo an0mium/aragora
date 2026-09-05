@@ -41,12 +41,20 @@ never fail the run.
 |---|---|
 | `0` | No new findings. Prints `<tool>: 0 new findings (<n> baselined, <m> resolved)` plus a second line with both `len(findings)` (keys) and `sum(counts)` (occurrences) for the current run and the baseline. |
 | `1` | New findings. Each key is printed as `NEW <key>  (<path>:<line>: <message>)`, followed by the baseline path and both remedies (`--update`, `--update --allow-grow --reason "<why>"`). Also returned when `--update` refuses to grow the baseline. |
-| `2` | Baseline problem: corrupt JSON, wrong shape (missing `tool`/`findings`, wrong `version`), `tool` mismatch between the file and `--tool`, missing file without `--update`, unknown `--tool`; or an argparse usage error (e.g. `--allow-grow` without `--reason`). |
-| `3` | The tool failed to run (not found, `OSError`) or exited non-zero with **no parseable findings** (a usage error, a crash). This is never interpreted as "zero findings", and the baseline is never rewritten in this state, even with `--update`. |
+| `2` | Baseline problem: unreadable file (directory path, permission or other I/O error, invalid UTF-8), corrupt JSON, wrong shape (missing `tool`/`findings`, wrong `version`), `tool` mismatch between the file and `--tool`, missing file without `--update`, unknown `--tool`; or an argparse usage error (e.g. `--allow-grow` without `--reason`). Baseline read errors print an `ERROR` line naming the path, not a traceback. |
+| `3` | The tool failed to run (not found, `OSError`), exited outside its declared clean/finding exit codes **even with parseable partial output**, or signalled findings but none parsed. This is never interpreted as "zero findings", and the baseline stays byte-identical, even with `--update` or `--allow-grow`. The diagnostic names the tool's exit code when it ran. |
 
-A non-zero tool exit *with* parseable findings is the normal case (ruff and
-mypy exit 1 when they report something). For `--tool todo`, grep's exit 1 on
-zero matches is a clean run with zero findings (exit 0), not a crash.
+Each `ToolSpec` declares `clean_exit_codes` (accepted with zero parsed findings)
+and `finding_exit_codes` (accepted when findings parse), listed below.
+**Exit code outside clean ∪ finding codes ⇒ exit 3**, regardless of how many
+findings parsed. A partial-output crash must never shrink a baseline: for
+example, ruff output containing one finding followed by exit 9 fails with exit
+3 even if that finding is a subset of a two-key baseline.
+
+A declared finding exit code with parseable findings is normal (ruff and mypy
+exit 1). A finding-only code with no parseable findings still fails with exit
+3. For `--tool todo`, grep's exit 0 means matches and exit 1 means no matches;
+the latter maps to zero findings, not a crash.
 
 ### Finding keys
 
@@ -135,16 +143,23 @@ The eight M1 parsers (`python scripts/ci/check_tool_baseline.py --help` lists
 the same names). The command column is what the runner expects to find on the
 tool's **stdout**; run it from `--cwd` so reported paths stay relative.
 
-| `--tool` | Command it expects (stdout) | Key form `<path>::<symbol>::<rule>` | Clean exit codes |
-|---|---|---|---|
-| `ruff` | `ruff check <paths> [--select ...] --output-format concise` | symbol = line-content hash; rule = ruff code (`F401`, `N806`) | `0` |
-| `vulture` | `vulture <paths> [--min-confidence N]` (text: `path:line: unused <kind> '<name>' (NN% confidence)`) | symbol = the reported name; rule = `unused-<kind>` (`unused-import`, `unused-function`, …); unnamed findings such as `unreachable code` hash the message | `0` (vulture exits `3` when it reports dead code; that is the normal case, not a crash) |
-| `deptry` | `deptry <root> --json-output /dev/stdout` (the human report goes to stderr) | symbol = module name; rule = `DEP001`..`DEP004`; `pyproject.toml` findings have no line | `0` |
-| `jscpd` | `sh -c 'jscpd --reporters json --output DIR --silent . >/dev/null; cat DIR/jscpd-report.json'` — the `json` reporter only writes `DIR/jscpd-report.json`, never stdout, so the wired command must `cat` it; scan `.` from `--cwd` so `firstFile.name` is relative | path = `firstFile.name`; symbol = hash of the duplicated `fragment`; rule = `clone`. A third copy of the same fragment raises the count | `0` (`1` only when over `--threshold`) |
-| `mypy` | `mypy [--ignore-missing-imports] <paths>` (text output; `error`/`warning` lines, notes ignored) | symbol = line-content hash; rule = `[code]` (`arg-type`, `return-value`) | `0` |
-| `eslint` | `eslint -f json <paths>` (`filePath` is absolute; the runner makes it relative to `--cwd`) | symbol = line-content hash; rule = `ruleId` (a fatal parse error with `ruleId: null` is `fatal`) | `0` |
-| `golangci-lint` | `golangci-lint run --output.json.path stdout --show-stats=false ./...` (v2 JSON schema: `{"Issues":[{"FromLinter","Text","SourceLines","Pos":{"Filename","Line"}}],"Report":…}`; without `--show-stats=false` a text stats block follows the JSON on stdout and only the first JSON object is read) | symbol = line-content hash (taken from `SourceLines[0]`, or read from the file when absent); rule = `FromLinter` (`errcheck`, `revive`) | `0` |
-| `todo` | `grep -rn --include='*.py' -E 'TODO\|FIXME' .` | symbol = matched-line hash; rule = the marker word (`TODO`, `FIXME`, `XXX`, `HACK`) | `0`, `1` (no matches) |
+| `--tool` | Command it expects (stdout) | Key form `<path>::<symbol>::<rule>` | `clean_exit_codes` | `finding_exit_codes` |
+|---|---|---|---|---|
+| `ruff` | `ruff check <paths> [--select ...] --output-format concise` | symbol = line-content hash; rule = ruff code (`F401`, `N806`, `invalid-syntax`) | `0` | `1` |
+| `vulture` | `vulture <paths> [--min-confidence N]` (text: `path:line: unused <kind> '<name>' (NN% confidence)`) | symbol = the reported name; rule = `unused-<kind>` (`unused-import`, `unused-function`, …); unnamed findings such as `unreachable code` hash the message | `0` | `3` (normal dead-code report, not a crash) |
+| `deptry` | `deptry <root> --json-output /dev/stdout` (the human report goes to stderr) | symbol = module name; rule = `DEP001`..`DEP004`; `pyproject.toml` findings have no line | `0` | `1` |
+| `jscpd` | `sh -c 'jscpd --reporters json --output DIR --silent . >/dev/null; cat DIR/jscpd-report.json'` — the `json` reporter only writes `DIR/jscpd-report.json`, never stdout, so the wired command must `cat` it; scan `.` from `--cwd` so `firstFile.name` is relative | path = `firstFile.name`; symbol = hash of the duplicated `fragment`; rule = `clone`. A third copy of the same fragment raises the count | `0` | `0` (the wrapper's final `cat` exit) |
+| `mypy` | `mypy [--ignore-missing-imports] <paths>` (text output; `error`/`warning` lines, notes ignored) | symbol = line-content hash; rule = `[code]` (`arg-type`, `return-value`) | `0` | `1` |
+| `eslint` | `eslint -f json <paths>` (`filePath` is absolute; the runner makes it relative to `--cwd`) | symbol = line-content hash; rule = `ruleId` (a fatal parse error with `ruleId: null` is `fatal`) | `0` | `1` |
+| `golangci-lint` | `golangci-lint run --output.json.path stdout --show-stats=false ./...` (v2 JSON schema: `{"Issues":[{"FromLinter","Text","SourceLines","Pos":{"Filename","Line"}}],"Report":…}`; without `--show-stats=false` a text stats block follows the JSON on stdout and only the first JSON object is read) | symbol = line-content hash (taken from `SourceLines[0]`, or read from the file when absent); rule = `FromLinter` (`errcheck`, `revive`) | `0` | `1` |
+| `todo` | `grep -rn --include='*.py' -E 'TODO\|FIXME' .` | symbol = matched-line hash; rule = the marker word (`TODO`, `FIXME`, `XXX`, `HACK`) | `0`, `1` (no matches) | `0` |
+
+Finding exit codes were verified against live tools in `/tmp/ratchet-fx`.
+For jscpd 5.1.2, a direct over-threshold run exits 1, but the documented
+`sh -c '...; cat <report>'` wrapper exits 0 when `cat` succeeds, including
+when clones exist. The runner validates the wrapper's exit code, not the
+hidden jscpd status; use a fresh report directory so a failed scan cannot
+reuse a stale report.
 
 Two key families follow from the table:
 
