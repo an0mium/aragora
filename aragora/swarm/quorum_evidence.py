@@ -641,7 +641,7 @@ _CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
 # Founder decision 2026-09-04 (chat, recorded on #9069): GPT-6 Astra drives
 # reviewer evidence from day two, overriding the 14-day soak rule once. Soak
 # metadata on the catalog row is unchanged for every other consumer.
-_CODEX_DEFAULT_MODELS = (_GPT6_ASTRA_DIRECT, "gpt-5.6-sol")
+_CODEX_DEFAULT_MODELS = (_GPT6_ASTRA_DIRECT, "gpt-5.6-terra")
 _CODEX_DEFAULT_MODEL = _CODEX_DEFAULT_MODELS[0]
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
