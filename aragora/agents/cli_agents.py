@@ -34,9 +34,19 @@ from aragora.agents.errors import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.config import get_api_key
-from aragora.config.model_pins import GEMINI_31_PRO_VIA_OPENROUTER
+from aragora.config.model_pins import (
+    FABLE_51_DIRECT,
+    FABLE_51_VIA_OPENROUTER,
+    GEMINI_31_PRO_DIRECT,
+    GEMINI_31_PRO_VIA_OPENROUTER,
+    GEMINI_38_FLASH_DIRECT,
+    GPT6_ASTRA_DIRECT,
+    GROK_46_DIRECT,
+)
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
+from aragora.models.catalog import CATALOG, spec_or_none
+from aragora.models.upgrade_map import resolve_model_id
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
 
 if TYPE_CHECKING:
@@ -228,58 +238,11 @@ class CLIAgent(CritiqueMixin, Agent):
     secret provider; disable with ARAGORA_OPENROUTER_FALLBACK_ENABLED=false.
     """
 
-    # Map CLI agent models to OpenRouter model identifiers
-    OPENROUTER_MODEL_MAP: dict[str, str] = {
-        # Claude models
-        "claude": "anthropic/claude-opus-5",  # Default claude CLI
-        "claude-fable-5": "anthropic/claude-fable-5",
-        "claude-opus-5": "anthropic/claude-opus-5",
-        "claude-opus-4-8": "anthropic/claude-opus-5",
-        "claude-opus-4-7": "anthropic/claude-opus-5",
-        "claude-sonnet-4-6": "anthropic/claude-opus-5",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-5",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-5",
-        "claude-3-opus-20240229": "anthropic/claude-opus-5",
-        "claude-3-sonnet-20240229": "anthropic/claude-opus-5",
-        # OpenAI/Codex models
-        "gpt-5.5": "openai/gpt-5.5",
-        "gpt-5.4": "openai/gpt-5.5",
-        "gpt-5.3": "openai/gpt-5.5",
-        "gpt-5.3-codex": "openai/gpt-5.5",
-        "gpt-5.3-chat-latest": "openai/gpt-5.5",
-        "gpt-4.1-codex": "openai/gpt-5.5",
-        "gpt-4.1": "openai/gpt-5.5",
-        "gpt-4.1-mini": "openai/gpt-5.5",
-        "gpt-4o": "openai/gpt-5.5",
-        "gpt-4-turbo": "openai/gpt-5.5",
-        "gpt-4": "openai/gpt-5.5",
-        # Gemini models
-        "gemini-3.1-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3.1-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-pro-preview": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-pro": GEMINI_31_PRO_VIA_OPENROUTER,
-        "gemini-3-flash-preview": "google/gemini-3-flash-preview",
-        "gemini-3-flash": "google/gemini-3-flash-preview",
-        "gemini-2.0-flash": "google/gemini-2.0-flash-001",
-        "gemini-1.5-pro": "google/gemini-pro-1.5",
-        # Grok models
-        "grok-4-1-fast": "x-ai/grok-4.1-fast",
-        "grok-4-latest": "x-ai/grok-4.5",
-        "grok-4": "x-ai/grok-4.5",
-        "grok-3": "x-ai/grok-4.5",
-        "grok-2": "x-ai/grok-4.5",
-        # Deepseek models
-        "deepseek-coder": "deepseek/deepseek-v4-pro",
-        "deepseek-v3": "deepseek/deepseek-v4-pro",
-        "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-        "deepseek-v3.2": "deepseek/deepseek-v4-pro",
-        # Qwen models
-        "qwen-2.5-coder": "qwen/qwen-2.5-coder-32b-instruct",
-        "qwen3-coder": "qwen/qwen3-coder-next",
-        "qwen3-max": "qwen/qwen3-max",
-        # Mistral models
-        "mistral-large-2512": "mistralai/mistral-large-2512",
-    }
+    # No static OPENROUTER_MODEL_MAP: _get_fallback_agent() below resolves
+    # the current model through the catalog/upgrade-map instead (see
+    # resolve_model_id()/spec_or_none() there), so every legacy or retired
+    # CLI model spelling (not just a hand-enumerated subset) transparently
+    # upgrades to its frontier via OpenRouter.
 
     def __init__(
         self,
@@ -352,17 +315,20 @@ class CLIAgent(CritiqueMixin, Agent):
             # Import here to avoid circular dependency
             from aragora.agents.api_agents import OpenRouterAgent
 
-            # Map the model to OpenRouter format
-            openrouter_model = self.OPENROUTER_MODEL_MAP.get(self.model)
-            if not openrouter_model:
-                # If already in provider/model form, normalize for OpenRouter
-                if "/" in self.model:
-                    if self.model.startswith("openrouter/"):
-                        openrouter_model = self.model.split("/", 1)[1]
-                    else:
-                        openrouter_model = self.model
+            # Map the model to OpenRouter format: resolve any legacy/retired
+            # spelling to its current catalog row first, then use that row's
+            # OpenRouter-format id.
+            spec = spec_or_none(resolve_model_id(self.model))
+            if spec is not None:
+                openrouter_model = spec.openrouter_id
+            # If already in provider/model form, normalize for OpenRouter
+            elif "/" in self.model:
+                if self.model.startswith("openrouter/"):
+                    openrouter_model = self.model.split("/", 1)[1]
                 else:
-                    openrouter_model = "anthropic/claude-opus-5"  # Default fallback model
+                    openrouter_model = self.model
+            else:
+                openrouter_model = FABLE_51_VIA_OPENROUTER  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -727,7 +693,7 @@ Provide structured feedback:
 
 @AgentRegistry.register(
     "codex",
-    default_model="gpt-5.5",
+    default_model=GPT6_ASTRA_DIRECT,
     agent_type="CLI",
     requires="codex CLI (npm install -g @openai/codex)",
 )
@@ -826,7 +792,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-fable-5",
+    default_model=FABLE_51_DIRECT,
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )
@@ -867,7 +833,7 @@ class ClaudeAgent(CLIAgent):
 
 @AgentRegistry.register(
     "gemini-cli",
-    default_model="gemini-3.1-pro-preview",
+    default_model=GEMINI_31_PRO_DIRECT,
     agent_type="CLI",
     requires="gemini CLI (npm install -g @google/gemini-cli)",
 )
@@ -1043,7 +1009,7 @@ class KiloCodeAgent(CLIAgent):
 
 @AgentRegistry.register(
     "grok-cli",
-    default_model="grok-4-latest",
+    default_model=GROK_46_DIRECT,
     agent_type="CLI",
     requires="grok CLI (npm install -g grok-cli)",
 )
@@ -1173,7 +1139,7 @@ class GrokBuildAgent(CLIAgent):
 
 @AgentRegistry.register(
     "antigravity",
-    default_model="gemini-3.5-flash",
+    default_model=GEMINI_38_FLASH_DIRECT,
     agent_type="CLI",
     requires="Antigravity CLI (agy; install: curl -fsSL https://antigravity.google/cli/install.sh | bash; Google AI Ultra)",
 )
@@ -1239,7 +1205,7 @@ class KimiCLIAgent(CLIAgent):
 if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
     AgentRegistry.register(
         "kimi-cli",
-        default_model="kimi-k2",
+        default_model=CATALOG["kimi-k3"].direct_id,
         agent_type="CLI",
         requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
     )(KimiCLIAgent)
@@ -1247,7 +1213,7 @@ if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
 
 @AgentRegistry.register(
     "qwen-cli",
-    default_model="qwen3-coder",
+    default_model=CATALOG["qwen3.8-2.4t-a95b"].direct_id,
     agent_type="CLI",
     requires="qwen CLI (npm install -g @qwen-code/qwen-code)",
 )
@@ -1283,7 +1249,7 @@ class QwenCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "deepseek-cli",
-    default_model="deepseek-v4-pro",
+    default_model=CATALOG["deepseek-v4-pro-0813"].direct_id,
     agent_type="CLI",
     requires="deepseek CLI (pip install deepseek-cli)",
     env_vars="DEEPSEEK_API_KEY",
@@ -1320,7 +1286,7 @@ class DeepseekCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "openai",
-    default_model="gpt-5.5",
+    default_model=GPT6_ASTRA_DIRECT,
     agent_type="CLI",
     requires="openai CLI (pip install openai)",
     env_vars="OPENAI_API_KEY",
@@ -1332,7 +1298,11 @@ class OpenAIAgent(CLIAgent):
     """
 
     def __init__(
-        self, name: str, model: str = "gpt-5.5", role: AgentRole = "proposer", timeout: int = 120
+        self,
+        name: str,
+        model: str = GPT6_ASTRA_DIRECT,
+        role: AgentRole = "proposer",
+        timeout: int = 120,
     ) -> None:
         super().__init__(name, model, role, timeout)
 
@@ -1420,9 +1390,10 @@ def get_default_agents() -> list[Agent]:
         List of Agent instances (ClaudeAgent, CodexAgent, GeminiCLIAgent, etc.)
     """
     agents: list[Agent] = [
-        ClaudeAgent(name="claude", model="claude-sonnet-4-6"),
-        CodexAgent(name="codex", model="gpt-5.5"),
-        GeminiCLIAgent(name="gemini-cli", model="gemini-3.1-pro-preview"),
+        ClaudeAgent(name="claude", model=FABLE_51_DIRECT),
+        CodexAgent(name="codex", model=GPT6_ASTRA_DIRECT),
+        GeminiCLIAgent(name="gemini-cli", model=GEMINI_31_PRO_DIRECT),
+        GrokCLIAgent(name="grok-cli", model=GROK_46_DIRECT),
     ]
     return agents
 

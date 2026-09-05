@@ -266,16 +266,19 @@ class TestAnthropicFallback:
                     mock_fallback.generate.assert_called_once()
 
     def test_anthropic_fallback_model_mapping(self, anthropic_agent):
-        """Test that Anthropic models are mapped correctly to OpenRouter."""
-        # Test various model mappings
-        assert "claude-opus-4-5-20251101" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-sonnet-4-20250514" in AnthropicAPIAgent.OPENROUTER_MODEL_MAP
+        """Test that Anthropic models resolve to the current frontier via
+        OpenRouter (frontier-model-refresh, 2026-09-04). AnthropicAPIAgent no
+        longer carries a static OPENROUTER_MODEL_MAP: get_fallback_model()
+        resolves the current model through the catalog and upgrade map
+        instead, so legacy spellings not previously hand-enumerated (e.g.
+        "claude-opus-4-5-20251101") upgrade too."""
+        for legacy_model in ("claude-opus-4-5-20251101", "claude-sonnet-4-20250514"):
+            agent = AnthropicAPIAgent(api_key="test-key", model=legacy_model)
+            assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
 
-        # Default should map to sonnet
-        assert (
-            AnthropicAPIAgent.OPENROUTER_MODEL_MAP.get("unknown", "anthropic/claude-sonnet-4")
-            == "anthropic/claude-sonnet-4"
-        )
+        # A genuinely unknown model falls back to DEFAULT_FALLBACK_MODEL.
+        unknown_agent = AnthropicAPIAgent(api_key="test-key", model="unknown-model-xyz")
+        assert unknown_agent.get_fallback_model() == AnthropicAPIAgent.DEFAULT_FALLBACK_MODEL
 
     def test_fallback_preserves_system_prompt(self, anthropic_agent):
         """Test that system prompt is preserved in fallback agent."""

@@ -243,20 +243,33 @@ def test_model_selector_profiles_match_catalog() -> None:
             continue
         _approx_pair(profile.cost_input_per_1k * 1000, profile.cost_output_per_1k * 1000, spec)
         checked.add(spec.canonical_id)
-    # Anchors: these enforced models are known to have selector profiles
-    # (gpt4 -> gpt-5.5, claude-opus -> claude-opus-4-8). Deleting or renaming
-    # those rows off-catalog fails here instead of passing vacuously.
-    assert {"gpt-5.5", "claude-opus-4-8"} <= checked, (
+    # Anchor: the dedicated "claude-opus-4-8" profile is known to have a
+    # selector profile pointing at that enforced row. Deleting or renaming
+    # that row off-catalog fails here instead of passing vacuously.
+    #
+    # NOTE (frontier-model-refresh, 2026-09-04): "gpt4" no longer anchors
+    # "gpt-5.5" here — the profile now points at the new frontier
+    # "gpt-6-astra", which is not yet in ENFORCED_MODELS (mirror-table
+    # migration is later-task scope per aragora/models/catalog.py's
+    # ENFORCED_MODELS comment). gpt-5.5 itself remains cataloged and priced
+    # (see tests/models/test_reachable_defaults.py for reachability), it is
+    # just no longer the model_selector's chosen representative.
+    assert {"claude-opus-4-8"} <= checked, (
         f"model_selector enforcement anchors missing: checked only {sorted(checked)}"
     )
 
 
 # Fallback targets that intentionally have no catalog spec yet. Each entry
-# needs adjudication before cataloging (deepseek-v4-pro's mirror rows are
-# known-stale vs the live catalog — see MODEL_CATALOG.md "Known-stale legacy
-# rows"). Remove an entry once its model is cataloged; a stale entry fails
-# the hygiene assertion below.
-_UNCATALOGED_FALLBACK_TARGETS = {"deepseek/deepseek-v4-pro"}
+# needs adjudication before cataloging. Remove an entry once its model is
+# cataloged; a stale entry fails the hygiene assertion below.
+#
+# "deepseek/deepseek-v4-pro" was removed from this allowlist
+# (frontier-model-refresh, 2026-09-04): the OpenRouter agent's
+# DEEPSEEK_V4_PRO_MODEL constant now points at the fully-cataloged
+# "deepseek/deepseek-v4-pro-0813" slug (aragora/models/catalog.py's
+# deepseek-v4-pro-0813 row), so the old uncataloged spelling no longer
+# appears among fallback targets at all.
+_UNCATALOGED_FALLBACK_TARGETS: set[str] = set()
 
 
 def test_fallback_targets_resolve_to_catalog_specs() -> None:

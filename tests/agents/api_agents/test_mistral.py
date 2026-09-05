@@ -27,7 +27,9 @@ class TestMistralAgentInitialization:
         agent = MistralAPIAgent()
 
         assert agent.name == "mistral-api"
-        assert agent.model == "mistral-large-2512"
+        # mistral-medium-2604 is the flagship/frontier row (Mistral Large is
+        # tier="fallback"); frontier-model-refresh, 2026-09-04.
+        assert agent.model == "mistral-medium-2604"
         assert agent.role == "proposer"
         assert agent.timeout == 180  # Increased timeout for Mistral
         assert agent.agent_type == "mistral"
@@ -68,7 +70,7 @@ class TestMistralAgentInitialization:
         spec = AgentRegistry.get_spec("mistral-api")
 
         assert spec is not None
-        assert spec.default_model == "mistral-large-2512"
+        assert spec.default_model == "mistral-medium-2604"
         assert spec.agent_type == "API"
 
     def test_circuit_breaker_config(self, mock_env_with_api_keys):

@@ -34,7 +34,8 @@ class TestGrokAgentInitialization:
         spec = AgentRegistry.get_spec("grok")
 
         assert agent.name == "grok"
-        assert agent.model == "grok-4-latest"
+        # frontier-model-refresh, 2026-09-04: grok-4-latest is retired.
+        assert agent.model == "grok-4.6"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "grok"
@@ -110,7 +111,7 @@ class TestGrokAgentInitialization:
         spec = AgentRegistry.get_spec("grok")
 
         assert spec is not None
-        assert spec.default_model == "grok-4-latest"
+        assert spec.default_model == "grok-4.6"
         assert spec.agent_type == "API"
 
     def test_base_url_is_xai_endpoint(self, mock_env_with_api_keys):

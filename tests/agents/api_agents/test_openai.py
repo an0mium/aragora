@@ -34,7 +34,8 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert agent.name == "openai-api"
-        assert agent.model == "gpt-5.6-sol"
+        # frontier-model-refresh, 2026-09-04: gpt-5.6-sol is retired.
+        assert agent.model == "gpt-6-astra"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "openai"
@@ -77,7 +78,7 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert spec is not None
-        assert spec.default_model == "gpt-5.6-sol"
+        assert spec.default_model == "gpt-6-astra"
         assert spec.agent_type == "API"
 
 
@@ -1036,7 +1037,7 @@ class TestOpenAICompatibleMixin:
 
         payload = agent._build_payload(messages, stream=False)
 
-        assert payload["model"] == "gpt-5.6-sol"
+        assert payload["model"] == "gpt-6-astra"
         assert payload["messages"] == messages
         assert "max_tokens" in payload
         assert "stream" not in payload or payload.get("stream") is False

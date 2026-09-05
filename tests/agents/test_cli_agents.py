@@ -178,13 +178,24 @@ class TestCLIAgentFallback:
         assert "fallback" in fallback.name
 
     def test_openrouter_model_mapping(self):
-        """Test OPENROUTER_MODEL_MAP has expected mappings."""
+        """CLIAgent has no static OPENROUTER_MODEL_MAP: _get_fallback_agent()
+        resolves the current model through the catalog and upgrade map
+        instead (frontier-model-refresh, 2026-09-04), so legacy CLI model
+        spellings still upgrade to a valid OpenRouter id."""
         from aragora.agents.cli_agents import CLIAgent
 
-        assert "claude" in CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o" in CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gemini-3-pro" in CLIAgent.OPENROUTER_MODEL_MAP
-        assert "grok-4" in CLIAgent.OPENROUTER_MODEL_MAP
+        assert not hasattr(CLIAgent, "OPENROUTER_MODEL_MAP")
+
+        for legacy_model in ("gpt-4o", "gemini-3-pro", "grok-4"):
+            agent = DummyCLIAgent(name="test-agent", model=legacy_model, enable_fallback=True)
+            with patch("os.environ.get", return_value="test-api-key"):
+                with patch(
+                    "aragora.agents.api_agents.openrouter.get_api_key",
+                    return_value="test-api-key",
+                ):
+                    fallback = agent._get_fallback_agent()
+            assert fallback is not None
+            assert "/" in fallback.model
 
 
 class TestCLIAgentSanitization:

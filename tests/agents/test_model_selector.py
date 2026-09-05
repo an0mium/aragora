@@ -45,10 +45,12 @@ class TestModelProfiles:
     def test_claude_profile_has_expected_properties(self):
         """Verify Claude profile has correct properties."""
         claude = MODEL_PROFILES["claude"]
-        assert claude.model_id == "claude-sonnet-4-6"
-        assert claude.display_name == "Claude Sonnet 4.6"
+        # frontier-model-refresh, 2026-09-04: claude-sonnet-4-6 is retired;
+        # "claude" now points at the Fable 5.1 flagship.
+        assert claude.model_id == "claude-fable-5-1"
+        assert claude.display_name == "Claude Fable 5.1"
         assert claude.provider == "anthropic"
-        assert claude.max_context_tokens == 200000
+        assert claude.max_context_tokens == 1_000_000
         assert claude.supports_vision is True
 
     def test_kimi_profile_tracks_k3_runtime_metadata(self):
@@ -62,13 +64,15 @@ class TestModelProfiles:
         assert (kimi.cost_input_per_1k, kimi.cost_output_per_1k) == (0.003, 0.015)
         assert kimi.supports_vision is True
 
-    def test_qwen_profile_tracks_qwen38_max_runtime_metadata(self):
+    def test_qwen_profile_tracks_qwen38_runtime_metadata(self):
         qwen = MODEL_PROFILES["qwen"]
 
-        assert qwen.model_id == "qwen3.8-max"
-        assert qwen.display_name == "Qwen 3.8 Max"
+        # qwen3.8-max is superseded by qwen3.8-2.4t-a95b (kept resolvable as
+        # a catalog alias); frontier-model-refresh, 2026-09-04.
+        assert qwen.model_id == "qwen3.8-2.4t-a95b"
+        assert qwen.display_name == "Qwen 3.8"
         assert qwen.provider == "alibaba"
-        assert qwen.max_context_tokens == 1_000_000
+        assert qwen.max_context_tokens == 1_048_576
         assert qwen.max_output_tokens == 131_072
         assert (qwen.cost_input_per_1k, qwen.cost_output_per_1k) == (0.002, 0.006)
 

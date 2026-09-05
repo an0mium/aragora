@@ -430,41 +430,52 @@ class TestCircuitBreakerIntegration:
 
 
 class TestOpenRouterModelMapping:
-    """Tests for OpenRouter model mapping in fallback."""
+    """Tests for OpenRouter model mapping in fallback.
+
+    CLIAgent no longer carries a static OPENROUTER_MODEL_MAP:
+    _get_fallback_agent() resolves the current model through the catalog
+    and upgrade map instead (frontier-model-refresh, 2026-09-04). Each test
+    below exercises that resolution directly via _get_fallback_agent().
+    """
+
+    @staticmethod
+    def _fallback_model(agent):
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
+            with patch("aragora.agents.api_agents.OpenRouterAgent") as mock_or:
+                mock_or.return_value = MagicMock()
+                agent._get_fallback_agent()
+                return mock_or.call_args[1]["model"]
 
     def test_claude_model_mapping(self):
         """Test Claude models map to OpenRouter correctly."""
-        from aragora.agents.cli_agents import CLIAgent
+        from aragora.agents.cli_agents import ClaudeAgent
 
-        mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-opus-4-5-20251101" in mapping
-        assert "claude-sonnet-4-20250514" in mapping
-        assert "anthropic/claude" in mapping.get("claude-opus-4-5-20251101", "")
+        agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101", enable_fallback=True)
+        assert self._fallback_model(agent).startswith("anthropic/claude")
 
     def test_gpt_model_mapping(self):
         """Test GPT models map to OpenRouter correctly."""
-        from aragora.agents.cli_agents import CLIAgent
+        from aragora.agents.cli_agents import CodexAgent
 
-        mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o" in mapping
-        assert "openai/gpt-5.5" in mapping.get("gpt-4o", "")
+        agent = CodexAgent(name="test", model="gpt-4o", enable_fallback=True)
+        assert self._fallback_model(agent) == "openai/gpt-6-astra"
 
     def test_gemini_model_mapping(self):
         """Test Gemini models map to OpenRouter correctly."""
-        from aragora.agents.cli_agents import CLIAgent
+        from aragora.agents.cli_agents import GeminiCLIAgent
 
-        mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gemini-3.1-pro-preview" in mapping
-        assert mapping["gemini-3.1-pro-preview"] == "google/gemini-3.1-pro-preview"
-        assert mapping["gemini-3.1-pro"] == "google/gemini-3.1-pro-preview"
+        agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
+        assert self._fallback_model(agent) == "google/gemini-3.1-pro-preview"
+
+        agent2 = GeminiCLIAgent(name="test", model="gemini-3.1-pro", enable_fallback=True)
+        assert self._fallback_model(agent2) == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Test Grok models map to OpenRouter correctly."""
-        from aragora.agents.cli_agents import CLIAgent
+        from aragora.agents.cli_agents import GrokCLIAgent
 
-        mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "grok-4" in mapping
-        assert "x-ai/" in mapping.get("grok-4", "")
+        agent = GrokCLIAgent(name="test", model="grok-4", enable_fallback=True)
+        assert self._fallback_model(agent).startswith("x-ai/")
 
 
 # =============================================================================
