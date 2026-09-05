@@ -665,6 +665,15 @@ class TestHeterodoxKeyWiring:
 _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     "anthropic": frozenset(
         {
+            # Current frontier (frontier-model-refresh, 2026-09-04): the id
+            # aragora/models/catalog.py carries as the anthropic flagship and
+            # aragora/agents/api_agents/anthropic.py already ships as its
+            # DEFAULT_MODEL. Added when CLAUDE_MODEL_DEFAULT stopped pinning
+            # "claude-sonnet-4-6", an UPGRADES key the agent silently
+            # rewrote at construction (finding C-P3 on #9989).
+            "claude-fable-5-1",
+            "claude-opus-5",
+            "claude-opus-4-8",
             "claude-opus-4-7",
             "claude-opus-4-6",
             "claude-opus-4",
@@ -796,6 +805,25 @@ class TestModelDefaultsAreValid:
 
     def test_claude_default_is_valid(self) -> None:
         assert CLAUDE_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["anthropic"]
+
+    def test_claude_default_does_not_depend_on_a_construction_time_upgrade(self) -> None:
+        """The slot must name the model it actually runs.
+
+        ``claude-sonnet-4-6`` is an ``UPGRADES`` key: pinning it here made
+        AnthropicAPIAgent rewrite the slot at construction, so the model the
+        PDB Claude slot really used -- and the rate it billed -- came from
+        that rewrite rather than from this constant (finding C-P3 on #9989).
+        """
+        from aragora.config.model_pins import FABLE_51_DIRECT
+        from aragora.models.catalog import spec_or_none
+        from aragora.models.upgrade_map import UPGRADES, resolve_model_id
+
+        assert CLAUDE_MODEL_DEFAULT == FABLE_51_DIRECT
+        assert CLAUDE_MODEL_DEFAULT not in UPGRADES
+        spec = spec_or_none(CLAUDE_MODEL_DEFAULT)
+        assert spec is not None and not spec.retired
+        # Reachable without resolve_model_id: the raw spelling IS the row.
+        assert resolve_model_id(CLAUDE_MODEL_DEFAULT) == spec.canonical_id
 
     def test_openai_default_is_valid(self) -> None:
         assert OPENAI_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["openai"]

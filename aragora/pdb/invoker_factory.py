@@ -25,6 +25,7 @@ import logging
 import os
 from typing import Any, Callable
 
+from aragora.config.model_pins import FABLE_51_DIRECT
 from aragora.models import CATALOG
 from aragora.pdb.panel_config import PDBPanelConfig, load_panel_config
 from aragora.pdb.protocol import ProviderInvoker
@@ -73,7 +74,14 @@ KIMI_MODEL_ENV = "ARAGORA_PDB_KIMI_MODEL"
 QWEN_MODEL_ENV = "ARAGORA_PDB_QWEN_MODEL"
 MISTRAL_MODEL_ENV = "ARAGORA_PDB_MISTRAL_MODEL"
 
-CLAUDE_MODEL_DEFAULT = "claude-sonnet-4-6"
+# Same class as OPENAI_MODEL_DEFAULT below: "claude-sonnet-4-6" is an
+# UPGRADES key, so AnthropicAPIAgent rewrote the PDB Claude slot at
+# construction and the slot's identity (and its price, ~3x) depended on that
+# rewrite rather than on what this constant says (finding C-P3 on #9989).
+# Pinned explicitly to the canonical Claude frontier -- Fable everywhere
+# Claude is used, per the frontier-model-refresh founder decision -- so the
+# slot names the model it actually runs.
+CLAUDE_MODEL_DEFAULT = FABLE_51_DIRECT
 # Same class as DEEPSEEK_MODEL_DEFAULT below: "gpt-5.5" is a RETIRED catalog
 # row, so pinning it here made the gpt_core slot depend on
 # OpenAIAPIAgent's construction-time upgrade to stay callable at all, and
