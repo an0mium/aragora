@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.cli.commands.review_queue import _resolve_model_review_identity
+from aragora.cli.commands.review_queue import (
+    _normalize_model_reviewer_id,
+    _resolve_model_review_identity,
+)
 from aragora.swarm.quorum_evidence import (
     _CODEX_DEFAULT_MODELS,
     _OPENROUTER_REVIEWER_MODELS,
@@ -158,3 +161,46 @@ def test_dropped_reviewer_families_have_no_map_entry(family: str) -> None:
     # (FAMILY_PROVIDERS/FAMILY_DISPLAY/_FAMILY_ALIASES) so historical evidence
     # comments still parse.
     assert family not in _OPENROUTER_REVIEWER_MODELS
+
+
+# --- Bounded "meta" marker (fix round 1, #9069): "metadata" is not "meta" --
+
+
+def test_metadata_heading_is_not_recognised_as_meta() -> None:
+    identity = _resolve_model_review_identity("## Round 3 metadata summary\n\nNo findings.\n")
+
+    assert identity.surface_reviewer_id == "unknown_model_reviewer"
+    assert identity.model_family == ""
+
+
+def test_model_metadata_check_heading_is_not_recognised_as_meta() -> None:
+    identity = _resolve_model_review_identity("## Model metadata check\n\nNo findings.\n")
+
+    assert identity.surface_reviewer_id == "unknown_model_reviewer"
+    assert identity.model_family == ""
+
+
+def test_review_metadata_heading_with_deepseek_family_has_no_conflict() -> None:
+    # "Review metadata" must not resolve the heading itself to the "meta"
+    # family via a bare "meta" substring match on "metadata" -- that would
+    # spuriously conflict with the genuinely-disclosed deepseek family below.
+    identity = _resolve_model_review_identity(
+        _body("Review metadata", model_family="deepseek", model_id="deepseek-v4-pro-0813")
+    )
+
+    assert identity.model_family == "deepseek"
+    assert "heading_model_family_conflict" not in identity.identity_problems
+
+
+def test_meta_independent_review_heading_still_resolves_to_meta() -> None:
+    # Positive case: the collector's own meta reviewer heading must still work
+    # once the marker is bounded.
+    identity = _resolve_model_review_identity("## Meta independent model review\n\nNo findings.\n")
+
+    assert identity.surface_reviewer_id == "meta"
+    assert identity.model_family == "meta"
+
+
+def test_normalize_model_reviewer_id_metadata_is_not_meta() -> None:
+    assert _normalize_model_reviewer_id("metadata") != "meta"
+    assert _normalize_model_reviewer_id("metadata") == ""

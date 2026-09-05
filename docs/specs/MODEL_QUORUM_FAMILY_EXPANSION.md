@@ -411,3 +411,40 @@ work, jurisdictional payload boundaries always.
 This PR lands the spec, the contract, and passing current-state
 governance tests that document the recognizer gap. The implementation
 patch itself waits for operator preapproval per the Tier 4 rule.
+
+## Addendum: Meta (2026-09-04 frontier refresh)
+
+**Status:** implemented (PR 2 of the 2026-09-04 frontier-model-refresh stack, Tier 4)
+**Related:** `aragora/swarm/quorum_evidence.py`, `aragora/cli/commands/review_queue.py`, `aragora/debate/execution_safety.py`
+
+A follow-on family-additive change, same governance rule as the body of this
+document: adding `meta` (Meta's `muse-spark-1.3`, the catalog's current Llama-
+lineage frontier pick) to the recognized reviewer-family set.
+
+- **Family added:** `meta` — reviews OpenRouter-direct (`meta/muse-spark-1.3`),
+  same transport pattern as `deepseek`/`qwen`/`kimi`: no subscription CLI, so
+  `_OPENROUTER_DIRECT_FAMILIES` is its primary (not fallback) route.
+- **Proposed Tier eligibility:** Western jurisdiction (`WESTERN_FAMILIES`), same
+  treatment as `mistral`/`hermes` — counts toward Tier 0-2 quorums and the
+  Tier-2 "at least one Western family" condition, but is **not** in
+  `WESTERN_FRONTIER_FAMILIES` (cannot solo-settle Tier 1-2) and **not** in
+  `TIER_3_4_COUNTED_FAMILIES` (advisory-only at Tier 3-4, same as mistral and
+  hermes). It is never classified `CHINESE_ROUTED_FAMILIES` or
+  `ADVISORY_ONLY_FAMILIES`; the total-partition governance test
+  (`tests/governance/test_tiered_merge_gate_quorum_policy.py::test_family_classification_is_total_and_disjoint`)
+  pins that it belongs to exactly one class.
+- **Jurisdictional payload constraints:** identical to the other Western-
+  families column in the Family-by-Tier-by-Jurisdiction table above — meta may
+  receive the same payload classes as claude/openai/grok/mistral/hermes.
+- **Governance tests characterizing the gate:** `tests/governance/test_model_lineage_disclosure_recognizer.py::test_identity_resolver_recognises_frontier_ids` (positive: `model=meta/muse-spark-1.3` → `meta`), `tests/governance/test_tiered_merge_gate_quorum_policy.py::test_western_families_match_spec` (membership), `tests/models/test_reachable_defaults.py` (the `meta` reviewer slug and the two frontier pins resolve to an active, priced catalog row).
+- **Recognizer marker, bounded:** the reviewer-identity recognizer's marker for
+  this family (`DIRECT_MODEL_FAMILY_MARKERS["meta"]` in
+  `aragora/cli/commands/review_queue.py`, mirrored in
+  `_normalize_model_reviewer_id`'s `known_markers`) is `("meta ", "meta/",
+  "meta-", "muse-spark")` — deliberately **not** a bare `"meta"` substring,
+  which would false-positive-match the word "metadata" (e.g. a heading like
+  `## Round 3 metadata summary`) and could spuriously conflict with a
+  genuinely-disclosed different family in the same comment. Pinned by
+  `tests/governance/test_model_lineage_disclosure_recognizer.py::test_metadata_heading_is_not_recognised_as_meta`
+  and its sibling cases (round 1 fix, 2026-09-05).
+- **Ensemble-diversity detection (a separate consumer):** `aragora/debate/execution_safety.py::_MODEL_FAMILY_PATTERNS` gets its own `("meta", re.compile(r"muse-spark", re.I))` entry for a different purpose (counting distinct model families in an ensemble, not reviewer-quorum recognition) and is deliberately narrower — it does not match `meta-llama/...` ids, which stay labeled `llama` there. The two consumers are not required to agree on every id's label.
