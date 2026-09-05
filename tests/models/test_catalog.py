@@ -45,6 +45,36 @@ def test_catalog_prices_positive_and_output_gte_input() -> None:
         assert spec.output_per_mtok >= spec.input_per_mtok
 
 
+def test_no_row_has_openrouter_family() -> None:
+    """``aragora.models.pricing_mirror._bucketed`` only emits a row's
+    SLASH-BEARING spellings under the ``openrouter`` bucket (a bare id under
+    that bucket would claim a rate for a spelling no OpenRouter call ever
+    sends). That rule assumes ``"openrouter"`` never names a real FAMILY —
+    if it did, rule 3 there (the family bucket, emitted with every spelling,
+    slash-bearing or not) would put bare ids into the openrouter bucket
+    after all, reintroducing the hole the slash-only rule closes."""
+    for spec in CATALOG.values():
+        assert spec.family != "openrouter", (
+            f"{spec.canonical_id!r} has family == 'openrouter'; this breaks "
+            "the pricing_mirror slash-only invariant for that bucket"
+        )
+
+
+def test_openrouter_provider_rows_use_canonical_id_as_direct_id_placeholder() -> None:
+    """Every ``provider == "openrouter"`` row's ``direct_id`` is documented
+    (see the ``ModelSpec.direct_id`` docstring) as a PLACEHOLDER equal to
+    ``canonical_id`` -- an OpenRouter naming convention, not a code any
+    native provider endpoint would accept."""
+    openrouter_rows = [spec for spec in CATALOG.values() if spec.provider == "openrouter"]
+    assert openrouter_rows, "fixture assumption: the catalog carries at least one openrouter row"
+    for spec in openrouter_rows:
+        assert spec.direct_id == spec.canonical_id, (
+            f"{spec.canonical_id!r} has provider == 'openrouter' but direct_id "
+            f"{spec.direct_id!r} != canonical_id -- the documented placeholder "
+            "invariant is violated"
+        )
+
+
 def test_soak_dates_only_on_recent_releases() -> None:
     for spec in CATALOG.values():
         if spec.soak_until is not None:
