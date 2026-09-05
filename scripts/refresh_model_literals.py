@@ -20,12 +20,32 @@ the allowlist. Landing the ``--write`` sweep is PR 3's scope and wiring the
 check into CI is PR 4's; until then a non-zero exit here is information, not
 a gate.
 
-One class of retired literal is deliberately NOT rewritten: a bare
-(native-shaped) spelling whose current row is reachable only through
-OpenRouter has no real native id to be rewritten to. ``--write`` leaves it
-exactly as written, and ``--check`` reports it under a separate
-"unresolvable" list that does not affect the exit code. See
-``replacement()``.
+Period vs. hyphen is BY DESIGN, not a bug: the same retired literal maps to
+two different new spellings depending on the SHAPE it was written in. A bare
+match rewrites to ``ModelSpec.direct_id`` (Anthropic's own API code, the
+hyphen form ``claude-fable-5-1``); a ``provider/model`` slug match rewrites
+to ``ModelSpec.openrouter_id`` (the OpenRouter slug, the dotted form
+``anthropic/claude-fable-5.1``). A file that names the same model both ways
+therefore ends up with both spellings, and each is correct for the endpoint
+it addresses. A test that asserts on a rendered label must match whichever
+form the code under test actually builds.
+
+Three classes of retired literal are deliberately NOT rewritten, each
+reported by ``--check`` in its own section that does NOT affect the exit
+code (only "offenders" do):
+
+* **unresolvable** — a bare (native-shaped) spelling whose current row is
+  reachable only through OpenRouter has no real native id to be rewritten
+  to. ``--write`` leaves it exactly as written. See ``replacement()``.
+* **collision** — two DISTINCT retired spellings in the same file that
+  would rewrite to the SAME id. Rewriting them collapses hand-written
+  ``dict``/``set``/list literals onto one entry; ``--write`` rewrites
+  NEITHER spelling anywhere in that file. See ``_collisions()``.
+* **guarded** — text that was never a model id: a bare ``o1``/``o3``
+  identifier or prose word, a raw-string or ``re.compile(`` regex source,
+  or an alternative inside a ``|``-separated matcher. These are dropped
+  silently (not even reported), because calling them offenders would make
+  ``--check`` unfixable by construction. See ``_is_guarded()``.
 """
 
 from __future__ import annotations
@@ -82,6 +102,18 @@ SKIP_NAMES = {
 #     runtime), so a --write pass over "tests" would rewrite them in
 #     place and silently gut what the test verifies, the same hazard
 #     tests/models/ and this script's own source are protected against.
+#   - the eight test files that exercise the frozen pricing sources above
+#     (tests/billing/test_usage.py, tests/billing/test_billing_usage.py,
+#     tests/billing/test_debate_costs.py, tests/services/test_usage_metering.py,
+#     tests/services/test_usage_metering_service.py,
+#     tests/handlers/debates/test_cost_estimation.py,
+#     tests/e2e/test_billing_accuracy_e2e.py, tests/pdb/test_real_invoker.py):
+#     a frozen table is keyed on its historical spellings, so its test must
+#     look those spellings up EXACTLY. PR 3's trial sweep left the sources
+#     frozen but swept their tests, breaking every ``PROVIDER_PRICING[model]``
+#     / ``_PRICE_PER_MTOK[model]`` lookup against them (2026-09-04 controller
+#     ruling, Class 6). Skipping the source without its test is only half a
+#     freeze.
 SKIP_PATHS: tuple[str, ...] = (
     "aragora/models/catalog.py",
     "aragora/models/upgrade_map.py",
@@ -96,9 +128,109 @@ SKIP_PATHS: tuple[str, ...] = (
     "tests/models/",
     "scripts/refresh_model_literals.py",
     "tests/scripts/test_refresh_model_literals.py",
+    "tests/billing/test_usage.py",
+    "tests/billing/test_billing_usage.py",
+    "tests/billing/test_debate_costs.py",
+    "tests/services/test_usage_metering.py",
+    "tests/services/test_usage_metering_service.py",
+    "tests/handlers/debates/test_cost_estimation.py",
+    "tests/e2e/test_billing_accuracy_e2e.py",
+    "tests/pdb/test_real_invoker.py",
 )
 
 DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "baselines" / "retired_model_literals_allowlist.txt"
+
+
+# Retired keys that are BOTH hyphen-free and shorter than
+# ``_SHORT_TOKEN_MIN_LEN`` characters -- in practice OpenAI's ``o1``/``o3``.
+# A bare occurrence of one of these is far more often an ordinary Python
+# identifier (``o1 = _make_org(...)``) or a word in prose ("GPT-4o, o1, o3")
+# than a model id, and rewriting it produced a hard ``SyntaxError`` in one
+# test file during PR 3's trial sweep. ``gpt-4`` is hyphenated and therefore
+# deliberately NOT in this set. See ``_is_guarded``.
+_SHORT_TOKEN_MIN_LEN = 6
+SHORT_BARE_KEYS: frozenset[str] = frozenset(
+    k for k in UPGRADES if "-" not in k and len(k) < _SHORT_TOKEN_MIN_LEN
+)
+
+# One single-line string literal, with its optional prefix (so ``r"..."`` /
+# ``r'...'`` raw strings are recognisable) and its BODY captured separately.
+# Deliberately line-scoped: a match spanning a triple-quoted block would need
+# a real tokenizer, and the guards below only ever need to answer "is this
+# match inside a quoted string on this line, and is that string raw?".
+_STRING_LITERAL = re.compile(
+    r"""(?<![A-Za-z0-9_])(?P<prefix>[rRbBuUfF]{0,2})(?P<quote>["'])"""
+    r"""(?P<body>(?:\\.|(?!(?P=quote))[^\\])*)(?P=quote)"""
+)
+
+
+def _string_spans(line: str) -> list[tuple[int, int, bool]]:
+    """``(body_start, body_end, is_raw)`` for each single-line string literal."""
+    return [
+        (m.start("body"), m.end("body"), "r" in m.group("prefix").lower())
+        for m in _STRING_LITERAL.finditer(line)
+    ]
+
+
+def _enclosing_string(
+    spans: list[tuple[int, int, bool]], start: int, end: int
+) -> tuple[int, int, bool] | None:
+    for body_start, body_end, is_raw in spans:
+        if body_start <= start and end <= body_end:
+            return (body_start, body_end, is_raw)
+    return None
+
+
+def _is_guarded(
+    line: str,
+    spans: list[tuple[int, int, bool]],
+    literal: str,
+    start: int,
+    end: int,
+    in_regex_call: bool,
+) -> bool:
+    """True when this match is NOT a model-id occurrence at all.
+
+    A guarded match is neither rewritten by ``--write`` nor reported by
+    ``--check``: the point of the guard is that the text was never a model
+    id, so calling it an "offender" would make the sweep unfixable by
+    construction. Three guards apply to EVERY retired key (2026-09-04
+    controller ruling, Class 3a/3b):
+
+    * inside a RAW string literal (``r"gpt|o1|o3"``) -- raw strings in this
+      repo are regex sources, never model ids;
+    * anywhere on a line containing ``re.compile(``;
+    * as an alternative inside a ``|``-separated regex-shaped string
+      (``"gpt|o1|o3|chatgpt"``), i.e. the match is bounded on both sides by
+      a ``|`` or by the string's own boundary.
+
+    A fourth guard applies only to ``SHORT_BARE_KEYS``: the match must sit
+    inside a quoted string AND be either the COMPLETE string body (``"o1"``)
+    or immediately followed by ``-``/``.``/``:`` (``"o1-preview"``,
+    ``'o3:'``). A bare identifier or a word in prose is therefore never
+    rewritten.
+    """
+    if in_regex_call:
+        return True
+    enclosing = _enclosing_string(spans, start, end)
+    if enclosing is not None:
+        body_start, body_end, is_raw = enclosing
+        if is_raw:
+            return True
+        if "|" in line[body_start:body_end]:
+            bounded_left = start == body_start or line[start - 1] == "|"
+            bounded_right = end == body_end or line[end] == "|"
+            if bounded_left and bounded_right:
+                return True
+    if literal in SHORT_BARE_KEYS:
+        if enclosing is None:
+            return True
+        body_start, body_end, _raw = enclosing
+        complete_literal = start == body_start and end == body_end
+        followed_by_id_sep = end < body_end and line[end] in "-.:"
+        if not (complete_literal or followed_by_id_sep):
+            return True
+    return False
 
 
 def replacement(old: str) -> str | None:
@@ -127,12 +259,70 @@ def replacement(old: str) -> str | None:
     return spec.direct_id
 
 
-def _sub_one(match: "re.Match[str]") -> str:
-    """``RETIRED_PATTERN.sub`` callback: rewrite, or keep the literal when
-    it has no honest native replacement (see ``replacement``)."""
+def _sub_one(
+    match: "re.Match[str]",
+    line: str,
+    spans: list[tuple[int, int, bool]],
+    frozen: frozenset[str],
+    in_regex_call: bool,
+) -> str:
+    """Replacement text for one ``RETIRED_PATTERN`` match on ``line``.
+
+    Returns the literal UNCHANGED (i.e. no rewrite) in three cases:
+
+    * it has no honest native replacement (see ``replacement``);
+    * it is one of this file's ``frozen`` spellings, because rewriting it
+      would collapse two distinct retired keys onto one id (see
+      ``_collisions``);
+    * ``_is_guarded`` says the text was never a model id in the first place.
+    """
     literal = match.group(0)
+    if literal in frozen or _is_guarded(
+        line, spans, literal, match.start(), match.end(), in_regex_call
+    ):
+        return literal
     new = replacement(literal)
     return literal if new is None else new
+
+
+def _scan_line(line: str) -> list[tuple[str, str | None]]:
+    """``(literal, replacement)`` for every UNGUARDED match on ``line``.
+
+    ``replacement`` is ``None`` for an unresolvable literal. Guarded matches
+    are dropped entirely: they are not model-id occurrences, so they are
+    neither rewritten nor reported. See ``_is_guarded``.
+    """
+    spans = _string_spans(line)
+    in_regex_call = "re.compile(" in line
+    out: list[tuple[str, str | None]] = []
+    for m in RETIRED_PATTERN.finditer(line):
+        literal = m.group(0)
+        if _is_guarded(line, spans, literal, m.start(), m.end(), in_regex_call):
+            continue
+        out.append((literal, replacement(literal)))
+    return out
+
+
+def _collisions(lines: list[str]) -> dict[str, tuple[str, ...]]:
+    """``{new_id: (old-a, old-b, ...)}`` for every DISTINCT pair of retired
+    spellings in this file that would rewrite to the SAME replacement.
+
+    Rewriting both sides of such a pair silently collapses a hand-written
+    ``dict``/``set``/``enum``/list literal onto a single entry (Python keeps
+    the last one), which PR 3's trial sweep did to ~20 real tables --
+    including price tables where last-definition-wins left an arbitrary
+    alias's rate under the live model's key. The over-approximation is
+    deliberately FILE-level (2026-09-04 controller ruling, Class 2): proving
+    two spellings share a container literal needs a parser per file format,
+    while "this file names both" is cheap and never wrong in the unsafe
+    direction. Neither spelling is rewritten anywhere in the file.
+    """
+    by_new: dict[str, set[str]] = {}
+    for line in lines:
+        for literal, new in _scan_line(line):
+            if new is not None:
+                by_new.setdefault(new, set()).add(literal)
+    return {new: tuple(sorted(olds)) for new, olds in by_new.items() if len(olds) > 1}
 
 
 def _is_skip_path(f: Path) -> bool:
@@ -241,6 +431,10 @@ def main(argv: list[str] | None = None) -> int:
     # OpenRouter. Reported separately and NEVER counted as an offender —
     # see replacement().
     unresolvable: list[tuple[str, int, str]] = []
+    # Files where two DISTINCT retired spellings would rewrite to the same
+    # id. Reported separately and NEVER counted as an offender — see
+    # _collisions(). One entry per (file, target id).
+    collisions: list[tuple[str, str, tuple[str, ...]]] = []
     changed = 0
     for f in iter_files(a.paths):
         try:
@@ -251,14 +445,35 @@ def main(argv: list[str] | None = None) -> int:
             continue
         if not RETIRED_PATTERN.search(text):
             continue
+        # ``keepends`` so --write can rejoin the file byte-for-byte: line
+        # endings (and the presence or absence of a trailing newline) must
+        # survive a rewrite that touches only some lines.
+        lines = text.splitlines(keepends=True)
+        collided = _collisions(lines)
+        frozen = frozenset(lit for olds in collided.values() for lit in olds)
+        for new_id, olds in sorted(collided.items()):
+            collisions.append((str(f), new_id, olds))
         if a.check:
-            for i, line in enumerate(text.splitlines(), 1):
-                for m in RETIRED_PATTERN.finditer(line):
-                    literal = m.group(0)
-                    bucket = offenders if replacement(literal) is not None else unresolvable
+            for i, line in enumerate(lines, 1):
+                for literal, new_literal in _scan_line(line):
+                    if literal in frozen:
+                        continue
+                    bucket = offenders if new_literal is not None else unresolvable
                     bucket.append((str(f), i, literal))
         else:
-            new = RETIRED_PATTERN.sub(_sub_one, text)
+            rewritten = []
+            for line in lines:
+                spans = _string_spans(line)
+                in_regex_call = "re.compile(" in line
+                rewritten.append(
+                    RETIRED_PATTERN.sub(
+                        lambda m, _l=line, _s=spans, _r=in_regex_call: _sub_one(
+                            m, _l, _s, frozen, _r
+                        ),
+                        line,
+                    )
+                )
+            new = "".join(rewritten)
             if new != text:
                 f.write_text(new, encoding="utf-8")
                 changed += 1
@@ -266,14 +481,20 @@ def main(argv: list[str] | None = None) -> int:
     if a.check:
         offenders.sort(key=lambda o: (o[0], o[1], o[2]))
         unresolvable.sort(key=lambda o: (o[0], o[1], o[2]))
+        collisions.sort()
         for path, ln, lit in offenders:
             print(f"{path}:{ln}: retired model id {lit}")
         if unresolvable:
             print("unresolvable: native spelling of an OpenRouter-only row")
             for path, ln, lit in unresolvable:
                 print(f"{path}:{ln}: unresolvable model id {lit}")
+        if collisions:
+            print("collision: distinct retired spellings that collapse onto one id")
+            for path, new_id, olds in collisions:
+                print(f"{path}: collision: {','.join(olds)} -> {new_id}")
         print(f"{len(offenders)} retired literal(s) outside allowlist")
         print(f"{len(unresolvable)} unresolvable literal(s) (not counted as offenders)")
+        print(f"{len(collisions)} collision(s) (not counted as offenders)")
         # Exit code is deliberately driven by OFFENDERS only.
         return 1 if offenders else 0
 
