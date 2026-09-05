@@ -1638,7 +1638,10 @@ async def _assess_live_provider_path(
         if credential_statuses[agent_spec[0]].config_present
     ]
     reachable, failures, failure_reasons = await _probe_live_agents(configured_agents)
-    failure_details = {
+    # Annotated: summarize_provider_path takes dict[str, str | None], and a
+    # dict is invariant in its value type, so the inferred dict[str, str]
+    # is not assignable to it.
+    failure_details: dict[str, str | None] = {
         failure.split(": ", 1)[0]: failure.split(": ", 1)[1]
         for failure in failures
         if ": " in failure

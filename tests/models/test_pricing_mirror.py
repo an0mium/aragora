@@ -329,9 +329,7 @@ def test_input_cost_per_1k_rows_use_the_input_rate() -> None:
 
 def test_wave3_generators_cover_every_active_spelling_and_no_retired_row() -> None:
     active = {sp for s in CATALOG.values() if not s.retired for sp in s.all_ids()}
-    retired_only = {
-        sp for s in CATALOG.values() if s.retired for sp in s.all_ids()
-    } - active
+    retired_only = {sp for s in CATALOG.values() if s.retired for sp in s.all_ids()} - active
     for rows in (pm.per_1k_rows(), pm.per_mtok_rows(), pm.input_cost_per_1k_rows()):
         assert active <= set(rows)
         assert not (retired_only & set(rows))

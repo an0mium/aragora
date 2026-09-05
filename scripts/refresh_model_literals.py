@@ -303,6 +303,21 @@ def _scan_line(line: str) -> list[tuple[str, str | None]]:
     return out
 
 
+def _rewrite_line(line: str, frozen: frozenset[str]) -> str:
+    """``line`` with every rewritable retired literal replaced.
+
+    Line-scoped because the guards need the line as context (a raw-string
+    span, an ``re.compile(`` call) and because rejoining ``splitlines
+    (keepends=True)`` output preserves the file byte-for-byte otherwise."""
+    spans = _string_spans(line)
+    in_regex_call = "re.compile(" in line
+
+    def _replace(match: "re.Match[str]") -> str:
+        return _sub_one(match, line, spans, frozen, in_regex_call)
+
+    return RETIRED_PATTERN.sub(_replace, line)
+
+
 def _collisions(lines: list[str]) -> dict[str, tuple[str, ...]]:
     """``{new_id: (old-a, old-b, ...)}`` for every DISTINCT pair of retired
     spellings in this file that would rewrite to the SAME replacement.
@@ -461,18 +476,7 @@ def main(argv: list[str] | None = None) -> int:
                     bucket = offenders if new_literal is not None else unresolvable
                     bucket.append((str(f), i, literal))
         else:
-            rewritten = []
-            for line in lines:
-                spans = _string_spans(line)
-                in_regex_call = "re.compile(" in line
-                rewritten.append(
-                    RETIRED_PATTERN.sub(
-                        lambda m, _l=line, _s=spans, _r=in_regex_call: _sub_one(
-                            m, _l, _s, frozen, _r
-                        ),
-                        line,
-                    )
-                )
+            rewritten = [_rewrite_line(line, frozen) for line in lines]
             new = "".join(rewritten)
             if new != text:
                 f.write_text(new, encoding="utf-8")
