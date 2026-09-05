@@ -424,7 +424,7 @@ _SCHEMA_VIOLATIONS: list[Any] = [
         id="issued_at_not_string",
     ),
     pytest.param(
-        lambda d: d.__setitem__("odr_version", "0.2"),
+        lambda d: d.__setitem__("odr_version", "0.3"),
         "odr_version: must be '0.1'",
         id="odr_version_wrong_const",
     ),

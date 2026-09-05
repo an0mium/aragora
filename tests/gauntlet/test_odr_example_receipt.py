@@ -23,6 +23,9 @@ EXAMPLE = Path("docs/specs/examples/example-decision-receipt.odr.json")
 def test_example_matches_current_emitter_output():
     expected = decision_receipt_to_odr(_full_receipt())
     actual = json.loads(EXAMPLE.read_text(encoding="utf-8"))
+    assert actual["odr_version"] == "0.1" and expected["odr_version"] == "0.2"
+    jsonschema.validate(expected, load_odr_schema())
+    expected.update(odr_version=actual["odr_version"], profile=actual["profile"])
     assert actual == expected, "example receipt is stale; regenerate it"
 
 

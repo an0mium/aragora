@@ -33,14 +33,12 @@ from aragora.gauntlet.odr_export import (  # noqa: E402
     sign_odr_if_configured,
 )
 from aragora.gauntlet.odr_signing import OdrSigningError  # noqa: E402
-from aragora.swarm.quorum_evidence import collect_outcome_from_dict  # noqa: E402
 from aragora.swarm.quorum_receipt import collect_outcome_to_decision_receipt  # noqa: E402
 
 
 def build_receipt(outcome_dict: dict[str, Any]) -> dict[str, Any]:
     """CollectOutcome dict -> portable ODR receipt dict (never fabricates)."""
-    outcome = collect_outcome_from_dict(outcome_dict)
-    receipt = collect_outcome_to_decision_receipt(outcome)
+    receipt = collect_outcome_to_decision_receipt(outcome_dict)
     return sign_odr_if_configured(decision_receipt_to_odr(receipt))
 
 

@@ -2,7 +2,7 @@
 Open Decision Receipt (ODR) exporter.
 
 Maps the native :class:`aragora.gauntlet.receipt_models.DecisionReceipt` onto
-the vendor-neutral Open Decision Receipt content profile (ODR v0.1) defined in
+the vendor-neutral Open Decision Receipt content profile (ODR v0.2) defined in
 ``docs/specs/OPEN_DECISION_RECEIPT.md`` and machine-validated by
 ``aragora/gauntlet/odr_schema.json`` (JSON Schema draft 2020-12).
 
@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import deepcopy
 from importlib import resources
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -36,8 +37,8 @@ from aragora.gauntlet.odr_jcs import jcs_canonicalize, odr_content_digest
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
-ODR_VERSION = "0.1"
-ODR_PROFILE_URI = "https://aragora.ai/specs/open-decision-receipt/v0.1"
+ODR_VERSION = "0.2"
+ODR_PROFILE_URI = "https://aragora.ai/specs/open-decision-receipt/v0.2"
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ def decision_receipt_to_odr(
     attestation: dict[str, Any] | None = None,
     calibration_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Map a :class:`DecisionReceipt` onto the ODR v0.1 content profile.
+    """Map a :class:`DecisionReceipt` onto the ODR v0.2 content profile.
 
     Args:
         receipt: The source receipt. Fields are copied, never invented.
@@ -289,7 +290,7 @@ def decision_receipt_to_odr(
     Returns:
         A JSON-serializable dict conforming to ``aragora/gauntlet/odr_schema.json``.
     """
-    return {
+    doc: dict[str, Any] = {
         "odr_version": ODR_VERSION,
         "profile": ODR_PROFILE_URI,
         "receipt_id": receipt.receipt_id,
@@ -311,6 +312,38 @@ def decision_receipt_to_odr(
             "artifact_hash": receipt.artifact_hash,
         },
     }
+    metadata = receipt.settlement_metadata or {}
+    for source, target in (
+        ("repo", "repository"),
+        ("pr", "pr_number"),
+        ("head_sha", "head_sha"),
+        ("base_sha", "base_sha"),
+    ):
+        if source in metadata:
+            doc["subject"][target] = metadata[source]
+    content = deepcopy(metadata.get("odr", {}))
+    if doc["quorum"].get("status") == "present":
+        for key in ("verdicts", "rule"):
+            if key in content:
+                doc["quorum"][key] = content[key]
+        doc["quorum"]["dissent"].update(content.get("dissent", {}))
+        if content.get("dissent", {}).get("findings"):
+            doc["quorum"]["dissent"]["present"] = True
+    if content.get("observations"):
+        if doc["reasoning"].get("status") != "present":
+            doc["reasoning"] = _present(
+                {
+                    "summary": "; ".join(
+                        f"{o['family']}: {o['kind']}" for o in content["observations"]
+                    )
+                }
+            )
+        doc["reasoning"]["observations"] = content["observations"]
+    if "adjudication" in content:
+        doc["adjudication"] = content["adjudication"]
+    if "mechanism" in content and "mechanism" not in doc["attestation"]:
+        doc["attestation"]["mechanism"] = content["mechanism"]
+    return doc
 
 
 def sign_odr_if_configured(
