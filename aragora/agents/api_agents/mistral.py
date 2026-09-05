@@ -129,11 +129,14 @@ class CodestralAgent(MistralAPIAgent):
     """Codestral via Mistral API - specialized for code generation and analysis."""
 
     # Codestral is a LIVE, code-specialized SKU on the native Mistral
-    # endpoint, so its id must reach that endpoint verbatim. It is an
-    # UPGRADES key only because the catalog carries no Codestral row, which
-    # makes ``mistral-medium-2604`` the right OPENROUTER FALLBACK target for
-    # it (aragora/models/upgrade_map.py records exactly that reasoning) --
-    # not a reason to retarget the primary call away from the code model the
+    # endpoint, so its id must reach that endpoint verbatim. It is no longer
+    # an UPGRADES key at all -- the merge-main wave removed
+    # ``codestral-latest`` from that map precisely because being a key made
+    # it indistinguishable from a genuinely retired id (its OpenRouter
+    # fallback now comes from the family-aware last resort in
+    # ``cli_agents.py``), so ``upgrade_retired_model_id`` would already leave
+    # it alone. This flag stays as belt-and-braces: re-adding the key must
+    # not silently retarget the primary call away from the code model the
     # caller asked for. Finding O-P2a is about ids that are DEAD on the wire;
     # this one is not.
     UPGRADE_RETIRED_MODEL_ID: ClassVar[bool] = False
