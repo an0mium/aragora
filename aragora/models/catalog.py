@@ -60,6 +60,15 @@ class ModelSpec:
 
     canonical_id: str
     provider: str
+    # The model code the model's OWN provider API accepts. Meaningful only for
+    # rows whose ``provider`` names a native provider that Aragora talks to
+    # directly (anthropic, openai, google, xai, mistral, ...). For a row whose
+    # ``provider`` is ``"openrouter"`` — a family Aragora reaches only through
+    # OpenRouter — ``direct_id`` is a placeholder equal to ``canonical_id``,
+    # i.e. an OpenRouter naming convention, NOT a code any native endpoint
+    # would accept. Never send such a row's ``direct_id`` to a native provider
+    # API or a vendor CLI; use ``openrouter_id``, or keep that call site's own
+    # verified native model code.
     direct_id: str
     openrouter_id: str
     input_per_mtok: float

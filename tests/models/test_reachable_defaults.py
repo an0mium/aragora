@@ -14,6 +14,20 @@ from aragora.models.upgrade_map import resolve_model_id
 # reverse-completeness test.
 _PR2_PENDING_FAMILIES = frozenset({"tencent", "bytedance"})
 
+# Definers whose value is deliberately NOT a catalog id: a native provider's
+# own model code, for a family the catalog carries only as an OpenRouter row
+# (``ModelSpec.direct_id`` is a placeholder there, not a code the native
+# endpoint would accept). The literal still has to RESOLVE to an active,
+# priced row -- that is what keeps cost accounting honest -- but it is
+# expected to have no catalog row of its own. The assertion below is written
+# so the entry must be deleted from this dict the day the catalog gains a
+# real native row for it.
+_NATIVE_ID_EXEMPT = {
+    "registry.qwen-cli": "native-provider model code; catalog carries only the OpenRouter row",
+    "registry.deepseek-cli": "native-provider model code; catalog carries only the OpenRouter row",
+    "registry.kimi-legacy": "native-provider model code; catalog carries only the OpenRouter row",
+}
+
 
 def _reachable_defaults() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
@@ -74,11 +88,28 @@ def _reachable_defaults() -> list[tuple[str, str]]:
             out.append((where, slug))
     for m in qe._CODEX_DEFAULT_MODELS:
         out.append(("codex_default", m))
+
+    # Native-provider entry points (see _NATIVE_ID_EXEMPT): listed so the gap
+    # is named and pinned rather than merely absent from this test.
+    import aragora.agents.api_agents.openrouter  # noqa: F401 - registers kimi-legacy
+    import aragora.agents.cli_agents  # noqa: F401 - registers the CLI agents
+    from aragora.agents.registry import AgentRegistry
+
+    for agent_type in ("qwen-cli", "deepseek-cli", "kimi-legacy"):
+        registered = AgentRegistry.get_spec(agent_type)
+        assert registered is not None, f"{agent_type} is no longer registered"
+        out.append((f"registry.{agent_type}", registered.default_model))
     return out
 
 
 @pytest.mark.parametrize("where,model_id", _reachable_defaults())
 def test_reachable_default_is_priced_and_active(where: str, model_id: str) -> None:
+    raw = spec_or_none(model_id)
+    if where in _NATIVE_ID_EXEMPT:
+        assert raw is None, (
+            f"{where}: {model_id!r} now has a catalog row of its own -- "
+            f"drop it from _NATIVE_ID_EXEMPT ({_NATIVE_ID_EXEMPT[where]})"
+        )
     spec = spec_or_none(resolve_model_id(model_id))
     assert spec is not None, f"{where}: {model_id!r} has no catalog row"
     assert not spec.retired, f"{where}: {model_id!r} is retired"

@@ -1213,7 +1213,11 @@ if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
 
 @AgentRegistry.register(
     "qwen-cli",
-    default_model=CATALOG["qwen3.8-2.4t-a95b"].direct_id,
+    # Native Qwen Code CLI model code, kept at its pre-refresh value: the
+    # catalog's qwen3.8-2.4t-a95b row is an OpenRouter row whose ``direct_id``
+    # is an OpenRouter naming convention (a parameter-count slug), not a model
+    # code this CLI would accept. See ModelSpec.direct_id's docstring note.
+    default_model="qwen3-coder",
     agent_type="CLI",
     requires="qwen CLI (npm install -g @qwen-code/qwen-code)",
 )
@@ -1249,7 +1253,9 @@ class QwenCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "deepseek-cli",
-    default_model=CATALOG["deepseek-v4-pro-0813"].direct_id,
+    # Native DeepSeek CLI model code, kept at its pre-refresh value for the
+    # same reason as qwen-cli above: deepseek-v4-pro-0813 is an OpenRouter row.
+    default_model="deepseek-v4-pro",
     agent_type="CLI",
     requires="deepseek CLI (pip install deepseek-cli)",
     env_vars="DEEPSEEK_API_KEY",

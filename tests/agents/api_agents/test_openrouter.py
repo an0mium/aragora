@@ -711,9 +711,10 @@ class TestKimiLegacyAgent:
         agent = KimiLegacyAgent()
 
         assert agent.name == "kimi"
-        # Supersedes the retired moonshot-v1-8k (frontier-model-refresh,
-        # 2026-09-04).
-        assert agent.model == "kimi-k3"
+        # Moonshot's own API model code, deliberately NOT the catalog's
+        # kimi-k3 OpenRouter-side id: this agent talks to api.moonshot.cn
+        # directly (see KIMI_LEGACY_DIRECT_MODEL and ModelSpec.direct_id).
+        assert agent.model == "moonshot-v1-8k"
         assert "moonshot" in agent.base_url
         assert agent.api_key == "test-kimi-key"
 

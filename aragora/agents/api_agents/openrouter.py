@@ -48,9 +48,14 @@ logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = CATALOG["deepseek-v4-pro-0813"].openrouter_id
 KIMI_K3_MODEL = CATALOG["kimi-k3"].openrouter_id
-# Direct Moonshot API id (used by KimiLegacyAgent below, which hits
-# api.moonshot.cn directly rather than OpenRouter).
-KIMI_K3_DIRECT_MODEL = CATALOG["kimi-k3"].direct_id
+# Model code KimiLegacyAgent sends to api.moonshot.cn, which it calls
+# directly rather than through OpenRouter. Deliberately a literal and NOT
+# CATALOG["kimi-k3"].direct_id: Moonshot's own API takes its own model codes
+# and no live call has confirmed it accepts a bare "kimi-k3", so substituting
+# one would turn a stale-but-working default into a 404. Cost accounting is
+# unaffected -- "moonshot-v1-8k" resolves through the upgrade map to the
+# active, priced kimi-k3 row (tests/models/test_reachable_defaults.py).
+KIMI_LEGACY_DIRECT_MODEL = "moonshot-v1-8k"
 QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
 # Meta family frontier (frontier-model-refresh, 2026-09-04): supersedes the
 # retired Llama 3.3/4 lines for the "llama"/"llama4-maverick"/"llama4-scout"
@@ -859,10 +864,10 @@ class KimiThinkingAgent(OpenRouterAgent):
 # Legacy Kimi agent using direct Moonshot API (requires KIMI_API_KEY)
 @AgentRegistry.register(
     "kimi-legacy",
-    default_model=KIMI_K3_DIRECT_MODEL,
+    default_model=KIMI_LEGACY_DIRECT_MODEL,
     agent_type="API (Kimi/Moonshot)",
     env_vars="KIMI_API_KEY",
-    description="Kimi K3 - direct Moonshot API (requires KIMI_API_KEY)",
+    description="Kimi Legacy - direct Moonshot API (requires KIMI_API_KEY)",
 )
 class KimiLegacyAgent(APIAgent):
     """Moonshot AI Kimi - strong reasoning and Chinese language capabilities.
@@ -874,7 +879,7 @@ class KimiLegacyAgent(APIAgent):
         self,
         name: str = "kimi",
         role: AgentRole = "analyst",
-        model: str = KIMI_K3_DIRECT_MODEL,
+        model: str = KIMI_LEGACY_DIRECT_MODEL,
         system_prompt: str | None = None,
         api_key: str | None = None,
     ):
