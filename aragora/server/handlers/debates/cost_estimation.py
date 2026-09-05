@@ -90,11 +90,7 @@ MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     **_LEGACY_MODEL_PROVIDER_MAP,
 }
 
-# Default models when none specified. NOTE: PROVIDER_PRICING itself has no
-# claude-fable-5-1 / gpt-6-astra rows yet -- that per-model pricing
-# migration is declared Task 6 scope (ruling 4) and is deliberately NOT
-# fixed here; calculate_token_cost() falls back to each provider's
-# "default" rate for these until then.
+# Default models when none specified.
 DEFAULT_MODELS = [FABLE_51_DIRECT, GPT6_ASTRA_DIRECT, GEMINI_31_PRO_DIRECT]
 
 

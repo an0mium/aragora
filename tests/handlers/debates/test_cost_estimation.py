@@ -484,6 +484,85 @@ class TestEstimateDebateCostModelProviderMap:
             assert provider != "openrouter", f"{model} incorrectly fell back to openrouter"
 
 
+class TestEstimateDebateCostDefaultModelsUseCatalogRates:
+    """Regression (frontier-model-refresh Task 6): PROVIDER_PRICING used to
+    carry no claude-fable-5-1 / gpt-6-astra rows at all, so
+    calculate_token_cost() silently fell through to its hardcoded $2/$8
+    default bucket for two of the three DEFAULT_MODELS -- underpricing them
+    ~6x. The aragora.models.pricing_mirror generator now merges catalog
+    rows into PROVIDER_PRICING, so every DEFAULT_MODELS entry must price
+    off its own catalog input/output rate.
+    """
+
+    def _catalog_subtotal(self, model: str, num_rounds: int) -> float:
+        from aragora.models.catalog import CATALOG, by_any_id
+
+        spec = by_any_id(model) or CATALOG[model]
+        input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND * num_rounds
+        output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND * num_rounds
+        cost = (Decimal(input_tokens) / Decimal("1000000")) * Decimal(str(spec.input_per_mtok)) + (
+            Decimal(output_tokens) / Decimal("1000000")
+        ) * Decimal(str(spec.output_per_mtok))
+        return float(round(cost, 6))
+
+    def _default_bucket_subtotal(self, num_rounds: int) -> float:
+        """The $2/$8 fallback calculate_token_cost() applies when a model
+        has no PROVIDER_PRICING row at all -- what every DEFAULT_MODELS
+        entry used to silently price at before this table was wired to the
+        catalog."""
+        input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND * num_rounds
+        output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND * num_rounds
+        cost = (Decimal(input_tokens) / Decimal("1000000")) * Decimal("2.00") + (
+            Decimal(output_tokens) / Decimal("1000000")
+        ) * Decimal("8.00")
+        return float(round(cost, 6))
+
+    def test_default_models_price_off_catalog_rates_not_default_bucket(self):
+        """Every DEFAULT_MODELS subtotal must equal catalog-rate arithmetic
+        and must differ from the $2/$8 default-bucket result."""
+        num_rounds = 9
+        result = estimate_debate_cost(
+            num_agents=len(DEFAULT_MODELS), num_rounds=num_rounds, model_types=DEFAULT_MODELS
+        )
+        default_subtotal = self._default_bucket_subtotal(num_rounds)
+        breakdown = {entry["model"]: entry for entry in result["breakdown_by_model"]}
+        assert set(breakdown) == set(DEFAULT_MODELS)
+        for model in DEFAULT_MODELS:
+            expected = self._catalog_subtotal(model, num_rounds)
+            subtotal = breakdown[model]["subtotal_usd"]
+            assert subtotal == expected, (
+                f"{model}: subtotal {subtotal} != catalog-rate arithmetic {expected}"
+            )
+            assert subtotal != default_subtotal, (
+                f"{model}: subtotal {subtotal} equals the $2/$8 default-bucket result "
+                f"{default_subtotal} -- it fell through to the default rate instead of "
+                "the catalog rate"
+            )
+
+    def test_fable_5_1_and_astra_use_10_50_arithmetic(self):
+        """Fable 5.1 and gpt-6-astra are both $10/$50 per MTok in the
+        catalog (frontier-model-refresh) -- pin the exact numbers so a
+        future PROVIDER_PRICING regression is caught even if the catalog
+        rate itself later changes for one but not the other."""
+        num_rounds = 9
+        result = estimate_debate_cost(
+            num_agents=2,
+            num_rounds=num_rounds,
+            model_types=["claude-fable-5-1", "gpt-6-astra"],
+        )
+        input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND * num_rounds
+        output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND * num_rounds
+        expected = float(
+            round(
+                (Decimal(input_tokens) / Decimal("1000000")) * Decimal("10.00")
+                + (Decimal(output_tokens) / Decimal("1000000")) * Decimal("50.00"),
+                6,
+            )
+        )
+        for entry in result["breakdown_by_model"]:
+            assert entry["subtotal_usd"] == expected
+
+
 # ===========================================================================
 # Tests for handle_estimate_cost()
 # ===========================================================================
