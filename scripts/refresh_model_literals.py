@@ -13,11 +13,19 @@ prefix of a longer active spelling — e.g. ``"claude-fable-5"`` inside
 active ``"claude-fable-5-1"`` — never falsely matches. This script reuses
 that pattern directly rather than re-wrapping it in another boundary
 layer.
+
+One class of retired literal is deliberately NOT rewritten: a bare
+(native-shaped) spelling whose current row is reachable only through
+OpenRouter has no real native id to be rewritten to. ``--write`` leaves it
+exactly as written, and ``--check`` reports it under a separate
+"unresolvable" list that does not affect the exit code. See
+``replacement()``.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -87,9 +95,38 @@ SKIP_PATHS: tuple[str, ...] = (
 DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "baselines" / "retired_model_literals_allowlist.txt"
 
 
-def replacement(old: str) -> str:
+def replacement(old: str) -> str | None:
+    """Current literal for a retired spelling, or ``None`` when the retired
+    literal has no honest replacement in the SHAPE it was written in.
+
+    An OpenRouter slug (contains ``/``) is rewritten to the new slug; a bare
+    id to the new direct id. The exception is a BARE literal whose target
+    row has ``provider == "openrouter"`` — a family Aragora reaches only
+    through OpenRouter. ``ModelSpec.direct_id`` is a documented placeholder
+    on those rows, "NOT a code any native endpoint would accept" (see the
+    field's docstring in aragora/models/catalog.py), so rewriting e.g. the
+    deliberately-kept ``deepseek-cli`` default ``deepseek-v4-pro`` to
+    ``deepseek-v4-pro-0813`` would swap a working native model code for a
+    slug that 400s on the native API (2026-09-05 merge-gate finding C-P3 on
+    #9989). Such a literal is left exactly as written by ``--write`` and
+    reported by ``--check`` as UNRESOLVABLE rather than as an offender: it
+    is a real gap (the catalog owes that family a native row), but it is not
+    something this sweep can fix, so it must not gate the sweep.
+    """
     spec = CATALOG[UPGRADES[old]]
-    return spec.openrouter_id if "/" in old else spec.direct_id
+    if "/" in old:
+        return spec.openrouter_id
+    if spec.provider == "openrouter":
+        return None
+    return spec.direct_id
+
+
+def _sub_one(match: "re.Match[str]") -> str:
+    """``RETIRED_PATTERN.sub`` callback: rewrite, or keep the literal when
+    it has no honest native replacement (see ``replacement``)."""
+    literal = match.group(0)
+    new = replacement(literal)
+    return literal if new is None else new
 
 
 def _is_skip_path(f: Path) -> bool:
@@ -193,6 +230,11 @@ def main(argv: list[str] | None = None) -> int:
         }
 
     offenders: list[tuple[str, int, str]] = []
+    # Retired literals this sweep deliberately cannot rewrite: a bare
+    # (native-shaped) spelling of a row Aragora reaches only through
+    # OpenRouter. Reported separately and NEVER counted as an offender —
+    # see replacement().
+    unresolvable: list[tuple[str, int, str]] = []
     changed = 0
     for f in iter_files(a.paths):
         try:
@@ -205,20 +247,28 @@ def main(argv: list[str] | None = None) -> int:
             continue
         if a.check:
             for i, line in enumerate(text.splitlines(), 1):
-                m = RETIRED_PATTERN.search(line)
-                if m:
-                    offenders.append((str(f), i, m.group(0)))
+                for m in RETIRED_PATTERN.finditer(line):
+                    literal = m.group(0)
+                    bucket = offenders if replacement(literal) is not None else unresolvable
+                    bucket.append((str(f), i, literal))
         else:
-            new = RETIRED_PATTERN.sub(lambda m: replacement(m.group(0)), text)
+            new = RETIRED_PATTERN.sub(_sub_one, text)
             if new != text:
                 f.write_text(new, encoding="utf-8")
                 changed += 1
 
     if a.check:
-        offenders.sort(key=lambda o: (o[0], o[1]))
+        offenders.sort(key=lambda o: (o[0], o[1], o[2]))
+        unresolvable.sort(key=lambda o: (o[0], o[1], o[2]))
         for path, ln, lit in offenders:
             print(f"{path}:{ln}: retired model id {lit}")
+        if unresolvable:
+            print("unresolvable: native spelling of an OpenRouter-only row")
+            for path, ln, lit in unresolvable:
+                print(f"{path}:{ln}: unresolvable model id {lit}")
         print(f"{len(offenders)} retired literal(s) outside allowlist")
+        print(f"{len(unresolvable)} unresolvable literal(s) (not counted as offenders)")
+        # Exit code is deliberately driven by OFFENDERS only.
         return 1 if offenders else 0
 
     print(f"rewrote {changed} file(s)")

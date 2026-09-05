@@ -207,3 +207,76 @@ def test_skip_dirs_apply_only_below_the_scan_root(tmp_path: Path) -> None:
     assert r.returncode == 0, (
         f"'.worktrees' below the scan root should still be skipped: {r.stdout}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Unresolvable literals (2026-09-05 merge-gate fix wave, finding C-P3 on
+# #9989): a BARE literal whose current row is reachable only through
+# OpenRouter has no real native id. ``ModelSpec.direct_id`` is a documented
+# placeholder on those rows, so rewriting the bare literal to it would swap a
+# working native model code for a slug that 400s on the native endpoint.
+# ---------------------------------------------------------------------------
+
+
+def test_replacement_returns_none_for_openrouter_only_bare_literals() -> None:
+    mod = _load_module()
+    # Both resolve to rows whose provider is "openrouter".
+    assert mod.replacement("deepseek-v4-pro") is None
+    assert mod.replacement("qwen3-coder") is None
+    # A bare literal whose row has a REAL native provider still rewrites.
+    assert mod.replacement("moonshot-v1-8k") == "kimi-k3"
+    # And the OpenRouter-slug SHAPE always rewrites, openrouter-only or not.
+    assert mod.replacement("deepseek/deepseek-v4-pro") == "deepseek/deepseek-v4-pro-0813"
+
+
+def test_write_leaves_openrouter_only_bare_literals_untouched(tmp_path: Path) -> None:
+    f = tmp_path / "cli.py"
+    original = (
+        'DEEPSEEK = "deepseek-v4-pro"\n'
+        'QWEN = "qwen3-coder"\n'
+        'KIMI = "moonshot-v1-8k"\n'
+        'SLUG = "deepseek/deepseek-v4-pro"\n'
+    )
+    f.write_text(original)
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert f.read_text() == (
+        'DEEPSEEK = "deepseek-v4-pro"\n'
+        'QWEN = "qwen3-coder"\n'
+        'KIMI = "kimi-k3"\n'
+        'SLUG = "deepseek/deepseek-v4-pro-0813"\n'
+    )
+
+
+def test_check_reports_unresolvable_separately_and_does_not_fail(tmp_path: Path) -> None:
+    f = tmp_path / "cli.py"
+    f.write_text('DEEPSEEK = "deepseek-v4-pro"\nQWEN = "qwen3-coder"\n')
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, f"unresolvable literals must not gate the sweep:\n{r.stdout}"
+    assert "unresolvable: native spelling of an OpenRouter-only row" in r.stdout
+    assert "unresolvable model id deepseek-v4-pro" in r.stdout
+    assert "unresolvable model id qwen3-coder" in r.stdout
+    assert "0 retired literal(s) outside allowlist" in r.stdout
+    assert "2 unresolvable literal(s) (not counted as offenders)" in r.stdout
+
+
+def test_check_still_fails_when_a_real_offender_shares_the_file(tmp_path: Path) -> None:
+    """The unresolvable bucket must not swallow a genuine offender."""
+    f = tmp_path / "cli.py"
+    f.write_text('OK = "deepseek-v4-pro"\nBAD = "gpt-4o"\n')
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 1
+    assert "retired model id gpt-4o" in r.stdout
+    assert "1 retired literal(s) outside allowlist" in r.stdout
+    assert "1 unresolvable literal(s) (not counted as offenders)" in r.stdout
+
+
+def test_check_sees_every_match_on_a_line(tmp_path: Path) -> None:
+    """An unresolvable literal earlier on the line must not hide an offender
+    later on the same line."""
+    f = tmp_path / "cli.py"
+    f.write_text('MODELS = ["deepseek-v4-pro", "gpt-4o"]\n')
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 1
+    assert "retired model id gpt-4o" in r.stdout
+    assert "1 retired literal(s) outside allowlist" in r.stdout
