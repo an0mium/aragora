@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Rewrite retired model-ID literals to their current ids, or check that none remain.
+
+Consumes ``UPGRADES`` and ``RETIRED_PATTERN`` from
+``aragora.models.upgrade_map`` and ``CATALOG`` from
+``aragora.models.catalog`` to map a retired literal to its current
+spelling: a literal that was an OpenRouter slug (contains ``/``) is
+rewritten to the new OpenRouter slug, a bare id to the new direct id.
+
+``RETIRED_PATTERN`` is already built with token-boundary lookarounds (see
+``aragora/models/upgrade_map.py``) so a retired key that is a literal
+prefix of a longer active spelling — e.g. ``"claude-fable-5"`` inside
+active ``"claude-fable-5-1"`` — never falsely matches. This script reuses
+that pattern directly rather than re-wrapping it in another boundary
+layer.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.models.catalog import CATALOG  # noqa: E402
+from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES  # noqa: E402
+
+SKIP_DIRS = {".git", "node_modules", ".worktrees", "__pycache__", ".venv", "dist", "build"}
+SKIP_SUFFIXES = {".lock", ".png", ".jpg", ".pdf", ".ico", ".woff", ".woff2", ".pyc"}
+SKIP_NAMES = {
+    "package-lock.json",
+    "uv.lock",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "catalog_snapshot.json",
+    "upgrade_map.py",
+}
+
+# Repo-relative paths that legitimately contain retired model-id literals
+# on purpose, and must therefore never be rewritten by --write or reported
+# as offenders by --check. Matched by path SUFFIX (a trailing "/" entry
+# matches anything under that directory), so this works regardless of the
+# cwd the sweep is invoked from.
+#
+#   - aragora/models/catalog.py, upgrade_map.py, catalog_snapshot.json,
+#     pricing_mirror.py: these ARE the retired-id source of truth — the
+#     catalog rows with retired=True, the UPGRADES map itself (keyed by
+#     the very literals this script hunts for), its generated JSON
+#     mirror, and the pricing table that old receipts still resolve
+#     through by their original spelling.
+#   - aragora/billing/usage.py, aragora/billing/debate_costs.py,
+#     aragora/services/metering_models.py, aragora/pdb/real_invoker.py,
+#     aragora/routing/provider_config.py,
+#     aragora/server/handlers/debates/cost_estimation.py: legacy pricing
+#     keys and static routing hand-rows that old receipts and in-flight
+#     cost estimates still resolve through by their original spelling.
+#   - tests/models/: unit tests that assert retired ids on purpose (e.g.
+#     RETIRED_PATTERN / UPGRADES coverage tests in
+#     tests/models/test_upgrade_map.py).
+#   - scripts/refresh_model_literals.py: this script's own source, which
+#     necessarily names retired ids in comments, constants, and its test.
+#   - tests/scripts/test_refresh_model_literals.py: not in the original
+#     skip list, added deliberately — this test's fixtures are retired-id
+#     string literals embedded in the test *source* (not just written at
+#     runtime), so a --write pass over "tests" would rewrite them in
+#     place and silently gut what the test verifies, the same hazard
+#     tests/models/ and this script's own source are protected against.
+SKIP_PATHS: tuple[str, ...] = (
+    "aragora/models/catalog.py",
+    "aragora/models/upgrade_map.py",
+    "aragora/models/catalog_snapshot.json",
+    "aragora/models/pricing_mirror.py",
+    "aragora/billing/usage.py",
+    "aragora/billing/debate_costs.py",
+    "aragora/services/metering_models.py",
+    "aragora/pdb/real_invoker.py",
+    "aragora/routing/provider_config.py",
+    "aragora/server/handlers/debates/cost_estimation.py",
+    "tests/models/",
+    "scripts/refresh_model_literals.py",
+    "tests/scripts/test_refresh_model_literals.py",
+)
+
+
+def replacement(old: str) -> str:
+    spec = CATALOG[UPGRADES[old]]
+    return spec.openrouter_id if "/" in old else spec.direct_id
+
+
+def _is_skip_path(f: Path) -> bool:
+    """True if ``f`` matches a SKIP_PATHS entry by suffix.
+
+    ``f.resolve().as_posix()`` is always an absolute path, so a directory
+    entry (trailing "/") is matched as "/<entry>" appearing anywhere in
+    that path, and a file entry is matched as an exact path suffix.
+    """
+    posix = f.resolve().as_posix()
+    for skip in SKIP_PATHS:
+        if skip.endswith("/"):
+            if f"/{skip}" in posix:
+                return True
+        elif posix == skip or posix.endswith(f"/{skip}"):
+            return True
+    return False
+
+
+def iter_files(paths: list[str]):
+    for p in paths:
+        root = Path(p)
+        files = [root] if root.is_file() else root.rglob("*")
+        for f in files:
+            if not f.is_file() or f.name in SKIP_NAMES or f.suffix in SKIP_SUFFIXES:
+                continue
+            if any(part in SKIP_DIRS for part in f.parts):
+                continue
+            if _is_skip_path(f):
+                continue
+            yield f
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--paths",
+        nargs="+",
+        default=["aragora", "scripts", "sdk", "docs", "docs-site", "tests", "README.md"],
+    )
+    ap.add_argument("--write", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument(
+        "--allowlist",
+        default="scripts/baselines/retired_model_literals_allowlist.txt",
+    )
+    a = ap.parse_args(argv)
+    if a.write == a.check:
+        print("choose exactly one of --write / --check", file=sys.stderr)
+        return 2
+
+    allow: set[str] = set()
+    allow_path = Path(a.allowlist)
+    if allow_path.exists():
+        allow = {
+            ln.strip()
+            for ln in allow_path.read_text().splitlines()
+            if ln.strip() and not ln.startswith("#")
+        }
+
+    offenders: list[tuple[str, int, str]] = []
+    changed = 0
+    for f in iter_files(a.paths):
+        try:
+            text = f.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if str(f) in allow:
+            continue
+        if not RETIRED_PATTERN.search(text):
+            continue
+        if a.check:
+            for i, line in enumerate(text.splitlines(), 1):
+                m = RETIRED_PATTERN.search(line)
+                if m:
+                    offenders.append((str(f), i, m.group(0)))
+        else:
+            new = RETIRED_PATTERN.sub(lambda m: replacement(m.group(0)), text)
+            if new != text:
+                f.write_text(new, encoding="utf-8")
+                changed += 1
+
+    if a.check:
+        for path, ln, lit in offenders:
+            print(f"{path}:{ln}: retired model id {lit}")
+        print(f"{len(offenders)} retired literal(s) outside allowlist")
+        return 1 if offenders else 0
+
+    print(f"rewrote {changed} file(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
