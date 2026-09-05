@@ -567,7 +567,7 @@ Independent verification found substantial launch-ready infrastructure, but Arag
 
 ## Current Release
 
-Current released version is **v2.10.0**.
+Current released version is **v2.10.0** (released 2026-09-04).
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 

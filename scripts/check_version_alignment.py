@@ -6,8 +6,34 @@ This script validates that all version sources in the repository are aligned.
 It fails with exit code 1 if any version mismatch is detected.
 
 Usage:
-    python scripts/check_version_alignment.py
-    python scripts/check_version_alignment.py --fix  # Auto-fix mismatches
+    python scripts/check_version_alignment.py          # check (the default)
+    python scripts/check_version_alignment.py --check  # check, explicitly
+    python scripts/check_version_alignment.py --fix    # auto-fix mismatches
+
+Tracked set
+-----------
+Everything below is compared to ``aragora/__version__.py`` (``VERSION_*`` and
+``RELEASE_DATE``); no spot in a release bump is meant to be aligned by hand:
+
+* package manifests (``pyproject.toml``, ``package.json``) and the Python SDK
+  ``__version__`` string;
+* the four npm ``package-lock.json`` roots (top-level ``version`` and the
+  ``packages[""]`` entry) and the ``aragora`` package in ``uv.lock``;
+* the ``README.md`` metrics block and the ``project_version`` claim in
+  ``docs/status/metrics/catalog.toml``;
+* documentation spots matched by the regex patterns in ``DOC_SOURCES``.
+
+Doc patterns that name a ``date`` group are also checked against
+``RELEASE_DATE`` (and rewritten with it under ``--fix``), so a version cannot
+sit next to the previous release's date.  Patterns that name a ``series`` group
+are compared to the ``major.minor`` series instead of the full version; the
+``UPGRADE_ROADMAP.md`` support-matrix row is fixed by inserting a new
+``Current`` row and demoting the previous series to ``Supported`` rather than
+by rewriting in place, so the timeline never loses a row.
+
+A tracked pattern that matches nothing is a mismatch, not an aligned spot: a
+dead entry is a silent hole in the guarantee.  Remove the entry or restore the
+doc line it tracked.
 """
 
 from __future__ import annotations
@@ -16,6 +42,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -105,12 +132,21 @@ def get_canonical_release_date() -> str | None:
 
 
 def _version_group(pattern: str) -> str | int:
-    """Doc patterns carry the version in group 2 unless they name a ``version`` group.
+    """Doc patterns carry the version in group 2 unless they name a ``version`` or ``series`` group.
 
     Patterns that also capture a ``date`` group cannot keep the version in
     position 2 (named groups are numbered too), so they name it instead.
     """
+    if "(?P<series>" in pattern:
+        return "series"
     return "version" if "(?P<version>" in pattern else 2
+
+
+def _expected_version(pattern: str, canonical: str) -> str:
+    """The value a doc spot must carry: the full version, or its ``major.minor`` series."""
+    if "(?P<series>" in pattern:
+        return canonical.rsplit(".", 1)[0]
+    return canonical
 
 
 def get_doc_versions(path: Path, pattern: str) -> list[str]:
@@ -125,6 +161,18 @@ def get_doc_versions(path: Path, pattern: str) -> list[str]:
     content = path.read_text()
     group = _version_group(pattern)
     return [match.group(group) for match in re.finditer(pattern, content, re.MULTILINE)]
+
+
+def get_doc_dates(path: Path, pattern: str) -> list[str]:
+    """Extract every release date a pattern's ``date`` group matches.
+
+    Returns ``[]`` for patterns without a ``date`` group, so only spots that
+    pair a version with the release date are held to ``RELEASE_DATE``.
+    """
+    if "(?P<date>" not in pattern or not path.exists():
+        return []
+    content = path.read_text()
+    return [match.group("date") for match in re.finditer(pattern, content, re.MULTILINE)]
 
 
 def fix_doc_version(
@@ -158,6 +206,29 @@ def fix_doc_version(
     return False
 
 
+def fix_support_matrix_row(
+    path: Path, pattern: str, new_series: str, release_date: str | None = None
+) -> bool:
+    """Move the ``**Current**`` row of a support matrix to a new ``major.minor`` series.
+
+    A minor bump is a history event, not an edit: the new series gets a fresh
+    ``Current`` row carrying the release date and the previous series is
+    demoted to ``Supported`` keeping its own release date (the ``since``
+    group), so the timeline never loses a row.  Without a release date there is
+    nothing truthful to put in the new row, so the spot is left to the operator.
+    """
+    if not path.exists() or not release_date:
+        return False
+    content = path.read_text()
+    match = re.search(pattern, content, re.MULTILINE)
+    if match is None or match.group("series") == new_series:
+        return False
+    current = f"| **v{new_series}.x** | {release_date} | Active | **Current** |"
+    demoted = f"| v{match.group('series')}.x | {match.group('since')} | Active | Supported |"
+    path.write_text(content[: match.start()] + current + "\n" + demoted + content[match.end() :])
+    return True
+
+
 def get_python_version(path: Path) -> str | None:
     """Extract __version__ from a Python source file."""
     if not path.exists():
@@ -184,9 +255,312 @@ def fix_python_version(path: Path, new_version: str) -> bool:
     return False
 
 
+# Regex-tracked spots: docs, plus the lockfile roots, README metrics block and
+# metrics catalog that used to be aligned by hand.  Group 2 (or the ``version``
+# / ``series`` group) is the value; a ``date`` group is held to RELEASE_DATE.
+DOC_SOURCES: list[tuple[str, Path, str]] = [
+    (
+        "docs/status/STATUS.md",
+        Path("docs/status/STATUS.md"),
+        r"^(Current released version is \*\*v?)(?P<version>\d+\.\d+\.\d+)(\*\* \(released )"
+        r"(?P<date>\d{4}-\d{2}-\d{2})(\)\.)$",
+    ),
+    (
+        "docs/deployment/SCALING.md",
+        Path("docs/deployment/SCALING.md"),
+        r'(\s*"version":\s*")(\d+\.\d+\.\d+)(",)',
+    ),
+    (
+        "docs/api/API_REFERENCE.md",
+        Path("docs/api/API_REFERENCE.md"),
+        r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs/api/API_REFERENCE.md (Python SDK)",
+        Path("docs/api/API_REFERENCE.md"),
+        r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs/CANONICAL_GOALS.md",
+        Path("docs/CANONICAL_GOALS.md"),
+        r"^(\|\s*Version\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs/DEPLOYMENT.md",
+        Path("docs/DEPLOYMENT.md"),
+        r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
+    ),
+    (
+        "docs/DEPLOYMENT.md (git tag)",
+        Path("docs/DEPLOYMENT.md"),
+        r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
+    ),
+    (
+        "docs/DEPLOYMENT.md (image pin)",
+        Path("docs/DEPLOYMENT.md"),
+        r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs/deployment/GO_LIVE_CHECKLIST.md",
+        Path("docs/deployment/GO_LIVE_CHECKLIST.md"),
+        r"(ghcr\.io/synaptent/aragora/(?:backend|frontend):)(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (Python SDK)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (checkout)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (build ships)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (in-tree moved)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (not yet)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (in-tree prose)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
+    ),
+    (
+        "docs/api/API_REFERENCE.md (last updated)",
+        Path("docs/api/API_REFERENCE.md"),
+        r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
+        r"( alignment with repo versions\))$",
+    ),
+    (
+        "docs/STATUS.md",
+        Path("docs/STATUS.md"),
+        r"^(Current released version is \*\*v?)(?P<version>\d+\.\d+\.\d+)(\*\* \(released )"
+        r"(?P<date>\d{4}-\d{2}-\d{2})(\)\.)$",
+    ),
+    (
+        "docs/STATUS.md (version bullet)",
+        Path("docs/STATUS.md"),
+        r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/status/STATUS.md (version bullet)",
+        Path("docs/status/STATUS.md"),
+        r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/guides/SELF_HOSTED_QUICKSTART.md",
+        Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
+        r"^(\*Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*\n\*Version: )(?P<version>\d+\.\d+\.\d+)(\*)$",
+    ),
+    (
+        "docs/guides/SELF_HOSTED_QUICKSTART.md (health response)",
+        Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
+        r'(\{"status": "healthy", "version": ")(\d+\.\d+\.\d+)("\})',
+    ),
+    (
+        "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md",
+        Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+        r"^(\*Version: )(?P<version>\d+\.\d+\.\d+)( \| Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*)$",
+    ),
+    (
+        "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (header)",
+        Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+        r"^(\*\*Version:\*\* )(?P<version>\d+\.\d+\.\d+)(\n\*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})()$",
+    ),
+    (
+        "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (health response)",
+        Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+        r'^(\s*"version": ")(\d+\.\d+\.\d+)(",)$',
+    ),
+    (
+        "docs-site/docs/deployment/scaling.md",
+        Path("docs-site/docs/deployment/scaling.md"),
+        r'(\s*"version":\s*")(\d+\.\d+\.\d+)(",)',
+    ),
+    (
+        "docs-site/docs/api/reference.md",
+        Path("docs-site/docs/api/reference.md"),
+        r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs-site/docs/api/reference.md (Python SDK)",
+        Path("docs-site/docs/api/reference.md"),
+        r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs-site/docs/deployment/overview.md",
+        Path("docs-site/docs/deployment/overview.md"),
+        r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
+    ),
+    (
+        "docs-site/docs/deployment/overview.md (git tag)",
+        Path("docs-site/docs/deployment/overview.md"),
+        r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
+    ),
+    (
+        "docs-site/docs/deployment/overview.md (image pin)",
+        Path("docs-site/docs/deployment/overview.md"),
+        r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (Python SDK)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (checkout)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (build ships)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (in-tree moved)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (not yet)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (in-tree prose)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
+    ),
+    (
+        "docs-site/docs/api/reference.md (last updated)",
+        Path("docs-site/docs/api/reference.md"),
+        r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
+        r"( alignment with repo versions\))$",
+    ),
+    (
+        "docs-site/docs/contributing/status.md",
+        Path("docs-site/docs/contributing/status.md"),
+        r"^(Current released version is \*\*v?)(?P<version>\d+\.\d+\.\d+)(\*\* \(released )"
+        r"(?P<date>\d{4}-\d{2}-\d{2})(\)\.)$",
+    ),
+    (
+        "docs-site/docs/contributing/status.md (version bullet)",
+        Path("docs-site/docs/contributing/status.md"),
+        r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/migration/V3_MIGRATION_GUIDE.md",
+        Path("docs/migration/V3_MIGRATION_GUIDE.md"),
+        r"^(> \*\*Current version:\*\* v)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(\*\*Aragora v)(?P<version>\d+\.\d+\.\d+)(\*\* \(released )"
+        r"(?P<date>\d{4}-\d{2}-\d{2})(\))$",
+    ),
+    (
+        # The ``since`` group is the series' own first-release date and is kept
+        # when the row is demoted; it is deliberately not a ``date`` group, so a
+        # patch release (same series, new RELEASE_DATE) leaves the row alone.
+        "docs/deployment/UPGRADE_ROADMAP.md (support matrix)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(\| \*\*v)(?P<series>\d+\.\d+)(\.x\*\* \| )(?P<since>\d{4}-\d{2}-\d{2})"
+        r"( \| Active \| \*\*Current\*\* \|)$",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (version check)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r'^(print\(__version__\)\s*# ")(\d+\.\d+\.\d+)(")$',
+    ),
+    (
+        "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (image pin)",
+        Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
+        r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
+    ),
+    (
+        "docs/SDK_GUIDE.md (cadence example)",
+        Path("docs/SDK_GUIDE.md"),
+        r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
+    ),
+    (
+        "docs-site/docs/guides/sdk.md (cadence example)",
+        Path("docs-site/docs/guides/sdk.md"),
+        r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
+    ),
+    (
+        "README.md (metrics block)",
+        Path("README.md"),
+        r"(Python \+ TypeScript SDKs · v)(\d+\.\d+\.\d+)(\.\*\*)",
+    ),
+    (
+        "docs/status/metrics/catalog.toml (project_version)",
+        Path("docs/status/metrics/catalog.toml"),
+        r'^(\s*\{ key = "project_version",.*?display_value = ")(\d+\.\d+\.\d+)(")',
+    ),
+    (
+        "uv.lock (aragora)",
+        Path("uv.lock"),
+        r'^(name = "aragora"\nversion = ")(\d+\.\d+\.\d+)(")$',
+    ),
+]
+
+# npm lockfiles carry the package version twice: at the top level and in the
+# ``packages[""]`` root entry.  Both are rewritten line-by-line so ``--fix``
+# produces exactly the two-line diff ``npm version`` would.
+for _lockfile in (
+    "aragora/live/package-lock.json",
+    "sdk/typescript/package-lock.json",
+    "ide/vscode-aragora/package-lock.json",
+    "ide/vscode-aragora/webview-ui/package-lock.json",
+):
+    DOC_SOURCES.append(
+        (f"{_lockfile} (root)", Path(_lockfile), r'^(  "version": ")(\d+\.\d+\.\d+)("),?$')
+    )
+    DOC_SOURCES.append(
+        (
+            f"{_lockfile} (packages root)",
+            Path(_lockfile),
+            r'^(    "": \{\n      "name": "[^"]+",\n      "version": ")(\d+\.\d+\.\d+)("),?$',
+        )
+    )
+
+# Spots whose fix is not an in-place rewrite of the matched text.
+DOC_FIXERS: dict[str, Callable[[Path, str, str, str | None], bool]] = {
+    "docs/deployment/UPGRADE_ROADMAP.md (support matrix)": fix_support_matrix_row,
+}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check version alignment across packages")
-    parser.add_argument("--fix", action="store_true", help="Auto-fix version mismatches")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="Check only and exit 1 on any misalignment (the default mode)",
+    )
+    mode.add_argument("--fix", action="store_true", help="Auto-fix version mismatches")
     args = parser.parse_args()
 
     # Get canonical version
@@ -214,260 +588,6 @@ def main() -> int:
     ]
     python_version_sources: list[tuple[str, Path]] = [
         ("sdk/python/aragora_sdk/__init__.py", Path("sdk/python/aragora_sdk/__init__.py")),
-    ]
-    doc_sources: list[tuple[str, Path, str]] = [
-        (
-            "ROADMAP.md",
-            Path("ROADMAP.md"),
-            r"^(\*\*Current Version:\*\*\s*)(\d+\.\d+\.\d+)(.*)$",
-        ),
-        (
-            "docs/status/STATUS.md",
-            Path("docs/status/STATUS.md"),
-            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
-        ),
-        (
-            "docs/guides/GETTING_STARTED.md",
-            Path("docs/guides/GETTING_STARTED.md"),
-            r"^(\s*aragora:\s*)(\d+\.\d+\.\d+)(.*)$",
-        ),
-        (
-            "docs/deployment/SCALING.md",
-            Path("docs/deployment/SCALING.md"),
-            r'(\s*"version":\s*")(\d+\.\d+\.\d+)(",)',
-        ),
-        (
-            "docs/api/API_REFERENCE.md",
-            Path("docs/api/API_REFERENCE.md"),
-            r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs/api/API_REFERENCE.md (Python SDK)",
-            Path("docs/api/API_REFERENCE.md"),
-            r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs/CANONICAL_GOALS.md",
-            Path("docs/CANONICAL_GOALS.md"),
-            r"^(\|\s*Version\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs/DEPLOYMENT.md",
-            Path("docs/DEPLOYMENT.md"),
-            r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
-        ),
-        (
-            "docs/DEPLOYMENT.md (git tag)",
-            Path("docs/DEPLOYMENT.md"),
-            r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
-        ),
-        (
-            "docs/DEPLOYMENT.md (image pin)",
-            Path("docs/DEPLOYMENT.md"),
-            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs/deployment/GO_LIVE_CHECKLIST.md",
-            Path("docs/deployment/GO_LIVE_CHECKLIST.md"),
-            r"(ghcr\.io/synaptent/aragora/(?:backend|frontend):)(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (Python SDK)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (checkout)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (build ships)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (in-tree moved)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (not yet)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs/reference/INSTALL_MATRIX.md (in-tree prose)",
-            Path("docs/reference/INSTALL_MATRIX.md"),
-            r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
-        ),
-        (
-            "docs/api/API_REFERENCE.md (last updated)",
-            Path("docs/api/API_REFERENCE.md"),
-            r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
-            r"( alignment with repo versions\))$",
-        ),
-        (
-            "docs/STATUS.md",
-            Path("docs/STATUS.md"),
-            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
-        ),
-        (
-            "docs/STATUS.md (version bullet)",
-            Path("docs/STATUS.md"),
-            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
-        ),
-        (
-            "docs/status/STATUS.md (version bullet)",
-            Path("docs/status/STATUS.md"),
-            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
-        ),
-        (
-            "docs/guides/SELF_HOSTED_QUICKSTART.md",
-            Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
-            r"^(\*Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*\n\*Version: )(?P<version>\d+\.\d+\.\d+)(\*)$",
-        ),
-        (
-            "docs/guides/SELF_HOSTED_QUICKSTART.md (health response)",
-            Path("docs/guides/SELF_HOSTED_QUICKSTART.md"),
-            r'(\{"status": "healthy", "version": ")(\d+\.\d+\.\d+)("\})',
-        ),
-        (
-            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md",
-            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
-            r"^(\*Version: )(?P<version>\d+\.\d+\.\d+)( \| Updated: )(?P<date>\d{4}-\d{2}-\d{2})(\*)$",
-        ),
-        (
-            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (header)",
-            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
-            r"^(\*\*Version:\*\* )(?P<version>\d+\.\d+\.\d+)(\n\*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})()$",
-        ),
-        (
-            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (health response)",
-            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
-            r'^(\s*"version": ")(\d+\.\d+\.\d+)(",)$',
-        ),
-        (
-            "docs-site/docs/getting-started/overview.md",
-            Path("docs-site/docs/getting-started/overview.md"),
-            r"^(\s*aragora:\s*)(\d+\.\d+\.\d+)(.*)$",
-        ),
-        (
-            "docs-site/docs/deployment/scaling.md",
-            Path("docs-site/docs/deployment/scaling.md"),
-            r'(\s*"version":\s*")(\d+\.\d+\.\d+)(",)',
-        ),
-        (
-            "docs-site/docs/api/reference.md",
-            Path("docs-site/docs/api/reference.md"),
-            r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs-site/docs/api/reference.md (Python SDK)",
-            Path("docs-site/docs/api/reference.md"),
-            r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs-site/docs/deployment/overview.md",
-            Path("docs-site/docs/deployment/overview.md"),
-            r"(`)(\d+\.\d+\.\d+)(` \(version from pyproject\.toml\))",
-        ),
-        (
-            "docs-site/docs/deployment/overview.md (git tag)",
-            Path("docs-site/docs/deployment/overview.md"),
-            r"(`v)(\d+\.\d+\.\d+)(` \(git tag\))",
-        ),
-        (
-            "docs-site/docs/deployment/overview.md (image pin)",
-            Path("docs-site/docs/deployment/overview.md"),
-            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"^(\|\s*Root platform\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (Python SDK)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"^(\|\s*Python SDK\s*\|[^|]*\|[^|]*\|\s*\*\*)(\d+\.\d+\.\d+)(\*\*\s*\|.*)$",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (checkout)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"^(\|\s*This checkout \(`pip install \./sdk/python`\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (build ships)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"(; the )(\d+\.\d+\.\d+)( build ships when the operator tags)",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (in-tree moved)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"(in-tree version has moved to )(\d+\.\d+\.\d+)( but)",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (not yet)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"(gives you \d+\.\d+\.\d+, not )(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs-site/docs/reference/install-matrix.md (in-tree prose)",
-            Path("docs-site/docs/reference/install-matrix.md"),
-            r"(in-tree version \()(\d+\.\d+\.\d+)(, not yet released to)",
-        ),
-        (
-            "docs-site/docs/api/reference.md (last updated)",
-            Path("docs-site/docs/api/reference.md"),
-            r"^(> \*\*Last Updated:\*\* )(?P<date>\d{4}-\d{2}-\d{2})( \(v)(?P<version>\d+\.\d+\.\d+)"
-            r"( alignment with repo versions\))$",
-        ),
-        (
-            "docs-site/docs/contributing/status.md",
-            Path("docs-site/docs/contributing/status.md"),
-            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
-        ),
-        (
-            "docs-site/docs/contributing/status.md (version bullet)",
-            Path("docs-site/docs/contributing/status.md"),
-            r"^(- \*\*Version\*\*: v)(\d+\.\d+\.\d+)()$",
-        ),
-        (
-            "docs/migration/V3_MIGRATION_GUIDE.md",
-            Path("docs/migration/V3_MIGRATION_GUIDE.md"),
-            r"^(> \*\*Current version:\*\* v)(\d+\.\d+\.\d+)()$",
-        ),
-        (
-            "docs/deployment/UPGRADE_ROADMAP.md",
-            Path("docs/deployment/UPGRADE_ROADMAP.md"),
-            r"^(\*\*Aragora v)(\d+\.\d+\.\d+)(\*\* \(released \d{4}-\d{2}-\d{2}\))$",
-        ),
-        (
-            "docs/deployment/UPGRADE_ROADMAP.md (version check)",
-            Path("docs/deployment/UPGRADE_ROADMAP.md"),
-            r'^(print\(__version__\)\s*# ")(\d+\.\d+\.\d+)(")$',
-        ),
-        (
-            "docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md (image pin)",
-            Path("docs/guides/SELF_HOSTED_COMPLETE_GUIDE.md"),
-            r"(ghcr\.io/synaptent/aragora/backend:)(\d+\.\d+\.\d+)(\b)",
-        ),
-        (
-            "docs/SDK_GUIDE.md (cadence example)",
-            Path("docs/SDK_GUIDE.md"),
-            r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
-        ),
-        (
-            "docs-site/docs/guides/sdk.md (cadence example)",
-            Path("docs-site/docs/guides/sdk.md"),
-            r"(\(e\.g\. the repo can declare )(\d+\.\d+\.\d+)( while PyPI serves)",
-        ),
     ]
 
     mismatches: list[tuple[str, str | None]] = []
@@ -516,23 +636,34 @@ def main() -> int:
                 if fix_python_version(path, canonical):
                     fixed.append(name)
 
-    for name, path, pattern in doc_sources:
+    for name, path, pattern in DOC_SOURCES:
+        expected = _expected_version(pattern, canonical)
         versions = get_doc_versions(path, pattern)
         if not versions:
-            print(f"  {name}: (version not found)")
+            # A dead entry is a hole in the tracked set, not an aligned spot.
+            print(
+                f"  {name}: (version not found) [doc] [MISMATCH] - tracked pattern matches nothing"
+            )
+            mismatches.append((name, None))
             continue
 
-        stale = [v for v in versions if v != canonical]
+        stale = [v for v in versions if v != expected]
+        stale_dates = (
+            [d for d in get_doc_dates(path, pattern) if d != release_date] if release_date else []
+        )
         version = stale[0] if stale else versions[0]
-        status = "OK" if not stale else "MISMATCH"
+        status = "OK" if not stale and not stale_dates else "MISMATCH"
         suffix = f" ({len(versions)} occurrences)" if len(versions) > 1 else ""
+        if stale_dates:
+            suffix += f" (date {stale_dates[0]}, release date is {release_date})"
         print(f"  {name}: {version} [doc] [{status}]{suffix}")
 
-        if stale:
+        if stale or stale_dates:
             mismatches.append((name, version))
 
             if args.fix:
-                if fix_doc_version(path, pattern, canonical, release_date):
+                fixer = DOC_FIXERS.get(name, fix_doc_version)
+                if fixer(path, pattern, expected, release_date):
                     fixed.append(name)
 
     print("-" * 50)
