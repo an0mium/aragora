@@ -52,6 +52,16 @@ from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES, resolve_model_
         # alias (Task 1 kept it off the row to avoid a routing hand-row
         # collision), so this resolves via UPGRADES, not alias lookup.
         ("gemini-3.1-pro", "gemini-3.1-pro-preview"),
+        # Review fix round 1, item 5 (frontier-model-refresh, 2026-09-04):
+        # these six spellings were falling through resolve_model_id
+        # unresolved (no UPGRADES key, no catalog row) after gemini.py's
+        # GEMINI_MODEL_ALIASES dict was deleted in favor of resolve_model_id.
+        ("gemini-3-pro-preview", "gemini-3.1-pro-preview"),
+        ("google/gemini-3-pro-preview", "gemini-3.1-pro-preview"),
+        ("gemini-3-flash-preview", "gemini-3.8-flash"),
+        ("gemini-flash", "gemini-3.8-flash"),
+        ("gemini-1.5-flash-001", "gemini-3.8-flash"),
+        ("gemini-1.5-flash-latest", "gemini-3.8-flash"),
         ("grok-2", "grok-4.6"),
         ("grok-4-latest", "grok-4.6"),
         ("x-ai/grok-4.5", "grok-4.6"),
