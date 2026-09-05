@@ -161,7 +161,7 @@ def test_malformed_subfields_produce_verdict_not_crash() -> None:
 def test_chain_non_dict_entry_does_not_crash() -> None:
     doc = _valid_odr()
     digest = odr_content_digest(doc)
-    chain = ["not-a-dict", {"hash": "h1", "odr_digest": digest}]
+    chain: list[Any] = ["not-a-dict", {"hash": "h1", "odr_digest": digest}]
     result = verify_odr_document(doc, chain=chain)  # must not raise
     assert result.ok is False
 
