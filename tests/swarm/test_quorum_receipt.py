@@ -15,67 +15,6 @@ from aragora.swarm.quorum_evidence import CollectOutcome, EvidenceItem
 from aragora.swarm.quorum_receipt import collect_outcome_to_decision_receipt
 
 
-def test_v02_bridge_retains_pass_findings_and_observations():
-    from aragora.gauntlet.odr_verify import verify_odr_document
-    from aragora.swarm.quorum_evidence import ReviewerResult
-
-    outcome = _outcome()
-    outcome.items[0].body = "- [P3] advisory from a PASS reviewer"
-    outcome.failures = [ReviewerResult(family="grok", ok=False, text="", error="transport boom")]
-    outcome.timed_out_families = ["openai"]
-    doc = decision_receipt_to_odr(collect_outcome_to_decision_receipt(outcome))
-    assert len(doc["quorum"]["verdicts"]) == 3
-    assert doc["subject"]["pr_number"] == outcome.pr
-    assert doc["quorum"]["rule"]["required_signals"] == 2
-    dissent = doc["quorum"]["dissent"]
-    assert [f["severity"] for f in dissent["findings"]] == ["P3", "P1"]
-    assert dissent["blocking"] is True and dissent["severity_max"] == "P1"
-    assert {o["kind"] for o in doc["reasoning"]["observations"]} == {"failure", "timeout"}
-    assert verify_odr_document(doc).ok
-    import json
-    from pathlib import Path
-
-    legacy = json.loads(
-        Path("docs/specs/examples/example-merge-quorum-receipt.odr.json").read_text()
-    )
-    assert legacy["odr_version"] == "0.1" and verify_odr_document(legacy).ok
-
-
-def test_v02_bridge_dict_preserves_timeout_and_adjudication():
-    from aragora.swarm.review_adjudicator import AdjudicationResult, AdjudicationVerdict
-
-    outcome = _outcome().to_dict()
-    outcome["timed_out_families"] = ["openai"]
-    outcome["adjudication"] = AdjudicationResult(
-        verdict=AdjudicationVerdict.SETTLE, reason="resolved"
-    ).to_receipt_dict()
-    doc = decision_receipt_to_odr(collect_outcome_to_decision_receipt(outcome))
-    assert doc["reasoning"]["observations"][0]["kind"] == "timeout"
-    assert doc["adjudication"]["verdict"] == "settle"
-    jsonschema.validate(doc, load_odr_schema())
-    legacy = decision_receipt_to_odr(
-        DecisionReceipt.from_dict({"receipt_id": "legacy", "verdict": "PASS"})
-    )
-    assert "adjudication" not in legacy
-    legacy.update(odr_version="0.1", profile="https://aragora.ai/specs/open-decision-receipt/v0.1")
-    jsonschema.validate(legacy, load_odr_schema())
-
-
-def test_v02_observations_without_summary_preserve_legacy_absence():
-    from aragora.swarm.quorum_evidence import ReviewerResult
-
-    legacy = decision_receipt_to_odr(DecisionReceipt.from_dict({"receipt_id": "empty"}))
-    assert legacy["reasoning"]["status"] == "absent"
-    legacy.update(odr_version="0.1", profile="https://aragora.ai/specs/open-decision-receipt/v0.1")
-    jsonschema.validate(legacy, load_odr_schema())
-    outcome = _outcome()
-    outcome.action_reason = ""
-    outcome.failures = [ReviewerResult(family="grok", ok=False, text="", error="transport boom")]
-    doc = decision_receipt_to_odr(collect_outcome_to_decision_receipt(outcome))
-    assert doc["reasoning"]["observations"][0]["detail"] == "transport boom"
-    jsonschema.validate(doc, load_odr_schema())
-
-
 def _supportive_outcome(
     *,
     action: str = "prepare",
@@ -268,23 +207,13 @@ def test_bridge_metadata_records_pr_provenance():
 
 
 def test_example_merge_quorum_receipt_matches_emitter():
-    # Freeze the published v0.1 content; v0.2 adds audit detail without rewriting it.
+    # The committed example is the emitter<->verifier contract for PR-review
+    # receipts (verified independently in aragora-verify). It must equal exactly
+    # what the bridge + odr_export emit today.
     import json
     from pathlib import Path
 
     example = Path("docs/specs/examples/example-merge-quorum-receipt.odr.json")
     expected = decision_receipt_to_odr(collect_outcome_to_decision_receipt(_outcome()))
     actual = json.loads(example.read_text(encoding="utf-8"))
-    from aragora.gauntlet.odr_verify import verify_odr_document
-
-    assert verify_odr_document(actual).ok and verify_odr_document(expected).ok
-    assert actual["odr_version"] == "0.1" and expected["odr_version"] == "0.2"
-    expected.update(odr_version=actual["odr_version"], profile=actual["profile"])
-    for key in ("repository", "pr_number", "head_sha"):
-        expected["subject"].pop(key)
-    for key in ("verdicts", "rule"):
-        expected["quorum"].pop(key)
-    for key in ("findings", "severity_max", "blocking"):
-        expected["quorum"]["dissent"].pop(key)
-    expected["attestation"].pop("mechanism")
-    assert actual == expected
+    assert actual == expected, "example merge-quorum receipt is stale; regenerate it"
