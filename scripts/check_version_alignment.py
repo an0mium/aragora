@@ -13,27 +13,37 @@ Usage:
 Tracked set
 -----------
 Everything below is compared to ``aragora/__version__.py`` (``VERSION_*`` and
-``RELEASE_DATE``); no spot in a release bump is meant to be aligned by hand:
+``RELEASE_DATE``).  Every spot that states the *current* version or release
+date is tracked, so a bump is ``aragora/__version__.py`` plus ``--fix``:
 
 * package manifests (``pyproject.toml``, ``package.json``) and the Python SDK
-  ``__version__`` string;
-* the four npm ``package-lock.json`` roots (top-level ``version`` and the
-  ``packages[""]`` entry) and the ``aragora`` package in ``uv.lock``;
-* the ``README.md`` metrics block and the ``project_version`` claim in
-  ``docs/status/metrics/catalog.toml``;
-* documentation spots matched by the regex patterns in ``DOC_SOURCES``.
+  ``__version__`` string (``VERSION_SOURCES`` / ``PYTHON_VERSION_SOURCES``);
+* the four npm ``package-lock.json`` roots (top-level ``version``, the
+  ``packages[""]`` entry and the ``../../sdk/typescript`` link entry in
+  ``aragora/live``) and the ``aragora`` package in ``uv.lock``;
+* the ``README.md`` metrics block, the ``project_version`` claim in
+  ``docs/status/metrics/catalog.toml`` and the ``CHANGELOG.md`` Unreleased line;
+* documentation spots matched by the regex patterns in ``DOC_SOURCES``,
+  including every ``aragora==X.Y.Z`` install command in ``UPGRADE_ROADMAP.md``.
+
+Deliberately untracked, because they are content rather than version spots:
+release history (``## [X.Y.Z]`` changelog entries, ``### vX.Y.Z Behavioral
+Changes`` sections, prior release notes, archived status receipts) and
+third-party packages in lockfiles that happen to share a version number.
 
 Doc patterns that name a ``date`` group are also checked against
 ``RELEASE_DATE`` (and rewritten with it under ``--fix``), so a version cannot
 sit next to the previous release's date.  Patterns that name a ``series`` group
-are compared to the ``major.minor`` series instead of the full version; the
+are compared to the ``major.minor`` series instead of the full version.  The
 ``UPGRADE_ROADMAP.md`` support-matrix row is fixed by inserting a new
-``Current`` row and demoting the previous series to ``Supported`` rather than
-by rewriting in place, so the timeline never loses a row.
+``Current`` row and demoting the previous series to ``Supported``; individual
+``Supported`` rows beyond ``SUPPORTED_ROWS_KEPT`` fold into one range row so
+the table stays bounded.  A series' status (Supported, Deprecated, End of
+life) is a policy decision and is never changed here.
 
-A tracked pattern that matches nothing is a mismatch, not an aligned spot: a
-dead entry is a silent hole in the guarantee.  Remove the entry or restore the
-doc line it tracked.
+A tracked spot that matches nothing (a missing manifest or a dead doc pattern)
+is a mismatch, not an aligned spot: it is a silent hole in the guarantee.
+Remove the entry or restore the file or line it tracked.
 """
 
 from __future__ import annotations
@@ -134,12 +144,17 @@ def get_canonical_release_date() -> str | None:
 def _version_group(pattern: str) -> str | int:
     """Doc patterns carry the version in group 2 unless they name a ``version`` or ``series`` group.
 
-    Patterns that also capture a ``date`` group cannot keep the version in
-    position 2 (named groups are numbered too), so they name it instead.
+    Named groups are numbered too, so a pattern that names any group (``date``,
+    ``since``) must also name the value group; otherwise group 2 could be the
+    date and ``--fix`` would write the version into the date slot.
     """
     if "(?P<series>" in pattern:
         return "series"
-    return "version" if "(?P<version>" in pattern else 2
+    if "(?P<version>" in pattern:
+        return "version"
+    if "(?P<" in pattern:
+        raise ValueError(f"pattern names groups but neither 'version' nor 'series': {pattern}")
+    return 2
 
 
 def _expected_version(pattern: str, canonical: str) -> str:
@@ -206,6 +221,49 @@ def fix_doc_version(
     return False
 
 
+# Individual ``Supported`` rows kept under ``**Current**`` before older series
+# fold into one range row: the two minors after the current one, the grace
+# window docs/reference/DEPRECATION_POLICY.md gives deprecations.
+SUPPORTED_ROWS_KEPT = 2
+_SUPPORTED_ROW = re.compile(r"^\| v(\d+\.\d+)\.x \| (\d{4}-\d{2}-\d{2}) \| Active \| Supported \|$")
+_SUPPORTED_RANGE_ROW = re.compile(
+    r"^\| v(\d+\.\d+)\.x–v(\d+\.\d+)\.x \| (\d{4}-\d{2}-\d{2})–(\d{4}-\d{2}-\d{2}) "
+    r"\| Active \| Supported \|$"
+)
+
+
+def _fold_supported_rows(
+    lines: list[str], start: int, keep: int = SUPPORTED_ROWS_KEPT
+) -> list[str]:
+    """Fold the individual ``Supported`` rows from ``start`` beyond ``keep`` into one range row.
+
+    Rows run newest-first, so the excess is the tail.  A standard range row
+    directly beneath absorbs the folded series; otherwise a new one is written.
+    Status is never touched: expiring a series is a policy edit, not a bump.
+    """
+    rows: list[re.Match[str]] = []
+    while start + len(rows) < len(lines):
+        row = _SUPPORTED_ROW.match(lines[start + len(rows)])
+        if row is None:
+            break
+        rows.append(row)
+    excess = rows[keep:]
+    if not excess:
+        return lines
+    end = start + len(rows)
+    newest_series, newest_date = excess[0].group(1), excess[0].group(2)
+    oldest_series, oldest_date = excess[-1].group(1), excess[-1].group(2)
+    below = _SUPPORTED_RANGE_ROW.match(lines[end]) if end < len(lines) else None
+    if below is not None:
+        oldest_series, oldest_date = below.group(1), below.group(3)
+        end += 1
+    folded = (
+        f"| v{oldest_series}.x–v{newest_series}.x | {oldest_date}–{newest_date} "
+        "| Active | Supported |"
+    )
+    return lines[: start + keep] + [folded] + lines[end:]
+
+
 def fix_support_matrix_row(
     path: Path, pattern: str, new_series: str, release_date: str | None = None
 ) -> bool:
@@ -214,19 +272,28 @@ def fix_support_matrix_row(
     A minor bump is a history event, not an edit: the new series gets a fresh
     ``Current`` row carrying the release date and the previous series is
     demoted to ``Supported`` keeping its own release date (the ``since``
-    group), so the timeline never loses a row.  Without a release date there is
-    nothing truthful to put in the new row, so the spot is left to the operator.
+    group), so the timeline never loses a series.  Older ``Supported`` rows fold
+    into a range row (``_fold_supported_rows``) so the table stays bounded.
+    Without a release date there is nothing truthful to put in the new row, so
+    the spot is left to the operator.
     """
     if not path.exists() or not release_date:
         return False
-    content = path.read_text()
-    match = re.search(pattern, content, re.MULTILINE)
-    if match is None or match.group("series") == new_series:
-        return False
-    current = f"| **v{new_series}.x** | {release_date} | Active | **Current** |"
-    demoted = f"| v{match.group('series')}.x | {match.group('since')} | Active | Supported |"
-    path.write_text(content[: match.start()] + current + "\n" + demoted + content[match.end() :])
-    return True
+    lines = path.read_text().split("\n")
+    row = re.compile(pattern, re.MULTILINE)
+    for index, line in enumerate(lines):
+        match = row.match(line)
+        if match is None:
+            continue
+        if match.group("series") == new_series:
+            return False
+        lines[index : index + 1] = [
+            f"| **v{new_series}.x** | {release_date} | Active | **Current** |",
+            f"| v{match.group('series')}.x | {match.group('since')} | Active | Supported |",
+        ]
+        path.write_text("\n".join(_fold_supported_rows(lines, index + 1)))
+        return True
+    return False
 
 
 def get_python_version(path: Path) -> str | None:
@@ -254,6 +321,24 @@ def fix_python_version(path: Path, new_version: str) -> bool:
         return True
     return False
 
+
+# Package manifests compared to the canonical version; a missing manifest is a
+# mismatch, not a skipped spot.
+VERSION_SOURCES: list[tuple[str, Path, str]] = [
+    ("pyproject.toml", Path("pyproject.toml"), "pyproject"),
+    ("sdk/python/pyproject.toml", Path("sdk/python/pyproject.toml"), "pyproject"),
+    ("aragora/live/package.json", Path("aragora/live/package.json"), "package"),
+    ("sdk/typescript/package.json", Path("sdk/typescript/package.json"), "package"),
+    ("ide/vscode-aragora/package.json", Path("ide/vscode-aragora/package.json"), "package"),
+    (
+        "ide/vscode-aragora/webview-ui/package.json",
+        Path("ide/vscode-aragora/webview-ui/package.json"),
+        "package",
+    ),
+]
+PYTHON_VERSION_SOURCES: list[tuple[str, Path]] = [
+    ("sdk/python/aragora_sdk/__init__.py", Path("sdk/python/aragora_sdk/__init__.py")),
+]
 
 # Regex-tracked spots: docs, plus the lockfile roots, README metrics block and
 # metrics catalog that used to be aligned by hand.  Group 2 (or the ``version``
@@ -524,6 +609,73 @@ DOC_SOURCES: list[tuple[str, Path, str]] = [
         Path("uv.lock"),
         r'^(name = "aragora"\nversion = ")(\d+\.\d+\.\d+)(")$',
     ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (PyPI availability wheel)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"(\*\*PyPI availability:\*\* the `)(\d+\.\d+\.\d+)(` wheel ships when the operator pushes)",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (PyPI availability tag)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"(wheel ships when the operator pushes the `v)(\d+\.\d+\.\d+)(` tag)",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (upgrade path headings)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(### v[\d.x]+ -> v)(\d+\.\d+\.\d+)( \((?:Minor|Major|Legacy) Upgrade\))$",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (pip install --upgrade)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(pip install --upgrade aragora==)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (legacy step 3 heading)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(# Step 3: Upgrade to v)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        # Anchored on the step heading so the ``aragora==1.0.0`` steps stay untouched.
+        "docs/deployment/UPGRADE_ROADMAP.md (legacy step 3 install)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r"^(# Step 3: Upgrade to v\d+\.\d+\.\d+\npip install aragora==)(\d+\.\d+\.\d+)()$",
+    ),
+    (
+        "docs/deployment/UPGRADE_ROADMAP.md (backup labels)",
+        Path("docs/deployment/UPGRADE_ROADMAP.md"),
+        r'(--label "pre-upgrade-v)(\d+\.\d+\.\d+)(")',
+    ),
+    (
+        "docs/reference/INSTALL_MATRIX.md (operator tag)",
+        Path("docs/reference/INSTALL_MATRIX.md"),
+        r"(build ships when the operator tags `v)(\d+\.\d+\.\d+)(`)",
+    ),
+    (
+        "docs-site/docs/reference/install-matrix.md (operator tag)",
+        Path("docs-site/docs/reference/install-matrix.md"),
+        r"(build ships when the operator tags `v)(\d+\.\d+\.\d+)(`)",
+    ),
+    (
+        "docs-site/docs/contributing/canonical-goals.md",
+        Path("docs-site/docs/contributing/canonical-goals.md"),
+        r"^(\|\s*Version\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+    ),
+    (
+        "docs/migration/V3_MIGRATION_GUIDE.md (warnings emitted by)",
+        Path("docs/migration/V3_MIGRATION_GUIDE.md"),
+        r"^(> \*\*Deprecation warnings active since:\*\* v\d+\.\d+ \(still emitted by v)"
+        r"(?P<series>\d+\.\d+)(\))$",
+    ),
+    (
+        "CHANGELOG.md (Unreleased)",
+        Path("CHANGELOG.md"),
+        r"^(_Post-v)(\d+\.\d+\.\d+)( changes land here until the next stable tag\._)$",
+    ),
+    (
+        "aragora/__version__.py (RELEASE_DATE comment)",
+        Path("aragora/__version__.py"),
+        r"(# Release date \(ISO 8601 format\) — set when the v)(\d+\.\d+\.\d+)( tag is pushed)",
+    ),
 ]
 
 # npm lockfiles carry the package version twice: at the top level and in the
@@ -545,6 +697,17 @@ for _lockfile in (
             r'^(    "": \{\n      "name": "[^"]+",\n      "version": ")(\d+\.\d+\.\d+)("),?$',
         )
     )
+
+# ``aragora/live`` links the in-tree TypeScript SDK (``file:../../sdk/typescript``);
+# npm records the linked package's version, which is the canonical version too.
+DOC_SOURCES.append(
+    (
+        "aragora/live/package-lock.json (../../sdk/typescript link)",
+        Path("aragora/live/package-lock.json"),
+        r'^(    "\.\./\.\./sdk/typescript": \{\n      "name": "@aragora/sdk",\n      "version": ")'
+        r'(\d+\.\d+\.\d+)("),?$',
+    )
+)
 
 # Spots whose fix is not an in-place rewrite of the matched text.
 DOC_FIXERS: dict[str, Callable[[Path, str, str, str | None], bool]] = {
@@ -572,38 +735,21 @@ def main() -> int:
         return 1
     release_date = get_canonical_release_date()
 
-    # Define all version sources
-    version_sources: list[tuple[str, Path, str]] = [
-        ("pyproject.toml", Path("pyproject.toml"), "pyproject"),
-        ("sdk/python/pyproject.toml", Path("sdk/python/pyproject.toml"), "pyproject"),
-        ("aragora-js/package.json", Path("aragora-js/package.json"), "package"),
-        ("aragora/live/package.json", Path("aragora/live/package.json"), "package"),
-        ("sdk/typescript/package.json", Path("sdk/typescript/package.json"), "package"),
-        ("ide/vscode-aragora/package.json", Path("ide/vscode-aragora/package.json"), "package"),
-        (
-            "ide/vscode-aragora/webview-ui/package.json",
-            Path("ide/vscode-aragora/webview-ui/package.json"),
-            "package",
-        ),
-    ]
-    python_version_sources: list[tuple[str, Path]] = [
-        ("sdk/python/aragora_sdk/__init__.py", Path("sdk/python/aragora_sdk/__init__.py")),
-    ]
-
     mismatches: list[tuple[str, str | None]] = []
     fixed: list[str] = []
 
     print("\nChecking version alignment:")
     print("-" * 50)
 
-    for name, path, file_type in version_sources:
+    for name, path, file_type in VERSION_SOURCES:
         if file_type == "pyproject":
             version = get_pyproject_version(path)
         else:
             version = get_package_json_version(path)
 
         if version is None:
-            print(f"  {name}: (not found)")
+            print(f"  {name}: (not found) [MISMATCH] - tracked manifest is missing")
+            mismatches.append((name, None))
             continue
 
         status = "OK" if version == canonical else "MISMATCH"
@@ -620,10 +766,11 @@ def main() -> int:
                     if fix_package_json_version(path, canonical):
                         fixed.append(name)
 
-    for name, path in python_version_sources:
+    for name, path in PYTHON_VERSION_SOURCES:
         version = get_python_version(path)
         if version is None:
-            print(f"  {name}: (not found)")
+            print(f"  {name}: (not found) [MISMATCH] - tracked manifest is missing")
+            mismatches.append((name, None))
             continue
 
         status = "OK" if version == canonical else "MISMATCH"
