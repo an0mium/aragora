@@ -708,6 +708,17 @@ class DecisionReceipt:
     # Maps agent name -> thinking trace string produced during the debate
     thinking_traces: dict[str, str] | None = None
 
+    # Models the providers ACTUALLY answered with, when that differed from
+    # the id the debate asked for (optional). Maps agent name ->
+    # {"requested": <id>, "served": <id>}. Anthropic's server-side refusal
+    # fallback -- enabled by default for Fable 5.1 / Opus 5 -- can legitimately
+    # answer a request with a different model, and a receipt that attributes
+    # the decision to the requested id is then wrong about which model made
+    # it. Additive: None means "not recorded" and serialization omits the key
+    # entirely, so receipts written before this field stay byte-identical and
+    # their artifact_hash is unchanged.
+    served_models: dict[str, dict[str, str]] | None = None
+
     # Knowledge Mound operations performed during this debate (optional)
     # Tracks queries, retrievals, and injection counts for cross-debate visibility
     km_operations: dict[str, Any] | None = None
@@ -2307,6 +2318,10 @@ class DecisionReceipt:
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
         }
+        # Additive served-model block: omit the key when not recorded so
+        # receipts written before this field stay byte-identical.
+        if self.served_models is not None:
+            data["served_models"] = self.served_models
         # Additive crux-cards block: omit the key when not recorded so
         # flag-off receipts stay byte-identical (#8227).
         if self.cruxes is not None:
@@ -2367,6 +2382,11 @@ class DecisionReceipt:
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             explainability=data.get("explainability"),
+            # Round-trip both explainability side-channels. thinking_traces
+            # was emitted by to_dict() but never read back here, so a
+            # serialize/deserialize cycle silently dropped it.
+            thinking_traces=data.get("thinking_traces"),
+            served_models=data.get("served_models"),
             cruxes=data.get("cruxes"),
             evidence_references=data.get("evidence_references", []) or [],
             decision_payload=data.get("decision_payload"),

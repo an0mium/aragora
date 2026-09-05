@@ -353,3 +353,137 @@ class TestDecisionReceiptThinkingTraces:
         )
         assert receipt.thinking_traces == traces
         assert receipt.thinking_traces["claude-1"] == "Step by step reasoning..."
+
+
+class TestServedModelCollection:
+    """``served_model`` reaching the receipt (2026-09-05 wave-2 re-review).
+
+    The Anthropic agent already recorded which model the server actually
+    answered with, but nothing consumed it -- so a receipt still attributed
+    the decision to the requested id even when a server-side fallback
+    answered with a different model.
+    """
+
+    def test_collects_only_agents_whose_served_model_differed(self) -> None:
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        swapped = MagicMock()
+        swapped.name = "claude-1"
+        swapped.model = "claude-fable-5-1"
+        swapped.last_served_model = "claude-opus-4-8"
+
+        answered_as_asked = MagicMock()
+        answered_as_asked.name = "claude-2"
+        answered_as_asked.model = "claude-fable-5-1"
+        # The agent sets this to None whenever the server answered as asked.
+        answered_as_asked.last_served_model = None
+
+        assert collect_served_models([swapped, answered_as_asked]) == {
+            "claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+        }
+
+    def test_agents_without_the_property_are_skipped(self) -> None:
+        """Every non-Anthropic agent today; skipped, never guessed at."""
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        plain = MagicMock(spec=[])
+        plain.name = "gpt-agent"
+        assert collect_served_models([plain]) == {}
+
+    def test_empty_when_every_agent_answered_as_asked(self) -> None:
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        agent = MagicMock()
+        agent.name = "claude-1"
+        agent.model = "claude-fable-5-1"
+        agent.last_served_model = None
+        assert collect_served_models([agent]) == {}
+
+    @patch("aragora.agents.api_agents.anthropic.get_primary_api_key", return_value="fake-key")
+    def test_real_agent_feeds_the_collector(self, _mock_key: MagicMock) -> None:
+        """End to end through the agent's own recording path, not a stub."""
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        agent = AnthropicAPIAgent(name="test-claude", model="claude-fable-5-1")
+        agent._note_served_model("claude-fable-5-1")  # answered as asked
+        assert collect_served_models([agent]) == {}
+
+        agent._note_served_model("claude-opus-4-8")  # server-side fallback
+        assert collect_served_models([agent]) == {
+            "test-claude": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+        }
+
+
+class TestDecisionReceiptServedModels:
+    """``DecisionReceipt.served_models`` is additive and round-trips."""
+
+    @staticmethod
+    def _receipt(**kwargs: Any):
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        return DecisionReceipt(
+            receipt_id="test-002",
+            gauntlet_id="g-002",
+            timestamp="2026-09-05T00:00:00Z",
+            input_summary="Test",
+            input_hash="abc123",
+            risk_summary={"critical": 0},
+            attacks_attempted=0,
+            attacks_successful=0,
+            probes_run=0,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=0.9,
+            robustness_score=0.95,
+            **kwargs,
+        )
+
+    def test_defaults_to_none_and_is_omitted_from_serialization(self) -> None:
+        """A receipt written before this field must stay byte-identical, so
+        its artifact_hash cannot move."""
+        receipt = self._receipt()
+        assert receipt.served_models is None
+        assert "served_models" not in receipt.to_dict()
+
+    def test_serializes_when_recorded(self) -> None:
+        served = {"claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}}
+        data = self._receipt(served_models=served).to_dict()
+        assert data["served_models"] == served
+
+    def test_round_trips_through_from_dict(self) -> None:
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        served = {"claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}}
+        traces = {"claude-1": "reasoning"}
+        original = self._receipt(served_models=served, thinking_traces=traces)
+        restored = DecisionReceipt.from_dict(original.to_dict())
+        assert restored.served_models == served
+        # thinking_traces was emitted but never read back before this change.
+        assert restored.thinking_traces == traces
+
+
+class TestQuickstartServedModelExtraction:
+    def test_extracts_from_result_metadata(self) -> None:
+        from aragora.cli.commands.quickstart import _extract_served_models
+
+        result = MagicMock()
+        result.metadata = {
+            "served_models": {
+                "claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+            }
+        }
+        assert _extract_served_models(result) == result.metadata["served_models"]
+
+    def test_none_when_absent_or_empty(self) -> None:
+        from aragora.cli.commands.quickstart import _extract_served_models
+
+        empty = MagicMock()
+        empty.metadata = {"served_models": {}}
+        assert _extract_served_models(empty) is None
+
+        missing = MagicMock()
+        missing.metadata = {}
+        assert _extract_served_models(missing) is None
+
+        no_metadata = MagicMock(spec=[])
+        assert _extract_served_models(no_metadata) is None

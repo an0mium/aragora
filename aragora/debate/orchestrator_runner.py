@@ -36,6 +36,8 @@ from aragora.observability.metrics.debate_slo import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from aragora.debate.orchestrator import Arena
 
 logger = get_structured_logger(__name__)
@@ -1350,6 +1352,25 @@ def record_debate_metrics(
     arena._track_circuit_breaker_metrics()
 
 
+def collect_served_models(agents: "Sequence[Any]") -> dict[str, dict[str, str]]:
+    """``{agent name: {"requested": id, "served": id}}`` for every agent whose
+    provider answered with a model OTHER than the one requested.
+
+    An agent records ``last_served_model`` only for the differing case (it is
+    ``None`` when the server answered as asked), so an empty result here
+    means every agent answered with the id the debate pinned. Agents that do
+    not implement the property at all -- every non-Anthropic agent today --
+    are skipped, not guessed at.
+    """
+    served_models: dict[str, dict[str, str]] = {}
+    for agent in agents:
+        served = getattr(agent, "last_served_model", None)
+        requested = getattr(agent, "model", None)
+        if isinstance(served, str) and served and isinstance(requested, str) and requested:
+            served_models[agent.name] = {"requested": requested, "served": served}
+    return served_models
+
+
 async def handle_debate_completion(
     arena: Arena,
     state: _DebateExecutionState,
@@ -1821,6 +1842,33 @@ async def handle_debate_completion(
                     "thinking_traces_attached debate_id=%s agents=%s",
                     state.debate_id,
                     len(thinking_traces),
+                )
+
+    # Collect the model each provider ACTUALLY answered with, when it
+    # differed from the id we asked for. Anthropic's server-side refusal
+    # fallback (on by default for Fable 5.1 / Opus 5) can legitimately answer
+    # with a different model, and a receipt that attributes the decision to
+    # the requested id is then wrong about which model made it. The agent
+    # already records only the DIFFERING case (last_served_model is None
+    # otherwise), so an empty dict here means "every agent answered as
+    # asked".
+    if ctx.result and arena.agents:
+        served_models = collect_served_models(arena.agents)
+        if served_models:
+            metadata = getattr(ctx.result, "metadata", None)
+            if not isinstance(metadata, dict):
+                try:
+                    setattr(ctx.result, "metadata", {})
+                except (AttributeError, TypeError):
+                    metadata = None
+                else:
+                    metadata = getattr(ctx.result, "metadata", None)
+            if isinstance(metadata, dict):
+                metadata["served_models"] = served_models
+                logger.info(
+                    "served_models_attached debate_id=%s agents=%s",
+                    state.debate_id,
+                    len(served_models),
                 )
 
     # Queue for Supabase background sync
