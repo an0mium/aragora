@@ -14,21 +14,28 @@ import jsonschema
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from aragora_verify.verifier import verify
 
-from aragora.gauntlet.odr_export import load_odr_schema, sign_odr_if_configured
-from aragora.gauntlet.odr_signing import (
+_ROOT = Path(__file__).resolve().parents[2]
+_ARAGORA_VERIFY_SRC = _ROOT / "aragora-verify" / "src"
+if str(_ARAGORA_VERIFY_SRC) not in sys.path:
+    sys.path.insert(0, str(_ARAGORA_VERIFY_SRC))
+
+from aragora_verify.verifier import verify  # noqa: E402
+
+from aragora.gauntlet.odr_export import load_odr_schema, sign_odr_if_configured  # noqa: E402
+from aragora.gauntlet.odr_signing import (  # noqa: E402
     OdrSigningError,
     compute_key_id,
     generate_signing_key,
     load_signing_key_from_secrets,
 )
-from aragora.gauntlet.odr_verify import verify_odr_document
-from aragora.gauntlet.receipt_models import DecisionReceipt
-from tests.gauntlet.odr_test_keys import odr_test_key
+from aragora.gauntlet.odr_verify import verify_odr_document  # noqa: E402
+from aragora.gauntlet.receipt_models import DecisionReceipt  # noqa: E402
+from tests.gauntlet.odr_test_keys import odr_test_key  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = _ROOT
 FILE_ENV = "ARAGORA_ODR_SIGNING_KEY_FILE"
+posix_only = pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions and descriptors")
 
 
 @pytest.fixture(autouse=True)
@@ -227,7 +234,7 @@ def test_cli_export_file_key_never_writes_on_failure(tmp_path, key_file, mode):
         assert verify(doc, public_key=key).ok
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 @pytest.mark.parametrize("mode", [0o664, 0o666])
 def test_writable_key_permission_fails_closed(odr, key_file, monkeypatch, mode):
     key_file.chmod(mode)
@@ -239,7 +246,7 @@ def test_writable_key_permission_fails_closed(odr, key_file, monkeypatch, mode):
     assert str(key_file) not in str(caught.value)
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 @pytest.mark.parametrize("mode", [0o644, 0o444])
 def test_readable_key_permission_warns_and_signs(odr, key_file, monkeypatch, caplog, mode):
     key_file.chmod(mode)
@@ -256,7 +263,7 @@ def test_readable_key_permission_warns_and_signs(odr, key_file, monkeypatch, cap
     assert str(key_file) not in caplog.text
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 @pytest.mark.parametrize("strict", ["true", "1", "YES", "On"])
 def test_strict_readable_key_permission_fails_closed(key_file, monkeypatch, strict):
     key_file.chmod(0o644)
@@ -269,7 +276,7 @@ def test_strict_readable_key_permission_fails_closed(key_file, monkeypatch, stri
     assert str(key_file) not in str(caught.value)
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 def test_strict_private_key_permission_signs(odr, key_file, monkeypatch, caplog):
     key_file.chmod(0o600)
     monkeypatch.setenv(FILE_ENV, str(key_file))
@@ -279,7 +286,7 @@ def test_strict_private_key_permission_signs(odr, key_file, monkeypatch, caplog)
     assert "readable by group or other" not in caplog.text
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 def test_non_regular_key_permission_fails_before_read(tmp_path, monkeypatch):
     monkeypatch.setenv(FILE_ENV, str(tmp_path))
     with patch.object(Path, "read_bytes", side_effect=AssertionError("must not read directory")):
@@ -289,7 +296,7 @@ def test_non_regular_key_permission_fails_before_read(tmp_path, monkeypatch):
     assert str(tmp_path) not in str(caught.value)
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink permissions")
+@posix_only
 def test_symlink_permission_checks_target(key_file, tmp_path, monkeypatch):
     link = tmp_path / "link.pem"
     link.symlink_to(key_file)
@@ -332,7 +339,7 @@ def test_unusable_file_logs_exception_class_only(key_file, monkeypatch, caplog, 
     assert caught.value.__suppress_context__
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@posix_only
 @pytest.mark.parametrize("replacement", ["writable", "readable", "fifo"])
 def test_permission_rechecked_on_open_descriptor(key_file, tmp_path, monkeypatch, replacement):
     from aragora.gauntlet import odr_signing
@@ -364,7 +371,7 @@ def test_permission_rechecked_on_open_descriptor(key_file, tmp_path, monkeypatch
             load_signing_key_from_secrets()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file descriptors")
+@posix_only
 def test_permission_checked_descriptor_is_read_and_closed(key_file, tmp_path, monkeypatch):
     from aragora.gauntlet import odr_signing
 
@@ -389,7 +396,7 @@ def test_permission_checked_descriptor_is_read_and_closed(key_file, tmp_path, mo
         os.fstat(opened[0])
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX file descriptors")
+@posix_only
 def test_permission_denied_open_logs_class_without_path(key_file, monkeypatch, caplog):
     key_file.chmod(0o600)
     monkeypatch.setenv(FILE_ENV, str(key_file))
