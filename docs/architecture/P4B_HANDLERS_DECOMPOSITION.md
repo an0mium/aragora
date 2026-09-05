@@ -255,8 +255,9 @@ already-imported real module, `sys.modules["aragora.server.handlers.routing"]`
 and `sys.modules["aragora.server.handlers.agents.routing"]` are the **same
 object**, and the real module keeps its own `__name__` and `__spec__`.
 
-Verified in a throwaway package on Python 3.11.11 (the version in
-`library/environment.md`), one fresh interpreter per case:
+Verified in a throwaway package on Python 3.11.11 (this machine's
+interpreter; an independent re-test on 3.13 during review agreed), one
+fresh interpreter per case:
 
 | # | form | result |
 |---|---|---|
@@ -375,10 +376,10 @@ that wants to add a subdir must check its name against every basename in
 | flat file | LOC | surviving twin | evidence |
 |---|---|---|---|
 | `connectors.py` | 952 | `connectors/legacy.py` | the `connectors/` package shadows the flat module on import; nothing can import the flat file today. `legacy.py` differs by 62 diff lines and is the live copy |
-| `status_page.py` | 110 | `public/status_page.py` | `HANDLER_MODULES["StatusPageHandler"]` and `handler_registry/admin.py:204` both already point at `public.status_page`; the flat class is unreachable from the registry |
+| `status_page.py` | 110 | `public/status_page.py` | `HANDLER_MODULES["StatusPageHandler"]` (`_lazy_imports.py:162`) points at the `public` package, which re-exports `.status_page` (`public/__init__.py:8-13`), and `handler_registry/admin.py:204` points at `public.status_page` directly; the flat class is unreachable from the registry |
 | `slack.py` | 20 | `bots/slack.py` | pure re-export alias of `bots.slack` |
-| `analytics_metrics.py` | 14 | `_analytics_metrics_impl.py` (moves to `analytics/metrics_impl.py`) | pure re-export of `AnalyticsMetricsHandler` |
-| `compliance_handler.py` | 18 | `compliance/handler.py` | star re-export plus four store getters (`get_receipt_store`, `get_audit_store`, `get_legal_hold_manager`, `get_deletion_coordinator`); 118 test patch strings target those getters, so the batch adds the four names to `compliance/handler.py`'s namespace before deleting |
+| `analytics_metrics.py` | 14 | `analytics/_analytics_metrics_impl.py` (the flat `_analytics_metrics_impl.py` after its own move in the same batch) | pure re-export of `AnalyticsMetricsHandler` |
+| `compliance_handler.py` | 18 | `compliance/handler.py` | star re-export plus five store getters (`get_receipt_store` 31 test patch strings, `get_audit_store` 52, `get_legal_hold_manager` 35, `get_deletion_scheduler` 15, `get_deletion_coordinator` 15); `compliance/handler.py` defines none of them today, so the batch imports all five into its namespace before deleting the flat file |
 
 Each retirement except `connectors` is listed in `MOVED_MODULES` pointing at
 the twin, so old imports keep working and VAL-P4B-007 samples pass if one of
@@ -398,6 +399,19 @@ entry as the contract allows.
 `debates/checkpoints.py` already exists (a different `CheckpointHandler`
 serving `/api/v1/debates/{id}/checkpoint/*`) and the flat file's registry
 home is `handler_registry/memory.py:22`.
+
+### 4.6 Subdir modules that already reach up to a flat file (4 lines, all batch 1)
+
+Measured with `rg "^\s*from \.\.[A-Za-z_0-9]+ import" aragora/server/handlers/*/`
+filtered to basenames that move: `analytics/core.py:21` (`.._analytics_impl`),
+`analytics/core.py:27` (`.._analytics_metrics_impl`), `oauth/__init__.py:83`
+and `oauth/handler.py:9` (`.._oauth_impl`). Batches 2 to 4 have none. In
+each case the flat file lands in the same subdir as the importer, so the
+batch rewrites `from ..X import` to `from .X import` in the importer; the
+finder does not cover relative imports of a moved sibling (it only sees the
+absolute `aragora.server.handlers.X` name after resolution, which it does
+serve, but a per-import `DeprecationWarning` inside the package itself is
+not acceptable). Step 5 in §6 lists this rewrite explicitly.
 
 ## 5. Full mapping (186 files)
 
@@ -455,7 +469,7 @@ flat path (import or `patch` string). Targets are relative to
 | `gallery.py` | 338 | HM 1 | 1 | 3 | `public/gallery.py` |
 | `security_debate.py` | 316 | HM 1 + reg 1 | 1 | 3 | `security/security_debate.py` |
 | `threat_intel.py` | 560 | HM 1 + reg 1 | 2 | 3 | `security/threat_intel.py` |
-| `analytics_metrics.py` | 14 | none | 0 | 1 | retire -> `analytics/metrics_impl.py` |
+| `analytics_metrics.py` | 14 | none | 0 | 1 | retire -> `analytics/_analytics_metrics_impl.py` |
 | `compliance_handler.py` | 18 | HM 1 + reg 1 | 0 | 5 | retire -> `compliance/handler.py` |
 | `status_page.py` | 110 | none | 1 | 0 | retire -> `public/status_page.py` |
 
@@ -636,9 +650,18 @@ into the PR body. `$ENV` below means
    lists every runtime import, `importlib` string and `sys.modules.get`
    key for the batch's files. Rewrite each to the new dotted path in the
    same PR (the finder keeps them working, §3.3, but a per-request
-   `DeprecationWarning` is log noise). Then run `$ENV python3 -W error::DeprecationWarning -c "from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers()"`
-   and confirm exit 0: any surviving old-path import on the boot path
-   raises. Test consumers (`import`, `from ... import`, `patch(...)`
+   `DeprecationWarning` is log noise). Also rewrite the `from ..X import`
+   lines in §4.6 for the batch's files. Then run
+   `$ENV python3 -W "error:aragora.server.handlers.:DeprecationWarning" -c "from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers(); print('boot ok')"`
+   and confirm `boot ok`, exit 0. The filter is scoped to the finder's
+   message prefix on purpose: an unscoped `-W error::DeprecationWarning`
+   exits 1 on today's tree at `aragora/server/errors.py:7` before any
+   handler import (verified), so it would fail every batch. Under the
+   scoped filter, any surviving old-path import on the boot path raises,
+   including one wrapped in `try/except ImportError` (the warning is not
+   an `ImportError`, so `stream/servers_route_registration.py:41-46` would
+   crash boot rather than silently disable its routes; verified on the
+   prototype). Test consumers (`import`, `from ... import`, `patch(...)`
    strings) may stay on the old path.
 6. **Green shim probe (VAL-P4B-007).** `python3 /tmp/p4val/t7.py <basename>`
    must print `PASS <basename>` for every file in the batch, including
@@ -673,7 +696,7 @@ into the PR body. `$ENV` below means
   a file touches it, so pre-existing errors in moved files must be fixed in
   the same PR, behaviour-preservingly. Measured per batch with exactly that
   command over the batch's files: **B1 25, B2 27, B3 15, B4 22** errors.
-  `.mypy-baseline` (381 lines keyed `aragora/server/handlers/<flat>.py`) is
+  `.mypy-baseline` (376 of its 3,115 lines are keyed `aragora/server/handlers/<flat>.py`) is
   consumed only by the advisory `mypy-baseline-ratchet.yml` line-count delta
   and by `scripts/ci/mypy_with_baseline.py`; a move changes the path key so
   those entries become "unexpectedly fixed" (allowed by `--allow-unsynced`)
@@ -749,12 +772,16 @@ not a package, so `aragora.cache.redis_cache` never resolves, the
 Batch 1 owns `admin/` and therefore this fix:
 
 - repoint the import to `from aragora.utils.redis_config import get_redis_pool`;
-- add `test_readiness_deps_reports_redis_pool_when_url_set` to
-  `tests/server/handlers/admin/health/test_kubernetes.py`: set `REDIS_URL`
-  via `monkeypatch`, `patch("aragora.utils.redis_config.get_redis_pool", return_value=object())`,
-  assert `checks["redis_pool"] is True`; and the negative twin with
-  `return_value=None` asserting `False` (not `"not_configured"`). Red-first:
-  both fail today because the import never reaches the patched name.
+- add `test_readiness_fast_reports_redis_pool_when_url_set` to
+  `tests/server/handlers/admin/health/test_kubernetes.py` next to the
+  existing `test_readiness_fast_*` cases (the `redis_pool` check lives in
+  `readiness_probe_fast`, lines 174-183; `readiness_dependencies` writes a
+  different key, `checks["redis"]`): set `REDIS_URL` via `monkeypatch`,
+  `patch("aragora.utils.redis_config.get_redis_pool", return_value=object())`,
+  call `readiness_probe_fast`, assert `checks["redis_pool"] is True`; and
+  the negative twin with `return_value=None` asserting `False` (not
+  `"not_configured"`). Red-first: both fail today because the import never
+  reaches the patched name.
 
 This is a behaviour change on a readiness path, which is exactly why it
 rides a Tier-3 PR rather than a doc-tier one.
@@ -777,4 +804,15 @@ The census columns in §5 come from a one-off script over `origin/main` at
 `handlers\.<name>\b|handlers import <name>\b` in `_lazy_imports.py`,
 `handler_registry/*.py`, `handlers/__init__.py`, `unified_server.py`, the
 rest of `aragora/`, `tests/`, and `scripts/`. Re-run before each batch; the
-numbers only need to be right for the files in that batch.
+numbers only need to be right for the files in that batch. The regex
+over-counts a basename that is also a prefix of a subdir module path
+(`connectors.py` shows `reg 1` from `handler_registry/admin.py:432`, which
+names `connectors.management`); anchor with `handlers\.<name>(\.|\b)` and
+exclude `<name>\.` when re-measuring a name that collides with a package.
+
+The VAL-P4B-007 probe (`/tmp/p4val/t7.py`) is defined verbatim in the
+validation contract and is machine-local by design. Batch 1 commits an
+identical copy as `scripts/ci/check_moved_handler_shim.py` so steps 1 and 6
+are reproducible in CI; the script must keep the contract's
+`warnings.simplefilter("always")`, which is what makes the finder's warning
+visible when the import happens inside a helper rather than `__main__`.
