@@ -214,7 +214,10 @@ class TestOpenRouterModelMapping:
     AnthropicAPIAgent no longer carries a static OPENROUTER_MODEL_MAP:
     get_fallback_model() resolves the current model through the catalog
     and upgrade map instead (frontier-model-refresh, 2026-09-04), so every
-    legacy Claude spelling upgrades to the current frontier (Fable 5.1).
+    legacy Claude spelling upgrades. TIER is preserved (finding C-P3 on
+    #9989): Fable and Opus spellings reach the Fable flagship, Sonnet
+    spellings the Sonnet row, Haiku spellings the Haiku row -- a caller
+    pinned to a cheap Claude SKU must not fall back onto $10/$50.
     """
 
     @staticmethod
@@ -228,24 +231,35 @@ class TestOpenRouterModelMapping:
         assert self._fallback_model("claude-opus-4-7") == "anthropic/claude-fable-5.1"
 
     def test_sonnet_46_mapping(self):
-        """Should map claude-sonnet-4-6 to the current frontier."""
-        assert self._fallback_model("claude-sonnet-4-6") == "anthropic/claude-fable-5.1"
+        """A Sonnet spelling stays on the Sonnet tier, not the flagship."""
+        assert self._fallback_model("claude-sonnet-4-6") == "anthropic/claude-sonnet-5"
 
     def test_legacy_opus_45_mapping(self):
         """Should still map legacy claude-opus-4-5 to the current frontier."""
         assert self._fallback_model("claude-opus-4-5-20251101") == "anthropic/claude-fable-5.1"
 
     def test_sonnet_35_mapping(self):
-        """Should map claude-3.5-sonnet to the current frontier."""
-        assert self._fallback_model("claude-3-5-sonnet-20241022") == "anthropic/claude-fable-5.1"
+        """Even a three-generations-old Sonnet keeps the Sonnet tier."""
+        assert self._fallback_model("claude-3-5-sonnet-20241022") == "anthropic/claude-sonnet-5"
 
     def test_opus_3_mapping(self):
         """Should map claude-3-opus to the current frontier."""
         assert self._fallback_model("claude-3-opus-20240229") == "anthropic/claude-fable-5.1"
 
     def test_haiku_mapping(self):
-        """Should map claude-3-haiku to the current frontier."""
-        assert self._fallback_model("claude-3-haiku-20240307") == "anthropic/claude-fable-5.1"
+        """A Haiku spelling reaches the value-tier Haiku row."""
+        assert self._fallback_model("claude-3-haiku-20240307") == "anthropic/claude-haiku-4.5"
+        assert self._fallback_model("claude-3-5-haiku-20241022") == "anthropic/claude-haiku-4.5"
+
+    def test_tier_preserving_targets_are_cheaper_than_the_flagship(self):
+        """The point of the tier rule: a value spelling must not over-pay."""
+        from aragora.models.catalog import CATALOG
+
+        flagship = CATALOG["claude-fable-5-1"]
+        for canonical_id in ("claude-sonnet-5", "claude-haiku-4-5-20251001"):
+            spec = CATALOG[canonical_id]
+            assert spec.input_per_mtok < flagship.input_per_mtok
+            assert spec.output_per_mtok < flagship.output_per_mtok
 
 
 # =============================================================================

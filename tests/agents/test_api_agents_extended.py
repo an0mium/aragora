@@ -271,10 +271,15 @@ class TestAnthropicFallback:
         longer carries a static OPENROUTER_MODEL_MAP: get_fallback_model()
         resolves the current model through the catalog and upgrade map
         instead, so legacy spellings not previously hand-enumerated (e.g.
-        "claude-opus-4-5-20251101") upgrade too."""
-        for legacy_model in ("claude-opus-4-5-20251101", "claude-sonnet-4-20250514"):
+        "claude-opus-4-5-20251101") upgrade too -- and the target preserves
+        TIER, so a Sonnet spelling lands on the Sonnet row rather than the
+        $10/$50 flagship (finding C-P3 on #9989)."""
+        for legacy_model in ("claude-opus-4-5-20251101", "claude-opus-4-7"):
             agent = AnthropicAPIAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
+        for legacy_sonnet in ("claude-sonnet-4-20250514", "claude-sonnet-4-6"):
+            agent = AnthropicAPIAgent(api_key="test-key", model=legacy_sonnet)
+            assert agent.get_fallback_model() == "anthropic/claude-sonnet-5"
 
         # A genuinely unknown model falls back to DEFAULT_FALLBACK_MODEL.
         unknown_agent = AnthropicAPIAgent(api_key="test-key", model="unknown-model-xyz")
