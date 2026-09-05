@@ -126,15 +126,17 @@ UPGRADES: dict[str, str] = {
             "anthropic/claude-3-haiku",
         )
     },
-    # OpenAI — flagship spellings → Astra; small/cheap spellings → Terra
+    # OpenAI — flagship-line spellings → Astra ($10/$50); every spelling
+    # whose own SKU was a VALUE tier → Terra ($2/$12). The GPT-4 family
+    # (gpt-4, gpt-4-turbo, gpt-4o, gpt-4.1 and their mini/nano siblings) is
+    # value-tier by price: gpt-4o listed at $2.50/$10, so routing it to the
+    # $10/$50 flagship was the same silent 4x over-pay the Anthropic
+    # Sonnet/Haiku rows had (finding C-P3 on #9989, round 4). gpt-4.5 stays
+    # on Astra: it was OpenAI's flagship research preview at $75/$150, well
+    # above the 4o line, so Terra would under-serve it.
     **{
         k: _OPENAI
         for k in (
-            "gpt-4",
-            "gpt-4-turbo",
-            "gpt-4-turbo-preview",
-            "gpt-4o",
-            "gpt-4.1",
             "gpt-4.5",
             "gpt-5",
             "gpt-5.1",
@@ -145,11 +147,12 @@ UPGRADES: dict[str, str] = {
             "gpt-5.6-sol",
             # Codex/chat CLI spellings. Real names a user config or Codex
             # harness can still pin; without them the CLI fallback would send
-            # an OpenAI pin cross-family to Anthropic.
+            # an OpenAI pin cross-family to Anthropic. These stay on the
+            # flagship even where their base spelling moved to Terra: the
+            # codex line is OpenAI's coding flagship, not a value SKU.
             "gpt-5.3-codex",
             "gpt-4.1-codex",
             "gpt-5.3-chat-latest",
-            "openai/gpt-4o",
             "openai/gpt-5.3",
             # Orphan spelling from aragora/server/stream/debate_executor.py's
             # generic fallback: absent from the catalog, so PR 3's sweep would
@@ -166,6 +169,16 @@ UPGRADES: dict[str, str] = {
     **{
         k: _OPENAI_VALUE
         for k in (
+            # The GPT-4 line itself, not just its mini siblings: an explicit
+            # gpt-4o pin used to be rewritten to the Astra flagship while
+            # gpt-4o-mini went to Terra, so the cheap SKU was treated more
+            # honestly than the one it was a sibling of.
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-4-turbo-preview",
+            "gpt-4o",
+            "gpt-4.1",
+            "openai/gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1-mini",
             "gpt-4.1-nano",

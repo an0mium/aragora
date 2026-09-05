@@ -479,7 +479,11 @@ class TestQuotaFallbackMixin:
             model = "gpt-4o"
 
         agent = TestAgent()
-        assert agent.get_fallback_model() == "openai/gpt-6-astra"
+        # Terra, not Astra: the GPT-4 line is value-tier by price
+        # (gpt-4o listed at $2.50/$10), so it preserves tier rather than
+        # over-paying for the $10/$50 flagship -- round-4 re-review of
+        # finding C-P3 on #9989.
+        assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_get_fallback_model_uses_default(self):
         """Should use default model when no mapping exists."""

@@ -48,11 +48,30 @@ from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES, resolve_model_
         ("anthropic/claude-3-haiku", "claude-haiku-4-5-20251001"),
         # Opus and Fable spellings are flagship-class and stay on Fable.
         ("claude-opus-4-7", "claude-fable-5-1"),
-        ("gpt-4", "gpt-6-astra"),
-        ("gpt-4o", "gpt-6-astra"),
+        # Tier preservation on OpenAI too (round-4 re-review of finding
+        # C-P3 on #9989): the whole GPT-4 line was value-tier by price
+        # (gpt-4o listed at $2.50/$10), so an explicit gpt-4o pin used to be
+        # rewritten to the $10/$50 Astra flagship while its own gpt-4o-mini
+        # sibling correctly landed on Terra.
+        ("gpt-4", "gpt-5.6-terra"),
+        ("gpt-4-turbo", "gpt-5.6-terra"),
+        ("gpt-4-turbo-preview", "gpt-5.6-terra"),
+        ("gpt-4o", "gpt-5.6-terra"),
+        ("openai/gpt-4o", "gpt-5.6-terra"),
+        ("gpt-4.1", "gpt-5.6-terra"),
         ("gpt-4o-mini", "gpt-5.6-terra"),
+        ("gpt-4.1-mini", "gpt-5.6-terra"),
+        ("o1-mini", "gpt-5.6-terra"),
+        ("o3-mini", "gpt-5.6-terra"),
+        ("o4-mini", "gpt-5.6-terra"),
+        # Flagship-line spellings stay on Astra. gpt-4.5 was OpenAI's
+        # flagship research preview ($75/$150), well above the 4o line.
+        ("gpt-4.5", "gpt-6-astra"),
+        ("gpt-5", "gpt-6-astra"),
         ("gpt-5.5", "gpt-6-astra"),
         ("gpt-5.6-sol", "gpt-6-astra"),
+        ("o1", "gpt-6-astra"),
+        ("o3", "gpt-6-astra"),
         ("openai/gpt-5.3", "gpt-6-astra"),
         # Controller ruling 4: new case, not in the original brief list.
         ("openai/gpt-5.5", "gpt-6-astra"),

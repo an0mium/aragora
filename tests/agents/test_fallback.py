@@ -103,7 +103,11 @@ class TestQuotaFallbackMixin:
 
         result = agent.get_fallback_model()
 
-        assert result == "openai/gpt-6-astra"
+        # Terra, not Astra: the GPT-4 line is value-tier by price
+        # (gpt-4o listed at $2.50/$10), so it preserves tier rather than
+        # over-paying for the $10/$50 flagship -- round-4 re-review of
+        # finding C-P3 on #9989.
+        assert result == "openai/gpt-5.6-terra"
 
     def test_get_fallback_model_for_haiku_45_uses_its_own_slug(self):
         """2026-09-05 merge-gate finding C-P3 on #9989.

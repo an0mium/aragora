@@ -127,15 +127,17 @@ class QuotaFallbackMixin:
     therefore does NOT need a hand-written model map -- every legacy
     spelling of its family upgrades, not just a hand-enumerated subset, and
     tier is preserved WHERE THE PROVIDER HAS AN ACTIVE VALUE ROW: a
-    "flash"/"mini"/"haiku"/"sonnet" spelling resolves to that value row
-    rather than over-paying for the flagship. A family whose catalog rows
-    are all flagship-class has nowhere cheaper to land, so its legacy
-    spellings resolve to the flagship by construction -- the absence of a
-    cheaper row, not a tier decision. Finding C-P3 on #9989 caught this
-    docstring claiming tier preservation unconditionally while every
-    Anthropic legacy spelling, Haiku and Sonnet included, went to the
-    $10/$50 flagship; the Haiku and Sonnet value rows now exist and the
-    upgrade map targets them.
+    value-tier spelling -- "flash"/"mini"/"haiku"/"sonnet", and the whole
+    GPT-4 line -- resolves to that value row rather than over-paying for
+    the flagship. A family whose catalog rows are all flagship-class has
+    nowhere cheaper to land, so its legacy spellings resolve to the
+    flagship by construction -- the absence of a cheaper row, not a tier
+    decision. Finding C-P3 on #9989 caught this docstring claiming tier
+    preservation unconditionally while every Anthropic legacy spelling,
+    Haiku and Sonnet included, went to the $10/$50 flagship; the round-4
+    re-review caught the same thing on OpenAI, where gpt-4o ($2.50/$10)
+    resolved to the $10/$50 Astra while its own gpt-4o-mini sibling
+    resolved to Terra. Both families now target their value rows.
 
     Class attributes that can be overridden:
         - DEFAULT_FALLBACK_MODEL: str - target used only when ``self.model``

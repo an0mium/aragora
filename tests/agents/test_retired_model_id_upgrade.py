@@ -27,6 +27,7 @@ from aragora.agents.api_agents.mistral import CodestralAgent, MistralAPIAgent
 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 from aragora.config.model_pins import (
     FABLE_51_DIRECT,
+    GPT56_TERRA_DIRECT,
     GPT6_ASTRA_DIRECT,
     GROK_46_DIRECT,
     MISTRAL_LARGE_DIRECT,
@@ -151,7 +152,11 @@ class TestUpgradeHelper:
         assert common.upgrade_retired_model_id("grok-4.5") == GROK_46_DIRECT
 
     def test_upgrades_key_absent_from_catalog_upgrades(self) -> None:
-        assert common.upgrade_retired_model_id("gpt-4o") == GPT6_ASTRA_DIRECT
+        # gpt-4o has no catalog row at all; it is a plain UPGRADES key, and
+        # its target is the VALUE row (round-4 re-review of C-P3 on #9989).
+        assert common.upgrade_retired_model_id("gpt-4o") == GPT56_TERRA_DIRECT
+        # A flagship-line key still upgrades to the flagship.
+        assert common.upgrade_retired_model_id("gpt-5.5") == GPT6_ASTRA_DIRECT
 
     def test_active_row_unchanged(self) -> None:
         assert common.upgrade_retired_model_id("gpt-6-astra") == "gpt-6-astra"
