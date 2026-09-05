@@ -538,6 +538,130 @@ class TestClaudeAgent:
         assert command[command.index("--model") + 1] == "claude-fable-5"
 
 
+class TestRefreshedCLIAgentsPinTheirModel:
+    """A refreshed registry default has to reach the CLI on the wire.
+
+    Four command builders updated their registry default to a frontier pin
+    but never passed ``self.model`` to the CLI, so the local CLI's own
+    default answered while Aragora recorded the refreshed id (finding O-P2b,
+    openai reviewer, #9989 round 4). Each flag below was verified against the
+    installed CLI's ``--help`` on 2026-09-05.
+    """
+
+    # registry name -> (module attribute, the CLI's own model flag)
+    CASES = {
+        "codex": ("CodexAgent", "-m"),
+        "gemini-cli": ("GeminiCLIAgent", "-m"),
+        "grok-cli": ("GrokCLIAgent", "-m"),
+        # `agy --help` spells it --model with no short form.
+        "antigravity": ("AntigravityAgent", "--model"),
+    }
+
+    # Registered CLI agents that deliberately do NOT put self.model on the
+    # wire, and why. Keeping this explicit is what makes the reverse test
+    # below meaningful.
+    #
+    #   qwen-cli / deepseek-cli  their registry defaults were NOT refreshed:
+    #                            both stayed on the CLI's own native
+    #                            pre-refresh model code because the catalog
+    #                            rows are OpenRouter rows (see the comments
+    #                            on their registrations). No behaviour of
+    #                            theirs changed in this PR.
+    #   kimi-cli                 same, and only registered under
+    #                            ARAGORA_ENABLE_KIMI_CLI; its headless
+    #                            invocation is documented as unverified.
+    #   grok-build               "grok-build" names the CLI product, not a
+    #                            model id, so there is no pin to send.
+    #   kilocode                 brokers several providers and sends
+    #                            provider_id via --model, not self.model.
+    NO_WIRE_MODEL = {"qwen-cli", "deepseek-cli", "kimi-cli", "grok-build", "kilocode"}
+
+    @staticmethod
+    async def _capture_command(agent, prompt: str) -> list[str]:
+        from unittest.mock import AsyncMock, patch
+
+        captured: dict = {}
+
+        async def fake_generate(command, *args, **kwargs):
+            captured["command"] = list(command)
+            return "ok"
+
+        with (
+            patch.object(agent, "_generate_with_fallback", AsyncMock(side_effect=fake_generate)),
+            patch(
+                "aragora.agents.cli_agents.build_claude_command",
+                side_effect=lambda cmd: (cmd, None),
+            ),
+        ):
+            await agent.generate(prompt)
+        return captured["command"]
+
+    @pytest.mark.parametrize("registry_name", sorted(CASES))
+    @pytest.mark.asyncio
+    async def test_argv_path_carries_the_model_flag(self, registry_name):
+        import aragora.agents.cli_agents as cli_agents
+
+        attr, flag = self.CASES[registry_name]
+        agent = getattr(cli_agents, attr)(name=f"{registry_name}-test", model="pinned-model-x")
+        command = await self._capture_command(agent, "hello")
+
+        assert flag in command, f"{registry_name} never passed its model flag: {command}"
+        assert command[command.index(flag) + 1] == "pinned-model-x"
+
+    @pytest.mark.parametrize("registry_name", sorted(CASES))
+    @pytest.mark.asyncio
+    async def test_stdin_path_carries_the_model_flag(self, registry_name):
+        """The large-prompt branch is a separate command array and was the
+        half a partial fix would miss."""
+        import aragora.agents.cli_agents as cli_agents
+
+        attr, flag = self.CASES[registry_name]
+        agent = getattr(cli_agents, attr)(name=f"{registry_name}-test", model="pinned-model-x")
+        huge = "x" * (1024 * 1024)
+        command = await self._capture_command(agent, huge)
+
+        assert flag in command, f"{registry_name} stdin path dropped the pin: {command}"
+        assert command[command.index(flag) + 1] == "pinned-model-x"
+        assert command[-1] == "-", command
+
+    @pytest.mark.asyncio
+    async def test_every_registered_cli_agent_sends_its_model_or_is_exempt(self):
+        """Reverse completeness: a future refreshed pin cannot quietly stop
+        at the registry."""
+        import aragora.agents.cli_agents as cli_agents
+        from aragora.agents.registry import AgentRegistry
+
+        offenders: list[str] = []
+        stale_exemptions: list[str] = []
+        for name, spec in sorted(AgentRegistry._registry.items()):
+            if getattr(spec, "agent_type", None) != "CLI":
+                continue
+            cls = getattr(spec, "agent_class", None)
+            default_model = getattr(spec, "default_model", None)
+            if cls is None or cls.__module__ != cli_agents.__name__:
+                continue
+            if name in self.NO_WIRE_MODEL:
+                if default_model is None:
+                    continue
+                agent = cls(name=f"{name}-test", model=default_model)
+                command = await self._capture_command(agent, "hello")
+                if default_model in command:
+                    stale_exemptions.append(name)
+                continue
+            assert default_model, f"{name} is not exempt but has no default model"
+            agent = cls(name=f"{name}-test", model=default_model)
+            command = await self._capture_command(agent, "hello")
+            if default_model not in command:
+                offenders.append(f"{name} -> {command}")
+
+        assert not offenders, (
+            "registered CLI agents record a model the CLI is never told:\n" + "\n".join(offenders)
+        )
+        assert not stale_exemptions, (
+            f"these agents now send their model and must leave NO_WIRE_MODEL: {stale_exemptions}"
+        )
+
+
 class TestGeminiCLIAgent:
     """Test GeminiCLIAgent implementation."""
 

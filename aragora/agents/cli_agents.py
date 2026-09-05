@@ -791,17 +791,24 @@ class CodexAgent(CLIAgent):
         (argument list too long).
         """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Pin the CLI to the registered model. `codex exec` takes `-m/--model
+        # <MODEL>` (verified against `codex exec --help`); without it the CLI
+        # runs whatever ~/.codex/config.toml defaults to while receipts claim
+        # self.model (finding O-P2b on #9989).
+        base_command = ["codex", "exec", "--skip-git-repo-check"]
+        if self.model:
+            base_command += ["-m", self.model]
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
-                ["codex", "exec", "--skip-git-repo-check", "-"],
+                [*base_command, "-"],
                 prompt,
                 context,
                 input_text=full_prompt,
                 response_extractor=self._extract_codex_response,
             )
         return await self._generate_with_fallback(
-            ["codex", "exec", "--skip-git-repo-check", full_prompt],
+            [*base_command, full_prompt],
             prompt,
             context,
             response_extractor=self._extract_codex_response,
@@ -894,20 +901,26 @@ class GeminiCLIAgent(CLIAgent):
         For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
         """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Pin the CLI to the registered model: `gemini` takes `-m/--model`
+        # (verified against `gemini --help`, v0.22+). See ClaudeAgent above
+        # for why an unpinned CLI makes the receipt's model claim false.
+        base_command = ["gemini", "--yolo", "-o", "text"]
+        if self.model:
+            base_command += ["-m", self.model]
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
             logger.debug(
                 "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
             )
             return await self._generate_with_fallback(
-                ["gemini", "--yolo", "-o", "text", "-"],
+                [*base_command, "-"],
                 prompt,
                 context,
                 input_text=full_prompt,
                 response_extractor=self._extract_gemini_response,
             )
         return await self._generate_with_fallback(
-            ["gemini", "--yolo", "-o", "text", full_prompt],
+            [*base_command, full_prompt],
             prompt,
             context,
             response_extractor=self._extract_gemini_response,
@@ -1086,20 +1099,28 @@ class GrokCLIAgent(CLIAgent):
         For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
         """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Pin the CLI to the registered model: the `grok` binary this agent
+        # invokes takes `-m/--model <MODEL>` alongside the `-p/--single`
+        # single-turn flag already used here (verified against `grok --help`,
+        # v1.0.4). Unpinned, xAI's own CLI default answers while the receipt
+        # claims self.model (finding O-P2b on #9989).
+        base_command = ["grok"]
+        if self.model:
+            base_command += ["-m", self.model]
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
         if self._is_prompt_too_large_for_argv(full_prompt):
             logger.debug(
                 "[%s] Using stdin for large prompt (%s chars)", self.name, len(full_prompt)
             )
             return await self._generate_with_fallback(
-                ["grok", "-p", "-"],
+                [*base_command, "-p", "-"],
                 prompt,
                 context,
                 input_text=full_prompt,
                 response_extractor=self._extract_grok_response,
             )
         return await self._generate_with_fallback(
-            ["grok", "-p", full_prompt],
+            [*base_command, "-p", full_prompt],
             prompt,
             context,
             response_extractor=self._extract_grok_response,
@@ -1201,15 +1222,21 @@ class AntigravityAgent(CLIAgent):
         """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
         full_prompt = self._build_full_prompt(prompt, context)
         agy_bin = _resolve_antigravity_bin()
+        # Pin the CLI to the registered model. `agy` spells the flag
+        # `--model` with NO short form (verified against `agy --help`), so
+        # this is deliberately not the `-m` the gemini/codex/grok CLIs take.
+        base_command = [agy_bin]
+        if self.model:
+            base_command += ["--model", self.model]
         if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
-                [agy_bin, "-p", "-"],
+                [*base_command, "-p", "-"],
                 prompt,
                 context,
                 input_text=full_prompt,
             )
         return await self._generate_with_fallback(
-            [agy_bin, "-p", full_prompt],
+            [*base_command, "-p", full_prompt],
             prompt,
             context,
         )
@@ -1277,6 +1304,14 @@ if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
     # catalog's qwen3.8-2.4t-a95b row is an OpenRouter row whose ``direct_id``
     # is an OpenRouter naming convention (a parameter-count slug), not a model
     # code this CLI would accept. See ModelSpec.direct_id's docstring note.
+    #
+    # Because this default was NOT refreshed, generate() below deliberately
+    # leaves it off the wire and the CLI's own configured model answers --
+    # the same holds for deepseek-cli and the opt-in kimi-cli. The four
+    # agents whose defaults the frontier refresh DID change now pin the
+    # model with their CLI's real flag (finding O-P2b on #9989); the
+    # boundary between the two sets is pinned by
+    # tests/agents/test_cli_agents.py::TestRefreshedCLIAgentsPinTheirModel.
     default_model="qwen3-coder",
     agent_type="CLI",
     requires="qwen CLI (npm install -g @qwen-code/qwen-code)",
