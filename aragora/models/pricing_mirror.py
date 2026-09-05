@@ -109,11 +109,23 @@ def provider_config_rows(
     """Shape of ``aragora.routing.provider_config.PROVIDER_PRICING``'s
     catalog projection: CANONICAL id only (never alias/direct/openrouter
     spellings) so enumeration consumers never see one model occupy several
-    candidate slots, and never a model still inside its soak window (an
-    adoption surface must not offer it yet). This is the single generator
+    candidate slots, and never a RETIRED row. This is the single generator
     ``aragora.routing.provider_config._catalog_projection`` calls; alias
     spellings still price via the ``by_any_id`` fallback in
     ``get_estimated_cost``, unaffected by this function.
+
+    The filter is retirement, not soak (frontier-model-refresh final review
+    #7). It used to be the other way round, which inverted the intended
+    candidate set: the routing roster offered `gpt-5.5` and `grok-4.5`
+    (retired, dead on the wire) while withholding `gpt-6-astra`,
+    `gemini-3.8-flash` and `muse-spark-1.3` (the current defaults, merely
+    soaking). Soak gating still applies to routing SELECTION, where it
+    belongs, via ``provider_router._is_under_soak``; keeping it here also
+    made a module-level constant calendar-dependent -- the table would
+    silently gain rows on 2026-09-16/17 -- which is a latent flake for any
+    membership or count assertion.
+
+    ``today`` is retained for call-site compatibility and is unused.
 
     ``catalog`` defaults to ``aragora.models.catalog.CATALOG`` but accepts
     an override so ``provider_config._catalog_projection`` can pass its own
@@ -138,5 +150,5 @@ def provider_config_rows(
             context_window=s.context_window,
         )
         for s in rows.values()
-        if not s.is_under_soak(today)
+        if not s.retired
     }

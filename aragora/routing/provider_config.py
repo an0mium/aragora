@@ -271,21 +271,28 @@ def _apply_catalog_projection(table: dict[str, ProviderPricing], today: date | N
 
         Every key of the resulting table that ``by_any_id`` resolves to a
         catalog model (a) IS that model's canonical_id and (b) that model
-        is NOT under soak (as of ``today``).
+        is NOT RETIRED.
+
+    The filter is retirement, not soak (frontier-model-refresh final review
+    #7). Soak-gating an enumeration table inverted the intended candidate
+    set — the roster offered retired ids that are dead on the wire while
+    withholding the current defaults — and made the table calendar-
+    dependent. Soak gating still applies to routing SELECTION, where it
+    belongs, via ``provider_router._is_under_soak``.
 
     The projection is applied first (it overrides any hand row keyed by an
-    adoptable model's canonical id: single source), then one sweep deletes
+    active model's canonical id: single source), then one sweep deletes
     every violating key — alias-keyed hand rows, stale canonical rows of
-    under-soak models, or any future spelling the catalog learns about.
+    retired models, or any future spelling the catalog learns about.
     Hand rows for models unknown to the catalog are preserved. Cost lookup
-    for every dropped spelling (aliases and under-soak ids alike) still
+    for every dropped spelling (aliases and retired ids alike) still
     works via the ``by_any_id`` fallback in ``get_estimated_cost``, which
-    has no soak gating.
+    has no soak or retirement gating.
     """
     table.update(_catalog_projection(today))
     for key in list(table):
         spec = by_any_id(key)
-        if spec is not None and (key != spec.canonical_id or spec.is_under_soak(today)):
+        if spec is not None and (key != spec.canonical_id or spec.retired):
             del table[key]
 
 

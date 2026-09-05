@@ -131,6 +131,14 @@ def _reachable_defaults() -> list[tuple[str, str]]:
     for primary, slug in OPENROUTER_FALLBACK_MODELS.items():
         out.append((f"openrouter.fallback_for[{primary}]", slug))
 
+    # Cold-start routing roster. Before the frontier refresh this list was
+    # 100% retired spellings, so a cold-start debate could not see the
+    # current frontier at all.
+    from aragora.routing.provider_router import DEFAULT_PROVIDER_ORDER
+
+    for m in DEFAULT_PROVIDER_ORDER:
+        out.append(("provider_router.DEFAULT_PROVIDER_ORDER", m))
+
     # Native-provider entry points (see _NATIVE_ID_EXEMPT): listed so the gap
     # is named and pinned rather than merely absent from this test.
     import aragora.agents.api_agents.openrouter  # noqa: F401 - registers kimi-legacy

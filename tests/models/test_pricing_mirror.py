@@ -74,23 +74,45 @@ def test_provider_config_rows_keys_only_canonical_ids() -> None:
     spelling occupy its own candidate slot."""
     rows = pm.provider_config_rows()
     for s in CATALOG.values():
-        if s.is_under_soak():
+        if s.retired:
             continue
         assert s.canonical_id in rows
     for key in rows:
         assert key in CATALOG, f"provider_config_rows() key {key!r} is not a canonical catalog id"
 
 
-def test_provider_config_rows_excludes_under_soak_rows() -> None:
+def test_provider_config_rows_excludes_retired_rows() -> None:
+    """The routing roster is a candidate set: a retired row is dead on the
+    wire, so offering it is worse than useless."""
+    rows = pm.provider_config_rows()
+    retired = [s.canonical_id for s in CATALOG.values() if s.retired]
+    assert retired, "fixture assumption: the catalog carries at least one retired row"
+    for canonical_id in retired:
+        assert canonical_id not in rows, f"{canonical_id} is retired and must not be projected"
+
+
+def test_provider_config_rows_are_not_calendar_dependent() -> None:
+    """Soak is NOT a projection filter (final review #7).
+
+    Filtering the enumerated table by soak inverted the candidate set (it
+    withheld the current defaults while offering retired ids) and made a
+    module-level constant change contents on a wall-clock date, which is a
+    latent flake for any membership or count assertion. Soak gating lives on
+    the SELECTION path instead (provider_router._is_under_soak).
+    """
     from datetime import date
 
-    for s in CATALOG.values():
-        if s.soak_until is None:
-            continue
-        rows = pm.provider_config_rows(today=s.soak_until - (s.soak_until - s.release_date) // 2)
-        assert s.canonical_id not in rows, (
-            f"{s.canonical_id} is under soak and must not be projected"
+    soaking = [s for s in CATALOG.values() if s.soak_until is not None and not s.retired]
+    assert soaking, "fixture assumption: the catalog carries at least one soaking row"
+
+    baseline = set(pm.provider_config_rows())
+    for s in soaking:
+        assert s.canonical_id in baseline, (
+            f"{s.canonical_id} is soaking but active; it must still be a routing candidate"
         )
+        mid_soak = s.release_date + (s.soak_until - s.release_date) // 2
+        assert set(pm.provider_config_rows(today=mid_soak)) == baseline
+    assert set(pm.provider_config_rows(today=date(2099, 1, 1))) == baseline
 
 
 def test_legacy_tables_contain_mirror_rows() -> None:

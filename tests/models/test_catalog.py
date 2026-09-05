@@ -218,12 +218,33 @@ def test_debate_costs_matches_catalog(canonical_id: str) -> None:
 
 @pytest.mark.parametrize("canonical_id", ENFORCED_MODELS)
 def test_provider_config_matches_catalog(canonical_id: str) -> None:
-    from aragora.routing.provider_config import PROVIDER_PRICING as ROUTING_PRICING
+    """Routing is the one mirror that EXCLUDES retired rows.
+
+    It is a candidate set for selection, and a retired id is dead on the
+    wire (frontier-model-refresh final review #7). Retired models still
+    price -- via ``get_estimated_cost``'s ``by_any_id`` fallback, which has
+    no retirement gating -- so old receipts keep resolving.
+    """
+    from aragora.routing.provider_config import current_pricing_table, get_estimated_cost
 
     spec = CATALOG[canonical_id]
+    table = current_pricing_table()
+
+    if spec.retired:
+        present = [mid for mid in spec.all_ids() if mid in table]
+        assert not present, f"retired {canonical_id} must not be a routing candidate: {present}"
+        # 2k/1k tokens: small enough to stay under any long-context tier
+        # threshold, so the flat catalog rates are the expected answer.
+        cost = get_estimated_cost(canonical_id, 2_000, 1_000)
+        expected = spec.input_per_mtok * 0.002 + spec.output_per_mtok * 0.001
+        assert cost == pytest.approx(expected), (
+            f"retired {canonical_id} lost its price; old receipts would not resolve"
+        )
+        return
+
     checked = False
     for mid in spec.all_ids():
-        row = ROUTING_PRICING.get(mid)
+        row = table.get(mid)
         if row is not None:
             _approx_pair(row.input_cost_per_1k * 1000, row.output_cost_per_1k * 1000, spec)
             checked = True
