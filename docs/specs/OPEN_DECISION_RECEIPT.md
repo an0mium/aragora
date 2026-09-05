@@ -234,7 +234,7 @@ ODR intentionally defines **no envelope**. Deployment guidance:
 
 **Published custody record:** Receipt-First mission key `ed25519-44c316618e9a0f58`,
 generated 2026-09-03 for validation (not a production trust anchor), is published as
-[`aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem`](keys/aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem).
+[`aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem`](https://github.com/synaptent/aragora/blob/main/docs/specs/keys/aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem).
 The operator holds its private half in `~/.aragora/odr-signing/mission-ed25519.pem`
 (0600); CI and deployment configuration do not provision it. It is distinct from
 `examples/example-signed.pubkey.pem` and the public deterministic test seed.
