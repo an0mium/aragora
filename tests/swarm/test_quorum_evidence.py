@@ -3138,6 +3138,7 @@ def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: s
 
     assert result.ok is True
     assert result.family == family
+    assert called == [family]
 
 
 # --- tencent/bytedance: recognized but no live OpenRouter route (PR 2, #9069) -
@@ -3188,24 +3189,24 @@ def test_dropped_family_openrouter_fallback_fails_closed_not_keyerror(
 @pytest.mark.parametrize("family", ["tencent", "bytedance"])
 def test_dropped_family_default_runner_fails_closed_not_keyerror(monkeypatch, family: str) -> None:
     # No longer OpenRouter-direct, so default_reviewer_runner falls through to
-    # the native-API branch (which has no registered agent type for either
-    # family) and then the opt-in OpenRouter fallback (which has no mapped
-    # model either). Both must degrade to a clear ReviewerResult, never raise.
+    # the REAL native-API branch: AgentRegistry.create() has no registered
+    # "tencent"/"bytedance" agent type, so it raises ValueError, caught inside
+    # _run_api_agent's worker and returned as a ReviewerResult. Deliberately
+    # NOT stubbing _run_api_agent here -- the whole point is to prove the
+    # actual registry-lookup failure degrades to a clear ReviewerResult and
+    # never raises (a raised KeyError would abort the run instead of being
+    # recorded as this family's failure). No network call is reached: the
+    # registry lookup fails before any agent is constructed.
     from aragora.swarm import quorum_evidence as q
 
     monkeypatch.delenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", raising=False)
-    monkeypatch.setattr(
-        q,
-        "_run_api_agent",
-        lambda fam, _p, model=None: q.ReviewerResult(
-            fam, "", False, f"ValueError: Unknown agent type: {fam}"
-        ),
-    )
 
     result = q.default_reviewer_runner(family, "prompt")
 
     assert result.ok is False
     assert result.error  # a clear, non-empty message -- never a raised KeyError
+    assert "Unknown agent type" in result.error
+    assert family in result.error
 
 
 def test_collect_missing_head_raises() -> None:

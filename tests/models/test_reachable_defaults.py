@@ -66,6 +66,11 @@ def _reachable_defaults() -> list[tuple[str, str]]:
         out.append((f"reviewer.{fam}", slug))
     for m in qe._CODEX_DEFAULT_MODELS:
         out.append(("codex_default", m))
+    # The claude CLI reviewer's --model literal (hardcoded, not imported from
+    # aragora.config.model_pins -- see quorum_evidence.py's own comment) needs
+    # its own direct drift guard since it isn't a member of either dict/tuple
+    # above.
+    out.append(("quorum_evidence._FABLE_51_DIRECT", qe._FABLE_51_DIRECT))
 
     # The three per-provider OpenRouter fallback maps. These live on the live
     # server path and were the last unmigrated model tables in the repo.
