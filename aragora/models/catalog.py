@@ -81,12 +81,17 @@ class ModelSpec:
     output_per_mtok_long: float | None = None
     # Pretraining lineage, used to group rows for frontier_for()/FRONTIER
     # lookup: anthropic, openai, google, xai, mistral, deepseek, qwen,
-    # moonshot, meta, zai, minimax. A second-tier/specialized variant that
-    # would otherwise win a family's "newest release" race against its own
-    # flagship (e.g. a fast/cheap tier shipped after the flagship) is given
-    # a distinct suffixed family (e.g. "anthropic-opus", "google-flash") so
-    # frontier_for() still resolves to the flagship for the bare family.
+    # moonshot, meta, zai, minimax.
     family: str = ""
+    # Product tier within a family: "flagship" (the family's headline
+    # reasoning model), "value" (a faster/cheaper sibling released
+    # alongside or after the flagship, e.g. a "flash"/"terra"-style SKU),
+    # "fallback" (an older or heavier line kept resolvable/priced but not
+    # promoted as the family's current default, e.g. Opus alongside
+    # Fable), or "code" (a specialized coding variant). frontier_for()
+    # only considers "flagship" rows, so a same-family non-flagship row
+    # released later than the flagship never displaces it.
+    tier: str = "flagship"
     supports_sampling_params: bool = True
     thinking_default_on: bool = False
     forced_tool_choice_allowed: bool = True
@@ -155,12 +160,13 @@ CATALOG: dict[str, ModelSpec] = {
         ModelSpec(
             canonical_id="claude-opus-5",
             provider="anthropic",
-            # Distinct sub-family from "anthropic" (the Fable flagship line):
-            # Opus 5 released 2026-07-24, LATER than Fable 5.1 (2026-06-24),
-            # so a bare "anthropic" family here would make frontier_for()
-            # pick Opus over Fable by date — wrong per the frontier-model-
-            # refresh spec, which names Fable 5.1 as the anthropic frontier.
-            family="anthropic-opus",
+            family="anthropic",
+            # tier="fallback": Opus 5 released 2026-07-24, LATER than Fable
+            # 5.1 (2026-06-24), so without this frontier_for() would pick
+            # Opus over Fable by date — wrong per the frontier-model-refresh
+            # spec, which names Fable 5.1 as the anthropic frontier.
+            # frontier_for() only considers tier="flagship" rows.
+            tier="fallback",
             direct_id="claude-opus-5",
             openrouter_id="anthropic/claude-opus-5",
             # Same economics as Opus 4.8 ($5/$25) per the provider model page.
@@ -186,7 +192,8 @@ CATALOG: dict[str, ModelSpec] = {
             # cyber-classifier refusals, so it must stay resolvable and priced.
             canonical_id="claude-opus-4-8",
             provider="anthropic",
-            family="anthropic-opus",  # see claude-opus-5 for why not "anthropic"
+            family="anthropic",
+            tier="fallback",  # see claude-opus-5 for why
             direct_id="claude-opus-4-8",
             openrouter_id="anthropic/claude-opus-4.8",
             input_per_mtok=5.00,
@@ -360,6 +367,7 @@ CATALOG: dict[str, ModelSpec] = {
             canonical_id="kimi-k2.7-code",
             provider="moonshot",
             family="moonshot",
+            tier="code",
             direct_id="kimi-k2.7-code",
             openrouter_id="moonshotai/kimi-k2.7-code",
             # Live OpenRouter reprice captured by the 2026-08-16 snapshot
@@ -422,6 +430,7 @@ CATALOG: dict[str, ModelSpec] = {
             canonical_id="gpt-5.6-terra",
             provider="openai",
             family="openai",
+            tier="value",
             direct_id="gpt-5.6-terra",
             openrouter_id="openai/gpt-5.6-terra",
             input_per_mtok=2.0,
@@ -447,14 +456,16 @@ CATALOG: dict[str, ModelSpec] = {
             aliases=("gemini-3.1-pro", "google/gemini-3.1-pro"),
         ),
         ModelSpec(
-            # Distinct sub-family from "google" (the Pro flagship line):
-            # Flash released 2026-09-02, LATER than Pro-preview's 2026-02-19,
-            # so a bare "google" family here would make frontier_for() pick
-            # Flash over Pro by date — wrong per the frontier-model-refresh
-            # spec, which names Gemini 3.1 Pro as the google frontier.
+            # tier="value": Flash released 2026-09-02, LATER than
+            # Pro-preview's 2026-02-19, so without this frontier_for()
+            # would pick Flash over Pro by date — wrong per the
+            # frontier-model-refresh spec, which names Gemini 3.1 Pro as
+            # the google frontier. frontier_for() only considers
+            # tier="flagship" rows.
             canonical_id="gemini-3.8-flash",
             provider="google",
-            family="google-flash",
+            family="google",
+            tier="value",
             direct_id="gemini-3.8-flash",
             openrouter_id="google/gemini-3.8-flash",
             input_per_mtok=0.75,
@@ -563,15 +574,6 @@ CATALOG: dict[str, ModelSpec] = {
     )
 }
 
-# Backward-compat dict alias, NOT a second row: at least two runtime modules
-# (aragora/agents/api_agents/openrouter.py, aragora/pdb/invoker_factory.py)
-# subscript ``CATALOG["qwen3.8-max"]`` directly at import time rather than
-# going through ``by_any_id``. qwen3.8-max is superseded by
-# qwen3.8-2.4t-a95b (frontier-model-refresh controller ruling 2) and is not
-# reconstructed as its own ModelSpec; this line only lets that key keep
-# resolving (to the SAME new-canonical-id spec object) until those call
-# sites are migrated in a later task.
-CATALOG["qwen3.8-max"] = CATALOG["qwen3.8-2.4t-a95b"]
 
 # Models whose runtime-table rows are ENFORCED against this catalog by
 # tests/models/test_catalog.py. Grows as legacy rows are adjudicated (several
@@ -586,8 +588,12 @@ CATALOG["qwen3.8-max"] = CATALOG["qwen3.8-2.4t-a95b"]
 # fail the mirror-consistency tests below for rows that were never meant to
 # be wired yet. ``qwen3.8-max`` is dropped (not replaced by
 # ``qwen3.8-2.4t-a95b``) for the same reason: its canonical/direct id changed,
-# and the mirror tables still key on the old spelling — resolvable via the
-# alias on the new row (``by_any_id``), but not yet enforced under the new id.
+# and the mirror tables still key on the old spelling. It is resolvable via
+# the ``aliases`` tuple on the new ``qwen3.8-2.4t-a95b`` row (``by_any_id``),
+# but not yet enforced under the new id; the two runtime modules that used
+# to subscript ``CATALOG["qwen3.8-max"]`` directly were updated to the new
+# canonical id instead (frontier-model-refresh controller ruling 2 — no
+# duplicate ``CATALOG`` keys).
 ENFORCED_MODELS: tuple[str, ...] = (
     "claude-fable-5",
     "claude-opus-5",
@@ -623,18 +629,25 @@ def spec_or_none(model_id: str | None) -> ModelSpec | None:
     return by_any_id(str(model_id))
 
 
+def _is_frontier_candidate(spec: ModelSpec) -> bool:
+    return bool(spec.family) and spec.tier == "flagship" and not spec.retired
+
+
 def frontier_for(family: str) -> ModelSpec:
-    """Newest non-retired catalog row for ``family`` (a pretraining lineage,
-    see ``ModelSpec.family``). Raises if the family has no active row."""
-    rows = [s for s in CATALOG.values() if s.family == family and not s.retired]
+    """Newest non-retired, flagship-tier catalog row for ``family`` (a
+    pretraining lineage, see ``ModelSpec.family``). Only ``tier="flagship"``
+    rows are considered, so a same-family "value"/"fallback"/"code" row
+    released later than the flagship never displaces it. Raises if the
+    family has no active flagship row."""
+    rows = [s for s in CATALOG.values() if s.family == family and _is_frontier_candidate(s)]
     if not rows:
-        raise KeyError(f"no active catalog row for family {family!r}")
+        raise KeyError(f"no active flagship catalog row for family {family!r}")
     return max(rows, key=lambda s: (s.release_date, s.canonical_id))
 
 
 FRONTIER: dict[str, str] = {
     fam: frontier_for(fam).canonical_id
-    for fam in sorted({s.family for s in CATALOG.values() if s.family and not s.retired})
+    for fam in sorted({s.family for s in CATALOG.values() if _is_frontier_candidate(s)})
 }
 
 

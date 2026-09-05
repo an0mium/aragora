@@ -86,7 +86,7 @@ GROK_MODEL_DEFAULT = "grok-4.20-0309-reasoning"
 # The mission brief anchors these to specific provider model ids.
 DEEPSEEK_MODEL_DEFAULT = "deepseek/deepseek-v4-pro"
 KIMI_MODEL_DEFAULT = CATALOG["kimi-k3"].openrouter_id
-QWEN_MODEL_DEFAULT = CATALOG["qwen3.8-max"].openrouter_id
+QWEN_MODEL_DEFAULT = CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
 MISTRAL_MODEL_DEFAULT = "mistral-large-2512"
 
 

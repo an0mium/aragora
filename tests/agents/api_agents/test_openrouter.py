@@ -294,7 +294,10 @@ class TestOpenRouterModelFallback:
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert len(OPENROUTER_FALLBACK_MODELS) > 0
-        assert "qwen/qwen3.8-max" in OPENROUTER_FALLBACK_MODELS
+        # qwen3.8-max is superseded by qwen3.8-2.4t-a95b (frontier-model-
+        # refresh, 2026-09-04); the fallback map keys on QWEN_3_8_MAX_MODEL,
+        # which now resolves to the new canonical OpenRouter slug.
+        assert "qwen/qwen3.8-2.4t-a95b" in OPENROUTER_FALLBACK_MODELS
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
         assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
 
@@ -548,7 +551,9 @@ class TestQwenAgent:
         agent = QwenAgent()
 
         assert agent.name == "qwen"
-        assert agent.model == "qwen/qwen3.8-max"
+        # qwen3.8-max is superseded by qwen3.8-2.4t-a95b (frontier-model-
+        # refresh, 2026-09-04).
+        assert agent.model == "qwen/qwen3.8-2.4t-a95b"
         assert agent.agent_type == "qwen"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
@@ -570,7 +575,9 @@ class TestQwenMaxAgent:
         agent = QwenMaxAgent()
 
         assert agent.name == "qwen-max"
-        assert agent.model == "qwen/qwen3.8-max"
+        # qwen3.8-max is superseded by qwen3.8-2.4t-a95b (frontier-model-
+        # refresh, 2026-09-04).
+        assert agent.model == "qwen/qwen3.8-2.4t-a95b"
         assert agent.agent_type == "qwen-max"
 
 

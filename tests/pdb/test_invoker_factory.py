@@ -741,6 +741,11 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "qwen": frozenset(
         {
+            "qwen/qwen3.8-2.4t-a95b",
+            # Legacy id kept as an accepted alias (same keep-legacy principle
+            # as OPENROUTER_FALLBACK_MODELS in this PR): qwen3.8-max is
+            # superseded by qwen3.8-2.4t-a95b (frontier-model-refresh,
+            # 2026-09-04) but stored configs may still pin it.
             "qwen/qwen3.8-max",
             "qwen/qwen3-235b-a22b",
             "qwen/qwen3.7-max",

@@ -380,6 +380,15 @@ def test_frontier_for_each_family() -> None:
     assert frontier_for("anthropic").canonical_id == "claude-fable-5-1"
 
 
+def test_secondary_tier_rows_keep_lineage_family_not_flagship_tier() -> None:
+    """family stays pretraining lineage ("anthropic"), not a synthetic
+    per-tier bucket: claude-opus-5 shares Fable's family but is tier
+    "fallback", so it never displaces claude-fable-5-1 as the anthropic
+    frontier (frontier_for() only considers tier="flagship" rows)."""
+    assert CATALOG["claude-opus-5"].family == "anthropic"
+    assert CATALOG["claude-opus-5"].tier == "fallback"
+
+
 def test_superseded_rows_are_retired_not_deleted() -> None:
     for cid in ("claude-fable-5", "gpt-5.6-sol", "gpt-5.5", "grok-4.5", "grok-4.3", "qwen3.7-max"):
         assert CATALOG[cid].retired is True, cid

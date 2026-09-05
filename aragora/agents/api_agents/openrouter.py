@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
 KIMI_K3_MODEL = CATALOG["kimi-k3"].openrouter_id
-QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-max"].openrouter_id
+QWEN_3_8_MAX_MODEL = CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
 # OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
