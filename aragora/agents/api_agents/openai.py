@@ -72,14 +72,36 @@ _PROXY_DISCOVERY_TIMEOUT_SECONDS = 6.0
 _PROXY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="vibeproxy-openai")
 
 
+_OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+
 def _resolve_openai_base_url() -> str:
     """OPENAI_BASE_URL override for gateways/proxies (issue #9304)."""
     import os
 
     raw = os.environ.get("OPENAI_BASE_URL", "").strip().rstrip("/")
     if not raw:
-        return "https://api.openai.com/v1"
+        return _OPENAI_DEFAULT_BASE_URL
     return raw if raw.endswith("/v1") else raw + "/v1"
+
+
+def _targets_official_openai_endpoint() -> bool:
+    """Whether requests will actually reach ``api.openai.com``.
+
+    Used ONLY to decide whether a retired explicit model id may be rewritten
+    (finding O-P2a). Deliberately separate from
+    ``self._uses_official_openai_endpoint``, which gates VibeProxy exact-chat
+    routing and keeps its own "no OPENAI_BASE_URL is set at all" meaning: the
+    proxy slice is contract-tested against an unconfigured client, so an env
+    var naming the official endpoint is still outside it.
+
+    The upgrade decision has no such reason to care about the raw env var --
+    it cares where the request lands. Comparing the RESOLVED, normalized URL
+    (as the anthropic/grok/mistral paths do) means
+    ``OPENAI_BASE_URL=https://api.openai.com``, ``.../v1`` and ``.../v1/``
+    all still upgrade a retired id, while any other host does not.
+    """
+    return _resolve_openai_base_url() == _OPENAI_DEFAULT_BASE_URL
 
 
 @AgentRegistry.register(
@@ -124,6 +146,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     ) -> None:
         import os
 
+        # VibeProxy exact-chat routing gate: unchanged raw-env-var semantics
+        # (the proxy slice is contract-tested against a client with no
+        # OPENAI_BASE_URL set at all).
         self._uses_official_openai_endpoint = not os.environ.get("OPENAI_BASE_URL", "").strip()
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
@@ -131,8 +156,10 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         # for a custom OPENAI_BASE_URL (BYOK gateway/proxy, issue #9304):
         # that endpoint may serve ids under names the public catalog does
         # not recognize, so rewriting them would silently target the wrong
-        # model on someone else's endpoint.
-        if self._uses_official_openai_endpoint:
+        # model on someone else's endpoint. Gated on the RESOLVED URL, not
+        # raw env-var presence, so OPENAI_BASE_URL set to a spelling of the
+        # official endpoint still upgrades (finding O-P2a, round 2).
+        if _targets_official_openai_endpoint():
             model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,

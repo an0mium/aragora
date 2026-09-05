@@ -32,6 +32,26 @@ from aragora.config.model_pins import (
     MISTRAL_LARGE_DIRECT,
 )
 
+# Every base-URL override the four gated agents read. Cleared for EVERY test
+# in this module: with any of them set in the ambient environment (a .env /
+# direnv-provided BYOK gateway is normal on a developer box) the constructor
+# skips the rewrite, and every "is upgraded" assertion below would pass
+# vacuously against an unchanged id -- the exact reason the raw-env-var gate
+# survived review the first time (finding O-P2a, round 2).
+_BASE_URL_ENV_VARS = (
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_BASE_URL",
+    "XAI_BASE_URL",
+    "MISTRAL_BASE_URL",
+)
+
+
+@pytest.fixture(autouse=True)
+def _official_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in _BASE_URL_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
 # (agent class, retired id, its upgrade target, active id, unknown id)
 _CASES = [
     pytest.param(
@@ -143,3 +163,100 @@ class TestUpgradeHelper:
 
     def test_empty_unchanged(self) -> None:
         assert common.upgrade_retired_model_id("") == ""
+
+
+# ---------------------------------------------------------------------------
+# Endpoint gating (finding O-P2a, round 2)
+# ---------------------------------------------------------------------------
+
+# agent class -> (base-URL env var, official endpoint host spelling, retired
+# id, its upgrade target)
+_ENDPOINT_CASES = [
+    pytest.param(
+        AnthropicAPIAgent,
+        "ANTHROPIC_BASE_URL",
+        "https://api.anthropic.com",
+        "claude-fable-5",
+        FABLE_51_DIRECT,
+        id="anthropic",
+    ),
+    pytest.param(
+        OpenAIAPIAgent,
+        "OPENAI_BASE_URL",
+        "https://api.openai.com",
+        "gpt-5.5",
+        GPT6_ASTRA_DIRECT,
+        id="openai",
+    ),
+    pytest.param(
+        GrokAgent,
+        "XAI_BASE_URL",
+        "https://api.x.ai",
+        "grok-4-latest",
+        GROK_46_DIRECT,
+        id="grok",
+    ),
+    pytest.param(
+        MistralAPIAgent,
+        "MISTRAL_BASE_URL",
+        "https://api.mistral.ai",
+        "mistral-large-2411",
+        MISTRAL_LARGE_DIRECT,
+        id="mistral",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("agent_cls", "env_var", "official_host", "retired", "upgraded"), _ENDPOINT_CASES
+)
+@pytest.mark.parametrize("suffix", ["", "/v1", "/v1/", "/"], ids=["bare", "v1", "v1slash", "slash"])
+def test_env_var_naming_the_official_endpoint_still_upgrades(
+    agent_cls,
+    env_var: str,
+    official_host: str,
+    retired: str,
+    upgraded: str,
+    suffix: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every spelling of the official endpoint normalizes to the same URL, so
+    the retired id must still be rewritten. Gating on raw env-var PRESENCE
+    (the bug) makes each of these silently send the dead id."""
+    monkeypatch.setenv(env_var, official_host + suffix)
+    assert agent_cls(model=retired, api_key="test-key").model == upgraded
+
+
+@pytest.mark.parametrize(
+    ("agent_cls", "env_var", "official_host", "retired", "upgraded"), _ENDPOINT_CASES
+)
+def test_gateway_base_url_skips_the_upgrade(
+    agent_cls,
+    env_var: str,
+    official_host: str,
+    retired: str,
+    upgraded: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A real BYOK gateway may serve ids under its own meaning (issue #9304),
+    so the id reaches it byte-for-byte."""
+    monkeypatch.setenv(env_var, "http://localhost:8318/v1")
+    agent = agent_cls(model=retired, api_key="test-key")
+    assert agent.model == retired
+    assert agent.base_url == "http://localhost:8318/v1"
+
+
+def test_openai_upgrade_gate_is_separate_from_the_vibeproxy_routing_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_uses_official_openai_endpoint`` gates VibeProxy exact-chat routing
+    and keeps its raw-env-var meaning: the proxy slice is contract-tested
+    against an unconfigured client. Only the UPGRADE decision moved to the
+    resolved-URL comparison, so the two disagree exactly here."""
+    from aragora.agents.api_agents import openai as openai_mod
+
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com")
+    agent = OpenAIAPIAgent(model="gpt-5.5", api_key="test-key")
+    assert agent._uses_official_openai_endpoint is False
+    assert openai_mod._targets_official_openai_endpoint() is True
+    assert agent.model == GPT6_ASTRA_DIRECT
