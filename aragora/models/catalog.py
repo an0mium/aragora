@@ -370,10 +370,12 @@ CATALOG: dict[str, ModelSpec] = {
             tier="code",
             direct_id="kimi-k2.7-code",
             openrouter_id="moonshotai/kimi-k2.7-code",
-            # Live OpenRouter reprice captured by the 2026-08-16 snapshot
-            # refresh; the reviewer/runtime pin itself remains unchanged.
-            input_per_mtok=0.71,
-            output_per_mtok=3.50,
+            # Live OpenRouter reprice (2026-09-04, frontier-model-refresh
+            # fix round 1): confirmed against the live catalog as exactly
+            # 0.66 / 3.40; mirror tables (real_invoker/billing/metering)
+            # updated to match in the same commit.
+            input_per_mtok=0.66,
+            output_per_mtok=3.40,
             context_window=262_144,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 15),
@@ -507,6 +509,7 @@ CATALOG: dict[str, ModelSpec] = {
             canonical_id="mistral-large-2512",
             provider="mistral",
             family="mistral",
+            tier="fallback",  # older/heavier line; mistral-medium-2604 is the flagship
             direct_id="mistral-large-2512",
             openrouter_id="mistralai/mistral-large-2512",
             input_per_mtok=0.5,

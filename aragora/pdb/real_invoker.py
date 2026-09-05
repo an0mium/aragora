@@ -245,7 +245,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
     "kimi-k3": (3.00, 15.00),
-    "kimi-k2.7-code": (0.71, 3.50),
+    "kimi-k2.7-code": (0.66, 3.40),
     "kimi-k2.6": (0.7448, 4.655),
     "kimi-k2.5": (0.44, 2.00),
     "kimi-k2": (0.57, 2.30),

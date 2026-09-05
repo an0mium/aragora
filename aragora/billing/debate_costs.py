@@ -79,7 +79,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "qwen/qwen3.8-max": (Decimal("2.00"), Decimal("6.00")),
         "qwen/qwen3.7-max": (Decimal("1.475"), Decimal("4.425")),
         "moonshotai/kimi-k3": (Decimal("3.00"), Decimal("15.00")),
-        "moonshotai/kimi-k2.7-code": (Decimal("0.71"), Decimal("3.50")),
+        "moonshotai/kimi-k2.7-code": (Decimal("0.66"), Decimal("3.40")),
         "perplexity/sonar-reasoning-pro": (Decimal("2.00"), Decimal("8.00")),
         "cohere/command-a": (Decimal("2.50"), Decimal("10.00")),
         "ai21/jamba-large-1.7": (Decimal("2.00"), Decimal("8.00")),

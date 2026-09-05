@@ -83,8 +83,9 @@
     },
     "moonshotai/kimi-k2.7-code": {
       "context_length": 262144,
-      "input_per_mtok": 0.71,
-      "output_per_mtok": 3.5
+      "created": 1781266361,
+      "input_per_mtok": 0.66,
+      "output_per_mtok": 3.4
     },
     "moonshotai/kimi-k3": {
       "context_length": 1048576,
@@ -126,11 +127,6 @@
     "qwen/qwen3.8-2.4t-a95b": {
       "context_length": 1048576,
       "created": 1786551702,
-      "input_per_mtok": 2.0,
-      "output_per_mtok": 6.0
-    },
-    "qwen/qwen3.8-max": {
-      "context_length": 1000000,
       "input_per_mtok": 2.0,
       "output_per_mtok": 6.0
     },
