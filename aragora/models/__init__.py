@@ -17,17 +17,25 @@ from aragora.models.compat import (
     rejects_sampling_params,
     strip_sampling_params,
 )
+from aragora.models.upgrade_map import (
+    RETIRED_PATTERN,
+    UPGRADES,
+    resolve_model_id,
+)
 
 __all__ = [
     "CATALOG",
     "ENFORCED_MODELS",
     "FRONTIER",
+    "RETIRED_PATTERN",
+    "UPGRADES",
     "ModelSpec",
     "by_any_id",
     "first_text_block",
     "frontier_for",
     "load_snapshot",
     "rejects_sampling_params",
+    "resolve_model_id",
     "strip_sampling_params",
     "snapshot_path",
     "spec_or_none",
