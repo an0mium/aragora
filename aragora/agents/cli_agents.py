@@ -1389,11 +1389,15 @@ def get_default_agents() -> list[Agent]:
     Returns:
         List of Agent instances (ClaudeAgent, CodexAgent, GeminiCLIAgent, etc.)
     """
+    # Exactly three entries (frontier-model-refresh, 2026-09-04 review fix
+    # round 1, item 6: the plan's four-entry text is withdrawn).
+    # aragora/server/commands/handlers.py consumes get_default_agents()
+    # UNSLICED for the Slack/Teams /debate command path, so adding a fourth
+    # agent here would silently spawn an extra participant on that path.
     agents: list[Agent] = [
         ClaudeAgent(name="claude", model=FABLE_51_DIRECT),
         CodexAgent(name="codex", model=GPT6_ASTRA_DIRECT),
         GeminiCLIAgent(name="gemini-cli", model=GEMINI_31_PRO_DIRECT),
-        GrokCLIAgent(name="grok-cli", model=GROK_46_DIRECT),
     ]
     return agents
 
