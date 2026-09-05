@@ -1071,12 +1071,17 @@ class TestProviderConfiguration:
         assert agent.OPENROUTER_MODEL_MAP["test-model"] == "openai/test-model"
 
     def test_get_fallback_model(self):
-        """Should get correct fallback model from map."""
+        """get_fallback_model() (QuotaFallbackMixin, frontier-model-refresh
+        2026-09-04 review fix round 1 item 3) resolves the current model
+        through the catalog/upgrade map now, not the (vestigial)
+        OPENROUTER_MODEL_MAP class attribute -- "test-model" isn't a real
+        model id, so it falls back to DEFAULT_FALLBACK_MODEL, while a real
+        legacy OpenAI spelling resolves to its current frontier."""
         agent = TestableAgent(model="test-model")
+        assert agent.get_fallback_model() == TestableAgent.DEFAULT_FALLBACK_MODEL
 
-        fallback_model = agent.get_fallback_model()
-
-        assert fallback_model == "openai/test-model"
+        resolvable_agent = TestableAgent(model="gpt-5.5")
+        assert resolvable_agent.get_fallback_model() == "openai/gpt-6-astra"
 
     def test_get_fallback_model_default(self):
         """Should use default fallback model when not in map."""

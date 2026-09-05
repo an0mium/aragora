@@ -457,30 +457,47 @@ class TestGrokAgentErrorHandling:
 
 
 class TestGrokAgentModelMapping:
-    """Tests for OpenRouter model mapping."""
+    """Tests for OpenRouter model mapping.
 
-    def test_model_map_contains_grok_models(self, mock_env_with_api_keys):
-        """Should have mappings for Grok models."""
+    GrokAgent no longer carries a static OPENROUTER_MODEL_MAP:
+    get_fallback_model() (QuotaFallbackMixin, aragora/agents/fallback.py)
+    resolves the current model through the catalog and upgrade map instead
+    (frontier-model-refresh, 2026-09-04 review fix round 1, item 3).
+    """
+
+    def test_default_model_fallback_is_current_slug(self, mock_env_with_api_keys):
+        """Using the agent's own default model, the fallback target is the
+        current frontier's OpenRouter slug (review fix round 1, item 3)."""
         from aragora.agents.api_agents.grok import GrokAgent
 
-        assert "grok-4-latest" in GrokAgent.OPENROUTER_MODEL_MAP
-        assert "grok-4" in GrokAgent.OPENROUTER_MODEL_MAP
-        assert "grok-3" in GrokAgent.OPENROUTER_MODEL_MAP
-        assert "grok-2" in GrokAgent.OPENROUTER_MODEL_MAP
-        assert "grok-2-1212" in GrokAgent.OPENROUTER_MODEL_MAP
-        assert "grok-beta" in GrokAgent.OPENROUTER_MODEL_MAP
+        agent = GrokAgent(api_key="test-key")
+        assert agent.get_fallback_model() == "x-ai/grok-4.6"
+
+    def test_model_map_contains_grok_models(self, mock_env_with_api_keys):
+        """Legacy Grok spellings covered by the shared upgrade map resolve
+        to the current frontier."""
+        from aragora.agents.api_agents.grok import GrokAgent
+
+        for legacy_model in ("grok-4-latest", "grok-4", "grok-3", "grok-2"):
+            agent = GrokAgent(api_key="test-key", model=legacy_model)
+            assert agent.get_fallback_model() == "x-ai/grok-4.6"
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""
         from aragora.agents.api_agents.grok import GrokAgent
 
-        assert GrokAgent.DEFAULT_FALLBACK_MODEL == "x-ai/grok-4.5"
+        assert GrokAgent.DEFAULT_FALLBACK_MODEL == "x-ai/grok-4.6"
 
     def test_legacy_direct_ids_route_to_live_openrouter_model(self, mock_env_with_api_keys):
+        """Spellings covered by the shared upgrade map upgrade to the
+        frontier; spellings with neither a catalog row nor an upgrade-map
+        entry (e.g. the invalid "grok-4.2"/"grok-4-2") fall back to
+        DEFAULT_FALLBACK_MODEL, also the current frontier."""
         from aragora.agents.api_agents.grok import GrokAgent
 
         for model in ("grok-4-latest", "grok-4", "grok-4.2", "grok-4-2"):
-            assert GrokAgent.OPENROUTER_MODEL_MAP[model] == "x-ai/grok-4.5"
+            agent = GrokAgent(api_key="test-key", model=model)
+            assert agent.get_fallback_model() == "x-ai/grok-4.6"
 
     def test_model_map_values_are_openrouter_format(self, mock_env_with_api_keys):
         """Model map values should be in OpenRouter format."""

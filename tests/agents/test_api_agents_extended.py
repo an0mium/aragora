@@ -408,10 +408,15 @@ class TestOpenAIFallback:
                     assert result == "Fallback response"
 
     def test_openai_fallback_model_mapping(self, openai_agent):
-        """Test that OpenAI models are mapped correctly to OpenRouter."""
-        assert "gpt-4o" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-5.5"
-        assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
+        """Test that OpenAI models resolve to the current frontier via
+        OpenRouter (frontier-model-refresh, 2026-09-04 review fix round 1,
+        item 3). OpenAIAPIAgent no longer carries a static
+        OPENROUTER_MODEL_MAP: get_fallback_model() (QuotaFallbackMixin)
+        resolves the current model through the catalog and upgrade map."""
+        flagship_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o")
+        assert flagship_agent.get_fallback_model() == "openai/gpt-6-astra"
+        value_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
+        assert value_agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_openai_quota_keyword_detection(self, openai_agent):
         """Test OpenAI quota error detection."""

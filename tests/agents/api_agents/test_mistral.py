@@ -322,15 +322,33 @@ class TestMistralErrorHandling:
 
 
 class TestMistralModelMapping:
-    """Tests for OpenRouter model mapping."""
+    """Tests for OpenRouter model mapping.
 
-    def test_model_map_contains_mistral_models(self, mock_env_with_api_keys):
-        """Should have mappings for Mistral models."""
+    MistralAPIAgent no longer carries a static OPENROUTER_MODEL_MAP:
+    get_fallback_model() (QuotaFallbackMixin, aragora/agents/fallback.py)
+    resolves the current model through the catalog and upgrade map instead
+    (frontier-model-refresh, 2026-09-04 review fix round 1, item 3).
+    """
+
+    def test_default_model_fallback_is_current_slug(self, mock_env_with_api_keys):
+        """Using the agent's own default model, the fallback target is the
+        current frontier's OpenRouter slug (review fix round 1, item 3)."""
         from aragora.agents.api_agents.mistral import MistralAPIAgent
 
-        assert "mistral-large-2512" in MistralAPIAgent.OPENROUTER_MODEL_MAP
-        assert "codestral-latest" in MistralAPIAgent.OPENROUTER_MODEL_MAP
-        assert "ministral-8b-latest" in MistralAPIAgent.OPENROUTER_MODEL_MAP
+        agent = MistralAPIAgent(api_key="test-key")
+        assert agent.get_fallback_model() == "mistralai/mistral-medium-3-5"
+
+    def test_model_map_contains_mistral_models(self, mock_env_with_api_keys):
+        """A still-served Mistral id resolves to its own OpenRouter slug;
+        "codestral-latest"/"ministral-8b-latest" have no catalog row and
+        fall back to DEFAULT_FALLBACK_MODEL."""
+        from aragora.agents.api_agents.mistral import MistralAPIAgent
+
+        served = MistralAPIAgent(api_key="test-key", model="mistral-large-2512")
+        assert served.get_fallback_model() == "mistralai/mistral-large-2512"
+        for unresolvable in ("codestral-latest", "ministral-8b-latest"):
+            agent = MistralAPIAgent(api_key="test-key", model=unresolvable)
+            assert agent.get_fallback_model() == MistralAPIAgent.DEFAULT_FALLBACK_MODEL
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""

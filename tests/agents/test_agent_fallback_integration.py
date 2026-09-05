@@ -432,7 +432,11 @@ class TestQuotaFallbackMixin:
         assert not agent.is_quota_error(400, "Invalid request")
 
     def test_get_fallback_model_with_mapping(self):
-        """Should use model mapping for fallback."""
+        """get_fallback_model() resolves the current model through the
+        catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
+        round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
+        attribute: "gpt-4" is a legacy OpenAI spelling that upgrades to the
+        current frontier."""
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
@@ -445,7 +449,7 @@ class TestQuotaFallbackMixin:
                 self.model = model
 
         agent = TestAgent(model="gpt-4")
-        assert agent.get_fallback_model() == "openai/gpt-4"
+        assert agent.get_fallback_model() == "openai/gpt-6-astra"
 
         agent = TestAgent(model="unknown-model")
         assert agent.get_fallback_model() == "openai/gpt-4o"

@@ -376,6 +376,12 @@ class TestAnthropicModelMapping:
     just the ones a hand-maintained dict enumerated.
     """
 
+    def test_default_model_fallback_is_current_slug(self):
+        """Using the agent's own default model, the fallback target is the
+        current frontier's OpenRouter slug (review fix round 1, item 3)."""
+        agent = AnthropicAPIAgent(api_key="test-key")
+        assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
+
     def test_fallback_resolves_legacy_id_via_catalog(self):
         """A legacy/retired Claude id resolves to the current frontier."""
         agent = AnthropicAPIAgent(api_key="test-key", model="claude-3-opus-20240229")

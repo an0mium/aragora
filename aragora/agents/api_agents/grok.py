@@ -7,7 +7,7 @@ from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
-from aragora.config.model_pins import GROK_46_DIRECT
+from aragora.config.model_pins import GROK_46_DIRECT, GROK_46_VIA_OPENROUTER
 
 # Frontier pick for the Grok API agent (2026-09-04 frontier-model-refresh).
 DEFAULT_MODEL = GROK_46_DIRECT
@@ -31,20 +31,12 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     Uses OpenAICompatibleMixin for standard OpenAI-compatible API implementation.
     """
 
-    OPENROUTER_MODEL_MAP = {
-        "grok-4.2": "x-ai/grok-4.5",  # invalid legacy id; use the live frontier route
-        "grok-4-2": "x-ai/grok-4.5",
-        "grok-4-1-fast": "x-ai/grok-4.1-fast",
-        "grok-4-1-fast-reasoning": "x-ai/grok-4.1-fast",
-        "grok-4-latest": "x-ai/grok-4.5",
-        "grok-4": "x-ai/grok-4.5",
-        "grok-4-fast": "x-ai/grok-4-fast",
-        "grok-3": "x-ai/grok-3",
-        "grok-2": "x-ai/grok-2-1212",
-        "grok-2-1212": "x-ai/grok-2-1212",
-        "grok-beta": "x-ai/grok-beta",
-    }
-    DEFAULT_FALLBACK_MODEL = "x-ai/grok-4.5"
+    # No static OPENROUTER_MODEL_MAP: QuotaFallbackMixin.get_fallback_model()
+    # (aragora/agents/fallback.py) resolves the current model through the
+    # catalog/upgrade-map instead, so every legacy or retired Grok spelling
+    # (not just a hand-enumerated subset) transparently upgrades to its
+    # frontier via OpenRouter.
+    DEFAULT_FALLBACK_MODEL = GROK_46_VIA_OPENROUTER
 
     def __init__(
         self,

@@ -9,7 +9,7 @@ from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
-from aragora.config.model_pins import MISTRAL_MEDIUM_DIRECT
+from aragora.config.model_pins import MISTRAL_MEDIUM_DIRECT, MISTRAL_MEDIUM_VIA_OPENROUTER
 
 # Frontier pick for the Mistral API agent (2026-09-04 frontier-model-refresh).
 DEFAULT_MODEL = MISTRAL_MEDIUM_DIRECT
@@ -39,18 +39,12 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
     - ministral-3b-latest: Fastest, for simple tasks
     """
 
-    # OpenRouter fallback mapping (in case direct API fails)
-    OPENROUTER_MODEL_MAP = {
-        "mistral-large-2512": "mistralai/mistral-large-2512",  # Mistral Large 3
-        "mistral-large-latest": "mistralai/mistral-large-2512",
-        "mistral-large-2411": "mistralai/mistral-large-2411",
-        "mistral-medium-latest": "mistralai/mistral-medium",
-        "mistral-small-latest": "mistralai/mistral-small",
-        "codestral-latest": "mistralai/codestral-2501",
-        "ministral-8b-latest": "mistralai/ministral-8b",
-        "ministral-3b-latest": "mistralai/ministral-3b",
-    }
-    DEFAULT_FALLBACK_MODEL = "mistralai/mistral-large-2512"
+    # No static OPENROUTER_MODEL_MAP: QuotaFallbackMixin.get_fallback_model()
+    # (aragora/agents/fallback.py) resolves the current model through the
+    # catalog/upgrade-map instead, so every legacy or retired Mistral
+    # spelling (not just a hand-enumerated subset) transparently upgrades
+    # to its frontier via OpenRouter.
+    DEFAULT_FALLBACK_MODEL = MISTRAL_MEDIUM_VIA_OPENROUTER
 
     def __init__(
         self,

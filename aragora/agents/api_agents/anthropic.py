@@ -32,9 +32,7 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
 from aragora.config.model_pins import FABLE_51_DIRECT, OPUS_5_VIA_OPENROUTER
-from aragora.models.catalog import spec_or_none
 from aragora.models.compat import first_text_block, strip_sampling_params
-from aragora.models.upgrade_map import resolve_model_id
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -96,23 +94,12 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     Uses QuotaFallbackMixin for shared quota detection and fallback logic.
     """
 
-    # No static OPENROUTER_MODEL_MAP: get_fallback_model() below resolves the
-    # current model through the catalog/upgrade-map instead, so every legacy
-    # or retired Anthropic spelling (not just the ones hand-enumerated here
-    # previously) transparently upgrades to its frontier via OpenRouter.
+    # No static OPENROUTER_MODEL_MAP: QuotaFallbackMixin.get_fallback_model()
+    # (aragora/agents/fallback.py) resolves the current model through the
+    # catalog/upgrade-map instead, so every legacy or retired Anthropic
+    # spelling (not just a hand-enumerated subset) transparently upgrades to
+    # its frontier via OpenRouter.
     DEFAULT_FALLBACK_MODEL = OPUS_5_VIA_OPENROUTER
-
-    def get_fallback_model(self) -> str:
-        """OpenRouter fallback target for the current model.
-
-        Resolves ``self.model`` to its canonical catalog row (upgrading any
-        legacy/retired spelling to its frontier first) and returns that
-        row's OpenRouter-format id, falling back to
-        ``DEFAULT_FALLBACK_MODEL`` when the model has no catalog row.
-        """
-        model = getattr(self, "model", "")
-        spec = spec_or_none(resolve_model_id(model))
-        return spec.openrouter_id if spec is not None else self.DEFAULT_FALLBACK_MODEL
 
     def __init__(
         self,

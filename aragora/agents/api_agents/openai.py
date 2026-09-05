@@ -29,7 +29,7 @@ from aragora.agents.transports.vibeproxy import (
     VibeProxyTimeoutError,
     VibeProxyUnavailableError,
 )
-from aragora.config.model_pins import GPT6_ASTRA_DIRECT
+from aragora.config.model_pins import GPT6_ASTRA_DIRECT, GPT6_ASTRA_VIA_OPENROUTER
 from aragora.core import Message
 from aragora.core_types import AgentRole
 from aragora.observability.metrics.agents import (
@@ -101,32 +101,12 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     Uses OpenAICompatibleMixin for standard OpenAI API implementation.
     """
 
-    # Every OpenAI ID maps to the current frontier (GPT-5.5) via OpenRouter
-    # so weaker historical models are transparently upgraded and a missing
-    # OPENAI_API_KEY never blocks a debate. Distinct OpenRouter model IDs
-    # are kept only where the Pro tier is explicitly requested.
-    OPENROUTER_MODEL_MAP = {
-        "gpt-5.6-sol": "openai/gpt-5.6-sol",
-        "gpt-5.5": "openai/gpt-5.5",
-        "gpt-5.4": "openai/gpt-5.6-sol",
-        "gpt-5.4-pro": "openai/gpt-5.6-sol",
-        "gpt-5.3": "openai/gpt-5.6-sol",
-        "gpt-5.3-chat-latest": "openai/gpt-5.6-sol",
-        "gpt-5.3-codex": "openai/gpt-5.6-sol",
-        "gpt-4.1": "openai/gpt-5.6-sol",
-        "gpt-4.1-mini": "openai/gpt-5.5",
-        "gpt-4.1-nano": "openai/gpt-5.5",
-        "gpt-4o": "openai/gpt-5.5",
-        "gpt-4o-mini": "openai/gpt-5.5",
-        "gpt-4-turbo": "openai/gpt-5.5",
-        "gpt-4": "openai/gpt-5.5",
-        "gpt-3.5-turbo": "openai/gpt-5.5",
-        "gpt-4o-search-preview": "openai/gpt-5.5",
-        "o3": "openai/gpt-5.5",
-        "o3-mini": "openai/gpt-5.5",
-        "o4-mini": "openai/gpt-5.5",
-    }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
+    # No static OPENROUTER_MODEL_MAP: QuotaFallbackMixin.get_fallback_model()
+    # (aragora/agents/fallback.py) resolves the current model through the
+    # catalog/upgrade-map instead, so every legacy or retired OpenAI
+    # spelling (not just a hand-enumerated subset) transparently upgrades
+    # to its frontier via OpenRouter.
+    DEFAULT_FALLBACK_MODEL = GPT6_ASTRA_VIA_OPENROUTER
 
     def __init__(
         self,

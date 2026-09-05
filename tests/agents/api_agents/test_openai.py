@@ -1173,21 +1173,39 @@ class TestOpenAIErrorHandling:
 
 
 class TestOpenAIModelMapping:
-    """Tests for OpenRouter model mapping."""
+    """Tests for OpenRouter model mapping.
 
-    def test_model_map_contains_common_models(self, mock_env_with_api_keys):
-        """Should have mappings for common models."""
+    OpenAIAPIAgent no longer carries a static OPENROUTER_MODEL_MAP:
+    get_fallback_model() (QuotaFallbackMixin, aragora/agents/fallback.py)
+    resolves the current model through the catalog and upgrade map instead
+    (frontier-model-refresh, 2026-09-04 review fix round 1, item 3), so
+    every legacy or retired OpenAI spelling upgrades to the current
+    frontier, not just a hand-enumerated subset.
+    """
+
+    def test_default_model_fallback_is_current_slug(self, mock_env_with_api_keys):
+        """Using the agent's own default model, the fallback target is the
+        current frontier's OpenRouter slug (review fix round 1, item 3)."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        assert "gpt-4o" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-5.5"
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-5.4"] == "openai/gpt-5.6-sol"
+        agent = OpenAIAPIAgent(api_key="test-key")
+        assert agent.get_fallback_model() == "openai/gpt-6-astra"
+
+    def test_model_map_contains_common_models(self, mock_env_with_api_keys):
+        """Common legacy models should resolve to the current frontier."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+        # Flagship-tier legacy spellings upgrade to the Astra frontier.
+        for legacy_model in ("gpt-4o", "gpt-4", "gpt-5.4"):
+            agent = OpenAIAPIAgent(api_key="test-key", model=legacy_model)
+            assert agent.get_fallback_model() == "openai/gpt-6-astra"
+        # Small/cheap legacy spellings upgrade to the Terra value tier.
+        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
+        assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
         assert OpenAIAPIAgent.DEFAULT_FALLBACK_MODEL is not None
-        assert OpenAIAPIAgent.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.5"
+        assert OpenAIAPIAgent.DEFAULT_FALLBACK_MODEL == "openai/gpt-6-astra"

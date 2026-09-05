@@ -31,6 +31,8 @@ from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
 
 from aragora.core_types import AgentRole
+from aragora.models.catalog import spec_or_none
+from aragora.models.upgrade_map import resolve_model_id
 from aragora.observability.metrics.agent import (
     record_fallback_activation,
     record_fallback_success,
@@ -215,13 +217,20 @@ class QuotaFallbackMixin:
     # ------------------------------------------------------------------
 
     def get_fallback_model(self) -> str:
-        """Get the OpenRouter model for fallback based on current model.
+        """OpenRouter fallback target for the current model.
 
-        Uses the class's OPENROUTER_MODEL_MAP to find a matching model,
-        falling back to DEFAULT_FALLBACK_MODEL if no match is found.
+        Resolves ``self.model`` to its canonical catalog row (upgrading any
+        legacy/retired spelling to its frontier first via
+        ``resolve_model_id()``) and returns that row's OpenRouter-format
+        id, falling back to ``DEFAULT_FALLBACK_MODEL`` when the model has
+        no catalog row (frontier-model-refresh, 2026-09-04: generalizes
+        what was previously a per-agent hand-maintained
+        ``OPENROUTER_MODEL_MAP`` -- every subclass now upgrades every
+        legacy/retired spelling, not just a hand-enumerated subset).
         """
         model = getattr(self, "model", "")
-        return self.OPENROUTER_MODEL_MAP.get(model, self.DEFAULT_FALLBACK_MODEL)
+        spec = spec_or_none(resolve_model_id(model))
+        return spec.openrouter_id if spec is not None else self.DEFAULT_FALLBACK_MODEL
 
     def is_quota_error(self, status_code: int, error_text: str) -> bool:
         """Check if an error indicates quota/rate limit issues or timeouts.

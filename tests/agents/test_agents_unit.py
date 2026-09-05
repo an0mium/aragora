@@ -625,7 +625,12 @@ class TestQuotaFallbackMixin:
         assert mixin.is_quota_error(500, "credit balance is too low") is True
 
     def test_get_fallback_model_with_mapping(self):
-        """Test fallback model retrieval with mapping."""
+        """get_fallback_model() resolves the current model through the
+        catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
+        round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
+        attribute: "test-model" isn't a real model id, so it falls back to
+        DEFAULT_FALLBACK_MODEL regardless of what OPENROUTER_MODEL_MAP
+        says."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
         class TestMixin(QuotaFallbackMixin):
@@ -634,7 +639,7 @@ class TestQuotaFallbackMixin:
             model = "test-model"
 
         mixin = TestMixin()
-        assert mixin.get_fallback_model() == "mapped/model"
+        assert mixin.get_fallback_model() == "default/model"
 
     def test_get_fallback_model_default(self):
         """Test fallback model retrieval with no mapping."""

@@ -88,7 +88,11 @@ class TestQuotaFallbackMixin:
     """Test QuotaFallbackMixin functionality."""
 
     def test_get_fallback_model_with_mapping(self):
-        """Test getting fallback model with existing mapping."""
+        """get_fallback_model() resolves the current model through the
+        catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
+        round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
+        attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
+        the current frontier."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
         agent = MockAgentWithMixin(model="gpt-4o")
@@ -99,7 +103,7 @@ class TestQuotaFallbackMixin:
 
         result = agent.get_fallback_model()
 
-        assert result == "openai/gpt-4o"
+        assert result == "openai/gpt-6-astra"
 
     def test_get_fallback_model_uses_default(self):
         """Test getting fallback model falls back to default."""
