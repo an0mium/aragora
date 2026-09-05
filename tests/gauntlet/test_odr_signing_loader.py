@@ -93,6 +93,9 @@ def test_unset_and_empty_are_unsigned_and_preserve_aws_path(odr, value, monkeypa
         key = load_signing_key_from_secrets()
     aws.assert_called_once_with("named-secret", explicitly_named=True)
     assert compute_key_id(key.public_key()) == compute_key_id(odr_test_key().public_key())
+    with patch("aragora.gauntlet.odr_signing._load_pem_secret_from_aws", return_value=pem):
+        signed = sign_odr_if_configured(odr)
+    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
 
 
 @pytest.mark.parametrize(
@@ -151,6 +154,44 @@ def test_optional_signature_metadata_and_legacy_entries(odr, role):
         legacy["signatures"][0].pop(field)
     assert verify_odr_document(legacy, public_key=odr_test_key().public_key()).ok
     assert verify(legacy, public_key=odr_test_key().public_key()).ok
+
+
+def test_legacy_signer_without_metadata_opt_in_keeps_published_shape(odr):
+    golden = json.loads((ROOT / "docs/specs/examples/example-signed.odr.json").read_text())
+    signed = sign_odr_receipt(odr, odr_test_key())
+    assert set(signed["signatures"][0]) == set(golden["signatures"][0])
+    for verifier in (verify_odr_document, verify):
+        result = verifier(signed, public_key=odr_test_key().public_key())
+        assert result.ok
+        assert not any("unauthenticated signature metadata" in w for w in result.warnings)
+
+
+def test_signature_metadata_is_explicitly_unauthenticated(odr):
+    signed = sign_odr_receipt(odr, odr_test_key(), issuer="original")
+    signed["signatures"][0].update(
+        issuer="modified",
+        role="notary",
+        signed_at="2099-01-01T00:00:00Z",
+        expires_at="2000-01-01T00:00:00Z",
+    )
+    for verifier in (verify_odr_document, verify):
+        result = verifier(signed, public_key=odr_test_key().public_key())
+        assert result.ok  # Detached payload integrity has not changed.
+        assert any("unauthenticated signature metadata" in w for w in result.warnings)
+        assert any("expiry is not enforced" in w for w in result.warnings)
+
+
+def test_published_key_matches_documented_custody_record():
+    from aragora.gauntlet.odr_verify import load_public_key
+
+    kid = "ed25519-44c316618e9a0f58"
+    path = ROOT / f"docs/specs/keys/aragora-odr-signing-{kid}.pub.pem"
+    pem = path.read_bytes()
+    assert b"PRIVATE" not in pem
+    assert compute_key_id(load_public_key(pem)) == kid
+    spec = (ROOT / "docs/specs/OPEN_DECISION_RECEIPT.md").read_text()
+    assert path.name in spec
+    assert "/.well-known/aragora-odr-signing-key" in spec
 
 
 @pytest.mark.parametrize("field,value", [("issuer", ""), ("role", "admin"), ("expires_at", 3)])

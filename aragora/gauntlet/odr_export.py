@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from importlib import resources
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -336,6 +337,8 @@ def sign_odr_if_configured(
     except odr_signing.OdrSigningUnconfiguredError as exc:
         logger.warning("ODR signing key not configured; exporting unsigned ODR receipt: %s", exc)
         return odr
+    if os.environ.get(odr_signing.SIGNING_KEY_FILE_ENV):
+        return odr_signing.sign_odr_receipt(odr, private_key, issuer="aragora", role="emitter")
     return odr_signing.sign_odr_receipt(odr, private_key)
 
 

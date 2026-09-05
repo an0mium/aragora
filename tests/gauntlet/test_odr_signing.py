@@ -102,7 +102,7 @@ def test_signature_entry_shape() -> None:
     signed = sign_odr_receipt(_valid_odr(), key)
     assert len(signed["signatures"]) == 1
     entry = signed["signatures"][0]
-    assert set(entry) == {"alg", "key_id", "signature", "issuer", "role", "signed_at"}
+    assert set(entry) == {"alg", "key_id", "signature"}
     assert entry["alg"] == ODR_SIGNATURE_ALG == "Ed25519"
     assert entry["key_id"].startswith("ed25519-")
     # raw 64-byte Ed25519 signature, base64-encoded

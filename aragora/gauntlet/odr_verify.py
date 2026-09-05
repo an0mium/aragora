@@ -777,6 +777,14 @@ def _check_chain(doc: dict[str, Any], digest_hex: str, chain: list[dict[str, Any
 
 def _weakening_warnings(doc: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
+    if any(
+        any(field in sig for field in ("issuer", "role", "signed_at", "expires_at"))
+        for sig in doc.get("signatures", [])
+    ):
+        warnings.append(
+            "unauthenticated signature metadata: issuer, role, signed_at, expires_at "
+            "are not digest-covered; identity/time are not established and expiry is not enforced"
+        )
     attestation = doc.get("attestation")
     if isinstance(attestation, dict) and attestation.get("disposition") == "autonomous":
         warnings.append("attestation: autonomous — no human accepted the risk for this decision")

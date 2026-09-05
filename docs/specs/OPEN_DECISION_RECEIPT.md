@@ -59,7 +59,7 @@ carry absent markers rather than being omitted, so a verifier can distinguish
 | `cruxes` | object | Crux set or absent marker (§4.6). |
 | `attestation` | object | Human-attestation block or explicit `autonomous` disposition (§4.7). |
 | `routing` | object | Reserved (§4.8). |
-| `signatures` | array | Reserved for detached signatures, empty in v0.1 (§6). |
+| `signatures` | array | Detached Ed25519 signatures; empty when unconfigured (§6). |
 | `source` | object | Optional provenance link to the native emitting record (§4.9). |
 
 ## 3. Absent markers
@@ -225,12 +225,44 @@ ODR intentionally defines **no envelope**. Deployment guidance:
   repository's own loop. TET answers *"was the record rewritten?"*; ODR
   answers *"what did the decision actually consist of?"*. They compose.
 - **COSE / detached signature:** sign `odr_digest` (§5) as a COSE_Sign1
-  detached payload, or place Ed25519 signatures in the reserved
-  `signatures[]` array (schema shape: `alg`, `key_id`, `signature`,
-  `signed_at`). Implementation is issue **#8225** and is out of scope for
-  v0.1 — emitters MUST emit `signatures: []`.
+  detached payload, or place Ed25519 signatures in the `signatures[]` array
+  (`alg`, `key_id`, `signature`). Emitters without configured custody emit
+  `signatures: []`. Legacy signatures retain their published v0.1 shape.
 - **in-toto:** the ODR document can serve as the predicate of an attestation
   whose subject duplicates `subject.digest`.
+
+### File-custody interoperability opt-in
+
+Setting `ARAGORA_ODR_SIGNING_KEY_FILE` to a non-empty path explicitly opts into
+file custody and descriptive signature metadata: `issuer` (non-empty string),
+`role` (`emitter`, `reviewer`, `attestor`, or `notary`), `signed_at` (string),
+and optional `expires_at` (string). CLI/script producers use issuer `aragora`
+and role `emitter`. The metadata requires the updated bundled schema/verifier;
+published older validators with closed signature schemas reject these extra
+members. Existing secret/AWS and direct-signing callers retain legacy entries
+unless they explicitly request metadata. The coordinated v0.2 version/profile
+change is separate; no v0.1 payload or digest semantics change here.
+
+**Unauthenticated metadata:** everything inside `signatures` is excluded from
+the signed digest. Issuer, role and timestamps MUST NOT establish identity,
+authority, or validity. They can be changed without invalidating the payload
+signature. Both verifiers warn about this limitation. Expiry is descriptive,
+not enforced in this revision. Pin a public key through a trusted channel.
+
+**Published custody record:** the receipt-first signing key is
+`ed25519-44c316618e9a0f58`, published as
+[`aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem`](keys/aragora-odr-signing-ed25519-44c316618e9a0f58.pub.pem).
+This is a public half only, not the deterministic test key. A deployment
+advertising this custody record must provision the matching private half.
+Before accepting that deployment's receipts, fetch
+`/.well-known/aragora-odr-signing-key` and compare its PEM bytes with this file
+and its `X-Aragora-Key-Id` header with the ID above. The JSON alias
+`/api/v2/receipts/signing-key` must report the same ID and `algorithm: Ed25519`.
+Other deployments may legitimately use different keys; do not silently trust
+their key as this published signer. Rotate the custody record and consumer pins
+together. Unset/empty file configuration preserves secret/AWS fallback; a
+non-empty unreadable or invalid key fails closed (key routes 404, producers
+exit 1 without output). Readiness does not depend on signing custody.
 
 ## 7. Compliance mapping — EU AI Act Art. 14 / NIST AI 600-1
 

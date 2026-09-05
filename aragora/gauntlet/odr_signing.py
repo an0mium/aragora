@@ -293,7 +293,7 @@ def sign_odr_receipt(
     private_key: Ed25519PrivateKey,
     *,
     replace: bool = False,
-    issuer: str = "aragora",
+    issuer: str | None = None,
     role: str = "emitter",
     signed_at: str | None = None,
     expires_at: str | None = None,
@@ -309,7 +309,7 @@ def sign_odr_receipt(
             (re-sign). When False (default), append alongside existing ones —
             the digest excludes ``signatures``, so this never invalidates a
             prior signature.
-        issuer: Non-empty producer identifier (defaults to Aragora).
+        issuer: Non-empty producer identifier; opts into descriptive metadata.
         role: One of emitter, reviewer, attestor, or notary.
         signed_at: Signing timestamp; defaults to current UTC time.
         expires_at: Optional expiry timestamp.
@@ -323,7 +323,7 @@ def sign_odr_receipt(
     Metadata inside ``signatures`` is descriptive, not digest-covered. It must
     not be treated as cryptographically authenticated identity or time.
     """
-    if not isinstance(issuer, str) or not issuer:
+    if issuer is not None and (not isinstance(issuer, str) or not issuer):
         raise OdrSigningError("signature issuer must be a non-empty string")
     if role not in ("emitter", "reviewer", "attestor", "notary"):
         raise OdrSigningError("signature role must be emitter, reviewer, attestor, or notary")
@@ -363,12 +363,19 @@ def sign_odr_receipt(
         "alg": ODR_SIGNATURE_ALG,
         "key_id": compute_key_id(private_key.public_key()),
         "signature": base64.b64encode(signature_bytes).decode("ascii"),
-        "issuer": issuer,
-        "role": role,
-        "signed_at": signed_at if signed_at is not None else datetime.now(timezone.utc).isoformat(),
     }
-    if expires_at is not None:
-        entry["expires_at"] = expires_at
+    # Legacy callers keep the published v0.1 entry shape. File-custody producers
+    # explicitly opt in by supplying an issuer; other callers can do the same.
+    if issuer is not None or role != "emitter" or signed_at is not None or expires_at is not None:
+        entry.update(
+            issuer=issuer if issuer is not None else "aragora",
+            role=role,
+            signed_at=signed_at
+            if signed_at is not None
+            else datetime.now(timezone.utc).isoformat(),
+        )
+        if expires_at is not None:
+            entry["expires_at"] = expires_at
     signatures.append(entry)
     signed["signatures"] = signatures
     return signed
