@@ -497,6 +497,14 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_050_000,
             max_output_tokens=128_000,
             release_date=date(2026, 9, 3),
+            # Under soak until 2026-09-17, and adopted anyway on every
+            # non-routing surface -- the reviewer-role pin, the openai-api
+            # and codex defaults, and the cross-family fallback target for
+            # Fable, Opus 5, Grok and the OpenAI-compatible agents. That is
+            # a deliberate one-time founder override (2026-09-04, "Astra
+            # everywhere now"; documented on #9069), not an oversight; the
+            # round-robin router keeps its soak gate by design, so
+            # _is_under_soak stays true and stays enforced there.
             soak_until=date(2026, 9, 17),
             supports_sampling_params=False,
             max_tokens_param="max_completion_tokens",
