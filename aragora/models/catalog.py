@@ -455,7 +455,12 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_048_576,
             max_output_tokens=65_536,
             release_date=date(2026, 2, 19),
-            aliases=("gemini-3.1-pro", "google/gemini-3.1-pro"),
+            # NOTE: the bare "gemini-3.1-pro" spelling is deliberately NOT an alias
+            # here, for the same reason as mistral-large-2512 above: it is the key of
+            # a static hand row in aragora/routing/provider_config.py, and the
+            # catalog->routing projection prunes table keys that by_any_id() resolves
+            # to a non-canonical spelling. The upgrade map carries the bare spelling.
+            aliases=("google/gemini-3.1-pro",),
         ),
         ModelSpec(
             # tier="value": Flash released 2026-09-02, LATER than
@@ -517,7 +522,14 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=262_144,
             max_output_tokens=131_072,
             release_date=date(2025, 12, 1),
-            aliases=("mistral-large-latest", "mistral-large"),
+            # NOTE: the bare "mistral-large" spelling is deliberately NOT an alias here.
+            # aragora/routing/provider_config.py keeps a static hand row keyed
+            # "mistral-large" for DEFAULT_PROVIDER_ORDER enumeration, and the
+            # catalog->routing projection prunes any table key that by_any_id()
+            # resolves to a non-canonical spelling. Claiming the alias would delete
+            # that hand row from the published pricing table. The bare spelling is
+            # carried by the upgrade map instead.
+            aliases=("mistral-large-latest",),
         ),
         ModelSpec(
             canonical_id="deepseek-v4-pro-0813",
