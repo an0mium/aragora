@@ -67,19 +67,30 @@ from aragora.agents.transports.vibeproxy import (  # noqa: E402
     VibeProxyTimeoutError,
     VibeProxyUnavailableError,
 )
+from aragora.config.model_pins import (  # noqa: E402
+    FABLE_51_DIRECT,
+    FABLE_51_VIA_OPENROUTER,
+    OPUS_5_DIRECT,
+)
 
-DEFAULT_MODEL = "claude-fable-5"
-FALLBACK_MODEL = "claude-opus-5"
+DEFAULT_MODEL = FABLE_51_DIRECT
+FALLBACK_MODEL = OPUS_5_DIRECT
 DEFAULT_TIMEOUT_SECONDS = 600
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_OPENROUTER_MODEL = os.environ.get(
     "ARAGORA_CONSULT_OPENROUTER_MODEL",
-    os.environ.get("OPENROUTER_FABLE_MODEL", "anthropic/claude-opus-4.1"),
+    os.environ.get("OPENROUTER_FABLE_MODEL", FABLE_51_VIA_OPENROUTER),
 )
 API_MAX_TOKENS = 8192
 MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
-API_UNSUPPORTED_MODELS = {"claude-fable-5"}
+# frontier-model-refresh (2026-09-04, controller ruling 3): kept as both
+# claude-fable-5 and claude-fable-5-1 -- no ANTHROPIC_API_KEY/OPENROUTER_API_KEY
+# is available in this environment to verify the direct Messages API accepts
+# Fable 5.1, so the conservative (previously-verified-refusing) assumption is
+# kept for both ids rather than assumed fixed. Re-test via VibeProxy (Task 7)
+# and empty this set if the direct API works.
+API_UNSUPPORTED_MODELS = {"claude-fable-5", "claude-fable-5-1"}
 MAX_PROMPT_BYTES = 512 * 1024
 API_RESPONSE_READ_CHUNK_BYTES = 64 * 1024
 _CLI_RATE_LIMIT_MARKERS = (
