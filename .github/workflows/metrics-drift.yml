@@ -29,6 +29,9 @@ on:
       - 'scripts/regenerate_metrics.py'
       - '.mypy-baseline'
       - '.github/workflows/metrics-drift.yml'
+      - 'scripts/refresh_model_literals.py'
+      - 'scripts/baselines/retired_model_literals_allowlist.txt'
+      - 'aragora/models/upgrade_map.py'
   schedule:
     - cron: '0 5 * * 1'
   workflow_dispatch:
@@ -144,3 +147,25 @@ jobs:
               fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  retired-model-literals:
+    # Non-required: catches retired model-id literals creeping back in
+    # outside scripts/baselines/retired_model_literals_allowlist.txt.
+    # See aragora/models/upgrade_map.py for the retired->current catalog.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check retired model literals
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. python3 scripts/refresh_model_literals.py --check
