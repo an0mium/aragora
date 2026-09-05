@@ -129,17 +129,17 @@ Removed 6 `agents` methods from `AgentsAPI` that targeted routes no server
 handler dispatches: the agents handler rewrites `/api/v1/agents/{name}/...` to
 `/api/agent/{name}/...`, dispatches only read-only sub-routes (`profile`,
 `history`, `calibration`, `consistency`, `flips`, `network`, `rivals`, `allies`,
-`moments`, `positions`, `domains`, `performance`, `metadata`, `introspect`) and
-has no POST or PUT branch, and `/api/v1/agents/stats` is rejected as an invalid
-agent path. Every call below failed (404; 400 for `getStats`), so no working
-integration depended on them. `agents.getElo` (`/api/v1/ranking/elo/{name}`) and
-`agents.updateElo` (also unrouted) follow in the next batch.
+`moments`, `positions`, `domains`, `performance`, `metadata`, `introspect`,
+plus the two-segment `head-to-head/{opponent}` and
+`opponent-briefing/{opponent}`) and has no POST or PUT branch, and
+`/api/v1/agents/stats` is rejected as an invalid agent path. Every call below
+failed.
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
 | `agents.getStats()` | `GET /api/v1/agents/stats` | `ranking.getStats()` (`GET /api/v1/ranking/stats`; `total_agents`, `total_matches`, `avg_elo`, `top_agent`, `elo_range`) for aggregate ranking statistics, or `client.request('GET', '/api/v1/agents', { params: { include_stats: 'true' } })` for per-agent ELO and match counts (`agents.list()` sends no params). Per-agent stats also exist as `GET /api/v2/agents/{agent_id}/stats` on the opt-in FastAPI surface (`ARAGORA_USE_FASTAPI`), served but not in the spec |
 | `agents.calibrate(name, options)` | `POST /api/v1/agents/{name}/calibrate` | No replacement; calibration is recorded by the debate loop, not triggered over HTTP. Read the result with `agents.getCalibrationSummary(name)` / `agents.getCalibrationCurve(name)` (`GET /api/v1/agent/{name}/calibration-summary` and `.../calibration-curve`) |
-| `agents.enable(name)` | `POST /api/v1/agents/{name}/enable` | No replacement; there is no per-agent enable/disable switch on the HTTP server. Registration is the only lifecycle control: `agents.register(agentId, options)` / `agents.unregister(agentId)` (`POST` / `DELETE /api/v1/control-plane/agents[/{id}]`, served but not in the spec) |
+| `agents.enable(name)` | `POST /api/v1/agents/{name}/enable` | No replacement; there is no per-agent enable/disable switch on the HTTP server. Registration is the only served lifecycle mutation besides the per-agent heartbeat (`agents.heartbeat(agentId, status)`, `POST /api/v1/control-plane/agents/{id}/heartbeat`): `agents.register(agentId, options)` / `agents.unregister(agentId)` (`POST` / `DELETE /api/v1/control-plane/agents[/{id}]`, served but not in the spec); the dashboard `pause`/`resume` routes under the same prefix are declared but not dispatched |
 | `agents.disable(name, reason)` | `POST /api/v1/agents/{name}/disable` | See `agents.enable` |
 | `agents.getQuota(name)` | `GET /api/v1/agents/{name}/quota` | `quotas.list()` (`GET /api/v1/quotas`) or `quotas.get(resource)` (`GET /api/quotas/{resource}`; the server maps unversioned `/api/...` paths to v1, so this reaches the spec-listed `GET /api/v1/quotas/{resource}`); quotas are scoped to the caller's organization, not to an agent |
 | `agents.setQuota(name, options)` | `PUT /api/v1/agents/{name}/quota` | `quotas.requestIncrease(resource, requestedLimit, reason)` (`POST /api/v1/quotas/request-increase`) files a request; there is no direct quota write and no per-agent quota |
@@ -151,7 +151,7 @@ and below a backup id serves only `verify`, `verify-comprehensive` and
 
 | Removed Method | Route | Migration |
 |----------------|-------|-----------|
-| `backups.restore(backupId, options)` | `POST /api/v1/backups/{id}/restore` | `backups.testRestore(backupId, targetPath)` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) performs a dry-run restore into a server-side scratch path only; a real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
+| `backups.restore(backupId, options)` | `POST /api/v1/backups/{id}/restore` | ``client.request('POST', `/api/v2/backups/${backupId}/restore-test`, { body: { target_path: targetPath } })`` (`POST /api/v2/backups/{id}/restore-test`, served but not in the spec) performs a dry-run restore into a server-side scratch path only; `backups.testRestore` targets the same route but currently sends no request body, so its `targetPath` argument is ignored and the server uses its default scratch file. A real restore is operator-only via `aragora backup restore <backup_id> [--output PATH] [--dry-run]` on the server host |
 | `backups.createSchedule(options)` | `POST /api/v1/backups/schedules` | No replacement; the backup schedule is server configuration (`BACKUP_ENABLED`, `BACKUP_DAILY_TIME`, `BACKUP_DR_DRILL_ENABLED`, `BACKUP_DR_DRILL_INTERVAL_DAYS`), not an API resource |
 | `backups.listSchedules()` | `GET /api/v1/backups/schedules` | No replacement; see `backups.createSchedule` |
 | `backups.deleteSchedule(scheduleId)` | `DELETE /api/v1/backups/schedules/{id}` | No replacement; see `backups.createSchedule` |
