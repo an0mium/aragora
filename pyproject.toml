@@ -228,6 +228,43 @@ source = ["aragora"]
 # superset of those tests, so it always meets this floor. Ratchet upward only.
 fail_under = 7
 
+[tool.deptry]
+known_first_party = ["aragora", "scripts", "tests"]
+exclude = [
+    "sdk",
+    "tutorials",
+    "tests",
+    "scripts",
+    "aragora-debate",
+    "aragora-verify",
+    "aragora/live",
+    "docs",
+    "docs-site",
+    "ide",
+    "aragora-operator",
+    "\\.venv",
+    "node_modules",
+]
+pep621_dev_dependency_groups = ["dev", "test", "readiness"]
+# Optional-provider imports are lazily guarded; DEP001/DEP003 enforcement
+# is tracked in docs/TECH_DEBT.md rather than blocking optional integrations.
+ignore = ["DEP001", "DEP003"]
+
+[tool.deptry.package_module_name_map]
+python3-saml = "onelogin"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    # Runtime compatibility floor for botocore's AWS timestamp parser (see
+    # [project] dependencies); used transitively, not imported by aragora.
+    "python-dateutil",
+]
+DEP004 = [
+    # AWS providers guard boto3 imports when absent; [test] installs it for
+    # tests/config/test_secrets.py, not as a required runtime dependency.
+    "boto3",
+]
+
 [tool.ruff]
 line-length = 100
 exclude = ["aragora-debate*", "aragora-verify*"]
