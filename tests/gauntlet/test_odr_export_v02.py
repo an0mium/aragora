@@ -36,6 +36,53 @@ def test_emitter_v02_preserves_v01_absence():
     assert verify(doc).ok and verify_odr_document(doc).ok
 
 
+def test_findings_do_not_change_legacy_dissent_present():
+    legacy = legacy_document()
+    assert verify(legacy).ok and verify_odr_document(legacy).ok
+    receipt = DecisionReceipt.from_dict(
+        {"receipt_id": "test", "consensus_proof": {"reached": True, "confidence": 1.0}}
+    )
+    before = decision_receipt_to_odr(receipt)["quorum"]["dissent"]
+    finding = {"issuer": "claude", "severity": "P3", "blocking": False, "text": "[P3] advisory"}
+    receipt.settlement_metadata = {"odr": {"dissent": {"findings": [finding]}}}
+    doc = decision_receipt_to_odr(receipt)
+    assert before["present"] is False and doc["quorum"]["dissent"]["present"] is False
+    assert doc["quorum"]["dissent"]["findings"] == [finding]
+    assert verify(doc).ok and verify_odr_document(doc).ok
+
+
+@pytest.mark.parametrize("reasoning", ["", "Real source reasoning"])
+def test_observations_preserve_legacy_reasoning_marker(reasoning):
+    legacy = legacy_document()
+    assert verify(legacy).ok and verify_odr_document(legacy).ok
+    receipt = DecisionReceipt.from_dict({"receipt_id": "test", "verdict_reasoning": reasoning})
+    before = decision_receipt_to_odr(receipt)["reasoning"]
+    observations = [{"kind": "failure", "family": "grok", "detail": "transport failed"}]
+    receipt.settlement_metadata = {"odr": {"observations": observations}}
+    doc = decision_receipt_to_odr(receipt)
+    if reasoning:
+        assert doc["reasoning"] == {**before, "observations": observations}
+    else:
+        assert doc["reasoning"] == before and before["status"] == "absent"
+        assert "observations" not in doc["reasoning"]
+    assert verify(doc).ok and verify_odr_document(doc).ok
+
+
+def test_extension_walkers_accept_numbers_but_not_booleans():
+    from aragora.gauntlet.odr_verify import _validate_extensions
+
+    doc = legacy_document()
+    assert verify(doc).ok and verify_odr_document(doc).ok
+    bundled = copy.deepcopy(schema.load_bundled_schema())
+    bundled["properties"]["subject"]["properties"]["pr_number"] = {"type": "number"}
+    for walker in (_validate_extensions, schema._validate_extensions):
+        for value in (1, 1.5, True):
+            doc["subject"]["pr_number"] = value
+            errors: list[str] = []
+            walker(errors, doc, bundled)
+            assert bool(errors) == isinstance(value, bool)
+
+
 @pytest.mark.parametrize("version", ["0.1", "0.2"])
 def test_three_member_signatures_verify_for_both_versions(version):
     doc = legacy_document()

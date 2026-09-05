@@ -354,16 +354,17 @@ a drift-guard test so it cannot silently fall out of sync with the emitter.
 
 ### 9.5 Path to v1.0 GA (current status)
 
-The on-wire `odr_version` and `profile` URI remain **`"0.1"`** until a single
-coordinated GA release bumps, together: (a) the emitter constants in
-`aragora/gauntlet/odr_export.py`, (b) the bundled `odr_schema.json` in both the
-main repo and the `aragora-verify` package, and (c) the published `aragora-verify`
-release. Until that coordinated release, this section is the **stability
-contract that defines what v1.0 will guarantee** — authored ahead of the flip so
-the guarantees are reviewable independently of the release mechanics. The flip
-itself, and receipt signing in the production gate, are tracked separately and
-are out of scope for the documentation/verification milestone that introduced
-this section.
+ODR v0.2 lands as a **staged rollout**, not one coordinated release: first the
+emitter constants in `aragora/gauntlet/odr_export.py`, the bundled `odr_schema.json`
+in both the main repo and the `aragora-verify` package, and version acceptance
+in both bundled verifiers; next the consistency checks, signed-message
+construction, ACTA projection and deterministic test vectors; last the
+`aragora-verify` **0.2.0** PyPI release. Until 0.2.0 is published, the published
+`aragora-verify` 0.1.1 fails a v0.2 document at `schema_conformance`
+(`odr_version: must be '0.1'`), so verify v0.2 documents with the in-repo
+verifier or an `aragora-verify` built from this repository. Every v0.1 document
+keeps verifying unchanged with every verifier throughout. This section remains
+the **stability contract that v1.0 will honour**.
 
 ## 10. Reference emitter
 

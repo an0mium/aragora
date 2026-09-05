@@ -1,12 +1,36 @@
 """Optional v0.2 content members preserve the v0.1 profile."""
 
 import copy
+import json
+from pathlib import Path
 
+import jsonschema
 import pytest
 
 from aragora_verify import schema
 from aragora_verify.verifier import verify
 from _fixtures import valid_odr
+
+
+@pytest.mark.parametrize("version,profile_version", [("0.1", "0.2"), ("0.2", "0.1")])
+def test_schema_pairs_version_and_profile(monkeypatch, version, profile_version):
+    doc = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "docs/specs/examples/example-approved-clean.odr.json"
+        ).read_text()
+    )
+    bundled = schema.load_bundled_schema()
+    jsonschema.validate(doc, bundled)
+    assert verify(doc).ok
+    doc.update(
+        odr_version=version,
+        profile=f"https://aragora.ai/specs/open-decision-receipt/v{profile_version}",
+    )
+    monkeypatch.setattr(schema, "_jsonschema_errors", lambda doc: [])
+    assert "profile: must match odr_version" in schema.validate_structure(doc)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, bundled)
 
 
 def test_v02_schema_members_are_optional():

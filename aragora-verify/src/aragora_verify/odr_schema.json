@@ -4,6 +4,24 @@
   "title": "Open Decision Receipt (ODR) content profiles v0.1 and v0.2",
   "description": "Vendor-neutral decision-semantics receipt profile. Canonicalization basis: RFC 8785 (JCS). Designed to ride SCITT/COSE envelopes via detached signatures. See docs/specs/OPEN_DECISION_RECEIPT.md.",
   "type": "object",
+  "allOf": [
+    {
+      "if": {"properties": {"odr_version": {"const": "0.1"}}},
+      "then": {
+        "properties": {
+          "profile": {"const": "https://aragora.ai/specs/open-decision-receipt/v0.1"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"odr_version": {"const": "0.2"}}},
+      "then": {
+        "properties": {
+          "profile": {"const": "https://aragora.ai/specs/open-decision-receipt/v0.2"}
+        }
+      }
+    }
+  ],
   "required": [
     "odr_version",
     "profile",

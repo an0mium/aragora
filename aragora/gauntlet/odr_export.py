@@ -327,17 +327,7 @@ def decision_receipt_to_odr(
             if key in content:
                 doc["quorum"][key] = content[key]
         doc["quorum"]["dissent"].update(content.get("dissent", {}))
-        if content.get("dissent", {}).get("findings"):
-            doc["quorum"]["dissent"]["present"] = True
-    if content.get("observations"):
-        if doc["reasoning"].get("status") != "present":
-            doc["reasoning"] = _present(
-                {
-                    "summary": "; ".join(
-                        f"{o['family']}: {o['kind']}" for o in content["observations"]
-                    )
-                }
-            )
+    if content.get("observations") and doc["reasoning"]["status"] == "present":
         doc["reasoning"]["observations"] = content["observations"]
     if "adjudication" in content:
         doc["adjudication"] = content["adjudication"]

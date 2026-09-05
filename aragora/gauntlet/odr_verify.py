@@ -545,12 +545,14 @@ def _validate_extensions(errors: list[str], doc: dict[str, Any], schema: dict[st
             "string": str,
             "boolean": bool,
             "integer": int,
+            "number": (int, float),
             "null": type(None),
         }
         expected = spec.get("type", [])
         expected = [expected] if isinstance(expected, str) else expected
         if expected and not any(
-            isinstance(value, types[t]) and not (t == "integer" and isinstance(value, bool))
+            isinstance(value, types[t])
+            and not (t in ("integer", "number") and isinstance(value, bool))
             for t in expected
         ):
             errors.append(f"{path}: must have type {expected}")
