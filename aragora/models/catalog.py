@@ -34,10 +34,13 @@ from pathlib import Path
 __all__ = [
     "CATALOG",
     "ENFORCED_MODELS",
+    "FRONTIER",
     "ModelSpec",
     "by_any_id",
+    "frontier_for",
     "load_snapshot",
     "snapshot_path",
+    "spec_or_none",
     "utc_today",
 ]
 
@@ -76,6 +79,21 @@ class ModelSpec:
     long_context_threshold: int | None = None
     input_per_mtok_long: float | None = None
     output_per_mtok_long: float | None = None
+    # Pretraining lineage, used to group rows for frontier_for()/FRONTIER
+    # lookup: anthropic, openai, google, xai, mistral, deepseek, qwen,
+    # moonshot, meta, zai, minimax. A second-tier/specialized variant that
+    # would otherwise win a family's "newest release" race against its own
+    # flagship (e.g. a fast/cheap tier shipped after the flagship) is given
+    # a distinct suffixed family (e.g. "anthropic-opus", "google-flash") so
+    # frontier_for() still resolves to the flagship for the bare family.
+    family: str = ""
+    supports_sampling_params: bool = True
+    thinking_default_on: bool = False
+    forced_tool_choice_allowed: bool = True
+    max_tokens_param: str = "max_tokens"  # or "max_completion_tokens"
+    reasoning_effort_default: str | None = None
+    cache_read_per_mtok: float | None = None
+    retired: bool = False
 
     def all_ids(self) -> tuple[str, ...]:
         return (self.canonical_id, self.direct_id, self.openrouter_id, *self.aliases)
@@ -110,14 +128,17 @@ class ModelSpec:
 
 
 # Prices are USD per 1M tokens, captured from the live OpenRouter catalog
-# (most recently refreshed 2026-08-16; see catalog_snapshot.json for the raw
-# capture). Direct-provider ids are verified against provider model lists.
+# (most recently refreshed 2026-08-16, plus a 2026-09-04 incremental capture
+# for the frontier-model-refresh rows added that day; see
+# catalog_snapshot.json for the raw capture). Direct-provider ids are
+# verified against provider model lists.
 CATALOG: dict[str, ModelSpec] = {
     spec.canonical_id: spec
     for spec in (
         ModelSpec(
             canonical_id="claude-fable-5",
             provider="anthropic",
+            family="anthropic",
             direct_id="claude-fable-5",
             openrouter_id="anthropic/claude-fable-5",
             input_per_mtok=10.00,
@@ -125,10 +146,21 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=128_000,
             release_date=date(2026, 6, 20),
+            supports_sampling_params=False,
+            thinking_default_on=True,
+            # Superseded by claude-fable-5-1 (frontier-model-refresh,
+            # 2026-09-04); retained resolvable/priced, not the frontier pick.
+            retired=True,
         ),
         ModelSpec(
             canonical_id="claude-opus-5",
             provider="anthropic",
+            # Distinct sub-family from "anthropic" (the Fable flagship line):
+            # Opus 5 released 2026-07-24, LATER than Fable 5.1 (2026-06-24),
+            # so a bare "anthropic" family here would make frontier_for()
+            # pick Opus over Fable by date — wrong per the frontier-model-
+            # refresh spec, which names Fable 5.1 as the anthropic frontier.
+            family="anthropic-opus",
             direct_id="claude-opus-5",
             openrouter_id="anthropic/claude-opus-5",
             # Same economics as Opus 4.8 ($5/$25) per the provider model page.
@@ -145,6 +177,8 @@ CATALOG: dict[str, ModelSpec] = {
             # adoptable from release. Reinstating the window is a one-line
             # change: soak_until=date(2026, 8, 7).
             soak_until=None,
+            supports_sampling_params=False,
+            thinking_default_on=True,
         ),
         ModelSpec(
             # Retained deliberately: still Active upstream (retires no sooner
@@ -152,6 +186,7 @@ CATALOG: dict[str, ModelSpec] = {
             # cyber-classifier refusals, so it must stay resolvable and priced.
             canonical_id="claude-opus-4-8",
             provider="anthropic",
+            family="anthropic-opus",  # see claude-opus-5 for why not "anthropic"
             direct_id="claude-opus-4-8",
             openrouter_id="anthropic/claude-opus-4.8",
             input_per_mtok=5.00,
@@ -160,10 +195,13 @@ CATALOG: dict[str, ModelSpec] = {
             max_output_tokens=128_000,
             release_date=date(2026, 2, 10),
             aliases=("claude-opus-4.8", "anthropic/claude-opus-4-8"),
+            supports_sampling_params=False,
+            thinking_default_on=True,
         ),
         ModelSpec(
             canonical_id="gpt-5.6-sol",
             provider="openai",
+            family="openai",
             direct_id="gpt-5.6-sol",
             openrouter_id="openai/gpt-5.6-sol",
             input_per_mtok=5.00,
@@ -172,10 +210,15 @@ CATALOG: dict[str, ModelSpec] = {
             max_output_tokens=128_000,
             release_date=date(2026, 7, 9),
             soak_until=date(2026, 7, 23),
+            supports_sampling_params=False,
+            max_tokens_param="max_completion_tokens",
+            # Superseded by gpt-6-astra (frontier-model-refresh, 2026-09-04).
+            retired=True,
         ),
         ModelSpec(
             canonical_id="gpt-5.5",
             provider="openai",
+            family="openai",
             direct_id="gpt-5.5",
             openrouter_id="openai/gpt-5.5",
             # Provider repriced from 2.50/10.00 on ~2026-07-14 (caught live
@@ -185,10 +228,15 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_050_000,
             max_output_tokens=128_000,
             release_date=date(2025, 11, 1),
+            supports_sampling_params=False,
+            max_tokens_param="max_completion_tokens",
+            # Superseded by gpt-6-astra (frontier-model-refresh, 2026-09-04).
+            retired=True,
         ),
         ModelSpec(
             canonical_id="grok-4.5",
             provider="xai",
+            family="xai",
             direct_id="grok-4.5",
             openrouter_id="x-ai/grok-4.5",
             input_per_mtok=2.00,
@@ -202,10 +250,13 @@ CATALOG: dict[str, ModelSpec] = {
             long_context_threshold=200_000,
             input_per_mtok_long=4.00,
             output_per_mtok_long=12.00,
+            # Superseded by grok-4.6 (frontier-model-refresh, 2026-09-04).
+            retired=True,
         ),
         ModelSpec(
             canonical_id="grok-4.3",
             provider="xai",
+            family="xai",
             direct_id="grok-4.3",
             openrouter_id="x-ai/grok-4.3",
             input_per_mtok=1.25,
@@ -217,10 +268,13 @@ CATALOG: dict[str, ModelSpec] = {
             long_context_threshold=200_000,
             input_per_mtok_long=2.50,
             output_per_mtok_long=5.00,
+            # Superseded by grok-4.6 (frontier-model-refresh, 2026-09-04).
+            retired=True,
         ),
         ModelSpec(
             canonical_id="sonar-reasoning-pro",
             provider="perplexity",
+            family="perplexity",
             direct_id="sonar-reasoning-pro",
             openrouter_id="perplexity/sonar-reasoning-pro",
             input_per_mtok=2.00,
@@ -232,6 +286,7 @@ CATALOG: dict[str, ModelSpec] = {
         ModelSpec(
             canonical_id="command-a",
             provider="cohere",
+            family="cohere",
             direct_id="command-a-03-2025",
             openrouter_id="cohere/command-a",
             input_per_mtok=2.50,
@@ -243,6 +298,7 @@ CATALOG: dict[str, ModelSpec] = {
         ModelSpec(
             canonical_id="jamba-large-1.7",
             provider="ai21",
+            family="ai21",
             direct_id="jamba-large",
             openrouter_id="ai21/jamba-large-1.7",
             input_per_mtok=2.00,
@@ -252,20 +308,26 @@ CATALOG: dict[str, ModelSpec] = {
             release_date=date(2025, 8, 8),
         ),
         ModelSpec(
-            canonical_id="qwen3.8-max",
-            provider="alibaba",
-            direct_id="qwen3.8-max",
-            openrouter_id="qwen/qwen3.8-max",
+            # Supersedes qwen3.8-max (frontier-model-refresh, 2026-09-04);
+            # the old canonical/openrouter spellings are kept as aliases so
+            # existing lookups by "qwen3.8-max" / "qwen/qwen3.8-max" keep
+            # resolving (controller ruling 2).
+            canonical_id="qwen3.8-2.4t-a95b",
+            provider="openrouter",
+            family="qwen",
+            direct_id="qwen3.8-2.4t-a95b",
+            openrouter_id="qwen/qwen3.8-2.4t-a95b",
             input_per_mtok=2.00,
             output_per_mtok=6.00,
-            context_window=1_000_000,
+            context_window=1_048_576,
             max_output_tokens=131_072,
-            release_date=date(2026, 8, 3),
-            soak_until=date(2026, 8, 17),
+            release_date=date(2026, 8, 12),
+            aliases=("qwen3.8-max", "qwen/qwen3.8-max"),
         ),
         ModelSpec(
             canonical_id="qwen3.7-max",
             provider="alibaba",
+            family="qwen",
             direct_id="qwen3.7-max",
             openrouter_id="qwen/qwen3.7-max",
             # Repriced from 1.25/3.75 between 2026-07-10 and 2026-07-16
@@ -275,10 +337,14 @@ CATALOG: dict[str, ModelSpec] = {
             context_window=1_000_000,
             max_output_tokens=32_768,
             release_date=date(2026, 6, 1),
+            # Superseded by qwen3.8-2.4t-a95b (frontier-model-refresh,
+            # 2026-09-04).
+            retired=True,
         ),
         ModelSpec(
             canonical_id="kimi-k3",
             provider="moonshot",
+            family="moonshot",
             direct_id="kimi-k3",
             openrouter_id="moonshotai/kimi-k3",
             input_per_mtok=3.00,
@@ -293,6 +359,7 @@ CATALOG: dict[str, ModelSpec] = {
         ModelSpec(
             canonical_id="kimi-k2.7-code",
             provider="moonshot",
+            family="moonshot",
             direct_id="kimi-k2.7-code",
             openrouter_id="moonshotai/kimi-k2.7-code",
             # Live OpenRouter reprice captured by the 2026-08-16 snapshot
@@ -309,15 +376,233 @@ CATALOG: dict[str, ModelSpec] = {
             # wrong prices. Catalog k2.6 as its own ModelSpec if it needs
             # enforcement.
         ),
+        # ---------------------------------------------------------------
+        # Frontier model refresh (2026-09-04): current per-provider frontier
+        # rows. See FRONTIER / frontier_for() below for the canonical
+        # per-family "current default" lookup these feed.
+        # ---------------------------------------------------------------
+        ModelSpec(
+            canonical_id="claude-fable-5-1",
+            provider="anthropic",
+            family="anthropic",
+            direct_id="claude-fable-5-1",
+            openrouter_id="anthropic/claude-fable-5.1",
+            input_per_mtok=10.0,
+            output_per_mtok=50.0,
+            cache_read_per_mtok=0.25,
+            context_window=1_000_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 6, 24),
+            supports_sampling_params=False,
+            thinking_default_on=True,
+            forced_tool_choice_allowed=False,
+            aliases=("claude-fable-5.1", "anthropic/claude-fable-5-1"),
+        ),
+        ModelSpec(
+            canonical_id="gpt-6-astra",
+            provider="openai",
+            family="openai",
+            direct_id="gpt-6-astra",
+            openrouter_id="openai/gpt-6-astra",
+            input_per_mtok=10.0,
+            output_per_mtok=50.0,
+            cache_read_per_mtok=1.0,
+            context_window=1_050_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 9, 3),
+            soak_until=date(2026, 9, 17),
+            supports_sampling_params=False,
+            max_tokens_param="max_completion_tokens",
+            reasoning_effort_default="high",
+            long_context_threshold=272_000,
+            input_per_mtok_long=20.0,
+            output_per_mtok_long=75.0,
+        ),
+        ModelSpec(
+            canonical_id="gpt-5.6-terra",
+            provider="openai",
+            family="openai",
+            direct_id="gpt-5.6-terra",
+            openrouter_id="openai/gpt-5.6-terra",
+            input_per_mtok=2.0,
+            output_per_mtok=12.0,
+            context_window=1_050_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 7, 9),
+            supports_sampling_params=False,
+            max_tokens_param="max_completion_tokens",
+            reasoning_effort_default="medium",
+        ),
+        ModelSpec(
+            canonical_id="gemini-3.1-pro-preview",
+            provider="google",
+            family="google",
+            direct_id="gemini-3.1-pro-preview",
+            openrouter_id="google/gemini-3.1-pro-preview",
+            input_per_mtok=2.0,
+            output_per_mtok=12.0,
+            context_window=1_048_576,
+            max_output_tokens=65_536,
+            release_date=date(2026, 2, 19),
+            aliases=("gemini-3.1-pro", "google/gemini-3.1-pro"),
+        ),
+        ModelSpec(
+            # Distinct sub-family from "google" (the Pro flagship line):
+            # Flash released 2026-09-02, LATER than Pro-preview's 2026-02-19,
+            # so a bare "google" family here would make frontier_for() pick
+            # Flash over Pro by date — wrong per the frontier-model-refresh
+            # spec, which names Gemini 3.1 Pro as the google frontier.
+            canonical_id="gemini-3.8-flash",
+            provider="google",
+            family="google-flash",
+            direct_id="gemini-3.8-flash",
+            openrouter_id="google/gemini-3.8-flash",
+            input_per_mtok=0.75,
+            output_per_mtok=3.75,
+            context_window=1_048_576,
+            max_output_tokens=65_536,
+            release_date=date(2026, 9, 2),
+            soak_until=date(2026, 9, 16),
+        ),
+        ModelSpec(
+            canonical_id="grok-4.6",
+            provider="xai",
+            family="xai",
+            direct_id="grok-4.6",
+            openrouter_id="x-ai/grok-4.6",
+            input_per_mtok=2.0,
+            output_per_mtok=6.0,
+            context_window=500_000,
+            max_output_tokens=128_000,
+            release_date=date(2026, 8, 12),
+            long_context_threshold=200_000,
+            input_per_mtok_long=4.0,
+            output_per_mtok_long=12.0,
+        ),
+        ModelSpec(
+            canonical_id="mistral-medium-2604",
+            provider="mistral",
+            family="mistral",
+            direct_id="mistral-medium-2604",
+            openrouter_id="mistralai/mistral-medium-3-5",
+            input_per_mtok=1.5,
+            output_per_mtok=7.5,
+            context_window=262_144,
+            max_output_tokens=262_144,
+            release_date=date(2026, 4, 30),
+            aliases=("mistral-medium-3.5", "mistral-medium-latest"),
+        ),
+        ModelSpec(
+            canonical_id="mistral-large-2512",
+            provider="mistral",
+            family="mistral",
+            direct_id="mistral-large-2512",
+            openrouter_id="mistralai/mistral-large-2512",
+            input_per_mtok=0.5,
+            output_per_mtok=1.5,
+            context_window=262_144,
+            max_output_tokens=131_072,
+            release_date=date(2025, 12, 1),
+            aliases=("mistral-large-latest", "mistral-large"),
+        ),
+        ModelSpec(
+            canonical_id="deepseek-v4-pro-0813",
+            provider="openrouter",
+            family="deepseek",
+            direct_id="deepseek-v4-pro-0813",
+            openrouter_id="deepseek/deepseek-v4-pro-0813",
+            # Live OpenRouter capture (2026-09-04): $0.00000112068 /
+            # $0.00000336204 per token, i.e. 1.1207 / 3.362 per MTok (not the
+            # cleaner 1.12 / 3.36 in the original spec) — snapshot refresh
+            # would otherwise flag drift against the committed capture.
+            input_per_mtok=1.1207,
+            output_per_mtok=3.362,
+            context_window=1_048_576,
+            max_output_tokens=131_072,
+            release_date=date(2026, 8, 12),
+        ),
+        ModelSpec(
+            canonical_id="muse-spark-1.3",
+            provider="openrouter",
+            family="meta",
+            direct_id="muse-spark-1.3",
+            openrouter_id="meta/muse-spark-1.3",
+            input_per_mtok=1.25,
+            output_per_mtok=4.25,
+            context_window=1_048_576,
+            max_output_tokens=131_072,
+            release_date=date(2026, 9, 2),
+            soak_until=date(2026, 9, 16),
+        ),
+        ModelSpec(
+            canonical_id="glm-5.2",
+            provider="openrouter",
+            family="zai",
+            direct_id="glm-5.2",
+            openrouter_id="z-ai/glm-5.2",
+            # Live OpenRouter capture (2026-09-04): $0.000000966 /
+            # $0.000003036 per token, i.e. 0.966 / 3.036 per MTok.
+            input_per_mtok=0.966,
+            output_per_mtok=3.036,
+            context_window=1_048_576,
+            max_output_tokens=131_072,
+            release_date=date(2026, 5, 1),
+        ),
+        ModelSpec(
+            canonical_id="minimax-m3",
+            provider="openrouter",
+            family="minimax",
+            direct_id="minimax-m3",
+            openrouter_id="minimax/minimax-m3",
+            input_per_mtok=0.30,
+            output_per_mtok=1.20,
+            context_window=1_048_576,
+            max_output_tokens=131_072,
+            release_date=date(2026, 5, 31),
+        ),
     )
 }
+
+# Backward-compat dict alias, NOT a second row: at least two runtime modules
+# (aragora/agents/api_agents/openrouter.py, aragora/pdb/invoker_factory.py)
+# subscript ``CATALOG["qwen3.8-max"]`` directly at import time rather than
+# going through ``by_any_id``. qwen3.8-max is superseded by
+# qwen3.8-2.4t-a95b (frontier-model-refresh controller ruling 2) and is not
+# reconstructed as its own ModelSpec; this line only lets that key keep
+# resolving (to the SAME new-canonical-id spec object) until those call
+# sites are migrated in a later task.
+CATALOG["qwen3.8-max"] = CATALOG["qwen3.8-2.4t-a95b"]
 
 # Models whose runtime-table rows are ENFORCED against this catalog by
 # tests/models/test_catalog.py. Grows as legacy rows are adjudicated (several
 # older mirror rows are known-stale vs the live snapshot — e.g. the deepseek
 # and qwen3-max rows — and enter enforcement only once their discrepancies
 # are resolved, not silently overwritten).
-ENFORCED_MODELS: tuple[str, ...] = tuple(CATALOG)
+#
+# Deliberately NOT ``tuple(CATALOG)``: the frontier-model-refresh (2026-09-04)
+# added thirteen new rows whose runtime-table mirrors (pdb/billing/metering/
+# provider_config/model_selector/openrouter fallback) have not been migrated
+# yet — that migration is later-task scope. Auto-enforcing them here would
+# fail the mirror-consistency tests below for rows that were never meant to
+# be wired yet. ``qwen3.8-max`` is dropped (not replaced by
+# ``qwen3.8-2.4t-a95b``) for the same reason: its canonical/direct id changed,
+# and the mirror tables still key on the old spelling — resolvable via the
+# alias on the new row (``by_any_id``), but not yet enforced under the new id.
+ENFORCED_MODELS: tuple[str, ...] = (
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "gpt-5.6-sol",
+    "gpt-5.5",
+    "grok-4.5",
+    "grok-4.3",
+    "sonar-reasoning-pro",
+    "command-a",
+    "jamba-large-1.7",
+    "qwen3.7-max",
+    "kimi-k3",
+    "kimi-k2.7-code",
+)
 
 _ID_INDEX: dict[str, ModelSpec] = {}
 for _spec in CATALOG.values():
@@ -328,6 +613,29 @@ for _spec in CATALOG.values():
 def by_any_id(model_id: str) -> ModelSpec | None:
     """Resolve any known spelling (canonical/direct/openrouter/alias)."""
     return _ID_INDEX.get(str(model_id).strip())
+
+
+def spec_or_none(model_id: str | None) -> ModelSpec | None:
+    """Like ``by_any_id`` but tolerates ``None``/falsy input (convenience for
+    optional model-id fields threaded through call sites)."""
+    if not model_id:
+        return None
+    return by_any_id(str(model_id))
+
+
+def frontier_for(family: str) -> ModelSpec:
+    """Newest non-retired catalog row for ``family`` (a pretraining lineage,
+    see ``ModelSpec.family``). Raises if the family has no active row."""
+    rows = [s for s in CATALOG.values() if s.family == family and not s.retired]
+    if not rows:
+        raise KeyError(f"no active catalog row for family {family!r}")
+    return max(rows, key=lambda s: (s.release_date, s.canonical_id))
+
+
+FRONTIER: dict[str, str] = {
+    fam: frontier_for(fam).canonical_id
+    for fam in sorted({s.family for s in CATALOG.values() if s.family and not s.retired})
+}
 
 
 def snapshot_path() -> Path:

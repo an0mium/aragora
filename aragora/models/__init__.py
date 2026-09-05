@@ -3,10 +3,13 @@
 from aragora.models.catalog import (
     CATALOG,
     ENFORCED_MODELS,
+    FRONTIER,
     ModelSpec,
     by_any_id,
+    frontier_for,
     load_snapshot,
     snapshot_path,
+    spec_or_none,
     utc_today,
 )
 from aragora.models.compat import (
@@ -18,12 +21,15 @@ from aragora.models.compat import (
 __all__ = [
     "CATALOG",
     "ENFORCED_MODELS",
+    "FRONTIER",
     "ModelSpec",
     "by_any_id",
     "first_text_block",
+    "frontier_for",
     "load_snapshot",
     "rejects_sampling_params",
     "strip_sampling_params",
     "snapshot_path",
+    "spec_or_none",
     "utc_today",
 ]

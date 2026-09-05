@@ -14,7 +14,15 @@ from decimal import Decimal
 
 import pytest
 
-from aragora.models import CATALOG, ENFORCED_MODELS, by_any_id, load_snapshot
+from aragora.models import (
+    CATALOG,
+    ENFORCED_MODELS,
+    FRONTIER,
+    by_any_id,
+    frontier_for,
+    load_snapshot,
+    spec_or_none,
+)
 
 # ---------------------------------------------------------------------------
 # Catalog internal invariants
@@ -113,18 +121,23 @@ def test_kimi_k3_runtime_metadata_and_soak_boundary() -> None:
     assert not spec.is_under_soak(today=date(2026, 7, 30))
 
 
-def test_qwen38_max_runtime_metadata_and_soak_boundary() -> None:
-    spec = CATALOG["qwen3.8-max"]
+def test_qwen38_2_4t_a95b_runtime_metadata() -> None:
+    """qwen3.8-max is superseded by qwen3.8-2.4t-a95b (canonical), which
+    carries qwen3.8-max / qwen/qwen3.8-max as aliases so existing lookups by
+    the old spelling keep resolving (frontier-model-refresh, controller
+    ruling 2)."""
+    spec = CATALOG["qwen3.8-2.4t-a95b"]
 
-    assert spec.direct_id == "qwen3.8-max"
-    assert spec.openrouter_id == "qwen/qwen3.8-max"
+    assert spec.direct_id == "qwen3.8-2.4t-a95b"
+    assert spec.openrouter_id == "qwen/qwen3.8-2.4t-a95b"
     assert (spec.input_per_mtok, spec.output_per_mtok) == (2.0, 6.0)
-    assert spec.context_window == 1_000_000
+    assert spec.context_window == 1_048_576
     assert spec.max_output_tokens == 131_072
-    assert spec.release_date == date(2026, 8, 3)
-    assert spec.soak_until == date(2026, 8, 17)
-    assert spec.is_under_soak(today=date(2026, 8, 16))
-    assert not spec.is_under_soak(today=date(2026, 8, 17))
+    assert spec.release_date == date(2026, 8, 12)
+    assert spec.soak_until is None
+    assert not spec.is_under_soak()
+    assert by_any_id("qwen3.8-max") is spec
+    assert by_any_id("qwen/qwen3.8-max") is spec
 
 
 # ---------------------------------------------------------------------------
@@ -320,3 +333,55 @@ class TestLongContextTiers:
         above = estimate_cost_usd(model="x-ai/grok-4.5", tokens_in=300_000, tokens_out=10_000)
         assert below == pytest.approx(0.1 * 2.00 + 0.01 * 6.00)
         assert above == pytest.approx(0.3 * 4.00 + 0.01 * 12.00)
+
+
+# ---------------------------------------------------------------------------
+# Frontier model refresh (2026-09-04): capability flags + family lookup
+# ---------------------------------------------------------------------------
+
+
+def test_frontier_rows_present_with_flags() -> None:
+    fable = CATALOG["claude-fable-5-1"]
+    assert fable.direct_id == "claude-fable-5-1"
+    assert fable.openrouter_id == "anthropic/claude-fable-5.1"
+    assert (fable.input_per_mtok, fable.output_per_mtok) == (10.0, 50.0)
+    assert fable.supports_sampling_params is False
+    assert fable.thinking_default_on is True
+    assert fable.forced_tool_choice_allowed is False
+    astra = CATALOG["gpt-6-astra"]
+    assert astra.openrouter_id == "openai/gpt-6-astra"
+    assert astra.max_tokens_param == "max_completion_tokens"
+    assert astra.reasoning_effort_default == "high"
+    assert astra.supports_sampling_params is False
+    for cid in (
+        "gpt-5.6-terra",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
+        "grok-4.6",
+        "mistral-medium-2604",
+        "mistral-large-2512",
+        "deepseek-v4-pro-0813",
+        "qwen3.8-2.4t-a95b",
+        "kimi-k3",
+        "kimi-k2.7-code",
+        "muse-spark-1.3",
+        "glm-5.2",
+        "minimax-m3",
+    ):
+        assert cid in CATALOG, cid
+
+
+def test_frontier_for_each_family() -> None:
+    assert FRONTIER["anthropic"] == "claude-fable-5-1"
+    assert FRONTIER["openai"] == "gpt-6-astra"
+    assert FRONTIER["google"] == "gemini-3.1-pro-preview"
+    assert FRONTIER["xai"] == "grok-4.6"
+    assert FRONTIER["mistral"] == "mistral-medium-2604"
+    assert frontier_for("anthropic").canonical_id == "claude-fable-5-1"
+
+
+def test_superseded_rows_are_retired_not_deleted() -> None:
+    for cid in ("claude-fable-5", "gpt-5.6-sol", "gpt-5.5", "grok-4.5", "grok-4.3", "qwen3.7-max"):
+        assert CATALOG[cid].retired is True, cid
+    assert spec_or_none("anthropic/claude-fable-5") is not None
+    assert spec_or_none("no-such-model") is None
