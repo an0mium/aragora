@@ -49,6 +49,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Protocol as _TypingProtocol, Sequence
 
 from aragora.models import by_any_id
+from aragora.models.pricing_mirror import pdb_rows
 from aragora.pdb.panel_config import PDBPanelSlot
 from aragora.pdb.protocol import (
     SlotCritiqueResponse,
@@ -165,7 +166,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K3 and legacy K2,
 #   Qwen3-235B-A22B and Qwen3 Max variants)
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
-_PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
+_LEGACY_PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     # Live catalog 2026-07-16 (enforced by tests/models/test_catalog.py).
     "claude-fable-5": (10.00, 50.00),
@@ -275,6 +276,15 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "codestral-2501": (0.30, 0.90),
     "ministral-8b-latest": (0.10, 0.10),
     "ministral-3b-latest": (0.04, 0.04),
+}
+
+# Catalog-generated rows win on a key collision with the legacy hand-written
+# dict above (aragora.models.pricing_mirror is the single source of truth
+# for catalog-known models); legacy-only spellings (old aliases, retired
+# env overrides) are preserved unchanged.
+_PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
+    **_LEGACY_PRICE_PER_MTOK,
+    **pdb_rows(),
 }
 
 

@@ -18,6 +18,8 @@ from typing import Any
 from collections.abc import Generator
 from uuid import uuid4
 
+from aragora.models.pricing_mirror import usage_rows
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +33,7 @@ class UsageEventType(Enum):
 
 
 # Provider pricing per 1M tokens.
-PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
+_LEGACY_PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
         "claude-fable-5": Decimal("10.00"),  # live catalog 2026-07-16
         "claude-fable-5-output": Decimal("50.00"),
@@ -167,6 +169,18 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "openrouter/fusion": Decimal("8.00"),
         "openrouter/fusion-output": Decimal("32.00"),
     },
+}
+
+# Catalog-generated rows win on a key collision with the legacy hand-written
+# dict above (aragora.models.pricing_mirror is the single source of truth
+# for catalog-known models); hand rows for models the catalog doesn't know
+# about (e.g. legacy gpt-4o/gemini-pro spellings) are preserved unchanged.
+PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
+    prov: {**_LEGACY_PROVIDER_PRICING.get(prov, {}), **rows}
+    for prov, rows in {
+        **{p: {} for p in _LEGACY_PROVIDER_PRICING},
+        **usage_rows(),
+    }.items()
 }
 
 

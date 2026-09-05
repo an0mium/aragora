@@ -19,13 +19,14 @@ from decimal import Decimal
 from typing import Any
 
 from aragora.billing.usage import calculate_token_cost
+from aragora.models.pricing_mirror import debate_cost_rows
 
 logger = logging.getLogger(__name__)
 
 
 # Default provider rates per 1M tokens (input / output).
 # These mirror PROVIDER_PRICING from usage.py but can be overridden per-instance.
-DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
+_LEGACY_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
         "claude-fable-5": (Decimal("10.00"), Decimal("50.00")),
         "claude-opus-5": (Decimal("5.00"), Decimal("25.00")),
@@ -98,6 +99,18 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
             Decimal("5.00"),
         ),
     },
+}
+
+# Catalog-generated rows win on a key collision with the legacy hand-written
+# dict above (aragora.models.pricing_mirror is the single source of truth
+# for catalog-known models); hand rows for models the catalog doesn't know
+# about are preserved unchanged.
+DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
+    prov: {**_LEGACY_PROVIDER_RATES.get(prov, {}), **rows}
+    for prov, rows in {
+        **{p: {} for p in _LEGACY_PROVIDER_RATES},
+        **debate_cost_rows(),
+    }.items()
 }
 
 

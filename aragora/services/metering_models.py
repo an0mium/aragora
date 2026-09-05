@@ -14,6 +14,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+from aragora.models.pricing_mirror import metering_rows
+
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -47,7 +49,7 @@ class UsageType(Enum):
 
 # Provider pricing per 1M tokens (as of Jan 2026)
 # Aligned with aragora.billing.usage.PROVIDER_PRICING
-MODEL_PRICING: dict[str, dict[str, Decimal]] = {
+_LEGACY_MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
         "claude-fable-5": Decimal("10.00"),  # catalog / live capture 2026-07-16
         "claude-fable-5-output": Decimal("50.00"),
@@ -180,6 +182,19 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default": Decimal("2.00"),
         "default-output": Decimal("8.00"),
     },
+}
+
+# Catalog-generated rows win on a key collision with the legacy hand-written
+# dict above (aragora.models.pricing_mirror is the single source of truth
+# for catalog-known models); hand rows for models the catalog doesn't know
+# about (including the per-provider "default"/"default-output" fallback
+# rows) are preserved unchanged.
+MODEL_PRICING: dict[str, dict[str, Decimal]] = {
+    prov: {**_LEGACY_MODEL_PRICING.get(prov, {}), **rows}
+    for prov, rows in {
+        **{p: {} for p in _LEGACY_MODEL_PRICING},
+        **metering_rows(),
+    }.items()
 }
 
 # Tier-based usage caps (monthly)

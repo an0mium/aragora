@@ -241,19 +241,22 @@ def _catalog_projection(today: date | None = None) -> dict[str, ProviderPricing]
     the same ``by_any_id`` fallback, which has no soak gating.
 
     ``today`` anchors soak evaluation; pass one value through a whole
-    rebuild so gating and the refresh stamp share a coherent date."""
-    rows: dict[str, ProviderPricing] = {}
-    for spec in CATALOG.values():
-        if spec.is_under_soak(today):
-            continue
-        rows[spec.canonical_id] = ProviderPricing(
-            provider_name=spec.provider,
-            model_name=spec.direct_id,
-            input_cost_per_1k=spec.input_per_mtok / 1000.0,
-            output_cost_per_1k=spec.output_per_mtok / 1000.0,
-            context_window=spec.context_window,
-        )
-    return rows
+    rebuild so gating and the refresh stamp share a coherent date.
+
+    Delegates to :func:`aragora.models.pricing_mirror.provider_config_rows`,
+    the single generator for this shape (frontier-model-refresh Task 6): the
+    row construction itself lives there so every consumer of catalog
+    pricing shares one implementation. Imported locally to sidestep a
+    potential import cycle (``pricing_mirror.provider_config_rows`` in turn
+    imports ``ProviderPricing`` from this module inside its own function
+    body for the same reason). ``CATALOG`` is passed through explicitly
+    (this module's own, possibly-monkeypatched, module attribute) rather
+    than letting the mirror re-import the real catalog, so tests that
+    ``monkeypatch.setattr(provider_config, "CATALOG", ...)`` to inject
+    synthetic rows are observed correctly."""
+    from aragora.models.pricing_mirror import provider_config_rows
+
+    return provider_config_rows(today, catalog=CATALOG)
 
 
 def _apply_catalog_projection(table: dict[str, ProviderPricing], today: date | None = None) -> None:
