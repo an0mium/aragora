@@ -12,7 +12,20 @@ from aragora.models.upgrade_map import resolve_model_id
 # the test itself asserts would make every marked row un-failable and every
 # unmarked row un-xfailable by construction, defeating the point of this
 # reverse-completeness test.
-_PR2_PENDING_FAMILIES = frozenset({"tencent", "bytedance"})
+#
+# "claude", "openai", "grok" and "qwen" are here because their pinned slugs
+# are RETIRED spellings (anthropic/claude-fable-5, openai/gpt-5.5,
+# x-ai/grok-4.5, qwen/qwen3.7-max) that the raw assertion below now catches;
+# "tencent"/"bytedance" have no catalog row at all. The map itself is a
+# Tier-4 governance surface this PR must not touch, so the gap is recorded
+# rather than fixed. strict=True means PR 2 cannot land its rewrite without
+# deleting the family from this set.
+_PR2_PENDING_FAMILIES = frozenset({"claude", "openai", "grok", "qwen", "tencent", "bytedance"})
+
+# Same module, same PR-2 ownership, same treatment: _CODEX_DEFAULT_MODELS'
+# first entry is the retired "gpt-5.5" spelling. Literal for the same reason
+# _PR2_PENDING_FAMILIES is literal.
+_PR2_PENDING_CODEX_MODELS = frozenset({"gpt-5.5"})
 
 # Definers whose value is deliberately NOT a catalog id: a native provider's
 # own model code, for a family the catalog carries only as an OpenRouter row
@@ -79,15 +92,22 @@ def _reachable_defaults() -> list[tuple[str, str]]:
                 pytest.param(
                     where,
                     slug,
-                    marks=pytest.mark.xfail(
-                        strict=True, reason="PR 2 adds catalog rows / moves the reviewer map"
-                    ),
+                    marks=pytest.mark.xfail(strict=True, reason="PR 2 moves the reviewer map"),
                 )
             )
         else:
             out.append((where, slug))
     for m in qe._CODEX_DEFAULT_MODELS:
-        out.append(("codex_default", m))
+        if m in _PR2_PENDING_CODEX_MODELS:
+            out.append(
+                pytest.param(
+                    "codex_default",
+                    m,
+                    marks=pytest.mark.xfail(strict=True, reason="PR 2 moves the reviewer map"),
+                )
+            )
+        else:
+            out.append(("codex_default", m))
 
     # Native-provider entry points (see _NATIVE_ID_EXEMPT): listed so the gap
     # is named and pinned rather than merely absent from this test.
@@ -110,6 +130,16 @@ def test_reachable_default_is_priced_and_active(where: str, model_id: str) -> No
             f"{where}: {model_id!r} now has a catalog row of its own -- "
             f"drop it from _NATIVE_ID_EXEMPT ({_NATIVE_ID_EXEMPT[where]})"
         )
+    # The raw spelling must not itself be a retired row. Without this,
+    # "not spec.retired" below is unreachable and the test cannot fail on the
+    # condition it names: resolve_model_id() returns an active row on every
+    # branch (UPGRADES targets are asserted active in test_upgrade_map,
+    # branch 2 returns an active row, branch 3 returns a family frontier), so
+    # a definer literally pinned to a retired id passed silently.
+    assert raw is None or not raw.retired, (
+        f"{where}: {model_id!r} is a retired spelling; it only passes because "
+        f"resolve_model_id() upgrades it to {resolve_model_id(model_id)!r}"
+    )
     spec = spec_or_none(resolve_model_id(model_id))
     assert spec is not None, f"{where}: {model_id!r} has no catalog row"
     assert not spec.retired, f"{where}: {model_id!r} is retired"
