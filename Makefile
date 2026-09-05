@@ -375,9 +375,12 @@ marketplace-search:
 READINESS_BASE_REF ?= origin/main
 # Extra pytest paths for readiness-test-root, e.g. READINESS_EXTRA_TESTS="tests/utils".
 READINESS_EXTRA_TESTS ?=
-# Known-red at mission-base (two `.nomic/` literals); M2 fixes the test and
-# removes this deselect so the gate is honestly green from M1 on.
-READINESS_ROOT_TEST_DESELECT := --deselect tests/config/test_db_path_resolution.py::test_guard_repo_clean_scan_paths
+# Where readiness-test-<app> writes junit XML. Defaults outside the worktree so
+# the gate leaves no untracked artifacts behind.
+READINESS_JUNIT_DIR ?= /tmp/aragora-readiness/junit
+# Coverage floor for readiness-test-root, read from [tool.coverage.report]
+# fail_under in pyproject.toml so the Makefile and pytest agree on one number.
+READINESS_ROOT_COV_FAIL_UNDER = $$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["tool"]["coverage"]["report"]["fail_under"])')
 
 READINESS_T0 = start=$$(date +%s)
 READINESS_DONE = echo "[readiness] $@ ok ($$(( $$(date +%s) - start ))s)"
@@ -412,7 +415,9 @@ readiness-typecheck-root:
 readiness-test-root:
 	@$(READINESS_T0); \
 	command -v pytest >/dev/null 2>&1 || { echo "SKIP root: pytest not found (put .venv/bin on PATH)"; exit 0; }; \
-	pytest tests/ci tests/config tests/observability tests/telemetry $(READINESS_EXTRA_TESTS) -q -p no:randomly -n 4 --timeout=120 $(READINESS_ROOT_TEST_DESELECT) && \
+	mkdir -p "$(READINESS_JUNIT_DIR)"; \
+	fail_under=$(READINESS_ROOT_COV_FAIL_UNDER); \
+	pytest tests/ci tests/config tests/observability tests/telemetry $(READINESS_EXTRA_TESTS) -q -p no:randomly -n 4 --timeout=120 --cov=aragora --cov-fail-under=$$fail_under --junitxml="$(READINESS_JUNIT_DIR)/root.xml" && \
 	$(READINESS_DONE)
 
 # --- debate (aragora-debate/, src layout) -----------------------------------

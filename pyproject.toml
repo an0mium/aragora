@@ -87,12 +87,20 @@ aragora = "aragora.cli.main:main"
 
 [project.optional-dependencies]
 test = [
+    # tests/config/test_secrets.py imports boto3 at module level (AWS Secrets
+    # Manager backend); without it the curated CI scope fails at collection.
+    "boto3>=1.34,<2.0",
     "build>=1.5.0,<2.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
     "PyYAML>=6.0.3,<7.0",
     "pytest>=9.1.1,<10.0",
     "pytest-asyncio>=1.4.0,<2.0",
+    "pytest-cov>=7.0.0,<8.0",
+    "pytest-randomly>=4.0.1,<6.0",
+    "pytest-rerunfailures>=16.1,<17.0",
+    "pytest-timeout>=2.4.0,<3.0",
+    "pytest-xdist>=3.8.0,<4.0",
     "twine>=6.2.0,<7.0",
 ]
 gateway = [
@@ -201,9 +209,24 @@ exclude = ["aragora-debate*", "tests*", "docs*"]
 "aragora" = ["py.typed"]
 
 [tool.pytest.ini_options]
-addopts = "-p no:rerunfailures"
+# `-p no:randomly` keeps default (and CI) ordering deterministic even though
+# pytest-randomly is installed via the `test` extra. Opt in per run with
+# `pytest -o addopts="-p no:rerunfailures" -p randomly --randomly-seed=<n> ...`.
+addopts = "-p no:rerunfailures -p no:randomly"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+
+[tool.coverage.run]
+source = ["aragora"]
+
+[tool.coverage.report]
+# Floor of the coverage measured on `tests/ci tests/config` (8.71% on
+# 2026-09-04) minus one point. The curated `readiness-test-root` scope is a
+# superset of those tests, so it always meets this floor. Ratchet upward only.
+fail_under = 7
 
 [tool.ruff]
 line-length = 100
