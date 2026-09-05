@@ -124,11 +124,16 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     ) -> None:
         import os
 
+        self._uses_official_openai_endpoint = not os.environ.get("OPENAI_BASE_URL", "").strip()
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
-        # ids pass through untouched. See upgrade_retired_model_id.
-        model = upgrade_retired_model_id(model)
-        self._uses_official_openai_endpoint = not os.environ.get("OPENAI_BASE_URL", "").strip()
+        # ids pass through untouched. See upgrade_retired_model_id. Skipped
+        # for a custom OPENAI_BASE_URL (BYOK gateway/proxy, issue #9304):
+        # that endpoint may serve ids under names the public catalog does
+        # not recognize, so rewriting them would silently target the wrong
+        # model on someone else's endpoint.
+        if self._uses_official_openai_endpoint:
+            model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
             model=model,

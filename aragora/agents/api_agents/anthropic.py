@@ -158,10 +158,17 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         temperature: float | None = None,
         top_p: float | None = None,
     ) -> None:
+        import os
+
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
-        # ids pass through untouched. See upgrade_retired_model_id.
-        model = upgrade_retired_model_id(model)
+        # ids pass through untouched. See upgrade_retired_model_id. Skipped
+        # for a custom ANTHROPIC_BASE_URL (BYOK gateway/proxy, issue #9304):
+        # that endpoint may serve ids under names the public catalog does
+        # not recognize, so rewriting them would silently target the wrong
+        # model on someone else's endpoint.
+        if not os.environ.get("ANTHROPIC_BASE_URL", "").strip():
+            model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
             model=model,

@@ -15,6 +15,22 @@ from typing import ClassVar
 # Frontier pick for the Mistral API agent (2026-09-04 frontier-model-refresh).
 DEFAULT_MODEL = MISTRAL_MEDIUM_DIRECT
 
+_MISTRAL_DEFAULT_BASE_URL = "https://api.mistral.ai/v1"
+
+
+def _resolve_base_url(env_name: str, default: str) -> str:
+    """Resolve the API base URL from the environment (issue #9304).
+
+    Gateway values may omit the /v1 suffix the client paths expect; normalize
+    so both "https://gw.example" and "https://gw.example/v1" work.
+    """
+    import os
+
+    raw = os.environ.get(env_name, "").strip().rstrip("/")
+    if not raw:
+        return default
+    return raw if raw.endswith("/v1") else raw + "/v1"
+
 
 @AgentRegistry.register(
     "mistral-api",
@@ -62,10 +78,17 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
         enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker_threshold: int = 5,  # Increased from 3 - less aggressive fallback
     ) -> None:
+        import os
+
         # A retired or known-dead explicit id is upgraded before it can be
         # sent to the native endpoint (finding O-P2a); active and unknown
-        # ids pass through untouched. See upgrade_retired_model_id.
-        if self.UPGRADE_RETIRED_MODEL_ID:
+        # ids pass through untouched. See upgrade_retired_model_id. Skipped
+        # for a custom MISTRAL_BASE_URL (BYOK gateway/proxy, issue #9304):
+        # that endpoint may serve ids under names the public catalog does
+        # not recognize, so rewriting them would silently target the wrong
+        # model on someone else's endpoint.
+        uses_official_endpoint = not os.environ.get("MISTRAL_BASE_URL", "").strip()
+        if self.UPGRADE_RETIRED_MODEL_ID and uses_official_endpoint:
             model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
@@ -74,7 +97,9 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
             timeout=timeout,
             api_key=api_key
             or get_primary_api_key("MISTRAL_API_KEY", allow_openrouter_fallback=True),
-            base_url="https://api.mistral.ai/v1",
+            # MISTRAL_BASE_URL supports BYOK gateways/proxies (LiteLLM,
+            # enterprise API gateways, local proxies) — issue #9304.
+            base_url=_resolve_base_url("MISTRAL_BASE_URL", _MISTRAL_DEFAULT_BASE_URL),
             circuit_breaker_threshold=circuit_breaker_threshold,
             circuit_breaker_cooldown=90.0,  # Standard cooldown (was 60s)
         )
