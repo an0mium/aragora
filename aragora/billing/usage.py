@@ -206,6 +206,8 @@ def _catalog_token_price(model: str, prompt_tokens: int = 0) -> tuple[Decimal, D
     long-context tier (xAI's, and ``gpt-6-astra``'s) for a prompt at or above
     the row's threshold. The generated buckets are flat and cannot express
     that (finding O-P2b on #9989), which is why this path is consulted first.
+    ``prompt_tokens`` is the FULL prompt the request sends -- fresh plus
+    cached input -- since that is what a provider tiers on.
     """
     from aragora.models.catalog import spec_or_none
 
@@ -226,8 +228,9 @@ def _any_bucket_token_price(model: str) -> tuple[Decimal | None, Decimal | None]
     API agents bill under a label naming neither their model's catalog
     provider nor its family. Buckets are emitted per label precisely so a
     legitimate label finds the row, so consulting the others on a miss
-    cannot introduce a conflicting rate -- ``tests/billing/test_usage.py``
-    asserts no spelling is priced two different ways across buckets.
+    cannot introduce a conflicting rate --
+    ``tests/billing/test_usage.py::TestCrossBucketPriceConsistency`` asserts
+    no spelling is priced two different ways across buckets.
     """
     in_price: Decimal | None = None
     out_price: Decimal | None = None
@@ -285,7 +288,13 @@ def calculate_token_cost(
     # the tiered ones right.
     input_price: Decimal | None
     output_price: Decimal | None
-    catalog_price = _catalog_token_price(model, tokens_in)
+    # The tier threshold is evaluated against the FULL prompt -- fresh plus
+    # cached input -- because that is what providers tier on: a cache hit
+    # changes the RATE a token is billed at, not whether the request counts
+    # as long context. Passing tokens_in alone let a mostly-cached
+    # long-context request drop back to the flat rate (2026-09-05 wave-2
+    # re-review). Rates are still applied per token class below.
+    catalog_price = _catalog_token_price(model, tokens_in + tokens_cached)
     if catalog_price is not None:
         input_price, output_price = catalog_price
     else:

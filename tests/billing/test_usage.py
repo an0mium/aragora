@@ -1623,3 +1623,81 @@ class TestModuleExports:
         assert UsageTracker is not None
         assert calculate_token_cost is not None
         assert PROVIDER_PRICING is not None
+
+
+class TestCrossBucketPriceConsistency:
+    """One spelling, one price -- across every generated bucket.
+
+    ``_any_bucket_token_price`` consults EVERY ``PROVIDER_PRICING`` bucket on
+    a miss, on the stated ground that buckets are emitted per label from the
+    same catalog row and so cannot disagree. Its docstring cited this test as
+    the proof; the test did not exist (2026-09-05 wave-2 re-review), so the
+    invariant the fallback rests on was unverified.
+    """
+
+    def test_no_spelling_is_priced_two_different_ways_across_buckets(self):
+        from aragora.billing.usage import PROVIDER_PRICING
+
+        seen: dict[str, tuple[str, Decimal]] = {}
+        conflicts: list[str] = []
+        for bucket, rows in PROVIDER_PRICING.items():
+            for spelling, rate in rows.items():
+                prior = seen.get(spelling)
+                if prior is None:
+                    seen[spelling] = (bucket, rate)
+                elif prior[1] != rate:
+                    conflicts.append(f"{spelling!r}: {prior[0]}={prior[1]} vs {bucket}={rate}")
+        assert not conflicts, (
+            "a spelling is priced differently in different buckets, so "
+            "_any_bucket_token_price's answer depends on dict order:\n"
+            + "\n".join(sorted(conflicts))
+        )
+
+    def test_the_invariant_covers_more_than_a_handful_of_shared_spellings(self):
+        """Guards against the test above passing vacuously if bucketing ever
+        stopped emitting a spelling under more than one label."""
+        from aragora.billing.usage import PROVIDER_PRICING
+
+        counts: dict[str, int] = {}
+        for rows in PROVIDER_PRICING.values():
+            for spelling in rows:
+                counts[spelling] = counts.get(spelling, 0) + 1
+        shared = [s for s, n in counts.items() if n > 1]
+        assert len(shared) >= 20, f"only {len(shared)} spellings appear in >1 bucket"
+
+
+class TestLongContextThresholdCountsCachedInput:
+    """A provider tiers on the FULL prompt it receives.
+
+    The threshold was evaluated against ``tokens_in`` alone, so a
+    long-context request served mostly from cache dropped back to the flat
+    rate even though the provider saw a long prompt (2026-09-05 wave-2
+    re-review). Cached tokens are still BILLED at 10% of the input rate --
+    only the threshold decision changes.
+    """
+
+    def test_mostly_cached_long_prompt_crosses_the_threshold(self):
+        # gpt-6-astra: threshold 272_000; flat $10/$50, long $20/$75.
+        fresh, cached, out = 20_000, 300_000, 1_000
+        cost = calculate_token_cost("openai", "gpt-6-astra", fresh, out, tokens_cached=cached)
+        expected = (
+            Decimal(fresh) / Decimal("1000000") * Decimal("20.00")
+            + Decimal(out) / Decimal("1000000") * Decimal("75.00")
+            + Decimal(cached) / Decimal("1000000") * Decimal("20.00") * Decimal("0.1")
+        )
+        assert cost == expected
+
+    def test_below_the_threshold_even_with_cache_stays_flat(self):
+        fresh, cached, out = 20_000, 20_000, 1_000
+        cost = calculate_token_cost("openai", "gpt-6-astra", fresh, out, tokens_cached=cached)
+        expected = (
+            Decimal(fresh) / Decimal("1000000") * Decimal("10.00")
+            + Decimal(out) / Decimal("1000000") * Decimal("50.00")
+            + Decimal(cached) / Decimal("1000000") * Decimal("10.00") * Decimal("0.1")
+        )
+        assert cost == expected
+
+    def test_uncached_behaviour_is_unchanged(self):
+        """The fix must not move any answer for a request with no cache."""
+        assert calculate_token_cost("openai", "gpt-6-astra", 300_000, 10_000) == Decimal("6.7500")
+        assert calculate_token_cost("openai", "gpt-6-astra", 1_000, 1_000) == Decimal("0.060")
