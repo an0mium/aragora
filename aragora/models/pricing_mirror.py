@@ -62,17 +62,79 @@ def _active() -> list[ModelSpec]:
     return [s for s in CATALOG.values()]
 
 
+_OPENROUTER = "openrouter"
+
+
+def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """``(bucket, spellings)`` pairs one catalog row must be emitted under.
+
+    Bucketing a row ONLY by ``spec.provider`` (what the first cut of this
+    module did) leaves two holes that the 2026-09-05 merge-gate review
+    caught empirically on #9989, both of which silently bill the caller at
+    the ``openrouter`` bucket's ``$2/$8`` default instead of the real rate:
+
+    1. A native row's OpenRouter spelling never reached the ``openrouter``
+       bucket. ``OpenRouterAgent.agent_type`` is ``"openrouter"``, and that
+       is the ``provider`` string the monthly budget guard
+       (``api_agents/base.py``) and ``debate/orchestrator_runner.py`` pass
+       to ``calculate_token_cost`` — so every Claude/OpenAI/Gemini/Grok/
+       Mistral call routed through OpenRouter (which the frontier refresh
+       makes the default fallback target for all of them) was billed at
+       the default. ``anthropic/claude-fable-5.1`` costs 6x the default.
+    2. An ``openrouter``-provider row never reached its FAMILY bucket.
+       ``server/handlers/debates/cost_estimation.py`` asks for the row's
+       family bucket whenever the family names a real pricing bucket
+       (``deepseek``), so the cataloged ``deepseek-v4-pro-0813`` rate was
+       unreachable there.
+
+    So a row is emitted under, in this order:
+
+    1. its OWN provider bucket, every spelling (unchanged behaviour);
+    2. the ``openrouter`` bucket, every SLASH-BEARING spelling — the
+       ``openrouter_id`` plus any OpenRouter-shaped alias (e.g.
+       ``anthropic/claude-opus-4-8``, ``google/gemini-3.1-pro``). A bare
+       spelling is deliberately NOT emitted here: OpenRouter is addressed
+       by slug, and a bare id under this bucket would claim a rate for a
+       spelling no OpenRouter call ever sends;
+    3. and its ``family`` bucket, every spelling. Hole 2 above is the case
+       that needs this (``deepseek-v4-pro-0813``'s family bucket is the one
+       ``cost_estimation._pricing_provider`` derives for it), but the rule
+       is deliberately NOT restricted to openrouter-provider rows: emitting
+       one row under a family name makes that name a live pricing bucket,
+       and ``_pricing_provider`` then routes EVERY same-family row there.
+       Restricting the rule would therefore have the ``qwen3.8-2.4t-a95b``
+       row (provider ``openrouter``) create a ``qwen`` bucket that silently
+       shadows its ``alibaba``-provider sibling ``qwen3.7-max`` down to the
+       default rate — trading the reviewer's bug for a narrower copy of it.
+       For the common case (``family == provider``) this rule is a no-op.
+
+    Rates are identical across buckets — this is one row's price made
+    reachable under every provider label a caller legitimately uses for
+    it, never a per-bucket price.
+    """
+    ids = spec.all_ids()
+    buckets: list[tuple[str, tuple[str, ...]]] = [(spec.provider, ids)]
+    if spec.provider != _OPENROUTER:
+        slugs = tuple(i for i in ids if "/" in i)
+        if slugs:
+            buckets.append((_OPENROUTER, slugs))
+    if spec.family and spec.family != spec.provider:
+        buckets.append((spec.family, ids))
+    return tuple(buckets)
+
+
 def usage_rows() -> dict[str, dict[str, Decimal]]:
     """Shape of ``aragora.billing.usage.PROVIDER_PRICING``: provider ->
     {id: input_rate, f"{id}-output": output_rate}, one entry per spelling
     in ``ModelSpec.all_ids()`` so canonical/direct/openrouter/alias ids all
-    resolve."""
+    resolve, under every bucket ``_bucketed`` emits the row for."""
     out: dict[str, dict[str, Decimal]] = {}
     for s in _active():
-        prov = out.setdefault(s.provider, {})
-        for spelling in s.all_ids():
-            prov[spelling] = _dec(s.input_per_mtok)
-            prov[f"{spelling}-output"] = _dec(s.output_per_mtok)
+        for bucket, spellings in _bucketed(s):
+            prov = out.setdefault(bucket, {})
+            for spelling in spellings:
+                prov[spelling] = _dec(s.input_per_mtok)
+                prov[f"{spelling}-output"] = _dec(s.output_per_mtok)
     return out
 
 
@@ -84,12 +146,14 @@ def pdb_rows() -> dict[str, tuple[float, float]]:
 
 def debate_cost_rows() -> dict[str, dict[str, tuple[Decimal, Decimal]]]:
     """Shape of ``aragora.billing.debate_costs.DEFAULT_PROVIDER_RATES``:
-    provider -> {spelling: (input, output)}."""
+    provider -> {spelling: (input, output)}, under every bucket
+    ``_bucketed`` emits the row for."""
     out: dict[str, dict[str, tuple[Decimal, Decimal]]] = {}
     for s in _active():
-        prov = out.setdefault(s.provider, {})
-        for sp in s.all_ids():
-            prov[sp] = (_dec(s.input_per_mtok), _dec(s.output_per_mtok))
+        for bucket, spellings in _bucketed(s):
+            prov = out.setdefault(bucket, {})
+            for sp in spellings:
+                prov[sp] = (_dec(s.input_per_mtok), _dec(s.output_per_mtok))
     return out
 
 

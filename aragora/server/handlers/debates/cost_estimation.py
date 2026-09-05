@@ -66,12 +66,18 @@ def _pricing_provider(spec: ModelSpec) -> str:
     was always billed as "deepseek", and deepseek-v4-pro-0813 is the same
     family. So this keys off ``spec.family`` (the pretraining-lineage
     grouping) instead: when the family itself names a PROVIDER_PRICING
-    bucket (anthropic, openai, google, xai, mistral, deepseek), use it;
-    otherwise (ai21, alibaba/qwen, cohere, moonshot, perplexity, meta, zai,
-    minimax -- none of which PROVIDER_PRICING carries a native bucket for)
-    fall back to "openrouter", which already has a documented default-rate
-    bucket. Accurate per-model pricing for the fallback families is Task 6
-    scope.
+    bucket, use it; otherwise fall back to "openrouter", which has a
+    documented default-rate bucket.
+
+    Every family a catalog row carries now names a real bucket:
+    ``aragora.models.pricing_mirror._bucketed`` emits each row under its
+    family as well as its provider (2026-09-05 merge-gate fix wave, finding
+    O-P2c on #9989). Before that, the family bucket existed only for the
+    families the LEGACY hand-written table happened to name, so
+    ``deepseek-v4-pro-0813`` resolved to the "deepseek" bucket and then
+    silently fell back to the $2/$8 default because the catalog rate had
+    been emitted under "openrouter" instead. The "openrouter" fallback
+    below is retained for a row with no ``family`` at all.
     """
     return spec.family if spec.family in PROVIDER_PRICING else "openrouter"
 
