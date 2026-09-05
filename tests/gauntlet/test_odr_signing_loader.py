@@ -37,6 +37,7 @@ FILE_ENV = "ARAGORA_ODR_SIGNING_KEY_FILE"
 def isolated_signing(monkeypatch):
     monkeypatch.delenv(FILE_ENV, raising=False)
     monkeypatch.delenv("ARAGORA_ODR_SIGNING_KEY_SECRET", raising=False)
+    monkeypatch.delenv("ARAGORA_ODR_SIGNATURE_METADATA", raising=False)
     monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 
@@ -164,6 +165,43 @@ def test_legacy_signer_without_metadata_opt_in_keeps_published_shape(odr):
         result = verifier(signed, public_key=odr_test_key().public_key())
         assert result.ok
         assert not any("unauthenticated signature metadata" in w for w in result.warnings)
+
+
+@pytest.mark.parametrize("metadata", [{"role": "notary"}, {"signed_at": "2026-09-04T00:00:00Z"}])
+def test_metadata_requires_explicit_issuer(odr, metadata):
+    with pytest.raises(OdrSigningError, match="explicit issuer"):
+        sign_odr_receipt(odr, odr_test_key(), **metadata)
+
+
+def test_file_custody_can_emit_legacy_metadata_shape(odr, key_file, monkeypatch):
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNATURE_METADATA", "false")
+    signed = sign_odr_if_configured(odr)
+    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
+    for verifier in (verify_odr_document, verify):
+        assert verifier(signed, public_key=odr_test_key().public_key()).ok
+    monkeypatch.setenv(FILE_ENV, "/nonexistent/key.pem")
+    with pytest.raises(OdrSigningError, match="configured but could not be used"):
+        sign_odr_if_configured(odr)
+
+
+def test_injected_loader_does_not_claim_file_metadata(odr, monkeypatch):
+    monkeypatch.setenv(FILE_ENV, "/nonexistent/key.pem")
+    signed = sign_odr_if_configured(odr, key_loader=odr_test_key)
+    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"signed_at": "not-a-timestamp"},
+        {"signed_at": "2026-09-04"},
+        {"signed_at": "2026-09-04T00:00:00Z", "expires_at": "2025-01-01T00:00:00Z"},
+    ],
+)
+def test_signer_rejects_malformed_or_reversed_timestamps(odr, metadata):
+    with pytest.raises(OdrSigningError):
+        sign_odr_receipt(odr, odr_test_key(), issuer="explicit", **metadata)
 
 
 def test_signature_metadata_is_explicitly_unauthenticated(odr):

@@ -239,8 +239,13 @@ file custody and descriptive signature metadata: `issuer` (non-empty string),
 and optional `expires_at` (string). CLI/script producers use issuer `aragora`
 and role `emitter`. The metadata requires the updated bundled schema/verifier;
 published older validators with closed signature schemas reject these extra
-members. Existing secret/AWS and direct-signing callers retain legacy entries
-unless they explicitly request metadata. The coordinated v0.2 version/profile
+members. For those consumers, set `ARAGORA_ODR_SIGNATURE_METADATA=false` alongside
+the key-file variable: custody still signs and fails closed, but emits only
+`alg`, `key_id`, and `signature`. Existing secret/AWS and direct-signing callers
+retain legacy entries unless they explicitly request metadata with a non-empty
+issuer. Library callers supplying a role or timestamps without an issuer are
+rejected rather than attributed to Aragora. Producer timestamps must include
+a timezone, and expiry must follow signing time. The coordinated v0.2 version/profile
 change is separate; no v0.1 payload or digest semantics change here.
 
 **Unauthenticated metadata:** everything inside `signatures` is excluded from

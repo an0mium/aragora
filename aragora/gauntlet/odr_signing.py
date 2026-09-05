@@ -330,6 +330,25 @@ def sign_odr_receipt(
     for name, value in (("signed_at", signed_at), ("expires_at", expires_at)):
         if value is not None and not isinstance(value, str):
             raise OdrSigningError(f"signature {name} must be a string")
+    if issuer is None and (role != "emitter" or signed_at is not None or expires_at is not None):
+        raise OdrSigningError("signature metadata requires an explicit issuer")
+    if issuer is not None:
+        signed_at = signed_at if signed_at is not None else datetime.now(timezone.utc).isoformat()
+        times: dict[str, datetime] = {}
+        for name, value in (("signed_at", signed_at), ("expires_at", expires_at)):
+            if value is None:
+                continue
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError:
+                raise OdrSigningError(
+                    f"signature {name} must be an ISO 8601 timestamp with timezone"
+                ) from None
+            times[name] = parsed
+        if expires_at is not None and times["expires_at"] <= times["signed_at"]:
+            raise OdrSigningError("signature expires_at must be after signed_at")
     signed = copy.deepcopy(odr)
 
     existing = signed.get("signatures")
@@ -366,13 +385,11 @@ def sign_odr_receipt(
     }
     # Legacy callers keep the published v0.1 entry shape. File-custody producers
     # explicitly opt in by supplying an issuer; other callers can do the same.
-    if issuer is not None or role != "emitter" or signed_at is not None or expires_at is not None:
+    if issuer is not None and signed_at is not None:
         entry.update(
-            issuer=issuer if issuer is not None else "aragora",
+            issuer=issuer,
             role=role,
-            signed_at=signed_at
-            if signed_at is not None
-            else datetime.now(timezone.utc).isoformat(),
+            signed_at=signed_at,
         )
         if expires_at is not None:
             entry["expires_at"] = expires_at

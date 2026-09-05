@@ -328,6 +328,10 @@ def sign_odr_if_configured(
     instead — silently publishing an unsigned receipt from a deployment that
     was expected to sign would fail open. Once a key is loaded, signing errors
     always propagate.
+
+    File-custody metadata defaults on. Set ARAGORA_ODR_SIGNATURE_METADATA=false
+    to retain the legacy signature shape for older validators, without disabling
+    signing or its fail-closed behavior. Injected loaders retain the legacy shape.
     """
     from aragora.gauntlet import odr_signing
 
@@ -337,7 +341,11 @@ def sign_odr_if_configured(
     except odr_signing.OdrSigningUnconfiguredError as exc:
         logger.warning("ODR signing key not configured; exporting unsigned ODR receipt: %s", exc)
         return odr
-    if os.environ.get(odr_signing.SIGNING_KEY_FILE_ENV):
+    if (
+        key_loader is None
+        and os.environ.get(odr_signing.SIGNING_KEY_FILE_ENV)
+        and os.environ.get("ARAGORA_ODR_SIGNATURE_METADATA", "").lower() not in ("false", "0", "no")
+    ):
         return odr_signing.sign_odr_receipt(odr, private_key, issuer="aragora", role="emitter")
     return odr_signing.sign_odr_receipt(odr, private_key)
 
