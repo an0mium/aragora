@@ -84,13 +84,17 @@ DEFAULT_OPENROUTER_MODEL = os.environ.get(
 )
 API_MAX_TOKENS = 8192
 MAX_API_RESPONSE_BYTES = 4 * 1024 * 1024
-# frontier-model-refresh (2026-09-04, controller ruling 3): kept as both
-# claude-fable-5 and claude-fable-5-1 -- no ANTHROPIC_API_KEY/OPENROUTER_API_KEY
-# is available in this environment to verify the direct Messages API accepts
-# Fable 5.1, so the conservative (previously-verified-refusing) assumption is
-# kept for both ids rather than assumed fixed. Re-test via VibeProxy (Task 7)
-# and empty this set if the direct API works.
-API_UNSUPPORTED_MODELS = {"claude-fable-5", "claude-fable-5-1"}
+# Model ids the direct Messages API is known NOT to serve, so the API
+# backend skips them rather than burning an attempt on a certain refusal.
+# The CLI backend still runs them -- that is the whole point of the set.
+#
+# claude-fable-5-1 was removed on 2026-09-05 (merge-gate ruling on finding
+# C-P3 of #9989): the Claude API reference lists claude-fable-5-1 as a
+# direct Messages API model, and this same PR makes it the default direct-API
+# model on every other surface, so keeping it here contradicted the rest of
+# the branch. claude-fable-5 stays: it has been observed refusing on this
+# path and nothing in the API reference or this branch re-verifies it.
+API_UNSUPPORTED_MODELS = {"claude-fable-5"}
 MAX_PROMPT_BYTES = 512 * 1024
 API_RESPONSE_READ_CHUNK_BYTES = 64 * 1024
 _CLI_RATE_LIMIT_MARKERS = (
