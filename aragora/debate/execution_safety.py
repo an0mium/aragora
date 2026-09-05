@@ -26,6 +26,9 @@ _MODEL_FAMILY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("gpt", re.compile(r"\bgpt\b|chatgpt|o1|o3|o4|o5", re.I)),
     ("gemini", re.compile(r"gemini|palm|bard", re.I)),
     ("grok", re.compile(r"grok", re.I)),
+    # "meta" catches the 2026-09-04 frontier refresh's muse-spark id; "llama"
+    # stays a distinct family label for the older Llama product name.
+    ("meta", re.compile(r"muse-spark", re.I)),
     ("llama", re.compile(r"llama", re.I)),
     ("mistral", re.compile(r"mistral|mixtral|codestral", re.I)),
     ("deepseek", re.compile(r"deepseek", re.I)),

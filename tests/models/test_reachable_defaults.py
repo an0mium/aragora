@@ -4,29 +4,6 @@ import pytest
 from aragora.models.catalog import spec_or_none
 from aragora.models.upgrade_map import resolve_model_id
 
-# Reviewer families PR 2 (Task 10) still needs to add a catalog row for /
-# move the reviewer map for. Literal allow-list (NOT computed from
-# spec_or_none) so a genuine regression in any OTHER reviewer/codex_default
-# entry cannot silently mask itself as an expected failure -- computing the
-# xfail predicate from the same spec_or_none(resolve_model_id(...)) check
-# the test itself asserts would make every marked row un-failable and every
-# unmarked row un-xfailable by construction, defeating the point of this
-# reverse-completeness test.
-#
-# "claude", "openai", "grok" and "qwen" are here because their pinned slugs
-# are RETIRED spellings (anthropic/claude-fable-5, openai/gpt-5.5,
-# x-ai/grok-4.5, qwen/qwen3.7-max) that the raw assertion below now catches;
-# "tencent"/"bytedance" have no catalog row at all. The map itself is a
-# Tier-4 governance surface this PR must not touch, so the gap is recorded
-# rather than fixed. strict=True means PR 2 cannot land its rewrite without
-# deleting the family from this set.
-_PR2_PENDING_FAMILIES = frozenset({"claude", "openai", "grok", "qwen", "tencent", "bytedance"})
-
-# Same module, same PR-2 ownership, same treatment: _CODEX_DEFAULT_MODELS'
-# first entry is the retired "gpt-5.5" spelling. Literal for the same reason
-# _PR2_PENDING_FAMILIES is literal.
-_PR2_PENDING_CODEX_MODELS = frozenset({"gpt-5.5"})
-
 # Definers whose value is deliberately NOT a catalog id: a native provider's
 # own model code, for a family the catalog carries only as an OpenRouter row
 # (``ModelSpec.direct_id`` is a placeholder there, not a code the native
@@ -86,28 +63,9 @@ def _reachable_defaults() -> list[tuple[str, str]]:
     from aragora.swarm import quorum_evidence as qe
 
     for fam, slug in qe._OPENROUTER_REVIEWER_MODELS.items():
-        where = f"reviewer.{fam}"
-        if fam in _PR2_PENDING_FAMILIES:
-            out.append(
-                pytest.param(
-                    where,
-                    slug,
-                    marks=pytest.mark.xfail(strict=True, reason="PR 2 moves the reviewer map"),
-                )
-            )
-        else:
-            out.append((where, slug))
+        out.append((f"reviewer.{fam}", slug))
     for m in qe._CODEX_DEFAULT_MODELS:
-        if m in _PR2_PENDING_CODEX_MODELS:
-            out.append(
-                pytest.param(
-                    "codex_default",
-                    m,
-                    marks=pytest.mark.xfail(strict=True, reason="PR 2 moves the reviewer map"),
-                )
-            )
-        else:
-            out.append(("codex_default", m))
+        out.append(("codex_default", m))
 
     # The three per-provider OpenRouter fallback maps. These live on the live
     # server path and were the last unmigrated model tables in the repo.

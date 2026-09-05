@@ -370,6 +370,23 @@ def test_claude_reviewer_command_disables_mcp() -> None:
     assert "--strict-mcp-config" in cmd
 
 
+def test_claude_reviewer_command_pins_model_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The profile's settings.json default model is not load-bearing enough for
+    # a merge-gate reviewer, so the argv always names one explicitly.
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_MODEL", raising=False)
+    cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
+
+    assert "--model" in cmd
+    assert cmd[cmd.index("--model") + 1 :] == ["claude-fable-5-1"]
+
+
+def test_claude_reviewer_command_model_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_MODEL", "claude-opus-4-7")
+    cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
+
+    assert cmd[cmd.index("--model") + 1 :] == ["claude-opus-4-7"]
+
+
 def test_claude_reviewer_prefers_grounded_cli_over_successful_vibeproxy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -3002,7 +3019,7 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
-    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5.5"
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-6-astra"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
@@ -3088,8 +3105,6 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
     [
         ("glm", "zhipu", "GLM", "z-ai/glm-5.2"),
         ("minimax", "minimax", "MiniMax", "minimax/minimax-m3"),
-        ("tencent", "tencent", "Tencent Hy3", "tencent/hy3"),
-        ("bytedance", "bytedance", "ByteDance Seed", "bytedance-seed/seed-2.0-lite"),
     ],
 )
 def test_chinese_reviewer_family_has_openrouter_dispatch(
@@ -3103,7 +3118,7 @@ def test_chinese_reviewer_family_has_openrouter_dispatch(
     assert family in q._OPENROUTER_DIRECT_FAMILIES
 
 
-@pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+@pytest.mark.parametrize("family", ["glm", "minimax"])
 def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: str) -> None:
     from aragora.swarm import quorum_evidence as q
 
@@ -3123,7 +3138,74 @@ def test_chinese_reviewer_family_routes_openrouter_direct(monkeypatch, family: s
 
     assert result.ok is True
     assert result.family == family
-    assert called == [family]
+
+
+# --- tencent/bytedance: recognized but no live OpenRouter route (PR 2, #9069) -
+
+
+@pytest.mark.parametrize(
+    "family,provider,display",
+    [
+        ("tencent", "tencent", "Tencent Hy3"),
+        ("bytedance", "bytedance", "ByteDance Seed"),
+    ],
+)
+def test_dropped_families_retain_display_for_historical_parsing(
+    family: str, provider: str, display: str
+) -> None:
+    # tencent/bytedance have no priced, active catalog row, so PR 2 dropped them
+    # from the LIVE routing map (_OPENROUTER_REVIEWER_MODELS /
+    # _OPENROUTER_DIRECT_FAMILIES) rather than silently egressing to an
+    # unverified slug. They stay recognized families so a past evidence comment
+    # naming either still parses and counts its Chinese-routed jurisdiction.
+    from aragora.swarm import quorum_evidence as q
+
+    assert q.FAMILY_PROVIDERS[family] == provider
+    assert q.FAMILY_DISPLAY[family] == display
+    assert family in q.CHINESE_ROUTED_FAMILIES
+    assert family not in q._OPENROUTER_DIRECT_FAMILIES
+    assert family not in q._OPENROUTER_REVIEWER_MODELS
+    assert q._openrouter_reviewer_model(family) is None
+
+
+@pytest.mark.parametrize("family", ["tencent", "bytedance"])
+def test_dropped_family_openrouter_fallback_fails_closed_not_keyerror(
+    monkeypatch, family: str
+) -> None:
+    # A --reviewers value with no map entry must fail closed with a clear
+    # ReviewerResult error, never a raw KeyError.
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    result = q._run_openrouter_reviewer(family, "prompt")
+
+    assert result.ok is False
+    assert "no OpenRouter model" in result.error
+
+
+@pytest.mark.parametrize("family", ["tencent", "bytedance"])
+def test_dropped_family_default_runner_fails_closed_not_keyerror(monkeypatch, family: str) -> None:
+    # No longer OpenRouter-direct, so default_reviewer_runner falls through to
+    # the native-API branch (which has no registered agent type for either
+    # family) and then the opt-in OpenRouter fallback (which has no mapped
+    # model either). Both must degrade to a clear ReviewerResult, never raise.
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.delenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", raising=False)
+    monkeypatch.setattr(
+        q,
+        "_run_api_agent",
+        lambda fam, _p, model=None: q.ReviewerResult(
+            fam, "", False, f"ValueError: Unknown agent type: {fam}"
+        ),
+    )
+
+    result = q.default_reviewer_runner(family, "prompt")
+
+    assert result.ok is False
+    assert result.error  # a clear, non-empty message -- never a raised KeyError
 
 
 def test_collect_missing_head_raises() -> None:
@@ -5411,14 +5493,15 @@ class TestFounderRosterDirective20260716:
 
     def test_kimi_lane_uses_the_catalogued_slug(self):
         # The record deferred the upgrade only until the model had a catalog
-        # entry; aragora/models/catalog.py now carries kimi-k2.7-code, so the
-        # lane follows the catalog. The invariant that survives the deferral is
-        # that the reviewer slug must always BE catalogued.
+        # entry; aragora/models/catalog.py now carries kimi-k3 (2026-09-04
+        # frontier refresh), so the lane follows the catalog. The invariant
+        # that survives the deferral is that the reviewer slug must always BE
+        # catalogued.
         from aragora.models import by_any_id
         from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
 
         slug = _OPENROUTER_REVIEWER_MODELS["kimi"]
-        assert slug == "moonshotai/kimi-k2.7-code"
+        assert slug == "moonshotai/kimi-k3"
         assert by_any_id(slug) is not None, f"reviewer slug {slug} is not in the model catalog"
 
     def test_family_classification_is_total_and_disjoint(self):
