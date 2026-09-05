@@ -9,11 +9,15 @@ from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.config.model_pins import MISTRAL_MEDIUM_DIRECT
+
+# Frontier pick for the Mistral API agent (2026-09-04 frontier-model-refresh).
+DEFAULT_MODEL = MISTRAL_MEDIUM_DIRECT
 
 
 @AgentRegistry.register(
     "mistral-api",
-    default_model="mistral-large-2512",
+    default_model=DEFAULT_MODEL,
     default_name="mistral-api",
     agent_type="API",
     env_vars="MISTRAL_API_KEY",
@@ -51,7 +55,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
     def __init__(
         self,
         name: str = "mistral-api",
-        model: str = "mistral-large-2512",
+        model: str = DEFAULT_MODEL,
         role: AgentRole = "proposer",
         timeout: int = 180,  # Increased from 60s - allow more time for complex responses
         api_key: str | None = None,

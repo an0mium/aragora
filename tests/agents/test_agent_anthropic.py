@@ -367,21 +367,28 @@ REASONING: Test reasoning"""
 
 
 class TestAnthropicModelMapping:
-    """Tests for OpenRouter model mapping."""
+    """Tests for OpenRouter fallback resolution.
 
-    def test_model_mapping_exists(self):
-        """Test model mapping dictionary exists and has entries."""
-        agent = AnthropicAPIAgent(api_key="test-key")
-        assert len(agent.OPENROUTER_MODEL_MAP) > 0
-        assert "claude-3-opus-20240229" in agent.OPENROUTER_MODEL_MAP
+    ``AnthropicAPIAgent`` no longer carries a static ``OPENROUTER_MODEL_MAP``:
+    ``get_fallback_model()`` resolves the current model through the catalog
+    and upgrade map instead (frontier-model-refresh, 2026-09-04), so any
+    legacy or retired Claude spelling upgrades to the current frontier, not
+    just the ones a hand-maintained dict enumerated.
+    """
+
+    def test_fallback_resolves_legacy_id_via_catalog(self):
+        """A legacy/retired Claude id resolves to the current frontier."""
+        agent = AnthropicAPIAgent(api_key="test-key", model="claude-3-opus-20240229")
+        assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
 
     def test_fallback_uses_correct_model(self):
         """Test fallback agent upgrades legacy Anthropic IDs to the frontier.
 
-        The OPENROUTER_MODEL_MAP intentionally routes every legacy Claude ID
-        to the current frontier (Opus 5) via OpenRouter so weaker historical
-        models are transparently upgraded and a missing direct-provider key
-        never blocks functionality.
+        ``get_fallback_model()`` resolves the current model through the
+        catalog and upgrade map, so every legacy Claude ID routes to the
+        current frontier (Fable 5.1) via OpenRouter, weaker historical
+        models are transparently upgraded, and a missing direct-provider
+        key never blocks functionality.
         """
         agent = AnthropicAPIAgent(
             api_key="test-key",
@@ -390,7 +397,7 @@ class TestAnthropicModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "anthropic/claude-opus-5"
+            assert fallback.model == "anthropic/claude-fable-5.1"
 
 
 if __name__ == "__main__":

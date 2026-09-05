@@ -363,7 +363,9 @@ class TestOpenAICompatibleMixinInitialization:
     def test_default_values(self):
         """Should have sensible default values."""
         assert OpenAICompatibleMixin.OPENROUTER_MODEL_MAP == {}
-        assert OpenAICompatibleMixin.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.3"
+        # gpt-5.3 is retired (frontier-model-refresh, 2026-09-04); the mixin
+        # default now points at the value-tier frontier sibling.
+        assert OpenAICompatibleMixin.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.6-terra"
         assert OpenAICompatibleMixin.max_tokens == 4096
 
     def test_concrete_agent_initialization(self):

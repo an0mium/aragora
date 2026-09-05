@@ -29,6 +29,7 @@ from aragora.agents.transports.vibeproxy import (
     VibeProxyTimeoutError,
     VibeProxyUnavailableError,
 )
+from aragora.config.model_pins import GPT6_ASTRA_DIRECT
 from aragora.core import Message
 from aragora.core_types import AgentRole
 from aragora.observability.metrics.agents import (
@@ -39,6 +40,9 @@ from aragora.observability.metrics.agents import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Frontier pick for the OpenAI API agent (2026-09-04 frontier-model-refresh).
+DEFAULT_MODEL = GPT6_ASTRA_DIRECT
 
 # Pre-compiled patterns that indicate web search would be helpful
 # Compiled at module load time for performance (avoids recompilation on each call)
@@ -79,7 +83,7 @@ def _resolve_openai_base_url() -> str:
 
 @AgentRegistry.register(
     "openai-api",
-    default_model="gpt-5.6-sol",
+    default_model=DEFAULT_MODEL,
     default_name="openai-api",
     agent_type="API",
     env_vars="OPENAI_API_KEY",
@@ -127,7 +131,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     def __init__(
         self,
         name: str = "openai-api",
-        model: str = "gpt-5.6-sol",
+        model: str = DEFAULT_MODEL,
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

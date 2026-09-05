@@ -55,7 +55,10 @@ class TestGeminiAgentInitialization:
         )
 
         assert agent.name == "custom-gemini"
-        assert agent.model == "gemini-2.0-flash"
+        # "gemini-2.0-flash" has no catalog row of its own; resolve_model_id
+        # upgrades it to the current Google value-tier frontier
+        # (frontier-model-refresh, 2026-09-04).
+        assert agent.model == "gemini-3.8-flash"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False

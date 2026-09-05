@@ -61,6 +61,7 @@ from aragora.agents.api_agents.common import (
     handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
+from aragora.config.model_pins import GPT56_TERRA_VIA_OPENROUTER
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -71,6 +72,11 @@ from aragora.observability.metrics.agents import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Default OpenRouter fallback target for OpenAI-compatible agents that don't
+# override DEFAULT_FALLBACK_MODEL themselves (2026-09-04 frontier-model
+# refresh): the cheap/bulk-route OpenAI sibling.
+DEFAULT_FALLBACK_MODEL = GPT56_TERRA_VIA_OPENROUTER
 
 
 class OpenAICompatibleMixin(QuotaFallbackMixin):
@@ -92,7 +98,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
     # Subclasses should define these
     OPENROUTER_MODEL_MAP: dict[str, str] = {}
-    DEFAULT_FALLBACK_MODEL: str = "openai/gpt-5.3"
+    DEFAULT_FALLBACK_MODEL: str = DEFAULT_FALLBACK_MODEL
 
     # Default max tokens (can be overridden)
     max_tokens: int = 4096

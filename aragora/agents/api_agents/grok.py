@@ -7,11 +7,15 @@ from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.config.model_pins import GROK_46_DIRECT
+
+# Frontier pick for the Grok API agent (2026-09-04 frontier-model-refresh).
+DEFAULT_MODEL = GROK_46_DIRECT
 
 
 @AgentRegistry.register(
     "grok",
-    default_model="grok-4-latest",
+    default_model=DEFAULT_MODEL,
     agent_type="API",
     env_vars="XAI_API_KEY or GROK_API_KEY",
     accepts_api_key=True,
@@ -45,7 +49,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     def __init__(
         self,
         name: str = "grok",
-        model: str = "grok-4-latest",
+        model: str = DEFAULT_MODEL,
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

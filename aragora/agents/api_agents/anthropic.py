@@ -31,7 +31,10 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.config.model_pins import FABLE_51_DIRECT, OPUS_5_VIA_OPENROUTER
+from aragora.models.catalog import spec_or_none
 from aragora.models.compat import first_text_block, strip_sampling_params
+from aragora.models.upgrade_map import resolve_model_id
 from aragora.observability.metrics.agents import (
     ErrorType,
     record_circuit_breaker_rejection,
@@ -42,6 +45,9 @@ from aragora.observability.metrics.agents import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Frontier pick for the Anthropic API agent (2026-09-04 frontier-model-refresh).
+DEFAULT_MODEL = FABLE_51_DIRECT
 
 # Patterns that indicate web search would be helpful
 WEB_SEARCH_INDICATORS = [
@@ -75,7 +81,7 @@ def _resolve_base_url(env_name: str, default: str) -> str:
 
 @AgentRegistry.register(
     "anthropic-api",
-    default_model="claude-opus-5",
+    default_model=DEFAULT_MODEL,
     default_name="claude-api",
     agent_type="API",
     env_vars="ANTHROPIC_API_KEY",
@@ -90,29 +96,28 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     Uses QuotaFallbackMixin for shared quota detection and fallback logic.
     """
 
-    # Model mapping from Anthropic to OpenRouter format (used by QuotaFallbackMixin)
-    # Every legacy Anthropic ID maps to the current frontier (Opus 5) via
-    # OpenRouter so a missing or revoked direct key never blocks a debate and
-    # weaker historical models are transparently upgraded.
-    OPENROUTER_MODEL_MAP = {
-        "claude-fable-5": "anthropic/claude-fable-5",
-        "claude-opus-5": "anthropic/claude-opus-5",
-        "claude-opus-4-8": "anthropic/claude-opus-5",
-        "claude-opus-4-7": "anthropic/claude-opus-5",
-        "claude-sonnet-4-6": "anthropic/claude-opus-5",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-5",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-5",
-        "claude-haiku-4-5-20251001": "anthropic/claude-opus-5",
-        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-5",
-        "claude-3-opus-20240229": "anthropic/claude-opus-5",
-        "claude-3-haiku-20240307": "anthropic/claude-opus-5",
-    }
-    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-5"
+    # No static OPENROUTER_MODEL_MAP: get_fallback_model() below resolves the
+    # current model through the catalog/upgrade-map instead, so every legacy
+    # or retired Anthropic spelling (not just the ones hand-enumerated here
+    # previously) transparently upgrades to its frontier via OpenRouter.
+    DEFAULT_FALLBACK_MODEL = OPUS_5_VIA_OPENROUTER
+
+    def get_fallback_model(self) -> str:
+        """OpenRouter fallback target for the current model.
+
+        Resolves ``self.model`` to its canonical catalog row (upgrading any
+        legacy/retired spelling to its frontier first) and returns that
+        row's OpenRouter-format id, falling back to
+        ``DEFAULT_FALLBACK_MODEL`` when the model has no catalog row.
+        """
+        model = getattr(self, "model", "")
+        spec = spec_or_none(resolve_model_id(model))
+        return spec.openrouter_id if spec is not None else self.DEFAULT_FALLBACK_MODEL
 
     def __init__(
         self,
         name: str = "claude-api",
-        model: str = "claude-opus-5",
+        model: str = DEFAULT_MODEL,
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
