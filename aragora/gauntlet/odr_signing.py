@@ -38,7 +38,6 @@ import copy
 import hashlib
 import logging
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -244,20 +243,20 @@ def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False)
 def load_signing_key_from_secrets(
     secret_name: str | None = None,
 ) -> Ed25519PrivateKey:
-    """Resolve a key from a configured file, otherwise AWS Secrets Manager.
+    """Resolve the signing key from file custody or AWS Secrets Manager.
 
-    Empty file configuration is equivalent to unset. A non-empty path takes
-    precedence over the secret name and must be usable, never silently unsigned.
+    An explicit ``secret_name`` ignores file configuration. Otherwise a non-empty
+    file path takes precedence over the secret environment variable and default.
+    Empty file configuration is equivalent to unset; an unusable file fails closed.
     Environment variables name custody locations, never raw key material.
     """
-    key_file = os.environ.get(SIGNING_KEY_FILE_ENV)
+    key_file = os.environ.get(SIGNING_KEY_FILE_ENV) if secret_name is None else None
     if key_file:
         try:
-            data = Path(key_file).read_bytes()
-            return load_private_key_from_pem(data)
+            return load_private_key_from_pem(Path(key_file).read_bytes())
         except (OSError, ValueError, OdrSigningError):
-            # Do not echo a path (it could contain mistakenly pasted key bytes)
-            # or chain parser exceptions into producer logs.
+            # A path could contain mistakenly pasted key bytes; suppress it and
+            # parser exception chains rather than disclosing them in producer logs.
             raise OdrSigningError(
                 "ODR signing key file is configured but could not be used; "
                 "expected a readable PKCS#8 Ed25519 private-key PEM"
@@ -293,10 +292,6 @@ def sign_odr_receipt(
     private_key: Ed25519PrivateKey,
     *,
     replace: bool = False,
-    issuer: str | None = None,
-    role: str = "emitter",
-    signed_at: str | None = None,
-    expires_at: str | None = None,
 ) -> dict[str, Any]:
     """Attach an Ed25519 detached signature to an ODR receipt.
 
@@ -309,46 +304,13 @@ def sign_odr_receipt(
             (re-sign). When False (default), append alongside existing ones —
             the digest excludes ``signatures``, so this never invalidates a
             prior signature.
-        issuer: Non-empty producer identifier; opts into descriptive metadata.
-        role: One of emitter, reviewer, attestor, or notary.
-        signed_at: Signing timestamp; defaults to current UTC time.
-        expires_at: Optional expiry timestamp.
 
     Returns:
-        A copy of ``odr`` with a signature and producer metadata entry
+        A copy of ``odr`` with a ``{"alg", "key_id", "signature"}`` entry
         appended to its ``signatures`` array. The signature covers
         ``bytes.fromhex(odr_content_digest(odr))`` — exactly what the verifier
         re-derives and checks.
-
-    Metadata inside ``signatures`` is descriptive, not digest-covered. It must
-    not be treated as cryptographically authenticated identity or time.
     """
-    if issuer is not None and (not isinstance(issuer, str) or not issuer):
-        raise OdrSigningError("signature issuer must be a non-empty string")
-    if role not in ("emitter", "reviewer", "attestor", "notary"):
-        raise OdrSigningError("signature role must be emitter, reviewer, attestor, or notary")
-    for name, value in (("signed_at", signed_at), ("expires_at", expires_at)):
-        if value is not None and not isinstance(value, str):
-            raise OdrSigningError(f"signature {name} must be a string")
-    if issuer is None and (role != "emitter" or signed_at is not None or expires_at is not None):
-        raise OdrSigningError("signature metadata requires an explicit issuer")
-    if issuer is not None:
-        signed_at = signed_at if signed_at is not None else datetime.now(timezone.utc).isoformat()
-        times: dict[str, datetime] = {}
-        for name, value in (("signed_at", signed_at), ("expires_at", expires_at)):
-            if value is None:
-                continue
-            try:
-                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-                if parsed.tzinfo is None:
-                    raise ValueError("timezone required")
-            except ValueError:
-                raise OdrSigningError(
-                    f"signature {name} must be an ISO 8601 timestamp with timezone"
-                ) from None
-            times[name] = parsed
-        if expires_at is not None and times["expires_at"] <= times["signed_at"]:
-            raise OdrSigningError("signature expires_at must be after signed_at")
     signed = copy.deepcopy(odr)
 
     existing = signed.get("signatures")
@@ -383,16 +345,6 @@ def sign_odr_receipt(
         "key_id": compute_key_id(private_key.public_key()),
         "signature": base64.b64encode(signature_bytes).decode("ascii"),
     }
-    # Legacy callers keep the published v0.1 entry shape. File-custody producers
-    # explicitly opt in by supplying an issuer; other callers can do the same.
-    if issuer is not None and signed_at is not None:
-        entry.update(
-            issuer=issuer,
-            role=role,
-            signed_at=signed_at,
-        )
-        if expires_at is not None:
-            entry["expires_at"] = expires_at
     signatures.append(entry)
     signed["signatures"] = signatures
     return signed
@@ -406,13 +358,8 @@ def _is_signature_entry_compatible(entry: Any) -> bool:
     for field in ("key_id", "signature"):
         if not isinstance(entry.get(field), str) or not entry[field]:
             return False
-    if "issuer" in entry and (not isinstance(entry["issuer"], str) or not entry["issuer"]):
-        return False
-    if "role" in entry and entry["role"] not in ("emitter", "reviewer", "attestor", "notary"):
-        return False
-    return all(
-        name not in entry or isinstance(entry[name], str) for name in ("signed_at", "expires_at")
-    )
+    signed_at = entry.get("signed_at")
+    return signed_at is None or isinstance(signed_at, str)
 
 
 __all__ = [

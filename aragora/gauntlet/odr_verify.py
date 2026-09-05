@@ -506,7 +506,7 @@ def _validate_signatures(errors: list[str], value: Any) -> None:
             errors,
             f"signatures[{i}]",
             sig,
-            frozenset({"alg", "key_id", "signature", "issuer", "role", "signed_at", "expires_at"}),
+            frozenset({"alg", "key_id", "signature", "signed_at"}),
         )
         for field_name in ("alg", "key_id", "signature"):
             if not isinstance(sig.get(field_name), str) or not sig.get(field_name):
@@ -516,11 +516,6 @@ def _validate_signatures(errors: list[str], value: Any) -> None:
         # signed_at is optional but strictly a string when present: a non-string
         # value would silently corrupt the signing-time audit trail.
         _optional_string(errors, f"signatures[{i}]", sig, "signed_at")
-        _optional_string(errors, f"signatures[{i}]", sig, "expires_at")
-        if "issuer" in sig and (not isinstance(sig["issuer"], str) or not sig["issuer"]):
-            errors.append(f"signatures[{i}].issuer: must be a non-empty string")
-        if "role" in sig and sig["role"] not in ("emitter", "reviewer", "attestor", "notary"):
-            errors.append(f"signatures[{i}].role: must be emitter, reviewer, attestor, or notary")
 
 
 def _validate_source(errors: list[str], value: Any) -> None:
@@ -777,14 +772,6 @@ def _check_chain(doc: dict[str, Any], digest_hex: str, chain: list[dict[str, Any
 
 def _weakening_warnings(doc: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
-    if any(
-        any(field in sig for field in ("issuer", "role", "signed_at", "expires_at"))
-        for sig in doc.get("signatures", [])
-    ):
-        warnings.append(
-            "unauthenticated signature metadata: issuer, role, signed_at, expires_at "
-            "are not digest-covered; identity/time are not established and expiry is not enforced"
-        )
     attestation = doc.get("attestation")
     if isinstance(attestation, dict) and attestation.get("disposition") == "autonomous":
         warnings.append("attestation: autonomous — no human accepted the risk for this decision")

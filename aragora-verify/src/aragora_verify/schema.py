@@ -178,13 +178,6 @@ def _check_signatures(errors: list[str], value: Any) -> None:
                 errors.append(f"signatures[{i}].{field}: required non-empty string")
         if sig.get("alg") not in (None, "Ed25519") and isinstance(sig.get("alg"), str):
             errors.append(f"signatures[{i}].alg: only 'Ed25519' is defined in v0.1")
-        if "issuer" in sig and (not isinstance(sig["issuer"], str) or not sig["issuer"]):
-            errors.append(f"signatures[{i}].issuer: must be a non-empty string")
-        if "role" in sig and sig["role"] not in ("emitter", "reviewer", "attestor", "notary"):
-            errors.append(f"signatures[{i}].role: must be emitter, reviewer, attestor, or notary")
-        for field in ("signed_at", "expires_at"):
-            if field in sig and not isinstance(sig[field], str):
-                errors.append(f"signatures[{i}].{field}: must be a string")
 
 
 def validate_structure(doc: Any) -> list[str]:

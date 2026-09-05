@@ -7,10 +7,6 @@ versioning.
 ## [0.1.2] — Unreleased
 
 ### Changed
-- Accept optional file-custody signature metadata (`issuer`, `role`, `signed_at`,
-  `expires_at`) and warn that it is unauthenticated and expiry is not enforced.
-  Existing v0.1 receipts remain valid. Metadata-bearing exports require this
-  updated verifier; published older closed schemas reject the opt-in fields.
 - Feeding a **native** Aragora receipt (what `aragora demo --receipt` /
   `aragora receipt` write) still FAILs schema conformance, but the failure now
   names the format mistake and the exact bridge command

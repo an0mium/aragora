@@ -1,4 +1,4 @@
-"""File custody, producer failures, and metadata compatibility with v0.1."""
+"""File custody, producer failures, and published v0.1 compatibility."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,7 +22,6 @@ from aragora.gauntlet.odr_signing import (
     compute_key_id,
     generate_signing_key,
     load_signing_key_from_secrets,
-    sign_odr_receipt,
 )
 from aragora.gauntlet.odr_verify import verify_odr_document
 from aragora.gauntlet.receipt_models import DecisionReceipt
@@ -37,7 +35,6 @@ FILE_ENV = "ARAGORA_ODR_SIGNING_KEY_FILE"
 def isolated_signing(monkeypatch):
     monkeypatch.delenv(FILE_ENV, raising=False)
     monkeypatch.delenv("ARAGORA_ODR_SIGNING_KEY_SECRET", raising=False)
-    monkeypatch.delenv("ARAGORA_ODR_SIGNATURE_METADATA", raising=False)
     monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 
@@ -61,16 +58,15 @@ def key_file(tmp_path):
     return path
 
 
-def test_file_key_signs_and_verifies_with_metadata(odr, key_file, monkeypatch):
+def test_file_custody_preserves_published_v01_signature_shape(odr, key_file, monkeypatch):
     monkeypatch.setenv(FILE_ENV, str(key_file))
-    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_SECRET", "must-not-be-read")
-    with patch("aragora.gauntlet.odr_signing._load_pem_secret_from_aws") as aws:
-        signed = sign_odr_if_configured(odr)
-    aws.assert_not_called()
+    signed = sign_odr_if_configured(odr)
+    assert signed["odr_version"] == "0.1"
+    assert len(signed["signatures"]) == 1
     sig = signed["signatures"][0]
+    assert set(sig) == {"alg", "key_id", "signature"}
+    assert sig["alg"] == "Ed25519"
     assert sig["key_id"] == compute_key_id(odr_test_key().public_key())
-    assert sig["issuer"] and sig["role"] == "emitter"
-    assert datetime.fromisoformat(sig["signed_at"]).tzinfo is not None
     jsonschema.validate(signed, load_odr_schema())
     for verifier in (verify_odr_document, verify):
         assert verifier(signed, public_key=odr_test_key().public_key()).ok
@@ -78,7 +74,29 @@ def test_file_key_signs_and_verifies_with_metadata(odr, key_file, monkeypatch):
         tampered = copy.deepcopy(signed)
         tampered["reasoning"]["summary"] += " altered"
         assert not verifier(tampered, public_key=odr_test_key().public_key()).ok
-        assert verifier(odr).ok  # v0.1 without metadata remains valid.
+        assert verifier(odr).ok
+
+
+def test_explicit_secret_name_ignores_file_environment(key_file, monkeypatch):
+    pem = key_file.read_bytes()
+    monkeypatch.setenv(FILE_ENV, "/nonexistent/key.pem")
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_SECRET", "environment-secret")
+    with (
+        patch("aragora.gauntlet.odr_signing._load_pem_secret_from_aws", return_value=pem) as aws,
+        patch.object(Path, "read_bytes", side_effect=AssertionError("file must not be read")),
+    ):
+        key = load_signing_key_from_secrets("explicit-secret")
+    aws.assert_called_once_with("explicit-secret", explicitly_named=True)
+    assert compute_key_id(key.public_key()) == compute_key_id(odr_test_key().public_key())
+
+
+def test_file_environment_precedes_secret_environment_without_argument(key_file, monkeypatch):
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_SECRET", "must-not-be-read")
+    with patch("aragora.gauntlet.odr_signing._load_pem_secret_from_aws") as aws:
+        key = load_signing_key_from_secrets()
+    aws.assert_not_called()
+    assert compute_key_id(key.public_key()) == compute_key_id(odr_test_key().public_key())
 
 
 @pytest.mark.parametrize("value", [None, ""])
@@ -137,88 +155,6 @@ def _permission_denied():
     raise PermissionError("denied")
 
 
-@pytest.mark.parametrize("role", ["emitter", "reviewer", "attestor", "notary"])
-def test_optional_signature_metadata_and_legacy_entries(odr, role):
-    signed = sign_odr_receipt(
-        odr,
-        odr_test_key(),
-        issuer="test-issuer",
-        role=role,
-        signed_at="2026-09-04T00:00:00Z",
-        expires_at="2027-09-04T00:00:00Z",
-    )
-    for verifier in (verify_odr_document, verify):
-        assert verifier(signed, public_key=odr_test_key().public_key()).ok
-    jsonschema.validate(signed, load_odr_schema())
-    legacy = copy.deepcopy(signed)
-    for field in ("issuer", "role", "signed_at", "expires_at"):
-        legacy["signatures"][0].pop(field)
-    assert verify_odr_document(legacy, public_key=odr_test_key().public_key()).ok
-    assert verify(legacy, public_key=odr_test_key().public_key()).ok
-
-
-def test_legacy_signer_without_metadata_opt_in_keeps_published_shape(odr):
-    golden = json.loads((ROOT / "docs/specs/examples/example-signed.odr.json").read_text())
-    signed = sign_odr_receipt(odr, odr_test_key())
-    assert set(signed["signatures"][0]) == set(golden["signatures"][0])
-    for verifier in (verify_odr_document, verify):
-        result = verifier(signed, public_key=odr_test_key().public_key())
-        assert result.ok
-        assert not any("unauthenticated signature metadata" in w for w in result.warnings)
-
-
-@pytest.mark.parametrize("metadata", [{"role": "notary"}, {"signed_at": "2026-09-04T00:00:00Z"}])
-def test_metadata_requires_explicit_issuer(odr, metadata):
-    with pytest.raises(OdrSigningError, match="explicit issuer"):
-        sign_odr_receipt(odr, odr_test_key(), **metadata)
-
-
-def test_file_custody_can_emit_legacy_metadata_shape(odr, key_file, monkeypatch):
-    monkeypatch.setenv(FILE_ENV, str(key_file))
-    monkeypatch.setenv("ARAGORA_ODR_SIGNATURE_METADATA", "false")
-    signed = sign_odr_if_configured(odr)
-    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
-    for verifier in (verify_odr_document, verify):
-        assert verifier(signed, public_key=odr_test_key().public_key()).ok
-    monkeypatch.setenv(FILE_ENV, "/nonexistent/key.pem")
-    with pytest.raises(OdrSigningError, match="configured but could not be used"):
-        sign_odr_if_configured(odr)
-
-
-def test_injected_loader_does_not_claim_file_metadata(odr, monkeypatch):
-    monkeypatch.setenv(FILE_ENV, "/nonexistent/key.pem")
-    signed = sign_odr_if_configured(odr, key_loader=odr_test_key)
-    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
-
-
-@pytest.mark.parametrize(
-    "metadata",
-    [
-        {"signed_at": "not-a-timestamp"},
-        {"signed_at": "2026-09-04"},
-        {"signed_at": "2026-09-04T00:00:00Z", "expires_at": "2025-01-01T00:00:00Z"},
-    ],
-)
-def test_signer_rejects_malformed_or_reversed_timestamps(odr, metadata):
-    with pytest.raises(OdrSigningError):
-        sign_odr_receipt(odr, odr_test_key(), issuer="explicit", **metadata)
-
-
-def test_signature_metadata_is_explicitly_unauthenticated(odr):
-    signed = sign_odr_receipt(odr, odr_test_key(), issuer="original")
-    signed["signatures"][0].update(
-        issuer="modified",
-        role="notary",
-        signed_at="2099-01-01T00:00:00Z",
-        expires_at="2000-01-01T00:00:00Z",
-    )
-    for verifier in (verify_odr_document, verify):
-        result = verifier(signed, public_key=odr_test_key().public_key())
-        assert result.ok  # Detached payload integrity has not changed.
-        assert any("unauthenticated signature metadata" in w for w in result.warnings)
-        assert any("expiry is not enforced" in w for w in result.warnings)
-
-
 def test_published_key_matches_documented_custody_record():
     from aragora.gauntlet.odr_verify import load_public_key
 
@@ -230,18 +166,6 @@ def test_published_key_matches_documented_custody_record():
     spec = (ROOT / "docs/specs/OPEN_DECISION_RECEIPT.md").read_text()
     assert path.name in spec
     assert "/.well-known/aragora-odr-signing-key" in spec
-
-
-@pytest.mark.parametrize("field,value", [("issuer", ""), ("role", "admin"), ("expires_at", 3)])
-def test_invalid_signature_metadata_rejected(odr, field, value):
-    signed = sign_odr_receipt(odr, odr_test_key())
-    signed["signatures"][0][field] = value
-    for verifier in (verify_odr_document, verify):
-        assert not verifier(signed, public_key=odr_test_key().public_key()).ok
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate(signed, load_odr_schema())
-    with pytest.raises(OdrSigningError):
-        sign_odr_receipt(odr, odr_test_key(), **{field: value})
 
 
 @pytest.mark.parametrize("mode", ["missing", "garbage", "ec", "unset", "empty", "valid"])
