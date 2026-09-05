@@ -90,18 +90,51 @@ def test_main_missing_baseline_is_usage_error(tmp_path, monkeypatch):
 # --- CLI: freeze (shrink-only) ---------------------------------------------
 
 
+@pytest.mark.parametrize("census", [{}, {"aragora/big.py": 2100}])
+@pytest.mark.parametrize("adopt", [False, True])
+def test_freeze_unchanged_census_preserves_bytes(tmp_path, monkeypatch, capsys, census, adopt):
+    monkeypatch.setattr(cfs, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(cfs, "list_source_files", lambda globs: list(census))
+    monkeypatch.setattr(cfs, "_git_head", lambda: "new-head")
+    for rel, lines in census.items():
+        _make_file(tmp_path, rel, lines)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps(
+            {
+                "files": census,
+                "frozen_from_ref": "old-head",
+                "frozen_at": "2020-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    before = baseline.read_bytes()
+    args = ["--freeze", "--baseline", str(baseline)]
+    if adopt:
+        args.append("--adopt")
+    assert cfs.main(args) == 0
+    assert baseline.read_bytes() == before
+    assert capsys.readouterr().out == (
+        f"Baseline unchanged ({len(census)} oversized file(s) > 2000 lines); "
+        f"not rewritten -> {baseline}\n"
+    )
+
+
 def test_freeze_refuses_to_grow_without_adopt(tmp_path, monkeypatch):
     monkeypatch.setattr(cfs, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(cfs, "list_source_files", lambda globs: ["aragora/big.py"])
     _make_file(tmp_path, "aragora/big.py", 2100)
     baseline = tmp_path / "baseline.json"
     baseline.write_text(json.dumps({"files": {}}), encoding="utf-8")  # empty -> big.py is new
+    before = baseline.read_bytes()
     # exit code 2 (shrink-only violation), baseline unchanged
     assert cfs.main(["--freeze", "--baseline", str(baseline)]) == 2
-    assert json.loads(baseline.read_text())["files"] == {}
+    assert baseline.read_bytes() == before
 
 
-def test_freeze_adopt_writes_full_census(tmp_path, monkeypatch):
+@pytest.mark.parametrize("existing", [False, True])
+def test_freeze_adopt_writes_full_census(tmp_path, monkeypatch, existing):
     monkeypatch.setattr(cfs, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(
         cfs, "list_source_files", lambda globs: ["aragora/big.py", "aragora/small.py"]
@@ -109,6 +142,8 @@ def test_freeze_adopt_writes_full_census(tmp_path, monkeypatch):
     _make_file(tmp_path, "aragora/big.py", 2100)
     _make_file(tmp_path, "aragora/small.py", 10)
     baseline = tmp_path / "baseline.json"
+    if existing:
+        baseline.write_text(json.dumps({"files": {}}), encoding="utf-8")
     assert cfs.main(["--freeze", "--adopt", "--baseline", str(baseline)]) == 0
     written = json.loads(baseline.read_text())
     assert written["files"] == {"aragora/big.py": 2100}
@@ -117,6 +152,7 @@ def test_freeze_adopt_writes_full_census(tmp_path, monkeypatch):
 
 def test_freeze_allows_shrink(tmp_path, monkeypatch):
     monkeypatch.setattr(cfs, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(cfs, "_git_head", lambda: "new-head")
     # baseline has two entries; only one is still oversized -> shrink is allowed
     monkeypatch.setattr(
         cfs, "list_source_files", lambda globs: ["aragora/big.py", "aragora/shrunk.py"]
@@ -125,11 +161,35 @@ def test_freeze_allows_shrink(tmp_path, monkeypatch):
     _make_file(tmp_path, "aragora/shrunk.py", 50)
     baseline = tmp_path / "baseline.json"
     baseline.write_text(
-        json.dumps({"files": {"aragora/big.py": 2100, "aragora/shrunk.py": 2400}}),
+        json.dumps(
+            {
+                "files": {"aragora/big.py": 2100, "aragora/shrunk.py": 2400},
+                "frozen_from_ref": "old-head",
+                "frozen_at": "2020-01-01T00:00:00Z",
+            }
+        ),
         encoding="utf-8",
     )
+    before = baseline.read_bytes()
     assert cfs.main(["--freeze", "--baseline", str(baseline)]) == 0
-    assert json.loads(baseline.read_text())["files"] == {"aragora/big.py": 2100}
+    assert baseline.read_bytes() != before
+    written = json.loads(baseline.read_text())
+    assert written["files"] == {"aragora/big.py": 2100}
+    assert written["frozen_from_ref"] == "new-head"
+    assert written["frozen_at"] != "2020-01-01T00:00:00Z"
+
+
+@pytest.mark.parametrize("lines", [2050, 2200])
+def test_freeze_rewrites_changed_counts_without_new_entries(tmp_path, monkeypatch, lines):
+    monkeypatch.setattr(cfs, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(cfs, "list_source_files", lambda globs: ["aragora/big.py"])
+    _make_file(tmp_path, "aragora/big.py", lines)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps({"files": {"aragora/big.py": 2100}}), encoding="utf-8")
+    before = baseline.read_bytes()
+    assert cfs.main(["--freeze", "--baseline", str(baseline)]) == 0
+    assert baseline.read_bytes() != before
+    assert json.loads(baseline.read_text())["files"] == {"aragora/big.py": lines}
 
 
 # --- Real git enumeration (no mocked file list) -----------------------------

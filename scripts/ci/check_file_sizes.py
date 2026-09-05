@@ -222,10 +222,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _run_freeze(args: argparse.Namespace) -> int:
     oversized = measure_oversized(list_source_files(args.glob))
-    if args.baseline.exists() and not args.adopt:
+    if args.baseline.exists():
         existing = load_baseline(args.baseline)
+        if existing == oversized:
+            print(
+                f"Baseline unchanged ({len(oversized)} oversized file(s) > {LIMIT} lines); "
+                f"not rewritten -> {args.baseline}"
+            )
+            return 0
         added = sorted(set(oversized) - set(existing))
-        if added:
+        if added and not args.adopt:
             for path in added:
                 print(
                     f"REFUSED (would grow baseline): {path} ({oversized[path]} lines)",

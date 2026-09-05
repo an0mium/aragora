@@ -221,7 +221,8 @@ python scripts/ci/check_tool_baseline.py --tool ruff \
 ```
 
 The legacy file-size checker uses `--freeze` instead of `--update`; it still
-refuses growth. Its default scope remains `aragora/**/*.py`, including
+refuses growth, and an unchanged census (paths and line counts) is a no-op.
+Its default scope remains `aragora/**/*.py`, including
 untracked-but-not-ignored files so local checks catch newcomers before staging.
 For other apps, pass quoted, repository-relative patterns such as
 `--glob 'app/src/**/*.ts' --glob 'app/src/**/*.tsx'` (or

@@ -34,7 +34,13 @@ def test_job_is_advisory_independent_and_provisions_tools() -> None:
     for action in ("checkout", "upload-artifact"):
         assert any(re.fullmatch(rf"actions/{action}@[0-9a-f]{{40}}", use) for use in uses)
     assert any(
-        "pip install -e '.[dev,test,readiness]'" in step.get("run", "") for step in job["steps"]
+        "python -m pip install -e '.[dev,test,readiness]'" in step.get("run", "")
+        for step in job["steps"]
+    )
+    assert not any(
+        re.search(r"(?<!-m[ \t])\bpip install\b", line)
+        for step in job["steps"]
+        for line in step.get("run", "").splitlines()
     )
     assert any(
         "GITHUB_STEP_SUMMARY" in step.get("run", "") and step.get("if") == "always()"
