@@ -247,6 +247,42 @@ CATALOG: dict[str, ModelSpec] = {
             thinking_default_on=False,
         ),
         ModelSpec(
+            # Cataloged in the 2026-09-05 gate-fix wave (finding C-P3 on
+            # #9989, tier preservation): every legacy Sonnet spelling in
+            # UPGRADES mapped to the $10/$50 Fable flagship even though the
+            # Sonnet line has a live successor at a fifth of the price, so a
+            # caller pinned to Sonnet 4.6 silently paid flagship rates. The
+            # id, limits and per-token rates are the ones the Claude API
+            # reference documents for Claude Sonnet 5 ($2/$10 per MTok, 1M
+            # context, 128K max output), confirmed against the live
+            # OpenRouter capture (cache reads $0.20/MTok).
+            canonical_id="claude-sonnet-5",
+            provider="anthropic",
+            # Pretraining lineage, like every other Claude row. tier "value"
+            # is what keeps it from displacing claude-fable-5-1 as the
+            # anthropic frontier -- same reasoning as
+            # claude-haiku-4-5-20251001 above; see
+            # test_secondary_tier_rows_keep_lineage_family_not_flagship_tier.
+            family="anthropic",
+            tier="value",
+            direct_id="claude-sonnet-5",
+            openrouter_id="anthropic/claude-sonnet-5",
+            input_per_mtok=2.00,
+            output_per_mtok=10.00,
+            cache_read_per_mtok=0.20,
+            context_window=1_000_000,
+            max_output_tokens=128_000,
+            # OpenRouter listing date for anthropic/claude-sonnet-5
+            # (created=1782843083). Well outside the 14-day availability
+            # window already, so no soak applies.
+            release_date=date(2026, 6, 30),
+            # Sonnet 5 aligns with the Opus 4.7+ API surface: non-default
+            # sampling params return 400 and adaptive thinking is on by
+            # default (omitting "thinking" runs adaptive).
+            supports_sampling_params=False,
+            thinking_default_on=True,
+        ),
+        ModelSpec(
             canonical_id="gpt-5.6-sol",
             provider="openai",
             family="openai",
@@ -686,6 +722,7 @@ ENFORCED_MODELS: tuple[str, ...] = (
     "claude-opus-5",
     "claude-opus-4-8",
     "claude-haiku-4-5-20251001",
+    "claude-sonnet-5",
     "gpt-6-astra",
     "gpt-5.6-terra",
     "gpt-5.6-sol",

@@ -39,6 +39,11 @@
       "input_per_mtok": 5.0,
       "output_per_mtok": 25.0
     },
+    "anthropic/claude-sonnet-5": {
+      "context_length": 1000000,
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 10.0
+    },
     "cohere/command-a": {
       "context_length": 256000,
       "input_per_mtok": 2.5,
@@ -158,5 +163,13 @@
       "output_per_mtok": 3.036
     }
   },
+  "partial_captures": [
+    {
+      "captured_at": "2026-09-05T20:39:45Z",
+      "ids": [
+        "anthropic/claude-sonnet-5"
+      ]
+    }
+  ],
   "source": "https://openrouter.ai/api/v1/models"
 }

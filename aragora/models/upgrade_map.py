@@ -42,6 +42,13 @@ import re
 from aragora.models.catalog import frontier_for, spec_or_none
 
 _ANTHROPIC = "claude-fable-5-1"
+# Tier preservation inside the anthropic family (finding C-P3 on #9989):
+# every legacy Sonnet and Haiku spelling used to resolve to the $10/$50
+# Fable flagship, so a caller pinned to a cheap Claude SKU silently paid
+# flagship rates -- the exact inconsistency the OpenAI and Google blocks
+# below already avoid with their value-tier targets.
+_ANTHROPIC_SONNET = "claude-sonnet-5"
+_ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001"
 _OPENAI = "gpt-6-astra"
 _OPENAI_VALUE = "gpt-5.6-terra"
 _GOOGLE_PRO = "gemini-3.1-pro-preview"
@@ -55,10 +62,11 @@ _KIMI = "kimi-k3"
 _META = "muse-spark-1.3"
 
 UPGRADES: dict[str, str] = {
-    # Anthropic — everything Claude that is not the current Fable goes to
-    # Fable 5.1. NOTE: "claude-fable-5.1" and "anthropic/claude-fable-5.1"
-    # are deliberately absent — Task 1 made both catalog aliases of the
-    # ACTIVE claude-fable-5-1 row (controller ruling 1).
+    # Anthropic — Fable and Opus spellings (the flagship-class lines) go to
+    # the current Fable; Sonnet and Haiku spellings stay in their own tier.
+    # NOTE: "claude-fable-5.1" and "anthropic/claude-fable-5.1" are
+    # deliberately absent — Task 1 made both catalog aliases of the ACTIVE
+    # claude-fable-5-1 row (controller ruling 1).
     **{
         k: _ANTHROPIC
         for k in (
@@ -66,17 +74,6 @@ UPGRADES: dict[str, str] = {
             "anthropic/claude-fable-5",
             "claude-3-opus-20240229",
             "claude-3-opus",
-            "claude-3-5-sonnet-20241022",
-            "claude-3.5-sonnet",
-            "claude-3-5-sonnet-20240620",
-            "claude-3-7-sonnet-20250219",
-            "claude-3-haiku-20240307",
-            "claude-3-5-haiku-20241022",
-            "claude-sonnet-4-20250514",
-            "claude-sonnet-4",
-            "claude-sonnet-4-5-20250929",
-            "claude-sonnet-4-6",
-            "claude-sonnet-4.6",
             "claude-opus-4-20250514",
             "claude-opus-4",
             "claude-opus-4-1-20250805",
@@ -87,11 +84,36 @@ UPGRADES: dict[str, str] = {
             "claude-opus-4.7",
             "claude-opus-4.1",
             "anthropic/claude-opus-4.1",
-            "anthropic/claude-3-haiku",
+            "anthropic/claude-opus-4",
+        )
+    },
+    # Sonnet spellings -> the current Sonnet (value tier, $2/$10), not the
+    # $10/$50 flagship. The claude-sonnet-5 row and its price are the ones
+    # the Claude API reference documents; see the catalog entry.
+    **{
+        k: _ANTHROPIC_SONNET
+        for k in (
+            "claude-3-5-sonnet-20241022",
+            "claude-3.5-sonnet",
+            "claude-3-5-sonnet-20240620",
+            "claude-3-7-sonnet-20250219",
+            "claude-sonnet-4-20250514",
+            "claude-sonnet-4",
+            "claude-sonnet-4-5-20250929",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4.6",
             "anthropic/claude-3.5-sonnet",
             "anthropic/claude-sonnet-4",
             "anthropic/claude-sonnet-4.6",
-            "anthropic/claude-opus-4",
+        )
+    },
+    # Haiku spellings -> the value-tier Haiku row, not the flagship.
+    **{
+        k: _ANTHROPIC_HAIKU
+        for k in (
+            "claude-3-haiku-20240307",
+            "claude-3-5-haiku-20241022",
+            "anthropic/claude-3-haiku",
         )
     },
     # OpenAI — flagship spellings → Astra; small/cheap spellings → Terra

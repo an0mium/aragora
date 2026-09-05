@@ -36,7 +36,18 @@ from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES, resolve_model_
         ("claude-fable-5", "claude-fable-5-1"),
         ("anthropic/claude-fable-5", "claude-fable-5-1"),
         ("claude-3-opus-20240229", "claude-fable-5-1"),
-        ("claude-sonnet-4-6", "claude-fable-5-1"),
+        # Tier preservation (finding C-P3 on #9989): Sonnet and Haiku
+        # spellings land on their own family's value rows, not on the
+        # $10/$50 Fable flagship.
+        ("claude-sonnet-4-6", "claude-sonnet-5"),
+        ("claude-sonnet-4.6", "claude-sonnet-5"),
+        ("anthropic/claude-sonnet-4.6", "claude-sonnet-5"),
+        ("claude-3-5-sonnet-20241022", "claude-sonnet-5"),
+        ("claude-3-haiku-20240307", "claude-haiku-4-5-20251001"),
+        ("claude-3-5-haiku-20241022", "claude-haiku-4-5-20251001"),
+        ("anthropic/claude-3-haiku", "claude-haiku-4-5-20251001"),
+        # Opus and Fable spellings are flagship-class and stay on Fable.
+        ("claude-opus-4-7", "claude-fable-5-1"),
         ("gpt-4", "gpt-6-astra"),
         ("gpt-4o", "gpt-6-astra"),
         ("gpt-4o-mini", "gpt-5.6-terra"),
@@ -177,3 +188,46 @@ def test_removed_active_alias_spellings_are_not_upgrades_keys() -> None:
         )
         if spec is not None:
             assert not spec.retired, spelling
+
+
+def test_anthropic_legacy_spellings_preserve_their_tier() -> None:
+    """A cheap Claude spelling must not resolve to the $10/$50 flagship.
+
+    Finding C-P3 on #9989: every Anthropic legacy spelling -- Haiku and
+    Sonnet included -- mapped to Fable, so a caller pinned to a value SKU
+    silently paid flagship rates, while the OpenAI and Google blocks in the
+    same table routed their "mini"/"flash" spellings to value rows.
+    """
+    flagship = CATALOG["claude-fable-5-1"]
+    for old, new in UPGRADES.items():
+        spec = CATALOG[new]
+        if spec.family != "anthropic":
+            continue
+        lowered = old.lower()
+        if "haiku" in lowered:
+            assert spec.canonical_id == "claude-haiku-4-5-20251001", (
+                f"{old!r} -> {new!r}: a Haiku spelling must land on the Haiku "
+                "value row, not a pricier tier"
+            )
+        elif "sonnet" in lowered:
+            assert spec.canonical_id == "claude-sonnet-5", (
+                f"{old!r} -> {new!r}: a Sonnet spelling must land on the Sonnet row"
+            )
+        else:
+            assert spec.canonical_id == flagship.canonical_id, (
+                f"{old!r} -> {new!r}: Fable/Opus spellings are flagship-class"
+            )
+        assert spec.input_per_mtok <= flagship.input_per_mtok
+        assert spec.output_per_mtok <= flagship.output_per_mtok
+
+
+def test_anthropic_tier_targets_are_active_priced_rows() -> None:
+    for canonical_id in ("claude-sonnet-5", "claude-haiku-4-5-20251001", "claude-fable-5-1"):
+        spec = CATALOG[canonical_id]
+        assert not spec.retired
+        assert spec.family == "anthropic"
+        assert spec.input_per_mtok > 0 and spec.output_per_mtok > 0
+    # The value rows must not be able to displace the frontier pick.
+    from aragora.models.catalog import frontier_for
+
+    assert frontier_for("anthropic").canonical_id == "claude-fable-5-1"
