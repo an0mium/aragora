@@ -243,10 +243,7 @@ def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False)
     )
 
 
-def _key_file_permission_reason(key_file: str) -> str | None:
-    if os.name != "posix":
-        return None
-    file_mode = os.stat(key_file).st_mode
+def _key_file_permission_reason(file_mode: int, *, warn: bool = True) -> str | None:
     mode = stat.S_IMODE(file_mode)
     if not stat.S_ISREG(file_mode):
         return "not a regular file"
@@ -255,13 +252,14 @@ def _key_file_permission_reason(key_file: str) -> str | None:
     if mode & 0o044:
         if env_bool(SIGNING_KEY_STRICT_MODE_ENV, False):
             return f"readable by group or other in strict mode (mode {mode:04o})"
-        # Container secret mounts commonly require these bits for non-root users.
-        logger.warning(
-            "ODR signing key file is readable by group or other (mode %04o); "
-            "set %s=true to reject it",
-            mode,
-            SIGNING_KEY_STRICT_MODE_ENV,
-        )
+        if warn:
+            # Container secret mounts commonly require these bits for non-root users.
+            logger.warning(
+                "ODR signing key file is readable by group or other (mode %04o); "
+                "set %s=true to reject it",
+                mode,
+                SIGNING_KEY_STRICT_MODE_ENV,
+            )
     return None
 
 
@@ -278,9 +276,15 @@ def load_signing_key_from_secrets(
     key_file = os.environ.get(SIGNING_KEY_FILE_ENV) if secret_name is None else None
     if key_file:
         try:
-            reason = _key_file_permission_reason(key_file)
-            if reason is None:
+            if os.name != "posix":
                 return load_private_key_from_pem(Path(key_file).read_bytes())
+            reason = _key_file_permission_reason(os.stat(key_file).st_mode, warn=False)
+            if reason is None:
+                # Recheck the opened target; O_NONBLOCK prevents a swapped FIFO from hanging.
+                with os.fdopen(os.open(key_file, os.O_RDONLY | os.O_NONBLOCK), "rb") as stream:
+                    reason = _key_file_permission_reason(os.fstat(stream.fileno()).st_mode)
+                    if reason is None:
+                        return load_private_key_from_pem(stream.read())
         except (OSError, ValueError, OdrSigningError) as exc:
             # A path could contain mistakenly pasted key bytes; suppress it and
             # parser exception chains rather than disclosing them in producer logs.

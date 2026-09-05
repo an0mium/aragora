@@ -321,10 +321,80 @@ def test_unusable_file_logs_exception_class_only(key_file, monkeypatch, caplog, 
     key_file.chmod(0o600)
     monkeypatch.setenv(FILE_ENV, str(key_file))
     secret_message = f"sensitive exception message {key_file}"
-    with patch.object(Path, "read_bytes", side_effect=error(secret_message)):
+    with patch(
+        "aragora.gauntlet.odr_signing.load_private_key_from_pem", side_effect=error(secret_message)
+    ):
         with pytest.raises(OdrSigningError, match="expected a readable PKCS#8") as caught:
             load_signing_key_from_secrets()
     assert error.__name__ in caplog.text
     assert secret_message not in caplog.text
     assert str(key_file) not in caplog.text + str(caught.value)
     assert caught.value.__suppress_context__
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@pytest.mark.parametrize("replacement", ["writable", "readable", "fifo"])
+def test_permission_rechecked_on_open_descriptor(key_file, tmp_path, monkeypatch, replacement):
+    from aragora.gauntlet import odr_signing
+
+    key_file.chmod(0o600)
+    alternate = tmp_path / "replacement.pem"
+    if replacement == "fifo":
+        os.mkfifo(alternate)
+    else:
+        alternate.write_bytes(key_file.read_bytes())
+        alternate.chmod(0o666 if replacement == "writable" else 0o644)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_STRICT_MODE", "true")
+    original_stat = os.stat
+
+    def swap_after_stat(path, *args, **kwargs):
+        result = original_stat(path, *args, **kwargs)
+        if str(path) == str(key_file):
+            alternate.replace(key_file)
+        return result
+
+    reason = {
+        "writable": "writable by group or other",
+        "readable": "strict mode",
+        "fifo": "not a regular file",
+    }[replacement]
+    with patch.object(odr_signing.os, "stat", side_effect=swap_after_stat):
+        with pytest.raises(OdrSigningError, match=reason):
+            load_signing_key_from_secrets()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file descriptors")
+def test_permission_checked_descriptor_is_read_and_closed(key_file, tmp_path, monkeypatch):
+    from aragora.gauntlet import odr_signing
+
+    key_file.chmod(0o600)
+    alternate = tmp_path / "replacement.pem"
+    alternate.write_text("not the checked key")
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    original_fstat = os.fstat
+    opened = []
+
+    def swap_after_fstat(fd):
+        opened.append(fd)
+        result = original_fstat(fd)
+        alternate.replace(key_file)
+        return result
+
+    with patch.object(odr_signing.os, "fstat", side_effect=swap_after_fstat):
+        assert compute_key_id(load_signing_key_from_secrets().public_key()) == compute_key_id(
+            odr_test_key().public_key()
+        )
+    with pytest.raises(OSError):
+        os.fstat(opened[0])
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file descriptors")
+def test_permission_denied_open_logs_class_without_path(key_file, monkeypatch, caplog):
+    key_file.chmod(0o600)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    with patch("aragora.gauntlet.odr_signing.os.open", side_effect=PermissionError(str(key_file))):
+        with pytest.raises(OdrSigningError, match="expected a readable PKCS#8"):
+            load_signing_key_from_secrets()
+    assert "PermissionError" in caplog.text
+    assert str(key_file) not in caplog.text
