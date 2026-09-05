@@ -178,12 +178,6 @@ def _reachable_defaults() -> list[tuple[str, str]]:
 
     out.append(("cli_agents.KIMI_CLI_DEFAULT_MODEL", KIMI_CLI_DEFAULT_MODEL))
 
-    # PDB panel defaults. A whole definer module this reverse test missed
-    # until the 2026-09-05 gate-fix wave (finding C-P2 on #9989): the DeepSeek
-    # slot was pinned to "deepseek/deepseek-v4-pro", a slug this repo's own
-    # UPGRADES map declares dead, and OpenRouterAgent performs no
-    # construction-time upgrade -- so the slot sent a dead id and had no
-    # fallback entry to fall back to.
     # The seven hand-maintained tables PR 1's spec inventory missed, wired
     # to the catalog in the 2026-09-05 wave-3 pass. Most of them are keyed
     # BY model, so they define no default; these three name one.
@@ -204,6 +198,12 @@ def _reachable_defaults() -> list[tuple[str, str]]:
                 )
             )
 
+    # PDB panel defaults. A whole definer module this reverse test missed
+    # until the 2026-09-05 gate-fix wave (finding C-P2 on #9989): the DeepSeek
+    # slot was pinned to "deepseek/deepseek-v4-pro", a slug this repo's own
+    # UPGRADES map declares dead, and OpenRouterAgent performs no
+    # construction-time upgrade -- so the slot sent a dead id and had no
+    # fallback entry to fall back to.
     from aragora.pdb import invoker_factory as pdb_invoker_factory
 
     for const in (

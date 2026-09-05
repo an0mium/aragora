@@ -409,6 +409,32 @@ def test_model_token_limits_gained_the_frontier_and_kept_its_history() -> None:
     assert get_model_token_limit("gpt-6-astra") == CATALOG["gpt-6-astra"].context_window
 
 
+def test_bare_family_names_reach_their_frontier_row_context_window() -> None:
+    """A bare family word now resolves through the generated rows.
+
+    ``get_model_token_limit`` falls back to substring matching, and before
+    the catalog-generated rows landed a bare family word like "deepseek" or
+    "kimi" matched no row at all and fell through to the 8,192 default --
+    so a chunker asked to size a window for a family name sized it for a
+    model two generations behind. Documented here because the behaviour is
+    a consequence of the generated rows rather than an explicit branch, and
+    a future row rename would silently take it away again (2026-09-05
+    merge-gate addendum on #9989).
+    """
+    from aragora.documents.models import MODEL_TOKEN_LIMITS, get_model_token_limit
+
+    expected = {
+        "deepseek": CATALOG["deepseek-v4-pro-0813"].context_window,
+        "kimi": CATALOG["kimi-k3"].context_window,
+        "qwen": CATALOG["qwen3.8-2.4t-a95b"].context_window,
+        "grok": CATALOG["grok-4.6"].context_window,
+    }
+    for family_word, window in expected.items():
+        got = get_model_token_limit(family_word)
+        assert got == window, f"{family_word}: {got} != {window}"
+        assert got > MODEL_TOKEN_LIMITS["default"]
+
+
 def test_model_encodings_put_post_gpt4o_openai_rows_on_o200k() -> None:
     from aragora.documents.chunking.token_counter import MODEL_ENCODINGS
 
