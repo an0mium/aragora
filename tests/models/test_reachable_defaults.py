@@ -39,6 +39,9 @@ _NATIVE_ID_EXEMPT = {
     "registry.qwen-cli": "native-provider model code; catalog carries only the OpenRouter row",
     "registry.deepseek-cli": "native-provider model code; catalog carries only the OpenRouter row",
     "registry.kimi-legacy": "native-provider model code; catalog carries only the OpenRouter row",
+    "cli_agents.KIMI_CLI_DEFAULT_MODEL": (
+        "native-provider model code; catalog carries only the OpenRouter row"
+    ),
 }
 
 
@@ -167,6 +170,13 @@ def _reachable_defaults() -> list[tuple[str, str]]:
         registered = AgentRegistry.get_spec(agent_type)
         assert registered is not None, f"{agent_type} is no longer registered"
         out.append((f"registry.{agent_type}", registered.default_model))
+
+    # kimi-cli registers only under ARAGORA_ENABLE_KIMI_CLI, so its default is
+    # read from the module constant rather than the registry -- otherwise the
+    # one CLI default in this class would be the one this test cannot see.
+    from aragora.agents.cli_agents import KIMI_CLI_DEFAULT_MODEL
+
+    out.append(("cli_agents.KIMI_CLI_DEFAULT_MODEL", KIMI_CLI_DEFAULT_MODEL))
 
     # PDB panel defaults. A whole definer module this reverse test missed
     # until the 2026-09-05 gate-fix wave (finding C-P2 on #9989): the DeepSeek

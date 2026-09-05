@@ -45,7 +45,7 @@ from aragora.config.model_pins import (
 )
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
-from aragora.models.catalog import CATALOG, frontier_for, spec_or_none
+from aragora.models.catalog import frontier_for, spec_or_none
 from aragora.models.upgrade_map import resolve_model_id
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
 
@@ -1247,12 +1247,25 @@ class KimiCLIAgent(CLIAgent):
         )
 
 
+# Native Moonshot model code the Kimi CLI is pinned to, kept at its
+# pre-refresh value. Deliberately NOT CATALOG["kimi-k3"].direct_id: the
+# kimi-k3 row is reached through OpenRouter, its ``direct_id`` is an
+# OpenRouter naming convention rather than a code Moonshot's own endpoint is
+# known to accept, and this same PR argues exactly that in
+# aragora/agents/api_agents/openrouter.py when it keeps "moonshot-v1-8k" for
+# KimiLegacyAgent (finding C-P3 on #9989 -- same class as the qwen-cli and
+# deepseek-cli defaults below). Cost accounting is unaffected: this spelling
+# resolves through the upgrade map to the active, priced kimi-k3 row
+# (tests/models/test_reachable_defaults.py). Module-level so the reverse
+# completeness test can read it without setting ARAGORA_ENABLE_KIMI_CLI.
+KIMI_CLI_DEFAULT_MODEL = "kimi-k2"
+
 # Gate Kimi registration behind an explicit opt-in: the headless CLI contract is
 # unverified (kimi-cli is ACP, not `-p`), so it must not be a default agent.
 if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
     AgentRegistry.register(
         "kimi-cli",
-        default_model=CATALOG["kimi-k3"].direct_id,
+        default_model=KIMI_CLI_DEFAULT_MODEL,
         agent_type="CLI",
         requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
     )(KimiCLIAgent)
