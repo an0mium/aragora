@@ -268,8 +268,8 @@ class TestCheckApiKeys:
         assert "NO API KEY SET" not in status
         assert "AWS Secrets Manager" in status
 
-    def test_no_env_keys_and_no_aws_posture_still_fails(self, monkeypatch):
-        """A genuinely keyless machine (no env keys, no AWS posture) must still FAIL."""
+    def test_no_env_keys_and_no_aws_posture_is_offline_ready(self, monkeypatch):
+        """A keyless machine remains ready for the advertised offline demo path."""
         _clear_provider_env(monkeypatch)
 
         def fake_posture():
@@ -285,9 +285,53 @@ class TestCheckApiKeys:
         result = check_api_keys()
         llm_provider = [item for item in result if item[0] == "LLM Provider"]
 
-        assert llm_provider
-        assert llm_provider[0][2] is False
-        assert "NO API KEY SET" in llm_provider[0][1]
+        assert llm_provider == [
+            (
+                "LLM Provider",
+                "not configured (offline/demo mode available; required for live debates)",
+                None,
+            )
+        ]
+
+    def test_no_env_keys_still_fail_live_validation(self, monkeypatch):
+        """Explicit live validation must fail when no provider can be tested."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            lambda: SimpleNamespace(
+                available=False, providers=(), detail="", honored_by_runtime=False
+            ),
+        )
+
+        result = check_api_keys(validate_live=True)
+
+        assert [item for item in result if item[0] == "LLM Provider"] == [
+            ("LLM Provider", "NO API KEY SET; live validation unavailable", False)
+        ]
+
+    def test_provider_discovery_errors_remain_fail_closed(self, monkeypatch):
+        """Offline readiness must not hide malformed credential configuration."""
+        monkeypatch.setattr(
+            "aragora.cli.doctor.discover_provider_credentials",
+            lambda: SimpleNamespace(
+                providers=(),
+                any_configured=False,
+                configured_providers=(),
+                discovery_errors=("invalid .env entry",),
+            ),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            lambda: SimpleNamespace(
+                available=False, providers=(), detail="", honored_by_runtime=False
+            ),
+        )
+
+        result = check_api_keys()
+
+        assert [item for item in result if item[0] == "LLM Provider"] == [
+            ("LLM Provider", "credential discovery failed (invalid .env entry)", False)
+        ]
 
     def test_aws_posture_present_but_runtime_disabled_warns_not_ok(self, monkeypatch):
         """Keys in AWS but use_aws disabled => WARN (None), not a green OK.
@@ -694,13 +738,21 @@ class TestMain:
 
         assert result == 0
 
-    def test_returns_1_when_checks_fail(self, monkeypatch):
-        """Test returns 1 when checks fail."""
-        # Remove all provider keys to cause failure
+    def test_returns_0_for_keyless_offline_readiness(self, monkeypatch):
+        """Default doctor succeeds when only live-provider capability is absent."""
         _clear_provider_env(monkeypatch)
 
         with patch("aragora.cli.doctor.check_server", new=AsyncMock(return_value=[])):
             result = main()
+
+        assert result == 0
+
+    def test_returns_1_when_live_validation_has_no_provider(self, monkeypatch):
+        """Explicit live-provider validation remains fail-closed without a key."""
+        _clear_provider_env(monkeypatch)
+
+        with patch("aragora.cli.doctor.check_server", new=AsyncMock(return_value=[])):
+            result = main(validate_keys=True)
 
         assert result == 1
 
