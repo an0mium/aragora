@@ -356,9 +356,6 @@ replay = client.replays.get(replays[0].replay_id)
 for event in replay.events:
     print(f"[{event.timestamp}] {event.event_type}: {event.content[:50]}...")
 
-# Export to JSON/CSV
-data = client.replays.export(replay.replay_id, format="json")
-
 # Delete replay
 client.replays.delete(replay.replay_id)
 ```
