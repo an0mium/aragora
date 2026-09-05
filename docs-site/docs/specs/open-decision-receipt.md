@@ -252,6 +252,8 @@ consumers to remove their pins; rotation publishes a replacement record and upda
 consumer pins through that same trusted channel before signing resumes.
 Unusable configured file custody fails closed: producers exit 1 without output,
 both key routes return 404, and readiness remains independent (200).
+On POSIX, the loader rejects a key file writable by group or other and warns on
+one readable by group or other (strict mode rejects it).
 
 ## 7. Compliance mapping — EU AI Act Art. 14 / NIST AI 600-1
 

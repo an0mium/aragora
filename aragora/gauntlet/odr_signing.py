@@ -38,9 +38,11 @@ import copy
 import hashlib
 import logging
 import os
+import stat
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from aragora.config.env_helpers import env_bool
 from aragora.gauntlet.odr_jcs import odr_content_digest
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -59,6 +61,7 @@ ODR_SIGNATURE_ALG = "Ed25519"
 DEFAULT_SIGNING_KEY_SECRET = "aragora/odr-signing-key"
 SIGNING_KEY_SECRET_ENV = "ARAGORA_ODR_SIGNING_KEY_SECRET"
 SIGNING_KEY_FILE_ENV = "ARAGORA_ODR_SIGNING_KEY_FILE"
+SIGNING_KEY_STRICT_MODE_ENV = "ARAGORA_ODR_SIGNING_KEY_STRICT_MODE"
 
 
 class OdrSigningError(Exception):
@@ -240,6 +243,28 @@ def _load_pem_secret_from_aws(secret_id: str, *, explicitly_named: bool = False)
     )
 
 
+def _key_file_permission_reason(key_file: str) -> str | None:
+    if os.name != "posix":
+        return None
+    file_mode = os.stat(key_file).st_mode
+    mode = stat.S_IMODE(file_mode)
+    if not stat.S_ISREG(file_mode):
+        return "not a regular file"
+    if mode & 0o022:
+        return f"writable by group or other (mode {mode:04o})"
+    if mode & 0o044:
+        if env_bool(SIGNING_KEY_STRICT_MODE_ENV, False):
+            return f"readable by group or other in strict mode (mode {mode:04o})"
+        # Container secret mounts commonly require these bits for non-root users.
+        logger.warning(
+            "ODR signing key file is readable by group or other (mode %04o); "
+            "set %s=true to reject it",
+            mode,
+            SIGNING_KEY_STRICT_MODE_ENV,
+        )
+    return None
+
+
 def load_signing_key_from_secrets(
     secret_name: str | None = None,
 ) -> Ed25519PrivateKey:
@@ -253,14 +278,18 @@ def load_signing_key_from_secrets(
     key_file = os.environ.get(SIGNING_KEY_FILE_ENV) if secret_name is None else None
     if key_file:
         try:
-            return load_private_key_from_pem(Path(key_file).read_bytes())
-        except (OSError, ValueError, OdrSigningError):
+            reason = _key_file_permission_reason(key_file)
+            if reason is None:
+                return load_private_key_from_pem(Path(key_file).read_bytes())
+        except (OSError, ValueError, OdrSigningError) as exc:
             # A path could contain mistakenly pasted key bytes; suppress it and
             # parser exception chains rather than disclosing them in producer logs.
+            logger.warning("ODR signing key file could not be loaded (%s)", type(exc).__name__)
             raise OdrSigningError(
                 "ODR signing key file is configured but could not be used; "
                 "expected a readable PKCS#8 Ed25519 private-key PEM"
             ) from None
+        raise OdrSigningError(f"ODR signing key file is configured but could not be used; {reason}")
     explicit = secret_name or os.environ.get(SIGNING_KEY_SECRET_ENV)
     name = explicit or DEFAULT_SIGNING_KEY_SECRET
     pem = _load_pem_secret_from_aws(name, explicitly_named=bool(explicit))

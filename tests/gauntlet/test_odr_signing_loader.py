@@ -225,3 +225,106 @@ def test_cli_export_file_key_never_writes_on_failure(tmp_path, key_file, mode):
         key = odr_test_key().public_key() if mode == "valid" else None
         assert verify_odr_document(doc, public_key=key).ok
         assert verify(doc, public_key=key).ok
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@pytest.mark.parametrize("mode", [0o664, 0o666])
+def test_writable_key_permission_fails_closed(odr, key_file, monkeypatch, mode):
+    key_file.chmod(mode)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    with pytest.raises(OdrSigningError, match="writable by group or other") as caught:
+        sign_odr_if_configured(odr)
+    assert str(caught.value).startswith("ODR signing key file is configured but could not be used;")
+    assert f"{mode:04o}" in str(caught.value)
+    assert str(key_file) not in str(caught.value)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@pytest.mark.parametrize("mode", [0o644, 0o444])
+def test_readable_key_permission_warns_and_signs(odr, key_file, monkeypatch, caplog, mode):
+    key_file.chmod(mode)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.delenv("ARAGORA_ODR_SIGNING_KEY_STRICT_MODE", raising=False)
+    signed = sign_odr_if_configured(odr)
+    assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
+    assert verify_odr_document(signed, public_key=odr_test_key().public_key()).ok
+    assert verify(signed, public_key=odr_test_key().public_key()).ok
+    warnings = [r.message for r in caplog.records if "readable by group or other" in r.message]
+    assert len(warnings) == 1
+    assert f"{mode:04o}" in warnings[0]
+    assert "ARAGORA_ODR_SIGNING_KEY_STRICT_MODE" in warnings[0]
+    assert str(key_file) not in caplog.text
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+@pytest.mark.parametrize("strict", ["true", "1", "YES", "On"])
+def test_strict_readable_key_permission_fails_closed(key_file, monkeypatch, strict):
+    key_file.chmod(0o644)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_STRICT_MODE", strict)
+    with pytest.raises(OdrSigningError, match="strict mode") as caught:
+        load_signing_key_from_secrets()
+    assert str(caught.value).startswith("ODR signing key file is configured but could not be used;")
+    assert "0644" in str(caught.value)
+    assert str(key_file) not in str(caught.value)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+def test_strict_private_key_permission_signs(odr, key_file, monkeypatch, caplog):
+    key_file.chmod(0o600)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_STRICT_MODE", "true")
+    signed = sign_odr_if_configured(odr)
+    assert verify(signed, public_key=odr_test_key().public_key()).ok
+    assert "readable by group or other" not in caplog.text
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permissions")
+def test_non_regular_key_permission_fails_before_read(tmp_path, monkeypatch):
+    monkeypatch.setenv(FILE_ENV, str(tmp_path))
+    with patch.object(Path, "read_bytes", side_effect=AssertionError("must not read directory")):
+        with pytest.raises(OdrSigningError, match="not a regular file") as caught:
+            load_signing_key_from_secrets()
+    assert str(caught.value).startswith("ODR signing key file is configured but could not be used;")
+    assert str(tmp_path) not in str(caught.value)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink permissions")
+def test_symlink_permission_checks_target(key_file, tmp_path, monkeypatch):
+    link = tmp_path / "link.pem"
+    link.symlink_to(key_file)
+    key_file.chmod(0o666)
+    monkeypatch.setenv(FILE_ENV, str(link))
+    with pytest.raises(OdrSigningError, match="writable by group or other"):
+        load_signing_key_from_secrets()
+    key_file.chmod(0o600)
+    assert compute_key_id(load_signing_key_from_secrets().public_key()) == compute_key_id(
+        odr_test_key().public_key()
+    )
+
+
+def test_non_posix_skips_permission_check(key_file, monkeypatch):
+    from types import SimpleNamespace
+    from aragora.gauntlet import odr_signing
+
+    key_file.chmod(0o666)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    monkeypatch.setenv("ARAGORA_ODR_SIGNING_KEY_STRICT_MODE", "true")
+    with patch.object(odr_signing, "os", SimpleNamespace(name="nt", environ=os.environ)):
+        assert compute_key_id(load_signing_key_from_secrets().public_key()) == compute_key_id(
+            odr_test_key().public_key()
+        )
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, PermissionError, ValueError, OdrSigningError])
+def test_unusable_file_logs_exception_class_only(key_file, monkeypatch, caplog, error):
+    key_file.chmod(0o600)
+    monkeypatch.setenv(FILE_ENV, str(key_file))
+    secret_message = f"sensitive exception message {key_file}"
+    with patch.object(Path, "read_bytes", side_effect=error(secret_message)):
+        with pytest.raises(OdrSigningError, match="expected a readable PKCS#8") as caught:
+            load_signing_key_from_secrets()
+    assert error.__name__ in caplog.text
+    assert secret_message not in caplog.text
+    assert str(key_file) not in caplog.text + str(caught.value)
+    assert caught.value.__suppress_context__
