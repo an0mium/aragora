@@ -811,3 +811,17 @@ class TestModelDefaultsAreValid:
             f"{GROK_MODEL_DEFAULT!r} missing from _PRICE_PER_MTOK; "
             "estimate_cost_usd would record $0.00 for every call."
         )
+
+    def test_qwen_default_has_price_entry(self) -> None:
+        """QWEN_MODEL_DEFAULT pins CATALOG["qwen3.8-2.4t-a95b"].openrouter_id
+        ("qwen/qwen3.8-2.4t-a95b"), but _PRICE_PER_MTOK's hand-written rows
+        only ever carried the bare legacy "qwen3.8-max" spelling -- never
+        this one, and never the new canonical id. Without the catalog
+        mirror (aragora.models.pricing_mirror.pdb_rows), every qwen default
+        call would have silently recorded cost=0.0."""
+        from aragora.pdb.real_invoker import _PRICE_PER_MTOK
+
+        assert QWEN_MODEL_DEFAULT in _PRICE_PER_MTOK, (
+            f"{QWEN_MODEL_DEFAULT!r} missing from _PRICE_PER_MTOK; "
+            "estimate_cost_usd would record $0.00 for every call."
+        )
