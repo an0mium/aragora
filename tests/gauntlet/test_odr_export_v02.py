@@ -22,13 +22,48 @@ def legacy_document():
     return json.loads((ROOT / "docs/specs/examples/example-approved-clean.odr.json").read_text())
 
 
+def receipt():
+    return DecisionReceipt.from_dict(
+        {
+            "receipt_id": "test",
+            "verdict_reasoning": "Source reasoning",
+            "consensus_proof": {"reached": True, "confidence": 1.0},
+        }
+    )
+
+
+def test_default_is_v01_and_matches_origin_shape():
+    source = receipt()
+    source.settlement_metadata = {"repo": "o/r", "pr": 1, "odr": {"adjudication": {}}}
+    doc = decision_receipt_to_odr(source)
+    assert set(doc) == set(
+        "odr_version profile receipt_id issued_at subject claim reasoning quorum "
+        "confidence cruxes attestation routing signatures source".split()
+    )
+    assert doc["odr_version"] == "0.1"
+    assert doc["profile"] == "https://aragora.ai/specs/open-decision-receipt/v0.1"
+    assert not {"repository", "pr_number", "head_sha", "base_sha"} & doc["subject"].keys()
+    assert verify(doc).ok and verify_odr_document(doc).ok
+
+
+def test_requested_v02_changes_only_version_and_profile():
+    source = receipt()
+    default = decision_receipt_to_odr(source)
+    requested = decision_receipt_to_odr(source, odr_version="0.2")
+    default.update(odr_version="0.2", profile="https://aragora.ai/specs/open-decision-receipt/v0.2")
+    assert requested == default
+
+
+@pytest.mark.parametrize("version", ["0.3", "", None])
+def test_unknown_version_raises_value_error(version):
+    with pytest.raises(ValueError, match=r"0\.1.*0\.2"):
+        decision_receipt_to_odr(receipt(), odr_version=version)
+
+
 def test_emitter_v02_preserves_v01_absence():
     legacy = legacy_document()
     assert verify(legacy).ok and verify_odr_document(legacy).ok
-    receipt = DecisionReceipt.from_dict(
-        {"receipt_id": "test", "gauntlet_id": "demo", "verdict": "PASS"}
-    )
-    doc = decision_receipt_to_odr(receipt)
+    doc = decision_receipt_to_odr(receipt(), odr_version="0.2")
     assert doc["odr_version"] == "0.2"
     assert doc["profile"].endswith("/v0.2")
     assert doc["signatures"] == [] and "adjudication" not in doc
@@ -37,50 +72,22 @@ def test_emitter_v02_preserves_v01_absence():
 
 
 def test_findings_do_not_change_legacy_dissent_present():
-    legacy = legacy_document()
-    assert verify(legacy).ok and verify_odr_document(legacy).ok
-    receipt = DecisionReceipt.from_dict(
-        {"receipt_id": "test", "consensus_proof": {"reached": True, "confidence": 1.0}}
-    )
-    before = decision_receipt_to_odr(receipt)["quorum"]["dissent"]
+    doc = decision_receipt_to_odr(receipt(), odr_version="0.2")
+    assert doc["quorum"]["dissent"]["present"] is False
     finding = {"issuer": "claude", "severity": "P3", "blocking": False, "text": "[P3] advisory"}
-    receipt.settlement_metadata = {
-        "odr": {
-            "dissent": {
-                "findings": [finding],
-                "severity_max": "P3",
-                "blocking": False,
-                "present": True,
-                "dissenting_agents": ["invented"],
-                "views": ["invented"],
-            }
-        }
-    }
-    doc = decision_receipt_to_odr(receipt)
-    assert before["present"] is False and doc["quorum"]["dissent"]["present"] is False
-    assert doc["quorum"]["dissent"] == {
-        **before,
-        "findings": [finding],
-        "severity_max": "P3",
-        "blocking": False,
-    }
-    assert doc["quorum"]["dissent"]["findings"] == [finding]
+    doc["quorum"]["dissent"].update(findings=[finding], severity_max="P3", blocking=False)
     assert verify(doc).ok and verify_odr_document(doc).ok
 
 
 @pytest.mark.parametrize("reasoning", ["", "Real source reasoning"])
 def test_observations_preserve_legacy_reasoning_marker(reasoning):
-    legacy = legacy_document()
-    assert verify(legacy).ok and verify_odr_document(legacy).ok
-    receipt = DecisionReceipt.from_dict({"receipt_id": "test", "verdict_reasoning": reasoning})
-    before = decision_receipt_to_odr(receipt)["reasoning"]
-    observations = [{"kind": "failure", "family": "grok", "detail": "transport failed"}]
-    receipt.settlement_metadata = {"odr": {"observations": observations}}
-    doc = decision_receipt_to_odr(receipt)
+    source = DecisionReceipt.from_dict({"receipt_id": "test", "verdict_reasoning": reasoning})
+    doc = decision_receipt_to_odr(source, odr_version="0.2")
     if reasoning:
-        assert doc["reasoning"] == {**before, "observations": observations}
+        doc["reasoning"]["observations"] = [{"kind": "failure", "family": "grok", "detail": "x"}]
+        assert doc["reasoning"]["summary"] == reasoning
     else:
-        assert doc["reasoning"] == before and before["status"] == "absent"
+        assert doc["reasoning"]["status"] == "absent"
         assert "observations" not in doc["reasoning"]
     assert verify(doc).ok and verify_odr_document(doc).ok
 
@@ -88,7 +95,7 @@ def test_observations_preserve_legacy_reasoning_marker(reasoning):
 def test_extension_walkers_accept_numbers_but_not_booleans():
     from aragora.gauntlet.odr_verify import _validate_extensions
 
-    doc = legacy_document()
+    doc = decision_receipt_to_odr(receipt(), odr_version="0.2")
     assert verify(doc).ok and verify_odr_document(doc).ok
     bundled = copy.deepcopy(schema.load_bundled_schema())
     bundled["properties"]["subject"]["properties"]["pr_number"] = {"type": "number"}
@@ -102,11 +109,8 @@ def test_extension_walkers_accept_numbers_but_not_booleans():
 
 @pytest.mark.parametrize("version", ["0.1", "0.2"])
 def test_three_member_signatures_verify_for_both_versions(version):
-    doc = legacy_document()
+    doc = decision_receipt_to_odr(receipt(), odr_version=version)
     assert verify(doc).ok and verify_odr_document(doc).ok
-    doc.update(
-        odr_version=version, profile=f"https://aragora.ai/specs/open-decision-receipt/v{version}"
-    )
     key = odr_test_key()
     signed = sign_odr_receipt(doc, key)
     assert set(signed["signatures"][0]) == {"alg", "key_id", "signature"}
@@ -120,11 +124,8 @@ def test_three_member_signatures_verify_for_both_versions(version):
 )
 def test_optional_content_types_and_unknowns(monkeypatch, version, member):
     monkeypatch.setattr(schema, "_jsonschema_errors", lambda doc: [])
-    doc = legacy_document()
+    doc = decision_receipt_to_odr(receipt(), odr_version=version)
     assert verify(doc).ok and verify_odr_document(doc).ok
-    doc.update(
-        odr_version=version, profile=f"https://aragora.ai/specs/open-decision-receipt/v{version}"
-    )
     blocks = {
         "verdicts": (doc["quorum"], [{"issuer": "reviewer", "counted": False}]),
         "rule": (doc["quorum"], {"required_signals": 2, "counted_families": ["claude"]}),
@@ -138,12 +139,7 @@ def test_optional_content_types_and_unknowns(monkeypatch, version, member):
         ),
         "adjudication": (
             doc,
-            {
-                "status": "present",
-                "kind": "review_adjudication.v1",
-                "verdict": "settle",
-                "policy": {},
-            },
+            {"kind": "review_adjudication.v1", "verdict": "settle", "reason": "x"},
         ),
         "subject": (
             doc,

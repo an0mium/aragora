@@ -52,8 +52,8 @@ carry absent markers rather than being omitted, so a verifier can distinguish
 
 | Member | Type | Content |
 |---|---|---|
-| `odr_version` | string | Profile version, `"0.1"`. |
-| `profile` | string | `https://aragora.ai/specs/open-decision-receipt/v0.1`. |
+| `odr_version` | string | Profile version, "0.1" or "0.2". |
+| `profile` | string | `https://aragora.ai/specs/open-decision-receipt/v0.1` or `https://aragora.ai/specs/open-decision-receipt/v0.2`. |
 | `receipt_id` | string | Unique id of this receipt. |
 | `issued_at` | string \| null | ISO-8601 timestamp from the source receipt; `null` if the source recorded none. |
 | `subject` | object | Binding to the decided thing (§4.1). |
@@ -192,6 +192,29 @@ original. Full-payload integrity for the *neutral* artifact is exactly what
 `odr_digest` (§5) provides; widening the native hash's coverage would re-hash
 every stored receipt and is out of scope for v0.1.
 
+### 4.10 v0.2 optional members
+
+These additions preserve the meaning and required-ness of every v0.1 member.
+
+| Member | Parent | Type | Meaning |
+|---|---|---|---|
+| `quorum.verdicts[]` | `quorum` | object | Per-reviewer `issuer`, `role?`, `verdict`, `model_family`, `model_id`, `head_sha?`, `posted_at?`, `grounded?`, `counted?`, `severity_max?`, `blocking?`; undisclosed model ids use `"undisclosed"`. |
+| `quorum.rule` | `quorum` | object | Gate rule: `required_signals` (integer), `requires_western_frontier` and `western_only_counted` (booleans), `counted_families` (string array). |
+| `quorum.dissent.findings[]` | `quorum.dissent` | object | Findings from all reviewers: `issuer`, `severity` (P0..P3), `blocking` (P0/P1 true), `location?`, `text`. |
+| `quorum.dissent.severity_max` | `quorum.dissent` | string | Most severe finding, ordered P0 > P1 > P2 > P3. |
+| `quorum.dissent.blocking` | `quorum.dissent` | boolean | True iff any finding is P0/P1. |
+| `adjudication` | top-level | object | Omitted when absent; `kind: "review_adjudication.v1"`, `verdict` (settle/block/escalate/not_applicable), `reason`; optional policy and assessment/finding arrays record the adjudicator's decision. |
+| `attestation.mechanism.{policy_version,tier,tiered_gate,severity_gated,action,action_reason,record_ref}` | `attestation.mechanism` | integer, integer, boolean, boolean, string, string, string | Policy version, risk tier, gate modes, action and reason, optional settlement-record reference. |
+| `subject.repository` | `subject` | string | Repository owning the reviewed PR. |
+| `subject.pr_number` | `subject` | integer | Reviewed pull-request number. |
+| `subject.head_sha` | `subject` | string | Exact reviewed head. |
+| `subject.base_sha` | `subject` | string | Recorded base, when available. |
+| `reasoning.observations[]` | `reasoning` | object | `kind` (timeout/failure/rerun), `family`, `detail`; only alongside a real source reasoning summary, never an absent marker. |
+| `signatures[].{issuer,role,signed_at,expires_at}` | signature items | string | Reserved for the signature-metadata change: issuer, role (emitter/reviewer/attestor/notary), signing time and optional expiry (RFC 3339 UTC). |
+
+Gate-level dissent (`present`/`dissenting_agents`/`verdicts[].blocking`) and severity-level findings (`findings`/`severity_max`/`dissent.blocking`) are independent notions, never derived from each other.
+A v0.1 document carries none of these members.
+
 ## 5. Canonicalization and hashing — RFC 8785 (JCS)
 
 The hashing basis of an ODR document is its **RFC 8785 (JSON Canonicalization
@@ -279,7 +302,7 @@ facts inspectable; conformity assessment remains the deployer's process (see
 
 ## 8. Conformance
 
-An emitter conforms to ODR v0.1 iff:
+An emitter conforms to ODR v0.1 or v0.2 iff:
 
 1. its output validates against `aragora/gauntlet/odr_schema.json`;
 2. every value is sourced from a real record (rule 1) and every unsupplied
@@ -287,6 +310,7 @@ An emitter conforms to ODR v0.1 iff:
    be absent is non-conformant even if schema-valid;
 3. hashing and signing use the JCS basis of §5;
 4. `signatures` is `[]` and `routing.status` is `"reserved"`.
+5. a v0.2 document carries only members defined in §4.10 beyond the v0.1 members; a v0.1 document carries none of them.
 
 A verifier conforms iff it validates the schema, recomputes `odr_digest` from
 JCS bytes, and treats `"undisclosed"`/absent markers as *weakening* rather
@@ -359,17 +383,15 @@ a drift-guard test so it cannot silently fall out of sync with the emitter.
 
 ### 9.5 Path to v1.0 GA (current status)
 
-ODR v0.2 lands as a **staged rollout**, not one coordinated release: first the
-emitter constants in `aragora/gauntlet/odr_export.py`, the bundled `odr_schema.json`
-in both the main repo and the `aragora-verify` package, and version acceptance
-in both bundled verifiers; next the consistency checks, signed-message
-construction, ACTA projection and deterministic test vectors; last the
-`aragora-verify` **0.2.0** PyPI release. Until 0.2.0 is published, the published
-`aragora-verify` 0.1.1 fails a v0.2 document at `schema_conformance`
-(`odr_version: must be '0.1'`), so verify v0.2 documents with the in-repo
-verifier or an `aragora-verify` built from this repository. Every v0.1 document
-keeps verifying unchanged with every verifier throughout. This section remains
-the **stability contract that v1.0 will honour**.
+ODR v0.2 is a **staged rollout**, not one coordinated release. The schemas and
+both in-repo verifiers accept v0.2 first; the emitter defaults to 0.1 and emits
+0.2 **on request** (`odr_version="0.2"` in the library; `--odr-version 0.2` on
+the CLIs once the bridge lands) until `aragora-verify` **0.2.0** is published
+on PyPI. The default flips afterwards, for release 2.11.0.
+Published `aragora-verify` 0.1.1 fails a v0.2 document at `schema_conformance`
+(`odr_version: must be '0.1'`); use either in-repo verifier for opt-in v0.2
+until 0.2.0 publishes. Every v0.1 document keeps verifying unchanged with every
+verifier throughout. This remains the **stability contract that v1.0 will honour**.
 
 ## 10. Reference emitter
 

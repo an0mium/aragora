@@ -87,9 +87,6 @@ def test_fixture_matches_generator_receipt_content(odr_doc):
     """
     module = _load_generator_module()
     expected = module.export_receipt_to_odr(module.build_sample_receipt())
-    assert expected["odr_version"] == "0.2" and odr_doc["odr_version"] == "0.1"
-    assert verify_odr_document(expected).ok
-    expected.update(odr_version=odr_doc["odr_version"], profile=odr_doc["profile"])
     actual = {k: v for k, v in odr_doc.items() if k != "signatures"}
     expected = {k: v for k, v in expected.items() if k != "signatures"}
     assert actual == expected, (
@@ -115,9 +112,6 @@ def test_native_fixture_exports_to_the_signed_odr_fixture(odr_doc):
     native = json.loads(NATIVE_PATH.read_text(encoding="utf-8"))
     receipt = DecisionReceipt.from_dict(native)
     exported = decision_receipt_to_odr(receipt)
-    assert exported["odr_version"] == "0.2" and odr_doc["odr_version"] == "0.1"
-    assert verify_odr_document(exported).ok
-    exported.update(odr_version=odr_doc["odr_version"], profile=odr_doc["profile"])
     assert {k: v for k, v in exported.items() if k != "signatures"} == {
         k: v for k, v in odr_doc.items() if k != "signatures"
     }
