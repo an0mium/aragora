@@ -59,8 +59,10 @@ _AGENT_PROVIDER_MAP: dict[str, str] = {
     "llama4-maverick": "openrouter",
     "llama4-scout": "openrouter",
     "qwen": "openrouter",
-    "qwen-3.5": "openrouter",
-    "yi": "openrouter",
+    # NOTE (frontier-model-refresh, 2026-09-05): "qwen-3.5" and "yi" are
+    # deliberately absent. Both registrations were removed with their models
+    # (Qwen3.5 Plus and Yi Large are off the live OpenRouter catalog), so a
+    # diagnostics row for either described an agent type the server rejects.
     "kimi": "openrouter",
 }
 

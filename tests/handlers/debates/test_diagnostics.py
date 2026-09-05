@@ -526,6 +526,25 @@ class TestProviderInference:
 
         assert _infer_provider("custom-agent-xyz") == "unknown"
 
+    def test_retired_agent_types_are_not_inferred(self):
+        """C-P3 (#9989 merge-gate, round 2): the frontier refresh removed the
+        ``yi`` and ``qwen-3.5`` registrations (both models are off the live
+        OpenRouter catalog), but this map still described them, so diagnostics
+        reported a provider for an agent type the server rejects at
+        construction. They now fall through to "unknown" like any other
+        unregistered name; ``qwen`` itself is unaffected."""
+        from aragora.server.handlers.debates.diagnostics import (
+            _AGENT_PROVIDER_MAP,
+            _infer_provider,
+        )
+
+        assert "yi" not in _AGENT_PROVIDER_MAP
+        assert "qwen-3.5" not in _AGENT_PROVIDER_MAP
+        assert _infer_provider("yi") == "unknown"
+        assert _infer_provider("yi-large") == "unknown"
+        assert _infer_provider("qwen-3.5") == "openrouter"  # prefix "qwen"
+        assert _infer_provider("qwen") == "openrouter"
+
     def test_case_insensitive(self):
         """Test provider inference is case insensitive."""
         from aragora.server.handlers.debates.diagnostics import _infer_provider
