@@ -27,7 +27,13 @@ _MODEL_FAMILY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("gemini", re.compile(r"gemini|palm|bard", re.I)),
     ("grok", re.compile(r"grok", re.I)),
     # "meta" catches the 2026-09-04 frontier refresh's muse-spark id; "llama"
-    # stays a distinct family label for the older Llama product name.
+    # stays a distinct family label for the older Llama product name. This is
+    # deliberately narrower than aragora.cli.commands.review_queue's
+    # DIRECT_MODEL_FAMILY_MARKERS["meta"], which also matches "meta-llama/..."
+    # (the OpenRouter provider prefix for Llama models) and so labels that id
+    # "meta" there -- the two consumers serve different purposes (ensemble
+    # diversity counting here vs. reviewer-quorum family recognition there)
+    # and are not required to agree on every id's label.
     ("meta", re.compile(r"muse-spark", re.I)),
     ("llama", re.compile(r"llama", re.I)),
     ("mistral", re.compile(r"mistral|mixtral|codestral", re.I)),
