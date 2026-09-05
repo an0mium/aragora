@@ -587,6 +587,12 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                             agent_name=self.name,
                             reason="refusal",
                             category=category,
+                            # A refusal is terminal: retrying reproduces it.
+                            # recoverable=False also stops @handle_agent_errors
+                            # falling through to its own record_failure(), which
+                            # would double-count the manual one above and trip
+                            # the breaker on half the refusals it takes.
+                            recoverable=False,
                         )
 
                     try:
@@ -780,6 +786,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         agent_name=self.name,
                         reason="refusal",
                         category=category,
+                        # Terminal, and not a second breaker failure — see the
+                        # non-streaming refusal branch above.
+                        recoverable=False,
                     )
 
     async def critique(

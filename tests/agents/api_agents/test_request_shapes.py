@@ -154,6 +154,58 @@ def test_anthropic_stop_reason_refusal_raises_structured_error() -> None:
     assert getattr(excinfo.value, "category", None) == "cyber"
 
 
+def test_anthropic_refusal_records_exactly_one_breaker_failure() -> None:
+    """A refusal must cost the breaker one failure, not two.
+
+    The refusal branch records the failure itself. If the raised error were
+    ``recoverable=True`` (the default for a ``status_code=None``
+    ``AgentAPIError``), ``@handle_agent_errors`` would not short-circuit on
+    ``if not e.recoverable: raise`` and would fall through to its own
+    ``circuit_breaker.record_failure()`` — so a couple of cyber-classifier
+    refusals could trip the breaker and take the primary Anthropic path out
+    of service, which is exactly what the refusal fallback exists to survive.
+    """
+    import asyncio
+
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.agents.errors.exceptions import AgentAPIError
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    breaker = agent._circuit_breaker
+    assert breaker is not None
+    before = breaker.failures
+
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(
+        return_value={
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {"category": "cyber"},
+            "usage": {"input_tokens": 1, "output_tokens": 0},
+        }
+    )
+
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.post = MagicMock(
+        return_value=MagicMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        with pytest.raises(AgentAPIError) as excinfo:
+            asyncio.run(agent.generate("hello"))
+
+    assert excinfo.value.recoverable is False, "a refusal is terminal, never retryable"
+    assert breaker.failures - before == 1
+
+
 def test_sse_parser_captures_message_delta_stop_info() -> None:
     """Parser unit test: a "message_delta" event populates stop_reason/
     stop_details on the parser object while text-chunk extraction is

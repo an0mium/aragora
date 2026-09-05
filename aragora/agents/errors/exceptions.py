@@ -114,9 +114,15 @@ class AgentAPIError(AgentError):
         cause: Exception | None = None,
         reason: str | None = None,
         category: str | None = None,
+        recoverable: bool | None = None,
     ) -> None:
-        # 4xx errors are generally not recoverable (bad request, auth)
-        recoverable = status_code is None or status_code >= 500
+        # 4xx errors are generally not recoverable (bad request, auth).
+        # An explicit ``recoverable`` overrides that inference for a
+        # provider-declared failure that carries no HTTP status yet is
+        # definitively terminal (e.g. stop_reason == "refusal", which retrying
+        # can only reproduce).
+        if recoverable is None:
+            recoverable = status_code is None or status_code >= 500
         super().__init__(message, agent_name, cause, recoverable=recoverable)
         self.status_code = status_code
         self.error_type = error_type
