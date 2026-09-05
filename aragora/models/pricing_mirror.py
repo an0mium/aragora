@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from aragora.routing.provider_config import ProviderPricing
 
 __all__ = [
+    "context_window_rows",
     "dec",
     "debate_cost_rows",
     "input_cost_per_1k_rows",
@@ -355,3 +356,17 @@ def input_cost_per_1k_rows() -> dict[str, float]:
     per agent, documented as the input rate; the output rate has no slot in
     the response shape."""
     return {spelling: s.input_per_mtok / 1000.0 for s in _current() for spelling in s.all_ids()}
+
+
+def context_window_rows() -> dict[str, int]:
+    """Shape of ``aragora.documents.models.MODEL_TOKEN_LIMITS``: spelling ->
+    ``ModelSpec.context_window``, one entry per spelling in
+    ``ModelSpec.all_ids()``, ACTIVE rows only.
+
+    Not a price, but the same projection problem and the same source row:
+    ``provider_config_rows`` above already emits ``context_window`` for the
+    routing table, and a second module for one more field of the same
+    dataclass would just split the catalog's projection layer in two. The
+    consumer keys on the model spelling and falls back to a per-table
+    default, exactly like the pricing tables."""
+    return {spelling: s.context_window for s in _current() for spelling in s.all_ids()}

@@ -27,6 +27,7 @@ from typing import Any
 
 from aragora.documents.models import DocumentChunk, MODEL_TOKEN_LIMITS
 from aragora.documents.chunking.token_counter import TokenCounter, get_token_counter
+from aragora.models.catalog import CATALOG
 from aragora.models.pricing_mirror import per_mtok_rows
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,23 @@ _LEGACY_PRICING: dict[str, dict[str, float]] = {
 }
 
 PRICING: dict[str, dict[str, float]] = {**_LEGACY_PRICING, **per_mtok_rows()}
+
+# Context-window band boundaries, in tokens.
+LARGE_CONTEXT_TOKENS = 1_000_000
+MEDIUM_CONTEXT_TOKENS = 128_000
+
+
+def _catalog_context_models(low: int, high: int | None) -> set[str]:
+    """Every spelling of every ACTIVE catalog row whose ``context_window``
+    is at least ``low`` and (when ``high`` is given) below it."""
+    return {
+        spelling
+        for spec in CATALOG.values()
+        if not spec.retired
+        and spec.context_window >= low
+        and (high is None or spec.context_window < high)
+        for spelling in spec.all_ids()
+    }
 
 
 class ContextStrategy(str, Enum):
@@ -131,16 +149,19 @@ class ContextManager:
     based on document size and model limits.
     """
 
-    # Models with large context windows (1M+ tokens)
+    # Models with large context windows (1M+ tokens). Historical spellings
+    # kept (they are the only rows for models the catalog no longer carries)
+    # plus every active catalog row whose context_window reaches 1M -- which
+    # is now most of the frontier, and none of which this set named before
+    # (2026-09-04 controller ruling, wave 3).
     LARGE_CONTEXT_MODELS = {
-        "gemini-3.1-pro-preview",
         "gemini-3-pro",
         "gemini-3-pro-preview",
         "gemini-3.1-pro",
         "gemini-1.5-pro",  # 2M tokens
-    }
+    } | _catalog_context_models(LARGE_CONTEXT_TOKENS, None)
 
-    # Models with medium context windows (128K-256K tokens)
+    # Models with context windows between 128K and 1M tokens.
     MEDIUM_CONTEXT_MODELS = {
         "gpt-4-turbo",
         "gpt-4-turbo-preview",
@@ -149,7 +170,7 @@ class ContextManager:
         "claude-3-sonnet",
         "claude-3-haiku",
         "claude-3.5-sonnet",
-    }
+    } | _catalog_context_models(MEDIUM_CONTEXT_TOKENS, LARGE_CONTEXT_TOKENS)
 
     def __init__(
         self,

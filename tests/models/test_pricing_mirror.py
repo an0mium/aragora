@@ -379,3 +379,75 @@ def test_agent_cost_estimates_gained_the_frontier_and_kept_prefix_matching() -> 
     assert keys.index("claude") < keys.index("claude-fable-5-1")
     for spelling, rate in pm.input_cost_per_1k_rows().items():
         assert _AGENT_COST_ESTIMATES[spelling] == rate
+
+
+def test_context_window_rows_mirror_the_catalog_field() -> None:
+    rows = pm.context_window_rows()
+    for s in CATALOG.values():
+        if s.retired:
+            continue
+        for spelling in s.all_ids():
+            assert rows[spelling] == s.context_window
+
+
+def test_model_token_limits_gained_the_frontier_and_kept_its_history() -> None:
+    """The historical rows are the only source for spellings the catalog
+    dropped, and their POSITION drives ``get_model_token_limit``'s substring
+    fallback."""
+    from aragora.documents.models import MODEL_TOKEN_LIMITS, get_model_token_limit
+
+    assert get_model_token_limit("gpt-4") == 8_192
+    assert get_model_token_limit("gpt-4-turbo") == 128_000
+    assert get_model_token_limit("gpt-3.5-turbo") == 16_385
+    # Substring fallback still reaches the historical gpt-4o row first.
+    assert get_model_token_limit("gpt-4o-mini") == 128_000
+    # "default" must stay LAST so it is only reached after every real model.
+    assert list(MODEL_TOKEN_LIMITS)[-1] == "default"
+    assert get_model_token_limit("unknown-model-xyz123") == MODEL_TOKEN_LIMITS["default"]
+
+    for spelling, window in pm.context_window_rows().items():
+        assert MODEL_TOKEN_LIMITS[spelling] == window
+    # The frontier is no longer stuck on the 128K fallback.
+    assert get_model_token_limit("gpt-6-astra") == CATALOG["gpt-6-astra"].context_window
+
+
+def test_model_encodings_put_post_gpt4o_openai_rows_on_o200k() -> None:
+    from aragora.documents.chunking.token_counter import MODEL_ENCODINGS
+
+    # Both historical GPT-4-line encodings survive, distinctly.
+    assert MODEL_ENCODINGS["gpt-4"] == "cl100k_base"
+    assert MODEL_ENCODINGS["gpt-4-turbo"] == "cl100k_base"
+    assert MODEL_ENCODINGS["gpt-4o"] == "o200k_base"
+    assert MODEL_ENCODINGS["default"] == "cl100k_base"
+
+    for spec in CATALOG.values():
+        if spec.retired:
+            continue
+        expected = "o200k_base" if spec.provider == "openai" else "cl100k_base"
+        for spelling in spec.all_ids():
+            assert MODEL_ENCODINGS[spelling] == expected, spelling
+
+
+def test_context_bands_are_derived_from_the_catalog_and_do_not_overlap() -> None:
+    from aragora.documents.chunking.context_manager import (
+        LARGE_CONTEXT_TOKENS,
+        MEDIUM_CONTEXT_TOKENS,
+        ContextManager,
+    )
+
+    large = ContextManager.LARGE_CONTEXT_MODELS
+    medium = ContextManager.MEDIUM_CONTEXT_MODELS
+    assert not (large & medium)
+    # Historical spellings survive.
+    assert {"gemini-3-pro", "gemini-1.5-pro"} <= large
+    assert {"gpt-4-turbo", "claude-3-opus"} <= medium
+
+    for spec in CATALOG.values():
+        if spec.retired:
+            continue
+        target = large if spec.context_window >= LARGE_CONTEXT_TOKENS else medium
+        if spec.context_window < MEDIUM_CONTEXT_TOKENS:
+            continue
+        for spelling in spec.all_ids():
+            assert spelling in target, spelling
+    assert "gpt-6-astra" in large

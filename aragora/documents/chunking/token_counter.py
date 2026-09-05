@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 from functools import lru_cache
 from typing import Literal
 
+from aragora.models.catalog import CATALOG
 from aragora.utils.cache_registry import register_lru_cache
 
 logger = logging.getLogger(__name__)
@@ -38,8 +40,13 @@ except (ImportError, AttributeError):
     tiktoken = None
     TIKTOKEN_AVAILABLE = False
 
-# Model family to encoding mapping for tiktoken
-MODEL_ENCODINGS = {
+# Model spelling to tiktoken encoding.
+#
+# The hand-written rows are HISTORICAL and stay: they carry the two
+# different encodings OpenAI shipped across the GPT-4 line (``cl100k_base``
+# for gpt-4/gpt-4-turbo, ``o200k_base`` from gpt-4o on) plus the embedding
+# models, none of which the catalog carries a row for.
+_LEGACY_MODEL_ENCODINGS: dict[str, str] = {
     # OpenAI models
     "gpt-4": "cl100k_base",
     "gpt-4-turbo": "cl100k_base",
@@ -48,8 +55,49 @@ MODEL_ENCODINGS = {
     "text-embedding-ada-002": "cl100k_base",
     "text-embedding-3-small": "cl100k_base",
     "text-embedding-3-large": "cl100k_base",
+}
+
+_DEFAULT_ENCODING = "cl100k_base"
+_O200K_ENCODING = "o200k_base"
+
+# gpt-4o's release date. OpenAI switched to ``o200k_base`` with gpt-4o, so
+# every OpenAI model released on or after this date uses it. Written as a
+# constant rather than read from the catalog because the catalog carries no
+# gpt-4o row (it is a retired spelling that resolves forward through
+# UPGRADES), and this boundary is a tokenizer fact that must not move if
+# that row is ever added or removed.
+_O200K_FROM = date(2024, 5, 13)
+
+
+def _catalog_encoding_rows() -> dict[str, str]:
+    """One encoding row per spelling of every ACTIVE catalog model.
+
+    tiktoken only has real encodings for OpenAI's tokenizer, so the rule
+    (2026-09-04 controller ruling, wave 3) is: an OpenAI row newer than
+    gpt-4o gets ``o200k_base``; every other provider gets the module's
+    existing default. A non-OpenAI row never reaches this table at runtime
+    -- ``count()`` only consults it once ``_get_model_family`` has already
+    said "openai" -- but naming the whole active catalog here means a model
+    that later moves into the OpenAI family cannot silently inherit a
+    wrong encoding by omission.
+    """
+    return {
+        spelling: (
+            _O200K_ENCODING
+            if spec.provider == "openai" and spec.release_date >= _O200K_FROM
+            else _DEFAULT_ENCODING
+        )
+        for spec in CATALOG.values()
+        if not spec.retired
+        for spelling in spec.all_ids()
+    }
+
+
+MODEL_ENCODINGS: dict[str, str] = {
+    **_LEGACY_MODEL_ENCODINGS,
+    **_catalog_encoding_rows(),
     # Default
-    "default": "cl100k_base",
+    "default": _DEFAULT_ENCODING,
 }
 
 # Characters per token approximations for non-OpenAI models
