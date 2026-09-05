@@ -408,8 +408,12 @@ class TestProviderPricing:
         assert p.output_cost_per_1k > 0
         assert p.context_window > 0
 
-    @pytest.mark.parametrize("family", ["glm", "minimax", "tencent", "bytedance"])
+    @pytest.mark.parametrize("family", ["glm", "minimax"])
     def test_chinese_openrouter_reviewer_models_have_nonzero_pricing(self, family: str) -> None:
+        # tencent/bytedance are recognized families but no longer have a live
+        # OpenRouter route (dropped from _OPENROUTER_REVIEWER_MODELS in the
+        # 2026-09-04 frontier refresh -- no priced, active catalog row for
+        # either), so they are excluded from this parametrize.
         from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS
 
         model_key = _OPENROUTER_REVIEWER_MODELS[family].split("/", 1)[1]

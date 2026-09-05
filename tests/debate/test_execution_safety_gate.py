@@ -8,6 +8,7 @@ import pytest
 from aragora.core_types import DebateResult
 from aragora.debate.execution_safety import (
     ExecutionSafetyPolicy,
+    _detect_model_family,
     evaluate_auto_execution_safety,
 )
 
@@ -169,3 +170,20 @@ def test_receipt_signer_allowlist_blocks_unapproved_key(monkeypatch: pytest.Monk
 
     assert decision.allow_auto_execution is False
     assert "receipt_signer_not_allowlisted" in decision.reason_codes
+
+
+@pytest.mark.parametrize(
+    "model_id,family",
+    [
+        ("claude-fable-5-1", "claude"),
+        ("gpt-6-astra", "gpt"),
+        ("grok-4.6", "grok"),
+        ("muse-spark-1.3", "meta"),
+    ],
+)
+def test_detect_model_family_recognises_frontier_ids(model_id: str, family: str) -> None:
+    # 2026-09-04 frontier refresh: ensemble diversity detection must recognize
+    # the new catalog ids without falling back to the generic "first token"
+    # heuristic (which would guess "claude", "gpt", "grok" correctly by luck
+    # but mangle "muse-spark-1.3" into "muse").
+    assert _detect_model_family(model_id) == family
