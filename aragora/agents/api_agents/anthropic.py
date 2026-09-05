@@ -65,7 +65,10 @@ _DEFAULT_MAX_TOKENS_STREAM = 64_000
 # Models whose refusal-fallback is wired up server-side (Task 7,
 # frontier-model-refresh): only these canonical ids, and only within the
 # "anthropic" catalog family, ever get "fallbacks": "default" + the
-# server-side-fallback beta header — gated by settings.anthropic_refusal_fallback.
+# server-side-fallback beta header — and then only when the request targets
+# the official api.anthropic.com endpoint (see
+# _is_official_anthropic_endpoint) and settings.anthropic_refusal_fallback
+# is on.
 _REFUSAL_FALLBACK_MODEL_IDS = frozenset({"claude-fable-5-1", "claude-opus-5"})
 
 # PAIRING RULE (verified against the Claude API reference; 2026-09-05
@@ -118,6 +121,34 @@ def _resolve_base_url(env_name: str, default: str) -> str:
     if not raw:
         return default
     return raw if raw.endswith("/v1") else raw + "/v1"
+
+
+def _is_official_anthropic_endpoint(base_url: str | None) -> bool:
+    """True when ``base_url`` names Anthropic's own public API endpoint.
+
+    The single place this repo answers "am I talking to api.anthropic.com or
+    to somebody else's gateway?". Two behaviours depend on the answer and
+    must not drift apart:
+
+    * the constructor's retired-id upgrade (a BYOK gateway may serve ids the
+      public catalog does not know, so rewriting them would silently target
+      the wrong model), and
+    * the server-side refusal fallback (the ``anthropic-beta:
+      server-side-fallback-*`` header plus ``"fallbacks"`` in the body are an
+      api.anthropic.com request extension; a LiteLLM / VibeProxy / enterprise
+      gateway that does not implement it may reject the request outright --
+      findings O-P3 and C-P3 on #9989).
+
+    Compared against the NORMALIZED url rather than raw env-var presence, so
+    an ``ANTHROPIC_BASE_URL`` set to a spelling of the same official endpoint
+    (e.g. missing the ``/v1`` suffix) still counts as official. An empty
+    value means "no override", i.e. the official endpoint.
+    """
+    raw = str(base_url or "").strip().rstrip("/")
+    if not raw:
+        return True
+    normalized = raw if raw.endswith("/v1") else raw + "/v1"
+    return normalized == _ANTHROPIC_DEFAULT_BASE_URL
 
 
 @AgentRegistry.register(
@@ -177,7 +208,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         # set to a spelling of the same official endpoint (e.g. missing the
         # /v1 suffix) still counts as official.
         resolved_base_url = _resolve_base_url("ANTHROPIC_BASE_URL", _ANTHROPIC_DEFAULT_BASE_URL)
-        if resolved_base_url == _ANTHROPIC_DEFAULT_BASE_URL:
+        if _is_official_anthropic_endpoint(resolved_base_url):
             model = upgrade_retired_model_id(model)
         super().__init__(
             name=name,
@@ -328,8 +359,20 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         return spec.canonical_id in _REFUSAL_FALLBACK_MODEL_IDS
 
     def _refusal_fallback_enabled(self) -> bool:
-        """``_supports_refusal_fallback()`` gated by the
-        ``anthropic_refusal_fallback`` setting (default on)."""
+        """``_supports_refusal_fallback()`` gated by the target ENDPOINT and
+        the ``anthropic_refusal_fallback`` setting (default on).
+
+        The beta header and the ``"fallbacks"`` body field are an
+        api.anthropic.com request extension. A custom ``ANTHROPIC_BASE_URL``
+        (BYOK gateway, LiteLLM, VibeProxy, an enterprise proxy) is a
+        different server that need not implement it, and sending an
+        unrecognised beta/body field there can fail the whole request --
+        so a non-official endpoint gets NEITHER, regardless of the model or
+        the setting (findings O-P3 and C-P3 on #9989). Reuses the same
+        resolved-URL gate as the constructor's retired-id upgrade.
+        """
+        if not _is_official_anthropic_endpoint(self.base_url):
+            return False
         if not self._supports_refusal_fallback():
             return False
         try:

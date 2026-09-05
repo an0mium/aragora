@@ -139,6 +139,58 @@ def test_anthropic_refusal_fallback_beta_pairing_rule() -> None:
             assert array_beta not in betas, f"{model}: 06-01 beta sent with the scalar form"
 
 
+def test_anthropic_refusal_fallback_only_on_the_official_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A BYOK/LiteLLM/VibeProxy gateway gets neither the beta nor the body field.
+
+    The ``server-side-fallback-*`` beta header and the ``"fallbacks"`` body
+    field are an api.anthropic.com request extension. Sending them to a
+    third-party gateway that does not implement it can fail the whole
+    request (findings O-P3 and C-P3 on #9989).
+    """
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:8318")
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    assert agent.base_url == "http://localhost:8318/v1"
+    payload = agent._build_payload("hello")
+    assert "fallbacks" not in payload
+    assert "server-side-fallback-2026-07-01" not in agent._request_headers().get(
+        "anthropic-beta", ""
+    )
+    # The model itself still qualifies -- only the endpoint disqualifies it.
+    assert agent._supports_refusal_fallback() is True
+    assert agent._refusal_fallback_enabled() is False
+
+
+def test_anthropic_refusal_fallback_on_official_endpoint_spelled_without_v1(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gate compares the RESOLVED url, so a /v1-less spelling of the
+    official endpoint still counts as official and keeps the fallback."""
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    payload = agent._build_payload("hello")
+    assert payload.get("fallbacks") == "default"
+    assert "server-side-fallback-2026-07-01" in agent._request_headers()["anthropic-beta"]
+
+
+def test_is_official_anthropic_endpoint_branches() -> None:
+    from aragora.agents.api_agents.anthropic import _is_official_anthropic_endpoint
+
+    assert _is_official_anthropic_endpoint(None) is True
+    assert _is_official_anthropic_endpoint("") is True
+    assert _is_official_anthropic_endpoint("https://api.anthropic.com/v1") is True
+    assert _is_official_anthropic_endpoint("https://api.anthropic.com/v1/") is True
+    assert _is_official_anthropic_endpoint("https://api.anthropic.com") is True
+    assert _is_official_anthropic_endpoint("http://localhost:8318") is False
+    assert _is_official_anthropic_endpoint("https://litellm.internal/v1") is False
+    assert _is_official_anthropic_endpoint("https://api.anthropic.com.evil.test/v1") is False
+
+
 def test_anthropic_refusal_fallback_not_applied_to_other_models() -> None:
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
