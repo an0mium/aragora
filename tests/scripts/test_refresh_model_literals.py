@@ -19,10 +19,17 @@ via subprocess against the real repo) and monkeypatches its ``REPO_ROOT``
 to a throwaway tmp_path tree. This repo's own dev checkout lives under a
 directory literally named ``.worktrees`` (see ``SKIP_DIRS`` in the script),
 so a subprocess run with a genuinely absolute --paths into the real repo
-gets zero files back regardless of the allowlist fix — an unrelated,
-pre-existing SKIP_DIRS hazard, not something this test should be defeated
-by (SKIP_DIRS entries are out of scope for this round; see the script's
-module docstring / task-8-report.md fix-round-1 section).
+used to get zero files back regardless of the allowlist fix — an
+unrelated, pre-existing SKIP_DIRS hazard flagged in fix-round-1 and fixed
+in fix-round-2 (below).
+
+Fix round 2 (2026-09-05): the flagged SKIP_DIRS hazard was itself the
+Important finding this round — SKIP_DIRS membership was tested against
+each file's raw (as-given) path parts, so an ancestor directory *above*
+the --paths scan root (e.g. this checkout's own ``.worktrees`` parent, or
+a ``.venv`` somewhere upstream) could false-positive and silently zero
+out an absolute-path scan. Fixed by checking SKIP_DIRS only against parts
+*relative to* the scan root; see ``test_skip_dirs_apply_only_below_the_scan_root``.
 """
 
 from __future__ import annotations
@@ -165,4 +172,38 @@ def test_allowlist_matches_regardless_of_cwd_or_absolute_paths(
     assert result == 0, (
         "repo-relative allowlist entry did not match a file given as an "
         "absolute path while running from an unrelated cwd"
+    )
+
+
+def test_skip_dirs_apply_only_below_the_scan_root(tmp_path: Path) -> None:
+    """SKIP_DIRS (e.g. ".worktrees", ".venv") must only ever exclude
+    directories *below* the scan root passed via --paths — never an
+    ancestor directory *above* it. A checkout nested under a directory
+    literally named ".worktrees" (as this repo's own dev checkouts are)
+    must still be scanned when --paths points at or below that directory;
+    ".worktrees" should only cause a skip when it appears *inside* the
+    scanned tree, i.e. below the given root.
+    """
+    offender = tmp_path / ".worktrees" / "wt" / "pkg" / "x.py"
+    offender.parent.mkdir(parents=True)
+    offender.write_text('X = "gpt-4"\n')
+
+    # ".worktrees" is part of the scan root itself here (an ancestor of
+    # the file, but AT the root, not below it) — the offender must still
+    # be scanned and reported.
+    r = _run(
+        "--paths",
+        str(tmp_path / ".worktrees" / "wt"),
+        "--check",
+        "--allowlist",
+        str(tmp_path / "none.txt"),
+    )
+    assert r.returncode == 1, f"offender under an absolute scan root was not reported: {r.stdout}"
+    assert "x.py" in r.stdout
+
+    # Scanning from tmp_path instead, ".worktrees" is now BELOW the scan
+    # root, so SKIP_DIRS correctly excludes it as before.
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, (
+        f"'.worktrees' below the scan root should still be skipped: {r.stdout}"
     )

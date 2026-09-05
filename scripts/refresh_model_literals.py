@@ -131,11 +131,32 @@ def iter_files(paths: list[str]) -> list[Path]:
     found: list[Path] = []
     for p in paths:
         root = Path(p)
-        candidates = [root] if root.is_file() else root.rglob("*")
-        for f in candidates:
+        if root.is_file():
+            # A file root has no "below the scan root" hierarchy at all, so
+            # the SKIP_DIRS check below (which only ever excludes
+            # directories *below* a scanned root) does not apply here.
+            f = root
+            if f.name in SKIP_NAMES or f.suffix in SKIP_SUFFIXES:
+                continue
+            if _is_skip_path(f):
+                continue
+            found.append(f)
+            continue
+        for f in root.rglob("*"):
             if not f.is_file() or f.name in SKIP_NAMES or f.suffix in SKIP_SUFFIXES:
                 continue
-            if any(part in SKIP_DIRS for part in f.parts):
+            # SKIP_DIRS must only ever exclude directories *below* the scan
+            # root that was passed in --paths (e.g. a nested node_modules/
+            # or .venv/ found while walking that root) — never an ancestor
+            # *above* it. Checking f.parts directly (as an earlier version
+            # of this script did) inspects the WHOLE path, including
+            # whatever lies above the scan root; if that ancestry happens
+            # to include a directory named e.g. ".worktrees" (as this
+            # repo's own dev checkouts do) or ".venv", an absolute --paths
+            # would silently scan nothing. Relative-to-root parts contain
+            # only what's actually below the given root.
+            rel_parts = f.relative_to(root).parts
+            if any(part in SKIP_DIRS for part in rel_parts):
                 continue
             if _is_skip_path(f):
                 continue
