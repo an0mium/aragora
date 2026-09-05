@@ -92,7 +92,9 @@ contributor is expected to fix the finding.
 **What "count" means.** Wherever a PR body, `docs/TECH_DEBT.md`, or a
 readiness report states a baseline's count, it means `len(findings)` (the
 number of keys), not `sum(counts)` (occurrences). The runner prints both so the
-figures can be cross-checked.
+figures can be cross-checked. An independent cross-check against a raw tool
+total (`--statistics`, `| wc -l`) compares that total with `sum(counts)`
+(occurrences), not `len(findings)`.
 
 ### The shrink-only rule
 
