@@ -5,6 +5,25 @@
 
 _Post-v2.9.0 changes land here until the next stable tag._
 
+### Added
+
+- **Catalog-first model architecture (frontier-model-refresh):** `aragora/models/catalog.py`'s `ModelSpec` gains request-shape capability flags (`supports_sampling_params`, `thinking_default_on`, `forced_tool_choice_allowed`, `max_tokens_param`, `reasoning_effort_default`, `cache_read_per_mtok`), plus `tier` (flagship/value/fallback/code), `family` (pretraining lineage), and `retired`. `aragora/config/model_pins.py` now derives every pin constant from the catalog via a single `_pin()` helper instead of hardcoding ids; every API agent, the CLI agents, the model selector's profiles, cost estimation, and the consult scripts read the catalog/pins directly. `frontier_for(family)`/`FRONTIER` resolve the newest non-retired `tier="flagship"` row per provider family.
+- **`aragora/models/pricing_mirror.py`:** generates the five hand-maintained pricing tables (`billing.usage.PROVIDER_PRICING`, `pdb.real_invoker._PRICE_PER_MTOK`, `billing.debate_costs.DEFAULT_PROVIDER_RATES`, `services.metering_models.MODEL_PRICING`, `routing.provider_config.PROVIDER_PRICING`) from `CATALOG` so a price change lands in one place. Retired rows stay priced in every table so old receipts keep resolving; `provider_config`'s projection additionally excludes any row still inside its `soak_until` window.
+- **`aragora/models/upgrade_map.py` (`UPGRADES`, `RETIRED_PATTERN`, `resolve_model_id`):** one old-to-current model-id map replaces three legacy per-module alias dicts. `scripts/refresh_model_literals.py --check|--write` sweeps the repo for retired literals using the same map, with `scripts/baselines/retired_model_literals_allowlist.txt` allowlisting paths (changelogs, dated release notes) that legitimately name a retired id on purpose.
+- **Anthropic/OpenAI request-shape hardening:** Claude request construction (`_build_payload`) and capability checks (`aragora/models/compat.py`) now derive from catalog flags instead of a name regex (the regex remains a fallback for uncatalogued ids). `stop_reason == "refusal"` now raises a structured refusal error on both the non-streaming and streaming (SSE) Anthropic paths. The OpenAI payload builder sends `max_completion_tokens` and a default `reasoning_effort` for reasoning-class models and drops sampling params they reject.
+- **`ARAGORA_ANTHROPIC_REFUSAL_FALLBACK` setting (default on):** enables Anthropic's server-side refusal fallback (`"fallbacks": "default"` + the matching `anthropic-beta` header) for Claude Fable 5.1 / Opus 5, retrying a cyber-classifier refusal against a fallback model server-side.
+- **Reverse-completeness test (`tests/models/test_reachable_defaults.py`):** every reachable default model id now resolves to an active, priced catalog row.
+
+### Changed
+
+- **Anthropic default → `claude-fable-5-1`** (OpenRouter `anthropic/claude-fable-5.1`) for every Claude debate/audit role and the `claude` CLI agent default. `claude-opus-5` remains the general fallback; `claude-opus-4-8` remains the dedicated refusal-fallback model (both unchanged in price, $5/$25 per MTok). `claude-fable-5` is retired (kept in the catalog, priced, no longer adopted).
+- **OpenAI default → `gpt-6-astra`** (`openai/gpt-6-astra`, $10/$50 per MTok, `soak_until` 2026-09-17) for the agent default, role pins, and selector profiles; `gpt-5.6-terra` is the new value/cheap tier ($2/$12 per MTok). `gpt-5.5` and `gpt-5.6-sol` are retired (kept in the catalog, priced).
+- **Google default → `gemini-3.1-pro-preview`**, the real Gemini API model code (the previous pin, bare `gemini-3.1-pro`, is not a valid direct-provider id and is now only a resolvable spelling via the catalog alias / upgrade map), plus `gemini-3.8-flash` as the new cheap tier.
+- **xAI default → `grok-4.6`** (`x-ai/grok-4.6`, same $2/$6 flat and $4/$12 long-context-tier pricing as its predecessor). `grok-4.5` and `grok-4.3` are retired (kept in the catalog, priced).
+- **Mistral default → `mistral-medium-2604`** (`mistralai/mistral-medium-3-5`) as the flagship; `mistral-large-2512` is kept resolvable/priced as the fallback line.
+- **OpenRouter-routed families refreshed:** `deepseek-v4-pro-0813`, `qwen3.8-2.4t-a95b` (old `qwen3.8-max`/`qwen3.7-max` spellings still resolve), `kimi-k3` as the new Moonshot flagship (the existing `kimi-k2.7-code` coding-tier row is kept, and separately repriced to $0.66/$3.40 per MTok to match the live OpenRouter catalog), and three new catalog rows: `muse-spark-1.3` (Meta), `glm-5.2` (Z.ai), `minimax-m3` (MiniMax).
+- **`docs/architecture/MODEL_CATALOG.md`** rewritten for the catalog-first architecture: generated model table, capability-flag reference, the "bump the catalog, not the pins" rule, and the `scripts/refresh_model_literals.py` sweep recipe.
+
 
 ## [2.9.0] - 2026-04-25
 
