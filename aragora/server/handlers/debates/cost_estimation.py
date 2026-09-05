@@ -10,6 +10,8 @@ from decimal import Decimal
 from typing import Any
 
 from aragora.billing.usage import PROVIDER_PRICING, calculate_token_cost
+from aragora.config.model_pins import FABLE_51_DIRECT, GEMINI_31_PRO_DIRECT, GPT6_ASTRA_DIRECT
+from aragora.models.catalog import CATALOG
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 
 logger = logging.getLogger(__name__)
@@ -19,8 +21,15 @@ AVG_INPUT_TOKENS_PER_ROUND = 2000  # system prompt + context + prior messages
 AVG_OUTPUT_TOKENS_PER_ROUND = 800  # agent response
 SYSTEM_PROMPT_TOKENS = 500  # one-time system prompt overhead per agent
 
-# Model -> (provider, model_key) mapping for cost lookup
-MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
+# Legacy hand-maintained model -> (provider, model_key) rows. Kept verbatim
+# (not regenerated from the catalog) so callers/receipts already pinning
+# these exact spellings keep resolving to the exact provider/model_key pair
+# they always have -- several of these model_key spellings (e.g.
+# "claude-opus-4.8", "gpt-4o", "gemini-pro") are the real keys billing's
+# PROVIDER_PRICING tables index on, which the catalog's canonical ids don't
+# always match (frontier-model-refresh, 2026-09-04: Task 6 handles
+# migrating PROVIDER_PRICING itself; this table is not touched here).
+_LEGACY_MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "claude-fable-5": ("anthropic", "claude-fable-5"),
     "anthropic/claude-fable-5": ("anthropic", "claude-fable-5"),
     "claude-opus-5": ("anthropic", "claude-opus-5"),
@@ -44,8 +53,31 @@ MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "deepseek-v3": ("deepseek", "deepseek-v3"),
 }
 
+
+def _pricing_provider(provider: str) -> str:
+    """Fall back to "openrouter" for a catalog provider PROVIDER_PRICING
+    doesn't carry a native bucket for (e.g. ai21, alibaba, cohere, moonshot,
+    perplexity) -- accurate per-model pricing for those is Task 6 scope;
+    "openrouter" already has a documented default-rate bucket."""
+    return provider if provider in PROVIDER_PRICING else "openrouter"
+
+
+# Model -> (provider, model_key) mapping for cost lookup. Built from every
+# catalog spelling (canonical/direct/openrouter/alias) so any current or
+# legacy/retired model resolves to a real provider, then the legacy rows
+# above are layered on top unchanged so old receipts still resolve exactly
+# as they always have (frontier-model-refresh, 2026-09-04).
+MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
+    **{
+        spelling: (_pricing_provider(spec.provider), spec.canonical_id)
+        for spec in CATALOG.values()
+        for spelling in spec.all_ids()
+    },
+    **_LEGACY_MODEL_PROVIDER_MAP,
+}
+
 # Default models when none specified
-DEFAULT_MODELS = ["claude-opus-5", "gpt-4o", "gemini-pro"]
+DEFAULT_MODELS = [FABLE_51_DIRECT, GPT6_ASTRA_DIRECT, GEMINI_31_PRO_DIRECT]
 
 
 def estimate_debate_cost(
