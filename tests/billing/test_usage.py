@@ -200,11 +200,19 @@ class TestCalculateTokenCost:
         for the Kimi agent classes (aragora/agents/api_agents/openrouter.py),
         while the catalog rows are family/provider "moonshot". Without a
         dedicated "kimi" bucket (aragora/models/pricing_mirror.py::_bucketed),
-        this silently fell back to the openrouter default rate."""
+        this silently fell back to the openrouter default rate.
+
+        "kimi-k3" now ALSO resolves correctly under any other provider
+        label via calculate_token_cost's catalog fallback (the 2026-09-05
+        C-P1 fix), so the true default is asserted here against a model
+        with no catalog row at all, not merely a different provider
+        string."""
         kimi_cost = calculate_token_cost("kimi", "kimi-k3", 1_000_000, 1_000_000)
         moonshot_cost = calculate_token_cost("moonshot", "kimi-k3", 1_000_000, 1_000_000)
-        default_cost = calculate_token_cost("unknown_provider", "kimi-k3", 1_000_000, 1_000_000)
-        assert kimi_cost == moonshot_cost
+        default_cost = calculate_token_cost(
+            "unknown_provider", "totally-unknown-model-xyz", 1_000_000, 1_000_000
+        )
+        assert kimi_cost == moonshot_cost == Decimal("18.00")
         assert kimi_cost != default_cost
 
     def test_unknown_provider_uses_openrouter_default(self):
@@ -213,6 +221,113 @@ class TestCalculateTokenCost:
         # Default: $2/1M input, $8/1M output
         expected = Decimal("2.00") + Decimal("8.00")
         assert cost == expected
+
+    def test_gemini_and_grok_labels_price_via_family_alias(self):
+        """C-P1 (2026-09-05 read-only recheck at the gate-fix wave's head):
+        GeminiAgent.agent_type is "gemini" for a catalog row whose
+        provider/family are both "google"; GrokAgent.agent_type is "grok"
+        for a row whose provider/family are both "xai". Neither label ever
+        reached rule 1 (own provider bucket) or rule 3 (family bucket) in
+        pricing_mirror._bucketed, so both silently priced at the
+        openrouter-bucket default. aragora.models.pricing_mirror
+        ._LABEL_ALIASES now gives both their own bucket."""
+        assert calculate_token_cost(
+            "gemini", "gemini-3.1-pro-preview", 1_000_000, 1_000_000
+        ) == Decimal("14.00")
+        assert calculate_token_cost("gemini", "gemini-3.8-flash", 1_000_000, 1_000_000) == (
+            Decimal("4.50")
+        )
+        assert calculate_token_cost("grok", "grok-4.6", 1_000_000, 1_000_000) == Decimal("8.00")
+
+    def test_catalog_fallback_resolves_before_hardcoded_default(self):
+        """calculate_token_cost's bucket lookup stays authoritative when it
+        hits; only a provider/model pair that misses EVERY bucket now
+        additionally tries the catalog directly before the $2/$8 default.
+        This is the mechanism that fixes every CLI agent's billing too:
+        CLIAgent never sets self.agent_type, so it inherits the base
+        Agent.agent_type default of "unknown" -- a label no bucket, alias
+        table entry, or family name will ever match."""
+        # "unknown" (the CLI-agent shape) + a real catalog id -> real price.
+        assert calculate_token_cost("unknown", "claude-fable-5-1", 1_000_000, 1_000_000) == Decimal(
+            "60.00"
+        )
+        # A retired bare spelling with no catalog row of its own still
+        # resolves through the upgrade map to its family frontier's rate,
+        # not the retired row's own rate (there IS no row to have one).
+        assert calculate_token_cost("unknown", "deepseek-v4-pro", 1_000_000, 1_000_000) == Decimal(
+            "4.4827"
+        )
+        # A truly unrecognised model, under any provider label, still hits
+        # the genuine hardcoded default -- the catalog fallback must not
+        # invent a price for something it cannot resolve at all.
+        assert calculate_token_cost(
+            "unknown", "totally-unknown-model-xyz", 1_000_000, 1_000_000
+        ) == Decimal("10.00")
+
+    def test_every_registered_agent_with_a_catalog_row_prices_correctly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Enumerate every agent type AgentRegistry knows about; for every
+        one whose default model resolves to a real catalog row (directly,
+        or via the upgrade map), construct it and assert
+        calculate_token_cost(instance.agent_type, instance.model, ...)
+        prices at the row's EXACT rate -- never the $2/$8 default, and
+        never a stale/wrong rate from a bucket mismatch.
+
+        A handful of registered types are skipped, each for a documented,
+        pre-existing reason unrelated to this pricing fix:
+        - no default model at all, or a placeholder spelling with no
+          catalog row (frameworks like autogen/crewai/langgraph, local
+          runtimes like ollama/lm-studio, OpenRouter-only endpoints with
+          no catalog entry like sonar/command-r/jamba/fusion, and
+          codestral -- see aragora/models/upgrade_map.py's own note on why
+          "codestral-latest" has no catalog row);
+        - "tinker-llama"/"tinker-deepseek": TinkerAgent's constructor
+          raises ``TypeError: got multiple values for keyword argument
+          'model'`` when created through AgentRegistry.create() with an
+          explicit default model, a pre-existing bug unrelated to pricing.
+        """
+        from aragora.agents.registry import AgentRegistry
+        from aragora.models.catalog import spec_or_none
+        from aragora.models.pricing_mirror import _dec
+        from aragora.models.upgrade_map import resolve_model_id
+
+        # Agents wired only through OpenRouter/Moonshot need a key present
+        # to construct at all; a fake one is fine, generate() is never
+        # called.
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+        monkeypatch.setenv("KIMI_API_KEY", "test-key")
+
+        _KNOWN_CONSTRUCTOR_BUGS = {"tinker-llama", "tinker-deepseek"}
+
+        checked = []
+        for type_name, meta in AgentRegistry.list_all().items():
+            if type_name in _KNOWN_CONSTRUCTOR_BUGS:
+                continue
+            default_model = meta["default_model"]
+            if not default_model:
+                continue
+            spec = spec_or_none(default_model)
+            if spec is None:
+                resolved = resolve_model_id(default_model)
+                if resolved and resolved != default_model:
+                    spec = spec_or_none(resolved)
+            if spec is None:
+                continue  # nothing cataloged to check pricing against
+
+            agent = AgentRegistry.create(type_name, name=f"test-{type_name}", api_key="test-key")
+            expected = _dec(spec.input_per_mtok) + _dec(spec.output_per_mtok)
+            cost = calculate_token_cost(agent.agent_type, agent.model, 1_000_000, 1_000_000)
+            assert cost == expected, (
+                f"{type_name!r} (agent_type={agent.agent_type!r}, model={agent.model!r}) "
+                f"priced {cost}, expected {expected} from catalog row {spec.canonical_id!r}"
+            )
+            checked.append(type_name)
+
+        # Sanity: the loop actually exercised a meaningful number of real
+        # agents rather than skipping everything (a regression in the
+        # skip conditions above would silently make this test vacuous).
+        assert len(checked) >= 20, f"only checked {checked!r}"
 
     def test_unknown_model_uses_default(self):
         """Test unknown model falls back to default pricing."""

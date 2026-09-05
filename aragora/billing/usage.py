@@ -18,7 +18,7 @@ from typing import Any
 from collections.abc import Generator
 from uuid import uuid4
 
-from aragora.models.pricing_mirror import usage_rows
+from aragora.models.pricing_mirror import _dec, usage_rows
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +184,32 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
 }
 
 
+def _catalog_token_price(model: str) -> tuple[Decimal, Decimal] | None:
+    """Resolve ``model`` against the catalog directly, for
+    ``calculate_token_cost``'s fallback below.
+
+    Tries an EXACT catalog spelling first (canonical/direct/openrouter/
+    alias, including a RETIRED row at its own historical rate -- "retired
+    rows stay priced" is a hard invariant elsewhere in this module's
+    generated tables). Only when that misses does it try
+    ``resolve_model_id`` (UPGRADES-map normalization), since that can
+    redirect a spelling the catalog carries no row for at all to a LIVE
+    row's rate -- appropriate only as a last resort, because it is not the
+    unrecognised spelling's own historical price.
+    """
+    from aragora.models.catalog import spec_or_none
+    from aragora.models.upgrade_map import resolve_model_id
+
+    spec = spec_or_none(model)
+    if spec is None:
+        resolved = resolve_model_id(model)
+        if resolved and resolved != model:
+            spec = spec_or_none(resolved)
+    if spec is None:
+        return None
+    return _dec(spec.input_per_mtok), _dec(spec.output_per_mtok)
+
+
 def calculate_token_cost(
     provider: str,
     model: str,
@@ -206,13 +232,38 @@ def calculate_token_cost(
     """
     provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
 
+    model_in_bucket = model in provider_prices
+    model_output_in_bucket = f"{model}-output" in provider_prices
+
+    # Catalog fallback (2026-09-05 C-P1 fix): a ``provider`` string that
+    # names neither a real pricing bucket nor the model's own catalog
+    # provider/family (e.g. "gemini" for a google-family row, "unknown" for
+    # every CLI agent -- see aragora/models/pricing_mirror.py's
+    # ``_LABEL_ALIASES``) misses the bucket lookup below exactly like an
+    # unregistered provider entirely. Resolve the model against the
+    # catalog directly BEFORE falling to the hardcoded $2/$8 default -- an
+    # explicit bucket entry (checked first, immediately below) still wins
+    # whenever it hits, so this never second-guesses a real bucket price.
+    catalog_price: tuple[Decimal, Decimal] | None = None
+    if not model_in_bucket or not model_output_in_bucket:
+        catalog_price = _catalog_token_price(model)
+
     # Get input price
-    input_key = model if model in provider_prices else "default"
-    input_price = provider_prices.get(input_key, Decimal("2.00"))
+    if model_in_bucket:
+        input_price = provider_prices[model]
+    elif catalog_price is not None:
+        input_price = catalog_price[0]
+    else:
+        input_price = provider_prices.get("default", Decimal("2.00"))
 
     # Get output price
-    output_key = f"{model}-output" if f"{model}-output" in provider_prices else "default-output"
-    output_price = provider_prices.get(output_key, Decimal("8.00"))
+    output_key = f"{model}-output"
+    if model_output_in_bucket:
+        output_price = provider_prices[output_key]
+    elif catalog_price is not None:
+        output_price = catalog_price[1]
+    else:
+        output_price = provider_prices.get("default-output", Decimal("8.00"))
 
     # Calculate cost (prices are per 1M tokens)
     input_cost = (Decimal(tokens_in) / Decimal("1000000")) * input_price

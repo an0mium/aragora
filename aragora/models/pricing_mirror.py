@@ -64,6 +64,45 @@ def _active() -> list[ModelSpec]:
 
 _OPENROUTER = "openrouter"
 
+# agent_type label -> catalog family, for every label a registered API/CLI
+# agent class bills under (``self.agent_type`` in
+# aragora/agents/api_agents/*.py) that names NEITHER the catalog
+# ``provider`` NOR the catalog ``family`` of the model it actually calls.
+# Enumerated by reading every ``self.agent_type = "..."`` assignment in
+# aragora/agents/api_agents/*.py and aragora/agents/cli_agents.py (CLI
+# agent classes never set it -- they inherit the base ``Agent.agent_type``
+# default of ``"unknown"``, so their pricing depends entirely on
+# ``calculate_token_cost``'s catalog fallback, not this table) against each
+# class's default model's catalog row:
+#   gemini          -> google     (GeminiAgent; provider/family "google")
+#   grok            -> xai        (GrokAgent; provider/family "xai")
+#   kimi            -> moonshot   (KimiK3Agent, KimiLegacyAgent)
+#   kimi-thinking   -> moonshot   (KimiThinkingAgent)
+#   deepseek-r1     -> deepseek   (DeepSeekReasonerAgent; family "deepseek")
+#   deepseek-v3     -> deepseek   (DeepSeekV3Agent; family "deepseek")
+#   llama           -> meta       (LlamaAgent; family "meta", Muse Spark 1.3)
+#   llama4-maverick -> meta       (Llama4MaverickAgent)
+#   llama4-scout    -> meta       (Llama4ScoutAgent)
+#   qwen-max        -> qwen       (QwenMaxAgent; family "qwen")
+# A label already equal to its model's provider or family (anthropic,
+# openai, mistral, openrouter, deepseek, qwen, ...) needs no entry -- rules
+# 1-3 below already reach it. A label whose model has NO catalog row at all
+# (codestral, sonar, command-r, jamba, fusion, the generic framework
+# adapters) has nothing to alias TO and is out of this table's scope --
+# ``calculate_token_cost``'s catalog fallback cannot invent a price either.
+_LABEL_ALIASES: dict[str, str] = {
+    "gemini": "google",
+    "grok": "xai",
+    "kimi": "moonshot",
+    "kimi-thinking": "moonshot",
+    "deepseek-r1": "deepseek",
+    "deepseek-v3": "deepseek",
+    "llama": "meta",
+    "llama4-maverick": "meta",
+    "llama4-scout": "meta",
+    "qwen-max": "qwen",
+}
+
 
 def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """``(bucket, spellings)`` pairs one catalog row must be emitted under.
@@ -107,13 +146,24 @@ def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
        shadows its ``alibaba``-provider sibling ``qwen3.7-max`` down to the
        default rate — trading the reviewer's bug for a narrower copy of it.
        For the common case (``family == provider``) this rule is a no-op.
-    4. every ``family == "moonshot"`` row, additionally under a ``kimi``
-       bucket. Rule 3 is a no-op here (``family == provider == "moonshot"``
-       for these rows), but the live runtime label is ``"kimi"`` --
-       ``OpenRouterAgent.agent_type`` for the Kimi agent classes
-       (``aragora/agents/api_agents/openrouter.py``) -- so without this,
-       ``calculate_token_cost("kimi", ...)`` never finds a ``"kimi"``
-       bucket and silently falls back to the ``openrouter`` default.
+    4. every row whose family has a registered ``_LABEL_ALIASES`` entry,
+       additionally under that alias label's bucket. Rule 3 only reaches a
+       label that matches the catalog ``family`` string exactly, but
+       several agent classes bill under a DIFFERENT runtime
+       ``self.agent_type`` label than either their model's ``provider`` or
+       ``family`` -- ``GeminiAgent`` is ``"gemini"`` for a ``google``-family
+       row, ``GrokAgent`` is ``"grok"`` for an ``xai``-family row, the Kimi
+       agent classes are ``"kimi"``/``"kimi-thinking"`` for ``moonshot``,
+       and several OpenRouter convenience aliases (``"deepseek-r1"``,
+       ``"deepseek-v3"``, ``"llama"``, ``"llama4-maverick"``,
+       ``"llama4-scout"``, ``"qwen-max"``) name a specific model rather than
+       its family. Every one of these previously missed every bucket rules
+       1-3 emit and silently fell back to the ``openrouter`` default (the
+       2026-09-05 gate-fix wave found this empirically for kimi, then a
+       read-only recheck at the same head found it again for gemini/grok --
+       see ``_LABEL_ALIASES``' own docstring for the full enumeration
+       method). This rule is table-driven rather than a per-label hardcode
+       so the next mismatched label is one dict entry, not a new branch.
 
     Rates are identical across buckets — this is one row's price made
     reachable under every provider label a caller legitimately uses for
@@ -127,8 +177,9 @@ def _bucketed(spec: ModelSpec) -> tuple[tuple[str, tuple[str, ...]], ...]:
             buckets.append((_OPENROUTER, slugs))
     if spec.family and spec.family != spec.provider:
         buckets.append((spec.family, ids))
-    if spec.family == "moonshot":
-        buckets.append(("kimi", ids))
+    for label, family in _LABEL_ALIASES.items():
+        if spec.family == family:
+            buckets.append((label, ids))
     return tuple(buckets)
 
 
