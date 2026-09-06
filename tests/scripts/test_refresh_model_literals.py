@@ -768,3 +768,59 @@ def test_check_reports_the_pairing_on_the_collision_line(tmp_path: Path) -> None
     assert str(paired) in r.stdout
     # The inherited freeze must also keep the test out of the offender list.
     assert "0 retired literal(s) outside allowlist" in r.stdout
+
+
+def test_legacy_table_sources_and_their_tests_are_frozen(tmp_path: Path) -> None:
+    """The ``_LEGACY_*`` family (wave-6 ruling, frozen sources, #9989).
+
+    Each of these merges a hand-written historical table with rows generated
+    from the catalog. Sweeping the legacy half deletes the only reason it
+    exists -- answering lookups written in the historical spellings -- so
+    both the source and the tests that make those lookups stay frozen.
+    """
+    fixtures = {
+        tmp_path / "aragora" / "documents" / "models.py": 'L = {"claude-3-opus": 200_000}\n',
+        tmp_path
+        / "aragora"
+        / "documents"
+        / "chunking"
+        / "context_manager.py": 'P = {"gpt-4-turbo": 0.01}\n',
+        tmp_path / "aragora" / "billing" / "optimizer.py": 'T = {"claude-opus-4": 1}\n',
+        tmp_path / "aragora" / "workflow" / "resource_tracker.py": 'P = {"gpt-4": 0.03}\n',
+        tmp_path / "aragora" / "workflow" / "engine_v2.py": 'P = {"gemini-pro": 0.001}\n',
+        tmp_path
+        / "aragora"
+        / "server"
+        / "handlers"
+        / "agents"
+        / "recommendations.py": 'C = {"gpt-4o": 0.01}\n',
+        tmp_path
+        / "aragora"
+        / "server"
+        / "handlers"
+        / "debates"
+        / "diagnostics.py": 'M = {"mistral-large": "mistral"}\n',
+        tmp_path / "tests" / "documents" / "test_models.py": 'K = "claude-3-opus"\n',
+        tmp_path / "tests" / "documents" / "test_chunking.py": 'K = "claude-3-opus"\n',
+        tmp_path / "tests" / "documents" / "test_context_manager.py": 'K = "gpt-4-turbo"\n',
+        tmp_path / "tests" / "billing" / "test_optimizer.py": 'K = "claude-opus-4"\n',
+        tmp_path / "tests" / "workflow" / "test_executor_protocol.py": 'K = "gpt-4"\n',
+        tmp_path / "tests" / "workflow" / "test_engine_v2.py": 'K = "gemini-pro"\n',
+        tmp_path / "tests" / "handlers" / "agents" / "test_recommendations.py": 'K = "gpt-4o"\n',
+        tmp_path
+        / "tests"
+        / "handlers"
+        / "debates"
+        / "test_diagnostics.py": 'K = "mistral-large"\n',
+    }
+    for path, content in fixtures.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    for path, content in fixtures.items():
+        assert path.read_text() == content, f"{path} was rewritten but is a frozen source or test"
+
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, f"frozen _LEGACY_* paths were reported as offenders: {r.stdout}"

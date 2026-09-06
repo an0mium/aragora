@@ -109,12 +109,21 @@ SKIP_NAMES = {
 #     runtime), so a --write pass over "tests" would rewrite them in
 #     place and silently gut what the test verifies, the same hazard
 #     tests/models/ and this script's own source are protected against.
-#   - the eight test files that exercise the frozen pricing sources above
-#     (tests/billing/test_usage.py, tests/billing/test_billing_usage.py,
-#     tests/billing/test_debate_costs.py, tests/services/test_usage_metering.py,
-#     tests/services/test_usage_metering_service.py,
-#     tests/handlers/debates/test_cost_estimation.py,
-#     tests/e2e/test_billing_accuracy_e2e.py, tests/pdb/test_real_invoker.py):
+#   - aragora/documents/models.py, aragora/documents/chunking/
+#     context_manager.py, aragora/billing/optimizer.py,
+#     aragora/workflow/resource_tracker.py, aragora/workflow/engine_v2.py,
+#     aragora/server/handlers/agents/recommendations.py,
+#     aragora/server/handlers/debates/diagnostics.py: the OTHER frozen-table
+#     family -- a hand-written ``_LEGACY_*`` dict (token limits, pricing,
+#     tier bands, agent cost estimates, provider maps) merged with rows
+#     generated from the catalog. The legacy half exists precisely to keep
+#     answering lookups written in the historical spellings, so sweeping it
+#     deletes the only reason it is there; the generated half already
+#     carries the current ids. Each is reverted-and-listed rather than
+#     swept in the 2026-09-05 repo-wide re-sweep (wave-6 ruling, frozen
+#     sources, on #9989).
+#   - every test file that exercises one of the frozen sources above,
+#     enumerated per source in FROZEN_PRICING_SOURCE_TESTS below:
 #     a frozen table is keyed on its historical spellings, so its test must
 #     look those spellings up EXACTLY. PR 3's trial sweep left the sources
 #     frozen but swept their tests, breaking every ``PROVIDER_PRICING[model]``
@@ -144,6 +153,21 @@ FROZEN_PRICING_SOURCE_TESTS: dict[str, tuple[str, ...]] = {
     "aragora/pdb/real_invoker.py": ("tests/pdb/test_real_invoker.py",),
     "aragora/server/handlers/debates/cost_estimation.py": (
         "tests/handlers/debates/test_cost_estimation.py",
+    ),
+    # The _LEGACY_* table family (see the comment block above).
+    "aragora/documents/models.py": (
+        "tests/documents/test_models.py",
+        "tests/documents/test_chunking.py",
+    ),
+    "aragora/documents/chunking/context_manager.py": ("tests/documents/test_context_manager.py",),
+    "aragora/billing/optimizer.py": ("tests/billing/test_optimizer.py",),
+    "aragora/workflow/resource_tracker.py": ("tests/workflow/test_executor_protocol.py",),
+    "aragora/workflow/engine_v2.py": ("tests/workflow/test_engine_v2.py",),
+    "aragora/server/handlers/agents/recommendations.py": (
+        "tests/handlers/agents/test_recommendations.py",
+    ),
+    "aragora/server/handlers/debates/diagnostics.py": (
+        "tests/handlers/debates/test_diagnostics.py",
     ),
 }
 
