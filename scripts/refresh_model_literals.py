@@ -46,12 +46,12 @@ code (only "offenders" do):
   written in that file. Both collapse hand-written ``dict``/``set``/list
   literals onto one entry, so ``--write`` rewrites NONE of the listed
   spellings anywhere in that file. See ``_collisions()``.
-* **guarded** — text that was never a model id: a bare ``o1``/``o3``
-  identifier or prose word, a raw string, a ``re.``-call or ``pattern=``
-  regex source, or an alternative inside a ``|``-separated string that also
-  carries a regex metacharacter. These are dropped silently (not even
-  reported), because calling them offenders would make ``--check``
-  unfixable by construction. See ``_is_guarded()``.
+* **guarded** — text that was never a model id: a raw string, a
+  ``re.``-call or ``pattern=`` regex source, an alternative inside a
+  ``|``-separated string that also carries a regex metacharacter, or a
+  ``SHORT_BARE_KEYS`` token outside model-id quoting. These are dropped
+  silently (not even reported), because calling them offenders would make
+  ``--check`` unfixable by construction. See ``_is_guarded()``.
 """
 
 from __future__ import annotations
@@ -182,12 +182,20 @@ DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "baselines" / "retired_model_literal
 
 
 # Retired keys that are BOTH hyphen-free and shorter than
-# ``_SHORT_TOKEN_MIN_LEN`` characters -- in practice OpenAI's ``o1``/``o3``.
-# A bare occurrence of one of these is far more often an ordinary Python
-# identifier (``o1 = _make_org(...)``) or a word in prose ("GPT-4o, o1, o3")
-# than a model id, and rewriting it produced a hard ``SyntaxError`` in one
-# test file during PR 3's trial sweep. ``gpt-4`` is hyphenated and therefore
-# deliberately NOT in this set. See ``_is_guarded``.
+# ``_SHORT_TOKEN_MIN_LEN`` characters. A bare occurrence of one of these is
+# far more often an ordinary Python identifier (``o1 = _make_org(...)``) or a
+# word in prose ("GPT-4o, o1, o3") than a model id, and rewriting it produced
+# a hard ``SyntaxError`` in one test file during PR 3's trial sweep.
+# ``gpt-4`` is hyphenated and therefore deliberately NOT in this set. See
+# ``_is_guarded``.
+#
+# CURRENTLY EMPTY: ``o1``/``o3`` were the only members and the wave-6 ruling
+# (sweep gap 4, #9989) dropped them from ``UPGRADES`` outright, because the
+# quoting rule below still admitted the shape a placeholder id is written in
+# -- a complete string body -- and rewrote 25 files where the text was an
+# org/plan/route id rather than a model. The derivation stays as the standing
+# rule for any future hyphen-free short key rather than being deleted with
+# its last member.
 _SHORT_TOKEN_MIN_LEN = 6
 SHORT_BARE_KEYS: frozenset[str] = frozenset(
     k for k in UPGRADES if "-" not in k and len(k) < _SHORT_TOKEN_MIN_LEN

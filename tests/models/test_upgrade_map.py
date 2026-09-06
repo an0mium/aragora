@@ -70,8 +70,7 @@ from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES, resolve_model_
         ("gpt-5", "gpt-6-astra"),
         ("gpt-5.5", "gpt-6-astra"),
         ("gpt-5.6-sol", "gpt-6-astra"),
-        ("o1", "gpt-6-astra"),
-        ("o3", "gpt-6-astra"),
+        ("o3-pro", "gpt-6-astra"),
         ("openai/gpt-5.3", "gpt-6-astra"),
         # Controller ruling 4: new case, not in the original brief list.
         ("openai/gpt-5.5", "gpt-6-astra"),
@@ -118,6 +117,25 @@ from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES, resolve_model_
 )
 def test_known_upgrades(old: str, new: str) -> None:
     assert resolve_model_id(old) == new
+
+
+def test_bare_o1_and_o3_are_not_keys_while_hyphenated_siblings_are() -> None:
+    """Wave-6 ruling (sweep gap 4, #9989): RETIRED_PATTERN is built from these
+    keys and drives scripts/refresh_model_literals.py over the whole repo, and
+    a bare two-character token cannot be told apart from an ordinary
+    identifier or a plan/route id by shape -- the 2026-09-05 re-sweep rewrote
+    ``"o1"``/``"o3"`` in 25 files where none was a model. Dropping them costs
+    the runtime upgrade of a literal ``o1``/``o3`` pin, which then falls
+    through resolve_model_id unchanged; every hyphenated o-series spelling is
+    unambiguous and stays."""
+    assert "o1" not in UPGRADES
+    assert "o3" not in UPGRADES
+    assert not RETIRED_PATTERN.search("o1")
+    assert not RETIRED_PATTERN.search("o3")
+    for hyphenated in ("o1-mini", "o3-mini", "o3-pro", "o4-mini"):
+        assert hyphenated in UPGRADES, hyphenated
+    assert resolve_model_id("o1") == "o1"
+    assert resolve_model_id("o3") == "o3"
 
 
 def test_every_target_is_an_active_catalog_row() -> None:

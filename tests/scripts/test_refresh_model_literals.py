@@ -434,15 +434,31 @@ def test_two_spellings_with_different_targets_are_not_a_collision(tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
-# Class 3a/3b — bare short tokens and regex sources. ``o1``/``o3`` are the
-# only UPGRADES keys that are both hyphen-free and shorter than six
-# characters; ``gpt-4`` is hyphenated and deliberately unaffected.
+# Class 3a/3b — bare short tokens and regex sources. ``o1``/``o3`` used to be
+# the only UPGRADES keys that are both hyphen-free and shorter than six
+# characters; the wave-6 ruling (sweep gap 4, #9989) dropped them from the map
+# entirely, so RETIRED_PATTERN no longer matches them at all. ``gpt-4`` is
+# hyphenated and deliberately unaffected.
 # ---------------------------------------------------------------------------
 
 
-def test_short_bare_keys_are_exactly_o1_and_o3() -> None:
+def test_bare_o1_and_o3_are_not_retired_keys_but_their_siblings_are() -> None:
+    """The bare two-character tokens are gone from the map; every hyphenated
+    o-series spelling stays, because those ARE unambiguously model ids."""
+    from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES
+
+    assert "o1" not in UPGRADES and "o3" not in UPGRADES
+    assert not RETIRED_PATTERN.search("o1") and not RETIRED_PATTERN.search("o3")
+    for hyphenated in ("o1-mini", "o3-mini", "o3-pro", "o4-mini"):
+        assert hyphenated in UPGRADES, hyphenated
+        assert RETIRED_PATTERN.search(hyphenated), hyphenated
+
+
+def test_short_bare_keys_is_empty_now_that_o1_and_o3_are_gone() -> None:
+    """The derivation stays as the standing rule for a future short key, but
+    it currently has no members to guard."""
     mod = _load_module()
-    assert mod.SHORT_BARE_KEYS == frozenset({"o1", "o3"})
+    assert mod.SHORT_BARE_KEYS == frozenset()
 
 
 def test_bare_identifier_named_o1_is_never_rewritten(tmp_path: Path) -> None:
@@ -476,22 +492,27 @@ def test_guarded_short_tokens_are_not_reported_as_offenders(tmp_path: Path) -> N
     assert "0 collision(s) (not counted as offenders)" in r.stdout
 
 
-def test_short_key_as_a_complete_string_literal_is_rewritten(tmp_path: Path) -> None:
-    """The quoting rule ADMITS the model-id shapes: a complete string
-    literal, or one followed by an id separator."""
+def test_bare_o1_and_o3_string_literals_are_left_alone(tmp_path: Path) -> None:
+    """Quoting used to ADMIT a complete ``"o1"`` string body as a model id.
+    That shape is exactly how a placeholder org/plan/route id is written, so
+    25 files were rewritten where nothing was a model (wave-6 ruling, sweep
+    gap 4). With the keys gone from UPGRADES the shape is no longer even
+    matched."""
     f = tmp_path / "pins.py"
-    f.write_text('MODEL = "o1"\n')
+    original = 'MODEL = "o1"\nPREFIX = \'o3:reasoning\'\nORG = {"id": "o1"}\n'
+    f.write_text(original)
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
-    assert f.read_text() == 'MODEL = "gpt-6-astra"\n'
+    assert f.read_text() == original
 
 
-def test_short_key_followed_by_a_colon_inside_a_string_is_rewritten(tmp_path: Path) -> None:
-    f = tmp_path / "route.py"
-    f.write_text("PREFIX = 'o3:reasoning'\n")
+def test_hyphenated_o_series_pins_are_still_rewritten(tmp_path: Path) -> None:
+    """Dropping the bare keys must not stop a real o-series pin upgrading."""
+    f = tmp_path / "pins.py"
+    f.write_text('MODEL = "o1-mini"\nOTHER = "o3-pro"\n')
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
-    assert f.read_text() == "PREFIX = 'gpt-6-astra:reasoning'\n"
+    assert f.read_text() == 'MODEL = "gpt-5.6-terra"\nOTHER = "gpt-6-astra"\n'
 
 
 def test_raw_string_regex_source_is_never_rewritten(tmp_path: Path) -> None:

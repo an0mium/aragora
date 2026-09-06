@@ -161,8 +161,19 @@ UPGRADES: dict[str, str] = {
             "openai/gpt-5.4",
             "openai/gpt-5.5",
             "openai/gpt-5.6-sol",
-            "o1",
-            "o3",
+            # NOTE: bare "o1" and "o3" are deliberately ABSENT, while every
+            # hyphenated o-series spelling stays. RETIRED_PATTERN is built
+            # from these keys and is what scripts/refresh_model_literals.py
+            # hunts for in source text; two-character hyphen-free tokens are
+            # far more often an ordinary identifier ("o1 = _make_org(...)"),
+            # a plan/route/observation id, or a word in prose ("GPT-4o, o1,
+            # o3") than a model pin. The 2026-09-05 repo-wide re-sweep
+            # rewrote them in 25 files where none of them was a model id, and
+            # no boundary rule can tell the two apart by shape (wave-6
+            # ruling, sweep gap 4, on #9989). A live "o1"/"o3" pin therefore
+            # no longer upgrades through this map; it falls through
+            # resolve_model_id unchanged, and each provider's own
+            # DEFAULT_FALLBACK_MODEL still lands it on the frontier.
             "o3-pro",
         )
     },

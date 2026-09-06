@@ -1218,9 +1218,15 @@ class TestOpenAIModelMapping:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
         # Flagship-line legacy spellings upgrade to the Astra frontier.
-        for legacy_model in ("gpt-5.4", "gpt-5.5", "o3"):
+        for legacy_model in ("gpt-5.4", "gpt-5.5", "o3-pro"):
             agent = OpenAIAPIAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "openai/gpt-6-astra"
+        # A bare "o3" is no longer an UPGRADES key at all (wave-6 ruling,
+        # sweep gap 4, #9989: it is far more often a placeholder id than a
+        # model), so it has no catalog row to resolve through and lands on
+        # the class default rather than on a per-spelling upgrade.
+        bare = OpenAIAPIAgent(api_key="test-key", model="o3")
+        assert bare.get_fallback_model() == OpenAIAPIAgent.DEFAULT_FALLBACK_MODEL
         # Value-tier legacy spellings upgrade to Terra. The whole GPT-4 line
         # counts as value tier by price -- gpt-4o listed at $2.50/$10 -- so
         # it lands with the mini SKUs rather than on the $10/$50 flagship
