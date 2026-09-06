@@ -45,7 +45,7 @@ regenerates their jscpd reports under `READINESS_REPORT_DIR`; confirm the
 reported source counts are nonzero when remeasuring.
 
 Run checks through `make readiness-lint-root`. Shared-runner JSON reports go
-to `READINESS_REPORT_DIR` (default `/tmp/aragora-readiness/ratchet-reports`).
+to `READINESS_REPORT_DIR` (configured in the Makefile).
 The file-size checker includes tracked and untracked-but-not-ignored Python
 files. Other apps can supply repeatable `--glob` patterns and `--baseline`.
 The advisory `lint.yml` job `ratchets` installs `.[dev,test,readiness]`, rejects
@@ -69,7 +69,7 @@ reports. It is independent of required-check umbrellas. The existing
   **110 distinct DEP001 modules / 579 occurrences** and
   **11 distinct DEP003 modules / 204 occurrences** across 4,414 scanned files.
   Reproduce the deferred-debt census with
-  `deptry . --ignore DEP002 --json-output /tmp/aragora-readiness/deptry-deferred.json`
+  `deptry . --ignore DEP002`
   (expected exit 1); this overrides the global ignore list while keeping the
   per-rule exceptions. Normal `deptry .` reports zero issues.
   The single DEP002 exception, `python-dateutil`, preserves botocore's AWS
@@ -77,21 +77,22 @@ reports. It is independent of required-check umbrellas. The existing
   imported directly. The single DEP004 exception, `boto3`, covers guarded
   optional runtime AWS imports while `[test]` provides it for the tests.
   DEP002 and DEP004 remain enabled for every other dependency.
-  The `all` convenience extra is classified with the dev groups so it does
-  not reclassify readiness tools as unused runtime dependencies; every
-  bundled runtime dependency is still checked through its original extra.
+  The `all` convenience extra is classified with `dev`, `test`, and `readiness`
+  under `optional_dependencies_dev_groups` so it does not reclassify readiness
+  tools as unused runtime dependencies; every bundled runtime dependency is
+  still checked through its original extra.
 - jscpd's adoption measurement is 2.0001% duplicated lines, below the hard
   2.1% threshold at 70 minimum tokens. No clone baseline is needed; run the
   real root config and verify the source count before trusting a percentage.
   The root `.npmrc` three-day release cooldown applies to the pinned npx
   command, both locally and in CI.
 - Mypy 2.1.0 found 2,641 missing-definition annotations in 862 modules
-  (737 in `aragora/`, 122 in `scripts/`, two in `aragora-debate/`, and one in
-  `aragora-verify/`; both small packages inherit the root configuration).
-  One sorted override block exempts
-  only these explicit module names from `disallow_untyped_defs`; existing
-  error-code overrides stay unchanged. The baseline tracks module membership
-  (862 keys / 862 occurrences), not annotation counts. Remove modules from
+  at adoption (737 in `aragora/`, 122 in `scripts/`, two in `aragora-debate/`,
+  and one in `aragora-verify/`). M3 removed the three package exemptions after
+  enabling package-local strict typing. One sorted override block exempts
+  only the remaining explicit module names from `disallow_untyped_defs`;
+  existing error-code overrides stay unchanged. The baseline tracks module
+  membership (859 keys / 859 occurrences), not annotation counts. Remove modules from
   the block as they become typed, then run the shrink-only update.
 - The operator authorized one file-size re-adoption on 2026-09-05 before
   enabling the gate. Three tracked files already exceeded 2,000 lines at

@@ -64,6 +64,19 @@ def overridden_modules(path: Path) -> list[str]:
             )
         ):
             raise BaselineError(f"{path}: each mypy override requires valid module names")
+        if override.get("allow_untyped_defs") is True:
+            raise BaselineError(
+                f"{path}: allow_untyped_defs = true bypasses the ratchet for modules {names}"
+            )
+        disabled_codes = override.get("disable_error_code", [])
+        if isinstance(disabled_codes, str):
+            disabled_codes = disabled_codes.split(",")
+        if isinstance(disabled_codes, list) and any(
+            isinstance(code, str) and code.strip() == "no-untyped-def" for code in disabled_codes
+        ):
+            raise BaselineError(
+                f"{path}: disable_error_code contains no-untyped-def for modules {names}"
+            )
         if RULE not in override:
             continue
         if not isinstance(override[RULE], bool):

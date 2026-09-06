@@ -156,8 +156,8 @@ tool's **stdout**; run it from `--cwd` so reported paths stay relative.
 | `golangci-lint` | `golangci-lint run --output.json.path stdout --show-stats=false ./...` (v2 JSON schema: `{"Issues":[{"FromLinter","Text","SourceLines","Pos":{"Filename","Line"}}],"Report":…}`; without `--show-stats=false` a text stats block follows the JSON on stdout and only the first JSON object is read) | symbol = line-content hash (taken from `SourceLines[0]`, or read from the file when absent); rule = `FromLinter` (`errcheck`, `revive`) | `0` | `1` |
 | `todo` | `grep -rn --include='*.py' -E 'TODO\|FIXME' .` | symbol = matched-line hash; rule = the marker word (`TODO`, `FIXME`, `XXX`, `HACK`) | `0`, `1` (no matches) | `0` |
 
-Finding exit codes were verified against live tools in `/tmp/ratchet-fx`.
-For jscpd 5.1.2, a direct over-threshold run exits 1, but the documented
+Finding exit codes were verified against the installed tools.
+For jscpd 5.1.1 (`JSCPD_VERSION` in the Makefile), a direct over-threshold run exits 1, but the documented
 `sh -c '...; cat <report>'` wrapper exits 0 when `cat` succeeds, including
 when clones exist. The runner validates the wrapper's exit code, not the
 hidden jscpd status; use a fresh report directory so a failed scan cannot
@@ -249,7 +249,10 @@ lands in a later feature, which replaces the marked comment in place.
   `mypy-overrides`. Each distinct module exempted from `disallow_untyped_defs`
   has one key, `pyproject.toml::<module>::disallow_untyped_defs`, with value 1.
   The global flag must remain true; wildcard relaxations are rejected.
-  Existing error-code-only overrides do not count. Same-count replacements
+  Override blocks cannot bypass the ratchet with `allow_untyped_defs = true`
+  or `disable_error_code` containing `no-untyped-def` (list or comma-separated
+  string): both are shape errors (exit 2) naming the key and modules.
+  Other error-code-only overrides do not count. Same-count replacements
   still fail because membership, not just the total, is ratcheted.
   `--pyproject` and `--baseline` resolve relative paths from the repository
   root regardless of cwd. Exit codes: 0 subset, 1 growth (added names printed),
@@ -286,7 +289,8 @@ Every JS app directory (`aragora/live`, `docs-site`, `ide/vscode-aragora`,
 in its own `.npmrc`; npm ≥ 11.9 refuses versions published less than three
 days ago when resolving. npm reads project config only from the nearest
 `package.json` prefix (no parent merge), so the key must live in each app; the
-root `.npmrc` is advisory and exists for future root-level packages. Probe from
+root `.npmrc` applies to `npx`/`npm` invocations run from the repo root,
+including Make's pinned jscpd command, even without a root `package.json`. Probe from
 an app directory with `npm config get min-release-age` (prints `3` on npm ≥ 12;
 npm 11.x prints `null` because its config flattener rewrites the key into
 `before` before `config get` reads it) or, on any supporting npm, with
@@ -325,7 +329,7 @@ Exit codes: `0` when the two resolutions agree (lock regenerated); `2` when
 packages were held back (listed; `uv.lock` holds the cooled-down resolution and
 a human decides whether to commit it); `3` when `uv` is not on `PATH`; `1` on
 any other failure, in which case the original `uv.lock` is restored
-byte-for-byte. Temp copies live under `/tmp/aragora-readiness/`.
+byte-for-byte. Temp copies are cleaned up by the script.
 
 ### Dependabot cooldown
 

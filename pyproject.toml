@@ -254,7 +254,7 @@ exclude = [
 # The convenience bundle repeats runtime extras plus readiness tools. Runtime
 # deps remain classified by their own extras; do not reclassify the tools as
 # runtime merely because they also appear in all.
-pep621_dev_dependency_groups = ["dev", "test", "readiness", "all"]
+optional_dependencies_dev_groups = ["dev", "test", "readiness", "all"]
 # Optional-provider imports are lazily guarded; DEP001/DEP003 enforcement
 # is tracked in docs/TECH_DEBT.md rather than blocking optional integrations.
 ignore = ["DEP001", "DEP003"]

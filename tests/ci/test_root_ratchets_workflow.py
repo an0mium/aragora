@@ -102,13 +102,13 @@ def test_all_extra_does_not_reclassify_readiness_tools_as_runtime() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
     extras = project["project"]["optional-dependencies"]
     deptry = project["tool"]["deptry"]
-    assert {"dev", "test", "readiness", "all"} <= set(deptry["pep621_dev_dependency_groups"])
+    assert {"dev", "test", "readiness", "all"} <= set(deptry["optional_dependencies_dev_groups"])
     # Every non-tool entry remains declared in an independently scanned runtime
     # extra; treating the convenience bundle as dev must not hide runtime debt.
     runtime = {
         spec
         for name, specs in extras.items()
-        if name not in deptry["pep621_dev_dependency_groups"]
+        if name not in deptry["optional_dependencies_dev_groups"]
         for spec in specs
     }
     assert set(extras["all"]) - set(extras["readiness"]) <= runtime

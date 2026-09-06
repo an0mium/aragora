@@ -90,7 +90,9 @@ def test_package_coverage_gate_uses_its_own_module_and_recorded_floor(package: s
 def test_package_lint_wires_source_ratchets_and_documented_baselines(package: str) -> None:
     config = tomllib.loads((ROOT / f"aragora-{package}/pyproject.toml").read_text())["tool"]
     assert config["deptry"]["optional_dependencies_dev_groups"] == ["dev"]
-    assert "pep621_dev_dependency_groups" not in config["deptry"]
+    assert {key for key in config["deptry"] if key.endswith("_groups")} == {
+        "optional_dependencies_dev_groups"
+    }
     assert config["deptry"]["known_first_party"] == [f"aragora_{package}"]
     assert not config["deptry"].get("ignore")
     result = subprocess.run(

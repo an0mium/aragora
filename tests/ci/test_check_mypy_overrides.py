@@ -263,6 +263,63 @@ def test_repository_has_one_sorted_relaxation_block() -> None:
     assert relaxed[0]["module"] == sorted(set(relaxed[0]["module"]))
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("allow_untyped_defs", "true"),
+        ("disable_error_code", '["no-untyped-def"]'),
+        ("disable_error_code", '["misc", "no-untyped-def"]'),
+        ("disable_error_code", '["misc", " no-untyped-def "]'),
+        ("disable_error_code", '"misc, no-untyped-def"'),
+    ],
+)
+@pytest.mark.parametrize("explicit_rule", ["", "disallow_untyped_defs = false\n"])
+def test_bypass_spellings_are_shape_errors(
+    tmp_path: Path, key: str, value: str, explicit_rule: str
+) -> None:
+    project = tmp_path / "pyproject.toml"
+    original = (ROOT / "pyproject.toml").read_bytes()
+    baseline = tmp_path / "baseline.json"
+    before = (ROOT / BASELINE).read_bytes()
+    baseline.write_bytes(before)
+    project.write_text(
+        original.decode()
+        + '\n[[tool.mypy.overrides]]\nmodule = ["aragora.scratch_bypass"]\n'
+        + explicit_rule
+        + f"{key} = {value}\n"
+    )
+    for flags in ([], ["--update"]):
+        result = run("--pyproject", project, "--baseline", baseline, *flags)
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert key in result.stderr
+        assert "aragora.scratch_bypass" in result.stderr
+        assert "Traceback" not in result.stderr
+        assert baseline.read_bytes() == before
+    assert (ROOT / BASELINE).read_bytes() == before
+    assert (ROOT / "pyproject.toml").read_bytes() == original
+
+
+def test_non_bypass_options_still_pass(adopted: tuple[Path, Path]) -> None:
+    project, baseline = adopted
+    project.write_text(
+        project.read_text()
+        + '\n[[tool.mypy.overrides]]\nmodule = "pkg.typed.*"\n'
+        + 'allow_untyped_defs = false\ndisable_error_code = ["misc"]\n'
+    )
+    result = run("--pyproject", project, "--baseline", baseline)
+    assert result.returncode == 0, result.stderr
+
+
+def test_tracked_project_matches_baseline() -> None:
+    result = run("--pyproject", "pyproject.toml", "--baseline", BASELINE)
+    assert result.returncode == 0, result.stderr
+    assert "mypy-overrides: 0 new findings" in result.stdout
+    findings = json.loads((ROOT / BASELINE).read_text())["findings"]
+    assert (
+        f"current {len(findings)} key(s) / {sum(findings.values())} occurrence(s)" in result.stdout
+    )
+
+
 def test_defaults_and_relative_baseline_are_repo_relative(tmp_path: Path) -> None:
     # A cwd-local project/baseline must not shadow the repository defaults.
     config(tmp_path / "pyproject.toml", ["aragora._val_fake_module"])
