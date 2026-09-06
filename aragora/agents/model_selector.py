@@ -181,17 +181,70 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
-    # "claude-haiku" removed (frontier-model-refresh, 2026-09-04): the
-    # catalog carries no cheap/haiku-tier Anthropic row post-refresh (only
-    # the Fable 5.1 flagship and the Opus 4.8/5 fallback tier), so there is
-    # no non-misleading catalog row to point a "Haiku" profile at.
+    # Anthropic value tier. Both rows are ENFORCED catalog models, so the
+    # selector can offer a cheap Anthropic option instead of routing every
+    # Anthropic request to the $10/$50 flagship -- which is what happened
+    # while "claude-haiku" was removed on the (since corrected) grounds that
+    # the catalog carried no cheap Anthropic row. Capability scores are
+    # derived the same way as the other value-tier profiles here (the
+    # gemini/gemini-flash and gpt4/gpt-4o pairs): a few points under the
+    # family flagship, LONG_CONTEXT tracking the row's own context window,
+    # and a markedly lower latency. Each profile has its OWN model id --
+    # never two profiles on one id with different scores (#9990).
+    "claude-sonnet": ModelProfile(
+        model_id=CATALOG["claude-sonnet-5"].direct_id,
+        display_name="Claude Sonnet 5",
+        provider="anthropic",
+        capabilities={
+            ModelCapability.REASONING: 0.92,
+            ModelCapability.CODING: 0.93,
+            ModelCapability.LEGAL: 0.88,
+            ModelCapability.MEDICAL: 0.85,
+            ModelCapability.FINANCIAL: 0.88,
+            ModelCapability.CREATIVE: 0.87,
+            ModelCapability.MATH: 0.89,
+            ModelCapability.LONG_CONTEXT: 0.96,  # 1M context, as the flagship
+            ModelCapability.INSTRUCTION_FOLLOWING: 0.94,
+            ModelCapability.FACTUAL_ACCURACY: 0.90,
+        },
+        max_context_tokens=CATALOG["claude-sonnet-5"].context_window,
+        max_output_tokens=CATALOG["claude-sonnet-5"].max_output_tokens,
+        cost_input_per_1k=CATALOG["claude-sonnet-5"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["claude-sonnet-5"].output_per_mtok / 1000,
+        avg_latency_ms=500,
+        reliability_score=0.97,
+        supports_vision=True,
+    ),
+    "claude-haiku": ModelProfile(
+        model_id=CATALOG["claude-haiku-4-5-20251001"].direct_id,
+        display_name="Claude Haiku 4.5",
+        provider="anthropic",
+        capabilities={
+            ModelCapability.REASONING: 0.85,
+            ModelCapability.CODING: 0.86,
+            ModelCapability.LEGAL: 0.80,
+            ModelCapability.MEDICAL: 0.77,
+            ModelCapability.FINANCIAL: 0.80,
+            ModelCapability.CREATIVE: 0.82,
+            ModelCapability.MATH: 0.82,
+            ModelCapability.LONG_CONTEXT: 0.88,  # 200k context
+            ModelCapability.INSTRUCTION_FOLLOWING: 0.89,
+            ModelCapability.FACTUAL_ACCURACY: 0.84,
+        },
+        max_context_tokens=CATALOG["claude-haiku-4-5-20251001"].context_window,
+        max_output_tokens=CATALOG["claude-haiku-4-5-20251001"].max_output_tokens,
+        cost_input_per_1k=CATALOG["claude-haiku-4-5-20251001"].input_per_mtok / 1000,
+        cost_output_per_1k=CATALOG["claude-haiku-4-5-20251001"].output_per_mtok / 1000,
+        avg_latency_ms=250,
+        reliability_score=0.97,
+        supports_vision=True,
+    ),
     # OpenAI
     # frontier-model-refresh, 2026-09-04: gpt-5.5 is retired; "gpt4" now
-    # points at the OpenAI flagship frontier (gpt-6-astra). NOTE: gpt-6-astra
-    # is not yet in aragora/models/catalog.py's ENFORCED_MODELS (mirror-table
-    # migration is later-task scope), so this profile is not enforced by
-    # tests/models/test_catalog.py the way the old gpt-5.5 row was; see that
-    # test's anchor-assertion comment for the corresponding adjustment.
+    # points at the OpenAI flagship frontier (gpt-6-astra), which IS in
+    # aragora/models/catalog.py's ENFORCED_MODELS, so this profile is
+    # mirror-enforced by tests/models/test_catalog.py exactly as the old
+    # gpt-5.5 row was.
     "gpt4": ModelProfile(
         model_id=CATALOG["gpt-6-astra"].direct_id,
         display_name="GPT-6 Astra",

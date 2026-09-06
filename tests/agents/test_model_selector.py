@@ -53,6 +53,57 @@ class TestModelProfiles:
         assert claude.max_context_tokens == 1_000_000
         assert claude.supports_vision is True
 
+    def test_anthropic_value_tier_profiles_are_selectable(self):
+        """A cheap Anthropic option must exist, or every Anthropic request
+        routes to the $10/$50 flagship.
+
+        Both rows are ENFORCED catalog models, so the earlier removal of
+        "claude-haiku" -- on the grounds that the catalog carried no cheap
+        Anthropic row -- no longer describes the catalog (2026-09-05
+        merge-gate round 5 advisory on #9989).
+        """
+        from aragora.models.catalog import CATALOG, ENFORCED_MODELS
+
+        haiku = MODEL_PROFILES["claude-haiku"]
+        sonnet = MODEL_PROFILES["claude-sonnet"]
+        flagship = MODEL_PROFILES["claude"]
+
+        assert haiku.model_id == "claude-haiku-4-5-20251001"
+        assert sonnet.model_id == "claude-sonnet-5"
+        assert haiku.provider == sonnet.provider == "anthropic"
+        assert haiku.model_id in ENFORCED_MODELS
+        assert sonnet.model_id in ENFORCED_MODELS
+        assert CATALOG[haiku.model_id].tier == "value"
+        assert CATALOG[sonnet.model_id].tier == "value"
+
+        # Cheaper than the flagship, and Haiku cheaper than Sonnet.
+        assert haiku.cost_input_per_1k < sonnet.cost_input_per_1k < flagship.cost_input_per_1k
+        assert haiku.cost_output_per_1k < sonnet.cost_output_per_1k < flagship.cost_output_per_1k
+        # ... and scored below it on capability, the way the other value-tier
+        # profiles are, so the selector trades quality for price knowingly.
+        for capability, flagship_score in flagship.capabilities.items():
+            assert haiku.capabilities[capability] < flagship_score, capability
+            assert sonnet.capabilities[capability] <= flagship_score, capability
+            assert haiku.capabilities[capability] <= sonnet.capabilities[capability], capability
+
+    def test_no_two_profiles_share_a_model_id_with_different_scores(self):
+        """#9990: two keys on one model id with different capability scores
+        make the selector's answer depend on which key it happened to reach.
+
+        Asserted against the KNOWN pairs so the wave-6 additions cannot grow
+        the set; fixing the pre-existing ones is #9990's own scope.
+        """
+        known_shared = {"claude-fable-5-1", "gpt-5.6-terra", "deepseek-v4-pro-0813"}
+        by_id: dict[str, list[str]] = {}
+        for name, profile in MODEL_PROFILES.items():
+            by_id.setdefault(profile.model_id, []).append(name)
+        shared = {model_id for model_id, names in by_id.items() if len(names) > 1}
+        assert shared == known_shared, (
+            f"model ids shared by several profiles changed: {sorted(shared)}"
+        )
+        for value_tier in ("claude-haiku", "claude-sonnet"):
+            assert MODEL_PROFILES[value_tier].model_id not in shared
+
     def test_kimi_profile_tracks_k3_runtime_metadata(self):
         kimi = MODEL_PROFILES["kimi"]
 
