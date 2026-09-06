@@ -159,7 +159,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -185,7 +185,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         assert watch_mixin._gmail_state is None
 
@@ -214,7 +214,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -240,7 +240,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {}, clear=True):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -259,7 +259,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -284,7 +284,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=error_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -301,7 +301,7 @@ class TestSetupWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
             with patch.object(watch_mixin, "_get_client", return_value=mock_client):
@@ -327,7 +327,7 @@ class TestStopWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.object(watch_mixin, "_get_client", return_value=mock_client):
             result = await watch_mixin.stop_watch()
@@ -350,7 +350,7 @@ class TestStopWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.object(watch_mixin, "_get_client", return_value=mock_client):
             await watch_mixin.stop_watch()
@@ -375,7 +375,7 @@ class TestStopWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.object(watch_mixin, "_get_client", return_value=mock_client):
             await watch_mixin.stop_watch()
@@ -400,7 +400,7 @@ class TestStopWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=error_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.object(watch_mixin, "_get_client", return_value=mock_client):
             result = await watch_mixin.stop_watch()
@@ -417,7 +417,7 @@ class TestStopWatch:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch.object(watch_mixin, "_get_client", return_value=mock_client):
             await watch_mixin.stop_watch()
@@ -728,7 +728,7 @@ class TestWatchRenewal:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_httpx_response(200, watch_response))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         watch_mixin._watch_running = True
 
