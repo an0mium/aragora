@@ -240,7 +240,14 @@ class AutonomicExecutor:
                 return
 
             provider = getattr(agent, "provider", "unknown") or "unknown"
-            model = getattr(agent, "model", "unknown") or "unknown"
+            # Price against the model that ACTUALLY answered: a call a
+            # server-side refusal fallback served produced its tokens at the
+            # fallback model's rate, not the requested model's (finding C-P3
+            # on #9989). ``billing_model`` is ``self.model`` for every agent
+            # that cannot tell the difference.
+            model = (
+                getattr(agent, "billing_model", None) or getattr(agent, "model", "unknown")
+            ) or "unknown"
             agent_name = getattr(agent, "name", str(agent))
 
             self._debate_cost_tracker.record_agent_call(

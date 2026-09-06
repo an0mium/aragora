@@ -373,3 +373,84 @@ class TestServedModelLogSpansTheWholeDebate:
             await agent.generate("prompt")
 
         assert [entry["fallback"] for entry in agent.served_model_log] == [True, False]
+
+
+class TestServedModelBilling:
+    """A call a server-side fallback answered must be COSTED at the model
+    that actually produced the tokens (finding C-P3 on #9989, gate round 6).
+
+    Anthropic bills the served model; pricing the call at the requested id
+    mis-states the spend, and the receipt's cost line then contradicts its
+    own ``served_models`` block.
+    """
+
+    @pytest.mark.asyncio
+    async def test_fallback_response_is_costed_at_the_fallback_rate(self, agent) -> None:
+        from aragora.billing.usage import calculate_token_cost
+
+        payload = {
+            "model": _SERVED,
+            "content": [{"type": "text", "text": "hi"}],
+            "usage": {"input_tokens": 1_000_000, "output_tokens": 1_000_000},
+        }
+        recorded: list[float] = []
+        with (
+            patch("aragora.billing.budget_guard.is_enabled", return_value=True),
+            patch("aragora.billing.budget_guard.record_spend", side_effect=recorded.append),
+            _session_patch(_json_response(payload)),
+        ):
+            await agent.generate("prompt")
+
+        served_rate = float(calculate_token_cost("anthropic", _SERVED, 1_000_000, 1_000_000))
+        requested_rate = float(calculate_token_cost("anthropic", _REQUESTED, 1_000_000, 1_000_000))
+        # The two models must actually price differently, or this proves nothing.
+        assert served_rate != requested_rate
+        assert recorded == [served_rate]
+
+    @pytest.mark.asyncio
+    async def test_answered_as_asked_is_costed_at_the_requested_rate(self, agent) -> None:
+        from aragora.billing.usage import calculate_token_cost
+
+        payload = {
+            "model": _REQUESTED,
+            "content": [{"type": "text", "text": "hi"}],
+            "usage": {"input_tokens": 1_000_000, "output_tokens": 1_000_000},
+        }
+        recorded: list[float] = []
+        with (
+            patch("aragora.billing.budget_guard.is_enabled", return_value=True),
+            patch("aragora.billing.budget_guard.record_spend", side_effect=recorded.append),
+            _session_patch(_json_response(payload)),
+        ):
+            await agent.generate("prompt")
+
+        assert recorded == [
+            float(calculate_token_cost("anthropic", _REQUESTED, 1_000_000, 1_000_000))
+        ]
+
+    def test_billing_model_defaults_to_the_requested_model(self, agent) -> None:
+        """No observed swap -- including an agent that cannot observe one --
+        prices exactly as before this existed."""
+        assert agent.last_served_model is None
+        assert agent.billing_model == _REQUESTED
+
+    def test_debate_cost_tracker_records_the_served_model(self) -> None:
+        """The per-round debate cost line reads the same value, so the
+        receipt's cost summary agrees with its served_models block."""
+        from aragora.debate.autonomic_executor import AutonomicExecutor
+
+        agent = MagicMock()
+        agent.name = "claude-1"
+        agent.provider = "anthropic"
+        agent.model = _REQUESTED
+        agent.billing_model = _SERVED
+        agent.last_tokens_in = 100
+        agent.last_tokens_out = 50
+
+        executor = MagicMock(spec=AutonomicExecutor)
+        executor._debate_cost_tracker = MagicMock()
+        executor._debate_id = "d-1"
+        AutonomicExecutor._record_call_cost(executor, agent, phase="proposal", round_num=1)
+
+        kwargs = executor._debate_cost_tracker.record_agent_call.call_args.kwargs
+        assert kwargs["model"] == _SERVED
