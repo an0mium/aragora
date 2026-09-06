@@ -470,13 +470,16 @@ def build_crux_receipt_from_proof(
 #         sorted evidence references, the decision-payload hash, and the schema
 #         version; the decision-payload hash separately binds normalized goals.
 #
-# Hash-binding rule: ``cruxes`` is bound whenever present; ``schema_version``
-# is bound ONLY when it is exactly 1.2 (version-gated, not presence-gated).
-# Crux binding shipped on main (#9414) BEFORE the 1.2 stamp existed, so
-# already-persisted audit receipts carry cruxes with schema_version 1.1 and a
-# hash computed WITHOUT schema_version — those must keep verifying. Receipts
-# stamped 1.2 bind schema_version, so a downgrade to 1.1 breaks verification.
-# Pre-crux receipts (no cruxes) keep the original recipe untouched.
+# Hash-binding rule: ``cruxes`` is bound whenever present, and
+# ``served_models`` whenever present AND non-empty (same presence gate, same
+# reason: a receipt written before the field carries neither key and keeps its
+# stored hash byte-for-byte). ``schema_version`` is bound ONLY when it is
+# exactly 1.2 (version-gated, not presence-gated). Crux binding shipped on
+# main (#9414) BEFORE the 1.2 stamp existed, so already-persisted audit
+# receipts carry cruxes with schema_version 1.1 and a hash computed WITHOUT
+# schema_version — those must keep verifying. Receipts stamped 1.2 bind
+# schema_version, so a downgrade to 1.1 breaks verification. Pre-crux
+# receipts (no cruxes) keep the original recipe untouched.
 RECEIPT_SCHEMA_VERSION = "1.1"
 RECEIPT_SCHEMA_VERSION_CRUXES = "1.2"
 RECEIPT_SCHEMA_VERSION_EVIDENCE = "1.3"
@@ -543,11 +546,20 @@ def compute_receipt_artifact_hash(data: Any) -> str:
     delegate here, so the hashed field set cannot drift between producer and
     verifier. Covers the decision-integrity fields (receipt_id, gauntlet_id,
     input_hash, risk_summary, verdict, confidence); binds ``cruxes`` whenever
-    present; and binds ``schema_version`` only for receipts stamped 1.2
-    (downgrade-tamper protection). The version binding is gated on the 1.2
-    stamp — NOT on crux presence — because #9414 shipped crux binding before
-    the stamp existed: receipts with cruxes + schema_version 1.1 hashed
-    without schema_version and must keep verifying (see changelog above).
+    present and ``served_models`` whenever non-empty; and binds
+    ``schema_version`` only for receipts stamped 1.2 (downgrade-tamper
+    protection). The version binding is gated on the 1.2 stamp — NOT on crux
+    presence — because #9414 shipped crux binding before the stamp existed:
+    receipts with cruxes + schema_version 1.1 hashed without schema_version
+    and must keep verifying (see changelog above).
+
+    ``served_models`` is the field that states WHICH MODEL made the decision
+    when a server-side fallback answered for the one the debate pinned; left
+    unbound, that statement could be edited without failing
+    ``verify_integrity`` (finding C-P3 on #9989). It is bound on the same
+    conditional-presence terms as ``cruxes`` — and additionally skipped when
+    empty, since the runner only ever attaches a non-empty map — so every
+    receipt written before the field keeps its stored hash unchanged.
     """
     if not isinstance(data, dict):
         data = {}
@@ -559,6 +571,8 @@ def compute_receipt_artifact_hash(data: Any) -> str:
         "verdict": data.get("verdict", ""),
         "confidence": data.get("confidence", 0.0),
     }
+    if data.get("served_models"):
+        payload["served_models"] = data.get("served_models")
     if data.get("cruxes") is not None:
         payload["cruxes"] = data.get("cruxes")
         # Missing schema_version defaults to "1.0" (the from_dict convention)
@@ -780,12 +794,14 @@ class DecisionReceipt:
 
         Delegates to :func:`compute_receipt_artifact_hash` — the single
         canonical recipe shared with ``aragora verify`` — so producer and
-        verifier cannot drift. Crux cards are audit-bearing content: when
-        present they are bound into the integrity material, and receipts
-        stamped 1.2 additionally bind ``schema_version`` (a 1.2→1.1 downgrade
-        breaks ``verify_integrity()``). Pre-crux receipts and pre-stamp
-        #9414-era crux receipts (schema 1.1) hash exactly as before, so
-        existing stored hashes keep verifying.
+        verifier cannot drift. Crux cards and ``served_models`` are both
+        audit-bearing content: when present they are bound into the integrity
+        material, and receipts stamped 1.2 additionally bind
+        ``schema_version`` (a 1.2→1.1 downgrade breaks
+        ``verify_integrity()``). Pre-crux receipts, pre-stamp #9414-era crux
+        receipts (schema 1.1), and every receipt written before
+        ``served_models`` existed hash exactly as before, so existing stored
+        hashes keep verifying.
         """
         return compute_receipt_artifact_hash(
             {
@@ -795,6 +811,7 @@ class DecisionReceipt:
                 "risk_summary": self.risk_summary,
                 "verdict": self.verdict,
                 "confidence": self.confidence,
+                "served_models": self.served_models,
                 "cruxes": self.cruxes,
                 "evidence_references": self.evidence_references,
                 "decision_payload_hash": self.decision_payload_hash,

@@ -504,6 +504,90 @@ class TestDecisionReceiptServedModels:
         # thinking_traces was emitted but never read back before this change.
         assert restored.thinking_traces == traces
 
+    def test_receipt_without_served_models_hashes_exactly_as_before(self) -> None:
+        """A receipt that never recorded a served model must keep the
+        pre-field hash byte-for-byte, so already-stored receipts keep
+        verifying after the binding landed (finding C-P3 on #9989)."""
+        import hashlib
+        import json
+
+        receipt = self._receipt()
+        legacy_material = json.dumps(
+            {
+                "receipt_id": receipt.receipt_id,
+                "gauntlet_id": receipt.gauntlet_id,
+                "input_hash": receipt.input_hash,
+                "risk_summary": receipt.risk_summary,
+                "verdict": receipt.verdict,
+                "confidence": receipt.confidence,
+            },
+            sort_keys=True,
+        )
+        assert receipt.artifact_hash == hashlib.sha256(legacy_material.encode()).hexdigest()
+        assert receipt.verify_integrity() is True
+
+    def test_empty_served_models_hashes_as_absent(self) -> None:
+        """The runner only ever attaches a NON-empty map, so an empty dict is
+        treated as "not recorded" by producer and verifier alike -- it must
+        not fork the hash of an otherwise identical receipt."""
+        assert self._receipt(served_models={}).artifact_hash == self._receipt().artifact_hash
+        assert self._receipt(served_models={}).verify_integrity() is True
+
+    def test_recorded_served_models_are_bound_into_the_hash(self) -> None:
+        """Recording a served model must MOVE the hash -- otherwise the field
+        is unbound and the claim is editable."""
+        served = {
+            "claude-1": {
+                "requested": "claude-fable-5-1",
+                "served": ["claude-opus-4-8", "claude-fable-5-1"],
+                "calls": 2,
+                "fallback_calls": 1,
+            }
+        }
+        with_served = self._receipt(served_models=served)
+        assert with_served.artifact_hash != self._receipt().artifact_hash
+        assert with_served.verify_integrity() is True
+
+    def test_editing_served_models_after_signing_fails_integrity(self) -> None:
+        """The whole point of the binding: the receipt's statement of WHICH
+        model made the decision cannot be rewritten after the fact."""
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        served = {
+            "claude-1": {
+                "requested": "claude-fable-5-1",
+                "served": ["claude-opus-4-8"],
+                "calls": 1,
+                "fallback_calls": 1,
+            }
+        }
+        original = self._receipt(served_models=served)
+
+        # Erase the fallback entirely -- the "everyone answered as asked" lie.
+        erased = DecisionReceipt.from_dict(original.to_dict())
+        assert erased.verify_integrity() is True
+        erased.served_models = {}
+        assert erased.verify_integrity() is False
+
+        # Rename the model that actually answered.
+        renamed = DecisionReceipt.from_dict(original.to_dict())
+        renamed.served_models["claude-1"]["served"] = ["claude-fable-5-1"]
+        assert renamed.verify_integrity() is False
+
+        # Understate how many calls were swapped.
+        undercounted = DecisionReceipt.from_dict(original.to_dict())
+        undercounted.served_models["claude-1"]["fallback_calls"] = 0
+        assert undercounted.verify_integrity() is False
+
+    def test_verify_command_recipe_agrees_with_the_receipt(self) -> None:
+        """``aragora verify`` hashes the receipt DICT through the same
+        function, so producer and verifier cannot drift on the new field."""
+        from aragora.gauntlet.receipt_models import compute_receipt_artifact_hash
+
+        served = {"claude-1": {"requested": "claude-fable-5-1", "served": ["claude-opus-4-8"]}}
+        receipt = self._receipt(served_models=served)
+        assert compute_receipt_artifact_hash(receipt.to_dict()) == receipt.artifact_hash
+
 
 class TestQuickstartServedModelExtraction:
     def test_extracts_from_result_metadata(self) -> None:
