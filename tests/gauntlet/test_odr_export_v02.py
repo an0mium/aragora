@@ -92,19 +92,19 @@ def test_observations_preserve_legacy_reasoning_marker(reasoning):
     assert verify(doc).ok and verify_odr_document(doc).ok
 
 
-def test_extension_walkers_accept_numbers_but_not_booleans():
+def test_extension_walkers_accept_integral_numbers_but_not_booleans():
     from aragora.gauntlet.odr_verify import _validate_extensions
 
     doc = decision_receipt_to_odr(receipt(), odr_version="0.2")
     assert verify(doc).ok and verify_odr_document(doc).ok
-    bundled = copy.deepcopy(schema.load_bundled_schema())
-    bundled["properties"]["subject"]["properties"]["pr_number"] = {"type": "number"}
+    bundled = schema.load_bundled_schema()
+    assert bundled["properties"]["subject"]["properties"]["pr_number"] == {"type": "integer"}
     for walker in (_validate_extensions, schema._validate_extensions):
-        for value in (1, 1.5, True):
+        for value, ok in ((1, True), (1.0, True), (1.5, False), (True, False)):
             doc["subject"]["pr_number"] = value
             errors: list[str] = []
             walker(errors, doc, bundled)
-            assert bool(errors) == isinstance(value, bool)
+            assert bool(errors) == (not ok), f"{walker.__module__}: {value!r}"
 
 
 @pytest.mark.parametrize("version", ["0.1", "0.2"])

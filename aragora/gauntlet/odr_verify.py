@@ -544,7 +544,7 @@ def _validate_extensions(errors: list[str], doc: dict[str, Any], schema: dict[st
             "array": list,
             "string": str,
             "boolean": bool,
-            "integer": int,
+            "integer": (int, float),
             "number": (int, float),
             "null": type(None),
         }
@@ -553,6 +553,7 @@ def _validate_extensions(errors: list[str], doc: dict[str, Any], schema: dict[st
         if expected and not any(
             isinstance(value, types[t])
             and not (t in ("integer", "number") and isinstance(value, bool))
+            and not (t == "integer" and isinstance(value, float) and not value.is_integer())
             for t in expected
         ):
             errors.append(f"{path}: must have type {expected}")
