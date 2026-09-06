@@ -367,11 +367,14 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
-        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
-        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
-        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
-        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
-        # self.model would still name the primary. No-ops for non-Claude models.
+        # OpenRouter routes Claude too -- get_fallback_model() (see
+        # aragora/agents/fallback.py) resolves a model through the catalog and
+        # upgrade map, so an Anthropic row's own openrouter_id is a live
+        # fallback target -- and Opus 4.7+ reject sampling params with a 400.
+        # Key off payload["model"], NOT self.model: on the quota-fallback path
+        # a non-Claude primary (e.g. Kimi) is re-sent as a Claude slug, and
+        # self.model would still name the primary. No-ops for non-Claude
+        # models.
         strip_sampling_params(payload, payload["model"])
 
         # Acquire rate limit token
@@ -553,11 +556,14 @@ class OpenRouterAgent(APIAgent):
             payload["top_p"] = self.top_p
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
-        # OpenRouter routes Claude too (OPENROUTER_MODEL_MAP targets
-        # anthropic/claude-opus-5), and Opus 4.7+ reject sampling params with a
-        # 400. Key off payload["model"], NOT self.model: on the quota-fallback
-        # path a non-Claude primary (e.g. Kimi) is re-sent as Opus 5, and
-        # self.model would still name the primary. No-ops for non-Claude models.
+        # OpenRouter routes Claude too -- get_fallback_model() (see
+        # aragora/agents/fallback.py) resolves a model through the catalog and
+        # upgrade map, so an Anthropic row's own openrouter_id is a live
+        # fallback target -- and Opus 4.7+ reject sampling params with a 400.
+        # Key off payload["model"], NOT self.model: on the quota-fallback path
+        # a non-Claude primary (e.g. Kimi) is re-sent as a Claude slug, and
+        # self.model would still name the primary. No-ops for non-Claude
+        # models.
         strip_sampling_params(payload, payload["model"])
 
         estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
