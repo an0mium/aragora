@@ -2050,6 +2050,18 @@ def build_worktree_reference_preservation_proof(
             "worktree_inspections": inspections,
         }
 
+    if clean_worktrees:
+        # A merged historical head does not preserve a present worktree's current tip.
+        return {
+            "available": False,
+            "reason": "remote_branch_missing_for_present_worktree",
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "remote": remote,
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+
     merged_pr = _merged_pr_commit_list_proof(desired_head, repo_root=repo_root, runner=runner)
     if merged_pr.get("proven") is True:
         return {

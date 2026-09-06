@@ -2516,6 +2516,65 @@ class TestWorktreeReferencePreservationProof:
         assert result["owner_blocking_state"] == "stale_owner"
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
+    @pytest.mark.parametrize(
+        ("remote_sha", "local_sha"),
+        [(None, "a" * 40), (None, "b" * 40), ("a" * 40, "a" * 40), ("a" * 40, "b" * 40)],
+    )
+    def test_clean_terminal_worktree_recorded_head_requires_live_remote_preservation(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        remote_sha: str | None,
+        local_sha: str,
+    ) -> None:
+        desired_sha = "a" * 40
+        branch = "codex/clean-recorded-head"
+        lane = {
+            "lane_id": "Q-clean-recorded-head",
+            "owner_session": "codex-clean-recorded-head",
+            "branch": branch,
+            "worktree": str(tmp_path / "clean-recorded-head"),
+            "desired_head_sha": desired_sha,
+            "status": "completed",
+            "updated_at": _hours_ago(7.0),
+        }
+        merged_lookup_calls: list[str] = []
+
+        def merged_proof(head: str, **kwargs: Any) -> dict[str, Any]:
+            merged_lookup_calls.append(head)
+            return {"proven": True, "method": "merged_pr_commit_list"}
+
+        monkeypatch.setattr(ilo, "_merged_pr_commit_list_proof", merged_proof)
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=True, branch=branch))
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                output = f"{remote_sha}\trefs/heads/{branch}\n" if remote_sha else ""
+                return completed(cmd, stdout=output)
+            if cmd[:3] == ["git", "rev-parse", "--verify"]:
+                return completed(cmd, stdout=f"{local_sha}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane, repo_root=tmp_path, state_root=tmp_path / ".aragora", runner=runner
+        )
+        result = ilo.assess_owner_liveness(lane, now=_liveness_now(), local_work_preservation=proof)
+
+        assert merged_lookup_calls == []
+        assert proof["available"] is (remote_sha == local_sha)
+        if remote_sha != local_sha:
+            assert proof["reason"] == (
+                "remote_branch_missing_for_present_worktree"
+                if remote_sha is None
+                else "clean_worktree_branch_not_preserved"
+            )
+            assert result["owner_blocking_state"] == "stale_owner"
+            assert result["advisory_withheld"] == "possible_unpushed_work"
+        else:
+            assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+            assert result["owner_blocking_state"] == "stale_terminal_owner"
+
     def test_q379_absent_worktree_merged_pr_commit_yields_advisory_when_remote_gone(
         self, tmp_path: Path
     ) -> None:
