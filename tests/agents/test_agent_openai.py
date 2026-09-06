@@ -418,9 +418,12 @@ class TestOpenAIModelMapping:
     """
 
     def test_model_mapping_exists(self):
-        """A legacy model spelling resolves to the current frontier."""
+        """A legacy model spelling resolves to the current row of its own
+        TIER: gpt-4o is value tier by price, so it lands on Terra."""
         agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o")
-        assert agent.get_fallback_model() == "openai/gpt-6-astra"
+        assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
+        flagship = OpenAIAPIAgent(api_key="test-key", model="gpt-5.5")
+        assert flagship.get_fallback_model() == "openai/gpt-6-astra"
 
     def test_fallback_uses_correct_model(self):
         """Test fallback agent uses the resolved model via the mixin."""
@@ -431,7 +434,7 @@ class TestOpenAIModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "openai/gpt-6-astra"
+            assert fallback.model == "openai/gpt-5.6-terra"
 
     def test_unknown_model_defaults_to_gpt4o(self):
         """Test unknown model falls back to the current OpenAI default."""

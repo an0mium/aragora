@@ -418,10 +418,13 @@ class TestOpenAIFallback:
         item 3). OpenAIAPIAgent no longer carries a static
         OPENROUTER_MODEL_MAP: get_fallback_model() (QuotaFallbackMixin)
         resolves the current model through the catalog and upgrade map."""
-        flagship_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o")
+        flagship_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-5.5")
         assert flagship_agent.get_fallback_model() == "openai/gpt-6-astra"
-        value_agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
-        assert value_agent.get_fallback_model() == "openai/gpt-5.6-terra"
+        # The GPT-4 line is value tier by price, so it lands with the mini
+        # SKUs on Terra (round-4 re-review of finding C-P3 on #9989).
+        for value_model in ("gpt-4o", "gpt-4o-mini"):
+            value_agent = OpenAIAPIAgent(api_key="test-key", model=value_model)
+            assert value_agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_openai_quota_keyword_detection(self, openai_agent):
         """Test OpenAI quota error detection."""

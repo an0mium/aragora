@@ -457,8 +457,12 @@ class TestOpenRouterModelMapping:
         """Test GPT models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import CodexAgent
 
+        # gpt-4o preserves its value tier (round-4 re-review of finding
+        # C-P3 on #9989); a flagship-line spelling still reaches Astra.
         agent = CodexAgent(name="test", model="gpt-4o", enable_fallback=True)
-        assert self._fallback_model(agent) == "openai/gpt-6-astra"
+        assert self._fallback_model(agent) == "openai/gpt-5.6-terra"
+        flagship = CodexAgent(name="test", model="gpt-5.5", enable_fallback=True)
+        assert self._fallback_model(flagship) == "openai/gpt-6-astra"
 
     def test_gemini_model_mapping(self):
         """Test Gemini models map to OpenRouter correctly."""

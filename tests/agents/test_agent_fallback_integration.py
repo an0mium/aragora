@@ -449,7 +449,9 @@ class TestQuotaFallbackMixin:
                 self.model = model
 
         agent = TestAgent(model="gpt-4")
-        assert agent.get_fallback_model() == "openai/gpt-6-astra"
+        # The GPT-4 line preserves its value tier (round-4 re-review of
+        # finding C-P3 on #9989), so it resolves to Terra, not the flagship.
+        assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
         agent = TestAgent(model="unknown-model")
         assert agent.get_fallback_model() == "openai/gpt-4o"

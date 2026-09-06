@@ -1217,13 +1217,17 @@ class TestOpenAIModelMapping:
         """Common legacy models should resolve to the current frontier."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        # Flagship-tier legacy spellings upgrade to the Astra frontier.
-        for legacy_model in ("gpt-4o", "gpt-4", "gpt-5.4"):
+        # Flagship-line legacy spellings upgrade to the Astra frontier.
+        for legacy_model in ("gpt-5.4", "gpt-5.5", "o3"):
             agent = OpenAIAPIAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "openai/gpt-6-astra"
-        # Small/cheap legacy spellings upgrade to the Terra value tier.
-        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
-        assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
+        # Value-tier legacy spellings upgrade to Terra. The whole GPT-4 line
+        # counts as value tier by price -- gpt-4o listed at $2.50/$10 -- so
+        # it lands with the mini SKUs rather than on the $10/$50 flagship
+        # (round-4 re-review of finding C-P3 on #9989).
+        for legacy_model in ("gpt-4o", "gpt-4", "gpt-4o-mini"):
+            agent = OpenAIAPIAgent(api_key="test-key", model=legacy_model)
+            assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""
