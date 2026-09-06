@@ -353,12 +353,18 @@ UPGRADES: dict[str, str] = {
 # prefix of active "claude-fable-5-1"; retired-adjacent "kimi-k2" is a
 # prefix of active "kimi-k2.7-code"). This is the exact collision class
 # controller ruling 3 guards against.
-_TOKEN_CHAR = r"[A-Za-z0-9_.\-/]"
+#
+# PUBLIC because scripts/refresh_model_literals.py needs the SAME boundary
+# rule to ask "does this file already contain the replacement id?" — a
+# second, hand-copied character class there would be free to drift from the
+# one RETIRED_PATTERN is built with, and the two answers must agree
+# (2026-09-05 wave-6 ruling, sweep gap 1, on #9989).
+TOKEN_CHAR = r"[A-Za-z0-9_.\-/]"
 
 RETIRED_PATTERN: re.Pattern[str] = re.compile(
-    rf"(?<!{_TOKEN_CHAR})"
+    rf"(?<!{TOKEN_CHAR})"
     rf"(?:{'|'.join(re.escape(k) for k in sorted(UPGRADES, key=len, reverse=True))})"
-    rf"(?!{_TOKEN_CHAR})"
+    rf"(?!{TOKEN_CHAR})"
 )
 
 

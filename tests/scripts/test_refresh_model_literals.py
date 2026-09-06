@@ -333,7 +333,7 @@ def test_check_reports_collisions_separately_and_does_not_fail(tmp_path: Path) -
     f.write_text('A = "claude-opus-4"\nB = "claude-opus-4-6"\n')
     r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, f"collisions must not gate the sweep:\n{r.stdout}"
-    assert "collision: distinct retired spellings that collapse onto one id" in r.stdout
+    assert "collision: a rewrite that would collapse text onto one id" in r.stdout
     assert "collision: claude-opus-4,claude-opus-4-6 -> claude-fable-5-1" in r.stdout
     assert "0 retired literal(s) outside allowlist" in r.stdout
     assert "1 collision(s) (not counted as offenders)" in r.stdout
@@ -351,6 +351,49 @@ def test_collision_does_not_swallow_a_genuine_offender_in_the_same_file(
     assert "retired model id gemini-2.5-pro" in r.stdout
     assert "1 retired literal(s) outside allowlist" in r.stdout
     assert "1 collision(s) (not counted as offenders)" in r.stdout
+
+
+def test_retired_key_whose_replacement_is_already_present_is_frozen(tmp_path: Path) -> None:
+    """A dict naming BOTH the retired spelling and its replacement collapses
+    exactly as hard as two retired spellings do — Python keeps the last key.
+
+    ``aragora/analysis/nl_query.py`` was a hard ``F601`` duplicate dict key
+    after the 2026-09-05 re-sweep for precisely this reason (wave-6 ruling,
+    sweep gap 1, on #9989).
+    """
+    f = tmp_path / "families.py"
+    original = (
+        'FAMILY = {\n    "claude-sonnet-4": "anthropic",\n    "claude-sonnet-5": "anthropic",\n}\n'
+    )
+    f.write_text(original)
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert f.read_text() == original
+
+
+def test_check_reports_an_already_present_replacement_as_a_collision(tmp_path: Path) -> None:
+    f = tmp_path / "families.py"
+    f.write_text('OLD = "claude-sonnet-4"\nNEW = "claude-sonnet-5"\n')
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, f"an already-present collision must not gate the sweep:\n{r.stdout}"
+    assert "collision: claude-sonnet-4 -> claude-sonnet-5 (already present)" in r.stdout
+    assert "0 retired literal(s) outside allowlist" in r.stdout
+    assert "1 collision(s) (not counted as offenders)" in r.stdout
+    # The frozen spelling must not ALSO be counted as an offender.
+    assert "retired model id claude-sonnet-4" not in r.stdout
+
+
+def test_already_present_check_uses_model_id_token_boundaries(tmp_path: Path) -> None:
+    """The replacement id must occur as a whole token to count as present.
+
+    A substring hit (``claude-sonnet-5`` inside ``claude-sonnet-5-preview``)
+    is a different id and must not freeze a genuine rewrite.
+    """
+    f = tmp_path / "near_miss.py"
+    f.write_text('OLD = "claude-sonnet-4"\nOTHER = "claude-sonnet-5-preview"\n')
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert f.read_text() == 'OLD = "claude-sonnet-5"\nOTHER = "claude-sonnet-5-preview"\n'
 
 
 def test_two_spellings_with_different_targets_are_not_a_collision(tmp_path: Path) -> None:

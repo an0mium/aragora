@@ -37,10 +37,12 @@ code (only "offenders" do):
 * **unresolvable** — a bare (native-shaped) spelling whose current row is
   reachable only through OpenRouter has no real native id to be rewritten
   to. ``--write`` leaves it exactly as written. See ``replacement()``.
-* **collision** — two DISTINCT retired spellings in the same file that
-  would rewrite to the SAME id. Rewriting them collapses hand-written
-  ``dict``/``set``/list literals onto one entry; ``--write`` rewrites
-  NEITHER spelling anywhere in that file. See ``_collisions()``.
+* **collision** — a rewrite that would collapse two pieces of text in one
+  file onto a single id: either two DISTINCT retired spellings that share
+  a replacement, or ONE retired spelling whose replacement id is ALREADY
+  written in that file. Both collapse hand-written ``dict``/``set``/list
+  literals onto one entry, so ``--write`` rewrites NONE of the listed
+  spellings anywhere in that file. See ``_collisions()``.
 * **guarded** — text that was never a model id: a bare ``o1``/``o3``
   identifier or prose word, a raw string, a ``re.``-call or ``pattern=``
   regex source, or an alternative inside a ``|``-separated string that also
@@ -55,13 +57,14 @@ import argparse
 import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.models.catalog import CATALOG  # noqa: E402
-from aragora.models.upgrade_map import RETIRED_PATTERN, UPGRADES  # noqa: E402
+from aragora.models.upgrade_map import RETIRED_PATTERN, TOKEN_CHAR, UPGRADES  # noqa: E402
 
 SKIP_DIRS = {".git", "node_modules", ".worktrees", "__pycache__", ".venv", "dist", "build"}
 SKIP_SUFFIXES = {".lock", ".png", ".jpg", ".pdf", ".ico", ".woff", ".woff2", ".pyc"}
@@ -378,26 +381,79 @@ def _rewrite_line(line: str, frozen: frozenset[str]) -> str:
     return RETIRED_PATTERN.sub(_replace, line)
 
 
-def _collisions(lines: list[str]) -> dict[str, tuple[str, ...]]:
-    """``{new_id: (old-a, old-b, ...)}`` for every DISTINCT pair of retired
-    spellings in this file that would rewrite to the SAME replacement.
+class Collision(NamedTuple):
+    """One replacement id this file must NOT be rewritten onto.
 
-    Rewriting both sides of such a pair silently collapses a hand-written
+    ``olds`` are the retired spellings frozen because of it; they are frozen
+    everywhere in the file, not only on the colliding line (see
+    ``_collisions``). ``already_present`` distinguishes the two ways a
+    rewrite collapses text:
+
+    * ``False`` -- two or more DISTINCT retired spellings in this file share
+      one replacement, so rewriting both merges them;
+    * ``True`` -- ONE retired spelling whose replacement id is ALREADY
+      written in this file, so rewriting it merges the two.
+    """
+
+    new_id: str
+    olds: tuple[str, ...]
+    already_present: bool
+
+    def describe(self) -> str:
+        """The ``--check`` collision line's payload."""
+        line = f"{','.join(self.olds)} -> {self.new_id}"
+        return f"{line} (already present)" if self.already_present else line
+
+
+def _mentions(text: str, ident: str) -> bool:
+    """True when ``ident`` occurs in ``text`` as a whole model-id token.
+
+    Uses ``upgrade_map.TOKEN_CHAR`` -- the same boundary rule
+    ``RETIRED_PATTERN`` is built with -- so "already present" and "is a
+    retired literal" cannot disagree about where an id starts and ends: a
+    plain ``in`` test would count ``claude-sonnet-5`` as present inside
+    ``claude-sonnet-5-preview``.
+    """
+    return re.search(rf"(?<!{TOKEN_CHAR}){re.escape(ident)}(?!{TOKEN_CHAR})", text) is not None
+
+
+def _collisions(lines: list[str]) -> tuple[Collision, ...]:
+    """Every replacement id this file would collapse text onto, sorted by id.
+
+    Two ways a rewrite collapses a hand-written
     ``dict``/``set``/``enum``/list literal onto a single entry (Python keeps
     the last one), which PR 3's trial sweep did to ~20 real tables --
     including price tables where last-definition-wins left an arbitrary
-    alias's rate under the live model's key. The over-approximation is
-    deliberately FILE-level (2026-09-04 controller ruling, Class 2): proving
-    two spellings share a container literal needs a parser per file format,
-    while "this file names both" is cheap and never wrong in the unsafe
-    direction. Neither spelling is rewritten anywhere in the file.
+    alias's rate under the live model's key:
+
+    1. two DISTINCT retired spellings in this file share one replacement;
+    2. a single retired spelling whose replacement id is ALREADY written in
+       this file -- ``{"claude-sonnet-4": ..., "claude-sonnet-5": ...}``
+       collapses exactly as hard as ``{"claude-sonnet-4": ...,
+       "claude-sonnet-4-6": ...}`` does, and the pre-sweep text is the only
+       place that evidence exists. Case 2 was invisible to this function
+       until the 2026-09-05 repo-wide re-sweep hit it five times, once as a
+       hard ``F601`` duplicate dict key in ``aragora/analysis/nl_query.py``
+       (wave-6 ruling, sweep gap 1, on #9989).
+
+    The over-approximation is deliberately FILE-level (2026-09-04 controller
+    ruling, Class 2): proving two spellings share a container literal needs a
+    parser per file format, while "this file names both" is cheap and never
+    wrong in the unsafe direction. No listed spelling is rewritten anywhere
+    in the file.
     """
     by_new: dict[str, set[str]] = {}
     for line in lines:
         for literal, new in _scan_line(line):
             if new is not None:
                 by_new.setdefault(new, set()).add(literal)
-    return {new: tuple(sorted(olds)) for new, olds in by_new.items() if len(olds) > 1}
+    text = "".join(lines)
+    out: list[Collision] = []
+    for new_id, olds in sorted(by_new.items()):
+        already_present = _mentions(text, new_id)
+        if len(olds) > 1 or already_present:
+            out.append(Collision(new_id, tuple(sorted(olds)), already_present))
+    return tuple(out)
 
 
 def _is_skip_path(f: Path) -> bool:
@@ -506,10 +562,11 @@ def main(argv: list[str] | None = None) -> int:
     # OpenRouter. Reported separately and NEVER counted as an offender —
     # see replacement().
     unresolvable: list[tuple[str, int, str]] = []
-    # Files where two DISTINCT retired spellings would rewrite to the same
-    # id. Reported separately and NEVER counted as an offender — see
-    # _collisions(). One entry per (file, target id).
-    collisions: list[tuple[str, str, tuple[str, ...]]] = []
+    # Files where a rewrite would collapse text onto one id — two distinct
+    # retired spellings sharing a replacement, or a replacement that is
+    # already written in the file. Reported separately and NEVER counted as
+    # an offender — see _collisions(). One entry per (file, target id).
+    collisions: list[tuple[str, Collision]] = []
     changed = 0
     for f in iter_files(a.paths):
         try:
@@ -525,9 +582,8 @@ def main(argv: list[str] | None = None) -> int:
         # survive a rewrite that touches only some lines.
         lines = text.splitlines(keepends=True)
         collided = _collisions(lines)
-        frozen = frozenset(lit for olds in collided.values() for lit in olds)
-        for new_id, olds in sorted(collided.items()):
-            collisions.append((str(f), new_id, olds))
+        frozen = frozenset(lit for c in collided for lit in c.olds)
+        collisions.extend((str(f), c) for c in collided)
         if a.check:
             for i, line in enumerate(lines, 1):
                 for literal, new_literal in _scan_line(line):
@@ -553,9 +609,9 @@ def main(argv: list[str] | None = None) -> int:
             for path, ln, lit in unresolvable:
                 print(f"{path}:{ln}: unresolvable model id {lit}")
         if collisions:
-            print("collision: distinct retired spellings that collapse onto one id")
-            for path, new_id, olds in collisions:
-                print(f"{path}: collision: {','.join(olds)} -> {new_id}")
+            print("collision: a rewrite that would collapse text onto one id")
+            for path, collision in collisions:
+                print(f"{path}: collision: {collision.describe()}")
         print(f"{len(offenders)} retired literal(s) outside allowlist")
         print(f"{len(unresolvable)} unresolvable literal(s) (not counted as offenders)")
         print(f"{len(collisions)} collision(s) (not counted as offenders)")
