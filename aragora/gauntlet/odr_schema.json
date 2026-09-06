@@ -242,7 +242,37 @@
           "additionalProperties": true
         },
         "attested_at": { "type": "string" },
-        "method": { "type": "string" }
+        "method": { "type": "string" },
+        "execution_identity": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "role": { "type": "string" }
+          },
+          "additionalProperties": true,
+          "description": "Identity that executed the decision, recorded distinct from the oversight attestor (ODR-6 / #8230)."
+        },
+        "observed": {
+          "type": "object",
+          "properties": {
+            "head_sha": { "type": "string" },
+            "evidence_digest": { "type": "string" }
+          },
+          "additionalProperties": true,
+          "description": "What the attestor saw when accepting the risk: head SHA and evidence digest."
+        },
+        "mechanism": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string" },
+            "context": { "type": "string" },
+            "ref": { "type": "string" }
+          },
+          "additionalProperties": true,
+          "description": "How the attestation was recorded, e.g. settlement_status (aragora/human-settlement) or preapproval_comment, with a resolvable ref."
+        }
       },
       "if": {
         "properties": { "disposition": { "const": "human_attested" } }

@@ -110,10 +110,11 @@ class TestAnthropicGenerate:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -133,10 +134,11 @@ class TestAnthropicGenerate:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -160,10 +162,11 @@ class TestAnthropicGenerate:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_anthropic_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_anthropic_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -194,10 +197,11 @@ class TestAnthropicGenerate:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -230,12 +234,13 @@ class TestAnthropicGenerate:
             nonlocal captured_payload
             captured_payload = kwargs.get("json", {})
             return MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = capture_post
 
         context = [
@@ -283,10 +288,11 @@ class TestAnthropicStreaming:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -310,10 +316,11 @@ class TestAnthropicStreaming:
 
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.post = MagicMock(
             return_value=MagicMock(
-                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
             )
         )
 
@@ -379,7 +386,7 @@ class TestAnthropicModelMapping:
         """Test fallback agent upgrades legacy Anthropic IDs to the frontier.
 
         The OPENROUTER_MODEL_MAP intentionally routes every legacy Claude ID
-        to the current frontier (Opus 4.8) via OpenRouter so weaker historical
+        to the current frontier (Opus 5) via OpenRouter so weaker historical
         models are transparently upgraded and a missing direct-provider key
         never blocks functionality.
         """
@@ -390,7 +397,7 @@ class TestAnthropicModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "anthropic/claude-opus-4.8"
+            assert fallback.model == "anthropic/claude-opus-5"
 
 
 if __name__ == "__main__":
