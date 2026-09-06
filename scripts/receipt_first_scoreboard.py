@@ -201,6 +201,12 @@ def metric_5(ctx: Any) -> Row:
     return r | {"status": "ok" if merged and assets else "fail"}
 
 
+def atlas_pr_number(rec: dict[str, Any]) -> Any:
+    """Atlas records carry ``pr`` as an object (schema.json); a bare scalar is the legacy form."""
+    pr = rec.get("pr")
+    return pr.get("number") if isinstance(pr, dict) else pr
+
+
 def metric_6(ctx: Any) -> Row:
     r: Row = {"now": None, "upper_bound": True, "quorum_runs": ctx.quorum_runs}
     r["note"] = "upper bound from the Atlas JSONL; ok needs the post-M2 advisory-summary count"
@@ -215,7 +221,7 @@ def metric_6(ctx: Any) -> Row:
     recs = [json.loads(line) for line in jsonl.read_text().splitlines() if line.strip()]
     cr = sum(x.get("verdict") == "changes_requested" for x in recs)
     posted = sum(bool(x.get("posted_to_thread")) for x in recs)
-    rounds = len({(x.get("pr"), x.get("head_sha")) for x in recs})
+    rounds = len({(atlas_pr_number(x), x.get("head_sha")) for x in recs})
     r.update(now=cr, posted=posted, rounds=rounds, records=len(recs), source=str(jsonl))
     return r | {"ratio": round(posted / rounds, 3) if rounds else None, "status": "fail"}
 
