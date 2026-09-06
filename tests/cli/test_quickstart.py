@@ -373,7 +373,7 @@ class TestRunSync:
                 return asyncio.get_running_loop() is not outer
 
             assert _run_sync_without_runner(_work()) is True
-            assert asyncio.get_event_loop_policy().get_event_loop() is outer
+            assert asyncio.get_event_loop() is outer
         finally:
             asyncio.set_event_loop(None)
             outer.close()
