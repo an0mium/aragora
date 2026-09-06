@@ -27,13 +27,13 @@ from typing import Any
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.server.validation.query_params import safe_query_int
 
-from .base import (
+from ..base import (
     HandlerResult,
     json_response,
 )
-from .secure import SecureHandler
-from .utils.auth_mixins import SecureEndpointMixin
-from .utils.rate_limit import rate_limit
+from ..secure import SecureHandler
+from ..utils.auth_mixins import SecureEndpointMixin
+from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -617,7 +617,7 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         sync_healthy = False
 
         try:
-            from aragora.server.handlers.system_health import SystemHealthDashboardHandler
+            from aragora.server.handlers.admin.system_health import SystemHealthDashboardHandler
 
             adapter_snapshot = SystemHealthDashboardHandler(self.ctx)._collect_adapters()
             adapters_active = int(adapter_snapshot.get("active", 0))

@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi.compat import _FakeHandler, _handler_result_to_response
 from aragora.server.fastapi.dependencies.auth import require_permission
-from aragora.server.handlers.backup_handler import BackupHandler
+from aragora.server.handlers.admin.backup_handler import BackupHandler
 
 router = APIRouter(prefix="/api/v2", tags=["Backups"])
 

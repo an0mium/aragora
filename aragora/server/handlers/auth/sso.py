@@ -8,7 +8,7 @@ Provides endpoints for enterprise SSO authentication:
 - /auth/sso/metadata - SAML SP metadata (SAML only)
 
 Usage:
-    from aragora.server.handlers.sso import SSOHandler
+    from aragora.server.handlers.auth.sso import SSOHandler
 
     # Register with unified server
     server.add_handler(SSOHandler())
@@ -26,9 +26,9 @@ from aragora.auth.sso import SSOAuthenticationError
 from aragora.exceptions import ConfigurationError
 
 from aragora.billing.tier_gating import require_tier
-from .base import HandlerResult, error_response, json_response, safe_error_message
-from .utils.rate_limit import rate_limit
-from .secure import SecureHandler
+from ..base import HandlerResult, error_response, json_response, safe_error_message
+from ..utils.rate_limit import rate_limit
+from ..secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 

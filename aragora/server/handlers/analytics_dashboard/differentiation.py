@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
         return _noop
 
 
-from .base import (
+from ..base import (
     BaseHandler,
     HandlerResult,
     handle_errors,
