@@ -660,25 +660,31 @@ into the PR body. `$ENV` below means
    step-5 `rg` (which matches dotted absolute paths) never lists it and it
    goes stale silently; the finder does not serve relative imports either.
    Verify with `rg -n "^\s+from \.(<f1>|<f2>|...) import" aragora/server/handlers/__init__.py`
-   printing nothing, and `mypy --ignore-missing-imports --follow-imports=skip aragora/server/handlers/__init__.py`
-   passing. (`python3 -c 'import typing; typing.TYPE_CHECKING=True; import aragora.server.handlers'`
-   is not usable as the check: on today's tree it fails before reaching
-   the block with a pydantic circular import, `cannot import name 'BaseModel'
-   from partially initialized module 'pydantic'`, identically on `origin/main`.)
+   printing nothing. That `rg` is the only check for the rewrite: mypy with
+   the CI gate's `--ignore-missing-imports` reports "no issues" on a
+   type-only import of a module that no longer exists (verified on a
+   throwaway package), and
+   `python3 -c 'import typing; typing.TYPE_CHECKING=True; import aragora.server.handlers'`
+   fails on today's tree before reaching the block with a pydantic circular
+   import, `cannot import name 'BaseModel' from partially initialized module
+   'pydantic'`, identically on `origin/main`.
 4. **Boot probe (VAL-P4B-006).**
    `$ENV python3 -c "from aragora.server.unified_server import run_unified_server; print('ok')" </dev/null; echo "exit=$?"`
    must print `ok` and `exit=0`. Then
    `$ENV python3 -c "import logging; logging.basicConfig(level=logging.WARNING); from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers()" 2>&1 | grep -c 'Failed to import'`
    must print `0`.
 5. **Rewrite runtime consumers of the old path.**
-   `rg -n "aragora\.server\.handlers\.(<f1>|<f2>|...)\b|from aragora\.server\.handlers import .*\b(<f1>|<f2>|...)\b" aragora/ scripts/ | rg -v "handlers/(_lazy_imports|__init__)\.py|handler_registry/"`
+   `rg -nU "aragora\.server\.handlers\.(<f1>|<f2>|...)\b|from aragora\.server\.handlers import (\([^)]*)?\b(<f1>|<f2>|...)\b" aragora/ scripts/ | rg -v "handlers/(_lazy_imports|__init__)\.py|handler_registry/"`
    lists every runtime import, `importlib` string and `sys.modules.get`
    key for the batch's files. The second alternation catches the bare
    package form, which the dotted pattern alone misses: today
    `aragora/server/handlers/review_queue.py:51` does
    `from aragora.server.handlers import review_queue_brief` (a batch-4
    mover) and would go through the package `__getattr__` shim on every
-   request without it. Rewrite each to the new dotted path in the
+   request without it. `-U` plus the optional `(\([^)]*)?` group make the
+   bare form match a parenthesised multi-line import list as well as a
+   single line (verified on a synthetic file with both forms; on today's
+   tree the bare form occurs only at that one single-line site). Rewrite each to the new dotted path in the
    same PR (the finder keeps them working, §3.3, but a per-request
    `DeprecationWarning` is log noise). Also rewrite the `from ..X import`
    lines in §4.6 for the batch's files. Then run
@@ -846,9 +852,9 @@ exclude `<name>\.` when re-measuring a name that collides with a package.
 
 The VAL-P4B-007 probe (`/tmp/p4val/t7.py`) is defined verbatim in the
 validation contract and is machine-local by design. Batch 1 (PR #10000)
-commits an identical copy as `scripts/ci/check_moved_handler_shim.py` (the
-only textual difference is the `import` statement split across three lines
-for ruff E401) so §6 steps 1 and 6 are reproducible in CI; the script keeps
-the contract's `warnings.simplefilter("always")`, which is what makes the
-finder's warning visible when the import happens inside a helper rather
-than `__main__`.
+commits it as `scripts/ci/check_moved_handler_shim.py` so §6 steps 1 and 6
+are reproducible in CI. The probe body is verbatim; the committed file adds
+a shebang, a module docstring, and splits the `import` statement across
+three lines for ruff E401. It keeps the contract's
+`warnings.simplefilter("always")`, which is what makes the finder's warning
+visible when the import happens inside a helper rather than `__main__`.
