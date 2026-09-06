@@ -632,6 +632,11 @@ class AutonomicExecutor:
         # Progress monitoring task for immune system transparency
         progress_task = None
         if self.immune_system:
+            # Bind the narrowed reference the closure actually uses: reading
+            # ``self.immune_system`` from inside the task would re-widen it to
+            # ``... | None`` (the attribute is reassignable), and the task can
+            # outlive any later reassignment.
+            immune_system = self.immune_system
 
             async def _report_progress() -> None:
                 """Periodically report agent progress to immune system."""
@@ -639,7 +644,7 @@ class AutonomicExecutor:
                     while True:
                         await asyncio.sleep(5)
                         elapsed = time.time() - start_time
-                        self.immune_system.agent_progress(agent.name, elapsed)
+                        immune_system.agent_progress(agent.name, elapsed)
                 except asyncio.CancelledError:
                     pass
 

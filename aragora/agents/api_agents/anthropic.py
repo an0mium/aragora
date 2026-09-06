@@ -533,8 +533,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         ``generate_stream``. Combines every ``anthropic-beta`` value this
         request needs (web search, refusal fallback, ...) into one
         comma-joined header rather than overwriting one with the other."""
-        headers = {
-            "x-api-key": self.api_key,
+        # ``api_key`` is ``str | None`` on the base agent; a request without
+        # one is already refused upstream, so send the empty string rather
+        # than a ``None`` header value the return type cannot carry.
+        headers: dict[str, str] = {
+            "x-api-key": self.api_key or "",
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
             **get_trace_headers(),  # Distributed tracing
