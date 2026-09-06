@@ -55,9 +55,11 @@ def _safe_isinstance(value: Any, expected: Any) -> bool:
 
 _get_sso_provider: Any
 try:
-    from aragora.auth import get_sso_provider as _get_sso_provider
+    from aragora.auth import get_sso_provider as _imported_get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
     _get_sso_provider = None
+else:
+    _get_sso_provider = _imported_get_sso_provider
 
 
 def get_sso_provider() -> Any:
@@ -69,9 +71,11 @@ def get_sso_provider() -> Any:
 
 auth_config: Any
 try:
-    from aragora.server.auth import auth_config as auth_config
+    from aragora.server.auth import auth_config as _imported_auth_config
 except ImportError:  # pragma: no cover - optional dependency
     auth_config = None
+else:
+    auth_config = _imported_auth_config
 
 try:
     from aragora.auth.sso import SSOProviderType as _SSOProviderType

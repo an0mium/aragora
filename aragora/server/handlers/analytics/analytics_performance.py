@@ -492,7 +492,7 @@ class AnalyticsPerformanceHandler(BaseHandler):
             result = debate_dict.get("result", {})
             if isinstance(result, dict):
                 # Rounds
-                rounds = result.get("rounds_used", result.get("rounds", 0))
+                rounds: Any = result.get("rounds_used", result.get("rounds", 0))
                 total_rounds += rounds
 
                 # Confidence

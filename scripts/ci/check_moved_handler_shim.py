@@ -10,7 +10,9 @@ succeeds AND emits a DeprecationWarning whose text contains ``<basename>``.
 The probe body is the VAL-P4B-007 script verbatim.
 """
 
-import importlib, sys, warnings
+import importlib
+import sys
+import warnings
 
 name = sys.argv[1]
 with warnings.catch_warnings(record=True) as w:

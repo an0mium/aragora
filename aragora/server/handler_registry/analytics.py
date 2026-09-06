@@ -136,12 +136,14 @@ OutcomeDashboardHandler = _safe_import(
 
 # Spend Analytics Dashboard
 SpendAnalyticsDashboardHandler = _safe_import(
-    "aragora.server.handlers.analytics_dashboard.spend_analytics_dashboard", "SpendAnalyticsDashboardHandler"
+    "aragora.server.handlers.analytics_dashboard.spend_analytics_dashboard",
+    "SpendAnalyticsDashboardHandler",
 )
 
 # Agent Evolution Dashboard (issue #307)
 AgentEvolutionDashboardHandler = _safe_import(
-    "aragora.server.handlers.analytics_dashboard.agent_evolution_dashboard", "AgentEvolutionDashboardHandler"
+    "aragora.server.handlers.analytics_dashboard.agent_evolution_dashboard",
+    "AgentEvolutionDashboardHandler",
 )
 
 # Pipeline handlers
