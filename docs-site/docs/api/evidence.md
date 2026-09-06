@@ -154,7 +154,7 @@ Response:
     {
       "id": "ev-001",
       "title": "Economic Impact Study",
-      "used_by_agents": ["claude-opus", "gpt-4"],
+      "used_by_agents": ["claude-opus", "gpt-6-astra"],
       "citation_count": 3,
       "quality_score": 0.89
     }

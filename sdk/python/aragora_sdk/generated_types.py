@@ -198,7 +198,7 @@ class DebateCreateRequest(BaseModel):
         list[str] | None,
         Field(
             description="List of agent names to participate. If empty, auto_select is used.",
-            examples=["claude", "gpt-4", "gemini"],
+            examples=["claude", "gpt-6-astra", "gemini"],
             max_length=8,
             min_length=2,
         ),
@@ -257,7 +257,8 @@ class DebateCreateResponse(BaseModel):
     agents: Annotated[
         list[str] | None,
         Field(
-            description="Agents participating in the debate", examples=["claude", "gpt-4", "gemini"]
+            description="Agents participating in the debate",
+            examples=["claude", "gpt-6-astra", "gemini"],
         ),
     ] = None
     websocket_url: Annotated[

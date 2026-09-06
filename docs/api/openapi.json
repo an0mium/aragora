@@ -125136,7 +125136,7 @@
             "schema": {
               "type": "string"
             },
-            "example": "claude-sonnet-4,gpt-4o,gemini-pro"
+            "example": "claude-sonnet-5,gpt-4o,gemini-3.1-pro-preview"
           }
         ],
         "responses": {
@@ -266712,7 +266712,7 @@
             "example": [
               "claude-opus-5",
               "gpt-4o",
-              "gemini-pro"
+              "gemini-3.1-pro-preview"
             ]
           }
         },
@@ -266722,7 +266722,7 @@
           "model_types": [
             "claude-opus-5",
             "gpt-4o",
-            "gemini-pro"
+            "gemini-3.1-pro-preview"
           ]
         }
       },

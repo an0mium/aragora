@@ -95,15 +95,15 @@ when CLI providers were technically available.
 | Family | Wired in `api_agents/` | Recognized today? | Proposed for quorum |
 |---|---|---|---|
 | Anthropic / Claude | ✓ `anthropic/claude-opus-4.7` | ✓ `claude` | ✓ keep |
-| OpenAI | ✓ `openai/gpt-5.5` | **✗ NOT recognized** | ✓ add |
+| OpenAI | ✓ `openai/gpt-6-astra` | **✗ NOT recognized** | ✓ add |
 | Google Gemini | ✓ `google/gemini-3.1-pro-preview` | ✓ `gemini` | ✓ keep |
 | Gemini 3.5 Flash | not yet pinned | ✓ via `gemini` | ✓ wire as routing alias |
 | xAI Grok 4 | ✓ `x-ai/grok-4` | ✓ `grok` | ✓ keep |
 | xAI Grok 4.3 | not yet pinned | ✓ via `grok` | ✓ wire as routing alias |
 | Mistral | ✓ `mistralai/mistral-large-*` | **✗ NOT recognized** | ✓ add (EU-jurisdiction routing only) |
 | DeepSeek | ✓ `deepseek/deepseek-v3.2 / r1 / v4-pro` | **✗ NOT recognized** | ✓ add |
-| Qwen | ✓ `qwen/qwen3-max / 235b / 3.5-plus` | **✗ NOT recognized** | ✓ add |
-| Kimi (Moonshot) | ✓ `moonshotai/kimi-k2.6 / k2.5 / thinking` | **✗ NOT recognized** | ✓ add |
+| Qwen | ✓ `qwen/qwen3.8-2.4t-a95b / 235b / 3.5-plus` | **✗ NOT recognized** | ✓ add |
+| Kimi (Moonshot) | ✓ `moonshotai/kimi-k3 / k2.5 / thinking` | **✗ NOT recognized** | ✓ add |
 | Yi (01.AI) | ✓ `01-ai/yi-large` | **✗ NOT recognized** | ✓ add |
 | Codex (vendor name) | n/a (CLI) | ✓ `codex` | ✓ keep |
 | Tesla / Harvey / Factory | n/a (vendor names) | ✓ pinned | ✓ keep |
@@ -307,7 +307,7 @@ they can be required CI for any future change to the recognizer.
    helper additions in `aragora/cli/commands/review_queue.py` as
    appropriately scoped, with the family/tier rules above?
 2. **Family additions:** should `yi`, `glm`, `minimax`, `hermes`,
-   `gemini-3.5-flash`, `grok-4.3` all be wired? Or some subset?
+   `gemini-3.8-flash`, `grok-4.3` all be wired? Or some subset?
 3. **Tier 3 "advisory-only" framing:** is Chinese-family advisory
    posting OK at Tier 3 (just not counted toward quorum), or should
    Tier 3 paths suppress Chinese reviewers entirely?
@@ -358,12 +358,12 @@ Verify against provider docs/API listings and document any mismatch":
 
 | Family | Repo pin (default) | Provider-official current | Status | Action for PR-A2 |
 |---|---|---|---|---|
-| Anthropic | `anthropic/claude-opus-4.7` (in `api_agents/anthropic.py`) | `claude-opus-4-7` (Opus 4.7 GA per Anthropic blog 2026-04-16) | ✓ **aligned** | none — repo pin matches provider |
-| OpenAI | `openai/gpt-5.5` (alias destination in `api_agents/openrouter.py`) | `gpt-5.5` (flagship per OpenAI API docs) | ✓ **aligned** | none |
-| Google Gemini | `google/gemini-3.1-pro-preview` (default in `api_agents/gemini.py`) | `gemini-3-pro` (still GA) and `gemini-3.5-flash` (GA 2026-05-20, agentic-tier) | ⚠ **repo does not yet pin 3.5 Flash** | PR-A2 routing alias addition: wire `gemini-3.5-flash` as the agentic-task routing target; keep `gemini-3.1-pro-preview` for reasoning/long-context |
+| Anthropic | `anthropic/claude-opus-4.7` (in `api_agents/anthropic.py`) | `claude-fable-5-1` (Opus 4.7 GA per Anthropic blog 2026-04-16) | ✓ **aligned** | none — repo pin matches provider |
+| OpenAI | `openai/gpt-6-astra` (alias destination in `api_agents/openrouter.py`) | `gpt-5.5` (flagship per OpenAI API docs) | ✓ **aligned** | none |
+| Google Gemini | `google/gemini-3.1-pro-preview` (default in `api_agents/gemini.py`) | `gemini-3.1-pro-preview` (still GA) and `gemini-3.8-flash` (GA 2026-05-20, agentic-tier) | ⚠ **repo does not yet pin 3.5 Flash** | PR-A2 routing alias addition: wire `gemini-3.8-flash` as the agentic-task routing target; keep `gemini-3.1-pro-preview` for reasoning/long-context |
 | xAI Grok | `x-ai/grok-4` (default in `api_agents/grok.py`; `grok-4.2` noted as "not yet on OpenRouter") | `grok-4.3` (launched 2026-04-30, ~40% cheaper than 4.20, on OpenRouter) | ⚠ **repo does not yet pin 4.3** | PR-A2 routing alias addition: wire `grok-4.3` for policy/governance reviewer slot; keep `grok-4` for back-compat alias |
 | Mistral | `mistralai/mistral-large-*` | (operator's posture: retained for EU/regulatory diversity; not a preferred capability reviewer) | aligned | none on pin; tier-policy demotion captured in principles doc |
-| Open-weight (DeepSeek/Qwen/Kimi/Yi) | various (`deepseek/v3.2`, `qwen/qwen3-max`, `moonshotai/kimi-k2.6`, `01-ai/yi-large`) | match provider model pages | aligned | recognizer additions only |
+| Open-weight (DeepSeek/Qwen/Kimi/Yi) | various (`deepseek/v3.2`, `qwen/qwen3.8-2.4t-a95b`, `moonshotai/kimi-k3`, `01-ai/yi-large`) | match provider model pages | aligned | recognizer additions only |
 | GLM / MiniMax / Hermes | not yet wired | `z-ai/glm-4.6`, `minimax/minimax-m2`, `nousresearch/hermes-4-405b` | new wirings needed | wire in `api_agents/openrouter.py` alongside recognizer additions |
 
 Sources checked: Anthropic Claude Opus page
@@ -416,3 +416,40 @@ work, jurisdictional payload boundaries always.
 This PR lands the spec, the contract, and passing current-state
 governance tests that document the recognizer gap. The implementation
 patch itself waits for operator preapproval per the Tier 4 rule.
+
+## Addendum: Meta (2026-09-04 frontier refresh)
+
+**Status:** implemented (PR 2 of the 2026-09-04 frontier-model-refresh stack, Tier 4)
+**Related:** `aragora/swarm/quorum_evidence.py`, `aragora/cli/commands/review_queue.py`, `aragora/debate/execution_safety.py`
+
+A follow-on family-additive change, same governance rule as the body of this
+document: adding `meta` (Meta's `muse-spark-1.3`, the catalog's current Llama-
+lineage frontier pick) to the recognized reviewer-family set.
+
+- **Family added:** `meta` — reviews OpenRouter-direct (`meta/muse-spark-1.3`),
+  same transport pattern as `deepseek`/`qwen`/`kimi`: no subscription CLI, so
+  `_OPENROUTER_DIRECT_FAMILIES` is its primary (not fallback) route.
+- **Proposed Tier eligibility:** Western jurisdiction (`WESTERN_FAMILIES`), same
+  treatment as `mistral`/`hermes` — counts toward Tier 0-2 quorums and the
+  Tier-2 "at least one Western family" condition, but is **not** in
+  `WESTERN_FRONTIER_FAMILIES` (cannot solo-settle Tier 1-2) and **not** in
+  `TIER_3_4_COUNTED_FAMILIES` (advisory-only at Tier 3-4, same as mistral and
+  hermes). It is never classified `CHINESE_ROUTED_FAMILIES` or
+  `ADVISORY_ONLY_FAMILIES`; the total-partition governance test
+  (`tests/governance/test_tiered_merge_gate_quorum_policy.py::test_family_classification_is_total_and_disjoint`)
+  pins that it belongs to exactly one class.
+- **Jurisdictional payload constraints:** identical to the other Western-
+  families column in the Family-by-Tier-by-Jurisdiction table above — meta may
+  receive the same payload classes as claude/openai/grok/mistral/hermes.
+- **Governance tests characterizing the gate:** `tests/governance/test_model_lineage_disclosure_recognizer.py::test_identity_resolver_recognises_frontier_ids` (positive: `model=meta/muse-spark-1.3` → `meta`), `tests/governance/test_tiered_merge_gate_quorum_policy.py::test_western_families_match_spec` (membership), `tests/models/test_reachable_defaults.py` (the `meta` reviewer slug and the two frontier pins resolve to an active, priced catalog row).
+- **Recognizer marker, bounded:** the reviewer-identity recognizer's marker for
+  this family (`DIRECT_MODEL_FAMILY_MARKERS["meta"]` in
+  `aragora/cli/commands/review_queue.py`, mirrored in
+  `_normalize_model_reviewer_id`'s `known_markers`) is `("meta ", "meta/",
+  "meta-", "muse-spark")` — deliberately **not** a bare `"meta"` substring,
+  which would false-positive-match the word "metadata" (e.g. a heading like
+  `## Round 3 metadata summary`) and could spuriously conflict with a
+  genuinely-disclosed different family in the same comment. Pinned by
+  `tests/governance/test_model_lineage_disclosure_recognizer.py::test_metadata_heading_is_not_recognised_as_meta`
+  and its sibling cases (round 1 fix, 2026-09-05).
+- **Ensemble-diversity detection (a separate consumer):** `aragora/debate/execution_safety.py::_MODEL_FAMILY_PATTERNS` gets its own `("meta", re.compile(r"muse-spark", re.I))` entry for a different purpose (counting distinct model families in an ensemble, not reviewer-quorum recognition) and is deliberately narrower — it does not match `meta-llama/...` ids, which stay labeled `llama` there. The two consumers are not required to agree on every id's label.

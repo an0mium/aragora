@@ -15,23 +15,23 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 
 | Agent ID | Provider | Model | Best For | Cost |
 |----------|----------|-------|----------|------|
-| `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | Code review, reasoning | $$ |
+| `anthropic-api` | Anthropic | claude-fable-5-1 | Code review, reasoning | $$ |
 | `openai-api` | OpenAI | gpt-5.3 | General tasks, creativity | $$ |
-| `gemini` | Google | gemini-3-pro-preview | Long context, analysis | $ |
+| `gemini` | Google | gemini-3.1-pro-preview | Long context, analysis | $ |
 | `mistral-api` | Mistral | mistral-large-2512 | European compliance, multilingual | $$ |
-| `grok` | xAI | grok-4-latest | Real-time knowledge | $$ |
+| `grok` | xAI | grok-4.6 | Real-time knowledge | $$ |
 
 ### OpenRouter Providers (Fallback/Alternative)
 
 | Agent ID | Model | Best For | Cost |
 |----------|-------|----------|------|
-| `openrouter` | model parameter (default: deepseek/deepseek-v4-pro) | Fallback when primary fails | Varies |
-| `deepseek` | deepseek/deepseek-v4-pro | Code, math, reasoning | $ |
-| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias | $ |
+| `openrouter` | model parameter (default: deepseek/deepseek-v4-pro-0813) | Fallback when primary fails | Varies |
+| `deepseek` | deepseek/deepseek-v4-pro-0813 | Code, math, reasoning | $ |
+| `deepseek-r1` | deepseek/deepseek-v4-pro-0813 | DeepSeek V4 Pro compatibility alias | $ |
 | `mistral` | mistralai/mistral-large-2411 | Fast, high-quality reasoning | $$ |
 | `qwen` | qwen/qwen3.8-max | Multilingual, code | $ |
 | `qwen-max` | qwen/qwen3.8-max | Flagship reasoning | $$ |
-| `llama` | meta-llama/llama-3.3-70b-instruct | General, open weights | $ |
+| `llama` | meta/muse-spark-1.3 | General, open weights | $ |
 | `yi` | 01-ai/yi-large | Chinese/English | $ |
 
 **Cost Legend:** $ = Low ($0.001-0.01/1K tokens), $$ = Medium ($0.01-0.05/1K), $$$ = High ($0.05+/1K)
@@ -194,8 +194,8 @@ aragora review --agents anthropic-api,openai-api
 If a provider key is missing and `OPENROUTER_API_KEY` is set, Aragora will
 substitute OpenRouter models to keep the debate running:
 
-- `anthropic-api` -> `anthropic/claude-3.5-sonnet`
-- `openai-api` -> `openai/gpt-4o-mini`
+- `anthropic-api` -> `anthropic/claude-sonnet-5`
+- `openai-api` -> `openai/gpt-5.6-terra`
 - `gemini` -> `google/gemini-2.0-flash-exp:free`
 - `grok` -> `x-ai/grok-2-1212`
 - `mistral-api` -> `mistralai/mistral-large-2411`

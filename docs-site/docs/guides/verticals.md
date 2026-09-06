@@ -39,7 +39,7 @@ from aragora.verticals import VerticalRegistry
 software_agent = VerticalRegistry.create_specialist(
     "software",
     name="code-reviewer-1",
-    model="claude-sonnet-4",
+    model="claude-sonnet-5",
 )
 
 # Generate a response
@@ -71,7 +71,7 @@ curl "http://localhost:8080/api/verticals/suggest?task=review+this+contract"
 # Create a specialist agent
 curl -X POST http://localhost:8080/api/verticals/software/agent \
   -H "Content-Type: application/json" \
-  -d '{"name": "reviewer-1", "model": "claude-sonnet-4"}'
+  -d '{"name": "reviewer-1", "model": "claude-sonnet-5"}'
 
 # Run a vertical-specific debate
 curl -X POST http://localhost:8080/api/verticals/legal/debate \
@@ -388,7 +388,7 @@ Response:
       "expertise_areas": ["Code Review", "Security Analysis", ...],
       "tools": ["code_search", "security_scan", ...],
       "compliance_frameworks": ["OWASP", "CWE"],
-      "default_model": "claude-sonnet-4"
+      "default_model": "claude-sonnet-5"
     },
     ...
   ],
@@ -405,7 +405,7 @@ Content-Type: application/json
   "topic": "Review this SaaS agreement for risks",
   "rounds": 3,
   "consensus": "weighted",
-  "model": "claude-sonnet-4",
+  "model": "claude-sonnet-5",
   "additional_agents": [
     {"type": "anthropic-api", "role": "critic"},
     {"type": "openai-api", "role": "synthesizer"}
@@ -487,7 +487,7 @@ compliance_frameworks:
     rules: ["rule1", "rule2"]
 
 model_config:
-  primary_model: claude-sonnet-4
+  primary_model: claude-sonnet-5
   temperature: 0.3
 ```
 
@@ -543,7 +543,7 @@ CUSTOM_CONFIG = VerticalConfig(
         ),
     ],
     model_config=ModelConfig(
-        primary_model="claude-sonnet-4",
+        primary_model="claude-sonnet-5",
         temperature=0.3,
     ),
 )
@@ -595,7 +595,7 @@ from my_verticals.custom import CustomSpecialist
 agent = VerticalRegistry.create_specialist(
     "custom",
     name="custom-agent-1",
-    model="claude-sonnet-4",
+    model="claude-sonnet-5",
 )
 ```
 

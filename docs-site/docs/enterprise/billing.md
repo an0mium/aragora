@@ -310,7 +310,7 @@ tracker.record_event(
     user_id="user_456",
     event_type=UsageEventType.DEBATE,
     provider="anthropic",
-    model="claude-sonnet-4",
+    model="claude-sonnet-5",
     tokens_in=1500,
     tokens_out=800,
 )
@@ -318,7 +318,7 @@ tracker.record_event(
 # Calculate token cost
 cost = calculate_token_cost(
     provider="anthropic",
-    model="claude-sonnet-4",
+    model="claude-sonnet-5",
     tokens_in=1500,
     tokens_out=800,
 )

@@ -164,9 +164,9 @@ asyncio.run(main())
 | Agent | Provider | Model |
 |-------|----------|-------|
 | `claude` | Anthropic | claude-3-5-sonnet |
-| `gpt4` | OpenAI | gpt-4-turbo |
-| `gemini` | Google | gemini-pro |
-| `mistral` | Mistral | mistral-large |
+| `gpt4` | OpenAI | gpt-6-astra |
+| `gemini` | Google | gemini-3.1-pro-preview |
+| `mistral` | Mistral | mistral-large-2512 |
 | `grok` | xAI | grok-beta |
 
 ## Error Handling

@@ -120,7 +120,7 @@ import { AragoraClient } from "@aragora/sdk";
 const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
 const result = await client.debates.create({
   task: "Should we use microservices or a monolith?",
-  agents: ["claude", "gpt-4"],
+  agents: ["claude", "gpt-6-astra"],
   rounds: 3,
 });
 console.log(result.debate_id, result.status);

@@ -40,7 +40,7 @@ structured metadata block immediately after the first markdown heading:
 
 **Reviewer harness:** factory
 **Model family:** openai
-**Model id:** gpt-5.5
+**Model id:** gpt-6-astra
 **Receipt artifact:** <local path or URL>
 ```
 

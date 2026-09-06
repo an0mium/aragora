@@ -46,8 +46,8 @@ On 429 (rate limit) errors:
 1. Detect quota exhaustion
 2. Automatically route to OpenRouter
 3. Use equivalent model mapping:
-   - Claude -> claude-3-opus (via OpenRouter)
-   - GPT-4 -> gpt-4-turbo (via OpenRouter)
+   - Claude -> claude-fable-5-1 (via OpenRouter)
+   - GPT-4 -> gpt-6-astra (via OpenRouter)
 
 ### Layer 3: Airlock Proxy
 Located in `aragora/agents/airlock.py`:

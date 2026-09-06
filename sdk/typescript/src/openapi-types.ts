@@ -64514,7 +64514,7 @@ export interface components {
          *       "model_types": [
          *         "claude-opus-5",
          *         "gpt-4o",
-         *         "gemini-pro"
+         *         "gemini-3.1-pro-preview"
          *       ]
          *     }
          */
@@ -64534,7 +64534,7 @@ export interface components {
              * @example [
              *       "claude-opus-5",
              *       "gpt-4o",
-             *       "gemini-pro"
+             *       "gemini-3.1-pro-preview"
              *     ]
              */
             model_types?: string[];
@@ -123671,7 +123671,7 @@ export interface operations {
                 num_rounds?: number;
                 /**
                  * @description Comma-separated model types
-                 * @example claude-sonnet-4,gpt-4o,gemini-pro
+                 * @example claude-sonnet-5,gpt-4o,gemini-3.1-pro-preview
                  */
                 model_types?: string;
             };
