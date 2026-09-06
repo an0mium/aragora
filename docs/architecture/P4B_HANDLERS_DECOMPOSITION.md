@@ -186,6 +186,7 @@ two registration tables):
 | `import aragora.server.handlers.<f>` | 0 | 1 | 0 | 5 | `orchestration/handler.py:1045` (`routing`); `workspace/{crud,policies,settings,members,invites}.py:34-38` (`workspace_module`, executed per request) |
 | `from aragora.server.handlers.<f> import` | 9 | 4 | 11 | 18 | `stream/servers_route_registration.py:42` (`accounting`, inside `try/except ImportError` that silently disables the routes) |
 | dotted string (`importlib`/`sys.modules.get`) | 1 | 0 | 13 | 1 | `workspace/__init__.py:96`; `shared_inbox/handler.py:65-92` (`sys.modules.get("..._shared_inbox_handler")`); `_oauth/utils.py:198` |
+| `from aragora.server.handlers import <f>` (bare form, served by `__getattr__`) | 6 | 1 | 7 | 3 | `compliance/{gdpr,legal_hold,audit_verify}.py` (`compliance_handler`, six function-local sites, five of them `try/except`-guarded); `ops/enterprise_validator.py:180` (`auditing`); `blockchain/handler.py:85-200` (`erc8004`, seven per-request sites); `review_queue.py:51`, `webhooks/__init__.py:9` (`webhook_management`), `connectors/legacy.py:136` (the `connectors` retiree, already served by the package, §4.4) |
 
 Tests use the same forms far more (statement form 19/98/53/32 per batch;
 dotted `patch(...)` strings 1117/2573/2070/1719). Rewriting all of them is
@@ -656,9 +657,9 @@ into the PR body. `$ENV` below means
    its first line must match the pre-move run and it must print no `BROKEN`.
    Also rewrite this batch's relative imports inside the
    `if TYPE_CHECKING:` block of `handlers/__init__.py` (`from .<f> import
-   ...` -> `from .<dir>.<f> import ...`). That block is type-only, so the
-   step-5 `rg` (which matches dotted absolute paths) never lists it and it
-   goes stale silently; the finder does not serve relative imports either.
+   ...` -> `from .<dir>.<f> import ...`). That block is type-only and never
+   executes, so the step-5 `rg` (which matches dotted absolute paths) never
+   lists it, nothing at runtime exercises it, and it goes stale silently.
    Verify with `rg -n "^\s+from \.(<f1>|<f2>|...) import" aragora/server/handlers/__init__.py`
    printing nothing. That `rg` is the only check for the rewrite: mypy with
    the CI gate's `--ignore-missing-imports` reports "no issues" on a
@@ -683,8 +684,9 @@ into the PR body. `$ENV` below means
    mover) and would go through the package `__getattr__` shim on every
    request without it. `-U` plus the optional `(\([^)]*)?` group make the
    bare form match a parenthesised multi-line import list as well as a
-   single line (verified on a synthetic file with both forms; on today's
-   tree the bare form occurs only at that one single-line site). Rewrite each to the new dotted path in the
+   single line (verified on a synthetic file with both forms). Today's
+   bare-form sites per batch are the last row of the §3.2 table (6/1/7/3,
+   all single-line). Rewrite each to the new dotted path in the
    same PR (the finder keeps them working, §3.3, but a per-request
    `DeprecationWarning` is log noise). Also rewrite the `from ..X import`
    lines in §4.6 for the batch's files. Then run
@@ -855,6 +857,6 @@ validation contract and is machine-local by design. Batch 1 (PR #10000)
 commits it as `scripts/ci/check_moved_handler_shim.py` so §6 steps 1 and 6
 are reproducible in CI. The probe body is verbatim; the committed file adds
 a shebang, a module docstring, and splits the `import` statement across
-three lines for ruff E401. It keeps the contract's
+three lines for ruff E401 (plus the blank lines around them). It keeps the contract's
 `warnings.simplefilter("always")`, which is what makes the finder's warning
 visible when the import happens inside a helper rather than `__main__`.
