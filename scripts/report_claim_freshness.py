@@ -8,7 +8,7 @@ import json
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -44,7 +44,7 @@ def _parse_timestamp(value: str) -> datetime:
     parsed = datetime.fromisoformat(normalized)
     if parsed.tzinfo is None:
         raise ValueError("timestamp must include a timezone")
-    return parsed.astimezone(UTC)
+    return parsed.astimezone(timezone.utc)
 
 
 def classify_claim(claim: ExecutableClaim, *, as_of: datetime) -> FreshnessRow:
@@ -62,7 +62,7 @@ def classify_claim(claim: ExecutableClaim, *, as_of: datetime) -> FreshnessRow:
         if truth.state == ClaimTruthState.LIVE:
             assert last_verified_at is not None  # Enforced by ClaimTruthStatus.
             verified_at = _parse_timestamp(last_verified_at)
-            normalized_as_of = as_of.astimezone(UTC)
+            normalized_as_of = as_of.astimezone(timezone.utc)
             delta_hours = (normalized_as_of - verified_at).total_seconds() / 3600
             if delta_hours < 0:
                 status = ClaimTruthState.UNSUPPORTED.value
@@ -93,7 +93,7 @@ def build_report(manifests: Sequence[ClaimManifest], *, as_of: datetime) -> dict
     counts = Counter(row.status for row in rows)
     return {
         "schema_version": 1,
-        "as_of": as_of.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "as_of": as_of.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         "manifests": [manifest.manifest_id for manifest in manifests],
         "claims": [asdict(row) for row in rows],
         "summary": {state: counts[state] for state in _REPORT_STATES},
@@ -160,7 +160,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
-        as_of = _parse_timestamp(args.as_of) if args.as_of else datetime.now(UTC)
+        as_of = _parse_timestamp(args.as_of) if args.as_of else datetime.now(timezone.utc)
         names = args.manifest or [path.name for path in sorted(args.claims_dir.glob("*.yaml"))]
         if not names:
             raise ValueError(f"no claim manifests found in {args.claims_dir}")

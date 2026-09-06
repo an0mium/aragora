@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -44,7 +44,7 @@ def _claim(*, state: str | None, last_verified_at: str | None = None) -> Executa
 
 
 def test_classifies_live_stale_unsupported_aspirational_and_legacy() -> None:
-    as_of = datetime(2026, 7, 11, 12, tzinfo=UTC)
+    as_of = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
     cases = [
         (_claim(state="live", last_verified_at="2026-07-11T06:00:00Z"), "live"),
         (_claim(state="live", last_verified_at="2026-07-10T06:00:00Z"), "stale"),
@@ -60,7 +60,7 @@ def test_classifies_live_stale_unsupported_aspirational_and_legacy() -> None:
 def test_future_live_timestamp_fails_closed() -> None:
     row = MODULE.classify_claim(
         _claim(state="live", last_verified_at="2026-07-12T00:00:00Z"),
-        as_of=datetime(2026, 7, 11, 12, tzinfo=UTC),
+        as_of=datetime(2026, 7, 11, 12, tzinfo=timezone.utc),
     )
     assert row.status == "unsupported"
     assert row.age_hours is None
@@ -75,7 +75,7 @@ def test_build_report_is_explicitly_non_mutating() -> None:
     )
     report = MODULE.build_report(
         [manifest],
-        as_of=datetime(2026, 7, 11, 12, tzinfo=UTC),
+        as_of=datetime(2026, 7, 11, 12, tzinfo=timezone.utc),
     )
     assert report["queue_mutation"] is False
     assert report["summary"] == {
