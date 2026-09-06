@@ -452,7 +452,10 @@ readiness-test-root:
 	command -v pytest >/dev/null 2>&1 || { echo "SKIP root: pytest not found (put .venv/bin on PATH)"; exit 0; }; \
 	mkdir -p "$(READINESS_JUNIT_DIR)"; \
 	fail_under=$(READINESS_ROOT_COV_FAIL_UNDER); \
-	pytest tests/ci tests/config tests/observability tests/telemetry $(READINESS_EXTRA_TESTS) -q -p no:randomly -n 4 --timeout=120 --cov=aragora --cov-fail-under=$$fail_under --junitxml="$(READINESS_JUNIT_DIR)/root.xml" && \
+	pytest tests/ci tests/config tests/observability tests/telemetry \
+		tests/server/handlers/test_accounting_dispatch.py tests/server/handler_registry/test_accounting_routes.py \
+		tests/server/handlers/test_ap_automation.py tests/server/handlers/test_ar_automation.py tests/server/handlers/test_accounting.py \
+		$(READINESS_EXTRA_TESTS) -q -p no:randomly -n 4 --timeout=120 --cov=aragora --cov-fail-under=$$fail_under --junitxml="$(READINESS_JUNIT_DIR)/root.xml" && \
 	$(READINESS_DONE)
 
 # --- debate (aragora-debate/, src layout) -----------------------------------
