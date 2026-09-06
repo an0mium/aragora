@@ -254,6 +254,17 @@ class CLIAgent(CritiqueMixin, Agent):
 
     # Does this class put ``self.model`` on the CLI's command line?
     #
+    # Defaults to FALSE, and each subclass that really sends the model sets
+    # it True next to the code that does. The claim this flag licenses is a
+    # receipt naming the model that made a decision, so the default has to be
+    # the one that is safe when nobody thought about it: a new CLI subclass
+    # -- in this package or out of tree -- that never puts self.model on its
+    # command line would otherwise inherit True and have its output
+    # attributed to a model the CLI never received (wave-6 re-review, minor
+    # 4). ``tests/agents/test_cli_model_pinning.py`` asserts the True set
+    # against every CLIAgent subclass in the package, so adding one without
+    # deciding is a test failure rather than a silent wrong receipt.
+    #
     # False for every CLI this PR does not pin, for three different reasons:
     #
     #   qwen-cli       ``qwen --help`` DOES document ``-m/--model`` (verified
@@ -283,7 +294,7 @@ class CLIAgent(CritiqueMixin, Agent):
     # reports the served model as "unknown (CLI default)" rather than letting
     # a receipt claim a model the CLI never received (wave-6 ruling, agents,
     # on #9989).
-    SENDS_MODEL_ON_WIRE: bool = True
+    SENDS_MODEL_ON_WIRE: bool = False
 
     def __init__(
         self,
@@ -775,6 +786,10 @@ class CodexAgent(CLIAgent):
 
     MODEL_FAMILY = "openai"
 
+    # `codex -m <id>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
+
     _CODEX_WARNING_PREFIXES: tuple[str, ...] = (
         "`collab` is deprecated.",
         "Enable it with `--enable multi_agent`",
@@ -883,6 +898,10 @@ class ClaudeAgent(CLIAgent):
 
     MODEL_FAMILY = "anthropic"
 
+    # `claude --model <id>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using claude CLI via stdin.
 
@@ -925,6 +944,10 @@ class GeminiCLIAgent(CLIAgent):
     """
 
     MODEL_FAMILY = "google"
+
+    # `gemini -m <id>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
 
     def _extract_gemini_response(self, result: str) -> str:
         """Filter out YOLO mode message from gemini output."""
@@ -1113,6 +1136,10 @@ class GrokCLIAgent(CLIAgent):
 
     MODEL_FAMILY = "xai"
 
+    # `grok -m <id>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
+
     def _extract_grok_response(self, output: str) -> str:
         """Extract the final assistant response from Grok CLI JSON output."""
         lines = output.strip().split("\n")
@@ -1210,12 +1237,32 @@ def _resolve_antigravity_bin() -> str:
 # override (mirrors ARAGORA_ANTIGRAVITY_BIN above) so operators can trade
 # cost for quality without a code change.
 ANTIGRAVITY_DEFAULT_EFFORT = "medium"
+ANTIGRAVITY_EFFORT_LEVELS = ("low", "medium", "high")
 
 
 def _resolve_antigravity_effort() -> str:
-    """Resolve the Antigravity CLI's ``--effort`` value (low|medium|high)."""
+    """Resolve the Antigravity CLI's ``--effort`` value (low|medium|high).
+
+    An unrecognised override is REJECTED, with a warning, in favour of the
+    default. ``agy`` accepts exactly these three levels, so passing anything
+    else through made every antigravity call error out and fall back to
+    OpenRouter -- the same silent failure the flag was added to prevent, now
+    triggered by a typo in an env var instead of a missing flag (wave-6
+    re-review, minor 3). Warning rather than raising: a bad env var must not
+    take the agent out of service when the documented default works.
+    """
     override = os.environ.get("ARAGORA_ANTIGRAVITY_EFFORT", "").strip()
-    return override or ANTIGRAVITY_DEFAULT_EFFORT
+    if not override:
+        return ANTIGRAVITY_DEFAULT_EFFORT
+    if override.lower() in ANTIGRAVITY_EFFORT_LEVELS:
+        return override.lower()
+    logger.warning(
+        "ARAGORA_ANTIGRAVITY_EFFORT=%r is not one of %s; using %r",
+        override,
+        "/".join(ANTIGRAVITY_EFFORT_LEVELS),
+        ANTIGRAVITY_DEFAULT_EFFORT,
+    )
+    return ANTIGRAVITY_DEFAULT_EFFORT
 
 
 @AgentRegistry.register(
@@ -1274,6 +1321,10 @@ class AntigravityAgent(CLIAgent):
     """
 
     MODEL_FAMILY = "google"
+
+    # `agy --model <id> --effort <level>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
@@ -1473,6 +1524,10 @@ class OpenAIAgent(CLIAgent):
     """
 
     MODEL_FAMILY = "openai"
+
+    # `openai api chat.completions.create -m <id>`: self.model DOES reach the CLI, so a receipt may
+    # attribute the answer to it -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = True
 
     def __init__(
         self,

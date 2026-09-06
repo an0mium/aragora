@@ -883,6 +883,43 @@ class TestAntigravityAgent:
         monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", "high")
         assert _resolve_antigravity_effort() == "high"
 
+    @pytest.mark.parametrize("bad", ["foo", "HIGHEST", "1", "medium high", "-"])
+    def test_resolve_effort_rejects_an_unrecognised_level(self, monkeypatch, caplog, bad):
+        """``agy`` accepts exactly low|medium|high, so passing anything else
+        through made every antigravity call error out and fall back to
+        OpenRouter -- the same silent failure --effort was added to prevent,
+        now triggered by a typo (wave-6 re-review, minor 3)."""
+        import logging
+
+        from aragora.agents.cli_agents import _resolve_antigravity_effort
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", bad)
+        with caplog.at_level(logging.WARNING, logger="aragora.agents.cli_agents"):
+            assert _resolve_antigravity_effort() == "medium"
+        assert [r for r in caplog.records if "ARAGORA_ANTIGRAVITY_EFFORT" in r.getMessage()]
+
+    @pytest.mark.parametrize("level", ["low", "medium", "high"])
+    def test_resolve_effort_accepts_every_documented_level(self, monkeypatch, level):
+        from aragora.agents.cli_agents import _resolve_antigravity_effort
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", level)
+        assert _resolve_antigravity_effort() == level
+
+    @pytest.mark.parametrize(("spelled", "expected"), [("HIGH", "high"), (" Low ", "low")])
+    def test_resolve_effort_normalizes_case_and_padding(self, monkeypatch, spelled, expected):
+        """An operator writing HIGH means high, not "fall back to medium"."""
+        from aragora.agents.cli_agents import _resolve_antigravity_effort
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", spelled)
+        assert _resolve_antigravity_effort() == expected
+
+    def test_a_rejected_level_still_reaches_the_command_line_as_medium(self, monkeypatch):
+        """The end-to-end consequence: the argv is valid regardless."""
+        from aragora.agents.cli_agents import _resolve_antigravity_effort
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", "foo")
+        assert ["--effort", _resolve_antigravity_effort()] == ["--effort", "medium"]
+
     def test_generate_invokes_agy_print_mode(self):
         import os
         from unittest.mock import patch
