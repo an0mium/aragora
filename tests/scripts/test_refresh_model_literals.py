@@ -66,8 +66,10 @@ def test_rewrites_bare_and_openrouter_spellings(tmp_path: Path) -> None:
     f.write_text('A = "gpt-4o"\nB = "anthropic/claude-fable-5"\nC = "claude-fable-5-1"\n')
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
+    # gpt-4o upgrades to the VALUE row, not the flagship (round-4
+    # re-review of finding C-P3 on #9989).
     assert f.read_text() == (
-        'A = "gpt-6-astra"\nB = "anthropic/claude-fable-5.1"\nC = "claude-fable-5-1"\n'
+        'A = "gpt-5.6-terra"\nB = "anthropic/claude-fable-5.1"\nC = "claude-fable-5-1"\n'
     )
 
 
@@ -478,7 +480,7 @@ def test_pipe_separated_agent_spec_is_rewritten_like_any_literal(tmp_path: Path)
     f.write_text('SPEC = "anthropic|claude-sonnet-4"\nOTHER = "openai|gpt-4o"\n')
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
-    assert f.read_text() == 'SPEC = "anthropic|claude-sonnet-5"\nOTHER = "openai|gpt-6-astra"\n'
+    assert f.read_text() == 'SPEC = "anthropic|claude-sonnet-5"\nOTHER = "openai|gpt-5.6-terra"\n'
 
 
 def test_pipe_separated_ids_are_counted_by_check(tmp_path: Path) -> None:
@@ -514,7 +516,7 @@ def test_a_pipe_elsewhere_in_the_string_does_not_freeze_a_real_id(tmp_path: Path
     f.write_text('ROW = "model gpt-4o costs | see table"\n')
     r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, r.stderr
-    assert f.read_text() == 'ROW = "model gpt-6-astra costs | see table"\n'
+    assert f.read_text() == 'ROW = "model gpt-5.6-terra costs | see table"\n'
 
 
 # ---------------------------------------------------------------------------
