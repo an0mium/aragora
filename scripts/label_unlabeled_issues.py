@@ -15,9 +15,10 @@ Guarantees
 * Dry run is the default: prints the plan and performs zero mutations.
 * ``triage:protected`` issues are never touched.
 * Strictly additive: the only write is ``POST /repos/<repo>/issues/<n>/labels``.
-* Constant number of ``gh`` launches for the plan (one issue list, one label
-  list); ``--apply`` adds exactly one POST per issue, ``time.sleep(0.5)``
-  between writes, and aborts on the first ``gh`` error.
+* Exactly two ``gh`` launches for the plan (one paginated API GET for all
+  open issues, excluding pull requests, and one label list); ``--apply`` adds
+  exactly one POST per issue, ``time.sleep(0.5)`` between writes, and aborts
+  on the first ``gh`` error.
 * Idempotent: a second run finds nothing to label.
 
 Usage
@@ -87,33 +88,52 @@ def run_gh(args: Sequence[str], *, input: str | None = None) -> GhResult:  # noq
     return GhResult(proc.returncode, proc.stdout, proc.stderr)
 
 
-def _gh_json(args: Sequence[str]) -> list[dict[str, object]]:
+def _gh_json(args: Sequence[str], *, paginated: bool = False) -> list[dict[str, object]]:
     res = run_gh(args)
     if res.returncode != 0:
         raise RuntimeError(f"{' '.join(args)} exited {res.returncode}: {res.stderr.strip()}")
     data = json.loads(res.stdout or "[]")
     if not isinstance(data, list):
         raise RuntimeError(f"{' '.join(args)}: expected a JSON array")
+    if paginated:
+        # --slurp wraps each REST page in one outer JSON array.
+        if not all(isinstance(page, list) for page in data):
+            raise RuntimeError(f"{' '.join(args)}: expected JSON arrays for paginated results")
+        data = [row for page in data for row in page]
+    if not all(isinstance(row, dict) for row in data):
+        raise RuntimeError(f"{' '.join(args)}: expected JSON objects")
     return data
 
 
 def list_open_issues(repo: str) -> list[dict[str, object]]:
-    """Single ``gh issue list`` call; the limit is fixed, not per-issue."""
-    return _gh_json(
+    """Fetch every page in one gh launch, excluding REST pull-request objects."""
+    rows = _gh_json(
         [
             "gh",
-            "issue",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            "1000",
-            "--json",
-            "number,title,body,labels,createdAt",
-        ]
+            "api",
+            "--paginate",
+            "--slurp",
+            "-X",
+            "GET",
+            f"repos/{repo}/issues",
+            "-f",
+            "state=open",
+            "-f",
+            "per_page=100",
+        ],
+        paginated=True,
     )
+    return [
+        {
+            "number": row["number"],
+            "title": row.get("title"),
+            "body": row.get("body"),
+            "labels": [{"name": name} for name in _label_names(row.get("labels"))],
+            "createdAt": row.get("created_at"),
+        }
+        for row in rows
+        if "pull_request" not in row
+    ]
 
 
 def list_label_names(repo: str) -> set[str]:
@@ -162,7 +182,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Label every unlabeled open issue from the keyword map. Dry run by default; "
-            f"never touches {PROTECTED_LABEL} issues; never removes labels."
+            f"never touches {PROTECTED_LABEL} issues; never removes labels. "
+            "Uses two gh launches: a label list and a paginated API GET for all open issues "
+            "(pull requests excluded)."
         ),
         epilog=(
             "Exit codes: 0 plan printed or all labels applied; 1 a gh call failed "

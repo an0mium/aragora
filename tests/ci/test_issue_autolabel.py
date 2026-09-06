@@ -28,7 +28,7 @@ _spec.loader.exec_module(mod)
 MAPPING = {
     "dockerfile": "deployment",
     "decision receipt": "receipts",
-    "receipt": "receipts",
+    "decisionreceipt": "receipts",
     "traceback": "bug",
     "vulnerab": "security",
 }
@@ -46,14 +46,14 @@ def test_keyword_in_body_maps_to_label():
 
 
 def test_matching_is_case_insensitive_and_prefix_based():
-    # "receipt" must match "Receipts"; "vulnerab" must match "vulnerabilities".
-    got = mod.labels_for("Decision Receipts leak", "VULNERABILITIES found", [], MAPPING)
+    # "decisionreceipt" matches "DecisionReceipts"; "vulnerab" matches "vulnerabilities".
+    got = mod.labels_for("DecisionReceipts leak", "VULNERABILITIES found", [], MAPPING)
     assert got == ["receipts", "security"]
 
 
 def test_keyword_needs_a_leading_word_boundary():
-    # "receipt" inside "preceipt" (no boundary before it) must not match.
-    assert mod.labels_for("preceipt", "", [], MAPPING) == []
+    # No boundary before "decisionreceipt" means it must not match.
+    assert mod.labels_for("predecisionreceipt", "", [], MAPPING) == []
 
 
 def test_no_match_yields_no_label():
@@ -65,12 +65,12 @@ def test_none_body_is_tolerated():
 
 
 def test_multiple_keywords_for_one_label_are_deduplicated_and_sorted():
-    got = mod.labels_for("decision receipt vs receipt", "dockerfile", [], MAPPING)
+    got = mod.labels_for("decision receipt vs DecisionReceipt", "dockerfile", [], MAPPING)
     assert got == ["deployment", "receipts"]
 
 
 def test_triage_protected_short_circuits_to_zero_labels():
-    got = mod.labels_for("Dockerfile traceback", "receipt", ["triage:protected"], MAPPING)
+    got = mod.labels_for("Dockerfile traceback", "DecisionReceipt", ["triage:protected"], MAPPING)
     assert got == []
 
 
@@ -124,6 +124,27 @@ def test_repo_map_file_is_valid_and_sorted():
     assert list(keywords) == sorted(keywords), "keywords must be sorted for stable diffs"
     assert all(isinstance(v, str) and v for v in keywords.values())
     assert "triage:protected" not in keywords.values()
+
+
+def test_repo_map_ignores_bare_receipt_and_research_template():
+    mapping = mod.load_mapping(_MAP_PATH)
+    assert "receipt" not in mapping
+    assert mapping["decisionreceipt"] == "receipts"
+    assert mod.labels_for("Receipt storage", "Receipts attached", [], mapping) == []
+    body = "Debate ranking receipt: docs/research/receipts/example.json"
+    assert mod.labels_for("Research intake", body, [], mapping) == ["research-intake"]
+    assert mod.labels_for("DecisionReceipts", "", [], mapping) == ["receipts"]
+
+
+def test_stale_exemptions_match_existing_taxonomy():
+    import yaml
+
+    path = REPO_ROOT / ".github" / "workflows" / "stale.yml"
+    text = path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(text)
+    config = workflow["jobs"]["stale"]["steps"][0]["with"]
+    assert config["exempt-issue-labels"] == "triage:protected,security"
+    assert "# triage:protected or security are exempt." in text
 
 
 def test_script_default_map_path_is_the_literal_repo_path():

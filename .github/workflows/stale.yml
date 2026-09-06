@@ -2,7 +2,7 @@ name: Stale Issues
 
 # Marks issues inactive for 150 days as `stale` and closes them 30 days later
 # unless they are updated. Pull requests are excluded. Issues labelled
-# triage:protected, pinned, security or roadmap are exempt.
+# triage:protected or security are exempt.
 
 on:
   schedule:
@@ -30,7 +30,7 @@ jobs:
           days-before-pr-stale: -1
           days-before-pr-close: -1
           stale-issue-label: stale
-          exempt-issue-labels: triage:protected,pinned,security,roadmap
+          exempt-issue-labels: triage:protected,security
           operations-per-run: 100
           remove-stale-when-updated: true
           stale-issue-message: >-

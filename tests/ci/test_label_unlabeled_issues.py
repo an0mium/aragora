@@ -25,7 +25,7 @@ mod = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = mod
 _spec.loader.exec_module(mod)
 
-MAPPING = {"dockerfile": "deployment", "traceback": "bug", "receipt": "receipts"}
+MAPPING = {"dockerfile": "deployment", "traceback": "bug", "decisionreceipt": "receipts"}
 
 ISSUES = [
     {
@@ -58,25 +58,39 @@ ISSUES = [
     },
     {
         "number": 5,
-        "title": "receipt traceback",
+        "title": "DecisionReceipt traceback",
         "body": "",
         "labels": [],
         "createdAt": "2026-01-05T00:00:00Z",
     },
 ]
 
+REST_ISSUES = [
+    {
+        **{key: value for key, value in issue.items() if key != "createdAt"},
+        "created_at": issue["createdAt"],
+    }
+    for issue in ISSUES
+]
+
 
 class _Gh:
-    """Records every gh launch; serves the issue list and label list."""
+    """Records every gh launch; serves slurped REST pages and the label list."""
 
-    def __init__(self, *, fail_on_post: bool = False):
+    def __init__(self, *, fail_on_post: bool = False, pages=None):
         self.launches: list[list[str]] = []
         self.fail_on_post = fail_on_post
+        self.pages = [REST_ISSUES[:2], REST_ISSUES[2:]] if pages is None else pages
 
     def __call__(self, args, *, input=None):  # noqa: A002 - mirrors subprocess API
         self.launches.append(list(args))
-        if args[1] == "issue" and args[2] == "list":
-            return mod.GhResult(0, json.dumps(ISSUES), "")
+        if args[1] == "api" and "--paginate" in args:
+            assert "--slurp" in args
+            assert args[args.index("-X") + 1] == "GET"
+            assert "state=open" in args
+            assert "per_page=100" in args
+            assert "--limit" not in args
+            return mod.GhResult(0, json.dumps(self.pages), "")
         if args[1] == "label":
             names = sorted({*MAPPING.values(), "triage:protected", "triage:unverified"})
             return mod.GhResult(0, json.dumps([{"name": n} for n in names]), "")
@@ -128,7 +142,7 @@ def test_plan_is_empty_when_everything_is_labelled():
 # --- dry run ----------------------------------------------------------------------
 
 
-def test_dry_run_is_default_prints_plan_and_launches_gh_at_most_twice(
+def test_dry_run_is_default_prints_plan_and_launches_gh_exactly_twice(
     map_path, monkeypatch, capsys
 ):
     gh = _Gh()
@@ -136,12 +150,84 @@ def test_dry_run_is_default_prints_plan_and_launches_gh_at_most_twice(
     rc = mod.main(["--map", str(map_path)])
     assert rc == 0
     assert gh.posts == []
-    assert len(gh.launches) <= 3
+    assert len(gh.launches) == 2
+    assert gh.launches[0][1:3] == ["label", "list"]
+    assert "repos/synaptent/aragora/issues" in gh.launches[1]
     out = capsys.readouterr().out
     assert "#1" in out and "deployment" in out
     assert "#4" not in out
     assert "3 issue(s) to label" in out
     assert "dry run" in out.lower()
+
+
+def test_paginated_listing_maps_rest_fields_and_uses_requested_repo(monkeypatch):
+    gh = _Gh()
+    monkeypatch.setattr(mod, "run_gh", gh)
+    assert mod.list_open_issues("example/project") == ISSUES
+    assert len(gh.launches) == 1
+    assert "repos/example/project/issues" in gh.launches[0]
+
+
+@pytest.mark.parametrize("pr_metadata", [{"url": "https://api.github.com/example"}, None])
+def test_pull_requests_are_excluded_from_count_plan_and_writes(
+    pr_metadata, map_path, monkeypatch, capsys
+):
+    pull_request = dict(REST_ISSUES[0], number=999, pull_request=pr_metadata)
+    gh = _Gh(pages=[[REST_ISSUES[0]], [pull_request], [REST_ISSUES[1]]])
+    monkeypatch.setattr(mod, "run_gh", gh)
+    assert mod.main(["--map", str(map_path), "--apply"]) == 0
+    out = capsys.readouterr().out
+    assert "2 open issue(s) fetched; 2 issue(s) to label" in out
+    assert "#999" not in out
+    assert len(gh.posts) == 2
+    assert all("/999/" not in " ".join(call) for call in gh.posts)
+
+
+def test_dry_run_fetches_more_than_1000_issues_in_two_launches(map_path, monkeypatch, capsys):
+    issues = [dict(REST_ISSUES[0], number=i) for i in range(1, 1006)]
+    gh = _Gh(pages=[issues[i : i + 100] for i in range(0, len(issues), 100)])
+    monkeypatch.setattr(mod, "run_gh", gh)
+    assert mod.main(["--map", str(map_path)]) == 0
+    out = capsys.readouterr().out
+    assert "1005 open issue(s) fetched; 1005 issue(s) to label" in out
+    assert "#1005 " in out
+    assert len(gh.launches) == 2
+    assert gh.posts == []
+
+
+@pytest.mark.parametrize("pages", [[], [[]]])
+def test_empty_paginated_listing_is_a_noop(pages, map_path, monkeypatch, capsys):
+    gh = _Gh(pages=pages)
+    monkeypatch.setattr(mod, "run_gh", gh)
+    assert mod.main(["--map", str(map_path)]) == 0
+    assert "0 open issue(s) fetched; 0 issue(s) to label" in capsys.readouterr().out
+    assert len(gh.launches) == 2
+    assert gh.posts == []
+
+
+@pytest.mark.parametrize("pages", [[{}], [[None]], {"message": "bad response"}])
+def test_bad_paginated_shape_aborts_before_writes(pages, map_path, monkeypatch, capsys):
+    gh = _Gh(pages=pages)
+    monkeypatch.setattr(mod, "run_gh", gh)
+    assert mod.main(["--map", str(map_path), "--apply"]) == 1
+    assert "ERROR:" in capsys.readouterr().err
+    assert gh.posts == []
+
+
+def test_paginated_gh_failure_discards_partial_results(map_path, monkeypatch, capsys):
+    gh = _Gh()
+
+    def fail_on_api(args, *, input=None):  # noqa: A002
+        result = gh(args, input=input)
+        if "--paginate" in args:
+            return mod.GhResult(1, result.stdout, "HTTP 502 on later page")
+        return result
+
+    monkeypatch.setattr(mod, "run_gh", fail_on_api)
+    assert mod.main(["--map", str(map_path), "--apply"]) == 1
+    assert "502 on later page" in capsys.readouterr().err
+    assert len(gh.launches) == 2
+    assert gh.posts == []
 
 
 def test_dry_run_flag_is_accepted_explicitly(map_path, monkeypatch):
@@ -216,3 +302,6 @@ def test_help_documents_modes(capsys):
     out = capsys.readouterr().out
     assert "--dry-run" in out and "--apply" in out and "default" in out
     assert "triage:protected" in out
+    help_text = " ".join(out.split())
+    assert "paginated" in help_text and "pull requests" in help_text
+    assert "two gh launches" in help_text

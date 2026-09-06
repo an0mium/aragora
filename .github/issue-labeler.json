@@ -26,7 +26,6 @@
     "oauth": "auth",
     "outage": "outage",
     "pentest": "security",
-    "receipt": "receipts",
     "regression": "regression",
     "research-intake": "research-intake",
     "salvage": "triage:defer-salvage",
