@@ -666,9 +666,11 @@ class TestUnpinnedCLIAgentsDoNotClaimTheirModel:
     """An agent whose model never reaches the CLI must say so.
 
     qwen-cli, deepseek-cli and the opt-in kimi-cli each carry a native model
-    code the CLI is never told about -- none of the three CLIs is installed
-    on the machine this branch was built on, so no model flag could be
-    verified rather than guessed. They keep the requested pin, because
+    code the CLI is never told about: qwen's own ``-m`` flag exists but its
+    recorded id is a retired spelling with no native successor, and neither
+    the deepseek nor the kimi CLI is installed on the machine this branch was
+    built on, so no flag could be verified rather than guessed (see
+    CLIAgent.SENDS_MODEL_ON_WIRE). They keep the requested pin, because
     pricing, fallback and the registry all need it, and declare
     ``metadata["model_pinned_on_wire"] = False`` so nothing downstream
     attributes the answer to a model the CLI never received (wave-6 ruling,

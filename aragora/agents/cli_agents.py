@@ -254,12 +254,27 @@ class CLIAgent(CritiqueMixin, Agent):
 
     # Does this class put ``self.model`` on the CLI's command line?
     #
-    # False for a CLI this PR could not pin: one with no verified model flag
-    # (qwen-cli, deepseek-cli, the opt-in kimi-cli -- none of the three is
-    # installed on the machine this branch was built on, so no flag could be
-    # verified rather than guessed), one whose registry "model" names the CLI
-    # product rather than a model (grok-build), and one that sends a broker's
-    # provider id instead (kilocode). Such an agent still CARRIES its
+    # False for every CLI this PR does not pin, for three different reasons:
+    #
+    #   qwen-cli       ``qwen --help`` DOES document ``-m/--model`` (verified
+    #                  2026-09-05), but the id recorded for this agent,
+    #                  "qwen3-coder", is a RETIRED spelling with no native
+    #                  successor -- the catalog's current qwen row is an
+    #                  OpenRouter row, so there is no native code to upgrade
+    #                  it to (see replacement() in
+    #                  scripts/refresh_model_literals.py). Sending it would
+    #                  pin the CLI to a retired model in place of its own
+    #                  current default, so the recorded id stays a routing
+    #                  hint, not a claim about the wire.
+    #   deepseek-cli,  neither CLI is installed on the machine this branch was
+    #   kimi-cli       built on, so no model flag could be verified rather
+    #                  than guessed (kimi-cli is additionally ACP-based and
+    #                  registered only under ARAGORA_ENABLE_KIMI_CLI).
+    #   grok-build,    their registry "model" is not a model id at all: it
+    #   kilocode       names the CLI product, or a broker's provider id sent
+    #                  under --model instead of self.model.
+    #
+    # Such an agent still CARRIES its
     # requested model -- pricing, fallback and the registry all need it --
     # but the CLI answers from its own default, so nothing may attribute the
     # output to that id. Recorded per instance as

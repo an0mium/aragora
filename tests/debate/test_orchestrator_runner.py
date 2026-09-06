@@ -1807,9 +1807,11 @@ class TestUnpinnedCLIAgentsAreNotAttributedAModel:
     attributed to it (wave-6 ruling, agents, on #9989).
 
     ``qwen-cli``, ``deepseek-cli`` and the opt-in ``kimi-cli`` each carry a
-    native model code the CLI is never told about -- none of the three CLIs
-    is installed on the machine this branch was built on, so no model flag
-    could be verified rather than guessed. They keep the requested pin
+    native model code the CLI is never told about -- a retired spelling with
+    no native successor for qwen, an unverifiable flag for the two CLIs that
+    are not installed here (see
+    ``aragora.agents.cli_agents.CLIAgent.SENDS_MODEL_ON_WIRE``). They keep
+    the requested pin
     (pricing, fallback and the registry all need it) but declare
     ``metadata["model_pinned_on_wire"] = False``, and the collector then
     reports the served model as unknown.
