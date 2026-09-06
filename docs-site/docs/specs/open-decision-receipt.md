@@ -194,7 +194,7 @@ every stored receipt and is out of scope for v0.1.
 
 ### 4.10 v0.2 optional members
 
-These additions preserve the meaning and required-ness of every v0.1 member.
+These additions preserve the meaning and required-ness of every v0.1 member; every row below is optional in a v0.2 document. Inside the five `object` rows (`quorum.verdicts[]`, `quorum.rule`, `quorum.dissent.findings[]`, `adjudication`, `reasoning.observations[]`) a `?` suffix (or the word optional) marks a sub-member an emitter may omit, and a conforming emitter writes every other listed sub-member whenever it writes that object (§8, rule 5). This revision's schema and verifiers do not yet enforce that completeness: an object lacking such a sub-member, or an `adjudication` carrying a `status` member, is schema-valid here and neither verifier rejects it; `required` arrays for those five shapes (`adjudication`: `kind`, `verdict`, `reason`, no `status`) and the matching verifier checks follow in the next revision of this staged rollout (§9.5).
 
 | Member | Parent | Type | Meaning |
 |---|---|---|---|
@@ -310,7 +310,7 @@ An emitter conforms to ODR v0.1 or v0.2 iff:
    be absent is non-conformant even if schema-valid;
 3. hashing and signing use the JCS basis of §5;
 4. `signatures` is `[]` and `routing.status` is `"reserved"`.
-5. it writes no §4.10 member into a v0.1 document and no member outside §2 and §4.10 into a v0.2 document — non-conformant even if schema-valid in this revision (verifier-side rejection follows, §4.10).
+5. it writes no §4.10 member into a v0.1 document, no member outside §2 and §4.10 into a v0.2 document, and every non-`?` sub-member of each §4.10 `object` row it writes — non-conformant even if schema-valid in this revision (verifier-side rejection follows, §4.10).
 
 A verifier conforms iff it validates the schema, recomputes `odr_digest` from
 JCS bytes, and treats `"undisclosed"`/absent markers as *weakening* rather
