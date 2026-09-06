@@ -867,6 +867,22 @@ class TestAntigravityAgent:
         monkeypatch.setenv("ARAGORA_ANTIGRAVITY_BIN", "/custom/path/agy")
         assert _resolve_antigravity_bin() == "/custom/path/agy"
 
+    def test_resolve_effort_defaults_to_medium(self, monkeypatch):
+        from aragora.agents.cli_agents import (
+            ANTIGRAVITY_DEFAULT_EFFORT,
+            _resolve_antigravity_effort,
+        )
+
+        monkeypatch.delenv("ARAGORA_ANTIGRAVITY_EFFORT", raising=False)
+        assert ANTIGRAVITY_DEFAULT_EFFORT == "medium"
+        assert _resolve_antigravity_effort() == "medium"
+
+    def test_resolve_effort_honors_override(self, monkeypatch):
+        from aragora.agents.cli_agents import _resolve_antigravity_effort
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_EFFORT", "high")
+        assert _resolve_antigravity_effort() == "high"
+
     def test_generate_invokes_agy_print_mode(self):
         import os
         from unittest.mock import patch
@@ -887,6 +903,30 @@ class TestAntigravityAgent:
         assert cmd[0] != "agy"
         assert "-p" in cmd
         assert cmd[-1] == "review this PR"
+        # `agy --model <id>` requires a companion `--effort` flag or the
+        # call errors and silently falls back to OpenRouter (finding on
+        # #9989 wave 6).
+        assert cmd[1:5] == ["--model", "gemini-3.5-flash", "--effort", "medium"]
+
+    def test_generate_stdin_path_also_carries_effort(self):
+        """The large-prompt (stdin) branch is a separate command array and
+        would be the half a partial fix missed."""
+        from unittest.mock import patch
+
+        from aragora.agents.cli_agents import AntigravityAgent
+
+        agent = AntigravityAgent(
+            name="agy-test",
+            model="gemini-3.5-flash",
+            enable_fallback=False,
+            enable_circuit_breaker=False,
+        )
+        huge = "x" * (1024 * 1024)
+        with patch.object(agent, "_run_cli", new=AsyncMock(return_value="OK")) as m:
+            asyncio.run(agent.generate(huge))
+        cmd = m.call_args.args[0]
+        assert cmd[1:5] == ["--model", "gemini-3.5-flash", "--effort", "medium"]
+        assert cmd[-2:] == ["-p", "-"]
 
 
 class TestKimiCLIAgent:

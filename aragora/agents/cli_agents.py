@@ -1204,6 +1204,20 @@ def _resolve_antigravity_bin() -> str:
     return resolved
 
 
+# `agy --model <id>` requires a companion `--effort` flag (low|medium|high) --
+# without it every antigravity invocation errors and silently falls back to
+# OpenRouter. "medium" is the conventional default; surfaced as an env
+# override (mirrors ARAGORA_ANTIGRAVITY_BIN above) so operators can trade
+# cost for quality without a code change.
+ANTIGRAVITY_DEFAULT_EFFORT = "medium"
+
+
+def _resolve_antigravity_effort() -> str:
+    """Resolve the Antigravity CLI's ``--effort`` value (low|medium|high)."""
+    override = os.environ.get("ARAGORA_ANTIGRAVITY_EFFORT", "").strip()
+    return override or ANTIGRAVITY_DEFAULT_EFFORT
+
+
 @AgentRegistry.register(
     "grok-build",
     default_model="grok-build",
@@ -1271,6 +1285,10 @@ class AntigravityAgent(CLIAgent):
         base_command = [agy_bin]
         if self.model:
             base_command += ["--model", self.model]
+            # `agy --model <id>` requires `--effort` alongside it (verified
+            # against `agy --help`); omitting it makes every antigravity call
+            # error and fall back to OpenRouter.
+            base_command += ["--effort", _resolve_antigravity_effort()]
         if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
                 [*base_command, "-p", "-"],
