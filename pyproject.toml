@@ -80,6 +80,12 @@ dependencies = [
     # scripts/ci_install_project.sh, which already side-loads it in CI (the
     # reason this gap never surfaced there).
     "defusedxml>=0.7,<1.0",
+    # Ed25519 receipt signing (aragora/gauntlet/odr_signing.py) and AES-GCM
+    # encryption import this lazily, so a plain install could still reach a
+    # configured signing key and then fail. Declared in base so the documented
+    # `ARAGORA_ODR_SIGNING_KEY_FILE` path works from `pip install aragora`,
+    # with the same GHSA-537c-gmf6-5ccf floor as the uv constraint below.
+    "cryptography>=48.0.1,<51.0",
 ]
 
 [project.scripts]

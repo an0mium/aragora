@@ -28,6 +28,9 @@ _BASE_FLOORS: dict[str, tuple[int, ...]] = {
     "websockets": (13, 0),
     "pyyaml": (6, 0, 3),
     "pydantic": (2, 13, 4),
+    # Ed25519 receipt signing + AES-GCM are lazy imports; the floor is the
+    # GHSA-537c-gmf6-5ccf fix, matching [tool.uv] constraint-dependencies.
+    "cryptography": (48, 0, 1),
 }
 
 
