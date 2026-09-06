@@ -252,6 +252,24 @@ class CLIAgent(CritiqueMixin, Agent):
     # family (kilocode, which brokers several providers) leaves it empty.
     MODEL_FAMILY: str = ""
 
+    # Does this class put ``self.model`` on the CLI's command line?
+    #
+    # False for a CLI this PR could not pin: one with no verified model flag
+    # (qwen-cli, deepseek-cli, the opt-in kimi-cli -- none of the three is
+    # installed on the machine this branch was built on, so no flag could be
+    # verified rather than guessed), one whose registry "model" names the CLI
+    # product rather than a model (grok-build), and one that sends a broker's
+    # provider id instead (kilocode). Such an agent still CARRIES its
+    # requested model -- pricing, fallback and the registry all need it --
+    # but the CLI answers from its own default, so nothing may attribute the
+    # output to that id. Recorded per instance as
+    # ``metadata["model_pinned_on_wire"]`` and read by
+    # ``aragora.debate.orchestrator_runner.collect_served_models``, which
+    # reports the served model as "unknown (CLI default)" rather than letting
+    # a receipt claim a model the CLI never received (wave-6 ruling, agents,
+    # on #9989).
+    SENDS_MODEL_ON_WIRE: bool = True
+
     def __init__(
         self,
         name: str,
@@ -265,6 +283,10 @@ class CLIAgent(CritiqueMixin, Agent):
     ):
         super().__init__(name, model, role)
         self.timeout = timeout
+        # Agent-level metadata other subsystems read by duck-typing (see
+        # aragora/debate/team_selector.py). ``model_pinned_on_wire`` says
+        # whether ``self.model`` reached the CLI -- see SENDS_MODEL_ON_WIRE.
+        self.metadata: dict[str, Any] = {"model_pinned_on_wire": self.SENDS_MODEL_ON_WIRE}
         # Use config setting if not explicitly provided
         if enable_fallback is None:
             from aragora.agents.fallback import get_default_fallback_enabled
@@ -1009,6 +1031,9 @@ class KiloCodeAgent(CLIAgent):
                 continue
         return "\n\n".join(responses) if responses else output
 
+    # self.model never reaches this CLI -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = False
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using kilocode CLI with codebase access.
 
@@ -1182,6 +1207,9 @@ class GrokBuildAgent(CLIAgent):
 
     MODEL_FAMILY = "xai"
 
+    # self.model never reaches this CLI -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = False
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Grok Build CLI (``--no-plan`` headless single-shot)."""
         full_prompt = self._build_full_prompt(prompt, context)
@@ -1257,6 +1285,9 @@ class KimiCLIAgent(CLIAgent):
 
     MODEL_FAMILY = "moonshot"
 
+    # self.model never reaches this CLI -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = False
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Kimi CLI (invocation unverified — see class docstring)."""
         full_prompt = self._build_full_prompt(prompt, context)
@@ -1324,6 +1355,9 @@ class QwenCLIAgent(CLIAgent):
 
     MODEL_FAMILY = "qwen"
 
+    # self.model never reaches this CLI -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = False
+
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using qwen CLI.
 
@@ -1364,6 +1398,9 @@ class DeepseekCLIAgent(CLIAgent):
     """
 
     MODEL_FAMILY = "deepseek"
+
+    # self.model never reaches this CLI -- see SENDS_MODEL_ON_WIRE.
+    SENDS_MODEL_ON_WIRE = False
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using deepseek CLI.

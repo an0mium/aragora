@@ -1800,3 +1800,77 @@ class TestServedModelsReachTheResultMetadata:
 
         assert execution_state.ctx.result.metadata["pre_existing"] == "keep me"
         assert "served_models" in execution_state.ctx.result.metadata
+
+
+class TestUnpinnedCLIAgentsAreNotAttributedAModel:
+    """A CLI that never received ``self.model`` must not have its output
+    attributed to it (wave-6 ruling, agents, on #9989).
+
+    ``qwen-cli``, ``deepseek-cli`` and the opt-in ``kimi-cli`` each carry a
+    native model code the CLI is never told about -- none of the three CLIs
+    is installed on the machine this branch was built on, so no model flag
+    could be verified rather than guessed. They keep the requested pin
+    (pricing, fallback and the registry all need it) but declare
+    ``metadata["model_pinned_on_wire"] = False``, and the collector then
+    reports the served model as unknown.
+    """
+
+    @staticmethod
+    def _cli_agent(registry_name: str, attr: str, model: str):
+        import os
+        from unittest.mock import patch as _patch
+
+        with _patch.dict(os.environ, {"ARAGORA_ENABLE_KIMI_CLI": "1"}):
+            import aragora.agents.cli_agents as cli_agents
+
+            return getattr(cli_agents, attr)(name=registry_name, model=model)
+
+    @pytest.mark.parametrize(
+        ("registry_name", "attr", "model"),
+        [
+            ("qwen-cli", "QwenCLIAgent", "qwen3-coder"),
+            ("deepseek-cli", "DeepseekCLIAgent", "deepseek-v4-pro"),
+            ("kimi-cli", "KimiCLIAgent", "kimi-k2"),
+        ],
+    )
+    def test_agent_records_that_the_pin_never_reached_the_wire(
+        self, registry_name: str, attr: str, model: str
+    ) -> None:
+        from aragora.debate.orchestrator_runner import (
+            UNKNOWN_CLI_DEFAULT_MODEL,
+            collect_served_models,
+        )
+
+        agent = self._cli_agent(registry_name, attr, model)
+        # The requested pin is still carried -- only the CLAIM about the wire
+        # changes.
+        assert agent.model == model
+        assert agent.metadata["model_pinned_on_wire"] is False
+        assert collect_served_models([agent]) == {
+            registry_name: {"requested": model, "served": UNKNOWN_CLI_DEFAULT_MODEL}
+        }
+        assert UNKNOWN_CLI_DEFAULT_MODEL != model
+
+    def test_a_cli_that_does_pin_its_model_is_untouched(self) -> None:
+        """The four CLIs wave 5 pinned still report nothing: their model DID
+        reach the command line, so there is no discrepancy to record."""
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        agent = self._cli_agent("codex", "CodexAgent", "gpt-6-astra")
+        assert agent.metadata["model_pinned_on_wire"] is True
+        assert collect_served_models([agent]) == {}
+
+    @pytest.mark.asyncio
+    async def test_the_unknown_marker_reaches_the_result_metadata(
+        self, mock_arena, execution_state
+    ) -> None:
+        from aragora.debate.orchestrator_runner import UNKNOWN_CLI_DEFAULT_MODEL
+
+        mock_arena.agents = [self._cli_agent("qwen-cli", "QwenCLIAgent", "qwen3-coder")]
+        execution_state.ctx.result.metadata = {}
+
+        await handle_debate_completion(mock_arena, execution_state)
+
+        assert execution_state.ctx.result.metadata["served_models"] == {
+            "qwen-cli": {"requested": "qwen3-coder", "served": UNKNOWN_CLI_DEFAULT_MODEL}
+        }

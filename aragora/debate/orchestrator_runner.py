@@ -1352,21 +1352,48 @@ def record_debate_metrics(
     arena._track_circuit_breaker_metrics()
 
 
+#: What ``collect_served_models`` records for an agent whose requested model
+#: was never put on the wire: the CLI answered from its own default and
+#: nothing in this process can name it. Deliberately not a model id -- a
+#: receipt must be able to say "unknown", not guess (wave-6 ruling, agents,
+#: on #9989).
+UNKNOWN_CLI_DEFAULT_MODEL = "unknown (CLI default)"
+
+
 def collect_served_models(agents: "Sequence[Any]") -> dict[str, dict[str, str]]:
     """``{agent name: {"requested": id, "served": id}}`` for every agent whose
-    provider answered with a model OTHER than the one requested.
+    answer did not come from the requested model.
 
-    An agent records ``last_served_model`` only for the differing case (it is
-    ``None`` when the server answered as asked), so an empty result here
-    means every agent answered with the id the debate pinned. Agents that do
-    not implement the property at all -- every non-Anthropic agent today --
-    are skipped, not guessed at.
+    Two ways that happens:
+
+    * the provider answered with a DIFFERENT model. An agent records
+      ``last_served_model`` only for that case (it is ``None`` when the
+      server answered as asked), and agents that do not implement the
+      property at all -- every non-Anthropic agent today -- are skipped,
+      not guessed at.
+    * the requested model never reached the provider in the first place. A
+      CLI agent whose command builder does not put ``self.model`` on the
+      command line answers from the CLI's own default, so the served model
+      is ``UNKNOWN_CLI_DEFAULT_MODEL``; the agent flags that as
+      ``metadata["model_pinned_on_wire"] = False`` (see
+      ``aragora.agents.cli_agents.CLIAgent.SENDS_MODEL_ON_WIRE``). Without
+      this branch a receipt attributed the output to a model code the CLI
+      never received.
     """
     served_models: dict[str, dict[str, str]] = {}
     for agent in agents:
-        served = getattr(agent, "last_served_model", None)
         requested = getattr(agent, "model", None)
-        if isinstance(served, str) and served and isinstance(requested, str) and requested:
+        if not isinstance(requested, str) or not requested:
+            continue
+        metadata = getattr(agent, "metadata", None)
+        if isinstance(metadata, dict) and metadata.get("model_pinned_on_wire") is False:
+            served_models[agent.name] = {
+                "requested": requested,
+                "served": UNKNOWN_CLI_DEFAULT_MODEL,
+            }
+            continue
+        served = getattr(agent, "last_served_model", None)
+        if isinstance(served, str) and served:
             served_models[agent.name] = {"requested": requested, "served": served}
     return served_models
 

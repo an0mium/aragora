@@ -662,6 +662,72 @@ class TestRefreshedCLIAgentsPinTheirModel:
         )
 
 
+class TestUnpinnedCLIAgentsDoNotClaimTheirModel:
+    """An agent whose model never reaches the CLI must say so.
+
+    qwen-cli, deepseek-cli and the opt-in kimi-cli each carry a native model
+    code the CLI is never told about -- none of the three CLIs is installed
+    on the machine this branch was built on, so no model flag could be
+    verified rather than guessed. They keep the requested pin, because
+    pricing, fallback and the registry all need it, and declare
+    ``metadata["model_pinned_on_wire"] = False`` so nothing downstream
+    attributes the answer to a model the CLI never received (wave-6 ruling,
+    agents, on #9989).
+    """
+
+    @pytest.mark.parametrize(
+        ("attr", "model"),
+        [
+            ("QwenCLIAgent", "qwen3-coder"),
+            ("DeepseekCLIAgent", "deepseek-v4-pro"),
+            ("KimiCLIAgent", "kimi-k2"),
+        ],
+    )
+    def test_unpinned_agent_flags_the_missing_wire_pin(self, attr, model):
+        import aragora.agents.cli_agents as cli_agents
+
+        agent = getattr(cli_agents, attr)(name=f"{attr}-test", model=model)
+        assert agent.model == model, "the requested pin must still be carried"
+        assert agent.metadata["model_pinned_on_wire"] is False
+
+    @pytest.mark.parametrize(
+        "attr",
+        sorted(attr for attr, _flag in TestRefreshedCLIAgentsPinTheirModel.CASES.values()),
+    )
+    def test_a_pinned_agent_claims_its_wire_pin(self, attr):
+        import aragora.agents.cli_agents as cli_agents
+
+        agent = getattr(cli_agents, attr)(name=f"{attr}-test", model="pinned-model-x")
+        assert agent.metadata["model_pinned_on_wire"] is True
+
+    def test_the_wire_claim_agrees_with_the_command_builders(self):
+        """The claim and the exemption list are two statements of one fact.
+
+        ``TestRefreshedCLIAgentsPinTheirModel.NO_WIRE_MODEL`` is proven
+        against the actual command arrays there; this asserts the class
+        attribute never drifts from it, so a future builder that starts (or
+        stops) sending its model cannot leave the metadata lying.
+        """
+        import aragora.agents.cli_agents as cli_agents
+        from aragora.agents.registry import AgentRegistry
+
+        exempt = TestRefreshedCLIAgentsPinTheirModel.NO_WIRE_MODEL
+        mismatched = []
+        for name, spec in sorted(AgentRegistry._registry.items()):
+            if getattr(spec, "agent_type", None) != "CLI":
+                continue
+            cls = getattr(spec, "agent_class", None)
+            if cls is None or cls.__module__ != cli_agents.__name__:
+                continue
+            expected = name not in exempt
+            if cls.SENDS_MODEL_ON_WIRE is not expected:
+                mismatched.append(f"{name}: SENDS_MODEL_ON_WIRE={cls.SENDS_MODEL_ON_WIRE}")
+        assert not mismatched, (
+            "SENDS_MODEL_ON_WIRE disagrees with the proven NO_WIRE_MODEL set: "
+            + ", ".join(mismatched)
+        )
+
+
 class TestGeminiCLIAgent:
     """Test GeminiCLIAgent implementation."""
 
