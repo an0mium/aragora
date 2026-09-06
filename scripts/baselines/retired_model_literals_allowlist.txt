@@ -253,3 +253,66 @@ docs/status/generated/worktree_value_inventory/worktree-value-inventory-20260518
 # itself, which intentionally names retired ids while documenting them.
 docs/superpowers/plans/2026-09-04-frontier-model-refresh.md
 docs/superpowers/specs/2026-09-04-frontier-model-refresh-design.md
+
+# frozen historical records (2026-09-05 sweep)
+#
+# Hand-added (not part of the git-ls-files recipe above). Each of these is
+# a record of something that ALREADY HAPPENED, so rewriting the model id it
+# names falsifies the record rather than modernising a live reference:
+#   - signed/hashed decision receipts and their fixtures (artifact_hash,
+#     content_hash, Ed25519 signatures, sha256/hmac_sha256 digests);
+#   - verbatim captures of a real run (dogfood raw reviews and spend
+#     ledger, heterogeneity/observe-outcomes receipts, dated session
+#     journals and status receipts, the gemini reviewer-reliability
+#     record, the m-signal learnings file's "verified live <date>" note);
+#   - dated plan/spec documents under docs/plans/ that record what was
+#     proposed and run at the time;
+#   - docs/superpowers/plans/ (explicitly protected);
+#   - tests/heterogeneity/probe_prompts/, whose whole design is a seeded
+#     model-name mismatch a sweep would silently repair.
+docs/case-studies/dogfood/2026-07-DOGFOOD.md
+docs/case-studies/dogfood/raw-reviews/pr-9027-reviewers.json
+docs/case-studies/dogfood/raw-reviews/pr-9030-reviewers.json
+docs/case-studies/dogfood/raw-reviews/pr-9056-reviewers.json
+docs/case-studies/dogfood/raw-reviews/pr-9062-reviewers.json
+docs/case-studies/dogfood/raw-reviews/pr-9193-reviewers.json
+docs/case-studies/dogfood/spend-ledger.json
+docs/compliance/bundles/2026-07-eu-ai-act/packaging-8263.signed-local.odr.json
+docs/compliance/bundles/2026-07-eu-ai-act/receipts/2026-06-22-packaging-decision-8263.receipt.json
+docs/compliance/bundles/2026-07-eu-ai-act/receipts/2026-07-27-crux-cards-scoring-decision.receipt.json
+docs/compliance/fixtures/sample_decision_receipt.json
+docs/compliance/fixtures/sample_decision_receipt.odr.json
+docs/elves/m-signal-9241/learnings.md
+docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md
+docs/plans/2026-03-05-next-roadmap-items-plan.md
+docs/plans/2026-03-06-openrouter-inbox-dogfood-plan.md
+docs/plans/2026-03-06-real-debates-everywhere-design.md
+docs/plans/2026-03-06-real-debates-everywhere.md
+docs/plans/2026-04-16-crux-mode-design.md
+docs/plans/2026-04-17-trust-compound-plan.md
+docs/plans/2026-04-19-pdb-packet-addendum.md
+docs/plans/2026-04-19-pr-intelligence-brief-addendum.md
+docs/plans/2026-04-20-pdb-brief-generation-mode3-design.md
+docs/plans/2026-04-21-agent-bridge-cli-resume-transport.md
+docs/plans/2026-04-21-agent-bridge-pr2-scoping.md
+docs/plans/2026-04-28-evolution-round-debate-receipt.json
+docs/plans/2026-04-28-evolution-round-debate-summary.md
+docs/plans/2026-04-29-refined-round-briefing.md
+docs/plans/2026-04-30f-round-spec.md
+docs/plans/DOGFOOD_SELF_IMPROVEMENT_SPEC.md
+docs/plans/dogfood-run-001-spec.md
+docs/plans/dogfood-run-002-context-engineering-spec.md
+docs/receipts/heterogeneity/beta-live-rerun-calibrated-20260501T0125Z.receipt.json
+docs/receipts/observe-outcomes/2026-05-13-three-model-verification-dialog.jsonl
+docs/receipts/paused-writer-remediation-20260517T013316Z.json
+docs/specs/examples/example-decision-receipt.odr.json
+docs/status/AGENT_FANOUT_JOURNAL.md
+docs/status/EXTERNAL_PROOF_2026-06-18.md
+docs/status/P20-model-pins-frontier-aligned_RECEIPT_droid-F473CDBF.md
+docs/status/STRUCTURAL_UNJAM_PATH_claude-1843EC1A.md
+docs/superpowers/plans/2026-03-18-ralph-hardening-and-kernel-unification.md
+docs/superpowers/plans/2026-03-19-tranche-orchestration.md
+tests/heterogeneity/probe_prompts/correlated_priming/08_domain_codex_model_flag.md
+tests/heterogeneity/probe_prompts/correlated_priming/10_confidence_brier_priors.md
+tests/heterogeneity/probe_prompts/single_seeded_error/08_codex_model_flag.md
+tests/heterogeneity/probe_prompts/single_seeded_error/10_brier_agent_priors.md
