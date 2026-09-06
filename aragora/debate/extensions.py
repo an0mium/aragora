@@ -404,7 +404,9 @@ class ArenaExtensions:
             # The model that ACTUALLY answered -- see billing_model on
             # APIAgent; falls through to agent.model for every agent that
             # cannot observe a server-side model swap (finding C-P3 on #9989).
-            model = getattr(agent, "billing_model", None) or getattr(agent, "model", "unknown")
+            model = (
+                getattr(agent, "billing_model", None) or getattr(agent, "model", None) or "unknown"
+            )
 
             # Create usage record
             usage = TokenUsage(

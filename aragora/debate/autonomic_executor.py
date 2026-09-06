@@ -246,8 +246,8 @@ class AutonomicExecutor:
             # on #9989). ``billing_model`` is ``self.model`` for every agent
             # that cannot tell the difference.
             model = (
-                getattr(agent, "billing_model", None) or getattr(agent, "model", "unknown")
-            ) or "unknown"
+                getattr(agent, "billing_model", None) or getattr(agent, "model", None) or "unknown"
+            )
             agent_name = getattr(agent, "name", str(agent))
 
             self._debate_cost_tracker.record_agent_call(
