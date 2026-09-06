@@ -276,7 +276,6 @@ DEP004 = [
 
 [tool.ruff]
 line-length = 100
-exclude = ["aragora-debate*", "aragora-verify*"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -1155,9 +1154,6 @@ module = [
     "aragora.workflow.schema",
     "aragora.workflow.templates.self_development",
     "aragora.workspace.refinery",
-    "aragora_debate._mock",
-    "aragora_debate.styled_mock",
-    "aragora_verify.verifier",
     "scripts._dogfood_evolution_round_debate",
     "scripts._dogfood_evolution_round_gauntlet",
     "scripts._tighten_knowledge_exceptions",

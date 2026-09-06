@@ -1,7 +1,7 @@
 {
   "tool": "mypy-overrides",
   "version": 1,
-  "generated_at": "2026-09-05T21:48:43Z",
+  "generated_at": "2026-09-06T06:56:45Z",
   "findings": {
     "pyproject.toml::aragora.__main__::disallow_untyped_defs": 1,
     "pyproject.toml::aragora.agents.api_agents.rate_limiter::disallow_untyped_defs": 1,
@@ -740,9 +740,6 @@
     "pyproject.toml::aragora.workflow.schema::disallow_untyped_defs": 1,
     "pyproject.toml::aragora.workflow.templates.self_development::disallow_untyped_defs": 1,
     "pyproject.toml::aragora.workspace.refinery::disallow_untyped_defs": 1,
-    "pyproject.toml::aragora_debate._mock::disallow_untyped_defs": 1,
-    "pyproject.toml::aragora_debate.styled_mock::disallow_untyped_defs": 1,
-    "pyproject.toml::aragora_verify.verifier::disallow_untyped_defs": 1,
     "pyproject.toml::scripts._dogfood_evolution_round_debate::disallow_untyped_defs": 1,
     "pyproject.toml::scripts._dogfood_evolution_round_gauntlet::disallow_untyped_defs": 1,
     "pyproject.toml::scripts._tighten_knowledge_exceptions::disallow_untyped_defs": 1,

@@ -71,3 +71,30 @@ packages = ["src/aragora_debate"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910", "S101", "N", "C901"]
+# Ruff's local select resets inherited ignores; retain the root policy.
+ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"src/aragora_debate/__main__.py" = ["T201"]
+# Internal config invariants and executable examples intentionally assert.
+"src/aragora_debate/arena.py" = ["S101"]
+"tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]
+"examples/*" = ["T201", "BLE001", "S101"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[[tool.mypy.overrides]]
+# Provider SDKs are optional extras, absent in a standalone dev install.
+module = ["anthropic", "anthropic.*", "openai", "openai.*", "mistralai", "mistralai.*", "google", "google.genai", "google.genai.*"]
+ignore_missing_imports = true

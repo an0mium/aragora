@@ -22,7 +22,7 @@ import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, cast
 
 from aragora_debate.types import Agent, Critique, Message, Vote
 
@@ -75,21 +75,21 @@ def _parse_json_from_text(text: str) -> dict[str, Any]:
     """Extract a JSON object from LLM output that may contain markdown fences."""
     # Try direct parse first
     try:
-        return json.loads(text)
+        return cast(dict[str, Any], json.loads(text))
     except json.JSONDecodeError:
         pass
     # Strip markdown code fences
     match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group(1))
+            return cast(dict[str, Any], json.loads(match.group(1)))
         except json.JSONDecodeError:
             pass
     # Try to find any JSON object
     match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group(0))
+            return cast(dict[str, Any], json.loads(match.group(0)))
         except json.JSONDecodeError:
             pass
     return {}
@@ -158,7 +158,7 @@ class ClaudeAgent(Agent):
             system=system,
             messages=[{"role": "user", "content": full_prompt}],
         )
-        return msg.content[0].text
+        return cast(str, msg.content[0].text)
 
     async def critique(
         self,

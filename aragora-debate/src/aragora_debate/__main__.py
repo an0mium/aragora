@@ -16,7 +16,7 @@ import sys
 
 from aragora_debate.styled_mock import StyledMockAgent
 from aragora_debate.arena import Arena
-from aragora_debate.types import DebateConfig
+from aragora_debate.types import Agent, DebateConfig
 
 # ---------------------------------------------------------------------------
 # ANSI helpers (no external deps)
@@ -53,13 +53,13 @@ def _header(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _run_demo(
+async def _run_demo(  # noqa: C901 - Keep the demo's ordered presentation in one place.
     topic: str,
     rounds: int,
     enable_trickster: bool = False,
     enable_convergence: bool = False,
 ) -> None:
-    agents = [
+    agents: list[Agent] = [
         StyledMockAgent("analyst", style="supportive"),
         StyledMockAgent("critic", style="critical"),
         StyledMockAgent("moderator", style="balanced"),

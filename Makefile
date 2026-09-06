@@ -454,8 +454,6 @@ readiness-test-root:
 	$(READINESS_DONE)
 
 # --- debate (aragora-debate/, src layout) -----------------------------------
-# Until M3 adds a package-local [tool.ruff], ruff falls back to the root
-# config, which excludes aragora-debate*, so this check is vacuous but green.
 readiness-lint-debate:
 	@$(READINESS_T0); \
 	command -v ruff >/dev/null 2>&1 || { echo "SKIP debate: ruff not found (put .venv/bin on PATH)"; exit 0; }; \
@@ -463,7 +461,11 @@ readiness-lint-debate:
 	$(READINESS_DONE)
 
 readiness-typecheck-debate:
-	@echo "SKIP debate: strict mypy lands in M3 (non-strict mypy has 15 errors at mission-base)"
+	@$(READINESS_T0); \
+	command -v mypy >/dev/null 2>&1 || { echo "SKIP debate: mypy not found (put .venv/bin on PATH)"; exit 0; }; \
+	[ "$$(mypy --version | awk '{print $$2}')" = "2.1.0" ] || { echo "readiness-typecheck-debate: mypy 2.1.0 required (CI pin; put .venv/bin on PATH)"; exit 1; }; \
+	cd aragora-debate && mypy --strict src && \
+	$(READINESS_DONE)
 
 readiness-test-debate:
 	@$(READINESS_T0); \
@@ -481,7 +483,8 @@ readiness-lint-verify:
 readiness-typecheck-verify:
 	@$(READINESS_T0); \
 	command -v mypy >/dev/null 2>&1 || { echo "SKIP verify: mypy not found (put .venv/bin on PATH)"; exit 0; }; \
-	cd aragora-verify && mypy src --ignore-missing-imports && \
+	[ "$$(mypy --version | awk '{print $$2}')" = "2.1.0" ] || { echo "readiness-typecheck-verify: mypy 2.1.0 required (CI pin; put .venv/bin on PATH)"; exit 1; }; \
+	cd aragora-verify && mypy --strict src && \
 	$(READINESS_DONE)
 
 readiness-test-verify:
