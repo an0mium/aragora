@@ -911,11 +911,11 @@ class TestOutputChannelRouting:
             mock_session.post = MagicMock(
                 return_value=MagicMock(
                     __aenter__=AsyncMock(return_value=mock_response),
-                    __aexit__=AsyncMock(),
+                    __aexit__=AsyncMock(return_value=False),
                 )
             )
             mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session_class.return_value.__aexit__ = AsyncMock()
+            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             await routing_handler._send_to_webhook(channel, result)
 

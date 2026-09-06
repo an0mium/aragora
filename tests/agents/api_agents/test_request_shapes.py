@@ -277,36 +277,26 @@ def test_anthropic_refusal_fallback_not_applied_to_other_models() -> None:
 def test_anthropic_stop_reason_refusal_raises_structured_error() -> None:
     import asyncio
 
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import patch
 
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from aragora.agents.errors.exceptions import AgentAPIError
+    from tests.utils.aiohttp_mocks import make_mock_client_session, make_mock_response
 
     agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
 
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.json = AsyncMock(
-        return_value={
+    # The helpers pin __aexit__ falsy; a bare AsyncMock there would tell the
+    # `async with` protocol to suppress the raise and return None instead.
+    mock_response = make_mock_response(
+        status=200,
+        json_data={
             "content": [],
             "stop_reason": "refusal",
             "stop_details": {"category": "cyber"},
             "usage": {"input_tokens": 1, "output_tokens": 0},
-        }
+        },
     )
-
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    # __aexit__ must return a falsy value: a Mock's default truthy return
-    # would tell the `async with` protocol to suppress any exception raised
-    # inside the block, silently turning our raise into a `None` return.
-    mock_session.__aexit__ = AsyncMock(return_value=False)
-    mock_session.post = MagicMock(
-        return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        )
-    )
+    mock_session = make_mock_client_session(mock_response)
 
     with patch("aiohttp.ClientSession", return_value=mock_session):
         with pytest.raises(AgentAPIError) as excinfo:
@@ -329,36 +319,27 @@ def test_anthropic_refusal_records_exactly_one_breaker_failure() -> None:
     """
     import asyncio
 
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import patch
 
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from aragora.agents.errors.exceptions import AgentAPIError
+    from tests.utils.aiohttp_mocks import make_mock_client_session, make_mock_response
 
     agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
     breaker = agent._circuit_breaker
     assert breaker is not None
     before = breaker.failures
 
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.json = AsyncMock(
-        return_value={
+    mock_response = make_mock_response(
+        status=200,
+        json_data={
             "content": [],
             "stop_reason": "refusal",
             "stop_details": {"category": "cyber"},
             "usage": {"input_tokens": 1, "output_tokens": 0},
-        }
+        },
     )
-
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
-    mock_session.post = MagicMock(
-        return_value=MagicMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        )
-    )
+    mock_session = make_mock_client_session(mock_response)
 
     with patch("aiohttp.ClientSession", return_value=mock_session):
         with pytest.raises(AgentAPIError) as excinfo:
@@ -403,11 +384,12 @@ def test_anthropic_stream_refusal_raises_after_yielding_partial_text() -> None:
     single JSON body) must raise the same structured AgentAPIError generate()
     raises, after any text already streamed."""
     import asyncio
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import patch
 
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from aragora.agents.errors.exceptions import AgentAPIError
     from tests.agents.api_agents.conftest import MockStreamResponse
+    from tests.utils.aiohttp_mocks import make_mock_client_session
 
     agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
     agent.enable_web_search = False
@@ -428,10 +410,7 @@ def test_anthropic_stream_refusal_raises_after_yielding_partial_text() -> None:
         async for chunk in agent.generate_stream("hello"):
             yielded.append(chunk)
 
-    mock_session = MagicMock()
-    mock_session.post = MagicMock(return_value=mock_response)
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session = make_mock_client_session(mock_response)
 
     with patch(
         "aragora.agents.api_agents.anthropic.create_client_session",
@@ -448,10 +427,11 @@ def test_anthropic_stream_refusal_raises_after_yielding_partial_text() -> None:
 def test_anthropic_stream_end_turn_yields_full_text_without_error() -> None:
     """A normal (non-refusal) stream must not raise and must yield all text."""
     import asyncio
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import patch
 
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from tests.agents.api_agents.conftest import MockStreamResponse
+    from tests.utils.aiohttp_mocks import make_mock_client_session
 
     agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
     agent.enable_web_search = False
@@ -473,10 +453,7 @@ def test_anthropic_stream_end_turn_yields_full_text_without_error() -> None:
         async for chunk in agent.generate_stream("hello"):
             yielded.append(chunk)
 
-    mock_session = MagicMock()
-    mock_session.post = MagicMock(return_value=mock_response)
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session = make_mock_client_session(mock_response)
 
     with patch(
         "aragora.agents.api_agents.anthropic.create_client_session",
