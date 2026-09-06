@@ -24,7 +24,7 @@ const mockCruxes = [
   {
     claim_id: 'crux-001',
     statement: 'AI alignment requires formal verification methods',
-    author: 'claude-3-opus',
+    author: 'claude-fable-5-1',
     crux_score: 0.856,
     centrality: 0.42,
     entropy: 0.75,
@@ -38,7 +38,7 @@ const mockCruxes = [
   {
     claim_id: 'crux-002',
     statement: 'Interpretability is key to safe AI deployment',
-    author: 'gemini-2.0-flash',
+    author: 'gemini-3.8-flash',
     crux_score: 0.723,
     centrality: 0.35,
     entropy: 0.62,
@@ -55,13 +55,13 @@ const mockLoadBearingClaims = [
   {
     claim_id: 'lb-001',
     statement: 'Current AI systems lack robust goal stability',
-    author: 'claude-3-opus',
+    author: 'claude-fable-5-1',
     centrality: 0.55,
   },
   {
     claim_id: 'lb-002',
     statement: 'Value learning is tractable with sufficient oversight',
-    author: 'gpt-4',
+    author: 'gpt-6-astra',
     centrality: 0.38,
   },
 ];
@@ -242,8 +242,8 @@ describe('CruxPanel', () => {
       fireEvent.click(screen.getByText('ANALYZE'));
 
       await waitFor(() => {
-        expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-        expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
+        expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
       });
     });
 

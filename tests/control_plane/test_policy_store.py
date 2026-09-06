@@ -74,7 +74,7 @@ def sample_policy() -> ControlPlanePolicy:
         task_types=["debate", "analysis"],
         capabilities=["reasoning"],
         workspaces=["ws-1"],
-        agent_allowlist=["claude-3-opus", "gpt-4"],
+        agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
         agent_blocklist=["gpt-3.5-turbo"],
         enforcement_level=EnforcementLevel.HARD,
         enabled=True,
@@ -211,7 +211,7 @@ class TestCreatePolicy:
         assert retrieved.task_types == ["debate", "analysis"]
         assert retrieved.capabilities == ["reasoning"]
         assert retrieved.workspaces == ["ws-1"]
-        assert retrieved.agent_allowlist == ["claude-3-opus", "gpt-4"]
+        assert retrieved.agent_allowlist == ["claude-fable-5-1", "gpt-6-astra"]
         assert retrieved.agent_blocklist == ["gpt-3.5-turbo"]
 
     def test_create_policy_with_constraints(

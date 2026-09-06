@@ -329,7 +329,7 @@ class TestUsageTokens:
     def test_by_agent_data_included(self, handler):
         """by_agent data from cost tracker is passed through."""
         tracker = _make_cost_tracker(
-            cost_by_agent={"claude": "80.00", "gpt-4": "45.00"},
+            cost_by_agent={"claude": "80.00", "gpt-6-astra": "45.00"},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",
@@ -341,12 +341,12 @@ class TestUsageTokens:
             )
 
         body = _body(result)
-        assert body["by_agent"] == {"claude": "80.00", "gpt-4": "45.00"}
+        assert body["by_agent"] == {"claude": "80.00", "gpt-6-astra": "45.00"}
 
     def test_by_model_data_included(self, handler):
         """by_model data from cost tracker is passed through."""
         tracker = _make_cost_tracker(
-            cost_by_model={"claude-opus-4": "60.00"},
+            cost_by_model={"claude-fable-5-1": "60.00"},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",
@@ -358,7 +358,7 @@ class TestUsageTokens:
             )
 
         body = _body(result)
-        assert body["by_model"] == {"claude-opus-4": "60.00"}
+        assert body["by_model"] == {"claude-fable-5-1": "60.00"}
 
     def test_import_error_fallback(self, handler):
         """When cost_tracker import fails, return zeros with message."""
@@ -458,7 +458,7 @@ class TestUsageCosts:
             total_cost_usd="125.50",
             total_api_calls=150,
             cost_by_agent={"anthropic": "80.00", "openai": "45.50"},
-            cost_by_model={"claude-opus-4": "60.00", "gpt-4": "45.50"},
+            cost_by_model={"claude-fable-5-1": "60.00", "gpt-6-astra": "45.50"},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",
@@ -669,7 +669,7 @@ class TestUsageCosts:
     def test_by_model_passed_through(self, handler):
         """by_model data from cost tracker is passed through directly."""
         tracker = _make_cost_tracker(
-            cost_by_model={"claude-opus-4": {"cost": "60.00", "tokens": 400000}},
+            cost_by_model={"claude-fable-5-1": {"cost": "60.00", "tokens": 400000}},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",
@@ -681,8 +681,8 @@ class TestUsageCosts:
             )
 
         body = _body(result)
-        assert body["by_model"]["claude-opus-4"]["cost"] == "60.00"
-        assert body["by_model"]["claude-opus-4"]["tokens"] == 400000
+        assert body["by_model"]["claude-fable-5-1"]["cost"] == "60.00"
+        assert body["by_model"]["claude-fable-5-1"]["tokens"] == 400000
 
     def test_empty_cost_by_agent(self, handler):
         """Empty cost_by_agent returns empty by_provider."""

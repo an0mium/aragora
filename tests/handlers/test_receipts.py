@@ -1800,7 +1800,7 @@ class TestRenderSharedReceiptHtml:
                 "gauntlet_id": "gauntlet-001",
                 "timestamp": "2026-04-07T01:00:00Z",
                 "input_summary": "Stored proof summary",
-                "agents_involved": ["claude", "gpt-4"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "findings": [
                     {
                         "severity": "HIGH",

@@ -160,7 +160,7 @@ def three_agents():
             calibration_score=0.85,
         ),
         _make_agent(
-            "gpt-4",
+            "gpt-6-astra",
             elo=1580,
             wins=90,
             losses=50,
@@ -219,7 +219,7 @@ class TestAgentsLeaderboard:
         body = _body(result)
         # claude has calibration_score
         assert body["leaderboard"][0]["calibration_score"] == 0.85
-        # gpt-4 has calibration_score
+        # gpt-6-astra has calibration_score
         assert body["leaderboard"][1]["calibration_score"] == 0.78
         # gemini does not have calibration_score
         assert "calibration_score" not in body["leaderboard"][2]
@@ -450,7 +450,7 @@ class TestAgentPerformance:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_leaderboard.return_value = three_agents
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agent_performance("gpt-4", {})
+            result = handler._get_agent_performance("gpt-6-astra", {})
 
         body = _body(result)
         assert body["rank"] == 2
@@ -472,8 +472,8 @@ class TestAgentPerformance:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_leaderboard.return_value = three_agents
         elo_sys.get_recent_matches.return_value = [
-            {"id": "m1", "participants": ["claude", "gpt-4"]},
-            {"id": "m2", "participants": ["gpt-4", "gemini"]},
+            {"id": "m1", "participants": ["claude", "gpt-6-astra"]},
+            {"id": "m2", "participants": ["gpt-6-astra", "gemini"]},
             {"id": "m3", "participants": ["claude", "gemini"]},
         ]
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
@@ -489,7 +489,7 @@ class TestAgentPerformance:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_leaderboard.return_value = three_agents
         elo_sys.get_recent_matches.return_value = [
-            {"id": f"m{i}", "participants": ["claude", "gpt-4"]} for i in range(10)
+            {"id": f"m{i}", "participants": ["claude", "gpt-6-astra"]} for i in range(10)
         ]
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
             result = handler._get_agent_performance("claude", {})
@@ -613,11 +613,11 @@ class TestAgentsComparison:
             "total": 30,
         }
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         body = _body(result)
         assert _status(result) == 200
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
         assert len(body["comparison"]) == 2
         assert "head_to_head" in body
         assert "generated_at" in body
@@ -633,14 +633,14 @@ class TestAgentsComparison:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_head_to_head.return_value = {"a_wins": 8, "b_wins": 5, "draws": 2, "total": 15}
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         body = _body(result)
-        h2h_key = "claude_vs_gpt-4"
+        h2h_key = "claude_vs_gpt-6-astra"
         assert h2h_key in body["head_to_head"]
         h2h = body["head_to_head"][h2h_key]
         assert h2h["claude_wins"] == 8
-        assert h2h["gpt-4_wins"] == 5
+        assert h2h["gpt-6-astra_wins"] == 5
         assert h2h["draws"] == 2
         assert h2h["total_matches"] == 15
 
@@ -649,13 +649,13 @@ class TestAgentsComparison:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_head_to_head.return_value = {"a_wins": 5, "b_wins": 3, "draws": 1, "total": 9}
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4,gemini"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra,gemini"})
 
         body = _body(result)
         assert len(body["comparison"]) == 3
         # 3 agents: C(3,2) = 3 pairs
         assert len(body["head_to_head"]) == 3
-        expected_keys = {"claude_vs_gpt-4", "claude_vs_gemini", "gpt-4_vs_gemini"}
+        expected_keys = {"claude_vs_gpt-6-astra", "claude_vs_gemini", "gpt-6-astra_vs_gemini"}
         assert set(body["head_to_head"].keys()) == expected_keys
 
     def test_missing_agents_param_returns_400(self, handler):
@@ -706,7 +706,7 @@ class TestAgentsComparison:
     def test_no_elo_system_returns_503(self, handler):
         """No ELO system returns 503."""
         with patch.object(handler, "get_elo_system", return_value=None):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         assert _status(result) == 503
 
@@ -730,7 +730,7 @@ class TestAgentsComparison:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_head_to_head.side_effect = RuntimeError("h2h error")
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         body = _body(result)
         assert _status(result) == 200
@@ -740,19 +740,19 @@ class TestAgentsComparison:
         """Agent names are trimmed of whitespace."""
         elo_sys = _make_elo_system(agents=three_agents)
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": " claude , gpt-4 "})
+            result = handler._get_agents_comparison({"agents": " claude , gpt-6-astra "})
 
         body = _body(result)
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
 
     def test_empty_entries_filtered(self, handler, three_agents):
         """Empty entries from trailing comma are filtered out."""
         elo_sys = _make_elo_system(agents=three_agents)
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4,"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra,"})
 
         body = _body(result)
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
 
     def test_calibration_score_in_comparison(self, handler, three_agents):
         """Calibration score included in comparison when available."""
@@ -771,7 +771,7 @@ class TestAgentsComparison:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_head_to_head.side_effect = TypeError("bad type")
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         assert _status(result) == 200
         assert _body(result)["head_to_head"] == {}
@@ -781,7 +781,7 @@ class TestAgentsComparison:
         elo_sys = _make_elo_system(agents=three_agents)
         elo_sys.get_head_to_head.side_effect = AttributeError("no attr")
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         assert _status(result) == 200
         assert _body(result)["head_to_head"] == {}
@@ -804,15 +804,15 @@ class TestAgentsTrends:
             ((now - timedelta(days=1)).isoformat(), 1640.0),
         ]
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
-            result = handler._get_agents_trends({"agents": "claude,gpt-4"})
+            result = handler._get_agents_trends({"agents": "claude,gpt-6-astra"})
 
         body = _body(result)
         assert _status(result) == 200
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-6-astra"]
         assert body["time_range"] == "30d"
         assert body["granularity"] == "daily"
         assert "claude" in body["trends"]
-        assert "gpt-4" in body["trends"]
+        assert "gpt-6-astra" in body["trends"]
         assert "generated_at" in body
 
     def test_default_agents_top_5(self, handler):
@@ -1091,7 +1091,7 @@ class TestAgentHandleRouting:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/v1/analytics/agents/comparison",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-6-astra"},
                 http_handler,
             )
 
@@ -1135,19 +1135,19 @@ class TestAgentHandleRouting:
     @pytest.mark.asyncio
     async def test_route_agent_performance_with_dashes(self, handler, http_handler):
         """Agent IDs with dashes are matched by the regex."""
-        agent = _make_agent("gpt-4")
+        agent = _make_agent("gpt-6-astra")
         elo_sys = _make_elo_system(agents=[agent])
         elo_sys.get_leaderboard.return_value = [agent]
         with patch.object(handler, "get_elo_system", return_value=elo_sys):
             result = await handler.handle(
-                "/api/v1/analytics/agents/gpt-4/performance",
+                "/api/v1/analytics/agents/gpt-6-astra/performance",
                 {},
                 http_handler,
             )
 
         assert result is not None
         assert _status(result) == 200
-        assert _body(result)["agent_id"] == "gpt-4"
+        assert _body(result)["agent_id"] == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_route_agent_performance_with_underscores(self, handler, http_handler):
@@ -1294,7 +1294,7 @@ class TestAgentEdgeCases:
             perf = handler._get_agent_performance("claude", {})
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            comp = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+            comp = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
         mock_elo.get_elo_history.return_value = []
         with patch.object(handler, "get_elo_system", return_value=mock_elo):

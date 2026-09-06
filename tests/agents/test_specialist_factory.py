@@ -192,7 +192,7 @@ class TestSpecialistAgentInfoDataclass:
             specialist_model=None,
             is_specialist=False,
             vertical=Vertical.GENERAL,
-            model_id="meta-llama/llama-3.3-70b-instruct",
+            model_id="meta/muse-spark-1.3",
             base_model="llama-3.3-70b",
             adapter_name=None,
         )

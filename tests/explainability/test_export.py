@@ -46,7 +46,7 @@ def minimal_decision() -> Decision:
         consensus_reached=True,
         confidence=0.85,
         rounds_used=3,
-        agents_participated=["claude", "gpt-4"],
+        agents_participated=["claude", "gpt-6-astra"],
     )
 
 
@@ -63,7 +63,7 @@ def full_decision() -> Decision:
         task="Architecture review",
         domain="engineering",
         rounds_used=5,
-        agents_participated=["claude", "gpt-4", "gemini"],
+        agents_participated=["claude", "gpt-6-astra", "gemini"],
         evidence_chain=[
             EvidenceLink(
                 id="ev-1",
@@ -75,7 +75,7 @@ def full_decision() -> Decision:
             EvidenceLink(
                 id="ev-2",
                 content="Monolith is simpler to deploy",
-                source="gpt-4",
+                source="gpt-6-astra",
                 relevance_score=0.75,
                 grounding_type="critique",
             ),
@@ -91,7 +91,7 @@ def full_decision() -> Decision:
                 flip_detected=False,
             ),
             VotePivot(
-                agent="gpt-4",
+                agent="gpt-6-astra",
                 choice="option-a",
                 confidence=0.7,
                 weight=1.0,

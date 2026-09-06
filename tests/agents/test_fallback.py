@@ -69,12 +69,14 @@ class MockAgentWithMixin:
     """Mock agent class using QuotaFallbackMixin."""
 
     OPENROUTER_MODEL_MAP = {
-        "gpt-4o": "openai/gpt-4o",
-        "claude-3-opus": "anthropic/claude-3-opus",
+        "gpt-6-astra": "openai/gpt-6-astra",
+        "claude-fable-5-1": "anthropic/claude-3-opus",
     }
     DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
 
-    def __init__(self, name: str = "test", model: str = "gpt-4o", enable_fallback: bool = True):
+    def __init__(
+        self, name: str = "test", model: str = "gpt-6-astra", enable_fallback: bool = True
+    ):
         self.name = name
         self.model = model
         self.enable_fallback = enable_fallback
@@ -91,11 +93,11 @@ class TestQuotaFallbackMixin:
         """get_fallback_model() resolves the current model through the
         catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
-        attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
+        attribute: "gpt-6-astra" is a legacy OpenAI spelling that upgrades to
         the current frontier."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
-        agent = MockAgentWithMixin(model="gpt-4o")
+        agent = MockAgentWithMixin(model="gpt-6-astra")
         # Add mixin method
         agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
             agent, MockAgentWithMixin

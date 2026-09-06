@@ -189,11 +189,11 @@ class TestControlPlanePolicy:
         """Test policy with agent allowlist/blocklist."""
         policy = ControlPlanePolicy(
             name="agent-restricted",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
             agent_blocklist=["gpt-3.5-turbo"],
         )
-        assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is True
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
+        assert policy.is_agent_allowed("gpt-6-astra") is True
         assert policy.is_agent_allowed("gpt-3.5-turbo") is False
         assert policy.is_agent_allowed("llama-2") is False  # Not in allowlist
 
@@ -203,7 +203,7 @@ class TestControlPlanePolicy:
             name="blocklist-only",
             agent_blocklist=["untrusted-agent"],
         )
-        assert policy.is_agent_allowed("claude-3-opus") is True
+        assert policy.is_agent_allowed("claude-fable-5-1") is True
         assert policy.is_agent_allowed("untrusted-agent") is False
 
     def test_policy_matches_all_when_empty(self):

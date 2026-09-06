@@ -168,7 +168,7 @@ def test_cli_healthcheck_failure_returns_6() -> None:
 
     assert (
         module.main(
-            ["start-run", "--task", "Review", "--actor", "reviewer:codex:gpt-5.4"],
+            ["start-run", "--task", "Review", "--actor", "reviewer:codex:gpt-6-astra"],
             broker_factory=FakeBroker,
             transport_factory=lambda *args, **kwargs: BrokenTransport(),
         )
@@ -179,11 +179,11 @@ def test_cli_healthcheck_failure_returns_6() -> None:
 def test_parse_actors_sets_droid_auto_high() -> None:
     module = _load_script_module()
 
-    registry = module._parse_actors(["reviewer:droid:claude-opus-4-7"])
+    registry = module._parse_actors(["reviewer:droid:claude-fable-5-1"])
     session = registry.sessions["reviewer"]
 
     assert session.harness == "droid"
-    assert session.model == "claude-opus-4-7"
+    assert session.model == "claude-fable-5-1"
     assert session.harness_options == {"auto": "high"}
 
 
@@ -200,7 +200,7 @@ def test_cli_success_returns_0_and_emits_json(capsys) -> None:
             "--task",
             "Review",
             "--actor",
-            "reviewer:codex:gpt-5.4",
+            "reviewer:codex:gpt-6-astra",
             "--json",
         ],
         broker_factory=FakeBroker,

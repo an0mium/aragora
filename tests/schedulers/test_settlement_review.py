@@ -183,7 +183,7 @@ class TestSettlementReviewScheduler:
                 "timestamp": _iso(old),
                 "confidence": 0.81,
                 "mode": "epistemic_hygiene",
-                "agents_involved": ["claude", "gpt-5"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "settlement": {
                     "status": "pending_deterministic",
                     "resolver_type": "deterministic",
@@ -252,7 +252,7 @@ class TestSettlementReviewScheduler:
                 "timestamp": _iso(old),
                 "confidence": 0.81,
                 "mode": "epistemic_hygiene",
-                "agents_involved": ["claude", "gpt-5"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "settlement": {
                     "status": "pending_oracle",
                     "resolver_type": "oracle",
@@ -309,7 +309,7 @@ class TestSettlementReviewScheduler:
                 "timestamp": _iso(old),
                 "confidence": 0.81,
                 "mode": "epistemic_hygiene",
-                "agents_involved": ["claude", "gpt-5"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "settlement": {
                     "status": "pending_outcome",
                     "outcome": True,
@@ -363,7 +363,7 @@ class TestSettlementReviewScheduler:
                 "timestamp": _iso(old),
                 "confidence": 0.81,
                 "mode": "general",
-                "agents_involved": ["claude", "gpt-5"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "settlement": {
                     "status": "pending_outcome",
                     "outcome": True,
@@ -412,7 +412,7 @@ class TestSettlementReviewScheduler:
                 "timestamp": _iso(old),
                 "confidence": 0.81,
                 "mode": "epistemic_hygiene",
-                "agents_involved": ["claude", "gpt-5"],
+                "agents_involved": ["claude", "gpt-6-astra"],
                 "settlement": {
                     "status": "pending_outcome",
                     "outcome": True,
@@ -532,7 +532,7 @@ class TestSettlementReviewScheduler:
 
         config = MagicMock()
         config.question = "Should we enable feature flag rollout?"
-        config.agents_str = "claude,gpt-5"
+        config.agents_str = "claude,gpt-6-astra"
         config.rounds = 2
         config.mode = "epistemic_hygiene"
         config.metadata = {
@@ -549,7 +549,7 @@ class TestSettlementReviewScheduler:
         result.consensus_reached = True
         result.confidence = 0.78
         result.final_answer = "Proceed with guarded rollout."
-        result.participants = ["claude", "gpt-5"]
+        result.participants = ["claude", "gpt-6-astra"]
 
         with patch("aragora.storage.receipt_store.get_receipt_store", return_value=store):
             controller._generate_debate_receipt(
@@ -620,7 +620,7 @@ class TestSettlementReviewScheduler:
 
         config = MagicMock()
         config.question = "Should we enable a staged rollout?"
-        config.agents_str = "claude,gpt-5"
+        config.agents_str = "claude,gpt-6-astra"
         config.rounds = 2
         config.mode = "epistemic_hygiene"
         config.metadata = {
@@ -638,7 +638,7 @@ class TestSettlementReviewScheduler:
         result.consensus_reached = True
         result.confidence = 0.71
         result.final_answer = "Proceed with staged rollout."
-        result.participants = ["claude", "gpt-5"]
+        result.participants = ["claude", "gpt-6-astra"]
 
         with patch("aragora.storage.receipt_store.get_receipt_store", return_value=store):
             controller._generate_debate_receipt(

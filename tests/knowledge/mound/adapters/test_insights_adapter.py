@@ -355,7 +355,7 @@ class TestStoreFlip:
         adapter = InsightsAdapter()
         flip = MockFlipEvent(
             id="flip-2",
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             original_claim="Claim A",
             new_claim="Claim B",
             original_confidence=0.7,
@@ -366,7 +366,7 @@ class TestStoreFlip:
 
         adapter.store_flip(flip)
 
-        assert "fl_flip-2" in adapter._agent_flips.get("gpt-4", [])
+        assert "fl_flip-2" in adapter._agent_flips.get("gpt-6-astra", [])
 
     def test_store_flip_updates_domain_index(self):
         """Should update domain flips index."""
@@ -599,7 +599,7 @@ class TestGetFlip:
         adapter = InsightsAdapter()
         flip = MockFlipEvent(
             id="get-flip-2",
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             original_claim="A",
             new_claim="B",
             original_confidence=0.6,

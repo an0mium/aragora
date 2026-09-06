@@ -560,9 +560,9 @@ class TestEdgeCases:
 
     def test_special_characters_in_names(self, tracker):
         """Test agent names with special characters."""
-        tracker.update_relationship("claude-v3", "gpt-4o", debate_increment=1)
+        tracker.update_relationship("claude-v3", "gpt-6-astra", debate_increment=1)
 
-        stats = tracker.get_raw("claude-v3", "gpt-4o")
+        stats = tracker.get_raw("claude-v3", "gpt-6-astra")
         assert stats is not None
         assert stats.debate_count == 1
 

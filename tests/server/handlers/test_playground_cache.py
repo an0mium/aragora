@@ -72,7 +72,11 @@ class TestCacheHitReturnsCachedResult:
         store.save(debate_id, "Should we cache debates?", cached_data)
 
         # Create a cache index entry for this topic/model/rounds combo
-        model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+        model_ids = [
+            "anthropic/claude-sonnet-5",
+            "openai/gpt-6-astra",
+            "google/gemini-2.0-flash-001",
+        ]
         cache_key = normalize_cache_key("Should we cache debates?", model_ids, 2)
         store.save_cache_index(
             cache_key=cache_key,
@@ -133,7 +137,11 @@ class TestCacheHitReturnsCachedResult:
         }
         store.save(debate_id, "Rate limit test", cached_data)
 
-        model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+        model_ids = [
+            "anthropic/claude-sonnet-5",
+            "openai/gpt-6-astra",
+            "google/gemini-2.0-flash-001",
+        ]
         cache_key = normalize_cache_key("Rate limit test", model_ids, 2)
         store.save_cache_index(
             cache_key=cache_key,
@@ -187,7 +195,7 @@ class TestCacheKeyNormalizationForPlayground:
         """The handler strips 'openrouter:' prefix before computing cache key.
         Models with and without the prefix should match after stripping."""
         # These are the model IDs that the handler computes
-        model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o"]
+        model_ids = ["anthropic/claude-sonnet-5", "openai/gpt-6-astra"]
         key = normalize_cache_key("test topic", model_ids, 2)
 
         # Should be a valid SHA-256 hex string
@@ -201,8 +209,8 @@ class TestCacheMissProceedsToDebate:
     def test_cache_miss_proceeds_to_debate(self, handler):
         """On cache miss, the handler falls through to live debate execution."""
         agent_tags = [
-            "openrouter:anthropic/claude-sonnet-4",
-            "openrouter:openai/gpt-4o",
+            "openrouter:anthropic/claude-sonnet-5",
+            "openrouter:openai/gpt-6-astra",
             "openrouter:google/gemini-2.0-flash-001",
         ]
 
@@ -269,7 +277,7 @@ class TestPersistSavesCacheIndex:
         }
         original = json_response(debate_data)
 
-        model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o"]
+        model_ids = ["anthropic/claude-sonnet-5", "openai/gpt-6-astra"]
         cache_key = normalize_cache_key("Cache index test", model_ids, 2)
 
         handler._persist_and_respond(

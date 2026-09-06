@@ -352,7 +352,7 @@ class TestSingleTargetWrites:
         ctx.env.task = "Analyze security vulnerabilities"
         ctx.agents = [
             MagicMock(name="claude"),
-            MagicMock(name="gpt-4"),
+            MagicMock(name="gpt-6-astra"),
         ]
         ctx.result = MagicMock()
         ctx.result.final_answer = "Security analysis complete"
@@ -474,7 +474,7 @@ class TestMultiTargetWrites:
         ctx.env.task = "Analyze security vulnerabilities"
         ctx.agents = [
             MagicMock(name="claude"),
-            MagicMock(name="gpt-4"),
+            MagicMock(name="gpt-6-astra"),
         ]
         ctx.result = MagicMock()
         ctx.result.final_answer = "Security analysis complete"

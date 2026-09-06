@@ -26,12 +26,12 @@ class TestAgentSpecCreation:
         """Create spec with all fields."""
         spec = AgentSpec(
             provider="anthropic-api",
-            model="claude-opus-4-7",
+            model="claude-fable-5-1",
             persona="philosopher",
             role="proposer",
         )
         assert spec.provider == "anthropic-api"
-        assert spec.model == "claude-opus-4-7"
+        assert spec.model == "claude-fable-5-1"
         assert spec.persona == "philosopher"
         assert spec.role == "proposer"
 

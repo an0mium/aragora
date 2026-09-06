@@ -85,7 +85,7 @@ describe('DebatesPage', () => {
   const sampleDebate = (overrides: Record<string, unknown> = {}) => ({
     id: 'debate-1',
     task: 'Should we use TypeScript?',
-    agents: ['claude', 'gpt-4'],
+    agents: ['claude', 'gpt-6-astra'],
     consensus_reached: true,
     confidence: 0.85,
     created_at: new Date().toISOString(),
@@ -480,7 +480,7 @@ describe('DebatesPage', () => {
 
   it('shows receipt indicator [RCV] when vote_tally present', async () => {
     mockBackendDebates([
-      sampleDebate({ vote_tally: { 'claude': 3, 'gpt-4': 2 } }),
+      sampleDebate({ vote_tally: { 'claude': 3, 'gpt-6-astra': 2 } }),
     ]);
 
     await act(async () => {

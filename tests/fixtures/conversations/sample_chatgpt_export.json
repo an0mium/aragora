@@ -22,7 +22,7 @@
           "author": {"role": "assistant"},
           "content": {"parts": ["That's an interesting reframe of the instrumental convergence thesis. You're pointing to something like what we might call 'preference instability under reflection.' The standard Omohundro-Bostrom argument assumes stable utility functions, but your point suggests that sufficiently advanced intelligence might naturally undergo value change as it gains more information and computational capacity.\n\nThis connects to philosophical debates about whether ideal rationality requires stable preferences or whether rational agents might endorse preference change under certain conditions."]},
           "create_time": 1704067260,
-          "metadata": {"model_slug": "gpt-4"}
+          "metadata": {"model_slug": "gpt-6-astra"}
         }
       },
       "node_003": {
@@ -42,7 +42,7 @@
           "author": {"role": "assistant"},
           "content": {"parts": ["This is a sophisticated argument that echoes some insights from evolutionary biology and complex systems theory. You're essentially arguing that the selection pressure for durability creates emergent constraints on optimization.\n\nThe rate/durability tradeoff you mention recalls r/K selection theory in ecology - organisms can optimize for rapid reproduction (r-selection) or for long-term survival in stable environments (K-selection). Your claim is that world-dominating optimization would require K-selected characteristics that inherently limit aggressive expansion."]},
           "create_time": 1704067380,
-          "metadata": {"model_slug": "gpt-4"}
+          "metadata": {"model_slug": "gpt-6-astra"}
         }
       }
     },
@@ -71,7 +71,7 @@
           "author": {"role": "assistant"},
           "content": {"parts": ["You're articulating what we might call a 'structuralist' approach to cinema appreciation. This connects to broader debates in social theory about structure vs agency. Your reading of A Separation aligns with thinkers like Bourdieu, who emphasized how social fields constrain individual action in ways that make certain outcomes almost inevitable regardless of individual intentions.\n\nThe film does seem designed to support this reading - notice how the inciting incident emerges from the intersection of multiple institutional logics (healthcare, employment, religious practice, domestic law) rather than from any individual's moral failing."]},
           "create_time": 1704240060,
-          "metadata": {"model_slug": "gpt-4"}
+          "metadata": {"model_slug": "gpt-6-astra"}
         }
       },
       "node_103": {
@@ -110,7 +110,7 @@
           "author": {"role": "assistant"},
           "content": {"parts": ["You've identified what philosophers call the 'boundary problem' in democratic theory, though you're framing it in an interesting way. The classic formulation asks: who gets to participate in the democratic process that determines who gets to participate?\n\nYour formulation is slightly different - you're asking about the relationship between democratic procedures and substantive justice. This connects to debates between deliberative democrats like Habermas (who emphasize procedural legitimacy) and liberal perfectionists like Raz (who argue some substantive constraints are necessary)."]},
           "create_time": 1704412860,
-          "metadata": {"model_slug": "gpt-4"}
+          "metadata": {"model_slug": "gpt-6-astra"}
         }
       },
       "node_203": {

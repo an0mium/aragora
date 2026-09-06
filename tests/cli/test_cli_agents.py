@@ -534,9 +534,9 @@ class TestClaudeAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = ClaudeAgent(name="claude", model="claude-sonnet-4")
+        agent = ClaudeAgent(name="claude", model="claude-sonnet-5")
         assert agent.name == "claude"
-        assert agent.model == "claude-sonnet-4"
+        assert agent.model == "claude-sonnet-5"
 
     @pytest.mark.asyncio
     async def test_generate_uses_stdin(self):
@@ -601,9 +601,9 @@ class TestGeminiCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = GeminiCLIAgent(name="gemini", model="gemini-3-pro")
+        agent = GeminiCLIAgent(name="gemini", model="gemini-3.1-pro-preview")
         assert agent.name == "gemini"
-        assert agent.model == "gemini-3-pro"
+        assert agent.model == "gemini-3.1-pro-preview"
 
     @pytest.mark.asyncio
     async def test_generate_uses_yolo_flag(self):
@@ -1448,7 +1448,7 @@ class TestCLIAgentModelMapping:
         served = ClaudeAgent(name="test", model="claude-opus-4-8", enable_fallback=True)
         assert self._fallback_model(served) == "anthropic/claude-opus-4.8"
 
-        legacy = ClaudeAgent(name="test", model="claude-opus-4-7", enable_fallback=True)
+        legacy = ClaudeAgent(name="test", model="claude-fable-5-1", enable_fallback=True)
         assert self._fallback_model(legacy) == "anthropic/claude-fable-5.1"
 
     def test_codex_model_mapping(self):
@@ -1460,7 +1460,7 @@ class TestCLIAgentModelMapping:
     def test_gemini_model_mapping(self):
         """Should map Gemini models to the LIVE catalog slug (#9073: the
         unsuffixed google/gemini-3.1-pro id does not exist on OpenRouter)."""
-        agent = GeminiCLIAgent(name="test", model="gemini-3-pro", enable_fallback=True)
+        agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent) == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):

@@ -70,7 +70,7 @@ class TestRoleFinding:
     def _finding(self, **overrides) -> RoleFinding:
         defaults = dict(
             role=ReviewRole.LOGIC,
-            agent="claude-opus-4-7",
+            agent="claude-fable-5-1",
             model="claude-opus-4-7-1m",
             confidence=0.85,
             finding_text="No regressions found in changed code paths.",
@@ -84,7 +84,7 @@ class TestRoleFinding:
         finding = self._finding()
         d = finding.to_dict()
         assert d["role"] == "logic_reviewer"
-        assert d["agent"] == "claude-opus-4-7"
+        assert d["agent"] == "claude-fable-5-1"
         assert d["confidence"] == 0.85
 
     def test_json_roundtrip_preserves_fields(self) -> None:
@@ -107,7 +107,7 @@ class TestRoleFinding:
 class TestDissentingView:
     def test_to_dict_serializes_position(self) -> None:
         view = DissentingView(
-            agent="grok-3",
+            agent="grok-4.6",
             position=DissentPosition.REQUEST_CHANGES,
             reason="Flags potential auth bypass in handler.",
             role=ReviewRole.SECURITY,
@@ -115,7 +115,7 @@ class TestDissentingView:
         d = view.to_dict()
         assert d["position"] == "request_changes"
         assert d["role"] == "security_reviewer"
-        assert d["agent"] == "grok-3"
+        assert d["agent"] == "grok-4.6"
 
     def test_role_is_optional(self) -> None:
         view = DissentingView(
@@ -150,7 +150,7 @@ class TestReviewBrief:
             disagreement_score=0.05,
             total_cost_usd=0.18,
             total_wall_clock_ms=4200,
-            agent_roster=("claude-opus-4-7", "gpt-5-4", "gemini-3-1-pro"),
+            agent_roster=("claude-fable-5-1", "gpt-5-4", "gemini-3-1-pro"),
             generated_at=datetime.now(UTC).isoformat(),
         )
         defaults.update(overrides)
@@ -210,7 +210,7 @@ class TestReviewBrief:
             role_findings=(
                 RoleFinding(
                     role=ReviewRole.LOGIC,
-                    agent="claude-opus-4-7",
+                    agent="claude-fable-5-1",
                     model="claude-opus-4-7-1m",
                     confidence=0.9,
                     finding_text="OK.",
@@ -218,7 +218,7 @@ class TestReviewBrief:
             ),
             dissent=(
                 DissentingView(
-                    agent="grok-3",
+                    agent="grok-4.6",
                     position=DissentPosition.REQUEST_CHANGES,
                     reason="Edge case unconsidered.",
                 ),
@@ -237,14 +237,14 @@ class TestReviewBrief:
             role_findings=(
                 RoleFinding(
                     role=ReviewRole.LOGIC,
-                    agent="claude-opus-4-7",
+                    agent="claude-fable-5-1",
                     model="claude-opus-4-7-1m",
                     confidence=0.9,
                     finding_text="OK.",
                 ),
             ),
             dissent=(),
-            agent_roster=("claude-opus-4-7", "gpt-5-4"),
+            agent_roster=("claude-fable-5-1", "gpt-5-4"),
         )
         assert isinstance(brief.role_findings, tuple)
         assert isinstance(brief.dissent, tuple)
@@ -309,7 +309,7 @@ class TestReviewBrief:
 class TestPRReviewProtocol:
     def _protocol(self, **overrides) -> PRReviewProtocol:
         defaults = dict(
-            model_panel=("claude-opus-4-7-1m", "gpt-5-4", "grok-3"),
+            model_panel=("claude-opus-4-7-1m", "gpt-5-4", "grok-4.6"),
         )
         defaults.update(overrides)
         return PRReviewProtocol(**defaults)
@@ -432,7 +432,7 @@ class TestPRReviewProtocol:
         d = protocol.to_dict()
         assert d["synthesis_policy"] == "unanimous_or_escalate"
         # Tuple field serializes to JSON-compatible list.
-        assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-4.6"]
         assert d["rounds"] == 1
         assert d["require_heterogeneous_models"] is True
         assert d["advisory_only"] is True
@@ -440,7 +440,7 @@ class TestPRReviewProtocol:
     def test_json_roundtrip(self) -> None:
         protocol = self._protocol()
         roundtrip = json.loads(json.dumps(protocol.to_dict()))
-        assert roundtrip["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert roundtrip["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-4.6"]
         assert roundtrip["synthesis_policy"] == "weighted"
         assert roundtrip["advisory_only"] is True
 

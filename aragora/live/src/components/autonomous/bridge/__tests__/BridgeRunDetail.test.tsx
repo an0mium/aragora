@@ -38,7 +38,7 @@ function buildRunDetail(overrides: Partial<AgentBridgeRunDetail> = {}): AgentBri
     footer_mode: 'prompt_injected',
     worktree_cleanup_mode: 'operator_triggered',
     participants: [
-      { role: 'implementer', harness: 'codex', model: 'gpt-5.4' },
+      { role: 'implementer', harness: 'codex', model: 'gpt-6-astra' },
       { role: 'reviewer', harness: 'claude', model: 'claude-opus-4-8' },
     ],
     last_event_id: 'bridge:event:002',
@@ -48,7 +48,7 @@ function buildRunDetail(overrides: Partial<AgentBridgeRunDetail> = {}): AgentBri
       implementer: {
         role: 'implementer',
         harness: 'codex',
-        model: 'gpt-5.4',
+        model: 'gpt-6-astra',
         session_id: '019db172-4d01-7072-860c-99114afe8792',
         worktree_agent_slug: 'bridge-pr6306-implementer',
         worktree_path: '/tmp/bridge-worktree/implementer',

@@ -414,7 +414,7 @@ class TestRLMCognitiveLoadLimiterInit:
         """Test default rlm_model is gpt-4o."""
         limiter = RLMCognitiveLoadLimiter()
 
-        assert limiter._rlm_model == "gpt-4o"
+        assert limiter._rlm_model == "gpt-6-astra"
 
     def test_init_deprecated_rlm_backend_warning(self):
         """Test that rlm_backend parameter triggers deprecation warning."""
@@ -539,10 +539,10 @@ class TestForStressLevel:
     def test_for_stress_level_with_rlm_model(self):
         """Test for_stress_level with rlm_model parameter."""
         limiter = RLMCognitiveLoadLimiter.for_stress_level(
-            level="elevated", rlm_model="claude-3-opus"
+            level="elevated", rlm_model="claude-fable-5-1"
         )
 
-        assert limiter._rlm_model == "claude-3-opus"
+        assert limiter._rlm_model == "claude-fable-5-1"
 
     def test_for_stress_level_deprecated_backend_warning(self):
         """Test that rlm_backend in for_stress_level triggers warning."""
@@ -1164,9 +1164,9 @@ class TestCreateRLMLimiter:
 
     def test_create_with_rlm_model(self):
         """Test creating limiter with rlm_model parameter."""
-        limiter = create_rlm_limiter(rlm_model="claude-3-opus")
+        limiter = create_rlm_limiter(rlm_model="claude-fable-5-1")
 
-        assert limiter._rlm_model == "claude-3-opus"
+        assert limiter._rlm_model == "claude-fable-5-1"
 
     def test_create_deprecated_backend_warning(self):
         """Test that rlm_backend triggers deprecation warning."""
@@ -1389,7 +1389,7 @@ class TestRealRLMIntegration:
 
     def test_real_rlm_initialization(self):
         """Test real RLM initialization when available."""
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-6-astra")
 
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
@@ -1397,7 +1397,7 @@ class TestRealRLMIntegration:
     @pytest.mark.asyncio
     async def test_real_rlm_query(self):
         """Test real RLM query when available."""
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-6-astra")
         messages = [MockMessage(content="Test " * 100, round=i) for i in range(10)]
 
         result = await limiter.query_with_rlm("What is discussed?", messages)

@@ -361,7 +361,7 @@ class TestGetAgentFlips:
 
     def test_different_agent_names(self, handler):
         """Works with different agent names."""
-        for agent_name in ["gpt4", "gemini-pro", "llama3"]:
+        for agent_name in ["gpt4", "gemini-3.1-pro-preview", "llama3"]:
             with patch.object(handler, "get_nomic_dir", return_value=None):
                 result = handler._get_agent_flips(agent_name, 10)
                 assert _status(result) == 200

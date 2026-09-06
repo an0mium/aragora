@@ -146,7 +146,7 @@ class TestAssignRoles:
 
     def test_assigns_agents_to_roles(self, specializer):
         roles = specializer.analyze_topic("Generic debate")
-        agents = ["claude", "gpt-4", "gemini"]
+        agents = ["claude", "gpt-6-astra", "gemini"]
         team = specializer.assign_roles(roles=roles, available_agents=agents)
         assert len(team.assignments) > 0
         assert all(a.agent_id in agents for a in team.assignments)

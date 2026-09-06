@@ -15,7 +15,7 @@ def store(tmp_path):
 def test_same_topic_returns_cached_after_first_run(store):
     """First call stores result; second call returns cached."""
     topic = "Should we use Rust?"
-    models = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+    models = ["anthropic/claude-sonnet-5", "openai/gpt-6-astra", "google/gemini-2.0-flash-001"]
     rounds = 2
 
     debate_result = {

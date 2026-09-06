@@ -143,7 +143,7 @@ class TestDocumentPipelineE2E:
             id="test-e2e-001",
             document_ids=[f.name for f in py_files],
             audit_types=[AuditType.SECURITY],
-            model="gemini-1.5-flash",
+            model="gemini-3.8-flash",
         )
 
         # Read file contents

@@ -136,10 +136,10 @@ class MockBatchProcessor:
 class MockTokenCounter:
     """Mock token counter for testing."""
 
-    def count(self, text: str, model: str = "gpt-4") -> int:
+    def count(self, text: str, model: str = "gpt-6-astra") -> int:
         return len(text.split())
 
-    def truncate_to_tokens(self, text: str, max_tokens: int, model: str = "gpt-4") -> str:
+    def truncate_to_tokens(self, text: str, max_tokens: int, model: str = "gpt-6-astra") -> str:
         words = text.split()
         return " ".join(words[:max_tokens])
 
@@ -540,7 +540,7 @@ class TestDocumentContext:
             "aragora.documents.chunking.token_counter.get_token_counter",
             return_value=mock_counter,
         ):
-            result = handler._get_document_context("doc123", max_tokens=1000, model="gpt-4")
+            result = handler._get_document_context("doc123", max_tokens=1000, model="gpt-6-astra")
 
         assert result is not None
         assert result.status_code == 200
@@ -548,7 +548,7 @@ class TestDocumentContext:
         assert body["document_id"] == "doc123"
         assert "context" in body
         assert body["max_tokens"] == 1000
-        assert body["model"] == "gpt-4"
+        assert body["model"] == "gpt-6-astra"
 
 
 # ---------------------------------------------------------------------------

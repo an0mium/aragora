@@ -275,12 +275,12 @@ class TestFormatEloRankingContext:
         """Test agents are sorted by rating."""
         result = format_elo_ranking_context(
             "claude",
-            ["claude", "gpt-4", "gemini"],
-            {"claude": 1500, "gpt-4": 1600, "gemini": 1400},
+            ["claude", "gpt-6-astra", "gemini"],
+            {"claude": 1500, "gpt-6-astra": 1600, "gemini": 1400},
         )
 
-        # Should be in order: gpt-4, claude, gemini
-        gpt4_pos = result.find("gpt-4")
+        # Should be in order: gpt-6-astra, claude, gemini
+        gpt4_pos = result.find("gpt-6-astra")
         claude_pos = result.find("claude")
         gemini_pos = result.find("gemini")
 

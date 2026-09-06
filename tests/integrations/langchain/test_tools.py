@@ -72,7 +72,7 @@ class TestDebateTool:
         assert tool.name == "aragora_debate"
         assert tool.aragora_url == "http://localhost:8080"
         assert tool.api_token is None
-        assert tool.default_agents == ["claude", "gpt-4", "gemini"]
+        assert tool.default_agents == ["claude", "gpt-6-astra", "gemini"]
         assert tool.default_max_rounds == 5
 
     def test_custom_config(self):

@@ -73,7 +73,7 @@ def _make_debate_result() -> DebateResult:
 def _make_agents():
     return [
         SimpleNamespace(name="claude", model="claude-opus-4-1", agent_type="anthropic-api"),
-        SimpleNamespace(name="gpt", model="gpt-4.1", agent_type="openai-api"),
+        SimpleNamespace(name="gpt", model="gpt-6-astra", agent_type="openai-api"),
     ]
 
 

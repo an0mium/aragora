@@ -173,12 +173,12 @@ def test_inference_records_observed_model_without_response_body(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"gemini-3-flash"})
+    client = _InferenceClient({"gemini-3.8-flash"})
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     code, result = cli.run_inference(
         family="gemini",
-        model="gemini-3-flash",
+        model="gemini-3.8-flash",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -187,7 +187,7 @@ def test_inference_records_observed_model_without_response_body(
 
     assert code == 0
     assert result["record"]["family"] == "gemini"
-    assert result["record"]["response_model"] == "gemini-3-flash"
+    assert result["record"]["response_model"] == "gemini-3.8-flash"
     assert result["record"]["clean"] is True
     assert result["response_body_persisted"] is False
     assert result["countable"] is False
@@ -226,13 +226,13 @@ def test_inference_resolves_alias_and_preserves_disclosure(
         "_required_policy",
         lambda: _InferencePolicy(
             client,
-            aliases={"gemini-3-flash": "google/gemini-3-flash"},
+            aliases={"gemini-3.8-flash": "google/gemini-3-flash"},
         ),
     )
 
     code, result = cli.run_inference(
         family="gemini",
-        model="gemini-3-flash",
+        model="gemini-3.8-flash",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -240,7 +240,7 @@ def test_inference_resolves_alias_and_preserves_disclosure(
     )
 
     assert code == 0
-    assert result["record"]["requested_model"] == "gemini-3-flash"
+    assert result["record"]["requested_model"] == "gemini-3.8-flash"
     assert result["record"]["resolved_model"] == "google/gemini-3-flash"
     assert result["record"]["response_model"] == "google/gemini-3-flash"
     assert result["record"]["alias_disclosure"] == {
@@ -253,8 +253,8 @@ def test_inference_resolves_alias_and_preserves_disclosure(
 @pytest.mark.parametrize(
     ("family", "requested_model", "catalog_owner", "response_model"),
     [
-        ("openai", "gpt-5.4-mini", "openai", "gpt-5.4-mini-2026-03-17"),
-        ("grok", "grok-3-mini-fast", "xai", "grok-4.3"),
+        ("openai", "gpt-5.6-terra", "openai", "gpt-5.4-mini-2026-03-17"),
+        ("grok", "grok-3-mini-fast", "xai", "grok-4.6"),
     ],
 )
 def test_inference_preserves_catalog_owner_alias_disclosure(
@@ -302,9 +302,9 @@ def test_inference_rejects_opaque_response_model_without_family_proof(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _InferenceClient(
-        {"kimi-k2", "k2"},
+        {"kimi-k3", "k2"},
         owners={
-            "kimi-k2": "moonshot",
+            "kimi-k3": "moonshot",
             "k2": "moonshot",
         },
     )
@@ -313,7 +313,7 @@ def test_inference_rejects_opaque_response_model_without_family_proof(
 
     code, result = cli.run_inference(
         family="kimi",
-        model="kimi-k2",
+        model="kimi-k3",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -335,13 +335,13 @@ def test_inference_rejects_cross_family_alias_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = _InferenceClient(
-        {"grok-3-mini-fast", "gpt-5.5"},
+        {"grok-3-mini-fast", "gpt-6-astra"},
         owners={
             "grok-3-mini-fast": "xai",
-            "gpt-5.5": "openai",
+            "gpt-6-astra": "openai",
         },
     )
-    client.response_model = "gpt-5.5"
+    client.response_model = "gpt-6-astra"
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     code, result = cli.run_inference(
@@ -364,12 +364,12 @@ def test_inference_rejects_missing_catalog_owner_disclosure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"gpt-5.4-mini"}, owners={})
+    client = _InferenceClient({"gpt-5.6-terra"}, owners={})
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     code, result = cli.run_inference(
         family="openai",
-        model="gpt-5.4-mini",
+        model="gpt-5.6-terra",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -403,7 +403,7 @@ def test_inference_rejects_response_without_unique_catalog_owner(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    requested_model = "gpt-5.4-mini"
+    requested_model = "gpt-5.6-terra"
     response_model = "gpt-5.4-mini-2026-03-17"
     client = _InferenceClient(
         {requested_model, *([response_model] if response_in_catalog else [])},
@@ -432,13 +432,13 @@ def test_inference_counts_missing_response_model_as_identity_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"gpt-5.4-mini"})
+    client = _InferenceClient({"gpt-5.6-terra"})
     client.failure = VibeProxyResponseError("VibeProxy alias response omitted its model identity")
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     code, result = cli.run_inference(
         family="openai",
-        model="gpt-5.4-mini",
+        model="gpt-5.6-terra",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -456,7 +456,7 @@ def test_inference_counts_missing_response_model_as_identity_error(
     ("family", "model"),
     [
         ("claude", "claude-opus-4-8"),
-        ("gemini", "gemini-3-flash"),
+        ("gemini", "gemini-3.8-flash"),
     ],
 )
 def test_inference_rejects_wrong_sentinel_response(
@@ -489,7 +489,7 @@ def test_inference_rejects_truncated_openai_response(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"gemini-3-flash"})
+    client = _InferenceClient({"gemini-3.8-flash"})
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
     original_request = client.openai_catalog_alias_request
 
@@ -502,7 +502,7 @@ def test_inference_rejects_truncated_openai_response(
 
     code, result = cli.run_inference(
         family="gemini",
-        model="gemini-3-flash",
+        model="gemini-3.8-flash",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -518,13 +518,13 @@ def test_inference_failure_is_sanitized_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"grok-4.3"})
+    client = _InferenceClient({"grok-4.6"})
     client.failure = VibeProxyUnavailableError("credential=super-secret")
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     code, result = cli.run_inference(
         family="grok",
-        model="grok-4.3",
+        model="grok-4.6",
         timeout=10,
         max_tokens=16,
         records_path=tmp_path / "calls.jsonl",
@@ -542,13 +542,13 @@ def test_inference_rejects_declared_family_mismatch_before_call(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = _InferenceClient({"gpt-5.5"})
+    client = _InferenceClient({"gpt-6-astra"})
     monkeypatch.setattr(cli, "_required_policy", lambda: _InferencePolicy(client))
 
     with pytest.raises(cli.BurninRecordError, match="not 'gemini'"):
         cli.run_inference(
             family="gemini",
-            model="gpt-5.5",
+            model="gpt-6-astra",
             timeout=10,
             max_tokens=16,
             records_path=tmp_path / "calls.jsonl",

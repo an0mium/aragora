@@ -42,20 +42,20 @@ class TestAgentLifecycle:
         """Test spawning a new agent."""
         config = AgentConfig(
             id="test-agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             tools=["shell", "browser"],
         )
 
         handle = await fabric.spawn(config)
 
         assert handle.agent_id == "test-agent-1"
-        assert handle.config.model == "claude-3-opus"
+        assert handle.config.model == "claude-fable-5-1"
         assert handle.status == HealthStatus.HEALTHY
 
     @pytest.mark.asyncio
     async def test_spawn_duplicate_fails(self, fabric: AgentFabric):
         """Test that spawning duplicate agent fails."""
-        config = AgentConfig(id="dup-agent", model="claude-3-opus")
+        config = AgentConfig(id="dup-agent", model="claude-fable-5-1")
         await fabric.spawn(config)
 
         with pytest.raises(ValueError, match="already exists"):
@@ -64,7 +64,7 @@ class TestAgentLifecycle:
     @pytest.mark.asyncio
     async def test_terminate_agent(self, fabric: AgentFabric):
         """Test terminating an agent."""
-        config = AgentConfig(id="term-agent", model="claude-3-opus")
+        config = AgentConfig(id="term-agent", model="claude-fable-5-1")
         await fabric.spawn(config)
 
         result = await fabric.terminate("term-agent")
@@ -76,20 +76,20 @@ class TestAgentLifecycle:
     @pytest.mark.asyncio
     async def test_list_agents(self, fabric: AgentFabric):
         """Test listing agents."""
-        await fabric.spawn(AgentConfig(id="agent-a", model="claude-3-opus"))
-        await fabric.spawn(AgentConfig(id="agent-b", model="gpt-4"))
+        await fabric.spawn(AgentConfig(id="agent-a", model="claude-fable-5-1"))
+        await fabric.spawn(AgentConfig(id="agent-b", model="gpt-6-astra"))
 
         agents = await fabric.list_agents()
         assert len(agents) == 2
 
-        opus_agents = await fabric.list_agents(model="claude-3-opus")
+        opus_agents = await fabric.list_agents(model="claude-fable-5-1")
         assert len(opus_agents) == 1
-        assert opus_agents[0].model == "claude-3-opus"
+        assert opus_agents[0].model == "claude-fable-5-1"
 
     @pytest.mark.asyncio
     async def test_heartbeat(self, fabric: AgentFabric):
         """Test agent heartbeat."""
-        await fabric.spawn(AgentConfig(id="hb-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="hb-agent", model="claude-fable-5-1"))
 
         result = await fabric.heartbeat("hb-agent")
         assert result is True
@@ -104,7 +104,7 @@ class TestTaskScheduling:
     @pytest.mark.asyncio
     async def test_schedule_task(self, fabric: AgentFabric):
         """Test scheduling a task."""
-        await fabric.spawn(AgentConfig(id="sched-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="sched-agent", model="claude-fable-5-1"))
 
         task = Task(
             id="task-1",
@@ -121,7 +121,7 @@ class TestTaskScheduling:
     @pytest.mark.asyncio
     async def test_schedule_with_priority(self, fabric: AgentFabric):
         """Test scheduling tasks with different priorities."""
-        await fabric.spawn(AgentConfig(id="prio-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="prio-agent", model="claude-fable-5-1"))
 
         task_low = Task(id="low", type="test", payload={})
         task_high = Task(id="high", type="test", payload={})
@@ -136,7 +136,7 @@ class TestTaskScheduling:
     @pytest.mark.asyncio
     async def test_complete_task(self, fabric: AgentFabric):
         """Test completing a task."""
-        await fabric.spawn(AgentConfig(id="comp-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="comp-agent", model="claude-fable-5-1"))
 
         task = Task(id="comp-task", type="test", payload={})
         await fabric.schedule(task, "comp-agent")
@@ -151,7 +151,7 @@ class TestTaskScheduling:
     @pytest.mark.asyncio
     async def test_cancel_task(self, fabric: AgentFabric):
         """Test canceling a task."""
-        await fabric.spawn(AgentConfig(id="canc-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="canc-agent", model="claude-fable-5-1"))
 
         task = Task(id="canc-task", type="test", payload={})
         await fabric.schedule(task, "canc-agent")
@@ -246,7 +246,7 @@ class TestBudgetManagement:
     @pytest.mark.asyncio
     async def test_track_usage(self, fabric: AgentFabric):
         """Test tracking usage."""
-        await fabric.spawn(AgentConfig(id="budget-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="budget-agent", model="claude-fable-5-1"))
         await fabric.set_budget(
             "budget-agent",
             BudgetConfig(
@@ -267,7 +267,7 @@ class TestBudgetManagement:
     @pytest.mark.asyncio
     async def test_budget_check(self, fabric: AgentFabric):
         """Test budget checking."""
-        await fabric.spawn(AgentConfig(id="check-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="check-agent", model="claude-fable-5-1"))
         await fabric.set_budget(
             "check-agent",
             BudgetConfig(
@@ -295,13 +295,13 @@ class TestBudgetManagement:
     @pytest.mark.asyncio
     async def test_usage_report(self, fabric: AgentFabric):
         """Test usage report generation."""
-        await fabric.spawn(AgentConfig(id="report-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="report-agent", model="claude-fable-5-1"))
 
         await fabric.track_usage(
             Usage(
                 agent_id="report-agent",
                 tokens_input=1000,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 cost_usd=0.01,
             )
         )
@@ -309,7 +309,7 @@ class TestBudgetManagement:
             Usage(
                 agent_id="report-agent",
                 tokens_input=500,
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 cost_usd=0.005,
             )
         )
@@ -338,7 +338,7 @@ class TestIntegration:
         # Spawn agent with budget
         config = AgentConfig(
             id="workflow-agent",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             budget=BudgetConfig(max_tokens_per_day=100000),
         )
         agent = await fabric.spawn(config)
@@ -384,7 +384,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_stats(self, fabric: AgentFabric):
         """Test getting comprehensive stats."""
-        await fabric.spawn(AgentConfig(id="stats-agent", model="claude-3-opus"))
+        await fabric.spawn(AgentConfig(id="stats-agent", model="claude-fable-5-1"))
 
         task = Task(id="stats-task", type="test", payload={})
         await fabric.schedule(task, "stats-agent")

@@ -48,7 +48,7 @@ def mock_registry(mock_agent_info):
     registry.list_all = AsyncMock(
         return_value=[
             mock_agent_info("claude-3", ["debate", "analysis"]),
-            mock_agent_info("gpt-4", ["debate"]),
+            mock_agent_info("gpt-6-astra", ["debate"]),
         ]
     )
     registry.register = AsyncMock(
@@ -248,7 +248,7 @@ class TestFederatedAgentPoolFindAgents:
 
         # claude-3 should be excluded (unhealthy)
         assert len(agents) == 1
-        assert agents[0].agent_id == "gpt-4"
+        assert agents[0].agent_id == "gpt-6-astra"
 
 
 class TestFederatedAgentPoolSelectAgent:
@@ -285,12 +285,12 @@ class TestFederatedAgentPoolSelectAgent:
 
         # Set different latencies
         pool._agents["claude-3"].estimated_latency_ms = 100
-        pool._agents["gpt-4"].estimated_latency_ms = 50
+        pool._agents["gpt-6-astra"].estimated_latency_ms = 50
 
         agents = pool.find_agents()
         selected = pool.select_agent(agents, LoadBalanceStrategy.LOWEST_LATENCY)
 
-        assert selected.agent_id == "gpt-4"
+        assert selected.agent_id == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_select_prefer_local(self, pool):

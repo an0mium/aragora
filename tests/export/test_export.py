@@ -896,7 +896,7 @@ class TestEdgeCases:
         artifact = DebateArtifact(
             debate_id="test",
             task="Test",
-            agents=["claude-3.5-sonnet", "gpt-4.0"],
+            agents=["claude-sonnet-5", "gpt-4.0"],
         )
 
         exporter = DOTExporter(artifact)

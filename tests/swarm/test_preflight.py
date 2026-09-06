@@ -25,7 +25,7 @@ def _worker(*, branch: str, checksum: str | None = None) -> WorkerProcess:
     contract = {
         "runner_type": "codex-cli",
         "agent": "codex",
-        "model": "gpt-5.4",
+        "model": "gpt-6-astra",
         "profile": "default",
         "permissions": {"allow_full_auto": True},
         "execution_mode": "autonomous",

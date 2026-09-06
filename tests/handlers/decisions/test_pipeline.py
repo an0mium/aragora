@@ -1178,11 +1178,11 @@ class TestBuildImplementationProfilePayload:
 
         result = _build_implementation_profile_payload(
             {
-                "implementation_profile": {"strategy": "parallel", "critic": "gpt-4"},
+                "implementation_profile": {"strategy": "parallel", "critic": "gpt-6-astra"},
             }
         )
         assert result["strategy"] == "parallel"
-        assert result["critic"] == "gpt-4"
+        assert result["critic"] == "gpt-6-astra"
 
     def test_top_level_does_not_override_profile(self):
         from aragora.server.handlers.decisions.pipeline import (
@@ -1249,14 +1249,14 @@ class TestBuildImplementationProfilePayload:
 
         result = _build_implementation_profile_payload(
             {
-                "fabric_models": ["claude", "gpt-4"],
+                "fabric_models": ["claude", "gpt-6-astra"],
                 "fabric_pool_id": "pool-1",
                 "fabric_min_agents": 2,
                 "fabric_max_agents": 5,
                 "fabric_timeout_seconds": 300,
             }
         )
-        assert result["fabric_models"] == ["claude", "gpt-4"]
+        assert result["fabric_models"] == ["claude", "gpt-6-astra"]
         assert result["fabric_pool_id"] == "pool-1"
         assert result["fabric_min_agents"] == 2
         assert result["fabric_max_agents"] == 5
@@ -1283,8 +1283,10 @@ class TestBuildImplementationProfilePayload:
             _build_implementation_profile_payload,
         )
 
-        result = _build_implementation_profile_payload({"agent_by_task_type": {"test": "gpt-4"}})
-        assert result["task_type_router"] == {"test": "gpt-4"}
+        result = _build_implementation_profile_payload(
+            {"agent_by_task_type": {"test": "gpt-6-astra"}}
+        )
+        assert result["task_type_router"] == {"test": "gpt-6-astra"}
 
     def test_capability_router_alias(self):
         from aragora.server.handlers.decisions.pipeline import (

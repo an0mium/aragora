@@ -16,22 +16,22 @@ from aragora.pipeline.unified_orchestrator import UnifiedOrchestrator
 
 class TestDetectProvider:
     def test_anthropic(self):
-        assert detect_provider("claude-3-opus") == "anthropic"
-        assert detect_provider("claude-sonnet-4") == "anthropic"
+        assert detect_provider("claude-fable-5-1") == "anthropic"
+        assert detect_provider("claude-sonnet-5") == "anthropic"
 
     def test_openai(self):
-        assert detect_provider("gpt-4o") == "openai"
+        assert detect_provider("gpt-6-astra") == "openai"
         assert detect_provider("o1-preview") == "openai"
 
     def test_google(self):
-        assert detect_provider("gemini-3.1-pro") == "google"
+        assert detect_provider("gemini-3.1-pro-preview") == "google"
 
     def test_mistral(self):
-        assert detect_provider("mistral-large") == "mistral"
+        assert detect_provider("mistral-large-2512") == "mistral"
         assert detect_provider("codestral") == "mistral"
 
     def test_xai(self):
-        assert detect_provider("grok-2") == "xai"
+        assert detect_provider("grok-4.6") == "xai"
 
     def test_meta(self):
         assert detect_provider("llama-3.1-70b") == "meta"
@@ -47,8 +47,8 @@ class TestDiversityCheck:
     def test_diverse_team(self):
         f = ProviderDiversityFilter(min_providers=2)
         agents = [
-            AgentInfo(name="a1", model="claude-3-opus"),
-            AgentInfo(name="a2", model="gpt-4o"),
+            AgentInfo(name="a1", model="claude-fable-5-1"),
+            AgentInfo(name="a2", model="gpt-6-astra"),
         ]
         report = f.check(agents)
         assert report.meets_minimum
@@ -57,8 +57,8 @@ class TestDiversityCheck:
     def test_homogeneous_team(self):
         f = ProviderDiversityFilter(min_providers=2)
         agents = [
-            AgentInfo(name="a1", model="claude-3-opus"),
-            AgentInfo(name="a2", model="claude-sonnet-4"),
+            AgentInfo(name="a1", model="claude-fable-5-1"),
+            AgentInfo(name="a2", model="claude-sonnet-5"),
         ]
         report = f.check(agents)
         assert not report.meets_minimum
@@ -67,8 +67,8 @@ class TestDiversityCheck:
     def test_three_provider_minimum(self):
         f = ProviderDiversityFilter(min_providers=3)
         agents = [
-            AgentInfo(name="a1", model="claude-3-opus"),
-            AgentInfo(name="a2", model="gpt-4o"),
+            AgentInfo(name="a1", model="claude-fable-5-1"),
+            AgentInfo(name="a2", model="gpt-6-astra"),
         ]
         report = f.check(agents)
         assert not report.meets_minimum
@@ -78,8 +78,8 @@ class TestDiversityEnforce:
     def test_already_diverse(self):
         f = ProviderDiversityFilter()
         agents = [
-            AgentInfo(name="a1", model="claude-3-opus", score=0.9),
-            AgentInfo(name="a2", model="gpt-4o", score=0.8),
+            AgentInfo(name="a1", model="claude-fable-5-1", score=0.9),
+            AgentInfo(name="a2", model="gpt-6-astra", score=0.8),
         ]
         result, report = f.enforce(agents)
         assert report.meets_minimum
@@ -88,12 +88,12 @@ class TestDiversityEnforce:
     def test_swap_to_diversify(self):
         f = ProviderDiversityFilter(min_providers=2)
         agents = [
-            AgentInfo(name="claude1", model="claude-3-opus", score=0.9),
-            AgentInfo(name="claude2", model="claude-sonnet-4", score=0.7),
+            AgentInfo(name="claude1", model="claude-fable-5-1", score=0.9),
+            AgentInfo(name="claude2", model="claude-sonnet-5", score=0.7),
             AgentInfo(name="claude3", model="claude-3-haiku", score=0.5),
         ]
         alternatives = [
-            AgentInfo(name="gpt1", model="gpt-4o", score=0.8),
+            AgentInfo(name="gpt1", model="gpt-6-astra", score=0.8),
         ]
         result, report = f.enforce(agents, alternatives=alternatives)
         assert report.meets_minimum
@@ -107,15 +107,15 @@ class TestDiversityEnforce:
     def test_no_alternatives_available(self):
         f = ProviderDiversityFilter(min_providers=2)
         agents = [
-            AgentInfo(name="claude1", model="claude-3-opus", score=0.9),
-            AgentInfo(name="claude2", model="claude-sonnet-4", score=0.7),
+            AgentInfo(name="claude1", model="claude-fable-5-1", score=0.9),
+            AgentInfo(name="claude2", model="claude-sonnet-5", score=0.7),
         ]
         result, report = f.enforce(agents, alternatives=[])
         assert not report.meets_minimum
         assert len(report.swaps_made) == 0
 
     def test_agent_info_auto_detect_provider(self):
-        a = AgentInfo(name="x", model="gpt-4o")
+        a = AgentInfo(name="x", model="gpt-6-astra")
         assert a.provider == "openai"
 
     def test_explicit_provider(self):
@@ -127,15 +127,15 @@ class TestLargeRosterObservability:
     def test_large_roster_receipt_payload_is_bounded(self):
         f = ProviderDiversityFilter(min_providers=3)
         agents = [
-            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            AgentInfo(name=f"claude{i}", model="claude-fable-5-1", score=1.0 - (i * 0.01))
             for i in range(10)
         ] + [
-            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
-            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+            AgentInfo(name="gpt-primary", model="gpt-6-astra", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-5.6-terra", score=0.75),
         ]
         alternatives = [
-            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
-            AgentInfo(name="mistral-primary", model="mistral-large", score=0.81),
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro-preview", score=0.82),
+            AgentInfo(name="mistral-primary", model="mistral-large-2512", score=0.81),
         ]
 
         result, report = f.enforce(agents, alternatives=alternatives)
@@ -160,12 +160,12 @@ class TestLargeRosterObservability:
     def test_large_roster_benchmark_records_runtime_envelope(self):
         f = ProviderDiversityFilter(min_providers=3)
         agents = [
-            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            AgentInfo(name=f"claude{i}", model="claude-fable-5-1", score=1.0 - (i * 0.01))
             for i in range(11)
-        ] + [AgentInfo(name="gpt-primary", model="gpt-4o", score=0.8)]
+        ] + [AgentInfo(name="gpt-primary", model="gpt-6-astra", score=0.8)]
         alternatives = [
-            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.79),
-            AgentInfo(name="mistral-primary", model="mistral-large", score=0.78),
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro-preview", score=0.79),
+            AgentInfo(name="mistral-primary", model="mistral-large-2512", score=0.78),
         ]
 
         benchmark = f.benchmark(agents, alternatives=alternatives, iterations=4)
@@ -182,15 +182,15 @@ class TestLargeRosterObservability:
     def test_unified_orchestrator_and_receipt_preserve_large_roster_metadata(self):
         f = ProviderDiversityFilter(min_providers=3)
         agents = [
-            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            AgentInfo(name=f"claude{i}", model="claude-fable-5-1", score=1.0 - (i * 0.01))
             for i in range(10)
         ] + [
-            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
-            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+            AgentInfo(name="gpt-primary", model="gpt-6-astra", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-5.6-terra", score=0.75),
         ]
         alternatives = [
-            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
-            AgentInfo(name="mistral-primary", model="mistral-large", score=0.81),
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro-preview", score=0.82),
+            AgentInfo(name="mistral-primary", model="mistral-large-2512", score=0.81),
         ]
 
         _, report = f.enforce(agents, alternatives=alternatives)
@@ -210,7 +210,7 @@ class TestLargeRosterObservability:
 
         UnifiedOrchestrator._annotate_provider_metadata(
             result,
-            provider_hints=["claude-sonnet-4", "gpt-4o", "gemini-3.1-pro"],
+            provider_hints=["claude-sonnet-5", "gpt-6-astra", "gemini-3.1-pro-preview"],
             diversity_report=report,
         )
 

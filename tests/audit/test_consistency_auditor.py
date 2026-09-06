@@ -19,7 +19,7 @@ class TestConsistencyAuditor:
 
         class MockSession:
             id = "test-session-001"
-            model = "gemini-1.5-flash"
+            model = "gemini-3.8-flash"
 
         return MockSession()
 

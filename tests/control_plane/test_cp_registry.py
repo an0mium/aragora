@@ -26,13 +26,13 @@ class TestAgentInfo:
         agent = AgentInfo(
             agent_id="test-agent",
             capabilities={"debate", "code"},
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
 
         assert agent.agent_id == "test-agent"
         assert agent.capabilities == {"debate", "code"}
-        assert agent.model == "claude-3-opus"
+        assert agent.model == "claude-fable-5-1"
         assert agent.provider == "anthropic"
         assert agent.status == AgentStatus.STARTING
 
@@ -91,7 +91,7 @@ class TestAgentInfo:
         agent = AgentInfo(
             agent_id="test-agent",
             capabilities={"debate", "code"},
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             status=AgentStatus.READY,
             metadata={"version": "1.0"},
@@ -124,14 +124,14 @@ class TestAgentRegistry:
         agent = await registry.register(
             agent_id="claude-3",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
             metadata={"tier": "premium"},
         )
 
         assert agent.agent_id == "claude-3"
         assert agent.capabilities == {"debate", "code"}
-        assert agent.model == "claude-3-opus"
+        assert agent.model == "claude-fable-5-1"
         assert agent.status == AgentStatus.READY
 
     @pytest.mark.asyncio

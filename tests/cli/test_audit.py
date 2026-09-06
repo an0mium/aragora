@@ -167,14 +167,14 @@ class TestCreateAuditParser:
                 "--name",
                 "Test Audit",
                 "--model",
-                "gpt-4",
+                "gpt-6-astra",
             ]
         )
         assert args.documents == "doc1,doc2,doc3"
         assert args.types == "security,compliance"
         assert args.preset == "Legal Due Diligence"
         assert args.name == "Test Audit"
-        assert args.model == "gpt-4"
+        assert args.model == "gpt-6-astra"
 
     def test_findings_command_options(self):
         """Test findings command with filters."""
@@ -439,7 +439,7 @@ class TestCreateAudit:
         args.types = "security,compliance"
         args.preset = None
         args.name = None
-        args.model = "gemini-1.5-flash"
+        args.model = "gemini-3.8-flash"
         return args
 
     @pytest.mark.asyncio

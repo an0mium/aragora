@@ -115,12 +115,12 @@ class TestAuditFinding:
             category="split",
             summary="Architecture choice",
             details="Debate over microservices vs monolith",
-            agents_agree=["claude", "gpt-4"],
+            agents_agree=["claude", "gpt-6-astra"],
             agents_disagree=["gemini"],
             confidence=0.7,
         )
 
-        assert finding.agents_agree == ["claude", "gpt-4"]
+        assert finding.agents_agree == ["claude", "gpt-6-astra"]
         assert finding.agents_disagree == ["gemini"]
         assert finding.confidence == 0.7
 
@@ -375,7 +375,7 @@ class TestDeepAuditOrchestrator:
         """Test orchestrator with multiple agents."""
         agents = [
             self.create_mock_agent("claude"),
-            self.create_mock_agent("gpt-4"),
+            self.create_mock_agent("gpt-6-astra"),
             self.create_mock_agent("gemini"),
         ]
 
@@ -414,7 +414,7 @@ class TestDeepAuditOrchestrator:
         mock_report.unanimous_critiques = ["Issue 1", "Issue 2"]
         mock_report.risk_areas = ["Risk A"]
         mock_report.split_opinions = [
-            ("Topic 1", ["claude"], ["gpt-4"]),
+            ("Topic 1", ["claude"], ["gpt-6-astra"]),
         ]
 
         mock_result = MagicMock()
@@ -430,7 +430,7 @@ class TestDeepAuditOrchestrator:
         assert len(verdict.split_opinions) == 1
         assert "Topic 1" in verdict.split_opinions[0]
         assert "Agree: claude" in verdict.split_opinions[0]
-        assert "Disagree: gpt-4" in verdict.split_opinions[0]
+        assert "Disagree: gpt-6-astra" in verdict.split_opinions[0]
 
     @pytest.mark.asyncio
     async def test_build_verdict_with_high_severity_critiques(self):

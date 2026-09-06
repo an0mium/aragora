@@ -221,7 +221,7 @@ class TestDeliberationTask:
         """Test creating a deliberation task."""
         task = DeliberationTask(
             question="Should we refactor the authentication module?",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             sla=DeliberationSLA(timeout_seconds=600.0),
             priority="high",
         )

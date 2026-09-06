@@ -149,7 +149,7 @@ class TestDecisionReceipt:
             ],
             medium_findings=[],
             low_findings=[],
-            agents_involved=["claude", "gpt-4"],
+            agents_involved=["claude", "gpt-6-astra"],
             duration_seconds=12.5,
         )
 

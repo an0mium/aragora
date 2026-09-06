@@ -24,8 +24,8 @@ def test_dataclass_roundtrips_include_schema_version() -> None:
         footer_mode="prompt_injected",
         worktree_cleanup_mode="operator_triggered",
         participants=[
-            Participant(role="reviewer", harness="claude", model="claude-opus-4-7"),
-            Participant(role="implementer", harness="codex", model="gpt-5.4"),
+            Participant(role="reviewer", harness="claude", model="claude-fable-5-1"),
+            Participant(role="implementer", harness="codex", model="gpt-6-astra"),
         ],
         worktree_path="/tmp/run",
         worktree_agent_slug="codex",
@@ -38,7 +38,7 @@ def test_dataclass_roundtrips_include_schema_version() -> None:
             "reviewer": BridgeSession(
                 role="reviewer",
                 harness="claude",
-                model="claude-opus-4-7",
+                model="claude-fable-5-1",
                 session_id="review-session",
                 worktree_agent_slug="bridge-reviewer",
                 worktree_path="/tmp/reviewer",
@@ -81,6 +81,6 @@ def test_dataclass_roundtrips_include_schema_version() -> None:
     assert TurnRecord.from_dict(turn.to_dict()) == turn
     assert run.to_dict()["schema_version"] == SCHEMA_VERSION
     assert registry.to_dict()["schema_version"] == SCHEMA_VERSION
-    assert registry.to_dict()["sessions"]["reviewer"]["model"] == "claude-opus-4-7"
+    assert registry.to_dict()["sessions"]["reviewer"]["model"] == "claude-fable-5-1"
     assert turn.to_dict()["schema_version"] == SCHEMA_VERSION
     assert parsed.to_dict()["parse_status"] == "ok"

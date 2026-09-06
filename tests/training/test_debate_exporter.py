@@ -262,7 +262,7 @@ class TestSFTExport:
         agent1 = MagicMock()
         agent1.name = "claude"
         agent2 = MagicMock()
-        agent2.name = "gpt-4"
+        agent2.name = "gpt-6-astra"
 
         record = exporter._create_sft_record(
             mock_result,
@@ -272,7 +272,7 @@ class TestSFTExport:
         )
 
         assert "agents" in record["metadata"]
-        assert record["metadata"]["agents"] == ["claude", "gpt-4"]
+        assert record["metadata"]["agents"] == ["claude", "gpt-6-astra"]
 
     def test_sft_record_no_task(self, exporter):
         """Test SFT record returns None when no task."""

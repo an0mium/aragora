@@ -82,7 +82,7 @@ def claude_config():
     return ClaudeCodeConfig(
         timeout_seconds=60,
         claude_code_path="claude",
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
     )
 
 

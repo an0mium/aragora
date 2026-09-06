@@ -235,13 +235,13 @@ class TestGetDomainExperts:
 
         adapter = RankingAdapter()
         adapter.store_agent_expertise("claude-3", "security", 1650, 50)
-        adapter.store_agent_expertise("gpt-4", "security", 1750, 50)
+        adapter.store_agent_expertise("gpt-6-astra", "security", 1750, 50)
         adapter.store_agent_expertise("gemini", "security", 1600, 50)
 
         experts = adapter.get_domain_experts("security", limit=10)
 
         assert len(experts) == 3
-        assert experts[0].agent_name == "gpt-4"  # Highest ELO first
+        assert experts[0].agent_name == "gpt-6-astra"  # Highest ELO first
         assert experts[0].elo == 1750
 
     def test_get_domain_experts_with_limit(self):
@@ -438,7 +438,7 @@ class TestStatistics:
 
         adapter = RankingAdapter()
         adapter.store_agent_expertise("claude-3", "security", 1650, 50)
-        adapter.store_agent_expertise("gpt-4", "security", 1700, 50)
+        adapter.store_agent_expertise("gpt-6-astra", "security", 1700, 50)
         adapter.store_agent_expertise("claude-3", "coding", 1600, 50)
 
         stats = adapter.get_stats()

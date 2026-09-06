@@ -188,7 +188,7 @@ class ConcreteOpenAICompatibleAgent:
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
     def __init__(
         self,
@@ -293,7 +293,7 @@ class TestableAgent(OpenAICompatibleMixin, ConcreteOpenAICompatibleAgent):
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
     max_tokens = 4096
 
 

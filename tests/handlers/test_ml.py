@@ -90,11 +90,11 @@ class MockRoutingDecision:
     """Mock routing decision returned by router.route()."""
 
     def __init__(self, **kwargs):
-        self.selected_agents = kwargs.get("selected_agents", ["claude", "gpt-4"])
+        self.selected_agents = kwargs.get("selected_agents", ["claude", "gpt-6-astra"])
         self.task_type = MagicMock(value=kwargs.get("task_type", "coding"))
         self.confidence = kwargs.get("confidence", 0.85)
         self.reasoning = kwargs.get("reasoning", ["task_type=coding"])
-        self.agent_scores = kwargs.get("agent_scores", {"claude": 0.9, "gpt-4": 0.8})
+        self.agent_scores = kwargs.get("agent_scores", {"claude": 0.9, "gpt-6-astra": 0.8})
         self.diversity_score = kwargs.get("diversity_score", 0.7)
 
 
@@ -184,7 +184,7 @@ def mock_router():
     """Create a mock ML router component."""
     router = MagicMock()
     router.route.return_value = MockRoutingDecision()
-    router._capabilities = {"claude": {}, "gpt-4": {}}
+    router._capabilities = {"claude": {}, "gpt-6-astra": {}}
     router._historical_performance = {}
     return router
 
@@ -349,7 +349,7 @@ class TestListModels:
     def test_list_models_with_router(self, mock_get, handler):
         """Router available shows routing capabilities."""
         router = MagicMock()
-        router._capabilities = {"claude": {}, "gpt-4": {}, "codex": {}}
+        router._capabilities = {"claude": {}, "gpt-6-astra": {}, "codex": {}}
 
         def side_effect(name):
             if name == "router":
@@ -430,7 +430,7 @@ class TestStats:
     def test_stats_with_router(self, mock_get, handler):
         """Router available includes routing stats."""
         router = MagicMock()
-        router._capabilities = {"claude": {}, "gpt-4": {}}
+        router._capabilities = {"claude": {}, "gpt-6-astra": {}}
         router._historical_performance = {
             "claude": {"coding": [0.9, 0.85]},
         }
@@ -515,13 +515,13 @@ class TestRoute:
         http = _MockHTTPHandler()
         data = {
             "task": "Implement caching",
-            "available_agents": ["claude", "gpt-4"],
+            "available_agents": ["claude", "gpt-6-astra"],
             "team_size": 2,
         }
         result = handler.handle_post("/api/v1/ml/route", data, http)
         body = _body(result)
         assert _status(result) == 200
-        assert body["selected_agents"] == ["claude", "gpt-4"]
+        assert body["selected_agents"] == ["claude", "gpt-6-astra"]
         assert body["task_type"] == "coding"
         assert body["confidence"] == 0.85
         assert "reasoning" in body

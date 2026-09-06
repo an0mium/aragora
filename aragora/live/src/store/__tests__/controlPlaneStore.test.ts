@@ -54,7 +54,7 @@ const mockAgent2: ControlPlaneAgent = {
   name: 'GPT-4 API',
   provider: 'openai',
   status: 'busy',
-  model: 'gpt-4',
+  model: 'gpt-6-astra',
   capabilities: ['reasoning'],
   elo_rating: 1450,
 };

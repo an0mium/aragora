@@ -68,7 +68,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         assert factory.resolve_agent_type(info) == "anthropic-api"
 
@@ -112,7 +112,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="xai",
-            model="grok-2",
+            model="grok-4.6",
         )
         assert factory.resolve_agent_type(info) == "grok"
 
@@ -123,7 +123,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="mistral",
-            model="mistral-large",
+            model="mistral-large-2512",
         )
         assert factory.resolve_agent_type(info) == "mistral-api"
 
@@ -249,7 +249,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -271,7 +271,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -292,7 +292,7 @@ class TestAgentCreation:
             agent_id="claude-1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -346,7 +346,7 @@ class TestAgentCreation:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         result = factory.create_from_info(info)
 
@@ -366,7 +366,7 @@ class TestAgentCreation:
             agent_id="a1",
             capabilities={"debate"},
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         # Use default role
@@ -395,7 +395,7 @@ class TestBatchCreation:
                 agent_id="a1",
                 capabilities={"debate"},
                 provider="anthropic",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
             ),
             MockAgentInfo(
                 agent_id="a2",

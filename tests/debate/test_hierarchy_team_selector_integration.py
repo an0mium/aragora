@@ -19,7 +19,7 @@ class TestHierarchyTeamSelectorIntegration:
     def mock_agents(self):
         """Create mock agents for testing."""
         agents = []
-        for name in ["claude-opus", "gpt-4", "gemini-pro", "deepseek"]:
+        for name in ["claude-opus", "gpt-6-astra", "gemini-3.1-pro-preview", "deepseek"]:
             agent = MagicMock()
             agent.name = name
             agent.agent_type = name.split("-")[0]
@@ -40,14 +40,14 @@ class TestHierarchyTeamSelectorIntegration:
                 task_affinity={"code": 0.9},
             ),
             AgentProfile(
-                name="gpt-4",
+                name="gpt-6-astra",
                 agent_type="gpt",
                 elo_rating=1750.0,
                 capabilities={"reasoning", "synthesis", "analysis"},
                 task_affinity={"code": 0.8},
             ),
             AgentProfile(
-                name="gemini-pro",
+                name="gemini-3.1-pro-preview",
                 agent_type="gemini",
                 elo_rating=1650.0,
                 capabilities={"analysis", "quality_assessment"},
@@ -116,7 +116,7 @@ class TestHierarchyTeamSelectorIntegration:
         assert len(monitors) == 1
 
         # Gemini should be monitor (has quality_assessment)
-        assert monitors[0] == "gemini-pro"
+        assert monitors[0] == "gemini-3.1-pro-preview"
 
         # Rest should be workers
         workers = [a for a, r in assignments.items() if r.role == HierarchyRole.WORKER]
@@ -280,8 +280,8 @@ class TestHierarchyTeamSelectorIntegration:
         elo_system = MagicMock()
         elo_system.get_rating.side_effect = lambda name: {
             "claude-opus": 1800,
-            "gpt-4": 1750,
-            "gemini-pro": 1650,
+            "gpt-6-astra": 1750,
+            "gemini-3.1-pro-preview": 1650,
             "deepseek": 1500,
         }.get(name, 1000)
 

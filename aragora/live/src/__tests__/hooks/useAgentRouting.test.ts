@@ -56,7 +56,7 @@ describe('useAgentRouting', () => {
           rationale: 'Best for programming tasks',
         },
         {
-          agent: 'gpt-4',
+          agent: 'gpt-6-astra',
           score: 0.88,
           expertise: { programming: 0.85, creativity: 0.9 },
           traits: ['creative', 'versatile'],
@@ -155,8 +155,8 @@ describe('useAgentRouting', () => {
         task_id: 'task-123',
         detected_domain: { programming: 0.9, debugging: 0.7 },
         team: {
-          agents: ['claude', 'gpt-4'],
-          roles: { claude: 'lead', 'gpt-4': 'reviewer' },
+          agents: ['claude', 'gpt-6-astra'],
+          roles: { claude: 'lead', 'gpt-6-astra': 'reviewer' },
           expected_quality: 0.92,
           diversity_score: 0.85,
         },
@@ -220,13 +220,13 @@ describe('useAgentRouting', () => {
       const { result } = renderHook(() => useAgentRouting());
 
       await act(async () => {
-        await result.current.autoRoute('Test task', { exclude: ['claude', 'gpt-4'] });
+        await result.current.autoRoute('Test task', { exclude: ['claude', 'gpt-6-astra'] });
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:8080/api/routing/auto-route',
         expect.objectContaining({
-          body: JSON.stringify({ task: 'Test task', exclude: ['claude', 'gpt-4'] }),
+          body: JSON.stringify({ task: 'Test task', exclude: ['claude', 'gpt-6-astra'] }),
         })
       );
     });
@@ -299,7 +299,7 @@ describe('useAgentRouting', () => {
     it('fetches best teams successfully', async () => {
       const mockTeams = [
         {
-          agents: ['claude', 'gpt-4'],
+          agents: ['claude', 'gpt-6-astra'],
           win_rate: 0.85,
           debates: 50,
           avg_consensus_time: 120,
@@ -375,7 +375,7 @@ describe('useAgentRouting', () => {
           expertise: { programming: 0.95 },
         },
         {
-          agent: 'gpt-4',
+          agent: 'gpt-6-astra',
           score: 1780,
           wins: 38,
           losses: 15,

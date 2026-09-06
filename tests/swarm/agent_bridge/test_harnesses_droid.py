@@ -27,7 +27,7 @@ def test_droid_launch_parses_session_id_usage_and_default_auto_high(tmp_path: Pa
     fake_runner = FakeRunner(_fixture_text("droid_start.json"))
     transport = DroidTransport(
         cwd=tmp_path,
-        model="claude-opus-4-7",
+        model="claude-fable-5-1",
         runner=fake_runner,
         binary_resolver=lambda _: "/usr/bin/droid",
     )
@@ -45,7 +45,7 @@ def test_droid_launch_parses_session_id_usage_and_default_auto_high(tmp_path: Pa
         "--output-format",
         "json",
         "--model",
-        "claude-opus-4-7",
+        "claude-fable-5-1",
         "--cwd",
         str(tmp_path),
         "Synthesize",

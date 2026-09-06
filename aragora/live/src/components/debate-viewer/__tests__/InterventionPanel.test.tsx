@@ -50,7 +50,7 @@ const defaultProps = {
   isPaused: false,
   currentRound: 2,
   totalRounds: 5,
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   consensusThreshold: 0.75,
 };
 
@@ -452,7 +452,7 @@ describe('InterventionPanel', () => {
       fireEvent.click(screen.getByText('Weights'));
 
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.getByText('gpt-4')).toBeInTheDocument();
+      expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
     });
 
     it('shows default weight values', () => {

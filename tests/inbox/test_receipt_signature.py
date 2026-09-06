@@ -29,7 +29,7 @@ def receipt_data():
         "decision": "approve",
         "topic": "Rate limiter design",
         "consensus_score": 0.87,
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
     }
 
 
@@ -41,7 +41,7 @@ def test_receipt_signature_lifecycle_detects_tampering(tmp_path) -> None:
         "decision": "approve",
         "topic": "Rate limiter design",
         "consensus_score": 0.87,
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
     }
 
     signed = signer.sign(receipt)
@@ -89,7 +89,7 @@ def test_full_lifecycle_create_sign_verify_tamper_detect(tmp_path) -> None:
         "decision": "approve",
         "topic": "E2E lifecycle validation",
         "consensus_score": 0.92,
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-6-astra"],
     }
 
     signed = signer.sign(

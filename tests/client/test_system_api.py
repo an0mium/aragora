@@ -48,7 +48,7 @@ SAMPLE_INFO = {
     "environment": "staging",
     "python_version": "3.12.1",
     "platform": "linux",
-    "agents_available": ["claude", "gpt-4", "gemini"],
+    "agents_available": ["claude", "gpt-6-astra", "gemini"],
     "features_enabled": ["debate", "memory", "pulse"],
     "memory_mb": 512.4,
     "cpu_percent": 23.7,
@@ -217,7 +217,7 @@ class TestSystemInfoDataclass:
         assert info.environment == "staging"
         assert info.python_version == "3.12.1"
         assert info.platform == "linux"
-        assert info.agents_available == ["claude", "gpt-4", "gemini"]
+        assert info.agents_available == ["claude", "gpt-6-astra", "gemini"]
         assert info.features_enabled == ["debate", "memory", "pulse"]
         assert info.memory_mb == 512.4
         assert info.cpu_percent == 23.7
@@ -658,7 +658,7 @@ class TestWorkflowIntegration:
             {
                 "breakers": [
                     {
-                        "agent_id": "gpt-4",
+                        "agent_id": "gpt-6-astra",
                         "state": "open",
                         "failure_count": 8,
                         "success_count": 2,
@@ -668,7 +668,7 @@ class TestWorkflowIntegration:
             {
                 "breakers": [
                     {
-                        "agent_id": "gpt-4",
+                        "agent_id": "gpt-6-astra",
                         "state": "closed",
                         "failure_count": 0,
                         "success_count": 0,

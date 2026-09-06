@@ -260,7 +260,7 @@ class TestQuotaFallbackMixin:
                 "gpt-4": "openai/gpt-4",
                 "claude-3-opus": "anthropic/claude-3-opus",
             }
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-5"
 
         agent = TestAgent()
         agent.model = "gpt-4"
@@ -273,13 +273,13 @@ class TestQuotaFallbackMixin:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {"gpt-4": "openai/gpt-4"}
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-5"
 
         agent = TestAgent()
         agent.model = "unknown-model"
 
         mapped = agent.OPENROUTER_MODEL_MAP.get(agent.model, agent.DEFAULT_FALLBACK_MODEL)
-        assert mapped == "anthropic/claude-sonnet-4.6"
+        assert mapped == "anthropic/claude-sonnet-5"
 
 
 class TestDebateWithFallback:
@@ -346,9 +346,9 @@ class TestOpenRouterFallbackIntegration:
 
         class MockAnthropicAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "claude-opus-4-7": "anthropic/claude-sonnet-4.6",
+                "claude-opus-4-7": "anthropic/claude-sonnet-5",
             }
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-5"
 
             def __init__(self):
                 self.name = "mock-anthropic"
@@ -372,7 +372,7 @@ class TestOpenRouterFallbackIntegration:
 
         class MockGeminiAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gemini-2.0-flash-exp": "google/gemini-2.0-flash-exp:free",
+                "gemini-3.8-flash": "google/gemini-2.0-flash-exp:free",
             }
             DEFAULT_FALLBACK_MODEL = "google/gemini-pro"
 
@@ -390,9 +390,9 @@ class TestOpenRouterFallbackIntegration:
 
         class MockOpenAIAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-4o": "openai/gpt-6-astra",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
         agent = MockOpenAIAgent()
 
@@ -450,8 +450,8 @@ class TestContextPreservationDuringFallback:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         class TestAgent(QuotaFallbackMixin):
-            OPENROUTER_MODEL_MAP = {"test-model": "openai/gpt-4o"}
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            OPENROUTER_MODEL_MAP = {"test-model": "openai/gpt-6-astra"}
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-6-astra"
 
             def __init__(self):
                 self.name = "test-agent"
@@ -464,7 +464,7 @@ class TestContextPreservationDuringFallback:
 
         # Test that model mapping works
         fallback_model = agent.get_fallback_model()
-        assert fallback_model == "openai/gpt-4o"
+        assert fallback_model == "openai/gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_conversation_context_passed_to_fallback(self):

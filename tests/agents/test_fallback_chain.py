@@ -466,17 +466,17 @@ class TestQuotaFallbackMixin:
         """get_fallback_model() resolves the current model through the
         catalog/upgrade map (frontier-model-refresh, 2026-09-04 review fix
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
-        attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
+        attribute: "gpt-6-astra" is a legacy OpenAI spelling that upgrades to
         the current frontier."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-6-astra": "openai/gpt-6-astra",
                 "claude-3": "anthropic/claude-3-sonnet",
             }
             DEFAULT_FALLBACK_MODEL = "default/model"
-            model = "gpt-4o"
+            model = "gpt-6-astra"
 
         agent = TestAgent()
         assert agent.get_fallback_model() == "openai/gpt-6-astra"

@@ -356,7 +356,7 @@ class TestErrorClassifierPatterns:
     # Model error detection
     def test_is_model_error_not_found(self):
         """Test detecting model not found."""
-        assert ErrorClassifier.is_model_error("model_not_found: gpt-5") is True
+        assert ErrorClassifier.is_model_error("model_not_found: gpt-6-astra") is True
 
     def test_is_model_error_overloaded(self):
         """Test detecting model overloaded."""
@@ -551,7 +551,7 @@ class TestErrorClassifierClassify:
 
     def test_classify_model(self):
         """Test classification of model errors."""
-        error = Exception("Error: model_not_found for gpt-5")
+        error = Exception("Error: model_not_found for gpt-6-astra")
         should_fallback, category = ErrorClassifier.classify_error(error)
         assert should_fallback is True
         assert category == "model"
@@ -659,7 +659,7 @@ class TestErrorClassifierClassifyFull:
 
     def test_classify_full_model(self):
         """Test full classification of model errors."""
-        error = Exception("Error: model_not_found - gpt-5 does not exist")
+        error = Exception("Error: model_not_found - gpt-6-astra does not exist")
         result = ErrorClassifier.classify_full(error)
 
         assert result.category == ErrorCategory.MODEL

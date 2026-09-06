@@ -981,7 +981,7 @@ class TestEdgeCases:
         from aragora.agents.performance_monitor import AgentPerformanceMonitor
 
         monitor = AgentPerformanceMonitor()
-        agent_name = "claude-3.5-sonnet@anthropic"
+        agent_name = "claude-sonnet-5@anthropic"
         tracking_id = monitor.track_agent_call(agent_name, "generate")
         monitor.record_completion(tracking_id, success=True)
 

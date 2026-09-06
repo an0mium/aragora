@@ -46,7 +46,7 @@ def mock_session():
         name="AI Systems Audit Test",
         created_by="test-user",
         document_ids=["test-doc"],
-        model="claude-3.5-sonnet",
+        model="claude-sonnet-5",
     )
 
 
@@ -56,7 +56,7 @@ def audit_context(mock_session):
     return AuditContext(
         session=mock_session,
         workspace_id="ws-ai-test",
-        model="claude-3.5-sonnet",
+        model="claude-sonnet-5",
     )
 
 
@@ -306,7 +306,7 @@ class TestMissingGuardrailsDetection:
         # Pattern requires: max_tokens = None or max_length = None
         code = """
 max_tokens = None
-response = client.chat.completions.create(model="gpt-4")
+response = client.chat.completions.create(model="gpt-6-astra")
 """
         chunk = ChunkData(
             id="chunk-3",
@@ -332,7 +332,7 @@ class TestHallucinationRiskDetection:
         """Test detection of high temperature setting."""
         code = """
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-6-astra",
     temperature=2.0,
     messages=messages
 )

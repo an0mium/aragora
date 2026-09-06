@@ -251,10 +251,10 @@ class TestModelRestriction:
         restriction = ModelRestriction(
             model_pattern="claude-opus*",
             allowed=False,
-            fallback_model="claude-sonnet-4",
+            fallback_model="claude-sonnet-5",
         )
 
-        assert restriction.fallback_model == "claude-sonnet-4"
+        assert restriction.fallback_model == "claude-sonnet-5"
 
     def test_fallback_model_different_provider(self):
         """Test fallback model from different provider."""
@@ -1528,7 +1528,7 @@ class TestCostGovernanceEngine:
         """Test model pattern matching with wildcard."""
         assert engine._model_matches_pattern("claude-opus-4", "claude-opus*")
         assert engine._model_matches_pattern("claude-opus-4-20240229", "claude-opus*")
-        assert not engine._model_matches_pattern("claude-sonnet-4", "claude-opus*")
+        assert not engine._model_matches_pattern("claude-sonnet-5", "claude-opus*")
 
     def test_model_matches_pattern_exact(self, engine):
         """Test model pattern matching with exact match."""

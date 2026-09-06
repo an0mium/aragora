@@ -613,14 +613,14 @@ class TestPushEvents:
         push_public_spectator_event(
             debate_id,
             "consensus",
-            agent="gpt-4",
+            agent="gpt-6-astra",
             details="Agreement reached",
             metric=0.95,
             round_number=3,
         )
         event = q.get_nowait()
         assert event["type"] == "consensus"
-        assert event["agent"] == "gpt-4"
+        assert event["agent"] == "gpt-6-astra"
         assert event["details"] == "Agreement reached"
         assert event["metric"] == 0.95
         assert event["round"] == 3

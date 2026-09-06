@@ -304,12 +304,12 @@ class TestCostEstimation:
         result = estimate_debate_cost(
             num_agents=2,
             num_rounds=5,
-            model_types=["claude-opus-4", "gpt-4o"],
+            model_types=["claude-fable-5-1", "gpt-6-astra"],
         )
         assert len(result["breakdown_by_model"]) == 2
         models = [b["model"] for b in result["breakdown_by_model"]]
-        assert "claude-opus-4" in models
-        assert "gpt-4o" in models
+        assert "claude-fable-5-1" in models
+        assert "gpt-6-astra" in models
 
     def test_estimate_model_round_robin(self):
         """When fewer models than agents, models are assigned round-robin."""
@@ -318,11 +318,11 @@ class TestCostEstimation:
         result = estimate_debate_cost(
             num_agents=4,
             num_rounds=3,
-            model_types=["claude-sonnet-4", "gpt-4o"],
+            model_types=["claude-sonnet-5", "gpt-6-astra"],
         )
         assert len(result["breakdown_by_model"]) == 4
         models = [b["model"] for b in result["breakdown_by_model"]]
-        assert models == ["claude-sonnet-4", "gpt-4o", "claude-sonnet-4", "gpt-4o"]
+        assert models == ["claude-sonnet-5", "gpt-6-astra", "claude-sonnet-5", "gpt-6-astra"]
 
     def test_estimate_unknown_model_uses_default(self):
         from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
@@ -383,7 +383,7 @@ class TestCostEstimation:
         result = handle_estimate_cost(
             num_agents=2,
             num_rounds=3,
-            model_types_str="claude-sonnet-4,gpt-4o",
+            model_types_str="claude-sonnet-5,gpt-6-astra",
         )
         assert result[1] == 200
         body = result[0]
@@ -393,8 +393,8 @@ class TestCostEstimation:
         """Verify pricing hierarchy: opus > sonnet."""
         from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
 
-        opus = estimate_debate_cost(num_agents=1, num_rounds=3, model_types=["claude-opus-4"])
-        sonnet = estimate_debate_cost(num_agents=1, num_rounds=3, model_types=["claude-sonnet-4"])
+        opus = estimate_debate_cost(num_agents=1, num_rounds=3, model_types=["claude-fable-5-1"])
+        sonnet = estimate_debate_cost(num_agents=1, num_rounds=3, model_types=["claude-sonnet-5"])
         assert opus["total_estimated_cost_usd"] > sonnet["total_estimated_cost_usd"]
 
 

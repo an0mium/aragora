@@ -810,7 +810,7 @@ class TestResponseValidation:
                     "reached": "false",
                     "confidence": 0.15,
                     "final_answer": "No consensus",
-                    "vote_breakdown": {"claude": True, "gpt-4": False},
+                    "vote_breakdown": {"claude": True, "gpt-6-astra": False},
                 },
             }
         )

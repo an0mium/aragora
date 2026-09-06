@@ -92,7 +92,7 @@ def diverse_votes() -> list[MockVote]:
     return [
         MockVote(agent="claude-opus", vote="agree", confidence=0.85),
         MockVote(agent="gpt-4o", vote="agree", confidence=0.8),
-        MockVote(agent="gemini-pro", vote="conditional", confidence=0.75),
+        MockVote(agent="gemini-3.1-pro-preview", vote="conditional", confidence=0.75),
     ]
 
 
@@ -117,9 +117,9 @@ class TestProviderInference:
     def test_known_providers(self):
         assert _infer_provider("claude-opus") == "anthropic"
         assert _infer_provider("gpt-4o") == "openai"
-        assert _infer_provider("gemini-pro") == "google"
-        assert _infer_provider("grok-2") == "xai"
-        assert _infer_provider("mistral-large") == "mistral"
+        assert _infer_provider("gemini-3.1-pro-preview") == "google"
+        assert _infer_provider("grok-4.6") == "xai"
+        assert _infer_provider("mistral-large-2512") == "mistral"
         assert _infer_provider("deepseek-v3") == "deepseek"
 
     def test_unknown_agent_returns_name(self):
@@ -435,7 +435,7 @@ class TestCompositeScoring:
         votes = [
             MockVote(agent="claude-opus", vote="agree", confidence=0.8),
             MockVote(agent="gpt-4o", vote="conditional", confidence=0.7),
-            MockVote(agent="gemini-pro", vote="agree", confidence=0.75),
+            MockVote(agent="gemini-3.1-pro-preview", vote="agree", confidence=0.75),
         ]
         calibration = {
             "claude-opus": {"brier_score": 0.15, "calibration_total": 30},

@@ -115,8 +115,8 @@ class TestMemSessionCRUD:
         assert session.tenant_id is None
 
     def test_create_session_with_config(self, mem_store):
-        session = mem_store.create_session(user_id="u1", config={"model": "gpt-4"})
-        assert session.config == {"model": "gpt-4"}
+        session = mem_store.create_session(user_id="u1", config={"model": "gpt-6-astra"})
+        assert session.config == {"model": "gpt-6-astra"}
 
     def test_create_session_with_metadata(self, mem_store):
         session = mem_store.create_session(user_id="u1", metadata={"tag": "test"})

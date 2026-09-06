@@ -630,7 +630,7 @@ class TestErrorClassifierClassifyFull:
 
     def test_classify_full_model(self):
         """Test full model error classification."""
-        error = RuntimeError("Model not found: gpt-5")
+        error = RuntimeError("Model not found: gpt-6-astra")
         result = ErrorClassifier.classify_full(error)
 
         assert result.category == ErrorCategory.MODEL

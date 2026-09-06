@@ -30,7 +30,7 @@ def mock_session():
         id="session-test-123",
         created_by="user-123",
         document_ids=["doc-1"],
-        model="claude-3.5-sonnet",
+        model="claude-sonnet-5",
     )
 
 
@@ -42,7 +42,7 @@ def audit_context(mock_session):
     return AuditContext(
         session=mock_session,
         workspace_id="ws-123",
-        model="claude-3.5-sonnet",
+        model="claude-sonnet-5",
     )
 
 
@@ -88,7 +88,7 @@ class TestAuditContext:
 
         context = AuditContext(session=mock_session)
 
-        assert context.model == "claude-3.5-sonnet"
+        assert context.model == "claude-sonnet-5"
         assert context.max_findings_per_chunk == 50
         assert context.confidence_threshold == 0.5
         assert context.include_low_severity is True

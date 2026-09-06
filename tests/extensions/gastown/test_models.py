@@ -152,7 +152,7 @@ class TestWorkspaceConfig:
         assert config.description == ""
         assert config.max_rigs == 10
         assert config.max_agents_per_rig == 5
-        assert config.default_model == "claude-3-opus"
+        assert config.default_model == "claude-fable-5-1"
         assert config.metadata == {}
 
     def test_custom_values(self):
@@ -163,13 +163,13 @@ class TestWorkspaceConfig:
             description="A project",
             max_rigs=5,
             max_agents_per_rig=3,
-            default_model="gpt-4",
+            default_model="gpt-6-astra",
             metadata={"key": "value"},
         )
         assert config.description == "A project"
         assert config.max_rigs == 5
         assert config.max_agents_per_rig == 3
-        assert config.default_model == "gpt-4"
+        assert config.default_model == "gpt-6-astra"
         assert config.metadata == {"key": "value"}
 
 

@@ -61,7 +61,7 @@ class MockAgentFabric:
             "pool-1": {
                 "id": "pool-1",
                 "name": "Debate Pool",
-                "model": "claude-3-opus",
+                "model": "claude-fable-5-1",
                 "current_agents": 5,
                 "min_agents": 2,
                 "max_agents": 10,
@@ -69,7 +69,7 @@ class MockAgentFabric:
             "pool-2": {
                 "id": "pool-2",
                 "name": "Analysis Pool",
-                "model": "gpt-4",
+                "model": "gpt-6-astra",
                 "current_agents": 3,
                 "min_agents": 1,
                 "max_agents": 5,
@@ -276,7 +276,7 @@ class TestCrossModuleDataFlow:
         snapshot = PoolSnapshot(
             pool_id="pool-1",
             name="Debate Pool",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             current_agents=5,
             min_agents=2,
             max_agents=10,
@@ -491,7 +491,7 @@ class TestExtensionAdapterWithKM:
         snapshot = PoolSnapshot(
             pool_id="pool-1",
             name="Debate Pool",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             current_agents=5,
             min_agents=2,
             max_agents=10,

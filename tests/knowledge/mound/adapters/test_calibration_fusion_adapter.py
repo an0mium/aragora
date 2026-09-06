@@ -31,7 +31,7 @@ class TestCalibrationSearchResult:
         # Create a mock consensus
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
         consensus = CalibrationConsensus(
             debate_id="test_debate",
@@ -43,7 +43,7 @@ class TestCalibrationSearchResult:
             disagreement_score=0.01,
             krippendorff_alpha=0.9,
             strategy_used=CalibrationFusionStrategy.WEIGHTED_AVERAGE,
-            participating_agents=["claude", "gpt-4"],
+            participating_agents=["claude", "gpt-6-astra"],
         )
 
         result = CalibrationSearchResult(
@@ -137,7 +137,7 @@ class TestFusePredictions:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a", calibration_accuracy=0.9),
-            AgentPrediction("gpt-4", 0.75, "winner_a", calibration_accuracy=0.85),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a", calibration_accuracy=0.85),
         ]
 
         consensus = adapter.fuse_predictions(
@@ -160,7 +160,7 @@ class TestFusePredictions:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a", calibration_accuracy=0.9),
-            AgentPrediction("gpt-4", 0.75, "winner_a", calibration_accuracy=0.85),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a", calibration_accuracy=0.85),
             AgentPrediction("gemini", 0.6, "winner_b", calibration_accuracy=0.7),
         ]
 
@@ -185,7 +185,7 @@ class TestFusePredictions:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.9, "winner_a"),
-            AgentPrediction("gpt-4", 0.5, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.5, "winner_a"),
             AgentPrediction("gemini", 0.7, "winner_a"),
         ]
 
@@ -211,7 +211,7 @@ class TestConsensusStorage:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         consensus = adapter.fuse_predictions(
@@ -250,7 +250,7 @@ class TestSearchByTopic:
         # Create some consensus with topics
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         consensus1 = adapter.fuse_predictions(
@@ -286,7 +286,7 @@ class TestToKnowledgeItem:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         consensus = adapter.fuse_predictions(
@@ -354,7 +354,7 @@ class TestGetStats:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         adapter.fuse_predictions(predictions, "test_stats")
@@ -450,7 +450,7 @@ class TestEventEmission:
 
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         adapter.fuse_predictions(predictions, "event_test")
@@ -492,7 +492,7 @@ class TestSyncToKM:
         adapter = CalibrationFusionAdapter()
         predictions = [
             AgentPrediction("claude", 0.8, "winner_a"),
-            AgentPrediction("gpt-4", 0.75, "winner_a"),
+            AgentPrediction("gpt-6-astra", 0.75, "winner_a"),
         ]
 
         adapter.fuse_predictions(predictions, "sync_test_1", store=True)

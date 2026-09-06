@@ -32,7 +32,7 @@ class _StubAgent:
             {},
         )
         self.name = name
-        self.model = "claude-opus-4-7"
+        self.model = "claude-fable-5-1"
         self.role = "proposer"
         self.timeout = 30
         self.enable_fallback = True
@@ -125,7 +125,7 @@ class TestCircuitBreakerNotification:
         # Mock the OpenRouter fallback agent
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="fallback response")
-        mock_fallback.model = "anthropic/claude-sonnet-4"
+        mock_fallback.model = "anthropic/claude-sonnet-5"
         stub._fallback_agent = mock_fallback
 
         with (
@@ -151,7 +151,7 @@ class TestCircuitBreakerNotification:
 
         mock_fallback = MagicMock()
         mock_fallback.generate_stream = _fake_stream
-        mock_fallback.model = "anthropic/claude-sonnet-4"
+        mock_fallback.model = "anthropic/claude-sonnet-5"
         stub._fallback_agent = mock_fallback
 
         tokens = []
@@ -224,7 +224,7 @@ class TestProviderPinnedCheck:
 
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="openrouter response")
-        mock_fallback.model = "anthropic/claude-sonnet-4"
+        mock_fallback.model = "anthropic/claude-sonnet-5"
         stub._fallback_agent = mock_fallback
 
         with _patch_session_cb(cb):
@@ -271,7 +271,7 @@ class TestCircuitBreakerUnavailable:
 
         mock_fallback = AsyncMock()
         mock_fallback.generate = AsyncMock(return_value="response without cb")
-        mock_fallback.model = "anthropic/claude-sonnet-4"
+        mock_fallback.model = "anthropic/claude-sonnet-5"
         stub._fallback_agent = mock_fallback
 
         with (
@@ -330,7 +330,7 @@ class TestProviderNameDerivation:
 
         obj = object.__new__(QuotaFallbackMixin)
         obj.__class__ = type("GeminiAgent", (QuotaFallbackMixin,), {})
-        obj.name = "gemini-pro"
+        obj.name = "gemini-3.1-pro-preview"
         assert obj._derive_provider_name() == "gemini"
 
     def test_unknown_class_falls_back_to_name(self):

@@ -41,7 +41,7 @@ def mock_agent():
     agent = MagicMock()
     agent.name = "claude"
     agent.provider = "anthropic"
-    agent.model = "claude-sonnet-4"
+    agent.model = "claude-sonnet-5"
     # Simulate the last_tokens_in/out properties set by APIAgent._record_token_usage
     agent.last_tokens_in = 1000
     agent.last_tokens_out = 500
@@ -70,7 +70,7 @@ def mock_gpt_agent():
     agent = MagicMock()
     agent.name = "gpt"
     agent.provider = "openai"
-    agent.model = "gpt-4o"
+    agent.model = "gpt-6-astra"
     agent.last_tokens_in = 800
     agent.last_tokens_out = 400
     agent.generate = AsyncMock(return_value="GPT proposal response")
@@ -376,7 +376,7 @@ class TestReceiptCostSummaryIntegration:
             provider="anthropic",
             tokens_in=2000,
             tokens_out=800,
-            model="claude-sonnet-4",
+            model="claude-sonnet-5",
             round_number=1,
             operation="proposal",
         )
@@ -386,7 +386,7 @@ class TestReceiptCostSummaryIntegration:
             provider="openai",
             tokens_in=1500,
             tokens_out=600,
-            model="gpt-4o",
+            model="gpt-6-astra",
             round_number=1,
             operation="critique",
         )
@@ -396,7 +396,7 @@ class TestReceiptCostSummaryIntegration:
             provider="anthropic",
             tokens_in=2500,
             tokens_out=1000,
-            model="claude-sonnet-4",
+            model="claude-sonnet-5",
             round_number=2,
             operation="revision",
         )
@@ -447,8 +447,8 @@ class TestReceiptCostSummaryIntegration:
 
         # Verify model_usage
         model_usage = receipt.cost_summary["model_usage"]
-        assert "anthropic/claude-sonnet-4" in model_usage
-        assert "openai/gpt-4o" in model_usage
+        assert "anthropic/claude-sonnet-5" in model_usage
+        assert "openai/gpt-6-astra" in model_usage
 
         # Round-trip preservation
         receipt_dict = receipt.to_dict()
@@ -466,7 +466,7 @@ class TestReceiptCostSummaryIntegration:
             provider="anthropic",
             tokens_in=1000,
             tokens_out=500,
-            model="claude-sonnet-4",
+            model="claude-sonnet-5",
             round_number=1,
         )
 
@@ -520,7 +520,7 @@ class TestDebateCostsEndpoint:
             provider="anthropic",
             tokens_in=2000,
             tokens_out=800,
-            model="claude-sonnet-4",
+            model="claude-sonnet-5",
             round_number=1,
             operation="proposal",
         )
@@ -692,7 +692,7 @@ class TestCostPropagationToResult:
             provider="anthropic",
             tokens_in=2000,
             tokens_out=800,
-            model="claude-sonnet-4",
+            model="claude-sonnet-5",
             round_number=1,
             operation="proposal",
         )
@@ -702,7 +702,7 @@ class TestCostPropagationToResult:
             provider="openai",
             tokens_in=1500,
             tokens_out=600,
-            model="gpt-4o",
+            model="gpt-6-astra",
             round_number=1,
             operation="critique",
         )

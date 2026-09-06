@@ -24,7 +24,7 @@ class TestCrossDebateLearningCycle:
 
         # Simulate ELO update during debate
         adapter.store_agent_expertise(
-            agent_name="claude-3-opus",
+            agent_name="claude-fable-5-1",
             domain="security",
             elo=1650,
             delta=50,
@@ -32,7 +32,7 @@ class TestCrossDebateLearningCycle:
         )
 
         # Verify expertise is stored
-        expertise = adapter.get_agent_expertise("claude-3-opus", "security")
+        expertise = adapter.get_agent_expertise("claude-fable-5-1", "security")
         assert expertise is not None
         assert expertise["elo"] == 1650
         assert expertise["domain"] == "security"
@@ -45,21 +45,21 @@ class TestCrossDebateLearningCycle:
 
         # Store expertise from previous debate (delta >= 50 required)
         adapter.store_agent_expertise(
-            agent_name="claude-3-opus",
+            agent_name="claude-fable-5-1",
             domain="security",
             elo=1700,
             delta=100,
             debate_id="debate-001",
         )
         adapter.store_agent_expertise(
-            agent_name="gpt-4-turbo",
+            agent_name="gpt-6-astra",
             domain="security",
             elo=1620,
             delta=70,  # Must be >= 50
             debate_id="debate-001",
         )
         adapter.store_agent_expertise(
-            agent_name="gemini-pro",
+            agent_name="gemini-3.1-pro-preview",
             domain="security",
             elo=1580,
             delta=50,  # Must be >= 50
@@ -71,9 +71,9 @@ class TestCrossDebateLearningCycle:
 
         assert len(experts) == 3
         # Experts should be sorted by ELO descending (returns AgentExpertise objects)
-        assert experts[0].agent_name == "claude-3-opus"
-        assert experts[1].agent_name == "gpt-4-turbo"
-        assert experts[2].agent_name == "gemini-pro"
+        assert experts[0].agent_name == "claude-fable-5-1"
+        assert experts[1].agent_name == "gpt-6-astra"
+        assert experts[2].agent_name == "gemini-3.1-pro-preview"
 
     def test_compression_patterns_persist_across_debates(self):
         """RLM compression patterns are persisted and reused."""

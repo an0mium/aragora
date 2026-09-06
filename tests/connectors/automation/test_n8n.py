@@ -103,7 +103,7 @@ class TestN8NPayloadFormatting:
         payload = {
             "debate_id": "deb-1",
             "nested": {"key": "value"},
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
         }
         formatted = await connector.format_payload(
             AutomationEventType.DEBATE_COMPLETED,

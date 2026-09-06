@@ -55,7 +55,7 @@ def sample_predictions() -> list[AgentPrediction]:
             prediction_count=100,
         ),
         AgentPrediction(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             confidence=0.80,
             predicted_outcome="winner_a",
             calibration_accuracy=0.85,
@@ -85,7 +85,7 @@ def disagreeing_predictions() -> list[AgentPrediction]:
             prediction_count=50,
         ),
         AgentPrediction(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             confidence=0.85,
             predicted_outcome="winner_a",
             calibration_accuracy=0.80,
@@ -485,7 +485,7 @@ class TestFusionStrategies:
         self, engine: CalibrationFusionEngine, sample_predictions: list[AgentPrediction]
     ) -> None:
         """Test fusion with explicit weights."""
-        weights = {"claude": 0.5, "gpt-4": 0.3, "gemini": 0.2}
+        weights = {"claude": 0.5, "gpt-6-astra": 0.3, "gemini": 0.2}
         result = engine.fuse_predictions(
             sample_predictions,
             debate_id="test-weights",

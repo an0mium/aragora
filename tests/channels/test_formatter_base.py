@@ -37,7 +37,7 @@ def _make_receipt(**kwargs):
     receipt.input_summary = kwargs.get("input_summary")
     receipt.rounds = kwargs.get("rounds", 3)
     receipt.rounds_completed = kwargs.get("rounds_completed")
-    receipt.agents = kwargs.get("agents", ["claude", "gpt-4", "gemini"])
+    receipt.agents = kwargs.get("agents", ["claude", "gpt-6-astra", "gemini"])
     receipt.agents_involved = kwargs.get("agents_involved")
     receipt.key_arguments = kwargs.get("key_arguments")
     receipt.mitigations = kwargs.get("mitigations")

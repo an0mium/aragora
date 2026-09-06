@@ -216,7 +216,7 @@ class TestSession:
         assert s.metadata == {}
 
     def test_custom_config(self):
-        cfg = {"model": "gpt-4", "timeout": 30}
+        cfg = {"model": "gpt-6-astra", "timeout": 30}
         s = self._make_session(config=cfg)
         assert s.config == cfg
 

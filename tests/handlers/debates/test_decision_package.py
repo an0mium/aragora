@@ -124,9 +124,9 @@ def _completed_debate(
         "consensus_reached": consensus_reached,
         "final_answer": final_answer,
         "explanation_summary": explanation_summary,
-        "participants": participants or ["claude", "gpt-4", "gemini"],
+        "participants": participants or ["claude", "gpt-6-astra", "gemini"],
         "total_cost_usd": total_cost_usd,
-        "per_agent_cost": per_agent_cost or {"claude": 0.0020, "gpt-4": 0.0022},
+        "per_agent_cost": per_agent_cost or {"claude": 0.0020, "gpt-6-astra": 0.0022},
     }
     if debate_status is not None:
         result["debate_status"] = debate_status
@@ -141,11 +141,11 @@ def _completed_debate(
         "debate_id": debate_id,
         "question": question,
         "status": status,
-        "agents": agents or ["claude", "gpt-4", "gemini"],
+        "agents": agents or ["claude", "gpt-6-astra", "gemini"],
         "messages": messages
         or [
             {"agent": "claude", "role": "proposal", "content": "I propose X.", "round": 1},
-            {"agent": "gpt-4", "role": "critique", "content": "I critique X.", "round": 1},
+            {"agent": "gpt-6-astra", "role": "critique", "content": "I critique X.", "round": 1},
         ],
         "result": result,
     }
@@ -491,14 +491,14 @@ class TestBuildMarkdown:
             {
                 "cost": {
                     "total_cost_usd": 0.0042,
-                    "per_agent_cost": {"claude": 0.002, "gpt-4": 0.0022},
+                    "per_agent_cost": {"claude": 0.002, "gpt-6-astra": 0.0022},
                 }
             }
         )
         assert "## Cost Breakdown" in md
         assert "$0.0042" in md
         assert "claude" in md
-        assert "gpt-4" in md
+        assert "gpt-6-astra" in md
 
     def test_no_cost_when_empty(self):
         md = _build_markdown({"cost": {}})
@@ -541,10 +541,10 @@ class TestBuildMarkdown:
         assert "## Next Steps" not in md
 
     def test_participants_section(self):
-        md = _build_markdown({"participants": ["claude", "gpt-4"]})
+        md = _build_markdown({"participants": ["claude", "gpt-6-astra"]})
         assert "## Participants" in md
         assert "- claude" in md
-        assert "- gpt-4" in md
+        assert "- gpt-6-astra" in md
 
     def test_no_participants_when_empty(self):
         md = _build_markdown({"participants": []})
@@ -771,7 +771,7 @@ class TestAssemblePackageCompleted:
         )
         body = _body(result)
         assert "claude" in body["participants"]
-        assert "gpt-4" in body["participants"]
+        assert "gpt-6-astra" in body["participants"]
 
     def test_cost_in_package(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
@@ -792,13 +792,13 @@ class TestAssemblePackageCompleted:
         body = _body(result)
         assert body["id"] == "test-debate-001"
         assert body["explanation"] == "All agents agreed on microservices."
-        assert body["agents"] == ["claude", "gpt-4", "gemini"]
+        assert body["agents"] == ["claude", "gpt-6-astra", "gemini"]
         assert body["rounds"] == 1
         assert len(body["arguments"]) == 2
         assert body["total_cost"] == 0.0042
         assert body["cost_breakdown"] == [
             {"agent": "claude", "tokens": 0, "cost": 0.002},
-            {"agent": "gpt-4", "tokens": 0, "cost": 0.0022},
+            {"agent": "gpt-6-astra", "tokens": 0, "cost": 0.0022},
         ]
 
     def test_export_formats_listed(self, handler_with_storage, http_handler):
@@ -991,13 +991,13 @@ class TestReceiptIntegration:
                     "total_tokens_in": 1800,
                     "total_tokens_out": 400,
                     "call_count": 3,
-                    "models_used": {"claude-sonnet-4": 3},
+                    "models_used": {"claude-sonnet-5": 3},
                 },
             },
             "model_usage": {
-                "anthropic/claude-sonnet-4": {
+                "anthropic/claude-sonnet-5": {
                     "provider": "anthropic",
-                    "model": "claude-sonnet-4",
+                    "model": "claude-sonnet-5",
                     "total_cost_usd": "0.020",
                     "total_tokens_in": 2000,
                     "total_tokens_out": 700,
@@ -1018,7 +1018,7 @@ class TestReceiptIntegration:
         body = _body(result)
         assert body["receipt"]["cost_summary"]["total_calls"] == 6
         assert body["receipt"]["cost_summary"]["per_agent"]["claude"]["models_used"] == {
-            "claude-sonnet-4": 3
+            "claude-sonnet-5": 3
         }
         assert body["total_cost"] == 0.045
         assert body["cost"]["per_agent_cost"] == {"claude": 0.02}

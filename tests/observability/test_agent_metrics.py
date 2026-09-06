@@ -146,7 +146,7 @@ class TestRecordProviderCall:
             provider="anthropic",
             success=True,
             latency_seconds=1.5,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
         # Should not raise
 
@@ -392,9 +392,9 @@ class TestAgentCallTracker:
 
     def test_tracker_initialization(self) -> None:
         """Should initialize with correct defaults."""
-        tracker = AgentCallTracker(provider="anthropic", model="claude-3-opus")
+        tracker = AgentCallTracker(provider="anthropic", model="claude-fable-5-1")
         assert tracker.provider == "anthropic"
-        assert tracker.model == "claude-3-opus"
+        assert tracker.model == "claude-fable-5-1"
         assert tracker._success is True
         assert tracker._error_type is None
         assert tracker._input_tokens == 0
@@ -435,7 +435,7 @@ class TestTrackAgentProviderCall:
     def test_successful_call(self) -> None:
         """Should track a successful call."""
 
-        with track_agent_provider_call("anthropic", model="claude-3-opus") as tracker:
+        with track_agent_provider_call("anthropic", model="claude-fable-5-1") as tracker:
             tracker.record_tokens(input_tokens=100, output_tokens=50)
         # Should not raise
 
@@ -468,7 +468,9 @@ class TestTrackAgentProviderCallAsync:
     async def test_successful_async_call(self) -> None:
         """Should track a successful async call."""
 
-        async with track_agent_provider_call_async("anthropic", model="claude-3-opus") as tracker:
+        async with track_agent_provider_call_async(
+            "anthropic", model="claude-fable-5-1"
+        ) as tracker:
             await asyncio.sleep(0.01)
             tracker.record_tokens(input_tokens=100, output_tokens=50)
         # Should not raise
@@ -489,7 +491,7 @@ class TestWithAgentProviderMetrics:
     async def test_decorator_on_async_function(self) -> None:
         """Should decorate an async function."""
 
-        @with_agent_provider_metrics("anthropic", model="claude-3-opus")
+        @with_agent_provider_metrics("anthropic", model="claude-fable-5-1")
         async def my_func() -> str:
             return "result"
 
@@ -531,7 +533,7 @@ class TestWithAgentProviderMetricsSync:
     def test_decorator_on_sync_function(self) -> None:
         """Should decorate a sync function."""
 
-        @with_agent_provider_metrics_sync("anthropic", model="claude-3-opus")
+        @with_agent_provider_metrics_sync("anthropic", model="claude-fable-5-1")
         def my_func() -> str:
             return "result"
 
@@ -624,7 +626,7 @@ class TestEdgeCases:
         record_provider_call(
             "anthropic",
             True,
-            model="claude-3-opus:20240229-beta/test",
+            model="claude-fable-5-1:20240229-beta/test",
         )
         # Should not raise
 
@@ -636,7 +638,9 @@ class TestMetricsIntegration:
     async def test_typical_successful_api_call_pattern(self) -> None:
         """Should work with typical successful API call pattern."""
 
-        async with track_agent_provider_call_async("anthropic", model="claude-3-opus") as tracker:
+        async with track_agent_provider_call_async(
+            "anthropic", model="claude-fable-5-1"
+        ) as tracker:
             # Simulate API call
             await asyncio.sleep(0.01)
 

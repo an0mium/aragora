@@ -55,7 +55,7 @@ class TestCoreELOMetrics:
         record_calibration_adjustment("claude")
 
     def test_record_learning_bonus(self, _init_noop):
-        record_learning_bonus("gpt-4", "improvement")
+        record_learning_bonus("gpt-6-astra", "improvement")
 
     def test_record_voting_accuracy_update(self, _init_noop):
         record_voting_accuracy_update("correct")
@@ -63,7 +63,7 @@ class TestCoreELOMetrics:
 
     def test_record_selection_feedback_adjustment(self, _init_noop):
         record_selection_feedback_adjustment("claude", "increase")
-        record_selection_feedback_adjustment("gpt-4", "decrease")
+        record_selection_feedback_adjustment("gpt-6-astra", "decrease")
 
 
 class TestPerformanceRoutingMetrics:
@@ -75,7 +75,7 @@ class TestPerformanceRoutingMetrics:
 
     def test_track_performance_routing(self, _init_noop):
         with track_performance_routing("proposal") as ctx:
-            ctx["selected_agent"] = "gpt-4"
+            ctx["selected_agent"] = "gpt-6-astra"
 
     def test_track_performance_routing_default(self, _init_noop):
         with track_performance_routing("vote") as ctx:
@@ -87,7 +87,7 @@ class TestNoveltyDiversityMetrics:
         record_novelty_score_calculation("claude")
 
     def test_record_novelty_penalty(self, _init_noop):
-        record_novelty_penalty("gpt-4")
+        record_novelty_penalty("gpt-6-astra")
 
     def test_record_echo_chamber_detection(self, _init_noop):
         record_echo_chamber_detection("high")

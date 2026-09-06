@@ -77,7 +77,7 @@ class TestRLMConfig:
         config = RLMConfig()
 
         assert config.root_model == "claude"
-        assert config.sub_model == "gpt-4o-mini"
+        assert config.sub_model == "gpt-5.6-terra"
         assert config.max_depth == 2
         assert config.max_sub_calls == 10
         assert config.target_tokens == 8000
@@ -94,7 +94,7 @@ class TestRLMConfig:
     def test_custom_values(self):
         """Test custom configuration values."""
         config = RLMConfig(
-            root_model="gpt-4",
+            root_model="gpt-6-astra",
             sub_model="gpt-3.5-turbo",
             max_depth=5,
             target_tokens=8000,
@@ -102,7 +102,7 @@ class TestRLMConfig:
             cache_compressions=False,
         )
 
-        assert config.root_model == "gpt-4"
+        assert config.root_model == "gpt-6-astra"
         assert config.sub_model == "gpt-3.5-turbo"
         assert config.max_depth == 5
         assert config.target_tokens == 8000

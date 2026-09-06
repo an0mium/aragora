@@ -39,7 +39,7 @@ describe('lifecycleEvents handlers', () => {
       type: 'debate_start',
       data: {
         task: 'Should we ship this?',
-        agents: ['claude', 'gpt-5'],
+        agents: ['claude', 'gpt-6-astra'],
         mode: 'epistemic_hygiene',
         settlement: {
           status: 'needs_definition',
@@ -52,7 +52,7 @@ describe('lifecycleEvents handlers', () => {
     handleDebateStartEvent(data, ctx);
 
     expect(ctx.setTask).toHaveBeenCalledWith('Should we ship this?');
-    expect(ctx.setAgents).toHaveBeenCalledWith(['claude', 'gpt-5']);
+    expect(ctx.setAgents).toHaveBeenCalledWith(['claude', 'gpt-6-astra']);
     expect(ctx.setDebateMode).toHaveBeenCalledWith('epistemic_hygiene');
     expect(ctx.setSettlementMetadata).toHaveBeenCalledWith(
       expect.objectContaining({

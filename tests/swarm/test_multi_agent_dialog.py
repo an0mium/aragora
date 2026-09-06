@@ -343,13 +343,13 @@ class TestWithModel:
         assert spec.stdin_mode == "stdin"
 
     def test_with_model_droid_appends_short_m_flag(self) -> None:
-        spec = AgentSpec.with_model("droid", "gpt-5.4")
+        spec = AgentSpec.with_model("droid", "gpt-6-astra")
         assert spec.binary == "droid"
-        assert spec.base_flags == (*DROID_FLAGS, "-m", "gpt-5.4")
-        assert spec.name == "droid:gpt-5.4"
+        assert spec.base_flags == (*DROID_FLAGS, "-m", "gpt-6-astra")
+        assert spec.name == "droid:gpt-6-astra"
 
     def test_with_model_custom_name_overrides_default(self) -> None:
-        spec = AgentSpec.with_model("droid", "kimi-k2.5", name="bear-kimi")
+        spec = AgentSpec.with_model("droid", "kimi-k3", name="bear-kimi")
         assert spec.name == "bear-kimi"
 
     def test_with_model_codex_raises_value_error(self) -> None:
@@ -357,18 +357,18 @@ class TestWithModel:
         # the harness must explicitly fail rather than silently use
         # the default model.
         with pytest.raises(ValueError, match="codex"):
-            AgentSpec.with_model("codex", "gpt-5.4")
+            AgentSpec.with_model("codex", "gpt-6-astra")
 
     def test_with_model_unknown_cli_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unknown cli"):
-            AgentSpec.with_model("gpt", "gpt-5.4")
+            AgentSpec.with_model("gpt", "gpt-6-astra")
 
     def test_with_model_case_insensitive_cli(self) -> None:
-        spec = AgentSpec.with_model("DROID", "kimi-k2.5")
+        spec = AgentSpec.with_model("DROID", "kimi-k3")
         assert spec.binary == "droid"
 
     def test_with_model_custom_timeout_propagates(self) -> None:
-        spec = AgentSpec.with_model("droid", "kimi-k2.5", timeout_seconds=200)
+        spec = AgentSpec.with_model("droid", "kimi-k3", timeout_seconds=200)
         assert spec.timeout_seconds == 200
 
 
@@ -388,7 +388,7 @@ class TestNamedHeterogeneousFactories:
     def test_droid_gpt5(self) -> None:
         spec = AgentSpec.droid_gpt5()
         assert spec.binary == "droid"
-        assert "gpt-5.4" in spec.base_flags
+        assert "gpt-6-astra" in spec.base_flags
         assert spec.name == "droid-gpt5"
 
     def test_droid_gemini(self) -> None:
@@ -400,7 +400,7 @@ class TestNamedHeterogeneousFactories:
     def test_droid_kimi(self) -> None:
         spec = AgentSpec.droid_kimi()
         assert spec.binary == "droid"
-        assert "kimi-k2.5" in spec.base_flags
+        assert "kimi-k3" in spec.base_flags
 
     def test_droid_glm(self) -> None:
         spec = AgentSpec.droid_glm()

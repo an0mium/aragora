@@ -137,14 +137,14 @@ describe('normalizeDecisionPackage', () => {
                 total_tokens_out: 400,
                 call_count: 3,
                 models_used: {
-                  'claude-sonnet-4': 3,
+                  'claude-sonnet-5': 3,
                 },
               },
             },
             model_usage: {
-              'anthropic/claude-sonnet-4': {
+              'anthropic/claude-sonnet-5': {
                 provider: 'anthropic',
-                model: 'claude-sonnet-4',
+                model: 'claude-sonnet-5',
                 total_cost_usd: '0.020',
                 total_tokens_in: 2000,
                 total_tokens_out: 700,
@@ -164,12 +164,12 @@ describe('normalizeDecisionPackage', () => {
     expect(costSummary?.per_agent).toEqual([
       expect.objectContaining({
         agent: 'claude',
-        models_used: [{ model: 'claude-sonnet-4', call_count: 3 }],
+        models_used: [{ model: 'claude-sonnet-5', call_count: 3 }],
       }),
     ]);
     expect(costSummary?.model_usage).toEqual([
       expect.objectContaining({
-        label: 'anthropic/claude-sonnet-4',
+        label: 'anthropic/claude-sonnet-5',
         call_count: 4,
       }),
     ]);

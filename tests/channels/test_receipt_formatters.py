@@ -29,7 +29,7 @@ def _make_receipt(**kwargs):
     receipt.input_summary = kwargs.get("input_summary")
     receipt.rounds = kwargs.get("rounds", 3)
     receipt.rounds_completed = kwargs.get("rounds_completed")
-    receipt.agents = kwargs.get("agents", ["claude", "gpt-4", "gemini"])
+    receipt.agents = kwargs.get("agents", ["claude", "gpt-6-astra", "gemini"])
     receipt.agents_involved = kwargs.get("agents_involved")
     receipt.key_arguments = kwargs.get(
         "key_arguments", ["Scalability", "Flexibility", "Team autonomy"]
@@ -128,12 +128,12 @@ class TestDiscordReceiptFormatter:
     def test_format_includes_agents(self):
         """Test that agents field is included."""
         fmt = self._get_formatter()
-        receipt = _make_receipt(agents=["claude", "gpt-4"])
+        receipt = _make_receipt(agents=["claude", "gpt-6-astra"])
         result = fmt.format(receipt)
         fields = result["embeds"][0]["fields"]
         agents_field = next(f for f in fields if f["name"] == "Agents")
         assert "claude" in agents_field["value"]
-        assert "gpt-4" in agents_field["value"]
+        assert "gpt-6-astra" in agents_field["value"]
 
     def test_format_agents_overflow(self):
         """Test agents field truncation with many agents."""
@@ -186,12 +186,12 @@ class TestDiscordReceiptFormatter:
         """Test dissenting views with dict entries."""
         fmt = self._get_formatter()
         receipt = _make_receipt(
-            dissenting_views=[{"agent": "gpt-4", "reasons": ["Too risky", "Too expensive"]}]
+            dissenting_views=[{"agent": "gpt-6-astra", "reasons": ["Too risky", "Too expensive"]}]
         )
         result = fmt.format(receipt)
         fields = result["embeds"][0]["fields"]
         dissent = next(f for f in fields if f["name"] == "Dissenting Views")
-        assert "gpt-4" in dissent["value"]
+        assert "gpt-6-astra" in dissent["value"]
 
     def test_format_embed_color_high_confidence(self):
         """Test green color for high confidence."""
@@ -393,10 +393,10 @@ class TestEmailReceiptFormatter:
     def test_format_agents_in_metadata(self):
         """Test agents shown in metadata section."""
         fmt = self._get_formatter()
-        receipt = _make_receipt(agents=["claude", "gpt-4"])
+        receipt = _make_receipt(agents=["claude", "gpt-6-astra"])
         result = fmt.format(receipt)
         assert "claude" in result["html"]
-        assert "gpt-4" in result["html"]
+        assert "gpt-6-astra" in result["html"]
 
     def test_format_timestamp_included(self):
         """Test timestamp in metadata."""
@@ -534,7 +534,7 @@ class TestSlackReceiptFormatter:
     def test_format_includes_agents_context(self):
         """Test agents context block."""
         fmt = self._get_formatter()
-        receipt = _make_receipt(agents=["claude", "gpt-4"])
+        receipt = _make_receipt(agents=["claude", "gpt-6-astra"])
         result = fmt.format(receipt)
         context_blocks = [b for b in result["blocks"] if b.get("type") == "context"]
         agent_texts = [
@@ -749,7 +749,7 @@ class TestTeamsReceiptFormatter:
     def test_format_agents_fact_set(self):
         """Test agents shown in FactSet."""
         fmt = self._get_formatter()
-        receipt = _make_receipt(agents=["claude", "gpt-4"])
+        receipt = _make_receipt(agents=["claude", "gpt-6-astra"])
         result = fmt.format(receipt)
         fact_sets = [b for b in result["body"] if b.get("type") == "FactSet"]
         assert len(fact_sets) >= 1

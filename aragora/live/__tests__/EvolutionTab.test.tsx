@@ -51,7 +51,7 @@ const mockGenesisEvents = [
 const mockGenomes = [
   {
     genome_id: 'genome-1',
-    agent_name: 'claude-3-opus',
+    agent_name: 'claude-fable-5-1',
     generation: 15,
     fitness: 0.89,
     parent_id: 'genome-0',
@@ -60,7 +60,7 @@ const mockGenomes = [
   },
   {
     genome_id: 'genome-2',
-    agent_name: 'claude-3-opus',
+    agent_name: 'claude-fable-5-1',
     generation: 14,
     fitness: 0.85,
     parent_id: null,

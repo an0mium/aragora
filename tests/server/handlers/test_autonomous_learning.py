@@ -130,7 +130,7 @@ def sample_pattern():
         description="Strong consensus pattern detected",
         detected_at=now,
         source_debates=["debate_1", "debate_2"],
-        agents_involved=["claude", "gpt-4"],
+        agents_involved=["claude", "gpt-6-astra"],
         frequency=5,
     )
 
@@ -1140,7 +1140,7 @@ class TestLearningHandlerCalibration:
         """Should trigger calibration successfully."""
         mock_request = MockHTTPHandler(
             method="POST",
-            body={"agent_ids": ["claude", "gpt-4"]},
+            body={"agent_ids": ["claude", "gpt-6-astra"]},
         )
 
         with patch.object(handler, "get_current_user", return_value=MockUserAuthContext()):
@@ -1303,7 +1303,7 @@ class TestSelectionFeedbackLoopIntegration:
         """Calibration should store a metric for tracking."""
         mock_request = MockHTTPHandler(
             method="POST",
-            body={"agent_ids": ["claude", "gpt-4"], "force": True},
+            body={"agent_ids": ["claude", "gpt-6-astra"], "force": True},
         )
 
         with patch.object(handler, "get_current_user", return_value=MockUserAuthContext()):
@@ -1312,7 +1312,7 @@ class TestSelectionFeedbackLoopIntegration:
         assert result is not None
         assert result.status == 200
         data = json.loads(result.body)
-        assert data["metric"]["metadata"]["agent_ids"] == ["claude", "gpt-4"]
+        assert data["metric"]["metadata"]["agent_ids"] == ["claude", "gpt-6-astra"]
         assert data["metric"]["metadata"]["forced"] is True
 
         # Verify metric was stored
@@ -1359,7 +1359,7 @@ class TestAgentCalibrationUpdates:
         """Calibration should include specified agent IDs."""
         mock_request = MockHTTPHandler(
             method="POST",
-            body={"agent_ids": ["claude", "gemini", "gpt-4"]},
+            body={"agent_ids": ["claude", "gemini", "gpt-6-astra"]},
         )
 
         with patch.object(handler, "get_current_user", return_value=MockUserAuthContext()):
@@ -1371,7 +1371,7 @@ class TestAgentCalibrationUpdates:
 
         assert "claude" in data["metric"]["metadata"]["agent_ids"]
         assert "gemini" in data["metric"]["metadata"]["agent_ids"]
-        assert "gpt-4" in data["metric"]["metadata"]["agent_ids"]
+        assert "gpt-6-astra" in data["metric"]["metadata"]["agent_ids"]
 
     @pytest.mark.asyncio
     async def test_calibration_with_force_flag(self, handler):

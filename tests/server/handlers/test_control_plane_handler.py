@@ -97,7 +97,7 @@ def mock_agent_info():
     mock = MagicMock()
     mock.agent_id = "test-agent-001"
     mock.capabilities = ["debate", "code"]
-    mock.model = "claude-3-opus"
+    mock.model = "claude-fable-5-1"
     mock.provider = "anthropic"
     mock.status = MagicMock()
     mock.status.value = "ready"
@@ -110,7 +110,7 @@ def mock_agent_info():
         return_value={
             "agent_id": "test-agent-001",
             "capabilities": ["debate", "code"],
-            "model": "claude-3-opus",
+            "model": "claude-fable-5-1",
             "provider": "anthropic",
             "status": "ready",
             "registered_at": 1706605200.0,
@@ -456,7 +456,7 @@ class TestAgentRegistration:
             body={
                 "agent_id": "new-agent",
                 "capabilities": ["debate", "code"],
-                "model": "claude-3-opus",
+                "model": "claude-fable-5-1",
                 "provider": "anthropic",
             },
             headers={"Content-Type": "application/json"},

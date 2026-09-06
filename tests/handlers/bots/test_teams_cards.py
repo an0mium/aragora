@@ -417,10 +417,10 @@ class TestCreateDebateCard:
         assert debate_id_fact["value"] == "abcdefghijkl"
 
     def test_agents_in_fact_set(self):
-        card = create_debate_card("d1", "T", ["claude", "gpt-4", "gemini"])
+        card = create_debate_card("d1", "T", ["claude", "gpt-6-astra", "gemini"])
         fact_set = [b for b in card["body"] if b.get("type") == "FactSet"][0]
         agents_fact = fact_set["facts"][1]
-        assert agents_fact["value"] == "claude, gpt-4, gemini"
+        assert agents_fact["value"] == "claude, gpt-6-astra, gemini"
 
     def test_rounds_in_fact_set(self):
         card = create_debate_card("d1", "T", ["a"], current_round=2, total_rounds=5)
@@ -483,7 +483,7 @@ class TestCreateDebateCard:
         assert any("Round 2/5" in t for t in texts)
 
     def test_card_is_json_serializable(self):
-        card = create_debate_card("d1", "Topic", ["claude", "gpt-4"])
+        card = create_debate_card("d1", "Topic", ["claude", "gpt-6-astra"])
         serialized = json.dumps(card)
         assert isinstance(serialized, str)
 
@@ -586,7 +586,7 @@ class TestCreateConsensusCard:
             "consensus_type": "unanimous",
             "final_answer": "Yes, we should.",
             "confidence": 0.85,
-            "supporting_agents": ["claude", "gpt-4"],
+            "supporting_agents": ["claude", "gpt-6-astra"],
         }
         defaults.update(overrides)
         return create_consensus_card(**defaults)
@@ -659,11 +659,11 @@ class TestCreateConsensusCard:
         assert answer_block["text"] == "We should proceed."
 
     def test_supporting_agents_in_facts(self):
-        card = self._make(supporting_agents=["claude", "gpt-4"])
+        card = self._make(supporting_agents=["claude", "gpt-6-astra"])
         fact_set = [b for b in card["body"] if b.get("type") == "FactSet"][0]
         supporting = fact_set["facts"][0]
         assert supporting["title"] == "Supporting"
-        assert supporting["value"] == "claude, gpt-4"
+        assert supporting["value"] == "claude, gpt-6-astra"
 
     def test_no_dissenting_agents(self):
         card = self._make(dissenting_agents=None)
@@ -970,7 +970,7 @@ class TestCreateDebateProgressCard:
     def test_with_agent_messages(self):
         msgs = [
             {"agent": "claude", "preview": "I propose we..."},
-            {"agent": "gpt-4", "preview": "I disagree because..."},
+            {"agent": "gpt-6-astra", "preview": "I disagree because..."},
         ]
         card = create_debate_progress_card("d1", "T", 1, 3, "p", agent_messages=msgs)
         msg_blocks = [

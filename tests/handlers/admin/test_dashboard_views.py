@@ -262,7 +262,7 @@ AGENT_PERF = {
             "draws": 0,
         },
         {
-            "name": "mistral-large",
+            "name": "mistral-large-2512",
             "elo": 1100,
             "debates_count": 12,
             "win_rate": 0.5,

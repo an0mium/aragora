@@ -857,10 +857,10 @@ def mock_llm_agents():
     """
     responses = [
         MockAgentResponse(
-            content="Thoughtful response to the debate topic.", model="claude-3-opus"
+            content="Thoughtful response to the debate topic.", model="claude-fable-5-1"
         ),
-        MockAgentResponse(content="Counter-argument with evidence.", model="gpt-4"),
-        MockAgentResponse(content="Finding common ground.", model="gemini-pro"),
+        MockAgentResponse(content="Counter-argument with evidence.", model="gpt-6-astra"),
+        MockAgentResponse(content="Finding common ground.", model="gemini-3.1-pro-preview"),
     ]
     response_idx = [0]
 

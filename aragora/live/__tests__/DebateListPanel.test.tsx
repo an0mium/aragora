@@ -20,7 +20,7 @@ describe('DebateListPanel', () => {
       slug: 'debate-1',
       task: 'Discuss rate limiting strategies',
       created_at: '2026-01-04T10:00:00Z',
-      agents: ['claude', 'gemini', 'gpt-4'],
+      agents: ['claude', 'gemini', 'gpt-6-astra'],
       winner: 'claude',
       consensus_reached: true,
       rounds_used: 3,
@@ -41,7 +41,7 @@ describe('DebateListPanel', () => {
       slug: 'debate-3',
       task: 'Design authentication flow',
       created_at: '2026-01-04T08:00:00Z',
-      agents: ['claude', 'gpt-4', 'llama', 'mistral', 'deepseek'],
+      agents: ['claude', 'gpt-6-astra', 'llama', 'mistral', 'deepseek'],
       consensus_reached: true,
       rounds_used: 2,
       duration_seconds: 90,
@@ -187,7 +187,7 @@ describe('DebateListPanel', () => {
       await waitFor(() => {
         // These agents appear in multiple debates, so use getAllByText
         const geminiElements = screen.getAllByText('gemini');
-        const gpt4Elements = screen.getAllByText('gpt-4');
+        const gpt4Elements = screen.getAllByText('gpt-6-astra');
         expect(geminiElements.length).toBeGreaterThan(0);
         expect(gpt4Elements.length).toBeGreaterThan(0);
       });

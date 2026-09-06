@@ -39,9 +39,9 @@ class TestAgentSpecPipeFormat:
 
     def test_provider_model_role(self):
         """Parse spec with provider, model, and role."""
-        spec = AgentSpec.parse("openai-api|gpt-4o||synthesizer")
+        spec = AgentSpec.parse("openai-api|gpt-6-astra||synthesizer")
         assert spec.provider == "openai-api"
-        assert spec.model == "gpt-4o"
+        assert spec.model == "gpt-6-astra"
         assert spec.persona is None
         assert spec.role == "synthesizer"
 

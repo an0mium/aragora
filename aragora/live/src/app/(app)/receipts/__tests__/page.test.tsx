@@ -363,7 +363,7 @@ describe('ReceiptsPage', () => {
     configureDetailFetch({
       dissenting_views: [
         {
-          agent: 'gpt-4',
+          agent: 'gpt-6-astra',
           reasons: ['Too risky', 'Too expensive'],
           alternative: 'Ship a narrower pilot first.',
         },
@@ -378,7 +378,7 @@ describe('ReceiptsPage', () => {
 
     expect(
       await screen.findByText(
-        'gpt-4: Too risky; Too expensive Alternative: Ship a narrower pilot first.'
+        'gpt-6-astra: Too risky; Too expensive Alternative: Ship a narrower pilot first.'
       )
     ).toBeInTheDocument();
   });

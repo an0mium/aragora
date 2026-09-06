@@ -350,12 +350,12 @@ class TestNomicAPIMayorCurrentAsync:
     async def test_mayor_current_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test mayor_current_async() returns current mayor information."""
         mock_client._get_async = AsyncMock(
-            return_value={"agent_id": "gpt-4", "term_start": "2026-01-15T00:00:00Z"}
+            return_value={"agent_id": "gpt-6-astra", "term_start": "2026-01-15T00:00:00Z"}
         )
 
         result = await nomic_api.mayor_current_async()
 
-        assert result["agent_id"] == "gpt-4"
+        assert result["agent_id"] == "gpt-6-astra"
         mock_client._get_async.assert_called_once_with("/api/v1/nomic/mayor/current")
 
 

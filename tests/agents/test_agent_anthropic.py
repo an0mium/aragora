@@ -37,7 +37,7 @@ class TestAnthropicAgentInitialization:
     def test_custom_initialization(self):
         """Test agent with custom parameters."""
         # An ACTIVE non-default catalog id: a retired one (the old
-        # "claude-3-opus-20240229") is now upgraded at construction time, its
+        # "claude-fable-5-1") is now upgraded at construction time, its
         # own behaviour (tests/agents/test_retired_model_id_upgrade.py).
         agent = AnthropicAPIAgent(
             name="my-claude",
@@ -387,7 +387,7 @@ class TestAnthropicModelMapping:
 
     def test_fallback_resolves_legacy_id_via_catalog(self):
         """A legacy/retired Claude id resolves to the current frontier."""
-        agent = AnthropicAPIAgent(api_key="test-key", model="claude-3-opus-20240229")
+        agent = AnthropicAPIAgent(api_key="test-key", model="claude-fable-5-1")
         assert agent.get_fallback_model() == "anthropic/claude-fable-5.1"
 
     def test_fallback_uses_correct_model(self):
@@ -401,7 +401,7 @@ class TestAnthropicModelMapping:
         """
         agent = AnthropicAPIAgent(
             api_key="test-key",
-            model="claude-3-opus-20240229",
+            model="claude-fable-5-1",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):

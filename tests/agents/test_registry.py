@@ -228,7 +228,7 @@ class TestRegistrationDecorator:
         @AgentRegistry.register(
             "openrouter-agent",
             agent_type="API (OpenRouter)",
-            default_model="deepseek/deepseek-v4-pro",
+            default_model="deepseek/deepseek-v4-pro-0813",
         )
         class OpenRouterAgent(mock_agent_class):
             pass
@@ -236,7 +236,7 @@ class TestRegistrationDecorator:
         spec = AgentRegistry.get_spec("openrouter-agent")
         assert spec is not None
         assert spec.agent_type == "API (OpenRouter)"
-        assert spec.default_model == "deepseek/deepseek-v4-pro"
+        assert spec.default_model == "deepseek/deepseek-v4-pro-0813"
 
     def test_register_preserves_class_methods(self, mock_agent_class):
         """Test registration preserves class methods."""

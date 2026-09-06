@@ -765,8 +765,8 @@ class TestSerialization:
         """Should correctly serialize and deserialize metadata."""
         complex_metadata = {
             "debate_id": "debate_123",
-            "agents": ["claude", "gpt-4"],
-            "scores": {"claude": 0.85, "gpt-4": 0.78},
+            "agents": ["claude", "gpt-6-astra"],
+            "scores": {"claude": 0.85, "gpt-6-astra": 0.78},
             "nested": {"level1": {"level2": "value"}},
         }
 

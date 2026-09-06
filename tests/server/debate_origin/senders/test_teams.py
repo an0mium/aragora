@@ -55,7 +55,7 @@ def sample_result() -> dict[str, Any]:
         "consensus_reached": True,
         "final_answer": "The team reached agreement on the approach.",
         "confidence": 0.85,
-        "participants": ["claude", "gpt-4", "gemini"],
+        "participants": ["claude", "gpt-6-astra", "gemini"],
         "task": "Evaluate the proposal",
         "key_points": ["Point 1", "Point 2"],
         "dissenting_agents": [],
@@ -132,7 +132,7 @@ class TestBuildResultCard:
         agents_fact = next((f for f in facts if f.get("title") == "Agents"), None)
         assert agents_fact is not None
         assert "claude" in agents_fact["value"]
-        assert "gpt-4" in agents_fact["value"]
+        assert "gpt-6-astra" in agents_fact["value"]
 
     def test_truncates_long_final_answer(self, sample_origin, sample_result):
         """_build_result_card truncates answers over 500 chars."""

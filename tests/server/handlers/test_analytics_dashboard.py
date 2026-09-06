@@ -1627,7 +1627,7 @@ class TestProviderBreakdownAggregation:
         mock_rows = [
             {
                 "provider": "anthropic",
-                "model": "claude-sonnet-4",
+                "model": "claude-sonnet-5",
                 "tokens_in": 100000,
                 "tokens_out": 20000,
                 "cost": 30.0,
@@ -1635,7 +1635,7 @@ class TestProviderBreakdownAggregation:
             },
             {
                 "provider": "anthropic",
-                "model": "claude-opus-4",
+                "model": "claude-fable-5-1",
                 "tokens_in": 50000,
                 "tokens_out": 10000,
                 "cost": 50.0,

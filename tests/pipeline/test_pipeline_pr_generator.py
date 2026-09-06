@@ -276,7 +276,7 @@ class TestPRGenerator:
         artifact.debate_id = "gen-debate-001"
         artifact.task = "Implement a rate limiter for the API endpoints."
         artifact.rounds = 3
-        artifact.agents = ["claude", "gpt-4", "gemini"]
+        artifact.agents = ["claude", "gpt-6-astra", "gemini"]
 
         # Mock consensus proof
         consensus = MagicMock()
@@ -496,7 +496,7 @@ Also update `tests/test_auth.py` for the new tests.
         critique1.severity = 0.5
 
         critique2 = MagicMock()
-        critique2.agent = "gpt-4"
+        critique2.agent = "gpt-6-astra"
         critique2.issues = ["How to handle edge cases?", "Other issue"]
         critique2.severity = 0.6
 
@@ -576,7 +576,7 @@ class TestIntegration:
         artifact.debate_id = "integration-001"
         artifact.task = "Add caching to improve performance."
         artifact.rounds = 4
-        artifact.agents = ["claude", "gpt-4"]
+        artifact.agents = ["claude", "gpt-6-astra"]
 
         consensus = MagicMock()
         consensus.final_answer = """

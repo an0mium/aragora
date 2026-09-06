@@ -140,7 +140,7 @@ async def test_tier_2_runs_two_reviewers_and_synthesizes() -> None:
     reviewer_2.review.return_value = CampaignReviewGate(
         status="passed",
         findings=[],
-        review_model="gpt-4",
+        review_model="gpt-6-astra",
     )
 
     result = await review_lane(

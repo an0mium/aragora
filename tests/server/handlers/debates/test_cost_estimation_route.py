@@ -29,7 +29,7 @@ class TestCostEstimationRoute:
         """Cost estimate should accept model_types parameter."""
         result = handler.handle(
             "/api/v1/debates/estimate-cost",
-            {"num_agents": "2", "num_rounds": "5", "model_types": "claude-sonnet-4,gpt-4o"},
+            {"num_agents": "2", "num_rounds": "5", "model_types": "claude-sonnet-5,gpt-6-astra"},
             None,
         )
         assert result is not None

@@ -367,7 +367,7 @@ class TestParamPatterns:
         """Test name pattern."""
         pattern = PARAM_PATTERNS["name"]
         assert pattern.match("claude")
-        assert pattern.match("gpt-4")
+        assert pattern.match("gpt-6-astra")
         assert pattern.match("a" * 32)  # Max length
         assert not pattern.match("a" * 33)  # Too long
 

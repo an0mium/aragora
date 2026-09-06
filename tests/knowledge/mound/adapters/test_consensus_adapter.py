@@ -236,9 +236,9 @@ class TestToKnowledgeItem:
         mock_record.tags = ["api", "rate-limiting"]
         mock_record.confidence = 0.9
         mock_record.timestamp = datetime.now(timezone.utc)
-        mock_record.participating_agents = ["claude-3", "gpt-4"]
+        mock_record.participating_agents = ["claude-3", "gpt-6-astra"]
         mock_record.agreeing_agents = ["claude-3"]
-        mock_record.dissenting_agents = ["gpt-4"]
+        mock_record.dissenting_agents = ["gpt-6-astra"]
         mock_record.key_claims = []
         mock_record.supporting_evidence = []
         mock_record.dissent_ids = []

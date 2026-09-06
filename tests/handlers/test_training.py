@@ -108,7 +108,7 @@ class MockSpecialistModel:
     id: str = "model-001"
     vertical: MockVertical = MockVertical.HEALTHCARE
     status: MockTrainingStatus = MockTrainingStatus.PENDING
-    base_model: str = "gpt-4"
+    base_model: str = "gpt-6-astra"
     adapter_name: str = "healthcare-adapter"
     created_at: datetime = field(default_factory=datetime.now)
     training_data_examples: int = 100

@@ -94,7 +94,7 @@ def mock_storage():
             "task": "security analysis",
             "domain": "security",
             "consensus_reached": True,
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "result": {
                 "rounds_used": 3,
                 "confidence": 0.85,
@@ -107,7 +107,7 @@ def mock_storage():
             "task": "performance review",
             "domain": "performance",
             "consensus_reached": True,
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "result": {
                 "rounds_used": 2,
                 "confidence": 0.72,
@@ -120,7 +120,7 @@ def mock_storage():
             "task": "budget planning",
             "domain": "finance",
             "consensus_reached": False,
-            "agents": ["gemini", "gpt-4", "claude", "mistral"],
+            "agents": ["gemini", "gpt-6-astra", "claude", "mistral"],
             "result": {
                 "rounds_used": 5,
                 "confidence": 0.45,
@@ -167,15 +167,15 @@ def mock_elo_system():
         return agent
 
     agent1 = make_agent("claude", 1650, 120, 30, 10)
-    agent2 = make_agent("gpt-4", 1580, 95, 45, 15)
+    agent2 = make_agent("gpt-6-astra", 1580, 95, 45, 15)
     agent3 = make_agent("gemini", 1520, 80, 55, 20)
     agent4 = make_agent("mistral", 1480, 60, 70, 25)
 
     elo.get_leaderboard.return_value = [agent1, agent2, agent3, agent4]
-    elo.list_agents.return_value = ["claude", "gpt-4", "gemini", "mistral"]
+    elo.list_agents.return_value = ["claude", "gpt-6-astra", "gemini", "mistral"]
     elo.get_rating.side_effect = lambda name: {
         "claude": agent1,
-        "gpt-4": agent2,
+        "gpt-6-astra": agent2,
         "gemini": agent3,
         "mistral": agent4,
     }.get(name) or (_ for _ in ()).throw(KeyError(f"Agent not found: {name}"))
@@ -190,7 +190,7 @@ def mock_elo_system():
 
     # Recent matches
     elo.get_recent_matches.return_value = [
-        {"id": "match-1", "participants": ["claude", "gpt-4"], "winner": "claude"},
+        {"id": "match-1", "participants": ["claude", "gpt-6-astra"], "winner": "claude"},
         {"id": "match-2", "participants": ["gemini", "claude"], "winner": "claude"},
     ]
 
@@ -775,7 +775,7 @@ class TestAgentsComparison:
         """Comparison returns 503 when no ELO system."""
         with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
             with patch.object(handler, "check_permission", return_value=True):
-                result = handler._get_agents_comparison({"agents": "claude,gpt-4"})
+                result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra"})
 
                 assert result.status_code == 503
 
@@ -785,11 +785,11 @@ class TestAgentsComparison:
 
         with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
             with patch.object(handler, "check_permission", return_value=True):
-                result = handler._get_agents_comparison({"agents": "claude,gpt-4,gemini"})
+                result = handler._get_agents_comparison({"agents": "claude,gpt-6-astra,gemini"})
 
                 assert result.status_code == 200
                 body = json.loads(result.body)
-                assert body["agents"] == ["claude", "gpt-4", "gemini"]
+                assert body["agents"] == ["claude", "gpt-6-astra", "gemini"]
                 assert len(body["comparison"]) == 3
                 assert "head_to_head" in body
 
@@ -844,12 +844,12 @@ class TestAgentsTrends:
 
         with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
             with patch.object(handler, "check_permission", return_value=True):
-                result = handler._get_agents_trends({"agents": "claude,gpt-4"})
+                result = handler._get_agents_trends({"agents": "claude,gpt-6-astra"})
 
                 assert result.status_code == 200
                 body = json.loads(result.body)
                 assert "claude" in body["agents"]
-                assert "gpt-4" in body["agents"]
+                assert "gpt-6-astra" in body["agents"]
 
 
 # =============================================================================
@@ -926,7 +926,7 @@ class TestUsageCosts:
         mock_tracker.get_workspace_stats.return_value = {
             "total_cost_usd": "125.50",
             "total_api_calls": 150,
-            "cost_by_agent": {"claude": "80.00", "gpt-4": "45.50"},
+            "cost_by_agent": {"claude": "80.00", "gpt-6-astra": "45.50"},
             "cost_by_model": {"claude-opus": "80.00"},
         }
 

@@ -139,7 +139,7 @@ def _make_flow(
 
 def _make_fabric_agent(
     agent_id: str = "agent-1",
-    model: str = "claude-opus-4",
+    model: str = "claude-fable-5-1",
     status: _AgentStatus = _AgentStatus.ACTIVE,
     created_at: str = "2025-01-15T10:00:00Z",
 ) -> MagicMock:
@@ -185,8 +185,8 @@ def full_state() -> MagicMock:
     state.fabric.get_stats = AsyncMock(return_value={"agents_active": 5, "tasks_pending": 3})
     state.fabric.list_agents = AsyncMock(
         return_value=[
-            _make_fabric_agent("agent-1", "claude-opus-4", _AgentStatus.ACTIVE),
-            _make_fabric_agent("agent-2", "gpt-4", _AgentStatus.IDLE),
+            _make_fabric_agent("agent-1", "claude-fable-5-1", _AgentStatus.ACTIVE),
+            _make_fabric_agent("agent-2", "gpt-6-astra", _AgentStatus.IDLE),
         ]
     )
 
@@ -1253,7 +1253,7 @@ class TestHandleFabricAgentsList:
         assert len(result["agents"]) == 2
         a = result["agents"][0]
         assert a["id"] == "agent-1"
-        assert a["model"] == "claude-opus-4"
+        assert a["model"] == "claude-fable-5-1"
         assert a["status"] == "active"
         assert a["created_at"] == "2025-01-15T10:00:00Z"
 

@@ -37,7 +37,7 @@ class MockAgent:
     def __init__(self, name: str = "claude", role: str = "proposer", stance: str | None = None):
         self.name = name
         self.role = role
-        self.model = "claude-3-opus"
+        self.model = "claude-fable-5-1"
         if stance:
             self.stance = stance
 
@@ -263,7 +263,7 @@ class TestRevisionPromptKMSection:
     def test_revision_includes_km_section(self, builder, mock_agent):
         """Revision prompt contains the KM section with header."""
         builder.set_knowledge_context("Prefer async patterns for I/O-bound work.")
-        critiques = [MockCritique(agent="gpt-4", issues=["Missing error handling"])]
+        critiques = [MockCritique(agent="gpt-6-astra", issues=["Missing error handling"])]
         prompt = builder.build_revision_prompt(
             mock_agent,
             original="My original proposal about API design.",

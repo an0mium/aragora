@@ -204,7 +204,7 @@ def _make_workspace_stats(
         "total_tokens_out": tokens_out,
         "total_api_calls": api_calls,
         "cost_by_agent": cost_by_agent or {"claude": "8.00", "gpt-4": "4.50"},
-        "cost_by_model": cost_by_model or {"claude-3-opus": "8.00", "gpt-4-turbo": "4.50"},
+        "cost_by_model": cost_by_model or {"claude-fable-5-1": "8.00", "gpt-4-turbo": "4.50"},
     }
 
 
@@ -1111,7 +1111,7 @@ class TestGetBreakdown:
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_breakdown_by_model(self, mock_ct, handler):
         stats = _make_workspace_stats(
-            cost_by_model={"claude-3-opus": "6.00", "gpt-4-turbo": "4.00"},
+            cost_by_model={"claude-fable-5-1": "6.00", "gpt-4-turbo": "4.00"},
             total_cost="10.00",
         )
         mock_ct.return_value = _make_mock_cost_tracker(workspace_stats=stats)
@@ -1635,13 +1635,13 @@ class TestExportCSV:
 
     @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
     def test_export_csv_contains_model_breakdown(self, mock_ct, handler):
-        stats = _make_workspace_stats(cost_by_model={"claude-3-opus": "8.00"})
+        stats = _make_workspace_stats(cost_by_model={"claude-fable-5-1": "8.00"})
         mock_ct.return_value = _make_mock_cost_tracker(workspace_stats=stats)
         h = _make_handler(query_params={"format": "csv"})
         result = handler.handle("/api/v1/usage/export", {}, h)
         csv_content = result.body.decode("utf-8")
         assert "Cost by Model" in csv_content
-        assert "claude-3-opus" in csv_content
+        assert "claude-fable-5-1" in csv_content
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_roi_calculator"

@@ -18,14 +18,14 @@ const mockSummaryData = {
     streak_achievement: 3,
   },
   by_agent: {
-    'claude-3-opus': 6,
-    'gpt-4o': 5,
-    'gemini-pro': 4,
+    'claude-fable-5-1': 6,
+    'gpt-6-astra': 5,
+    'gemini-3.1-pro-preview': 4,
   },
   most_significant: {
     id: 'moment-1',
     type: 'upset_victory',
-    agent: 'claude-3-opus',
+    agent: 'claude-fable-5-1',
     description: 'Won against heavily favored opponent in ethics debate',
     significance: 0.95,
     created_at: '2026-01-10T10:00:00Z',
@@ -34,7 +34,7 @@ const mockSummaryData = {
     {
       id: 'moment-1',
       type: 'upset_victory',
-      agent: 'claude-3-opus',
+      agent: 'claude-fable-5-1',
       description: 'Won against heavily favored opponent',
       significance: 0.95,
       created_at: '2026-01-10T10:00:00Z',
@@ -42,7 +42,7 @@ const mockSummaryData = {
     {
       id: 'moment-2',
       type: 'consensus_breakthrough',
-      agent: 'gpt-4o',
+      agent: 'gpt-6-astra',
       description: 'First to propose winning consensus',
       significance: 0.85,
       created_at: '2026-01-10T09:00:00Z',
@@ -50,7 +50,7 @@ const mockSummaryData = {
     {
       id: 'moment-3',
       type: 'position_reversal',
-      agent: 'gemini-pro',
+      agent: 'gemini-3.1-pro-preview',
       description: 'Changed stance based on new evidence',
       significance: 0.7,
       created_at: '2026-01-10T08:00:00Z',
@@ -123,11 +123,11 @@ describe('MomentsTimeline', () => {
     const highlight = screen.getByTestId('moments-highlight');
     expect(within(highlight).getByText('Upset Victory')).toBeInTheDocument();
     expect(within(highlight).getByText('95%')).toBeInTheDocument();
-    expect(within(highlight).getByText('claude-3-opus')).toBeInTheDocument();
+    expect(within(highlight).getByText('claude-fable-5-1')).toBeInTheDocument();
 
     const recentList = screen.getByTestId('moments-recent-list');
-    expect(within(recentList).getByText('gpt-4o')).toBeInTheDocument();
-    expect(within(recentList).getByText('gemini-pro')).toBeInTheDocument();
+    expect(within(recentList).getByText('gpt-6-astra')).toBeInTheDocument();
+    expect(within(recentList).getByText('gemini-3.1-pro-preview')).toBeInTheDocument();
   });
 
   it('filters moments by type and clears the filter', async () => {
@@ -171,7 +171,7 @@ describe('MomentsTimeline', () => {
     });
 
     const distribution = screen.getByTestId('moments-agent-distribution');
-    expect(within(distribution).getByText('claude-3-opus')).toBeInTheDocument();
+    expect(within(distribution).getByText('claude-fable-5-1')).toBeInTheDocument();
     expect(within(distribution).getByText('(6)')).toBeInTheDocument();
   });
 

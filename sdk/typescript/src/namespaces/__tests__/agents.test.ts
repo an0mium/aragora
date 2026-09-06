@@ -78,7 +78,7 @@ describe('AgentsAPI', () => {
       const mockAgents = {
         agents: [
           { name: 'claude', elo: 1520, matches: 100 },
-          { name: 'gpt-4', elo: 1480, matches: 95 },
+          { name: 'gpt-6-astra', elo: 1480, matches: 95 },
         ],
       };
       mockClient.listAgents.mockResolvedValueOnce(mockAgents);
@@ -92,7 +92,7 @@ describe('AgentsAPI', () => {
 
     it('should get agent availability', async () => {
       const mockAvailability = {
-        available: ['claude', 'gpt-4'],
+        available: ['claude', 'gpt-6-astra'],
         missing: ['llama'],
       };
       mockClient.listAgentsAvailability.mockResolvedValueOnce(mockAvailability);
@@ -107,7 +107,7 @@ describe('AgentsAPI', () => {
     it('should get agent health status', async () => {
       const mockHealth = {
         claude: { status: 'healthy', latency_ms: 120 },
-        'gpt-4': { status: 'degraded', latency_ms: 500 },
+        'gpt-6-astra': { status: 'degraded', latency_ms: 500 },
       };
       mockClient.listAgentsHealth.mockResolvedValueOnce(mockHealth);
 
@@ -254,7 +254,7 @@ describe('AgentsAPI', () => {
 
     it('should get agent metadata', async () => {
       const mockMetadata = {
-        model: 'claude-3-opus',
+        model: 'claude-fable-5-1',
         provider: 'anthropic',
         version: '2024-01',
       };
@@ -391,7 +391,7 @@ describe('AgentsAPI', () => {
       const mockLeaderboard = {
         agents: [
           { name: 'claude', elo: 1520 },
-          { name: 'gpt-4', elo: 1480 },
+          { name: 'gpt-6-astra', elo: 1480 },
         ],
       };
       mockClient.getLeaderboard.mockResolvedValueOnce(mockLeaderboard);
@@ -489,56 +489,56 @@ describe('AgentsAPI', () => {
     it('should get head-to-head stats', async () => {
       const mockH2H = {
         agent: 'claude',
-        opponent: 'gpt-4',
+        opponent: 'gpt-6-astra',
         matches: 25,
         wins: 15,
         win_rate: 0.6,
       };
       mockClient.getAgentHeadToHead.mockResolvedValueOnce(mockH2H);
 
-      const result = await agentsApi.getHeadToHead('claude', 'gpt-4');
+      const result = await agentsApi.getHeadToHead('claude', 'gpt-6-astra');
 
-      expect(mockClient.getAgentHeadToHead).toHaveBeenCalledWith('claude', 'gpt-4');
+      expect(mockClient.getAgentHeadToHead).toHaveBeenCalledWith('claude', 'gpt-6-astra');
       expect(result.win_rate).toBe(0.6);
     });
 
     it('should get opponent briefing', async () => {
       const mockBriefing = {
-        opponent: 'gpt-4',
+        opponent: 'gpt-6-astra',
         strengths: ['Strong reasoning'],
         weaknesses: ['Overconfident'],
       };
       mockClient.getAgentOpponentBriefing.mockResolvedValueOnce(mockBriefing);
 
-      const result = await agentsApi.getOpponentBriefing('claude', 'gpt-4');
+      const result = await agentsApi.getOpponentBriefing('claude', 'gpt-6-astra');
 
-      expect(mockClient.getAgentOpponentBriefing).toHaveBeenCalledWith('claude', 'gpt-4');
+      expect(mockClient.getAgentOpponentBriefing).toHaveBeenCalledWith('claude', 'gpt-6-astra');
       expect(result.strengths).toContain('Strong reasoning');
     });
 
     it('should compare multiple agents', async () => {
       const mockComparison = {
-        agents: ['claude', 'gpt-4', 'gemini'],
-        metrics: { elo: { claude: 1520, 'gpt-4': 1480 } },
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
+        metrics: { elo: { claude: 1520, 'gpt-6-astra': 1480 } },
       };
       mockClient.compareAgents.mockResolvedValueOnce(mockComparison);
 
-      const result = await agentsApi.compare(['claude', 'gpt-4', 'gemini']);
+      const result = await agentsApi.compare(['claude', 'gpt-6-astra', 'gemini']);
 
-      expect(mockClient.compareAgents).toHaveBeenCalledWith(['claude', 'gpt-4', 'gemini']);
+      expect(mockClient.compareAgents).toHaveBeenCalledWith(['claude', 'gpt-6-astra', 'gemini']);
       expect(result.agents).toHaveLength(3);
     });
 
     it('should compare two agents using compareAgents method', async () => {
       const mockComparison = {
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         metrics: {},
       };
       mockClient.compareAgents.mockResolvedValueOnce(mockComparison);
 
-      const result = await agentsApi.compareAgents('claude', 'gpt-4');
+      const result = await agentsApi.compareAgents('claude', 'gpt-6-astra');
 
-      expect(mockClient.compareAgents).toHaveBeenCalledWith(['claude', 'gpt-4']);
+      expect(mockClient.compareAgents).toHaveBeenCalledWith(['claude', 'gpt-6-astra']);
       expect(result.agents).toContain('claude');
     });
   });
@@ -552,7 +552,7 @@ describe('AgentsAPI', () => {
       const mockSelection = {
         agents: [
           { agent_id: 'claude', score: 0.95 },
-          { agent_id: 'gpt-4', score: 0.88 },
+          { agent_id: 'gpt-6-astra', score: 0.88 },
         ],
         diversity_score: 0.85,
         total_score: 1.83,
@@ -663,7 +663,7 @@ describe('AgentsAPI', () => {
 
     it('should get rivals', async () => {
       const mockRivals = {
-        rivals: [{ agent: 'gpt-4', rivalry_score: 0.75 }],
+        rivals: [{ agent: 'gpt-6-astra', rivalry_score: 0.75 }],
       };
       mockClient.getAgentRivals.mockResolvedValueOnce(mockRivals);
 
@@ -676,14 +676,14 @@ describe('AgentsAPI', () => {
     it('should get relationship between two agents', async () => {
       const mockRel = {
         agent_a: 'claude',
-        agent_b: 'gpt-4',
+        agent_b: 'gpt-6-astra',
         type: 'rival',
       };
       mockClient.getAgentRelationship.mockResolvedValueOnce(mockRel);
 
-      const result = await agentsApi.getRelationship('claude', 'gpt-4');
+      const result = await agentsApi.getRelationship('claude', 'gpt-6-astra');
 
-      expect(mockClient.getAgentRelationship).toHaveBeenCalledWith('claude', 'gpt-4');
+      expect(mockClient.getAgentRelationship).toHaveBeenCalledWith('claude', 'gpt-6-astra');
       expect(result.type).toBe('rival');
     });
   });
@@ -790,7 +790,7 @@ describe('AgentsAPI', () => {
 
       const result = await agentsApi.register('my-agent', {
         capabilities: ['debate', 'analysis'],
-        model: 'gpt-4',
+        model: 'gpt-6-astra',
         provider: 'openai',
       });
 
@@ -801,7 +801,7 @@ describe('AgentsAPI', () => {
           body: {
             agent_id: 'my-agent',
             capabilities: ['debate', 'analysis'],
-            model: 'gpt-4',
+            model: 'gpt-6-astra',
             provider: 'openai',
             metadata: {},
           },
@@ -843,7 +843,7 @@ describe('AgentsAPI', () => {
   describe('Recent Data', () => {
     it('should get recent matches', async () => {
       const mockMatches = {
-        matches: [{ id: 'm1', agents: ['claude', 'gpt-4'] }],
+        matches: [{ id: 'm1', agents: ['claude', 'gpt-6-astra'] }],
       };
       mockClient.getRecentMatches.mockResolvedValueOnce(mockMatches);
 

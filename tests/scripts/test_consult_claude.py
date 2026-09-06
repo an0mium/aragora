@@ -30,7 +30,7 @@ def _default_direct_transport(monkeypatch):
 def test_build_cli_command_disables_mcp() -> None:
     with consult_claude._claude_empty_mcp_config_file() as mcp_config_path:
         command, _used_profile = consult_claude._build_cli_command(
-            "claude-fable-5", mcp_config_path
+            "claude-fable-5-1", mcp_config_path
         )
 
         assert "--strict-mcp-config" in command
@@ -38,7 +38,7 @@ def test_build_cli_command_disables_mcp() -> None:
         assert command[command.index("--mcp-config") + 1] == str(mcp_config_path)
         assert json.loads(mcp_config_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
         assert "--model" in command
-        assert command[command.index("--model") + 1] == "claude-fable-5"
+        assert command[command.index("--model") + 1] == "claude-fable-5-1"
 
 
 def test_build_cli_command_routes_profile_pool_through_script_repo_root(monkeypatch) -> None:
@@ -53,7 +53,9 @@ def test_build_cli_command_routes_profile_pool_through_script_repo_root(monkeypa
     monkeypatch.setattr(claude_profile_pool, "build_claude_command", fake_build_claude_command)
 
     with consult_claude._claude_empty_mcp_config_file() as mcp_config_path:
-        command, used_profile = consult_claude._build_cli_command("claude-fable-5", mcp_config_path)
+        command, used_profile = consult_claude._build_cli_command(
+            "claude-fable-5-1", mcp_config_path
+        )
 
     assert command == captured["base_cmd"]
     assert used_profile is False
@@ -91,7 +93,7 @@ def test_run_cli_uses_stdin_prompt_timeout_and_redacts_stderr(monkeypatch) -> No
     monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
     monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
 
-    result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
+    result = consult_claude._run_cli("live prompt", "claude-fable-5-1", 12.5)
 
     assert result["ok"] is False
     assert result["error"] == "claude CLI failed, rc=1, empty=True"
@@ -124,7 +126,7 @@ def test_run_cli_does_not_treat_nonzero_stdout_as_success(monkeypatch) -> None:
     monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
     monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
 
-    result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
+    result = consult_claude._run_cli("live prompt", "claude-fable-5-1", 12.5)
 
     assert result["ok"] is False
     assert "text" not in result
@@ -148,7 +150,7 @@ def test_run_cli_classifies_rate_limit_without_exposing_raw_output(monkeypatch) 
     monkeypatch.setattr(consult_claude.shutil, "which", lambda name: "/usr/bin/claude")
     monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
 
-    result = consult_claude._run_cli("live prompt", "claude-fable-5", 12.5)
+    result = consult_claude._run_cli("live prompt", "claude-fable-5-1", 12.5)
 
     assert result == {
         "ok": False,
@@ -271,7 +273,7 @@ def test_run_vibeproxy_sanitizes_unexpected_client_failure() -> None:
         client = BrokenClient()
 
         def resolve(self, *_args, **_kwargs):
-            return SimpleNamespace(transport="vibeproxy", resolved_model="claude-fable-5")
+            return SimpleNamespace(transport="vibeproxy", resolved_model="claude-fable-5-1")
 
     result = consult_claude._run_vibeproxy(
         "question",
@@ -560,7 +562,7 @@ def test_run_api_redacts_http_error_body(monkeypatch) -> None:
     monkeypatch.setattr(consult_claude, "_resolve_api_key", lambda: "test-key")
     monkeypatch.setattr(consult_claude.urllib.request, "urlopen", RaisingUrlopen())
 
-    result = consult_claude._run_api("secret prompt", "claude-fable-5", 1.0, None)
+    result = consult_claude._run_api("secret prompt", "claude-fable-5-1", 1.0, None)
 
     assert result["ok"] is False
     assert result["error"] == "API HTTP 429: response body redacted"
@@ -592,7 +594,7 @@ def test_run_api_redacts_invalid_response_body(monkeypatch) -> None:
         lambda *_args, **_kwargs: FakeResponse(),
     )
 
-    result = consult_claude._run_api("secret prompt", "claude-fable-5", 1.0, None)
+    result = consult_claude._run_api("secret prompt", "claude-fable-5-1", 1.0, None)
 
     assert result["ok"] is False
     assert result["error"] == "API response parse failed: response body redacted"
@@ -1002,7 +1004,7 @@ def test_run_cli_timeout_kills_process_group(monkeypatch) -> None:
     monkeypatch.setattr(consult_claude.subprocess, "Popen", FakePopen)
     monkeypatch.setattr(consult_claude.os, "killpg", lambda pid, sig: calls.append(("killpg", pid)))
 
-    result = consult_claude._run_cli("question", "claude-fable-5", 1.5)
+    result = consult_claude._run_cli("question", "claude-fable-5-1", 1.5)
 
     assert result["timed_out"] is True
     assert ("popen", True) in calls
@@ -1036,7 +1038,7 @@ def test_run_cli_kills_process_group_after_communicate_errors(monkeypatch) -> No
             lambda pid, sig: calls.append(("killpg", pid)),
         )
 
-        result = consult_claude._run_cli("question", "claude-fable-5", 1.5)
+        result = consult_claude._run_cli("question", "claude-fable-5-1", 1.5)
 
         assert result["ok"] is False
         assert result["error"] == f"claude CLI launch failed: {type(exc).__name__}"

@@ -338,7 +338,7 @@ class TestRiskAnalyzer:
                     "payload": {
                         "severity": 0.3,
                         "issues": ["Minor issue"],
-                        "agent": "gpt-4",
+                        "agent": "gpt-6-astra",
                     },
                 },
                 {
@@ -349,7 +349,7 @@ class TestRiskAnalyzer:
         }
         artifact.consensus_proof = MagicMock()
         artifact.consensus_proof.confidence = 0.75
-        artifact.consensus_proof.supporting_agents = ["claude", "gpt-4"]
+        artifact.consensus_proof.supporting_agents = ["claude", "gpt-6-astra"]
         artifact.consensus_proof.dissenting_agents = []
         return artifact
 

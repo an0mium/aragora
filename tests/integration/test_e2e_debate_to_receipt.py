@@ -159,7 +159,7 @@ class TestDebateToReceiptGeneration:
             task="Should we implement microservices architecture?",
             final_answer="Yes, microservices are recommended for this scale.",
             confidence=0.88,
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             rounds_used=3,
             duration_seconds=45.5,
             messages=[
@@ -172,16 +172,16 @@ class TestDebateToReceiptGeneration:
                 MockMessage(
                     role="assistant",
                     content="I agree but suggest careful service boundary design.",
-                    agent="gpt-4",
+                    agent="gpt-6-astra",
                     round=2,
                 ),
             ],
             votes=[
                 MockVote(agent="claude", choice="approve", confidence=0.9),
-                MockVote(agent="gpt-4", choice="approve", confidence=0.85),
+                MockVote(agent="gpt-6-astra", choice="approve", confidence=0.85),
                 MockVote(agent="gemini", choice="approve", confidence=0.88),
             ],
-            supporting_agents=["claude", "gpt-4", "gemini"],
+            supporting_agents=["claude", "gpt-6-astra", "gemini"],
             dissenting_agents=[],
         )
 
@@ -346,11 +346,11 @@ class TestReceiptToKnowledgeMoundIngestion:
             MagicMock(
                 claim="OAuth2 implementation follows best practices",
                 confidence=0.92,
-                source="gpt-4",
+                source="gpt-6-astra",
             )
         ]
         receipt.dissenting_views = []
-        receipt.agents_involved = ["claude", "gpt-4", "gemini"]
+        receipt.agents_involved = ["claude", "gpt-6-astra", "gemini"]
         return receipt
 
     @pytest.mark.asyncio
@@ -406,10 +406,10 @@ class TestEndToEndPipeline:
             task="Should we migrate to PostgreSQL from MySQL?",
             final_answer="Yes, PostgreSQL offers better features for our use case.",
             confidence=0.91,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds_used=2,
             duration_seconds=30.0,
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-6-astra"],
             dissenting_agents=[],
         )
 
@@ -464,9 +464,9 @@ class TestEndToEndPipeline:
             task="Should we use NoSQL for transactional data?",
             final_answer="No, ACID compliance is critical for transactions.",
             confidence=0.72,
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             rounds_used=3,
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-6-astra"],
             dissenting_agents=["gemini"],
         )
 
@@ -509,8 +509,8 @@ class TestEndToEndPipeline:
             task="Should we remove authentication for public endpoints?",
             final_answer="No, all endpoints require authentication for security.",
             confidence=0.95,
-            agents=["claude", "gpt-4", "gemini"],
-            supporting_agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
+            supporting_agents=["claude", "gpt-6-astra", "gemini"],
             dissenting_agents=[],
         )
 
@@ -579,7 +579,7 @@ class TestReceiptExportFormats:
             consensus_proof=ConsensusProof(
                 reached=True,
                 confidence=0.75,
-                supporting_agents=["claude", "gpt-4"],
+                supporting_agents=["claude", "gpt-6-astra"],
                 dissenting_agents=["gemini"],
                 method="weighted",
             ),

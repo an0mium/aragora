@@ -542,7 +542,7 @@ class TestDebateTracing:
             operation="propose",
             debate_id="debate-abc",
             round_number=1,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         ) as span:
             assert isinstance(span, _NoOpSpan)
 

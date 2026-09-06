@@ -344,13 +344,13 @@ class TestJudgeConfig:
     def test_custom_config(self):
         """Should accept custom values."""
         config = JudgeConfig(
-            model="gpt-4",
+            model="gpt-6-astra",
             temperature=0.3,
             use_case="debate",
             pass_threshold=4.0,
         )
 
-        assert config.model == "gpt-4"
+        assert config.model == "gpt-6-astra"
         assert config.temperature == 0.3
         assert config.use_case == "debate"
         assert config.pass_threshold == 4.0

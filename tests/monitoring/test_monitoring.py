@@ -453,7 +453,7 @@ class TestSimpleObserverIntegration:
 
     def test_agent_type_tracking(self, observer):
         """Test tracking different agent types."""
-        agents = ["claude", "gpt-4", "gemini", "codex"]
+        agents = ["claude", "gpt-6-astra", "gemini", "codex"]
 
         for agent in agents:
             attempt_id = observer.record_agent_attempt(agent, 30.0)

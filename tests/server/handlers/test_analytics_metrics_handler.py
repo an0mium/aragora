@@ -119,7 +119,7 @@ class MockCostTracker:
             "total_tokens_out": 50000,
             "total_cost_usd": 15.50,
             "cost_by_agent": {"agent-1": 10.00, "agent-2": 5.50},
-            "cost_by_model": {"gpt-4": 12.00, "claude-3": 3.50},
+            "cost_by_model": {"gpt-6-astra": 12.00, "claude-3": 3.50},
             "total_api_calls": 250,
         }
 

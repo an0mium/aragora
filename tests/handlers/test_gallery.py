@@ -53,7 +53,7 @@ def temp_nomic_dir():
                 "loop_id": "loop_001",
                 "title": f"Test Debate {i}",
                 "topic": f"Should we use approach {i}?",
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
                 "rounds": 3,
                 "consensus_reached": i % 2 == 0,
                 "winner": "claude" if i % 2 == 0 else None,

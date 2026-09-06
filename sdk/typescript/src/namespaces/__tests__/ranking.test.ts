@@ -136,10 +136,10 @@ describe('RankingNamespace', () => {
     });
 
     it('should encode agent name in URL', async () => {
-      const mockRanking = { ranking: { agent: 'gpt-4-turbo', elo: 1800 } };
+      const mockRanking = { ranking: { agent: 'gpt-6-astra', elo: 1800 } };
       mockClient.request.mockResolvedValue(mockRanking);
 
-      await api.get('gpt-4-turbo');
+      await api.get('gpt-6-astra');
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/agent/gpt-4-turbo/profile');
     });

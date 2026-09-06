@@ -121,14 +121,14 @@ class TestBlackboxSnapshot:
         snapshot = BlackboxSnapshot(
             turn_id=1,
             timestamp=1234567890.0,
-            agents_active=["claude", "gpt-4"],
+            agents_active=["claude", "gpt-6-astra"],
             agents_failed=[],
             consensus_strength=0.8,
             transcript_length=100,
         )
         assert snapshot.turn_id == 1
         assert snapshot.timestamp == 1234567890.0
-        assert snapshot.agents_active == ["claude", "gpt-4"]
+        assert snapshot.agents_active == ["claude", "gpt-6-astra"]
         assert snapshot.agents_failed == []
         assert snapshot.consensus_strength == 0.8
         assert snapshot.transcript_length == 100
@@ -302,7 +302,7 @@ class TestSnapshotTurn:
     def test_snapshot_turn_with_state_data(self, recorder):
         """Test snapshot with full state data."""
         state_data = {
-            "agents_active": ["claude", "gpt-4"],
+            "agents_active": ["claude", "gpt-6-astra"],
             "agents_failed": ["gemini"],
             "consensus_strength": 0.8,
             "transcript_length": 1500,
@@ -310,7 +310,7 @@ class TestSnapshotTurn:
         }
         snapshot = recorder.snapshot_turn(5, state_data)
 
-        assert snapshot.agents_active == ["claude", "gpt-4"]
+        assert snapshot.agents_active == ["claude", "gpt-6-astra"]
         assert snapshot.agents_failed == ["gemini"]
         assert snapshot.consensus_strength == 0.8
         assert snapshot.transcript_length == 1500
@@ -401,7 +401,7 @@ class TestLogAgentFailure:
     def test_log_agent_failure_with_context(self, recorder):
         """Test agent failure with context."""
         event = recorder.log_agent_failure(
-            "gpt-4",
+            "gpt-6-astra",
             "error",
             15.5,
             context={"prompt_length": 1000},
@@ -444,13 +444,13 @@ class TestLogConsensus:
         """Test basic consensus logging."""
         event = recorder.log_consensus(
             strength=0.85,
-            participating_agents=["claude", "gpt-4"],
+            participating_agents=["claude", "gpt-6-astra"],
             topic="Implementation approach",
         )
         assert event.event_type == "consensus"
         assert event.component == "orchestrator"
         assert event.data["strength"] == 0.85
-        assert event.data["participating_agents"] == ["claude", "gpt-4"]
+        assert event.data["participating_agents"] == ["claude", "gpt-6-astra"]
         assert event.data["topic"] == "Implementation approach"
 
     def test_log_consensus_with_result(self, recorder):

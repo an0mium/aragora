@@ -125,11 +125,11 @@ async def test_create_debate_forwards_model_combinations(
             question="Which lineup produces the best implementation plan?",
             model_combinations=[
                 [
-                    {"provider": "openai-api", "model": "gpt-4.1"},
-                    {"provider": "anthropic-api", "model": "claude-opus-4-7"},
+                    {"provider": "openai-api", "model": "gpt-6-astra"},
+                    {"provider": "anthropic-api", "model": "claude-fable-5-1"},
                 ],
                 [
-                    {"provider": "openai-api", "model": "gpt-4.1-mini"},
+                    {"provider": "openai-api", "model": "gpt-5.6-terra"},
                     {"provider": "anthropic-api", "model": "claude-sonnet-4-5"},
                 ],
             ],
@@ -142,7 +142,9 @@ async def test_create_debate_forwards_model_combinations(
     assert response.debate_id == "debate-123"
     assert controller.request is not None
     assert controller.request.comparison_config is not None
-    assert controller.request.comparison_config["agent_combinations"][0][0]["model"] == "gpt-4.1"
+    assert (
+        controller.request.comparison_config["agent_combinations"][0][0]["model"] == "gpt-6-astra"
+    )
     assert (
         controller.request.model_combinations
         == controller.request.comparison_config["agent_combinations"]

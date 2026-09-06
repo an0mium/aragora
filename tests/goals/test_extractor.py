@@ -382,9 +382,9 @@ class TestSynthesizeDescription:
 
     def test_with_agent(self, extractor):
         desc = extractor._synthesize_goal_description(
-            "label", {"agent": "claude-3-opus"}, GoalNodeType.GOAL
+            "label", {"agent": "claude-fable-5-1"}, GoalNodeType.GOAL
         )
-        assert "claude-3-opus" in desc
+        assert "claude-fable-5-1" in desc
 
     def test_fallback_to_label(self, extractor):
         desc = extractor._synthesize_goal_description("the label", {}, GoalNodeType.GOAL)

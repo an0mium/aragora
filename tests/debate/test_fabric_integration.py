@@ -49,7 +49,7 @@ def mock_fabric():
     pool = AgentPool(
         id="pool-test",
         name="test-pool",
-        model="claude-3-opus",
+        model="claude-fable-5-1",
         current_agents=["agent-1", "agent-2", "agent-3"],
     )
 
@@ -89,7 +89,7 @@ def mock_fabric():
     fabric.get_agent = AsyncMock(
         return_value=AgentHandle(
             agent_id="agent-1",
-            config=AgentConfig(id="agent-1", model="claude-3-opus"),
+            config=AgentConfig(id="agent-1", model="claude-fable-5-1"),
             spawned_at=MagicMock(),
         )
     )
@@ -136,7 +136,7 @@ class TestFabricUsageTracker:
             tokens_output=50,
             cost_usd=0.01,
             agent_id="agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         assert result is True
@@ -187,11 +187,11 @@ class TestFabricAgentAdapter:
         adapter = FabricAgentAdapter(
             fabric=mock_fabric,
             agent_id="agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         assert adapter.name == "agent-1"
-        assert adapter.model == "claude-3-opus"
+        assert adapter.model == "claude-fable-5-1"
 
         result = await adapter.generate("Test prompt")
 
@@ -214,7 +214,7 @@ class TestFabricAgentAdapter:
         adapter = FabricAgentAdapter(
             fabric=mock_fabric,
             agent_id="agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         with pytest.raises(PermissionError, match="Policy denied"):
@@ -238,7 +238,7 @@ class TestFabricAgentAdapter:
         adapter = FabricAgentAdapter(
             fabric=mock_fabric,
             agent_id="agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         with pytest.raises(RuntimeError, match="Budget exceeded"):
@@ -255,7 +255,7 @@ class TestFabricAgentAdapter:
         adapter = FabricAgentAdapter(
             fabric=mock_fabric,
             agent_id="agent-1",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             usage_tracker=tracker,
         )
 
@@ -286,7 +286,7 @@ class TestFabricDebateRunner:
             return_value=AgentPool(
                 id="pool-test",
                 name="test-pool",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 current_agents=["agent-1"],  # Only 1 agent
             )
         )
@@ -352,7 +352,7 @@ class TestCreateDebatePolicy:
             name="custom-policy",
             max_agents=5,
             max_cost_per_debate=1.0,
-            allowed_models=["claude-3-opus", "gpt-4"],
+            allowed_models=["claude-fable-5-1", "gpt-6-astra"],
         )
 
         assert policy.name == "custom-policy"

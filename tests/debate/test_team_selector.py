@@ -203,7 +203,7 @@ class MockCVBuilder:
 def mock_agents():
     """Create list of mock agents for testing."""
     return [
-        MockAgent("claude-opus", agent_type="claude", model="claude-3-opus"),
+        MockAgent("claude-opus", agent_type="claude", model="claude-fable-5-1"),
         MockAgent("gpt-4", agent_type="gpt", model="gpt-4-turbo"),
         MockAgent("gemini-pro", agent_type="gemini", model="gemini-1.5-pro"),
         MockAgent("codestral", agent_type="codestral", model="codestral"),
@@ -776,7 +776,7 @@ class TestDomainCapabilityFiltering:
 
     def test_agent_matches_by_name(self):
         """Test agent matching by name."""
-        agent = MockAgent("claude-3-opus", agent_type="api")
+        agent = MockAgent("claude-fable-5-1", agent_type="api")
         selector = TeamSelector()
 
         matches = selector._agent_matches_capability(agent, ["claude"])
@@ -1409,7 +1409,7 @@ class TestAgentCapabilitiesInference:
 
     def test_infer_claude_capabilities(self):
         """Test inferring Claude capabilities."""
-        agent = MockAgent("claude-3-opus")
+        agent = MockAgent("claude-fable-5-1")
         selector = TeamSelector()
 
         caps = selector._get_agent_capabilities(agent)

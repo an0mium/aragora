@@ -39,7 +39,7 @@ describe('ReplaysAPI Namespace', () => {
             id: 'rp_1',
             debate_id: 'd_1',
             task: 'Microservices adoption',
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
             total_rounds: 5,
             total_events: 50,
             duration_ms: 180000,
@@ -96,7 +96,7 @@ describe('ReplaysAPI Namespace', () => {
         task: 'Microservices adoption',
         environment: { context: 'tech company' },
         protocol: { rounds: 5 },
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         events: [
           { id: 'e_1', type: 'debate_start', timestamp: 0 },
           { id: 'e_2', type: 'proposal', timestamp: 1000, agent: 'claude' },
@@ -125,7 +125,7 @@ describe('ReplaysAPI Namespace', () => {
       const mockEvents = {
         events: [
           { id: 'e_1', type: 'proposal', timestamp: 1000, agent: 'claude' },
-          { id: 'e_2', type: 'critique', timestamp: 2000, agent: 'gpt-4' },
+          { id: 'e_2', type: 'critique', timestamp: 2000, agent: 'gpt-6-astra' },
         ],
         total: 2,
       };
@@ -170,7 +170,7 @@ describe('ReplaysAPI Namespace', () => {
               { agent: 'claude', content: 'Initial proposal', critique_count: 2, revision_count: 1, votes: 3 },
             ],
             convergence_score: 0.3,
-            active_agents: ['claude', 'gpt-4'],
+            active_agents: ['claude', 'gpt-6-astra'],
           },
           {
             round: 2,
@@ -179,7 +179,7 @@ describe('ReplaysAPI Namespace', () => {
               { agent: 'claude', content: 'Revised proposal', critique_count: 1, revision_count: 0, votes: 4 },
             ],
             convergence_score: 0.7,
-            active_agents: ['claude', 'gpt-4'],
+            active_agents: ['claude', 'gpt-6-astra'],
           },
         ],
       };
@@ -280,7 +280,7 @@ describe('ReplaysAPI Namespace', () => {
         replay_2: { id: 'rp_2', task: 'Monolith', result: 'no_consensus' },
         similarities: ['Both discussed architecture'],
         differences: ['Different outcomes', 'Different agent consensus'],
-        agent_overlap: ['claude', 'gpt-4'],
+        agent_overlap: ['claude', 'gpt-6-astra'],
         convergence_comparison: { replay_1: 0.85, replay_2: 0.45 },
       };
       mockClient.request.mockResolvedValue(mockComparison);

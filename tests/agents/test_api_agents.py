@@ -178,9 +178,9 @@ class TestAgentAttributes:
         from aragora.agents.api_agents import GeminiAgent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
-            agent = GeminiAgent(model="gemini-2.0-flash")
+            agent = GeminiAgent(model="gemini-3.8-flash")
 
-        # "gemini-2.0-flash" has no catalog row of its own; resolve_model_id
+        # "gemini-3.8-flash" has no catalog row of its own; resolve_model_id
         # upgrades it to the current Google value-tier frontier
         # (frontier-model-refresh, 2026-09-04).
         assert agent.model == "gemini-3.8-flash"
@@ -346,10 +346,10 @@ class TestCreateAgentFactory:
         from aragora.agents.base import create_agent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
-            agent = create_agent("gemini", model="gemini-2.5-pro")
+            agent = create_agent("gemini", model="gemini-3.1-pro-preview")
 
         assert agent.model == "gemini-3.1-pro-preview"
-        assert agent._original_model == "gemini-2.5-pro"
+        assert agent._original_model == "gemini-3.1-pro-preview"
 
 
 class TestAgentStance:

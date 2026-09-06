@@ -76,7 +76,7 @@ def validator_with_vote_change():
 @pytest.fixture
 def sample_validators():
     """Sample list of validator IDs."""
-    return ["claude", "gpt-4", "gemini"]
+    return ["claude", "gpt-6-astra", "gemini"]
 
 
 @pytest.fixture
@@ -167,7 +167,7 @@ class TestDataclasses:
     def test_validation_vote_with_alternative(self):
         """Test ValidationVote with alternative proposal."""
         vote = ValidationVote(
-            validator_id="gpt-4",
+            validator_id="gpt-6-astra",
             vote_type=ValidationVoteType.PROPOSE_ALTERNATIVE,
             confidence=0.85,
             alternative="Use a different approach",
@@ -182,7 +182,7 @@ class TestDataclasses:
         request = ValidationRequest(
             request_id="val_123",
             item_id="km_456",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             required_votes=2,
             strategy=ValidationConsensusStrategy.MAJORITY,
         )
@@ -456,7 +456,7 @@ class TestVoteSubmission:
         """Test basic vote submission."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -507,7 +507,7 @@ class TestVoteSubmission:
         """Test vote on completed request is rejected."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -527,7 +527,7 @@ class TestVoteSubmission:
         """Test duplicate vote from same validator is rejected."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -552,7 +552,7 @@ class TestVoteSubmission:
         """Test vote change when allowed."""
         request = await validator_with_vote_change.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4", "gemini"],
+            validators=["claude", "gpt-6-astra", "gemini"],
             quorum=2,
         )
 
@@ -582,7 +582,7 @@ class TestVoteSubmission:
         """Test vote with alternative proposal."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -622,7 +622,7 @@ class TestVoteSubmission:
         """Test vote with custom weight."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -1035,7 +1035,7 @@ class TestTimeoutAndExpiration:
         """Test voting on expired request fails."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             deadline_hours=0,  # Immediate deadline
         )
 
@@ -1055,7 +1055,7 @@ class TestTimeoutAndExpiration:
         """Test checking consensus on expired request returns expiration result."""
         request = await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         # Set deadline to past
@@ -1489,7 +1489,7 @@ class TestQueryMethods:
         """Test getting pending requests for a validator."""
         await validator.create_validation_request(
             item_id="km_1",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         await validator.create_validation_request(
@@ -1499,7 +1499,7 @@ class TestQueryMethods:
 
         await validator.create_validation_request(
             item_id="km_3",
-            validators=["gpt-4", "gemini"],
+            validators=["gpt-6-astra", "gemini"],
         )
 
         pending = validator.get_pending_for_validator("claude")
@@ -1514,7 +1514,7 @@ class TestQueryMethods:
         """Test pending requests exclude already voted."""
         request = await validator.create_validation_request(
             item_id="km_1",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
             quorum=2,
         )
 
@@ -1643,11 +1643,11 @@ class TestNotifications:
 
         await validator.create_validation_request(
             item_id="km_123",
-            validators=["claude", "gpt-4"],
+            validators=["claude", "gpt-6-astra"],
         )
 
         assert len(notifications) == 2
-        assert notifications[0][0] in ["claude", "gpt-4"]
+        assert notifications[0][0] in ["claude", "gpt-6-astra"]
         assert notifications[0][1] == "validation_requested"
 
     @pytest.mark.asyncio
@@ -1808,7 +1808,7 @@ class TestIntegration:
         # Create request
         request = await validator.create_validation_request(
             item_id="km_integration_test",
-            validators=["claude", "gpt-4", "gemini"],
+            validators=["claude", "gpt-6-astra", "gemini"],
             quorum=2,
             strategy=ValidationConsensusStrategy.MAJORITY,
             proposer_id="test_user",
@@ -1832,7 +1832,7 @@ class TestIntegration:
 
         await validator.submit_vote(
             request.request_id,
-            "gpt-4",
+            "gpt-6-astra",
             ValidationVoteType.ACCEPT,
             confidence=0.85,
             reasoning="Consistent with prior knowledge",

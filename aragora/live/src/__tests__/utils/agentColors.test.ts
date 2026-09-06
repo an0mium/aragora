@@ -55,8 +55,8 @@ describe('agentColors utilities', () => {
   describe('getAgentColors', () => {
     it('returns gemini colors for gemini variants', () => {
       expect(getAgentColors('gemini')).toBe(AGENT_COLORS.gemini);
-      expect(getAgentColors('gemini-pro')).toBe(AGENT_COLORS.gemini);
-      expect(getAgentColors('gemini-1.5-flash')).toBe(AGENT_COLORS.gemini);
+      expect(getAgentColors('gemini-3.1-pro-preview')).toBe(AGENT_COLORS.gemini);
+      expect(getAgentColors('gemini-3.8-flash')).toBe(AGENT_COLORS.gemini);
       expect(getAgentColors('GEMINI')).toBe(AGENT_COLORS.gemini);
     });
 
@@ -71,7 +71,7 @@ describe('agentColors utilities', () => {
 
     it('returns claude colors for Anthropic variants', () => {
       expect(getAgentColors('claude')).toBe(AGENT_COLORS.claude);
-      expect(getAgentColors('claude-3-opus')).toBe(AGENT_COLORS.claude);
+      expect(getAgentColors('claude-fable-5-1')).toBe(AGENT_COLORS.claude);
       expect(getAgentColors('claude-3-sonnet')).toBe(AGENT_COLORS.claude);
       expect(getAgentColors('claude-instant')).toBe(AGENT_COLORS.claude);
       expect(getAgentColors('anthropic-claude')).toBe(AGENT_COLORS.claude);

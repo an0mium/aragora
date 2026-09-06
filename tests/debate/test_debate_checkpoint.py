@@ -93,20 +93,20 @@ class TestAgentState:
         """Agent state should be created with required fields."""
         state = AgentState(
             agent_name="claude",
-            agent_model="claude-3-opus",
+            agent_model="claude-fable-5-1",
             agent_role="proposer",
             system_prompt="Be helpful",
             stance="neutral",
         )
         assert state.agent_name == "claude"
-        assert state.agent_model == "claude-3-opus"
+        assert state.agent_model == "claude-fable-5-1"
         assert state.memory_snapshot is None
 
     def test_agent_state_with_memory(self):
         """Agent state should accept memory snapshot."""
         state = AgentState(
             agent_name="claude",
-            agent_model="claude-3-opus",
+            agent_model="claude-fable-5-1",
             agent_role="proposer",
             system_prompt="Be helpful",
             stance="neutral",
@@ -134,7 +134,7 @@ class TestDebateCheckpoint:
             agent_states=[
                 AgentState(
                     agent_name="claude",
-                    agent_model="claude-3-opus",
+                    agent_model="claude-fable-5-1",
                     agent_role="proposer",
                     system_prompt="Be helpful",
                     stance="pro",
@@ -433,7 +433,7 @@ class TestCheckpointManager:
         # Create mock agents
         mock_agent = Mock()
         mock_agent.name = "claude"
-        mock_agent.model = "claude-3-opus"
+        mock_agent.model = "claude-fable-5-1"
         mock_agent.role = "proposer"
         mock_agent.system_prompt = "Be helpful"
         mock_agent.stance = "neutral"
@@ -469,7 +469,7 @@ class TestCheckpointManager:
         ]
         mock_agent = Mock()
         mock_agent.name = "claude"
-        mock_agent.model = "claude-3-opus"
+        mock_agent.model = "claude-fable-5-1"
         mock_agent.role = "proposer"
         mock_agent.system_prompt = "Be helpful"
         mock_agent.stance = "neutral"
@@ -509,7 +509,7 @@ class TestCheckpointManager:
         # Create checkpoint
         mock_agent = Mock()
         mock_agent.name = "claude"
-        mock_agent.model = "claude-3-opus"
+        mock_agent.model = "claude-fable-5-1"
         mock_agent.role = "proposer"
         mock_agent.system_prompt = "Be helpful"
         mock_agent.stance = "neutral"
@@ -545,7 +545,7 @@ class TestCheckpointManager:
         """list_debates_with_checkpoints should group by debate."""
         mock_agent = Mock()
         mock_agent.name = "claude"
-        mock_agent.model = "claude-3-opus"
+        mock_agent.model = "claude-fable-5-1"
         mock_agent.role = "proposer"
         mock_agent.system_prompt = "Be helpful"
         mock_agent.stance = "neutral"

@@ -159,12 +159,12 @@ class TestLLMAnalyzerConfig:
         """Test custom model specification."""
         config = LLMAnalyzerConfig(
             models={
-                "anthropic-api": "claude-3-opus-20240229",
-                "openai-api": "gpt-4o",
+                "anthropic-api": "claude-fable-5-1",
+                "openai-api": "gpt-6-astra",
             }
         )
-        assert config.models["anthropic-api"] == "claude-3-opus-20240229"
-        assert config.models["openai-api"] == "gpt-4o"
+        assert config.models["anthropic-api"] == "claude-fable-5-1"
+        assert config.models["openai-api"] == "gpt-6-astra"
 
 
 # ---------------------------------------------------------------------------

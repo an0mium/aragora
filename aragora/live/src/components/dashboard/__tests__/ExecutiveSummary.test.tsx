@@ -59,7 +59,7 @@ describe('ExecutiveSummary', () => {
                 avg_agreement_score: 0.92,
               },
               {
-                agent_id: 'gpt-4',
+                agent_id: 'gpt-6-astra',
                 agent_name: 'GPT-4',
                 participations: 10,
                 consensus_contributions: 8,

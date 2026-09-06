@@ -33,7 +33,7 @@ class TestConsensusAPIDetect:
             task="Choose a database",
             proposals=[
                 {"agent": "claude", "content": "Use PostgreSQL"},
-                {"agent": "gpt-4", "content": "Use PostgreSQL with Redis"},
+                {"agent": "gpt-6-astra", "content": "Use PostgreSQL with Redis"},
             ],
             threshold=0.7,
         )
@@ -45,7 +45,7 @@ class TestConsensusAPIDetect:
                 "task": "Choose a database",
                 "proposals": [
                     {"agent": "claude", "content": "Use PostgreSQL"},
-                    {"agent": "gpt-4", "content": "Use PostgreSQL with Redis"},
+                    {"agent": "gpt-6-astra", "content": "Use PostgreSQL with Redis"},
                 ],
                 "threshold": 0.7,
             },

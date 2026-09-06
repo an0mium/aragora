@@ -199,7 +199,7 @@ describe('useDebateWebSocketStore', () => {
           type: 'debate_start',
           data: {
             task: 'Should AI be regulated?',
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
           },
           timestamp: Date.now() / 1000,
         });
@@ -207,7 +207,7 @@ describe('useDebateWebSocketStore', () => {
 
       const state = useDebateStore.getState().current;
       expect(state.task).toBe('Should AI be regulated?');
-      expect(state.agents).toEqual(['claude', 'gpt-4']);
+      expect(state.agents).toEqual(['claude', 'gpt-6-astra']);
     });
 
     it('handles agent_message event', () => {

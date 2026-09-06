@@ -155,9 +155,9 @@ class TestModelPricing:
 
     def test_pricing_includes_common_models(self):
         """Test that pricing includes common model types."""
-        assert "claude-3-opus" in MODEL_PRICING
-        assert "gpt-4" in MODEL_PRICING
-        assert "gemini-pro" in MODEL_PRICING
+        assert "claude-fable-5-1" in MODEL_PRICING
+        assert "gpt-6-astra" in MODEL_PRICING
+        assert "gemini-3.1-pro-preview" in MODEL_PRICING
         assert "default" in MODEL_PRICING
 
     def test_pricing_has_input_output(self):

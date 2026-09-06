@@ -31,7 +31,7 @@ describe('AgentComparePanel', () => {
     rankings: [
       { name: 'claude', rating: 1800 },
       { name: 'gemini', rating: 1750 },
-      { name: 'gpt-4', rating: 1700 },
+      { name: 'gpt-6-astra', rating: 1700 },
       { name: 'llama', rating: 1650 },
     ],
   };

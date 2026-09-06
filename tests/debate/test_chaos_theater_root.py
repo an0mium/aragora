@@ -407,9 +407,9 @@ class TestEdgeCases:
     def test_special_characters_in_agent_name(self):
         """Should handle special characters in agent name."""
         director = ChaosDirector()
-        response = director.timeout_response("claude-3.5-sonnet", 60.0)
+        response = director.timeout_response("claude-sonnet-5", 60.0)
 
-        assert "claude-3.5-sonnet" in response.message
+        assert "claude-sonnet-5" in response.message
 
     def test_very_long_duration(self):
         """Should handle very long duration."""

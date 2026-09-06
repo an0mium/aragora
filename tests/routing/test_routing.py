@@ -840,10 +840,10 @@ class TestRoutingIntegration:
 
         # Register agents matching hybrid architecture
         agents = [
-            AgentProfile(name="gemini-pro", agent_type="gemini", elo_rating=1600),
+            AgentProfile(name="gemini-3.1-pro-preview", agent_type="gemini", elo_rating=1600),
             AgentProfile(name="claude-sonnet", agent_type="claude", elo_rating=1700),
             AgentProfile(name="codex", agent_type="codex", elo_rating=1500),
-            AgentProfile(name="grok-2", agent_type="grok", elo_rating=1550),
+            AgentProfile(name="grok-4.6", agent_type="grok", elo_rating=1550),
         ]
 
         for agent in agents:
@@ -851,7 +851,7 @@ class TestRoutingIntegration:
 
         # Test design phase roles
         design_roles = selector.assign_hybrid_roles(agents, "design")
-        assert design_roles.get("gemini-pro") == "design_lead"
+        assert design_roles.get("gemini-3.1-pro-preview") == "design_lead"
         assert design_roles.get("claude-sonnet") == "architecture_critic"
 
         # Test implement phase roles

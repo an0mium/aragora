@@ -573,7 +573,7 @@ def _make_row(period="2026-02-20", tokens_in=1000, tokens_out=500, cost=0.05, ev
 
 def _make_provider_row(
     provider="anthropic",
-    model="claude-opus-4",
+    model="claude-fable-5-1",
     tokens_in=1000,
     tokens_out=500,
     cost=0.10,
@@ -814,7 +814,7 @@ class TestProviderBreakdown:
     @patch("aragora.billing.usage.UsageTracker")
     def test_provider_breakdown_happy_path(self, mock_tracker_cls, handler, mock_http):
         rows = [
-            _make_provider_row("anthropic", "claude-opus-4", 5000, 2500, 0.50, 25),
+            _make_provider_row("anthropic", "claude-fable-5-1", 5000, 2500, 0.50, 25),
             _make_provider_row("openai", "gpt-4o", 3000, 1500, 0.30, 15),
         ]
         mock_conn = _make_mock_connection(rows)
@@ -856,8 +856,8 @@ class TestProviderBreakdown:
         self, mock_tracker_cls, handler, mock_http
     ):
         rows = [
-            _make_provider_row("anthropic", "claude-opus-4", 3000, 1500, 0.50, 15),
-            _make_provider_row("anthropic", "claude-sonnet-4", 2000, 1000, 0.20, 10),
+            _make_provider_row("anthropic", "claude-fable-5-1", 3000, 1500, 0.50, 15),
+            _make_provider_row("anthropic", "claude-sonnet-5", 2000, 1000, 0.20, 10),
         ]
         mock_conn = _make_mock_connection(rows)
         mock_tracker = MagicMock()
@@ -879,7 +879,7 @@ class TestProviderBreakdown:
 
     @patch("aragora.billing.usage.UsageTracker")
     def test_provider_breakdown_model_structure(self, mock_tracker_cls, handler, mock_http):
-        rows = [_make_provider_row("anthropic", "claude-opus-4", 1000, 500, 0.10, 5)]
+        rows = [_make_provider_row("anthropic", "claude-fable-5-1", 1000, 500, 0.10, 5)]
         mock_conn = _make_mock_connection(rows)
         mock_tracker = MagicMock()
         mock_tracker._connection.return_value = mock_conn
@@ -891,7 +891,7 @@ class TestProviderBreakdown:
         )
         body = _body(result)
         model = body["providers"][0]["models"][0]
-        assert model["model"] == "claude-opus-4"
+        assert model["model"] == "claude-fable-5-1"
         assert model["tokens_in"] == 1000
         assert model["tokens_out"] == 500
         assert model["total_tokens"] == 1500

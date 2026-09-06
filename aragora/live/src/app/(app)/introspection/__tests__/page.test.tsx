@@ -138,7 +138,7 @@ describe('IntrospectionPage', () => {
             json: () => Promise.resolve({
               agents: [
                 { name: 'claude', reputation_score: 0.85, total_critiques: 100 },
-                { name: 'gpt-4', reputation_score: 0.78, total_critiques: 80 },
+                { name: 'gpt-6-astra', reputation_score: 0.78, total_critiques: 80 },
               ],
             }),
           });
@@ -153,7 +153,7 @@ describe('IntrospectionPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
-        expect(screen.getByText('gpt-4')).toBeInTheDocument();
+        expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
       });
     });
 
@@ -295,7 +295,7 @@ describe('IntrospectionPage', () => {
           agents: [],
           leaderboard: [
             { agent_name: 'claude', reputation_score: 0.92, total_critiques: 150, rank: 1 },
-            { agent_name: 'gpt-4', reputation_score: 0.88, total_critiques: 120, rank: 2 },
+            { agent_name: 'gpt-6-astra', reputation_score: 0.88, total_critiques: 120, rank: 2 },
           ],
         }),
       });

@@ -44,7 +44,7 @@ def mock_debate_context():
         "debate_id": "debate-prop-test",
         "topic": "Should AI be regulated?",
         "round": 1,
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-6-astra", "gemini"],
     }
 
 
@@ -55,7 +55,7 @@ def proposal_payload(mock_debate_context):
         data={
             "proposals": [
                 {"agent": "claude", "content": "AI needs regulation for safety"},
-                {"agent": "gpt-4", "content": "Self-regulation is better"},
+                {"agent": "gpt-6-astra", "content": "Self-regulation is better"},
                 {"agent": "gemini", "content": "Balanced approach needed"},
             ],
             "debate_id": mock_debate_context["debate_id"],
@@ -71,8 +71,8 @@ def critique_payload(mock_debate_context):
     return PropulsionPayload(
         data={
             "critiques": [
-                {"agent": "claude", "target": "gpt-4", "content": "Lacks enforcement"},
-                {"agent": "gpt-4", "target": "claude", "content": "Too restrictive"},
+                {"agent": "claude", "target": "gpt-6-astra", "content": "Lacks enforcement"},
+                {"agent": "gpt-6-astra", "target": "claude", "content": "Too restrictive"},
             ],
             "debate_id": mock_debate_context["debate_id"],
         },
@@ -299,7 +299,7 @@ class TestPropulsionDebateFlow:
             "agent_specific",
             gpt_handler,
             name="gpt_handler",
-            filter_fn=lambda p: p.agent_affinity == "gpt-4",
+            filter_fn=lambda p: p.agent_affinity == "gpt-6-astra",
         )
 
         # Send Claude-specific payload
@@ -312,14 +312,14 @@ class TestPropulsionDebateFlow:
         # Send GPT-specific payload
         gpt_payload = PropulsionPayload(
             data={"response": "from gpt"},
-            agent_affinity="gpt-4",
+            agent_affinity="gpt-6-astra",
         )
         await propulsion_engine.propel("agent_specific", gpt_payload)
 
         assert len(claude_calls) == 1
         assert len(gpt_calls) == 1
         assert claude_calls[0].agent_affinity == "claude"
-        assert gpt_calls[0].agent_affinity == "gpt-4"
+        assert gpt_calls[0].agent_affinity == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_retry_on_failure(self, propulsion_engine):

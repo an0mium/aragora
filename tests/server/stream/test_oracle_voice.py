@@ -129,7 +129,7 @@ class TestOracleVoiceSynthesis:
         critique_event = FakeDebateEvent(
             event_type="critique",
             debate_id="d1",
-            data={"content": "I disagree with this argument. ", "agent": "gpt-4"},
+            data={"content": "I disagree with this argument. ", "agent": "gpt-6-astra"},
         )
         await bridge._on_agent_message(critique_event)
         await asyncio.sleep(0.05)

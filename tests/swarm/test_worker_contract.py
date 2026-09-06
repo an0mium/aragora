@@ -228,7 +228,7 @@ class TestAdmissionCheckDrift:
 
     def test_modified_model_detected(self) -> None:
         contract = _make_valid_contract()
-        contract.model = "gpt-4"
+        contract.model = "gpt-6-astra"
         assert contract.admission_check() is False
 
     def test_modified_budget_detected(self) -> None:

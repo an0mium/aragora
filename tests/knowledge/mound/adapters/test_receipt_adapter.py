@@ -88,7 +88,7 @@ class MockDecisionReceipt:
         self.low_count = 0
         self.checksum = "abc123checksum"
         self.audit_trail_id = "trail-123"
-        self.agents_involved = ["claude", "gpt-4"]
+        self.agents_involved = ["claude", "gpt-6-astra"]
         self.duration_seconds = 45.5
 
         # Add some verified claims

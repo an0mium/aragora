@@ -430,9 +430,9 @@ class TestGetAgentName:
         """Should extract agent_name from dict."""
         from aragora.server.handlers.base import get_agent_name
 
-        agent = {"agent_name": "gpt-4", "wins": 10}
+        agent = {"agent_name": "gpt-6-astra", "wins": 10}
 
-        assert get_agent_name(agent) == "gpt-4"
+        assert get_agent_name(agent) == "gpt-6-astra"
 
     def test_get_agent_name_prefers_agent_name(self):
         """Should prefer agent_name over name."""

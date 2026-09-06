@@ -87,7 +87,7 @@ def sample_messages():
             "round": 1,
         },
         {
-            "agent_id": "gpt-4",
+            "agent_id": "gpt-6-astra",
             "content": "Machine learning is defined as a method of data analysis. "
             "Deep learning requires large datasets for training.",
             "round": 1,
@@ -869,7 +869,7 @@ class TestBatchExtractionProcessing:
                 "debate_id": "batch-2",
                 "messages": [
                     {
-                        "agent_id": "gpt-4",
+                        "agent_id": "gpt-6-astra",
                         "content": "Studies show that JavaScript is widely used.",
                         "round": 1,
                     }
@@ -1262,7 +1262,7 @@ class TestEdgeCases:
         """Test extraction with empty content messages."""
         messages = [
             {"agent_id": "claude", "content": "", "round": 1},
-            {"agent_id": "gpt-4", "content": "   ", "round": 1},
+            {"agent_id": "gpt-6-astra", "content": "   ", "round": 1},
         ]
 
         result = await adapter.extract_from_debate(

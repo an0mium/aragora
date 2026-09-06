@@ -65,60 +65,60 @@ class TestEndpointGatedRetiredModelUpgrade:
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gateway.example/anthropic")
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-        agent = AnthropicAPIAgent(model="claude-3-opus", api_key="test-key")
-        assert agent.model == "claude-3-opus"
+        agent = AnthropicAPIAgent(model="claude-fable-5-1", api_key="test-key")
+        assert agent.model == "claude-fable-5-1"
 
     def test_anthropic_default_endpoint_upgrades(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
         from aragora.config.model_pins import FABLE_51_DIRECT
 
-        agent = AnthropicAPIAgent(model="claude-3-opus", api_key="test-key")
+        agent = AnthropicAPIAgent(model="claude-fable-5-1", api_key="test-key")
         assert agent.model == FABLE_51_DIRECT
 
     def test_openai_custom_base_url_keeps_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/openai")
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        agent = OpenAIAPIAgent(model="gpt-5.5", api_key="test-key")
-        assert agent.model == "gpt-5.5"
+        agent = OpenAIAPIAgent(model="gpt-6-astra", api_key="test-key")
+        assert agent.model == "gpt-6-astra"
 
     def test_openai_default_endpoint_upgrades(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
         from aragora.config.model_pins import GPT6_ASTRA_DIRECT
 
-        agent = OpenAIAPIAgent(model="gpt-5.5", api_key="test-key")
+        agent = OpenAIAPIAgent(model="gpt-6-astra", api_key="test-key")
         assert agent.model == GPT6_ASTRA_DIRECT
 
     def test_grok_custom_base_url_keeps_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("XAI_BASE_URL", "https://gateway.example/xai")
         from aragora.agents.api_agents.grok import GrokAgent
 
-        agent = GrokAgent(model="grok-2", api_key="test-key")
-        assert agent.model == "grok-2"
+        agent = GrokAgent(model="grok-4.6", api_key="test-key")
+        assert agent.model == "grok-4.6"
 
     def test_grok_default_endpoint_upgrades(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("XAI_BASE_URL", raising=False)
         from aragora.agents.api_agents.grok import GrokAgent
         from aragora.config.model_pins import GROK_46_DIRECT
 
-        agent = GrokAgent(model="grok-2", api_key="test-key")
+        agent = GrokAgent(model="grok-4.6", api_key="test-key")
         assert agent.model == GROK_46_DIRECT
 
     def test_mistral_custom_base_url_keeps_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MISTRAL_BASE_URL", "https://gateway.example/mistral")
         from aragora.agents.api_agents.mistral import MistralAPIAgent
 
-        agent = MistralAPIAgent(model="mistral-large-2411", api_key="test-key")
-        assert agent.model == "mistral-large-2411"
+        agent = MistralAPIAgent(model="mistral-large-2512", api_key="test-key")
+        assert agent.model == "mistral-large-2512"
 
     def test_mistral_default_endpoint_upgrades(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("MISTRAL_BASE_URL", raising=False)
         from aragora.agents.api_agents.mistral import MistralAPIAgent
         from aragora.config.model_pins import MISTRAL_LARGE_DIRECT
 
-        agent = MistralAPIAgent(model="mistral-large-2411", api_key="test-key")
+        agent = MistralAPIAgent(model="mistral-large-2512", api_key="test-key")
         assert agent.model == MISTRAL_LARGE_DIRECT
 
 

@@ -24,15 +24,15 @@ class TestCrossDebateLearningValidation:
         # Simulate 5 debates on security topics
         # Note: MIN_ELO_CHANGE is 25, so only deltas < 25 are filtered
         debates = [
-            {"agent": "claude-3-opus", "domain": "security", "elo_change": 50},
+            {"agent": "claude-fable-5-1", "domain": "security", "elo_change": 50},
             {
-                "agent": "claude-3-opus",
+                "agent": "claude-fable-5-1",
                 "domain": "security",
                 "elo_change": 20,
             },  # Below MIN_ELO_CHANGE threshold (25)
-            {"agent": "claude-3-opus", "domain": "security", "elo_change": 75},
-            {"agent": "gpt-4-turbo", "domain": "security", "elo_change": 60},
-            {"agent": "claude-3-opus", "domain": "security", "elo_change": 55},
+            {"agent": "claude-fable-5-1", "domain": "security", "elo_change": 75},
+            {"agent": "gpt-6-astra", "domain": "security", "elo_change": 60},
+            {"agent": "claude-fable-5-1", "domain": "security", "elo_change": 55},
         ]
 
         base_elo = 1500
@@ -46,8 +46,8 @@ class TestCrossDebateLearningValidation:
                 debate_id=f"debate-{i}",
             )
 
-        # Verify claude-3-opus has accumulated expertise
-        expertise = adapter.get_agent_expertise("claude-3-opus", "security")
+        # Verify claude-fable-5-1 has accumulated expertise
+        expertise = adapter.get_agent_expertise("claude-fable-5-1", "security")
         assert expertise is not None
         assert expertise["debate_count"] == 3  # Only 3 debates had delta >= MIN_ELO_CHANGE (25)
 

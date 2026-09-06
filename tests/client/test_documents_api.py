@@ -477,11 +477,11 @@ class TestDocumentContext:
             }
         )
 
-        docs_api.context("doc123", max_tokens=50000, model="gpt-4")
+        docs_api.context("doc123", max_tokens=50000, model="gpt-6-astra")
 
         call_args = client._get.call_args
         assert call_args[1]["params"]["max_tokens"] == 50000
-        assert call_args[1]["params"]["model"] == "gpt-4"
+        assert call_args[1]["params"]["model"] == "gpt-6-astra"
 
 
 # ============================================================================
@@ -523,13 +523,13 @@ class TestCreateAudit:
         docs_api.create_audit(
             ["doc1"],
             audit_types=["security"],
-            model="gpt-4",
+            model="gpt-6-astra",
             strict=True,
         )
 
         call_args = client._post.call_args
         assert call_args[0][1]["audit_types"] == ["security"]
-        assert call_args[0][1]["model"] == "gpt-4"
+        assert call_args[0][1]["model"] == "gpt-6-astra"
 
 
 class TestListAudits:

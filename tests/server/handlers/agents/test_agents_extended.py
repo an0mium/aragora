@@ -37,10 +37,10 @@ def mock_elo():
     elo.get_rating.return_value = rating
     elo.get_leaderboard.return_value = [
         {"name": "claude", "elo": 1650},
-        {"name": "gpt-4", "elo": 1600},
+        {"name": "gpt-6-astra", "elo": 1600},
     ]
     elo.get_cached_leaderboard.return_value = elo.get_leaderboard.return_value
-    elo.get_rivals.return_value = [{"agent": "gpt-4", "matches": 3}]
+    elo.get_rivals.return_value = [{"agent": "gpt-6-astra", "matches": 3}]
     elo.get_allies.return_value = [{"agent": "gemini", "collaborations": 2}]
     elo.get_elo_history.return_value = [
         ("2025-01-01T00:00:00", 1600),
@@ -52,7 +52,7 @@ def mock_elo():
         {"result": "win"},
     ]
     elo.get_agent_stats.return_value = {"total_matches": 18, "win_rate": 0.67}
-    elo.get_ratings_batch.return_value = {"claude": 1650, "gpt-4": 1600}
+    elo.get_ratings_batch.return_value = {"claude": 1650, "gpt-6-astra": 1600}
     elo.get_head_to_head.return_value = {"matches": 5, "agent1_wins": 3, "agent2_wins": 2}
     elo.get_calibration.return_value = {"agent": "claude", "score": 0.85}
     return elo
@@ -446,7 +446,7 @@ class TestEloMissingPaths:
         assert result.status_code == 503
 
     def test_head_to_head_no_elo(self, empty_handler):
-        result = empty_handler._get_head_to_head("claude", "gpt-4")
+        result = empty_handler._get_head_to_head("claude", "gpt-6-astra")
         assert result.status_code == 503
 
     def test_history_no_elo(self, empty_handler):

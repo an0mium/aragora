@@ -1030,7 +1030,7 @@ class TestPathParameterInjection:
 
         valid_names = [
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             "agent_1",
             "CodexModel",
             "gemini-pro",

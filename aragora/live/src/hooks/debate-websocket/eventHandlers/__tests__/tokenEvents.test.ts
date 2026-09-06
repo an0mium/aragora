@@ -106,7 +106,7 @@ describe('tokenEvents handlers', () => {
       const ctx = createMockContext();
       const data: ParsedEventData = {
         type: 'token_delta',
-        agent: 'gpt-4',
+        agent: 'gpt-6-astra',
         task_id: '',
         data: { token: 'Hello' },
       };
@@ -115,7 +115,7 @@ describe('tokenEvents handlers', () => {
 
       const updater = (ctx.setStreamingMessages as jest.Mock).mock.calls[0][0];
       const result = updater(new Map());
-      const msg = result.get('gpt-4');
+      const msg = result.get('gpt-6-astra');
 
       expect(msg).toBeDefined();
       expect(msg.content).toBe('Hello');
@@ -238,8 +238,8 @@ describe('tokenEvents handlers', () => {
     it('appends evidence sources to streaming message', () => {
       const ctx = createMockContext();
       const existingMap = new Map<string, StreamingMessage>();
-      existingMap.set('gpt-4', {
-        agent: 'gpt-4',
+      existingMap.set('gpt-6-astra', {
+        agent: 'gpt-6-astra',
         taskId: '',
         content: 'Response...',
         isComplete: false,
@@ -257,7 +257,7 @@ describe('tokenEvents handlers', () => {
 
       const data: ParsedEventData = {
         type: 'agent_evidence',
-        agent: 'gpt-4',
+        agent: 'gpt-6-astra',
         data: {
           sources: [
             { title: 'Paper A', url: 'https://example.com/a', relevance: 0.9 },
@@ -270,7 +270,7 @@ describe('tokenEvents handlers', () => {
 
       const updater = (ctx.setStreamingMessages as jest.Mock).mock.calls[0][0];
       const result = updater(existingMap);
-      const msg = result.get('gpt-4');
+      const msg = result.get('gpt-6-astra');
 
       expect(msg.evidence).toHaveLength(2);
       expect(msg.evidence[0].title).toBe('Paper A');
@@ -399,8 +399,8 @@ describe('tokenEvents handlers', () => {
     it('accepts reasoning_phase field name', () => {
       const ctx = createMockContext();
       const existingMap = new Map<string, StreamingMessage>();
-      existingMap.set('gpt-4', {
-        agent: 'gpt-4',
+      existingMap.set('gpt-6-astra', {
+        agent: 'gpt-6-astra',
         taskId: '',
         content: '',
         isComplete: false,
@@ -418,7 +418,7 @@ describe('tokenEvents handlers', () => {
 
       const data: ParsedEventData = {
         type: 'agent_reasoning',
-        agent: 'gpt-4',
+        agent: 'gpt-6-astra',
         data: { reasoning_phase: 'CRITIQUING' },
       };
 
@@ -426,7 +426,7 @@ describe('tokenEvents handlers', () => {
 
       const updater = (ctx.setStreamingMessages as jest.Mock).mock.calls[0][0];
       const result = updater(existingMap);
-      const msg = result.get('gpt-4');
+      const msg = result.get('gpt-6-astra');
 
       expect(msg.reasoningPhase).toBe('CRITIQUING');
     });

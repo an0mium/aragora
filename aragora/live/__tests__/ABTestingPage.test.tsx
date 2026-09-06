@@ -45,7 +45,7 @@ jest.mock('@/components/AsciiBanner', () => ({
 const mockTests = [
   {
     id: 'test-1',
-    agent: 'claude-3-opus',
+    agent: 'claude-fable-5-1',
     baseline_prompt_version: 1,
     evolved_prompt_version: 2,
     baseline_wins: 8,
@@ -64,7 +64,7 @@ const mockTests = [
   },
   {
     id: 'test-2',
-    agent: 'gpt-4o',
+    agent: 'gpt-6-astra',
     baseline_prompt_version: 3,
     evolved_prompt_version: 4,
     baseline_wins: 10,
@@ -121,8 +121,8 @@ describe('ABTestingPage', () => {
     renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-      expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
+      expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
     });
 
     expect(screen.getByText(/v1 vs v2/)).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe('ABTestingPage', () => {
     renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     const statusSelect = screen.getByDisplayValue('All Statuses');
@@ -213,10 +213,10 @@ describe('ABTestingPage', () => {
     renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('claude-3-opus'));
+    fireEvent.click(screen.getByText('claude-fable-5-1'));
 
     await waitFor(() => {
       expect(screen.getByText(/baseline version/i)).toBeInTheDocument();
@@ -236,7 +236,7 @@ describe('ABTestingPage', () => {
     renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);

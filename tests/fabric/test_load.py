@@ -44,7 +44,7 @@ def fabric(fabric_config):
     return AgentFabric(config=fabric_config)
 
 
-def make_config(id: str, model: str = "claude-3-opus") -> AgentConfig:
+def make_config(id: str, model: str = "claude-fable-5-1") -> AgentConfig:
     """Create an agent config."""
     return AgentConfig(id=id, model=model)
 
@@ -546,7 +546,7 @@ class TestPoolLoadBalancing:
             # Create a pool with multiple agents
             pool = await fabric.create_pool(
                 name="load-test-pool",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 min_agents=10,
                 max_agents=20,
             )
@@ -585,7 +585,7 @@ class TestPoolLoadBalancing:
             # Create pool with low min but high max
             pool = await fabric.create_pool(
                 name="scale-test-pool",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 min_agents=2,
                 max_agents=20,
             )

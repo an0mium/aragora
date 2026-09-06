@@ -115,7 +115,7 @@ def _write_run(
         worktree_cleanup_mode="operator_triggered",
         participants=[
             Participant(role="implementer", harness="codex", model="gpt-5.4"),
-            Participant(role="reviewer", harness="claude", model="claude-opus-4-7"),
+            Participant(role="reviewer", harness="claude", model="claude-fable-5-1"),
         ],
         worktree_path=str(store.root),
         worktree_agent_slug="codex-bridge",
@@ -142,7 +142,7 @@ def _write_run(
             "reviewer": BridgeSession(
                 role="reviewer",
                 harness="claude",
-                model="claude-opus-4-7",
+                model="claude-fable-5-1",
                 session_id=None,
                 worktree_agent_slug=None,
                 worktree_path=None,
@@ -216,7 +216,7 @@ def test_list_runs_paginates_newest_first_and_roundtrips_cursor(
     assert first_runs[0]["last_turn_index"] == 0
     assert first_runs[0]["participants"] == [
         {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
-        {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+        {"role": "reviewer", "harness": "claude", "model": "claude-fable-5-1"},
     ]
     assert "active_role" not in first_runs[0]
     assert "turn_count" not in first_runs[0]
@@ -298,7 +298,7 @@ def test_get_run_returns_role_keyed_detail_and_etag(
     assert payload["worktree_cleanup_mode"] == "operator_triggered"
     assert payload["participants"] == [
         {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
-        {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+        {"role": "reviewer", "harness": "claude", "model": "claude-fable-5-1"},
     ]
     assert "sessions" not in payload
 
@@ -675,7 +675,7 @@ def test_start_run_write_api_persists_role_keyed_sessions(bridge_repo: Path) -> 
                         "model": "gpt-5.5",
                         "harness_options": {"reasoning_effort": "low"},
                     },
-                    {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+                    {"role": "reviewer", "harness": "claude", "model": "claude-fable-5-1"},
                 ],
             }
         ),

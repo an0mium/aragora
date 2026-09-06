@@ -172,7 +172,7 @@ class TestAgentHealthState:
     def test_to_dict(self):
         """Test converting state to dictionary."""
         state = AgentHealthState(
-            name="gpt-4",
+            name="gpt-6-astra",
             status=AgentStatus.RESPONDING,
             consecutive_failures=2,
             total_timeouts=5,
@@ -182,7 +182,7 @@ class TestAgentHealthState:
 
         d = state.to_dict()
 
-        assert d["name"] == "gpt-4"
+        assert d["name"] == "gpt-6-astra"
         assert d["status"] == "responding"
         assert d["consecutive_failures"] == 2
         assert d["total_timeouts"] == 5
@@ -407,7 +407,7 @@ class TestSystemStatus:
         """Test system degrades with one failure."""
         immune = TransparentImmuneSystem()
         immune.agent_started("claude")
-        immune.agent_started("gpt-4")
+        immune.agent_started("gpt-6-astra")
 
         immune.agent_failed("claude", "error")
 
@@ -417,12 +417,12 @@ class TestSystemStatus:
         """Test system stressed with multiple failures."""
         immune = TransparentImmuneSystem()
         # Create 4 agents
-        for name in ["claude", "gpt-4", "gemini", "mistral"]:
+        for name in ["claude", "gpt-6-astra", "gemini", "mistral"]:
             immune.agent_started(name)
 
         # Fail 2 out of 4 (less than half)
         immune.agent_failed("claude", "error")
-        immune.agent_timeout("gpt-4", 60.0)
+        immune.agent_timeout("gpt-6-astra", 60.0)
 
         # 2/4 = 50%, which is not < 50%, so should be CRITICAL
         # Actually need 2 agents, and both failed = critical
@@ -438,10 +438,10 @@ class TestSystemStatus:
         """Test system critical with majority failures."""
         immune = TransparentImmuneSystem()
         immune.agent_started("claude")
-        immune.agent_started("gpt-4")
+        immune.agent_started("gpt-6-astra")
 
         immune.agent_failed("claude", "error")
-        immune.agent_timeout("gpt-4", 60.0)
+        immune.agent_timeout("gpt-6-astra", 60.0)
 
         assert immune.system_status == HealthStatus.CRITICAL
 
@@ -483,16 +483,16 @@ class TestHealthSummary:
         immune = TransparentImmuneSystem()
         immune.agent_started("claude")
         immune.agent_completed("claude", 1000.0)
-        immune.agent_failed("gpt-4", "error")
-        immune.agent_recovered("gpt-4", "fallback")
+        immune.agent_failed("gpt-6-astra", "error")
+        immune.agent_recovered("gpt-6-astra", "fallback")
 
         health = immune.get_system_health()
 
-        assert health["status"] == "healthy"  # gpt-4 recovered
+        assert health["status"] == "healthy"  # gpt-6-astra recovered
         assert health["total_failures"] == 1
         assert health["total_recoveries"] == 1
         assert "claude" in health["agents"]
-        assert "gpt-4" in health["agents"]
+        assert "gpt-6-astra" in health["agents"]
         assert health["uptime_seconds"] >= 0
 
     def test_recovery_rate_calculation(self):

@@ -295,7 +295,7 @@ class TestHandleMessage:
                 "data": {
                     "debate_id": "deb_123",
                     "task": "Test task",
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "total_rounds": 3,
                 },
             }
@@ -306,7 +306,7 @@ class TestHandleMessage:
         assert event.typed_data is not None
         assert event.typed_data.debate_id == "deb_123"
         assert event.typed_data.task == "Test task"
-        assert event.typed_data.agents == ["claude", "gpt-4"]
+        assert event.typed_data.agents == ["claude", "gpt-6-astra"]
 
     def test_event_added_to_queue(self) -> None:
         """Events are added to the event queue for async iterator."""

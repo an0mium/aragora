@@ -23,22 +23,22 @@ const mockTournamentsData = {
       tournament_id: 'tournament-2026-01',
       participants: 8,
       total_matches: 28,
-      top_agent: 'claude-3-opus',
+      top_agent: 'claude-fable-5-1',
     },
     {
       tournament_id: 'tournament-2025-12',
       participants: 6,
       total_matches: 15,
-      top_agent: 'gemini-2.0-flash',
+      top_agent: 'gemini-3.8-flash',
     },
   ],
 };
 
 const mockStandingsData = {
   standings: [
-    { agent: 'claude-3-opus', wins: 6, losses: 1, draws: 0, points: 18, total_score: 42, win_rate: 0.86 },
-    { agent: 'gemini-2.0-flash', wins: 5, losses: 2, draws: 0, points: 15, total_score: 38, win_rate: 0.71 },
-    { agent: 'grok-2', wins: 4, losses: 3, draws: 0, points: 12, total_score: 32, win_rate: 0.57 },
+    { agent: 'claude-fable-5-1', wins: 6, losses: 1, draws: 0, points: 18, total_score: 42, win_rate: 0.86 },
+    { agent: 'gemini-3.8-flash', wins: 5, losses: 2, draws: 0, points: 15, total_score: 38, win_rate: 0.71 },
+    { agent: 'grok-4.6', wins: 4, losses: 3, draws: 0, points: 12, total_score: 32, win_rate: 0.57 },
     { agent: 'llama-3', wins: 2, losses: 5, draws: 0, points: 6, total_score: 20, win_rate: 0.29 },
   ],
 };
@@ -166,11 +166,11 @@ describe('TournamentPanel', () => {
       });
 
       await waitFor(() => {
-        // claude-3-opus appears in both Leader and standings
-        const claudeElements = screen.getAllByText('claude-3-opus');
+        // claude-fable-5-1 appears in both Leader and standings
+        const claudeElements = screen.getAllByText('claude-fable-5-1');
         expect(claudeElements.length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText('gemini-2.0-flash')).toBeInTheDocument();
-        expect(screen.getByText('grok-2')).toBeInTheDocument();
+        expect(screen.getByText('gemini-3.8-flash')).toBeInTheDocument();
+        expect(screen.getByText('grok-4.6')).toBeInTheDocument();
       });
     });
 
@@ -256,7 +256,7 @@ describe('TournamentPanel', () => {
       renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        const claudeElements = screen.getAllByText('claude-3-opus');
+        const claudeElements = screen.getAllByText('claude-fable-5-1');
         expect(claudeElements.length).toBeGreaterThanOrEqual(1);
       });
 
@@ -278,7 +278,7 @@ describe('TournamentPanel', () => {
       renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        const claudeElements = screen.getAllByText('claude-3-opus');
+        const claudeElements = screen.getAllByText('claude-fable-5-1');
         expect(claudeElements.length).toBeGreaterThanOrEqual(1);
       });
 
@@ -300,7 +300,7 @@ describe('TournamentPanel', () => {
       });
 
       await waitFor(() => {
-        const claudeElements = screen.getAllByText('claude-3-opus');
+        const claudeElements = screen.getAllByText('claude-fable-5-1');
         expect(claudeElements.length).toBeGreaterThanOrEqual(1);
       });
 
@@ -322,7 +322,7 @@ describe('TournamentPanel', () => {
       const { unmount } = renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
-        const claudeElements = screen.getAllByText('claude-3-opus');
+        const claudeElements = screen.getAllByText('claude-fable-5-1');
         expect(claudeElements.length).toBeGreaterThanOrEqual(1);
       });
 

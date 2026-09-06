@@ -537,7 +537,7 @@ class TestAgentStatePreservation:
         """Should preserve complete agent state."""
         agent_state = AgentState(
             agent_name="claude",
-            agent_model="claude-3-opus",
+            agent_model="claude-fable-5-1",
             agent_role="devil_advocate",
             system_prompt="Challenge assumptions",
             stance="skeptical",

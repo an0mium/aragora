@@ -109,7 +109,7 @@ def sample_debate_result():
     result.answer = "42, according to Deep Thought."
     result.total_rounds = 3
     result.consensus_confidence = 0.85
-    result.participating_agents = ["claude", "gpt-4", "gemini"]
+    result.participating_agents = ["claude", "gpt-6-astra", "gemini"]
     return result
 
 

@@ -182,7 +182,7 @@ class TestDetectAgents:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
         agents = _detect_agents("openai")
-        assert agents == [("openai-api", "gpt-4o-mini")]
+        assert agents == [("openai-api", "gpt-5.6-terra")]
 
     def test_invalid_preferred_provider_raises(self):
         with pytest.raises(ValueError, match="Unsupported provider"):
@@ -389,7 +389,7 @@ class TestInlineApiKeys:
 class TestLiveQuickstartHelpers:
     def test_build_live_team_reuses_single_provider_for_real_debate(self):
         team = _build_live_team(
-            [("openai-api", "gpt-4o")],
+            [("openai-api", "gpt-6-astra")],
             provider="openai",
             api_key="sk-inline",
         )
@@ -401,8 +401,8 @@ class TestLiveQuickstartHelpers:
     def test_build_live_team_stays_single_provider_even_with_openrouter_available(self):
         team = _build_live_team(
             [
-                ("anthropic-api", "claude-sonnet-4-5-20250929"),
-                ("openai-api", "gpt-4o"),
+                ("anthropic-api", "claude-sonnet-5"),
+                ("openai-api", "gpt-6-astra"),
                 ("gemini", None),
             ]
         )
@@ -674,7 +674,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._filter_reachable_live_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch("aragora.agents.base.create_agent", return_value=mock_agent),
             patch("aragora.debate.orchestrator.Arena") as mock_arena_cls,
@@ -686,7 +686,7 @@ class TestCmdQuickstart:
             with pytest.raises(RuntimeError, match="Live debate returned no result"):
                 await _run_live_debate(
                     "Should we ship the quickstart path?",
-                    [("openai-api", "gpt-4o")],
+                    [("openai-api", "gpt-6-astra")],
                     rounds=2,
                 )
 
@@ -703,7 +703,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._filter_reachable_live_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch("aragora.agents.base.create_agent", return_value=mock_agent),
             patch("aragora.debate.orchestrator.Arena") as mock_arena_cls,
@@ -719,7 +719,7 @@ class TestCmdQuickstart:
             with pytest.raises(RuntimeError, match="Live debate timed out"):
                 await _run_live_debate(
                     "Should we ship the quickstart path?",
-                    [("openai-api", "gpt-4o")],
+                    [("openai-api", "gpt-6-astra")],
                     rounds=2,
                 )
 
@@ -734,7 +734,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._filter_reachable_live_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch("aragora.agents.base.create_agent", return_value=mock_agent),
             patch("aragora.insights.store.InsightStore", return_value=mock_insight_store),
@@ -752,7 +752,7 @@ class TestCmdQuickstart:
 
             result = await _run_live_debate(
                 "Should we ship the quickstart path?",
-                [("openai-api", "gpt-4o")],
+                [("openai-api", "gpt-6-astra")],
                 rounds=1,
             )
 
@@ -810,7 +810,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._filter_reachable_live_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch("aragora.agents.base.create_agent", side_effect=fake_create_agent),
             patch(
@@ -820,7 +820,7 @@ class TestCmdQuickstart:
         ):
             result = await _run_live_debate(
                 "Should we ship the quickstart path?",
-                [("openai-api", "gpt-4o")],
+                [("openai-api", "gpt-6-astra")],
                 rounds=1,
             )
 
@@ -835,7 +835,7 @@ class TestCmdQuickstart:
             new=AsyncMock(return_value=(False, "CERTIFICATE_VERIFY_FAILED")),
         ):
             result = await _filter_reachable_live_agents(
-                [("openai-api", "gpt-4o"), ("gemini", None)]
+                [("openai-api", "gpt-6-astra"), ("gemini", None)]
             )
             assert result == []
 
@@ -850,7 +850,7 @@ class TestCmdQuickstart:
                 )
             ),
         ):
-            reachable = await _filter_reachable_live_agents([("openai-api", "gpt-4o")])
+            reachable = await _filter_reachable_live_agents([("openai-api", "gpt-6-astra")])
 
         assert reachable == []
 
@@ -868,10 +868,10 @@ class TestCmdQuickstart:
             side_effect=fake_probe,
         ):
             reachable = await _filter_reachable_live_agents(
-                [("openai-api", "gpt-4o"), ("gemini", None)]
+                [("openai-api", "gpt-6-astra"), ("gemini", None)]
             )
 
-        assert reachable == [("openai-api", "gpt-4o")]
+        assert reachable == [("openai-api", "gpt-6-astra")]
 
     def test_demo_mode(self, capsys):
         """Test quickstart runs in demo mode with mock agents."""
@@ -924,7 +924,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch(
                 "aragora.cli.commands.quickstart._can_reach_provider_tls",
@@ -1122,7 +1122,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch(
                 "aragora.cli.commands.quickstart._can_reach_provider_tls",
@@ -1269,7 +1269,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
-                return_value=[("openai-api", "gpt-4o")],
+                return_value=[("openai-api", "gpt-6-astra")],
             ),
             patch(
                 "aragora.cli.commands.quickstart._can_reach_provider_tls",
@@ -1438,7 +1438,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
-                return_value=[("gemini", "gemini-2.0-flash")],
+                return_value=[("gemini", "gemini-3.8-flash")],
             ),
             patch(
                 "aragora.cli.commands.quickstart._can_reach_provider_tls",
@@ -1490,7 +1490,7 @@ class TestCmdQuickstart:
         with (
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
-                return_value=[("gemini", "gemini-3.1-pro")],
+                return_value=[("gemini", "gemini-3.1-pro-preview")],
             ),
             patch(
                 "aragora.cli.commands.quickstart._can_reach_provider_tls",

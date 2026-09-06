@@ -219,7 +219,7 @@ class TestCanvasNode:
             "position": {"x": 100, "y": 100},
             "size": {"width": 250, "height": 120},
             "label": "GPT-4",
-            "data": {"model": "gpt-4"},
+            "data": {"model": "gpt-6-astra"},
             "locked": False,
             "selected": True,
         }
@@ -229,7 +229,7 @@ class TestCanvasNode:
         assert node.position.x == 100
         assert node.size.width == 250
         assert node.label == "GPT-4"
-        assert node.data["model"] == "gpt-4"
+        assert node.data["model"] == "gpt-6-astra"
         assert node.selected is True
 
     def test_node_from_dict_with_parent(self):

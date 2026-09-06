@@ -33,14 +33,14 @@ def elo_system(temp_db_dir):
 
     # Create agents by getting their ratings (auto-creates if not exist)
     elo.get_rating("claude")
-    elo.get_rating("gpt-4")
+    elo.get_rating("gpt-6-astra")
     elo.get_rating("gemini")
 
     # Record some matches to create realistic data
     elo.record_match(
         debate_id="test-debate-1",
-        participants=["claude", "gpt-4"],
-        scores={"claude": 1.0, "gpt-4": 0.0},  # claude wins
+        participants=["claude", "gpt-6-astra"],
+        scores={"claude": 1.0, "gpt-6-astra": 0.0},  # claude wins
         domain="general",
     )
     elo.record_match(
@@ -51,8 +51,8 @@ def elo_system(temp_db_dir):
     )
     elo.record_match(
         debate_id="test-debate-3",
-        participants=["gpt-4", "gemini"],
-        scores={"gpt-4": 0.5, "gemini": 0.5},  # Draw
+        participants=["gpt-6-astra", "gemini"],
+        scores={"gpt-6-astra": 0.5, "gemini": 0.5},  # Draw
         domain="coding",
     )
 
@@ -94,29 +94,29 @@ class TestEloSystemIntegration:
     def test_leaderboard_updates_after_match(self, elo_system):
         """Leaderboard reflects new match results."""
         # Get initial ELO (snapshot the value to avoid mutation issues)
-        initial_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        initial_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
         initial_elo = initial_gpt4.elo
 
         # Record a new match (GPT-4 wins)
         elo_system.record_match(
             debate_id="test-debate-new",
-            participants=["claude", "gpt-4"],
-            scores={"claude": 0.0, "gpt-4": 1.0},
+            participants=["claude", "gpt-6-astra"],
+            scores={"claude": 0.0, "gpt-6-astra": 1.0},
             domain="general",
         )
 
         # Verify ELO updated
-        updated_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        updated_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
 
         # GPT-4's ELO should have increased (or stayed same if already max K-factor)
         assert updated_gpt4.elo >= initial_elo
 
     def test_batch_rating_retrieval(self, elo_system):
         """Batch rating retrieval returns all requested agents."""
-        ratings = elo_system.get_ratings_batch(["claude", "gpt-4", "gemini"])
+        ratings = elo_system.get_ratings_batch(["claude", "gpt-6-astra", "gemini"])
 
         assert "claude" in ratings
-        assert "gpt-4" in ratings
+        assert "gpt-6-astra" in ratings
         assert "gemini" in ratings
         assert ratings["claude"].agent_name == "claude"
 
@@ -132,7 +132,7 @@ class TestCrossModuleIntegration:
     def test_match_updates_both_agents(self, elo_system):
         """Recording a match updates both participants' stats."""
         initial_claude = elo_system.get_rating("claude", use_cache=False)
-        initial_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        initial_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
         # Snapshot values before mutation
         claude_elo = initial_claude.elo
         gpt4_elo = initial_gpt4.elo
@@ -141,13 +141,13 @@ class TestCrossModuleIntegration:
 
         elo_system.record_match(
             debate_id="cross-test-1",
-            participants=["claude", "gpt-4"],
-            scores={"claude": 1.0, "gpt-4": 0.0},  # claude wins
+            participants=["claude", "gpt-6-astra"],
+            scores={"claude": 1.0, "gpt-6-astra": 0.0},  # claude wins
             domain="philosophy",
         )
 
         updated_claude = elo_system.get_rating("claude", use_cache=False)
-        updated_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        updated_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
 
         # Winner's ELO increases (or stays same at convergence)
         assert updated_claude.elo >= claude_elo
@@ -160,20 +160,20 @@ class TestCrossModuleIntegration:
     def test_draw_updates_both_agents_equally(self, elo_system):
         """A draw updates both agents with minimal ELO change."""
         initial_claude = elo_system.get_rating("claude", use_cache=False)
-        initial_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        initial_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
         # Snapshot draw counts before mutation
         claude_draws = initial_claude.draws
         gpt4_draws = initial_gpt4.draws
 
         elo_system.record_match(
             debate_id="draw-test-1",
-            participants=["claude", "gpt-4"],
-            scores={"claude": 0.5, "gpt-4": 0.5},  # Draw
+            participants=["claude", "gpt-6-astra"],
+            scores={"claude": 0.5, "gpt-6-astra": 0.5},  # Draw
             domain="ethics",
         )
 
         updated_claude = elo_system.get_rating("claude", use_cache=False)
-        updated_gpt4 = elo_system.get_rating("gpt-4", use_cache=False)
+        updated_gpt4 = elo_system.get_rating("gpt-6-astra", use_cache=False)
 
         # Both should have draw incremented
         assert updated_claude.draws >= claude_draws
@@ -227,10 +227,14 @@ class TestConcurrentAccessIntegration:
             assert len(leaderboard) >= 2
 
             # Write
-            scores = {"claude": 1.0, "gpt-4": 0.0} if i % 2 == 0 else {"claude": 0.0, "gpt-4": 1.0}
+            scores = (
+                {"claude": 1.0, "gpt-6-astra": 0.0}
+                if i % 2 == 0
+                else {"claude": 0.0, "gpt-6-astra": 1.0}
+            )
             elo_system.record_match(
                 debate_id=f"concurrent-{i}",
-                participants=["claude", "gpt-4"],
+                participants=["claude", "gpt-6-astra"],
                 scores=scores,
                 domain="general",
             )

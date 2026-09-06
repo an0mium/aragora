@@ -808,8 +808,8 @@ class TestHelperFunctions:
         assert actor.actor_name == "Claude 3"
 
     def test_create_agent_actor_default_name(self):
-        actor = create_agent_actor("gpt-4")
-        assert actor.actor_name == "gpt-4"
+        actor = create_agent_actor("gpt-6-astra")
+        assert actor.actor_name == "gpt-6-astra"
 
     def test_create_user_actor(self):
         actor = create_user_actor("user-1", "Alice", "10.0.0.1")

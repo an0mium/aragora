@@ -87,7 +87,7 @@ def _sample_debate(debate_id: str = "debate-1", topic: str = "Test Topic") -> di
             },
             {
                 "round": 2,
-                "agent": "gpt-4",
+                "agent": "gpt-6-astra",
                 "role": "critic",
                 "content": "I disagree because Y.",
                 "timestamp": "2026-01-01T00:20:00Z",
@@ -96,7 +96,7 @@ def _sample_debate(debate_id: str = "debate-1", topic: str = "Test Topic") -> di
         "critiques": [
             {
                 "round": 1,
-                "critic": "gpt-4",
+                "critic": "gpt-6-astra",
                 "target": "claude",
                 "severity": 0.5,
                 "summary": "Weak reasoning",

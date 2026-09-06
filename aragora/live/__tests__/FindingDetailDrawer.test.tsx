@@ -46,7 +46,7 @@ const mockFinding = {
   evidence_text: "query = `SELECT * FROM users WHERE id = ${userId}`",
   evidence_location: 'src/database/users.ts:42',
   recommendation: 'Use parameterized queries or prepared statements',
-  found_by: 'claude-3-opus',
+  found_by: 'claude-fable-5-1',
   document_id: 'doc-001',
   created_at: '2026-01-15T10:00:00Z',
 };
@@ -190,7 +190,7 @@ describe('FindingDetailDrawer', () => {
       expect(screen.getByText('security')).toBeInTheDocument();
       expect(screen.getByText('injection')).toBeInTheDocument();
       expect(screen.getByText('95%')).toBeInTheDocument();
-      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+      expect(screen.getByText('claude-fable-5-1')).toBeInTheDocument();
     });
   });
 

@@ -17,7 +17,7 @@ class TestMLRoute:
     def test_route_basic(self, client: AragoraClient, mock_request) -> None:
         """Route agents for a task with basic parameters."""
         mock_request.return_value = {
-            "selected_agents": ["claude", "gpt-4", "gemini"],
+            "selected_agents": ["claude", "gpt-6-astra", "gemini"],
             "task_type": "coding",
             "confidence": 0.92,
             "reasoning": "Selected agents with strong coding capabilities",
@@ -25,7 +25,7 @@ class TestMLRoute:
 
         result = client.ml.route(
             task="Implement a caching layer",
-            available_agents=["claude", "gpt-4", "gemini", "mistral", "llama"],
+            available_agents=["claude", "gpt-6-astra", "gemini", "mistral", "llama"],
         )
 
         mock_request.assert_called_once_with(
@@ -33,24 +33,24 @@ class TestMLRoute:
             "/api/v1/ml/route",
             json={
                 "task": "Implement a caching layer",
-                "available_agents": ["claude", "gpt-4", "gemini", "mistral", "llama"],
+                "available_agents": ["claude", "gpt-6-astra", "gemini", "mistral", "llama"],
                 "team_size": 3,
             },
         )
-        assert result["selected_agents"] == ["claude", "gpt-4", "gemini"]
+        assert result["selected_agents"] == ["claude", "gpt-6-astra", "gemini"]
         assert result["task_type"] == "coding"
         assert result["confidence"] == 0.92
 
     def test_route_custom_team_size(self, client: AragoraClient, mock_request) -> None:
         """Route agents with a custom team size."""
         mock_request.return_value = {
-            "selected_agents": ["claude", "gpt-4", "gemini", "mistral", "codex"],
+            "selected_agents": ["claude", "gpt-6-astra", "gemini", "mistral", "codex"],
             "confidence": 0.88,
         }
 
         client.ml.route(
             task="Complex multi-disciplinary task",
-            available_agents=["claude", "gpt-4", "gemini", "mistral", "codex", "llama"],
+            available_agents=["claude", "gpt-6-astra", "gemini", "mistral", "codex", "llama"],
             team_size=5,
         )
 
@@ -66,7 +66,7 @@ class TestMLRoute:
 
         client.ml.route(
             task="Implement database migrations",
-            available_agents=["claude", "gpt-4", "codex", "gemini"],
+            available_agents=["claude", "gpt-6-astra", "codex", "gemini"],
             team_size=2,
             constraints={"require_code": True, "prefer_fast": False},
         )
@@ -82,7 +82,7 @@ class TestMLRoute:
 
         client.ml.route(
             task="Simple reasoning task",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-6-astra"],
             team_size=1,
         )
 
@@ -232,7 +232,7 @@ class TestMLPredictConsensus:
         result = client.ml.predict_consensus(
             responses=[
                 ("claude", "We should use Redis for caching."),
-                ("gpt-4", "Redis is a good choice for caching."),
+                ("gpt-6-astra", "Redis is a good choice for caching."),
                 ("gemini", "Consider Memcached as an alternative."),
             ]
         )
@@ -243,7 +243,7 @@ class TestMLPredictConsensus:
             json={
                 "responses": [
                     ["claude", "We should use Redis for caching."],
-                    ["gpt-4", "Redis is a good choice for caching."],
+                    ["gpt-6-astra", "Redis is a good choice for caching."],
                     ["gemini", "Consider Memcached as an alternative."],
                 ],
                 "current_round": 1,
@@ -263,7 +263,7 @@ class TestMLPredictConsensus:
         client.ml.predict_consensus(
             responses=[
                 ("claude", "Position A"),
-                ("gpt-4", "Position A with minor variation"),
+                ("gpt-6-astra", "Position A with minor variation"),
             ],
             context="Decide on caching strategy for API",
         )
@@ -612,14 +612,14 @@ class TestAsyncMLRoute:
     async def test_async_route_basic(self, mock_async_request) -> None:
         """Route agents asynchronously."""
         mock_async_request.return_value = {
-            "selected_agents": ["claude", "gpt-4"],
+            "selected_agents": ["claude", "gpt-6-astra"],
             "confidence": 0.90,
         }
 
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
             result = await client.ml.route(
                 task="Async routing task",
-                available_agents=["claude", "gpt-4", "gemini"],
+                available_agents=["claude", "gpt-6-astra", "gemini"],
                 team_size=2,
             )
 
@@ -628,11 +628,11 @@ class TestAsyncMLRoute:
                 "/api/v1/ml/route",
                 json={
                     "task": "Async routing task",
-                    "available_agents": ["claude", "gpt-4", "gemini"],
+                    "available_agents": ["claude", "gpt-6-astra", "gemini"],
                     "team_size": 2,
                 },
             )
-            assert result["selected_agents"] == ["claude", "gpt-4"]
+            assert result["selected_agents"] == ["claude", "gpt-6-astra"]
 
     @pytest.mark.asyncio
     async def test_async_route_with_constraints(self, mock_async_request) -> None:
@@ -735,7 +735,7 @@ class TestAsyncMLPredictConsensus:
             result = await client.ml.predict_consensus(
                 responses=[
                     ("claude", "Position A"),
-                    ("gpt-4", "Position A variant"),
+                    ("gpt-6-astra", "Position A variant"),
                 ]
             )
 
@@ -745,7 +745,7 @@ class TestAsyncMLPredictConsensus:
                 json={
                     "responses": [
                         ["claude", "Position A"],
-                        ["gpt-4", "Position A variant"],
+                        ["gpt-6-astra", "Position A variant"],
                     ],
                     "current_round": 1,
                     "total_rounds": 3,

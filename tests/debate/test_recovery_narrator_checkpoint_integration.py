@@ -175,7 +175,7 @@ class TestSetupNarratorWithCheckpointManager:
                 "checkpoint": {
                     "current_round": 3,
                     "debate_id": "test-debate",
-                    "agent_states": [{"agent_name": "claude"}, {"agent_name": "gpt-4"}],
+                    "agent_states": [{"agent_name": "claude"}, {"agent_name": "gpt-6-astra"}],
                 }
             }
         )

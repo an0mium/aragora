@@ -230,7 +230,7 @@ class TestGrokResponseExtraction:
         """Test extraction from Grok JSON output."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = """{"role": "assistant", "content": "This is the response"}"""
         result = agent._extract_grok_response(raw_output)
         assert result == "This is the response"
@@ -239,7 +239,7 @@ class TestGrokResponseExtraction:
         """Test that tool use messages are skipped."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = """{"role": "assistant", "content": "Using tools..."}
 {"role": "assistant", "content": "Final answer"}"""
         result = agent._extract_grok_response(raw_output)
@@ -249,7 +249,7 @@ class TestGrokResponseExtraction:
         """Test extraction when output is not JSON."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4")
+        agent = GrokCLIAgent(name="test", model="grok-4.6")
         raw_output = "Plain text response"
         result = agent._extract_grok_response(raw_output)
         assert result == "Plain text response"
@@ -450,7 +450,7 @@ class TestOpenRouterModelMapping:
         """Test Claude models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101", enable_fallback=True)
+        agent = ClaudeAgent(name="test", model="claude-fable-5-1", enable_fallback=True)
         assert self._fallback_model(agent).startswith("anthropic/claude")
 
     def test_gpt_model_mapping(self):
@@ -467,14 +467,14 @@ class TestOpenRouterModelMapping:
         agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent) == "google/gemini-3.1-pro-preview"
 
-        agent2 = GeminiCLIAgent(name="test", model="gemini-3.1-pro", enable_fallback=True)
+        agent2 = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview", enable_fallback=True)
         assert self._fallback_model(agent2) == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Test Grok models map to OpenRouter correctly."""
         from aragora.agents.cli_agents import GrokCLIAgent
 
-        agent = GrokCLIAgent(name="test", model="grok-4", enable_fallback=True)
+        agent = GrokCLIAgent(name="test", model="grok-4.6", enable_fallback=True)
         assert self._fallback_model(agent).startswith("x-ai/")
 
 

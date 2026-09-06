@@ -643,8 +643,8 @@ describe('ControlPlanePage', () => {
             ok: true,
             json: () => Promise.resolve({
               agents: [
-                { id: 'claude', name: 'Claude', model: 'claude-3.5-sonnet', status: 'ready' },
-                { id: 'gemini', name: 'Gemini', model: 'gemini-3-pro', status: 'busy' },
+                { id: 'claude', name: 'Claude', model: 'claude-sonnet-5', status: 'ready' },
+                { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-pro-preview', status: 'busy' },
               ],
             }),
           });

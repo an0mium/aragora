@@ -833,7 +833,7 @@ class TestHybridDebateHandlerVerificationAgents:
                 {
                     "task": "Test task",
                     "external_agent": "my-crewai-agent",
-                    "verification_agents": ["claude-3", "gpt-4"],
+                    "verification_agents": ["claude-3", "gpt-6-astra"],
                 }
             ).encode()
         )
@@ -846,7 +846,7 @@ class TestHybridDebateHandlerVerificationAgents:
             )
 
         body = json.loads(result.body)
-        assert body["verification_agents"] == ["claude-3", "gpt-4"]
+        assert body["verification_agents"] == ["claude-3", "gpt-6-astra"]
 
     def test_verification_agents_must_be_list(self, handler, mock_http_handler_with_body):
         """verification_agents must be a list."""
@@ -1860,7 +1860,7 @@ class TestHybridDebateHandlerConfigParsing:
                     "task": "Test task",
                     "external_agent": "my-crewai-agent",
                     "config": {
-                        "allowed_models": ["gpt-4", "claude-3", "gemini"],
+                        "allowed_models": ["gpt-6-astra", "claude-3", "gemini"],
                         "tags": ["production", "high-priority"],
                     },
                 }
@@ -1876,7 +1876,7 @@ class TestHybridDebateHandlerConfigParsing:
 
         assert result.status_code == 201
         body = json.loads(result.body)
-        assert "gpt-4" in body["config"]["allowed_models"]
+        assert "gpt-6-astra" in body["config"]["allowed_models"]
         assert len(body["config"]["tags"]) == 2
 
     def test_config_with_null_values(self, handler, mock_http_handler_with_body):

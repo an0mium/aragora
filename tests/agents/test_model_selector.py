@@ -45,7 +45,7 @@ class TestModelProfiles:
     def test_claude_profile_has_expected_properties(self):
         """Verify Claude profile has correct properties."""
         claude = MODEL_PROFILES["claude"]
-        # frontier-model-refresh, 2026-09-04: claude-sonnet-4-6 is retired;
+        # frontier-model-refresh, 2026-09-04: claude-sonnet-5 is retired;
         # "claude" now points at the Fable 5.1 flagship.
         assert claude.model_id == "claude-fable-5-1"
         assert claude.display_name == "Claude Fable 5.1"

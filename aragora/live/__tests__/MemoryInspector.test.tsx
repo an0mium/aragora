@@ -33,7 +33,7 @@ const mockMemories = [
   {
     id: 'mem-001',
     tier: 'fast',
-    content: 'Agent claude-3-opus excels at logical reasoning in technical debates',
+    content: 'Agent claude-fable-5-1 excels at logical reasoning in technical debates',
     importance: 0.85,
     surprise_score: 0.3,
     consolidation_score: 0.6,
@@ -268,7 +268,7 @@ describe('MemoryInspector', () => {
       fireEvent.click(screen.getByText('SEARCH'));
 
       await waitFor(() => {
-        expect(screen.getByText(/Agent claude-3-opus excels/)).toBeInTheDocument();
+        expect(screen.getByText(/Agent claude-fable-5-1 excels/)).toBeInTheDocument();
         expect(screen.getByText(/Consensus often emerges/)).toBeInTheDocument();
       });
     });

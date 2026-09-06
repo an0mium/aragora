@@ -257,7 +257,7 @@ class TestTaskOutcomeStorage:
         await coordinator.fail_task(
             task_id=task_id,
             error="Timeout exceeded",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             latency_ms=30000,
             requeue=False,  # Permanent failure
         )
@@ -316,11 +316,11 @@ class TestKMRecommendations:
             },
         )
         item2 = _make_km_item(
-            content="Agent gpt-4 capability 'debate': 85% success",
+            content="Agent gpt-6-astra capability 'debate': 85% success",
             confidence=0.8,
             metadata={
                 "type": "control_plane_capability",
-                "agent_id": "gpt-4",
+                "agent_id": "gpt-6-astra",
                 "capability": "debate",
                 "success_count": 85,
                 "failure_count": 15,
@@ -335,7 +335,7 @@ class TestKMRecommendations:
         assert len(recommendations) == 2
         assert recommendations[0]["agent_id"] == "claude-3"
         assert recommendations[0]["success_rate"] == 0.95
-        assert recommendations[1]["agent_id"] == "gpt-4"
+        assert recommendations[1]["agent_id"] == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_recommendations_empty_without_km(self):

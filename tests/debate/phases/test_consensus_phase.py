@@ -477,22 +477,22 @@ class TestNormalizeChoiceToAgent:
     def test_prefix_match(self):
         """Matches when choice is a prefix of agent name."""
         phase = self._make_phase()
-        agents = [MockAgent(name="claude-opus-4")]
+        agents = [MockAgent(name="claude-fable-5-1")]
         proposals = {}
 
         result = phase._normalize_choice_to_agent("claude", agents, proposals)
 
-        assert result == "claude-opus-4"
+        assert result == "claude-fable-5-1"
 
     def test_base_name_match_with_hyphen(self):
         """Matches base name (before hyphen) of agent."""
         phase = self._make_phase()
-        agents = [MockAgent(name="gpt-4o")]
+        agents = [MockAgent(name="gpt-6-astra")]
         proposals = {}
 
         result = phase._normalize_choice_to_agent("gpt", agents, proposals)
 
-        assert result == "gpt-4o"
+        assert result == "gpt-6-astra"
 
     def test_empty_choice_returns_empty(self):
         """Returns empty string for empty choice."""

@@ -91,7 +91,7 @@ class TestAgentState:
         memory = {"recent_messages": ["msg1", "msg2"]}
         state = AgentState(
             agent_name="gpt",
-            agent_model="gpt-4",
+            agent_model="gpt-6-astra",
             agent_role="critic",
             system_prompt="Analyze critically.",
             stance="skeptical",

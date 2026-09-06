@@ -15,7 +15,7 @@ const mockAgents = [
   {
     id: 'claude-1',
     name: 'Claude',
-    model: 'claude-3.5-sonnet',
+    model: 'claude-sonnet-5',
     status: 'ready',
     capabilities: ['debate', 'analysis'],
     requests_today: 45,
@@ -24,7 +24,7 @@ const mockAgents = [
   {
     id: 'gpt-1',
     name: 'GPT-4',
-    model: 'gpt-4-turbo',
+    model: 'gpt-6-astra',
     status: 'busy',
     capabilities: ['code', 'analysis'],
     current_task: 'Code review',

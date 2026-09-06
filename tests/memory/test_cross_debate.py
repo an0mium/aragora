@@ -68,7 +68,7 @@ class TestDebateMemoryEntry:
             domain="engineering",
             timestamp=datetime(2026, 1, 15, 10, 0, 0),
             tier=MemoryTier.HOT,
-            participants=["claude", "gpt-4", "gemini"],
+            participants=["claude", "gpt-6-astra", "gemini"],
             consensus_reached=True,
             final_answer="Token bucket algorithm recommended",
             key_insights=["Token bucket is efficient", "Consider Redis"],
@@ -267,7 +267,7 @@ class TestCrossDebateMemoryAddDebate:
         result.debate_id = "debate-abc"
         result.task = "Design an API"
         result.domain = "engineering"
-        result.participants = ["claude", "gpt-4"]
+        result.participants = ["claude", "gpt-6-astra"]
         result.consensus_reached = True
         result.final_answer = "RESTful design recommended"
         result.messages = []
@@ -341,7 +341,7 @@ class TestCrossDebateMemoryContext:
                 domain="engineering" if i % 2 == 0 else "general",
                 timestamp=datetime.now() - timedelta(hours=i),
                 tier=MemoryTier.HOT,
-                participants=["claude", "gpt-4"],
+                participants=["claude", "gpt-6-astra"],
                 consensus_reached=True,
                 final_answer=f"Answer {i}",
                 key_insights=[f"Insight {i}"],

@@ -29,8 +29,8 @@ def test_persisted_debate_receipt_verifies_with_receipt_cli(
                 "grok_proposer": {
                     "provider": "xai",
                     "provider_display": "xAI",
-                    "model": "grok-4-latest",
-                    "llm_label": "grok-4-latest via xAI",
+                    "model": "grok-4.6",
+                    "llm_label": "grok-4.6 via xAI",
                 }
             }
         },
@@ -81,8 +81,8 @@ def _mixed_family_result() -> SimpleNamespace:
                 "grok": {
                     "provider": "xai",
                     "provider_display": "xAI",
-                    "model": "grok-4-latest",
-                    "llm_label": "grok-4-latest via xAI",
+                    "model": "grok-4.6",
+                    "llm_label": "grok-4.6 via xAI",
                 },
                 "mistral-api": {
                     "provider": "mistral",

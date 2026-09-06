@@ -86,7 +86,7 @@ class TestDeliberationStage:
         stage = DeliberationStage(
             id="initial_review",
             topic_template="Review this code: {context.code}",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             required_consensus=0.7,
             timeout_seconds=120,
             next_on_success="security_audit",

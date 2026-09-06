@@ -45,7 +45,7 @@ def sample_result() -> dict[str, Any]:
         "consensus_reached": True,
         "final_answer": "The team reached agreement on the approach.",
         "confidence": 0.85,
-        "participants": ["claude", "gpt-4", "gemini"],
+        "participants": ["claude", "gpt-6-astra", "gemini"],
         "task": "Evaluate the proposal",
     }
 
@@ -78,7 +78,7 @@ class TestFormatResultMessage:
         assert "**Topic:** Evaluate the proposal" in message
         assert "**Consensus:** Yes" in message
         assert "**Confidence:** 85%" in message
-        assert "claude, gpt-4, gemini" in message
+        assert "claude, gpt-6-astra, gemini" in message
         assert "The team reached agreement" in message
 
     def test_formats_html_result(self, sample_origin, sample_result):
@@ -89,7 +89,7 @@ class TestFormatResultMessage:
         assert "<strong>Topic:</strong>" in message
         assert "<strong>Consensus:</strong> Yes" in message
         assert "<strong>Confidence:</strong> 85%" in message
-        assert "claude, gpt-4, gemini" in message
+        assert "claude, gpt-6-astra, gemini" in message
 
     def test_formats_plain_text_result(self, sample_origin, sample_result):
         """_format_result_message returns plain text when markdown=False."""

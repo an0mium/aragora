@@ -84,7 +84,7 @@ def sample_checkpoint():
         agent_states=[
             AgentState(
                 agent_name="claude",
-                agent_model="claude-3-opus",
+                agent_model="claude-fable-5-1",
                 agent_role="proposer",
                 system_prompt="Be helpful",
                 stance="pro",
@@ -98,7 +98,7 @@ def mock_agent():
     """Create a mock agent for testing."""
     agent = Mock()
     agent.name = "claude"
-    agent.model = "claude-3-opus"
+    agent.model = "claude-fable-5-1"
     agent.role = "proposer"
     agent.system_prompt = "Be helpful"
     agent.stance = "neutral"
@@ -991,7 +991,7 @@ class TestAgentStateExtended:
 
         state = AgentState(
             agent_name="claude",
-            agent_model="claude-3-opus",
+            agent_model="claude-fable-5-1",
             agent_role="proposer",
             system_prompt="Be helpful",
             stance="neutral",
@@ -1005,7 +1005,7 @@ class TestAgentStateExtended:
         """Agent state should survive to_dict/from_dict roundtrip in checkpoint."""
         state = AgentState(
             agent_name="claude",
-            agent_model="claude-3-opus",
+            agent_model="claude-fable-5-1",
             agent_role="proposer",
             system_prompt="Be helpful and concise",
             stance="pro",

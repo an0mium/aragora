@@ -36,7 +36,7 @@ class TestFormatConsensusEvent:
                 "method": "majority_vote",
                 "confidence": 0.85,
                 "topic": "Should we migrate to Rust?",
-                "participants": ["claude", "gpt-4o", "gemini"],
+                "participants": ["claude", "gpt-6-astra", "gemini"],
             }
         )
         assert "Consensus Reached" in result
@@ -376,7 +376,7 @@ class TestFormatAgentTeamEvent:
                 "topic": "Rate limiter design",
                 "team_size": 5,
                 "strategy": "elo_weighted",
-                "agents": [{"name": "claude"}, {"name": "gpt-4o"}, {"name": "gemini"}],
+                "agents": [{"name": "claude"}, {"name": "gpt-6-astra"}, {"name": "gemini"}],
             }
         )
         assert "Agent Team Selected" in result

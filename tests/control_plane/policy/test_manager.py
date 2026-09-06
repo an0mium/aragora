@@ -73,7 +73,7 @@ class TestControlPlanePolicyManager:
         manager = ControlPlanePolicyManager()
         policy = ControlPlanePolicy(
             name="agent-restriction",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-fable-5-1", "gpt-6-astra"],
             enforcement_level=EnforcementLevel.HARD,
         )
         manager.add_policy(policy)
@@ -81,7 +81,7 @@ class TestControlPlanePolicyManager:
         # Allowed agent
         result = manager.evaluate_task_dispatch(
             task_type="any",
-            agent_id="claude-3-opus",
+            agent_id="claude-fable-5-1",
             region="us-east-1",
         )
         assert result.allowed is True
@@ -153,14 +153,14 @@ class TestControlPlanePolicyManager:
         policy = ControlPlanePolicy(
             name="production-only",
             task_types=["production-deploy"],
-            agent_allowlist=["claude-3-opus"],
+            agent_allowlist=["claude-fable-5-1"],
         )
         manager.add_policy(policy)
 
         # Policy applies - agent blocked
         result = manager.evaluate_task_dispatch(
             task_type="production-deploy",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             region="us-east-1",
         )
         assert result.allowed is False
@@ -168,7 +168,7 @@ class TestControlPlanePolicyManager:
         # Policy doesn't apply - agent allowed
         result = manager.evaluate_task_dispatch(
             task_type="development-test",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             region="us-east-1",
         )
         assert result.allowed is True

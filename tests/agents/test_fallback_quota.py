@@ -13,7 +13,7 @@ from aragora.agents.fallback import QuotaFallbackMixin
 class _PrimaryAgent(QuotaFallbackMixin):
     def __init__(self):
         self.name = "primary"
-        self.model = "gpt-4o"
+        self.model = "gpt-6-astra"
         self.role = "proposer"
         self.timeout = 30
         self.enable_fallback = True
@@ -38,7 +38,7 @@ async def test_primary_quota_error_routes_request_to_fallback():
     agent._primary_generate = AsyncMock(side_effect=RuntimeError("HTTP 429: rate limit exceeded"))
     fallback = SimpleNamespace(
         generate=AsyncMock(return_value="fallback response"),
-        model="openai/gpt-4o",
+        model="openai/gpt-6-astra",
     )
     agent._fallback_agent = fallback
 

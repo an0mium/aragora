@@ -357,10 +357,10 @@ class TestControlPlaneE2EFlow:
                 },
                 {
                     "id": "cp_capability_gpt4_debate",
-                    "content": "Agent gpt-4 capability 'debate': 85% success rate",
+                    "content": "Agent gpt-6-astra capability 'debate': 85% success rate",
                     "metadata": {
                         "type": "control_plane_capability",
-                        "agent_id": "gpt-4",
+                        "agent_id": "gpt-6-astra",
                         "capability": "debate",
                         "success_count": 85,
                         "failure_count": 15,
@@ -416,7 +416,7 @@ class TestControlPlaneE2EFlow:
             task_id="test-delib-001",
             request_id="req-001",
             question="What is the best testing strategy?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             sla=DeliberationSLA(
                 timeout_seconds=300,
                 max_rounds=3,
@@ -446,7 +446,7 @@ class TestControlPlaneE2EFlow:
         with patch.object(arena_bridge, "execute_via_arena", side_effect=mock_execute):
             outcome = await arena_bridge.execute_via_arena(
                 task=deliberation_task,
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
             )
 
         # Verify deliberation outcome
@@ -483,7 +483,7 @@ class TestControlPlaneE2EFlow:
         # Try to dispatch with blocked agent
         result = policy_manager.evaluate_task_dispatch(
             task_type="debate",
-            agent_id="gpt-4",  # Not in allowed list
+            agent_id="gpt-6-astra",  # Not in allowed list
             region="us-west-2",
             workspace="test-workspace",
         )
@@ -536,7 +536,7 @@ class TestControlPlaneE2EFlow:
             outcome = TaskOutcome(
                 task_id=f"task-{i}",
                 task_type="debate",
-                agent_id="claude" if i % 2 == 0 else "gpt-4",
+                agent_id="claude" if i % 2 == 0 else "gpt-6-astra",
                 success=i < 8,  # 80% success rate
                 duration_seconds=45.0 + i,
                 workspace_id="test-workspace",
@@ -597,7 +597,7 @@ class TestControlPlaneE2EFlow:
         )
 
         # Setup capability records for multiple agents
-        agents = ["claude", "gpt-4", "gemini", "mistral"]
+        agents = ["claude", "gpt-6-astra", "gemini", "mistral"]
         for i, agent in enumerate(agents):
             record = AgentCapabilityRecord(
                 agent_id=agent,
@@ -651,7 +651,7 @@ class TestMetricsIntegration:
         record_deliberation_sla("warning")
 
         record_agent_utilization("claude", 0.75)
-        record_agent_utilization("gpt-4", 0.60)
+        record_agent_utilization("gpt-6-astra", 0.60)
 
         record_policy_decision("allow", "all")
         record_policy_decision("deny", "agent_restriction")
@@ -885,7 +885,7 @@ class TestDataConsistency:
         outcome2 = TaskOutcome(
             task_id=task_id,
             task_type="debate",
-            agent_id="gpt-4",
+            agent_id="gpt-6-astra",
             success=True,
             duration_seconds=50.0,
             workspace_id="test-workspace",

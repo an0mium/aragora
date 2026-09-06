@@ -220,7 +220,7 @@ class TestTokenCostCalculation:
         def calculate():
             return calculate_token_cost(
                 provider="anthropic",
-                model="claude-opus-4",
+                model="claude-fable-5-1",
                 tokens_in=10000,
                 tokens_out=5000,
             )
@@ -380,7 +380,7 @@ class TestBasicFunctionality:
 
         cost = calculate_token_cost(
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
             tokens_in=10000,
             tokens_out=5000,
         )

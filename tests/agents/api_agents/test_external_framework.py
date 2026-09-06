@@ -156,13 +156,13 @@ class TestExternalFrameworkAgentInitialization:
 
         agent = ExternalFrameworkAgent(
             name="custom-external",
-            model="gpt-4",
+            model="gpt-6-astra",
             role="critic",
             config=config,
         )
 
         assert agent.name == "custom-external"
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-6-astra"
         assert agent.role == "critic"
         assert agent.base_url == "https://custom.example.com"
         assert agent.timeout == 300

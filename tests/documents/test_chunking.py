@@ -34,12 +34,12 @@ class TestChunkingConfig:
         config = ChunkingConfig(
             chunk_size=256,
             overlap=25,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         assert config.chunk_size == 256
         assert config.overlap == 25
-        assert config.model == "claude-3-opus"
+        assert config.model == "claude-fable-5-1"
 
 
 class TestSlidingWindowChunking:
@@ -245,12 +245,12 @@ class TestGetChunkingStrategy:
             "semantic",
             chunk_size=256,
             overlap=32,
-            model="claude-3-opus",
+            model="claude-fable-5-1",
         )
 
         assert strategy.config.chunk_size == 256
         assert strategy.config.overlap == 32
-        assert strategy.config.model == "claude-3-opus"
+        assert strategy.config.model == "claude-fable-5-1"
 
     def test_unknown_defaults_to_semantic(self):
         """Test unknown strategy type defaults to semantic."""

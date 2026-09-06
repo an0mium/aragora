@@ -45,14 +45,14 @@ class TestOpenRouterAgentInitialization:
 
         agent = OpenRouterAgent(
             name="custom-router",
-            model="anthropic/claude-3.5-sonnet",
+            model="anthropic/claude-sonnet-5",
             role="critic",
             timeout=180,
             system_prompt="You are a helpful assistant.",
         )
 
         assert agent.name == "custom-router"
-        assert agent.model == "anthropic/claude-3.5-sonnet"
+        assert agent.model == "anthropic/claude-sonnet-5"
         assert agent.role == "critic"
         assert agent.timeout == 180
         assert agent.system_prompt == "You are a helpful assistant."

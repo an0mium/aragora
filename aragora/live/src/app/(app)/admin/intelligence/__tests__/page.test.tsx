@@ -11,7 +11,7 @@ jest.mock('@/hooks/useSystemIntelligence', () => ({
       knowledgeItems: 1200,
       topAgents: [
         { id: 'claude-opus', elo: 1650, wins: 30 },
-        { id: 'gpt-4', elo: 1520, wins: 22 },
+        { id: 'gpt-6-astra', elo: 1520, wins: 22 },
       ],
       recentImprovements: [
         { id: 'imp-1', goal: 'Improve test coverage', status: 'completed' },

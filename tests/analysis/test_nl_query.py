@@ -103,7 +103,7 @@ def sample_query_result():
         chunks_searched=15,
         chunks_relevant=5,
         processing_time_ms=250,
-        model_used="claude-3.5-sonnet",
+        model_used="claude-sonnet-5",
         metadata={"workspace_id": "ws-123"},
     )
 
@@ -126,7 +126,7 @@ class TestQueryConfig:
         assert config.max_answer_length == 500
         assert config.include_quotes is True
         assert config.require_citations is True
-        assert config.model == "claude-3.5-sonnet"
+        assert config.model == "claude-sonnet-5"
 
     def test_custom_config(self):
         """Test custom configuration."""
@@ -233,7 +233,7 @@ class TestQueryResult:
         assert data["query_mode"] == "factual"
         assert len(data["citations"]) == 1
         assert data["processing_time_ms"] == 250
-        assert data["model_used"] == "claude-3.5-sonnet"
+        assert data["model_used"] == "claude-sonnet-5"
 
     def test_query_result_has_answer(self, sample_query_result):
         """Test has_answer property."""
@@ -411,7 +411,7 @@ class TestDocumentQueryEngine:
             query_engine,
             "_call_llm",
             new_callable=AsyncMock,
-            return_value=("The document discusses software practices.", "claude-3.5-sonnet"),
+            return_value=("The document discusses software practices.", "claude-sonnet-5"),
         ):
             result = await query_engine.query(
                 question="What is the document about?",
@@ -431,7 +431,7 @@ class TestDocumentQueryEngine:
             query_engine,
             "_call_llm",
             new_callable=AsyncMock,
-            return_value=("Answer text", "claude-3.5-sonnet"),
+            return_value=("Answer text", "claude-sonnet-5"),
         ):
             result = await query_engine.query(
                 question="What is the deadline?",
@@ -463,7 +463,7 @@ class TestDocumentQueryEngine:
             query_engine,
             "_call_llm",
             new_callable=AsyncMock,
-            return_value=("Follow-up answer", "claude-3.5-sonnet"),
+            return_value=("Follow-up answer", "claude-sonnet-5"),
         ):
             # First query
             await query_engine.query(
@@ -497,7 +497,7 @@ class TestDocumentQueryEngine:
                 chunks_searched=10,
                 chunks_relevant=5,
                 processing_time_ms=200,
-                model_used="claude-3.5-sonnet",
+                model_used="claude-sonnet-5",
             ),
         ):
             result = await query_engine.summarize_documents(
@@ -524,7 +524,7 @@ class TestDocumentQueryEngine:
                 chunks_searched=20,
                 chunks_relevant=8,
                 processing_time_ms=300,
-                model_used="claude-3.5-sonnet",
+                model_used="claude-sonnet-5",
             ),
         ):
             result = await query_engine.compare_documents(
@@ -557,7 +557,7 @@ class TestDocumentQueryEngine:
                 chunks_searched=5,
                 chunks_relevant=2,
                 processing_time_ms=150,
-                model_used="claude-3.5-sonnet",
+                model_used="claude-sonnet-5",
             ),
         ):
             results = await query_engine.extract_information(

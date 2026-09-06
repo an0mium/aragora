@@ -222,7 +222,7 @@ class TestFormatResultMessage:
             "consensus_reached": True,
             "final_answer": "The answer is 42",
             "confidence": 0.85,
-            "participants": ["claude", "gpt-4", "gemini"],
+            "participants": ["claude", "gpt-6-astra", "gemini"],
             "task": "What is the meaning of life?",
         }
 

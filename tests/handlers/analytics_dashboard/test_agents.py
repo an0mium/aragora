@@ -134,7 +134,7 @@ def _make_agent_metrics(count=3):
     """Build a list of fake agent metrics."""
     agents = [
         FakeAgentMetric(agent_id="claude", elo=1847, debates=42, win_rate=0.78),
-        FakeAgentMetric(agent_id="gpt-4", elo=1792, debates=38, win_rate=0.71),
+        FakeAgentMetric(agent_id="gpt-6-astra", elo=1792, debates=38, win_rate=0.71),
         FakeAgentMetric(agent_id="gemini", elo=1734, debates=35, win_rate=0.65),
         FakeAgentMetric(agent_id="mistral", elo=1688, debates=28, win_rate=0.58),
         FakeAgentMetric(agent_id="grok", elo=1650, debates=20, win_rate=0.52),
@@ -147,7 +147,7 @@ def _make_flip_summary():
     return {
         "total_flips": 150,
         "by_type": {"contradiction": 45, "retraction": 20, "qualification": 50, "refinement": 35},
-        "by_agent": {"claude": 30, "gpt-4": 25, "gemini": 40, "mistral": 55},
+        "by_agent": {"claude": 30, "gpt-6-astra": 25, "gemini": 40, "mistral": 55},
         "recent_24h": 12,
     }
 
@@ -156,7 +156,7 @@ def _make_recent_flips(count=5):
     """Build a list of fake recent flip events."""
     flips = [
         FakeFlipEvent(agent_name="claude", flip_type="contradiction", topic="Rate limiting"),
-        FakeFlipEvent(agent_name="gpt-4", flip_type="retraction", topic="Auth flow"),
+        FakeFlipEvent(agent_name="gpt-6-astra", flip_type="retraction", topic="Auth flow"),
         FakeFlipEvent(agent_name="gemini", flip_type="qualification", topic="DB migration"),
         FakeFlipEvent(agent_name="claude", flip_type="refinement", topic="Cost model"),
         FakeFlipEvent(agent_name="mistral", flip_type="contradiction", topic="API design"),
@@ -179,9 +179,15 @@ def _make_formatted_flip(agent="claude", flip_type="contradiction", topic="Rate 
 def _make_consistency_scores(agents=None):
     """Build a dict of agent name -> consistency score."""
     if agents is None:
-        agents = ["claude", "gpt-4", "gemini"]
+        agents = ["claude", "gpt-6-astra", "gemini"]
     scores = {}
-    base_values = {"claude": 0.94, "gpt-4": 0.87, "gemini": 0.82, "mistral": 0.76, "grok": 0.90}
+    base_values = {
+        "claude": 0.94,
+        "gpt-6-astra": 0.87,
+        "gemini": 0.82,
+        "mistral": 0.76,
+        "grok": 0.90,
+    }
     for agent in agents:
         val = base_values.get(agent, 0.80)
         scores[agent] = FakeConsistencyScore(
@@ -501,7 +507,7 @@ class TestFlipSummary:
         result = handler._get_flip_summary({}, handler=mock_http)
         body = _body(result)
         assert "claude" in body["by_agent"]
-        assert "gpt-4" in body["by_agent"]
+        assert "gpt-6-astra" in body["by_agent"]
 
     @patch("aragora.insights.flip_detector.FlipDetector", side_effect=ImportError("no module"))
     def test_import_error(self, _mock, handler, mock_http):
@@ -780,7 +786,7 @@ class TestAgentConsistency:
     @patch("aragora.insights.flip_detector.FlipDetector")
     def test_happy_path_with_agents_param(self, mock_detector_cls, mock_format, handler, mock_http):
         mock_detector = MagicMock()
-        scores = _make_consistency_scores(["claude", "gpt-4"])
+        scores = _make_consistency_scores(["claude", "gpt-6-astra"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
         mock_format.side_effect = lambda s: _make_formatted_consistency(
@@ -788,7 +794,7 @@ class TestAgentConsistency:
         )
 
         result = handler._get_agent_consistency(
-            {"agents": "claude,gpt-4"},
+            {"agents": "claude,gpt-6-astra"},
             handler=mock_http,
         )
         assert _status(result) == 200
@@ -803,9 +809,9 @@ class TestAgentConsistency:
         """Without agents param, should get all agents from flip summary."""
         mock_detector = MagicMock()
         mock_detector.get_flip_summary.return_value = {
-            "by_agent": {"claude": 30, "gpt-4": 25},
+            "by_agent": {"claude": 30, "gpt-6-astra": 25},
         }
-        scores = _make_consistency_scores(["claude", "gpt-4"])
+        scores = _make_consistency_scores(["claude", "gpt-6-astra"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
         mock_format.side_effect = lambda s: _make_formatted_consistency(
@@ -860,7 +866,7 @@ class TestAgentConsistency:
     ):
         """Results should be sorted by consistency score, highest first."""
         mock_detector = MagicMock()
-        scores = _make_consistency_scores(["claude", "gpt-4", "gemini"])
+        scores = _make_consistency_scores(["claude", "gpt-6-astra", "gemini"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
         mock_format.side_effect = lambda s: _make_formatted_consistency(
@@ -868,7 +874,7 @@ class TestAgentConsistency:
         )
 
         result = handler._get_agent_consistency(
-            {"agents": "claude,gpt-4,gemini"},
+            {"agents": "claude,gpt-6-astra,gemini"},
             handler=mock_http,
         )
         body = _body(result)
@@ -881,7 +887,7 @@ class TestAgentConsistency:
     def test_comma_separated_agents(self, mock_detector_cls, mock_format, handler, mock_http):
         """Should parse comma-separated agents correctly."""
         mock_detector = MagicMock()
-        scores = _make_consistency_scores(["claude", "gpt-4", "gemini"])
+        scores = _make_consistency_scores(["claude", "gpt-6-astra", "gemini"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
         mock_format.side_effect = lambda s: _make_formatted_consistency(
@@ -889,12 +895,12 @@ class TestAgentConsistency:
         )
 
         handler._get_agent_consistency(
-            {"agents": "claude, gpt-4, gemini"},
+            {"agents": "claude, gpt-6-astra, gemini"},
             handler=mock_http,
         )
         call_args = mock_detector.get_agents_consistency_batch.call_args[0][0]
         assert "claude" in call_args
-        assert "gpt-4" in call_args
+        assert "gpt-6-astra" in call_args
         assert "gemini" in call_args
 
     @patch("aragora.insights.flip_detector.format_consistency_for_ui")
@@ -940,7 +946,7 @@ class TestAgentConsistency:
     def test_agents_with_spaces_trimmed(self, mock_detector_cls, mock_format, handler, mock_http):
         """Whitespace around agent names should be stripped."""
         mock_detector = MagicMock()
-        scores = _make_consistency_scores(["claude", "gpt-4"])
+        scores = _make_consistency_scores(["claude", "gpt-6-astra"])
         mock_detector.get_agents_consistency_batch.return_value = scores
         mock_detector_cls.return_value = mock_detector
         mock_format.side_effect = lambda s: _make_formatted_consistency(
@@ -948,11 +954,11 @@ class TestAgentConsistency:
         )
 
         handler._get_agent_consistency(
-            {"agents": " claude , gpt-4 "},
+            {"agents": " claude , gpt-6-astra "},
             handler=mock_http,
         )
         call_args = mock_detector.get_agents_consistency_batch.call_args[0][0]
-        assert call_args == ["claude", "gpt-4"]
+        assert call_args == ["claude", "gpt-6-astra"]
 
     @patch("aragora.insights.flip_detector.format_consistency_for_ui")
     @patch("aragora.insights.flip_detector.FlipDetector")

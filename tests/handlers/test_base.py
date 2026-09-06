@@ -734,7 +734,7 @@ class TestValidationPatterns:
         """Test SAFE_AGENT_PATTERN with valid agent names."""
         valid_names = [
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             "gemini_pro",
             "agent123",
         ]

@@ -19,7 +19,7 @@ def make_usage(
     tokens_in: int = 100,
     tokens_out: int = 50,
     cost: float = 0.01,
-    model: str = "claude-3-opus",
+    model: str = "claude-fable-5-1",
 ) -> Usage:
     return Usage(
         agent_id=agent_id,
@@ -147,13 +147,15 @@ class TestUsageReport:
     async def test_report(self, manager):
         await manager.set_budget("a1", BudgetConfig())
         await manager.track(make_usage(tokens_in=100, tokens_out=50, cost=0.01, model="opus"))
-        await manager.track(make_usage(tokens_in=200, tokens_out=100, cost=0.02, model="gpt-4"))
+        await manager.track(
+            make_usage(tokens_in=200, tokens_out=100, cost=0.02, model="gpt-6-astra")
+        )
 
         report = await manager.get_usage("a1")
         assert report.total_tokens == 450
         assert abs(report.total_cost_usd - 0.03) < 0.001
         assert "opus" in report.by_model
-        assert "gpt-4" in report.by_model
+        assert "gpt-6-astra" in report.by_model
 
     @pytest.mark.asyncio
     async def test_report_empty(self, manager):

@@ -77,10 +77,10 @@ def mock_debate_result() -> DebateResult:
         confidence=0.85,
         consensus_reached=True,
         rounds_completed=3,
-        participants=["claude", "gpt-4", "gemini", "mistral"],
+        participants=["claude", "gpt-6-astra", "gemini", "mistral"],
         messages=[
             {"role": "claude", "content": "I propose we approve...", "round": 1},
-            {"role": "gpt-4", "content": "I agree with the proposal...", "round": 1},
+            {"role": "gpt-6-astra", "content": "I agree with the proposal...", "round": 1},
         ],
         duration_seconds=45.2,
     )
@@ -144,7 +144,7 @@ class TestFullAuthToReceiptFlow:
                 reached=True,
                 confidence=0.75,
                 method="majority_vote",
-                supporting_agents=["claude", "gpt-4", "gemini"],
+                supporting_agents=["claude", "gpt-6-astra", "gemini"],
                 dissenting_agents=["mistral"],
             ),
         )
@@ -154,7 +154,7 @@ class TestFullAuthToReceiptFlow:
         assert receipt.verdict == "PASS"
         assert receipt.confidence == mock_debate_result.confidence
         assert receipt.consensus_proof is not None
-        assert receipt.consensus_proof.supporting_agents == ["claude", "gpt-4", "gemini"]
+        assert receipt.consensus_proof.supporting_agents == ["claude", "gpt-6-astra", "gemini"]
 
     @pytest.mark.asyncio
     async def test_receipt_adapter_initialization(self):

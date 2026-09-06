@@ -48,7 +48,7 @@ class _FakeSpec:
 
 _FAKE_CATALOG = {
     "claude-fable-5": _FakeSpec(input_per_mtok=10.00, output_per_mtok=50.00),
-    "gpt-5.6-sol": _FakeSpec(input_per_mtok=5.00, output_per_mtok=30.00),
+    "gpt-6-astra": _FakeSpec(input_per_mtok=5.00, output_per_mtok=30.00),
 }
 
 
@@ -137,8 +137,8 @@ class TestLegacyTableRung:
         assert resolved.estimate_debate_cost_usd() > 0.0
 
     def test_catalog_miss_falls_through_to_table(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _use_fake_catalog(monkeypatch)  # fake catalog has no gpt-4o-mini
-        resolved = resolve_model_pricing("gpt-4o-mini")
+        _use_fake_catalog(monkeypatch)  # fake catalog has no gpt-5.6-terra
+        resolved = resolve_model_pricing("gpt-5.6-terra")
         assert resolved.source == PRICING_SOURCE_LEGACY_TABLE
 
 
@@ -171,7 +171,7 @@ class TestConservativeDefaultRung:
 
     @pytest.mark.parametrize(
         "frontier_pin",
-        ["claude-fable-5", "gpt-5.6-sol", "grok-4.5", "gemini-3.0-pro", "openai/gpt-6"],
+        ["claude-fable-5", "gpt-6-astra", "grok-4.6", "gemini-3.0-pro", "openai/gpt-6"],
     )
     def test_frontier_pin_never_scores_zero(
         self, monkeypatch: pytest.MonkeyPatch, frontier_pin: str

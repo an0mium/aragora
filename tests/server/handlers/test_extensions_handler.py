@@ -45,13 +45,13 @@ def mock_extension_state():
         return_value=[
             MagicMock(
                 id="agent-1",
-                config=MagicMock(model="claude-opus-4"),
+                config=MagicMock(model="claude-fable-5-1"),
                 status=MagicMock(value="active"),
                 created_at="2024-01-15T10:00:00Z",
             ),
             MagicMock(
                 id="agent-2",
-                config=MagicMock(model="gpt-4"),
+                config=MagicMock(model="gpt-6-astra"),
                 status=MagicMock(value="idle"),
                 created_at="2024-01-15T11:00:00Z",
             ),

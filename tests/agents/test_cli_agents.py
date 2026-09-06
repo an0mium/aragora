@@ -186,7 +186,7 @@ class TestCLIAgentFallback:
 
         assert not hasattr(CLIAgent, "OPENROUTER_MODEL_MAP")
 
-        for legacy_model in ("gpt-4o", "gemini-3-pro", "grok-4"):
+        for legacy_model in ("gpt-4o", "gemini-3.1-pro-preview", "grok-4"):
             agent = DummyCLIAgent(name="test-agent", model=legacy_model, enable_fallback=True)
             with patch("os.environ.get", return_value="test-api-key"):
                 with patch(
@@ -501,7 +501,7 @@ class TestClaudeAgent:
         """Test ClaudeAgent initialization."""
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="claude-test", model="claude-sonnet-4")
+        agent = ClaudeAgent(name="claude-test", model="claude-sonnet-5")
 
         assert agent.name == "claude-test"
 
@@ -516,7 +516,7 @@ class TestClaudeAgent:
 
         from aragora.agents.cli_agents import ClaudeAgent
 
-        agent = ClaudeAgent(name="claude-test", model="claude-fable-5")
+        agent = ClaudeAgent(name="claude-test", model="claude-fable-5-1")
         captured: dict = {}
 
         async def fake_generate(command, *args, **kwargs):
@@ -535,7 +535,7 @@ class TestClaudeAgent:
         assert result == "ok"
         command = captured["command"]
         assert "--model" in command
-        assert command[command.index("--model") + 1] == "claude-fable-5"
+        assert command[command.index("--model") + 1] == "claude-fable-5-1"
 
 
 class TestGeminiCLIAgent:
@@ -557,7 +557,7 @@ class TestGeminiCLIAgent:
         """Test YOLO mode message is filtered."""
         from aragora.agents.cli_agents import GeminiCLIAgent
 
-        agent = GeminiCLIAgent(name="gemini-test", model="gemini-3-pro")
+        agent = GeminiCLIAgent(name="gemini-test", model="gemini-3.1-pro-preview")
 
         output = "YOLO mode is enabled\nActual response"
         result = agent._extract_gemini_response(output)
@@ -683,7 +683,7 @@ class TestAntigravityAgent:
 
         agent = AntigravityAgent(
             name="agy-test",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
             enable_fallback=False,
             enable_circuit_breaker=False,
         )
@@ -712,7 +712,7 @@ class TestKimiCLIAgent:
 
         agent = KimiCLIAgent(
             name="kimi-test",
-            model="kimi-k2",
+            model="kimi-k3",
             enable_fallback=False,
             enable_circuit_breaker=False,
         )

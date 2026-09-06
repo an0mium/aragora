@@ -251,7 +251,7 @@ describe('Debates Namespace', () => {
 
     const result = await client.debates.create({
       task: 'Should we use microservices?',
-      agents: ['claude', 'gpt-4'],
+      agents: ['claude', 'gpt-6-astra'],
       rounds: 3,
     });
 
@@ -320,7 +320,7 @@ describe('Debates Namespace', () => {
     const mockMessages = {
       messages: [
         { id: 'm1', agent: 'claude', content: 'First message', round: 1 },
-        { id: 'm2', agent: 'gpt-4', content: 'Second message', round: 1 },
+        { id: 'm2', agent: 'gpt-6-astra', content: 'Second message', round: 1 },
       ],
     };
 
@@ -1023,7 +1023,7 @@ describe('Type Safety Validation', () => {
       id: 'debate-123',
       task: 'Test task',
       status: 'completed',
-      agents: ['claude', 'gpt-4'],
+      agents: ['claude', 'gpt-6-astra'],
       rounds: 3,
       created_at: '2024-01-01T00:00:00Z',
     };
@@ -1212,7 +1212,7 @@ describe('Additional Edge Cases', () => {
       text: () => Promise.resolve(JSON.stringify({ debate_id: 'debate-123', status: 'pending' })),
     });
 
-    const debateRequest = { task: 'Test task', agents: ['claude', 'gpt-4'], rounds: 3 };
+    const debateRequest = { task: 'Test task', agents: ['claude', 'gpt-6-astra'], rounds: 3 };
     await client.debates.create(debateRequest);
 
     const requestBody = mockFetch.mock.calls[0][1].body;

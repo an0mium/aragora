@@ -50,7 +50,7 @@ describe('Debates Namespace', () => {
 
       const result = await client.debates.create({
         task: 'Should we use microservices?',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         rounds: 3,
       });
 
@@ -91,7 +91,7 @@ describe('Debates Namespace', () => {
         debate_id: 'debate-789',
         task: 'Test debate',
         status: 'completed',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         consensus: { reached: true, confidence: 0.95 },
         created_at: '2024-01-01T00:00:00Z',
       };
@@ -216,7 +216,7 @@ describe('Debates Namespace', () => {
       const mockMessages = {
         messages: [
           { role: 'assistant', agent: 'claude', content: 'First message', round: 1 },
-          { role: 'assistant', agent: 'gpt-4', content: 'Second message', round: 1 },
+          { role: 'assistant', agent: 'gpt-6-astra', content: 'Second message', round: 1 },
         ],
       };
 
@@ -673,7 +673,7 @@ describe('Debates Namespace', () => {
       const mockGraph = {
         nodes: [
           { id: 'n1', type: 'claim', content: 'Main claim', agent: 'claude', round: 1 },
-          { id: 'n2', type: 'evidence', content: 'Supporting evidence', agent: 'gpt-4', round: 1 },
+          { id: 'n2', type: 'evidence', content: 'Supporting evidence', agent: 'gpt-6-astra', round: 1 },
         ],
         edges: [
           { source: 'n2', target: 'n1', type: 'supports' },
@@ -839,7 +839,7 @@ describe('Debates Namespace', () => {
       const mockAgents = {
         agents: [
           { name: 'claude', role: 'proposer', model: 'claude-3', elo: 1500, contributions: 10 },
-          { name: 'gpt-4', role: 'critic', model: 'gpt-4', elo: 1480, contributions: 8 },
+          { name: 'gpt-6-astra', role: 'critic', model: 'gpt-6-astra', elo: 1480, contributions: 8 },
         ],
       };
 
@@ -858,7 +858,7 @@ describe('Debates Namespace', () => {
       const mockVotes = {
         votes: [
           { agent: 'claude', position: 'for', confidence: 0.9, round: 3 },
-          { agent: 'gpt-4', position: 'for', confidence: 0.85, round: 3 },
+          { agent: 'gpt-6-astra', position: 'for', confidence: 0.85, round: 3 },
         ],
       };
 
@@ -964,7 +964,7 @@ describe('Debates Namespace', () => {
       });
 
       const result = await client.debates.createCounterfactual('debate-123', {
-        agents: ['claude', 'gpt-4', 'gemini'],
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
       });
 
       expect(result.predicted_outcome).toBe('Different conclusion');

@@ -51,7 +51,7 @@ def sample_agent_states():
         ),
         AgentState(
             agent_name="gpt",
-            agent_model="gpt-4",
+            agent_model="gpt-6-astra",
             agent_role="critic",
             system_prompt="You are a critic.",
             stance="opposing",

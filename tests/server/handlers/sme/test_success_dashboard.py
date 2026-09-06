@@ -68,7 +68,7 @@ def mock_cost_tracker():
         "total_tokens_in": 500000,
         "total_tokens_out": 250000,
         "cost_by_agent": {"claude": "10.00", "gpt-4": "5.50"},
-        "cost_by_model": {"claude-3-opus": "10.00", "gpt-4-turbo": "5.50"},
+        "cost_by_model": {"claude-fable-5-1": "10.00", "gpt-4-turbo": "5.50"},
     }
     tracker.get_budget.return_value = MagicMock(
         monthly_limit_usd=Decimal("100.00"),

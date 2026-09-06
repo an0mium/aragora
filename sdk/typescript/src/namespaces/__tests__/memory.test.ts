@@ -401,7 +401,7 @@ describe('MemoryAPI Namespace', () => {
       mockClient.getMemoryCritiques.mockResolvedValue({
         critiques: [
           { id: 'c1', agent: 'claude', content: 'Good point' },
-          { id: 'c2', agent: 'gpt-4', content: 'Consider this' },
+          { id: 'c2', agent: 'gpt-6-astra', content: 'Consider this' },
         ],
       });
 

@@ -75,7 +75,7 @@ def sample_plan_outcome():
         ],
         receipt_id="receipt-001",
         review_passed=True,
-        review={"model": "gpt-4", "duration_seconds": 5.2},
+        review={"model": "gpt-6-astra", "duration_seconds": 5.2},
     )
 
 

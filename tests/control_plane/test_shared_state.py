@@ -31,7 +31,7 @@ class TestAgentState:
             id="agent_123",
             name="Claude Assistant",
             type="claude",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             status="active",
             role="reviewer",
             capabilities={"code_review", "security_audit"},
@@ -56,7 +56,7 @@ class TestAgentState:
             id="agent_456",
             name="Test Agent",
             type="gpt",
-            model="gpt-4",
+            model="gpt-6-astra",
             status="idle",
         )
 
@@ -91,7 +91,7 @@ class TestAgentState:
             "id": "agent_from_dict",
             "name": "From Dict",
             "type": "mistral",
-            "model": "mistral-large",
+            "model": "mistral-large-2512",
             "status": "paused",
             "capabilities": ["translation", "summarization"],
             "tasks_completed": 100,
@@ -107,7 +107,7 @@ class TestAgentState:
 
     def test_agent_state_from_dict_defaults(self):
         """Test agent state from partial dict uses defaults."""
-        data = {"id": "minimal", "name": "Minimal", "type": "gpt", "model": "gpt-4"}
+        data = {"id": "minimal", "name": "Minimal", "type": "gpt", "model": "gpt-6-astra"}
 
         agent = AgentState.from_dict(data)
         assert agent.status == "idle"

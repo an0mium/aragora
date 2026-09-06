@@ -40,7 +40,7 @@ describe('Agents Namespace', () => {
       const mockAgents = {
         agents: [
           { name: 'claude', elo: 1520, matches: 100, wins: 60 },
-          { name: 'gpt-4', elo: 1480, matches: 95, wins: 52 },
+          { name: 'gpt-6-astra', elo: 1480, matches: 95, wins: 52 },
           { name: 'gemini', elo: 1450, matches: 80, wins: 40 },
         ],
       };
@@ -82,7 +82,7 @@ describe('Agents Namespace', () => {
 
     it('should get agent availability', async () => {
       const mockAvailability = {
-        available: ['claude', 'gpt-4', 'gemini'],
+        available: ['claude', 'gpt-6-astra', 'gemini'],
         missing: ['llama'],
       };
 
@@ -100,7 +100,7 @@ describe('Agents Namespace', () => {
     it('should get agent health status', async () => {
       const mockHealth = {
         claude: { status: 'healthy', latency_ms: 120 },
-        'gpt-4': { status: 'healthy', latency_ms: 150 },
+        'gpt-6-astra': { status: 'healthy', latency_ms: 150 },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -145,7 +145,7 @@ describe('Agents Namespace', () => {
         consistency_score: 0.88,
         flip_rate: 0.12,
         allies: ['gemini'],
-        rivals: ['gpt-4'],
+        rivals: ['gpt-6-astra'],
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -165,7 +165,7 @@ describe('Agents Namespace', () => {
         description: 'A helpful AI assistant',
         traits: ['analytical', 'thorough'],
         expertise: ['software engineering', 'strategy'],
-        model: 'claude-3-opus',
+        model: 'claude-fable-5-1',
         temperature: 0.7,
       };
 
@@ -223,7 +223,7 @@ describe('Agents Namespace', () => {
 
     it('should get agent metadata', async () => {
       const mockMetadata = {
-        model: 'claude-3-opus',
+        model: 'claude-fable-5-1',
         provider: 'anthropic',
         version: '2024-01-01',
         capabilities: ['reasoning', 'coding', 'analysis'],
@@ -421,7 +421,7 @@ describe('Agents Namespace', () => {
       const mockLeaderboard = {
         agents: [
           { name: 'claude', elo: 1520, matches: 100 },
-          { name: 'gpt-4', elo: 1480, matches: 95 },
+          { name: 'gpt-6-astra', elo: 1480, matches: 95 },
           { name: 'gemini', elo: 1450, matches: 80 },
         ],
       };
@@ -441,7 +441,7 @@ describe('Agents Namespace', () => {
       const mockRankings = {
         rankings: [
           { agent: 'claude', elo: 1550, rank: 1 },
-          { agent: 'gpt-4', elo: 1490, rank: 2 },
+          { agent: 'gpt-6-astra', elo: 1490, rank: 2 },
         ],
       };
 
@@ -487,7 +487,7 @@ describe('Agents Namespace', () => {
         agents: [
           { name: 'claude', score: 0.95 },
           { name: 'gemini', score: 0.92 },
-          { name: 'gpt-4', score: 0.88 },
+          { name: 'gpt-6-astra', score: 0.88 },
         ],
       };
 
@@ -511,7 +511,7 @@ describe('Agents Namespace', () => {
     it('should get head-to-head stats', async () => {
       const mockH2H = {
         agent: 'claude',
-        opponent: 'gpt-4',
+        opponent: 'gpt-6-astra',
         matches: 25,
         wins: 15,
         losses: 10,
@@ -528,7 +528,7 @@ describe('Agents Namespace', () => {
         text: () => Promise.resolve(JSON.stringify(mockH2H)),
       });
 
-      const result = await client.agents.getHeadToHead('claude', 'gpt-4');
+      const result = await client.agents.getHeadToHead('claude', 'gpt-6-astra');
 
       expect(result.win_rate).toBe(0.6);
       expect(result.matches).toBe(25);
@@ -536,7 +536,7 @@ describe('Agents Namespace', () => {
 
     it('should get opponent briefing', async () => {
       const mockBriefing = {
-        opponent: 'gpt-4',
+        opponent: 'gpt-6-astra',
         strengths: ['Strong reasoning', 'Detailed analysis'],
         weaknesses: ['Sometimes overconfident', 'May miss edge cases'],
         recommended_strategy: 'Focus on concrete examples',
@@ -548,18 +548,18 @@ describe('Agents Namespace', () => {
         text: () => Promise.resolve(JSON.stringify(mockBriefing)),
       });
 
-      const result = await client.agents.getOpponentBriefing('claude', 'gpt-4');
+      const result = await client.agents.getOpponentBriefing('claude', 'gpt-6-astra');
 
       expect(result.strengths).toContain('Strong reasoning');
     });
 
     it('should compare multiple agents', async () => {
       const mockComparison = {
-        agents: ['claude', 'gpt-4', 'gemini'],
+        agents: ['claude', 'gpt-6-astra', 'gemini'],
         metrics: {
-          elo: { claude: 1520, 'gpt-4': 1480, gemini: 1450 },
-          win_rate: { claude: 0.6, 'gpt-4': 0.55, gemini: 0.5 },
-          calibration: { claude: 0.92, 'gpt-4': 0.88, gemini: 0.85 },
+          elo: { claude: 1520, 'gpt-6-astra': 1480, gemini: 1450 },
+          win_rate: { claude: 0.6, 'gpt-6-astra': 0.55, gemini: 0.5 },
+          calibration: { claude: 0.92, 'gpt-6-astra': 0.88, gemini: 0.85 },
         },
         winner_by_metric: {
           elo: 'claude',
@@ -573,16 +573,16 @@ describe('Agents Namespace', () => {
         text: () => Promise.resolve(JSON.stringify(mockComparison)),
       });
 
-      const result = await client.agents.compare(['claude', 'gpt-4', 'gemini']);
+      const result = await client.agents.compare(['claude', 'gpt-6-astra', 'gemini']);
 
       expect(result.agents).toHaveLength(3);
     });
 
     it('should compare two agents using compareAgents', async () => {
       const mockComparison = {
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-6-astra'],
         metrics: {
-          elo: { claude: 1520, 'gpt-4': 1480 },
+          elo: { claude: 1520, 'gpt-6-astra': 1480 },
         },
       };
 
@@ -591,10 +591,10 @@ describe('Agents Namespace', () => {
         text: () => Promise.resolve(JSON.stringify(mockComparison)),
       });
 
-      const result = await client.agents.compareAgents('claude', 'gpt-4');
+      const result = await client.agents.compareAgents('claude', 'gpt-6-astra');
 
       expect(result.agents).toContain('claude');
-      expect(result.agents).toContain('gpt-4');
+      expect(result.agents).toContain('gpt-6-astra');
     });
   });
 
@@ -607,13 +607,13 @@ describe('Agents Namespace', () => {
       const mockSelection = {
         agents: [
           { agent_id: 'claude', score: 0.95 },
-          { agent_id: 'gpt-4', score: 0.88 },
+          { agent_id: 'gpt-6-astra', score: 0.88 },
           { agent_id: 'gemini', score: 0.82 },
         ],
         diversity_score: 0.85,
         total_score: 2.65,
         coverage: {
-          software: ['claude', 'gpt-4'],
+          software: ['claude', 'gpt-6-astra'],
           strategy: ['gemini', 'claude'],
         },
       };
@@ -655,7 +655,7 @@ describe('Agents Namespace', () => {
       const mockSelection = {
         agents: [
           { agent_id: 'claude', score: 0.98 },
-          { agent_id: 'gpt-4', score: 0.95 },
+          { agent_id: 'gpt-6-astra', score: 0.95 },
         ],
         diversity_score: 0.6,
         total_score: 1.93,
@@ -682,7 +682,7 @@ describe('Agents Namespace', () => {
         agent: 'claude',
         connections: [
           { agent: 'gemini', relationship: 'ally', strength: 0.8 },
-          { agent: 'gpt-4', relationship: 'rival', strength: 0.7 },
+          { agent: 'gpt-6-astra', relationship: 'rival', strength: 0.7 },
         ],
         total_allies: 3,
         total_rivals: 2,
@@ -719,7 +719,7 @@ describe('Agents Namespace', () => {
     it('should get rivals', async () => {
       const mockRivals = {
         rivals: [
-          { agent: 'gpt-4', rivalry_score: 0.75, head_to_head: { wins: 15, losses: 10 } },
+          { agent: 'gpt-6-astra', rivalry_score: 0.75, head_to_head: { wins: 15, losses: 10 } },
         ],
       };
 
@@ -736,7 +736,7 @@ describe('Agents Namespace', () => {
     it('should get relationship between two agents', async () => {
       const mockRelationship = {
         agent_a: 'claude',
-        agent_b: 'gpt-4',
+        agent_b: 'gpt-6-astra',
         type: 'rival',
         agreement_rate: 0.45,
         total_debates: 25,
@@ -748,7 +748,7 @@ describe('Agents Namespace', () => {
         text: () => Promise.resolve(JSON.stringify(mockRelationship)),
       });
 
-      const result = await client.agents.getRelationship('claude', 'gpt-4');
+      const result = await client.agents.getRelationship('claude', 'gpt-6-astra');
 
       expect(result.type).toBe('rival');
     });
@@ -824,7 +824,7 @@ describe('Agents Namespace', () => {
       const mockRecentFlips = {
         flips: [
           { agent: 'claude', topic: 'Topic 1', timestamp: '2024-01-01T00:00:00Z' },
-          { agent: 'gpt-4', topic: 'Topic 2', timestamp: '2024-01-01T00:01:00Z' },
+          { agent: 'gpt-6-astra', topic: 'Topic 2', timestamp: '2024-01-01T00:01:00Z' },
         ],
       };
 
@@ -841,7 +841,7 @@ describe('Agents Namespace', () => {
     it('should get flips summary', async () => {
       const mockSummary = {
         total_flips_today: 5,
-        agents_with_flips: ['claude', 'gpt-4'],
+        agents_with_flips: ['claude', 'gpt-6-astra'],
         top_topics: ['AI safety', 'Cloud computing'],
       };
 
@@ -934,7 +934,7 @@ describe('Agents Namespace', () => {
 
       const result = await client.agents.register('my-agent', {
         capabilities: ['debate', 'analysis'],
-        model: 'gpt-4',
+        model: 'gpt-6-astra',
         provider: 'openai',
       });
 
@@ -975,7 +975,7 @@ describe('Agents Namespace', () => {
     it('should get agent history', async () => {
       const mockHistory = {
         matches: [
-          { debate_id: 'd1', opponent: 'gpt-4', result: 'win', elo_change: 10 },
+          { debate_id: 'd1', opponent: 'gpt-6-astra', result: 'win', elo_change: 10 },
           { debate_id: 'd2', opponent: 'gemini', result: 'loss', elo_change: -8 },
         ],
       };
@@ -993,7 +993,7 @@ describe('Agents Namespace', () => {
     it('should get recent matches', async () => {
       const mockMatches = {
         matches: [
-          { id: 'm1', agents: ['claude', 'gpt-4'], winner: 'claude' },
+          { id: 'm1', agents: ['claude', 'gpt-6-astra'], winner: 'claude' },
           { id: 'm2', agents: ['gemini', 'mistral'], winner: 'gemini' },
         ],
       };
@@ -1083,7 +1083,7 @@ describe('Agents Namespace', () => {
       const mockView = {
         by_elo: [{ name: 'claude', elo: 1520 }],
         by_calibration: [{ name: 'gemini', score: 0.95 }],
-        by_win_rate: [{ name: 'gpt-4', win_rate: 0.65 }],
+        by_win_rate: [{ name: 'gpt-6-astra', win_rate: 0.65 }],
       };
 
       mockFetch.mockResolvedValueOnce({

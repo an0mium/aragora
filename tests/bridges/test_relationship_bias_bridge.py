@@ -107,8 +107,8 @@ class TestRelationshipBiasBridge:
         # Set low debate count
         tracker.set_metrics(
             "claude",
-            "gpt-4",
-            MockRelationshipMetrics(agent_a="claude", agent_b="gpt-4", debate_count=1),
+            "gpt-6-astra",
+            MockRelationshipMetrics(agent_a="claude", agent_b="gpt-6-astra", debate_count=1),
         )
 
         bridge = RelationshipBiasBridge(
@@ -116,7 +116,7 @@ class TestRelationshipBiasBridge:
             config=RelationshipBiasBridgeConfig(min_debates_for_relationship=5),
         )
 
-        risk = bridge.compute_team_echo_risk(["claude", "gpt-4"])
+        risk = bridge.compute_team_echo_risk(["claude", "gpt-6-astra"])
         assert risk.overall_risk == 0.0
 
     def test_compute_team_echo_risk_high_alliance(self):
@@ -124,10 +124,10 @@ class TestRelationshipBiasBridge:
         tracker = MockRelationshipTracker()
         tracker.set_metrics(
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             MockRelationshipMetrics(
                 agent_a="claude",
-                agent_b="gpt-4",
+                agent_b="gpt-6-astra",
                 debate_count=20,
                 alliance_score=0.85,
                 agreement_rate=0.9,
@@ -142,7 +142,7 @@ class TestRelationshipBiasBridge:
             ),
         )
 
-        risk = bridge.compute_team_echo_risk(["claude", "gpt-4"])
+        risk = bridge.compute_team_echo_risk(["claude", "gpt-6-astra"])
 
         assert risk.overall_risk > 0.5
         assert len(risk.high_alliance_pairs) > 0
@@ -153,10 +153,10 @@ class TestRelationshipBiasBridge:
         tracker = MockRelationshipTracker()
         tracker.set_metrics(
             "claude",
-            "gpt-4",
+            "gpt-6-astra",
             MockRelationshipMetrics(
                 agent_a="claude",
-                agent_b="gpt-4",
+                agent_b="gpt-6-astra",
                 debate_count=20,
                 alliance_score=0.3,
                 agreement_rate=0.4,
@@ -168,7 +168,7 @@ class TestRelationshipBiasBridge:
             config=RelationshipBiasBridgeConfig(caution_threshold=0.5),
         )
 
-        risk = bridge.compute_team_echo_risk(["claude", "gpt-4"])
+        risk = bridge.compute_team_echo_risk(["claude", "gpt-6-astra"])
 
         assert risk.overall_risk < 0.5
         assert risk.recommendation == "safe"

@@ -75,7 +75,7 @@ class MockMemory:
 class MockCritique:
     """Mock critique entry."""
 
-    agent: str = "gpt-4"
+    agent: str = "gpt-6-astra"
     target_agent: str = "claude"
     issues: list = field(default_factory=lambda: ["Issue 1"])
     suggestions: list = field(default_factory=lambda: ["Suggestion 1"])

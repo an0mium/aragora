@@ -1500,7 +1500,7 @@ class TestBlockBuilders:
     def test_build_agents_blocks(self, handler):
         agents = [
             {"name": "claude", "model": "claude-4"},
-            {"name": "gpt4", "model": "gpt-4"},
+            {"name": "gpt4", "model": "gpt-6-astra"},
         ]
         blocks = handler._build_agents_blocks(agents)
         assert len(blocks) == 1

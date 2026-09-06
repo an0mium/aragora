@@ -193,7 +193,7 @@ class TestRunSpecPipeline:
         }
         assert _FakeOpenAIAPIAgent.last_run == {
             "name": "spec-agent",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5.6-terra",
             "role": "proposer",
         }
         assert _FakePromptConductor.last_run == {

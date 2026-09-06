@@ -177,7 +177,7 @@ describe('useGauntletWebSocket', () => {
           data: {
             input_type: 'prompt',
             input_summary: 'Test prompt summary',
-            agents: ['claude', 'gpt-4', 'gemini'],
+            agents: ['claude', 'gpt-6-astra', 'gemini'],
           },
           timestamp: Date.now() / 1000,
           seq: 1,

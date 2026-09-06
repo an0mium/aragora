@@ -415,7 +415,7 @@ class TestAgentIntrospection:
             patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
         ):
-            mock_intro.return_value = MockSnapshot("gpt-4")
+            mock_intro.return_value = MockSnapshot("gpt-6-astra")
             with (
                 patch.object(handler, "_get_critique_store", return_value=None),
                 patch.object(handler, "_get_persona_manager", return_value=None),

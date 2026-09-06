@@ -255,7 +255,7 @@ describe('AttackFeed', () => {
       mockHookReturn.status = 'streaming';
       mockHookReturn.agents = new Map([
         ['claude', { name: 'claude', status: 'active', attackCount: 5, probeCount: 10 }],
-        ['gpt-4', { name: 'gpt-4', status: 'complete', attackCount: 3, probeCount: 8 }],
+        ['gpt-6-astra', { name: 'gpt-6-astra', status: 'complete', attackCount: 3, probeCount: 8 }],
       ]);
     });
 
@@ -263,7 +263,7 @@ describe('AttackFeed', () => {
       render(<AttackFeed {...defaultProps} showAgentStats={true} />);
 
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.getByText('gpt-4')).toBeInTheDocument();
+      expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
     });
 
     it('hides agent stats when showAgentStats is false', () => {

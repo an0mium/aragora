@@ -170,7 +170,7 @@ describe('PipelinePropertyEditor', () => {
     const node: Record<string, unknown> = {
       label: 'Review Task',
       orchType: 'debate',
-      assignedAgent: 'gpt-4',
+      assignedAgent: 'gpt-6-astra',
       agentType: 'reviewer',
       capabilities: ['code_review', 'testing'],
     };
@@ -192,7 +192,7 @@ describe('PipelinePropertyEditor', () => {
     expect(orchTypeSelect.tagName).toBe('SELECT');
 
     // Assigned Agent input
-    const agentInput = screen.getByDisplayValue('gpt-4');
+    const agentInput = screen.getByDisplayValue('gpt-6-astra');
     expect(agentInput).toBeInTheDocument();
 
     // Agent Type input

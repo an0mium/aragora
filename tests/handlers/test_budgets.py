@@ -1613,7 +1613,7 @@ class TestAgentCosts:
     async def test_agent_costs_success(self, handler, _patch_auth_and_rbac):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = {
-            "cost_by_agent": {"claude": 50.0, "gpt-4": 30.0},
+            "cost_by_agent": {"claude": 50.0, "gpt-6-astra": 30.0},
             "total_cost_usd": "80.0",
         }
         mock_handler = _MockHTTPHandler(path="/api/v1/costs/agents")

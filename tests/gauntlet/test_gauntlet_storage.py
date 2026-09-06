@@ -65,7 +65,7 @@ def mock_result():
     risk_summary.low = 3
     result.risk_summary = risk_summary
     result.vulnerabilities = ["vuln1", "vuln2", "vuln3", "vuln4", "vuln5", "vuln6"]
-    result.agents_used = ["claude", "gpt-4"]
+    result.agents_used = ["claude", "gpt-6-astra"]
     result.template_used = "security"
     result.duration_seconds = 45.5
     result.to_dict = Mock(
@@ -606,7 +606,7 @@ class TestPostgreSQLBackendMock:
         risk_summary.low = 1
         result.risk_summary = risk_summary
         result.vulnerabilities = ["vuln1", "vuln2", "vuln3", "vuln4"]
-        result.agents_used = ["claude", "gpt-4"]
+        result.agents_used = ["claude", "gpt-6-astra"]
         result.template_used = "security"
         result.duration_seconds = 35.0
         result.to_dict = Mock(

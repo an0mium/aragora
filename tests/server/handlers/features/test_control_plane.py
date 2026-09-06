@@ -90,7 +90,7 @@ def _make_agent(
     id="agent-001",
     name="Test Agent",
     agent_type="scanner",
-    model="claude-3.5-sonnet",
+    model="claude-sonnet-5",
     status="active",
     role="Full analysis",
     tasks_completed=10,

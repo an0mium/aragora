@@ -373,7 +373,7 @@ class TestOpenRouterFallbackChain:
         from aragora.agents.api_agents import GeminiAgent
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test_key", "GEMINI_API_KEY": "test"}):
-            agent = GeminiAgent(name="test", model="gemini-3-pro")
+            agent = GeminiAgent(name="test", model="gemini-3.1-pro-preview")
             # Fallback agent should be creatable (API agents use mixin method)
             fallback = agent._get_cached_fallback_agent()
             assert fallback is not None
@@ -385,7 +385,7 @@ class TestOpenRouterFallbackChain:
         from aragora.agents.cli_agents import ClaudeAgent
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
-            agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101")
+            agent = ClaudeAgent(name="test", model="claude-fable-5-1")
             fallback = agent._get_fallback_agent()
             assert fallback is None
 
@@ -395,7 +395,7 @@ class TestOpenRouterFallbackChain:
         from aragora.agents.api_agents import GeminiAgent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
-            agent = GeminiAgent(name="test", model="gemini-3-pro")
+            agent = GeminiAgent(name="test", model="gemini-3.1-pro-preview")
 
             # Test various quota error scenarios
             assert agent.is_quota_error(429, "rate limit exceeded")

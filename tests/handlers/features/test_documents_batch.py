@@ -219,10 +219,10 @@ class MockBatchProcessor:
 class MockTokenCounter:
     """Mock token counter for testing."""
 
-    def count(self, text: str, model: str = "gpt-4") -> int:
+    def count(self, text: str, model: str = "gpt-6-astra") -> int:
         return len(text.split())
 
-    def truncate_to_tokens(self, text: str, max_tokens: int, model: str = "gpt-4") -> str:
+    def truncate_to_tokens(self, text: str, max_tokens: int, model: str = "gpt-6-astra") -> str:
         words = text.split()
         return " ".join(words[:max_tokens])
 

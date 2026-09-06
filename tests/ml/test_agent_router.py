@@ -136,7 +136,7 @@ class TestAgentCapabilitiesDefaultCapabilities:
             "codex",
             "gemini",
             "grok",
-            "mistral-large",
+            "mistral-large-2512",
             "deepseek",
             "llama",
         ]
@@ -629,8 +629,8 @@ class TestAgentRouterDiversityScore:
         """Should correctly infer providers from agent names."""
         # Test that different providers are detected
         score = router._calculate_diversity_score(
-            ["claude", "gpt-4", "gemini", "mistral-large"],
-            ["claude", "gpt-4", "gemini", "mistral-large"],
+            ["claude", "gpt-4", "gemini", "mistral-large-2512"],
+            ["claude", "gpt-4", "gemini", "mistral-large-2512"],
         )
         # 4 different providers out of 4 agents = high provider diversity
         assert score > 0.5

@@ -419,7 +419,7 @@ class TestProviderDetails:
         monkeypatch.setenv("GROK_API_KEY", "xai-test-key-12345")
         result = _check_provider("xai")
         assert result["available"] is True
-        assert result["model"] == "grok-4-latest"
+        assert result["model"] == "grok-4.6"
 
 
 # ============================================================================

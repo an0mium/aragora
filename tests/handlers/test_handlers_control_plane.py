@@ -396,7 +396,7 @@ class TestRegisterAgent:
         body = {
             "agent_id": "agent-new",
             "capabilities": ["debate", "critique"],
-            "model": "gpt-4",
+            "model": "gpt-6-astra",
             "provider": "openai",
         }
 

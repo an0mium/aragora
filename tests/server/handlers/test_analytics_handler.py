@@ -210,7 +210,7 @@ def mock_elo_system():
     agent1.debates_count = 50
 
     agent2 = MagicMock()
-    agent2.agent_name = "gpt-4"
+    agent2.agent_name = "gpt-6-astra"
     agent2.elo = 1550
     agent2.debates_count = 45
 
@@ -229,7 +229,7 @@ def mock_elo_system():
     }
     elo.get_learning_efficiency_batch.return_value = {
         "claude": {"rate": 0.15, "trend": "improving"},
-        "gpt-4": {"rate": 0.12, "trend": "stable"},
+        "gpt-6-astra": {"rate": 0.12, "trend": "stable"},
         "codex": {"rate": 0.08, "trend": "declining"},
     }
 
@@ -241,7 +241,7 @@ def mock_elo_system():
     }
     elo.get_voting_accuracy_batch.return_value = {
         "claude": {"accuracy": 0.78, "total_votes": 100},
-        "gpt-4": {"accuracy": 0.75, "total_votes": 90},
+        "gpt-6-astra": {"accuracy": 0.75, "total_votes": 90},
         "codex": {"accuracy": 0.70, "total_votes": 60},
     }
 
@@ -1478,13 +1478,13 @@ class TestAnalyticsHandlerVotingAccuracy:
             ):
                 result = await analytics_handler.handle(
                     "/api/analytics/voting-accuracy",
-                    {"agent": ["gpt-4"]},
+                    {"agent": ["gpt-6-astra"]},
                     mock_http_handler,
                 )
 
                 body = json.loads(result.body)
                 assert "agent" in body
-                assert body["agent"] == "gpt-4"
+                assert body["agent"] == "gpt-6-astra"
                 assert "accuracy" in body
 
     @pytest.mark.asyncio
@@ -1877,12 +1877,12 @@ class TestAnalyticsHandlerIntegration:
                 # Test voting-accuracy with params
                 result = await analytics_handler.handle(
                     "/api/analytics/voting-accuracy",
-                    {"agent": ["gpt-4"], "limit": ["5"]},
+                    {"agent": ["gpt-6-astra"], "limit": ["5"]},
                     mock_http_handler,
                 )
                 assert result is not None
                 body = json.loads(result.body)
-                assert body["agent"] == "gpt-4"
+                assert body["agent"] == "gpt-6-astra"
 
     @pytest.mark.asyncio
     async def test_version_prefix_handling(

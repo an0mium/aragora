@@ -591,11 +591,11 @@ class TestCommands:
         """Test /agents command with agents."""
         mock_agents = [
             MagicMock(name="claude", elo=1650, wins=10),
-            MagicMock(name="gpt-4", elo=1600, wins=8),
+            MagicMock(name="gpt-6-astra", elo=1600, wins=8),
             MagicMock(name="gemini", elo=1550, wins=5),
         ]
         for i, agent in enumerate(mock_agents):
-            agent.name = ["claude", "gpt-4", "gemini"][i]
+            agent.name = ["claude", "gpt-6-astra", "gemini"][i]
 
         with patch("aragora.ranking.elo.EloSystem") as mock_elo:
             mock_elo.return_value.get_all_ratings.return_value = mock_agents
@@ -940,7 +940,7 @@ class TestViewDetails:
             "consensus_reached": True,
             "confidence": 0.85,
             "rounds_used": 3,
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
         }
 
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):

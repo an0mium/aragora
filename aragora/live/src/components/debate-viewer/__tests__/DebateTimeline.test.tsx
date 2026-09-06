@@ -84,20 +84,20 @@ describe('DebateTimeline', () => {
     it('renders messages as timeline entries with agent name', () => {
       const messages = [
         createMessage({ agent: 'claude', content: 'First message', timestamp: 1705420800 }),
-        createMessage({ agent: 'gpt-4', content: 'Second message', timestamp: 1705420810 }),
+        createMessage({ agent: 'gpt-6-astra', content: 'Second message', timestamp: 1705420810 }),
       ];
 
       render(
         <DebateTimeline
           messages={messages}
           streamEvents={[]}
-          agents={['claude', 'gpt-4']}
+          agents={['claude', 'gpt-6-astra']}
         />
       );
 
       // Agent names in timeline entries are displayed lowercase
       expect(screen.getAllByText('claude').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('gpt-4').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('gpt-6-astra').length).toBeGreaterThan(0);
     });
 
     it('renders message content in entries', () => {
@@ -145,7 +145,7 @@ describe('DebateTimeline', () => {
       const events = [
         createStreamEvent({
           type: 'debate_start',
-          data: { task: 'Design a rate limiter', agents: ['claude', 'gpt-4'] },
+          data: { task: 'Design a rate limiter', agents: ['claude', 'gpt-6-astra'] },
           timestamp: 1705420790,
         }),
       ];
@@ -198,13 +198,13 @@ describe('DebateTimeline', () => {
         createStreamEvent({
           type: 'agent_evidence',
           data: { sources: [{ title: 'Paper A' }, { title: 'Paper B' }] },
-          agent: 'gpt-4',
+          agent: 'gpt-6-astra',
           timestamp: 1705420800,
         }),
       ];
 
       render(
-        <DebateTimeline messages={[]} streamEvents={events} agents={['gpt-4']} />
+        <DebateTimeline messages={[]} streamEvents={events} agents={['gpt-6-astra']} />
       );
 
       expect(screen.getByText('[EVIDENCE]')).toBeInTheDocument();
@@ -248,7 +248,7 @@ describe('DebateTimeline', () => {
         <DebateTimeline
           messages={[]}
           streamEvents={[]}
-          agents={['claude', 'gpt-4']}
+          agents={['claude', 'gpt-6-astra']}
         />
       );
 
@@ -260,7 +260,7 @@ describe('DebateTimeline', () => {
         <DebateTimeline
           messages={[]}
           streamEvents={[]}
-          agents={['claude', 'gpt-4']}
+          agents={['claude', 'gpt-6-astra']}
         />
       );
 
@@ -273,14 +273,14 @@ describe('DebateTimeline', () => {
     it('filters entries by selected agent', () => {
       const messages = [
         createMessage({ agent: 'claude', content: 'Claude message', timestamp: 1705420800 }),
-        createMessage({ agent: 'gpt-4', content: 'GPT message', timestamp: 1705420810 }),
+        createMessage({ agent: 'gpt-6-astra', content: 'GPT message', timestamp: 1705420810 }),
       ];
 
       render(
         <DebateTimeline
           messages={messages}
           streamEvents={[]}
-          agents={['claude', 'gpt-4']}
+          agents={['claude', 'gpt-6-astra']}
         />
       );
 
@@ -346,12 +346,12 @@ describe('DebateTimeline', () => {
   describe('chronological ordering', () => {
     it('sorts entries by timestamp', () => {
       const messages = [
-        createMessage({ agent: 'gpt-4', content: 'Second', timestamp: 1705420810 }),
+        createMessage({ agent: 'gpt-6-astra', content: 'Second', timestamp: 1705420810 }),
         createMessage({ agent: 'claude', content: 'First', timestamp: 1705420800 }),
       ];
 
       const { container } = render(
-        <DebateTimeline messages={messages} streamEvents={[]} agents={['claude', 'gpt-4']} />
+        <DebateTimeline messages={messages} streamEvents={[]} agents={['claude', 'gpt-6-astra']} />
       );
 
       const entries = container.querySelectorAll('.cursor-pointer');

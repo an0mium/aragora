@@ -39,7 +39,7 @@ class MockConsensusRecord:
         self.conclusion = conclusion
         self.strength = MagicMock(value=strength)
         self.confidence = confidence
-        self.participating_agents = agents or ["claude", "gpt-4"]
+        self.participating_agents = agents or ["claude", "gpt-6-astra"]
         self.timestamp = timestamp or datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
@@ -420,7 +420,7 @@ class TestConsensusHandlerContrarianViews:
         mock_retriever = MockDissentRetriever(mock_memory)
         mock_retriever._contrarian = [
             MockDissentRecord(
-                "gpt-4",
+                "gpt-6-astra",
                 "NoSQL might be better for this use case",
                 confidence=0.75,
                 reasoning="Better horizontal scaling",
@@ -439,7 +439,7 @@ class TestConsensusHandlerContrarianViews:
         body = parse_body(result)
         assert "views" in body
         assert len(body["views"]) == 1
-        assert body["views"][0]["agent"] == "gpt-4"
+        assert body["views"][0]["agent"] == "gpt-6-astra"
 
 
 class TestConsensusHandlerRiskWarnings:

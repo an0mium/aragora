@@ -34,7 +34,7 @@ def _review_body(
     heading_family: str,
     *,
     model_family: str | None = None,
-    model_id: str = "gpt-5.5",
+    model_id: str = "gpt-6-astra",
 ) -> str:
     body = f"## {heading_family} independent semantic review on head {HEAD_SHA}\n\n"
     if model_family is not None:
@@ -87,7 +87,7 @@ def test_codex_without_model_family_is_advisory_only() -> None:
 
 def test_factory_and_codex_openai_disclosures_count_as_one_model_family() -> None:
     """Two router comments disclosing the same family count once."""
-    factory = _review_body("Factory", model_family="openai", model_id="gpt-5.5")
+    factory = _review_body("Factory", model_family="openai", model_id="gpt-6-astra")
     codex = _review_body("Codex", model_family="openai", model_id="gpt-5.5-codex")
 
     assert _counted_from_bodies(factory, codex) == ["openai"]
@@ -95,15 +95,15 @@ def test_factory_and_codex_openai_disclosures_count_as_one_model_family() -> Non
 
 def test_factory_openai_and_claude_count_as_two_model_families() -> None:
     """Mixed router and direct-family signals count by lineage."""
-    factory = _review_body("Factory", model_family="openai", model_id="gpt-5.5")
-    claude = _review_body("Claude", model_family="claude", model_id="claude-opus-4-7")
+    factory = _review_body("Factory", model_family="openai", model_id="gpt-6-astra")
+    claude = _review_body("Claude", model_family="claude", model_id="claude-fable-5-1")
 
     assert _counted_from_bodies(factory, claude) == ["claude", "openai"]
 
 
 def test_heading_model_family_conflict_is_rejected() -> None:
     """``## Claude ...`` plus ``Model family: openai`` does not count."""
-    body = _review_body("Claude", model_family="openai", model_id="gpt-5.5")
+    body = _review_body("Claude", model_family="openai", model_id="gpt-6-astra")
 
     assert _infer_model_reviewer_from_text(body) == "claude"
     assert _counted_from_bodies(body) == []
@@ -125,7 +125,7 @@ def test_missing_receipt_artifact_is_diagnostic_metadata() -> None:
         f"## Factory independent semantic review on head {HEAD_SHA}\n\n"
         "**Reviewer harness:** factory\n"
         "**Model family:** openai\n"
-        "**Model id:** gpt-5.5\n\n"
+        "**Model id:** gpt-6-astra\n\n"
         "No blocking findings. This is an independent semantic review.\n"
     )
 
@@ -149,7 +149,7 @@ def test_body_only_family_names_do_not_override_first_heading() -> None:
         "## Aragora Code Review\n\n"
         "**Reviewer harness:** factory\n"
         "**Model family:** openai\n"
-        "**Model id:** gpt-5.5\n\n"
+        "**Model id:** gpt-6-astra\n\n"
         "The body also mentions Claude, Gemini, Grok, Codex, and Factory.\n"
     )
 

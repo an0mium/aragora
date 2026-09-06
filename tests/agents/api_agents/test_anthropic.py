@@ -47,7 +47,7 @@ class TestAnthropicAgentInitialization:
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
         # An ACTIVE non-default catalog id: a retired one (the old
-        # "claude-sonnet-4-20250514") is now upgraded at construction time,
+        # "claude-sonnet-5") is now upgraded at construction time,
         # which is its own behaviour (see
         # tests/agents/test_retired_model_id_upgrade.py) and would make this
         # test about upgrading rather than about honouring custom config.

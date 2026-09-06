@@ -398,7 +398,7 @@ class TestCreateVideoMetadataFromDebate:
         """Should create valid metadata from debate info."""
         metadata = create_video_metadata_from_debate(
             task="Should AI systems be open source?",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             consensus_reached=True,
             debate_id="debate-123",
         )
@@ -424,7 +424,7 @@ class TestCreateVideoMetadataFromDebate:
 
     def test_includes_all_agents_in_description(self):
         """Should list all agents in description."""
-        agents = ["claude", "gpt-4", "gemini", "llama"]
+        agents = ["claude", "gpt-6-astra", "gemini", "llama"]
         metadata = create_video_metadata_from_debate(
             task="Test task",
             agents=agents,

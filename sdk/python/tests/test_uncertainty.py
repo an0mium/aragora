@@ -101,7 +101,7 @@ class TestUncertaintyDebateMetrics:
                     {"round": 2, "uncertainty": 0.5},
                     {"round": 3, "uncertainty": 0.45},
                 ],
-                "agent_uncertainties": {"claude": 0.4, "gpt-4": 0.5},
+                "agent_uncertainties": {"claude": 0.4, "gpt-6-astra": 0.5},
                 "convergence_trend": [0.6, 0.5, 0.45],
                 "cruxes": [{"description": "Definition of success", "importance": 0.9}],
             }
@@ -263,12 +263,12 @@ class TestAsyncUncertainty:
         """Get agent profile asynchronously."""
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {
-                "agent_id": "gpt-4",
+                "agent_id": "gpt-6-astra",
                 "calibration_score": 0.82,
             }
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-                result = await client.uncertainty.get_agent_profile("gpt-4")
+                result = await client.uncertainty.get_agent_profile("gpt-6-astra")
 
                 mock_request.assert_called_once_with("GET", "/api/v1/uncertainty/agent/gpt-4")
                 assert result["calibration_score"] == 0.82

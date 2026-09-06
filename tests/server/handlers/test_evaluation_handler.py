@@ -56,7 +56,7 @@ class MockEvaluationResult:
     response_id: str = "resp-001"
     overall_score: float = 4.2
     overall_confidence: float = 0.85
-    judge_model: str = "claude-sonnet-4-20250514"
+    judge_model: str = "claude-sonnet-5"
     use_case: str = "default"
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     summary: str = "Good quality response overall"
@@ -101,7 +101,7 @@ class MockPairwiseResult:
         default_factory=lambda: {"relevance": "A", "clarity": "tie", "accuracy": "A"}
     )
     explanation: str = "Response A is more comprehensive and better addresses the query."
-    judge_model: str = "claude-sonnet-4-20250514"
+    judge_model: str = "claude-sonnet-5"
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:

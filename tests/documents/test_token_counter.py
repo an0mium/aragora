@@ -42,7 +42,7 @@ class TestTokenCounter:
         text = "The quick brown fox jumps over the lazy dog."
 
         gpt4_tokens = counter.count(text, model="gpt-4")
-        claude_tokens = counter.count(text, model="claude-3-opus")
+        claude_tokens = counter.count(text, model="claude-fable-5-1")
 
         # Both should return reasonable counts
         assert gpt4_tokens > 0
@@ -85,7 +85,7 @@ class TestTokenCounter:
 
         # Long text might not fit in small models
         fits_gpt4 = counter.fits_context(long_text, "gpt-4", max_tokens=8192)
-        fits_gemini = counter.fits_context(long_text, "gemini-3-pro", max_tokens=1000000)
+        fits_gemini = counter.fits_context(long_text, "gemini-3.1-pro-preview", max_tokens=1000000)
 
         # Gemini with 1M tokens should fit more
         if not fits_gpt4:
@@ -128,7 +128,7 @@ class TestGlobalTokenCounter:
 
     def test_count_tokens_with_model(self):
         """Test convenience function with model."""
-        tokens = count_tokens("Test", model="claude-3-opus")
+        tokens = count_tokens("Test", model="claude-fable-5-1")
         assert tokens > 0
 
 
@@ -173,7 +173,7 @@ class TestApproximateCounter:
         text = "The quick brown fox jumps over the lazy dog."
 
         # Claude uses approximation (not tiktoken)
-        tokens = counter.count(text, model="claude-3-opus")
+        tokens = counter.count(text, model="claude-fable-5-1")
 
         # Should be roughly 10-15 tokens for this sentence
         assert 5 < tokens < 25

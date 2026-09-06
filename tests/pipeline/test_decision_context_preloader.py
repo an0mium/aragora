@@ -89,7 +89,7 @@ class TestPreDebateContextPreloader:
         agent1.elo = 1520.0
 
         agent2 = MagicMock()
-        agent2.agent_name = "gpt-4o"
+        agent2.agent_name = "gpt-6-astra"
         agent2.elo = 1480.0
 
         mock_calibration = MagicMock()
@@ -100,7 +100,7 @@ class TestPreDebateContextPreloader:
 
         assert ctx["agent_calibration"] == {
             "claude-sonnet": 1520.0,
-            "gpt-4o": 1480.0,
+            "gpt-6-astra": 1480.0,
         }
         mock_calibration.get_top_agents_for_domain.assert_called_once_with("software", limit=5)
 

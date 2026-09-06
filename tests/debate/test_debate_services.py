@@ -69,7 +69,7 @@ def mock_agents():
     """Create mock agents for testing."""
     return [
         MockAgent(name="agent_1", model="claude"),
-        MockAgent(name="agent_2", model="gpt-4"),
+        MockAgent(name="agent_2", model="gpt-6-astra"),
         MockAgent(name="agent_3", model="gemini"),
         MockAgent(name="agent_4", model="claude"),
     ]

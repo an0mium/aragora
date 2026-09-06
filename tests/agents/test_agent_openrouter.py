@@ -42,13 +42,13 @@ class TestOpenRouterAgentInitialization:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             agent = OpenRouterAgent(
                 name="custom-router",
-                model="meta-llama/llama-3.3-70b-instruct",
+                model="meta/muse-spark-1.3",
                 role="critic",
                 timeout=120,
             )
 
         assert agent.name == "custom-router"
-        assert agent.model == "meta-llama/llama-3.3-70b-instruct"
+        assert agent.model == "meta/muse-spark-1.3"
         assert agent.role == "critic"
         assert agent.timeout == 120
 
@@ -70,7 +70,7 @@ class TestOpenRouterGenerate:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
 
     @pytest.mark.asyncio
@@ -213,7 +213,7 @@ class TestOpenRouterStreaming:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
 
     @pytest.mark.asyncio
@@ -296,7 +296,7 @@ class TestOpenRouterCritique:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
 
     @pytest.mark.asyncio
@@ -393,7 +393,7 @@ class TestOpenRouterHeaders:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             agent = OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
 
         mock_response = MagicMock()
@@ -436,7 +436,7 @@ class TestOpenRouterRateLimiter:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             agent = OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-v4-pro",
+                model="deepseek/deepseek-v4-pro-0813",
             )
 
         mock_response = MagicMock()

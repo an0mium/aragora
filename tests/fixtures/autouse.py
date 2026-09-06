@@ -600,7 +600,7 @@ def mock_external_apis(request, monkeypatch):
     class MockOpenAICompletion:
         """Mock OpenAI chat completion response."""
 
-        def __init__(self, content: str, model: str = "gpt-4o"):
+        def __init__(self, content: str, model: str = "gpt-6-astra"):
             self.id = "chatcmpl-mock123"
             self.model = model
             self.choices = [MockOpenAIChoice(content)]
@@ -634,12 +634,12 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        def create(self, messages, model="gpt-4o", **kwargs):
+        def create(self, messages, model="gpt-6-astra", **kwargs):
             """Sync create method."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
 
-        async def acreate(self, messages, model="gpt-4o", **kwargs):
+        async def acreate(self, messages, model="gpt-6-astra", **kwargs):
             """Async create method (for compatibility)."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
@@ -669,7 +669,7 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        async def create(self, messages, model="gpt-4o", **kwargs):
+        async def create(self, messages, model="gpt-6-astra", **kwargs):
             """Async create method."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
@@ -719,7 +719,7 @@ def mock_external_apis(request, monkeypatch):
     class MockAnthropicMessage:
         """Mock Anthropic message response."""
 
-        def __init__(self, content: str, model: str = "claude-sonnet-4-20250514"):
+        def __init__(self, content: str, model: str = "claude-sonnet-5"):
             self.id = "msg_mock123"
             self.type = "message"
             self.role = "assistant"
@@ -753,7 +753,7 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        def create(self, messages, model="claude-sonnet-4-20250514", max_tokens=1024, **kwargs):
+        def create(self, messages, model="claude-sonnet-5", max_tokens=1024, **kwargs):
             """Sync create method."""
             content = self._generate_response(messages, **kwargs)
             return MockAnthropicMessage(content, model)
@@ -783,9 +783,7 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        async def create(
-            self, messages, model="claude-sonnet-4-20250514", max_tokens=1024, **kwargs
-        ):
+        async def create(self, messages, model="claude-sonnet-5", max_tokens=1024, **kwargs):
             """Async create method."""
             content = self._generate_response(messages, **kwargs)
             return MockAnthropicMessage(content, model)

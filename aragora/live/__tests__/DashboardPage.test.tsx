@@ -124,7 +124,7 @@ describe('DashboardPage', () => {
           {
             id: 'debate-1',
             task: 'Should we use microservices?',
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
             consensus_reached: true,
             confidence: 0.87,
             created_at: new Date().toISOString(),
@@ -399,7 +399,7 @@ describe('DashboardPage', () => {
           {
             id: 'debate-c',
             task: 'High confidence debate',
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
             consensus_reached: true,
             confidence: 0.95,
             created_at: new Date().toISOString(),

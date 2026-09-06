@@ -158,7 +158,7 @@ class TestPathValidation:
         """Test valid agent names."""
         from aragora.server.handlers.base import validate_agent_name
 
-        is_valid, err = validate_agent_name("claude-3-opus")
+        is_valid, err = validate_agent_name("claude-fable-5-1")
         assert is_valid is True
         assert err is None
 

@@ -85,7 +85,7 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
                 {
                     "data": [
                         {
-                            "id": "claude-fable-5",
+                            "id": "claude-fable-5-1",
                             "owned_by": "anthropic",
                         }
                     ]
@@ -99,10 +99,10 @@ def test_catalog_is_sanitized_and_cached(monkeypatch: pytest.MonkeyPatch) -> Non
     first = client.sanitized_status()
     second = client.sanitized_status()
 
-    assert first["models"] == ["claude-fable-5"]
+    assert first["models"] == ["claude-fable-5-1"]
     assert first["loopback"] is True
     assert "api_key" not in json.dumps(first)
-    assert client.catalog().owner_for("claude-fable-5") == "anthropic"
+    assert client.catalog().owner_for("claude-fable-5-1") == "anthropic"
     assert second == first
     assert calls == 1
 
@@ -136,7 +136,7 @@ def test_client_disables_environment_proxies_and_redirects(
         handlers = configured
         return SimpleNamespace(
             open=lambda *_args, **_kwargs: _Response(
-                json.dumps({"data": [{"id": "claude-fable-5"}]}).encode()
+                json.dumps({"data": [{"id": "claude-fable-5-1"}]}).encode()
             )
         )
 
@@ -223,7 +223,7 @@ def test_each_request_builds_a_fresh_opener(monkeypatch: pytest.MonkeyPatch) -> 
         built += 1
         return SimpleNamespace(
             open=lambda *_args, **_kwargs: _Response(
-                json.dumps({"data": [{"id": "claude-fable-5"}]}).encode()
+                json.dumps({"data": [{"id": "claude-fable-5-1"}]}).encode()
             )
         )
 
@@ -291,13 +291,13 @@ class _FakeClient:
 def test_prefer_resolves_exact_model() -> None:
     policy = vibeproxy.ModelTransportPolicy(
         vibeproxy.TransportMode.PREFER,
-        client=_FakeClient({"claude-fable-5"}),  # type: ignore[arg-type]
+        client=_FakeClient({"claude-fable-5-1"}),  # type: ignore[arg-type]
     )
 
-    route = policy.resolve("anthropic", "claude-fable-5")
+    route = policy.resolve("anthropic", "claude-fable-5-1")
 
     assert route.transport == "vibeproxy"
-    assert route.requested_model == route.resolved_model == "claude-fable-5"
+    assert route.requested_model == route.resolved_model == "claude-fable-5-1"
 
 
 @pytest.mark.parametrize(
@@ -388,18 +388,18 @@ def test_openai_catalog_alias_request_returns_observed_model(
 
     body = client.openai_catalog_alias_request(
         protocol=vibeproxy.OpenAIProtocol.CHAT,
-        model="kimi-k2",
+        model="kimi-k3",
         catalog=vibeproxy.VibeProxyCatalog(
-            models=frozenset({"kimi-k2", "k2"}),
+            models=frozenset({"kimi-k3", "k2"}),
             fetched_at=0,
             model_owners=frozenset(
                 {
-                    ("kimi-k2", "moonshot"),
+                    ("kimi-k3", "moonshot"),
                     ("k2", "moonshot"),
                 }
             ),
         ),
-        payload={"model": "kimi-k2", "messages": []},
+        payload={"model": "kimi-k3", "messages": []},
         timeout=1.0,
     )
 
@@ -428,9 +428,9 @@ def test_openai_catalog_alias_request_rejects_response_without_unique_owner(
 ) -> None:
     client = vibeproxy.VibeProxyClient()
     catalog = vibeproxy.VibeProxyCatalog(
-        models=frozenset({"kimi-k2"}) | response_models,
+        models=frozenset({"kimi-k3"}) | response_models,
         fetched_at=0,
-        model_owners=frozenset({("kimi-k2", "moonshot")}) | response_owners,
+        model_owners=frozenset({("kimi-k3", "moonshot")}) | response_owners,
     )
     monkeypatch.setattr(
         client,
@@ -444,9 +444,9 @@ def test_openai_catalog_alias_request_rejects_response_without_unique_owner(
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="owner disclosure"):
         client.openai_catalog_alias_request(
             protocol=vibeproxy.OpenAIProtocol.CHAT,
-            model="kimi-k2",
+            model="kimi-k3",
             catalog=catalog,
-            payload={"model": "kimi-k2", "messages": []},
+            payload={"model": "kimi-k3", "messages": []},
             timeout=1.0,
         )
 
@@ -514,17 +514,17 @@ def test_openai_catalog_alias_request_rejects_response_owner_mismatch(
 
 def test_catalog_owner_for_rejects_ambiguous_owner_disclosure() -> None:
     catalog = vibeproxy.VibeProxyCatalog(
-        models=frozenset({"kimi-k2"}),
+        models=frozenset({"kimi-k3"}),
         fetched_at=0,
         model_owners=frozenset(
             {
-                ("kimi-k2", "moonshot"),
-                ("kimi-k2", "openai"),
+                ("kimi-k3", "moonshot"),
+                ("kimi-k3", "openai"),
             }
         ),
     )
 
-    assert catalog.owner_for("kimi-k2") is None
+    assert catalog.owner_for("kimi-k3") is None
 
 
 def test_openai_catalog_alias_request_rejects_owner_for_absent_model() -> None:
@@ -533,13 +533,13 @@ def test_openai_catalog_alias_request_rejects_owner_for_absent_model() -> None:
     with pytest.raises(vibeproxy.VibeProxyConfigurationError, match="owner disclosure"):
         client.openai_catalog_alias_request(
             protocol=vibeproxy.OpenAIProtocol.CHAT,
-            model="kimi-k2",
+            model="kimi-k3",
             catalog=vibeproxy.VibeProxyCatalog(
                 models=frozenset(),
                 fetched_at=0,
-                model_owners=frozenset({("kimi-k2", "moonshot")}),
+                model_owners=frozenset({("kimi-k3", "moonshot")}),
             ),
-            payload={"model": "kimi-k2", "messages": []},
+            payload={"model": "kimi-k3", "messages": []},
             timeout=1.0,
         )
 
@@ -555,7 +555,7 @@ def test_anthropic_message_keeps_protocol_version_header(
         return _Response(
             json.dumps(
                 {
-                    "model": "claude-fable-5",
+                    "model": "claude-fable-5-1",
                     "content": [{"type": "text", "text": "answer"}],
                 }
             ).encode()
@@ -563,7 +563,7 @@ def test_anthropic_message_keeps_protocol_version_header(
 
     _patch_opener(monkeypatch, fake_open)
 
-    assert client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1.0) == "answer"
+    assert client.anthropic_message(model="claude-fable-5-1", prompt="q", timeout=1.0) == "answer"
     assert seen["anthropic_version"] == "2023-06-01"
 
 
@@ -603,10 +603,10 @@ def test_prefer_falls_back_when_model_missing() -> None:
         client=_FakeClient(set()),  # type: ignore[arg-type]
     )
 
-    route = policy.resolve("anthropic", "claude-fable-5")
+    route = policy.resolve("anthropic", "claude-fable-5-1")
 
     assert route.transport == "direct"
-    assert route.fallback_reason == "model not in VibeProxy catalog: claude-fable-5"
+    assert route.fallback_reason == "model not in VibeProxy catalog: claude-fable-5-1"
 
 
 def test_required_fails_closed_when_model_missing() -> None:
@@ -616,7 +616,7 @@ def test_required_fails_closed_when_model_missing() -> None:
     )
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="model not"):
-        policy.resolve("anthropic", "claude-fable-5")
+        policy.resolve("anthropic", "claude-fable-5-1")
 
 
 @pytest.mark.parametrize("mode", [vibeproxy.TransportMode.PREFER, vibeproxy.TransportMode.REQUIRED])
@@ -636,9 +636,9 @@ def test_catalog_timeout_preserves_timeout_type_in_required_mode(
 
     if mode is vibeproxy.TransportMode.REQUIRED:
         with pytest.raises(vibeproxy.VibeProxyTimeoutError, match="catalog timed out"):
-            policy.resolve("anthropic", "claude-fable-5")
+            policy.resolve("anthropic", "claude-fable-5-1")
     else:
-        route = policy.resolve("anthropic", "claude-fable-5")
+        route = policy.resolve("anthropic", "claude-fable-5-1")
         assert route.transport == "direct"
         assert route.fallback_reason == "catalog timed out"
 
@@ -671,10 +671,10 @@ def test_unimplemented_provider_is_not_advertised(provider: str) -> None:
 def test_anthropic_streaming_is_not_advertised() -> None:
     policy = vibeproxy.ModelTransportPolicy(
         vibeproxy.TransportMode.PREFER,
-        client=_FakeClient({"claude-fable-5"}),  # type: ignore[arg-type]
+        client=_FakeClient({"claude-fable-5-1"}),  # type: ignore[arg-type]
     )
 
-    route = policy.resolve("anthropic", "claude-fable-5", capabilities=("chat", "stream"))
+    route = policy.resolve("anthropic", "claude-fable-5-1", capabilities=("chat", "stream"))
 
     assert route.transport == "direct"
     assert route.fallback_reason == "unsupported capabilities: stream"
@@ -686,7 +686,7 @@ def test_anthropic_message_extracts_only_text(monkeypatch: pytest.MonkeyPatch) -
         client,
         "_request",
         lambda *_args, **_kwargs: {
-            "model": "claude-fable-5",
+            "model": "claude-fable-5-1",
             "content": [
                 {"type": "thinking", "thinking": "private"},
                 {"type": "text", "text": "answer"},
@@ -694,7 +694,7 @@ def test_anthropic_message_extracts_only_text(monkeypatch: pytest.MonkeyPatch) -
         },
     )
 
-    assert client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1) == "answer"
+    assert client.anthropic_message(model="claude-fable-5-1", prompt="q", timeout=1) == "answer"
 
 
 def test_anthropic_message_rejects_truncated_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -703,14 +703,14 @@ def test_anthropic_message_rejects_truncated_output(monkeypatch: pytest.MonkeyPa
         client,
         "_request",
         lambda *_args, **_kwargs: {
-            "model": "claude-fable-5",
+            "model": "claude-fable-5-1",
             "stop_reason": "max_tokens",
             "content": [{"type": "text", "text": "partial"}],
         },
     )
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="truncated"):
-        client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1)
+        client.anthropic_message(model="claude-fable-5-1", prompt="q", timeout=1)
 
 
 @pytest.mark.parametrize("response_model", [None, "claude-opus-4-8"])
@@ -729,4 +729,4 @@ def test_anthropic_message_rejects_response_model_mismatch(
     )
 
     with pytest.raises(vibeproxy.VibeProxyUnavailableError, match="requested model"):
-        client.anthropic_message(model="claude-fable-5", prompt="q", timeout=1)
+        client.anthropic_message(model="claude-fable-5-1", prompt="q", timeout=1)

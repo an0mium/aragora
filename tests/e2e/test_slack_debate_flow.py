@@ -412,7 +412,7 @@ class TestSlackReceiptIntegration:
             final_answer="We should implement gradual AI regulation.",
             votes={"approve": 2, "reject": 1},
             rounds_used=3,
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-6-astra"],
         )
 
         receipt_url = "https://aragora.ai/receipts/receipt-abc123"

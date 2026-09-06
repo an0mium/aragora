@@ -65,10 +65,10 @@ class TestCostAnomaly:
             actual_value=100.0,
             variance_ratio=2.0,
             detected_at=datetime.now(timezone.utc),
-            metadata={"model": "gpt-4", "reason": "first_use"},
+            metadata={"model": "gpt-6-astra", "reason": "first_use"},
         )
 
-        assert anomaly.metadata == {"model": "gpt-4", "reason": "first_use"}
+        assert anomaly.metadata == {"model": "gpt-6-astra", "reason": "first_use"}
 
     def test_anomaly_default_metadata(self):
         """Should default metadata to empty dict."""

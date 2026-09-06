@@ -89,7 +89,7 @@ class TestRecordingFunctions:
         from aragora.observability.metrics import record_agent_call
 
         record_agent_call("claude", success=True, latency_seconds=1.2)
-        record_agent_call("gpt-4", success=False, latency_seconds=30.0)
+        record_agent_call("gpt-6-astra", success=False, latency_seconds=30.0)
 
     def test_set_consensus_rate(self):
         """set_consensus_rate should not raise."""
@@ -135,7 +135,7 @@ class TestRecordingFunctions:
         from aragora.observability.metrics import record_agent_participation
 
         record_agent_participation("claude", "propose")
-        record_agent_participation("gpt-4", "critique")
+        record_agent_participation("gpt-6-astra", "critique")
 
     def test_record_cache_hit_miss(self):
         """Cache hit/miss recording should not raise."""
@@ -255,7 +255,7 @@ class TestCrossFunctionalMetrics:
         from aragora.observability.metrics import record_selection_feedback_adjustment
 
         record_selection_feedback_adjustment("claude", "up")
-        record_selection_feedback_adjustment("gpt-4", "down")
+        record_selection_feedback_adjustment("gpt-6-astra", "down")
 
     def test_record_workflow_trigger(self):
         """Workflow trigger recording should not raise."""

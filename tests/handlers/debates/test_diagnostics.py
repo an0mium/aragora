@@ -76,20 +76,30 @@ def completed_debate():
         "confidence": 0.85,
         "consensus_method": "majority",
         "duration_seconds": 45.2,
-        "participants": ["claude-sonnet", "gpt-4", "gemini-pro"],
+        "participants": ["claude-sonnet", "gpt-6-astra", "gemini-3.1-pro-preview"],
         "messages": [
             {"agent": "claude-sonnet", "content": "I propose...", "role": "proposer", "round": 1},
-            {"agent": "gpt-4", "content": "I critique...", "role": "critic", "round": 1},
-            {"agent": "gemini-pro", "content": "My view...", "role": "proposer", "round": 1},
+            {"agent": "gpt-6-astra", "content": "I critique...", "role": "critic", "round": 1},
+            {
+                "agent": "gemini-3.1-pro-preview",
+                "content": "My view...",
+                "role": "proposer",
+                "round": 1,
+            },
             {"agent": "claude-sonnet", "content": "Revised...", "role": "proposer", "round": 2},
-            {"agent": "gpt-4", "content": "Better...", "role": "critic", "round": 2},
-            {"agent": "gemini-pro", "content": "Agreed...", "role": "proposer", "round": 2},
+            {"agent": "gpt-6-astra", "content": "Better...", "role": "critic", "round": 2},
+            {
+                "agent": "gemini-3.1-pro-preview",
+                "content": "Agreed...",
+                "role": "proposer",
+                "round": 2,
+            },
             {"agent": "claude-sonnet", "content": "Final...", "role": "proposer", "round": 3},
-            {"agent": "gpt-4", "content": "Accept...", "role": "critic", "round": 3},
+            {"agent": "gpt-6-astra", "content": "Accept...", "role": "critic", "round": 3},
         ],
         "proposals": {
             "claude-sonnet": "Use Kubernetes for flexibility.",
-            "gemini-pro": "Use ECS for simplicity.",
+            "gemini-3.1-pro-preview": "Use ECS for simplicity.",
         },
         "agent_failures": {},
         "metadata": {"receipt_id": "receipt-abc-123"},
@@ -106,14 +116,14 @@ def failed_debate():
         "consensus_reached": False,
         "confidence": 0.0,
         "duration_seconds": 12.5,
-        "participants": ["claude-sonnet", "gpt-4", "mistral-large"],
+        "participants": ["claude-sonnet", "gpt-6-astra", "mistral-large-2512"],
         "messages": [
             {"agent": "claude-sonnet", "content": "I propose...", "role": "proposer", "round": 1},
         ],
         "proposals": {},
         "agent_failures": {
-            "gpt-4": [{"error": "API key invalid or quota exceeded", "round": 1}],
-            "mistral-large": [{"error": "Connection timeout", "round": 1}],
+            "gpt-6-astra": [{"error": "API key invalid or quota exceeded", "round": 1}],
+            "mistral-large-2512": [{"error": "Connection timeout", "round": 1}],
         },
         "metadata": {},
         "error": "Multiple agent failures",
@@ -132,16 +142,16 @@ def no_consensus_debate():
         "consensus_method": "supermajority",
         "duration_seconds": 120.0,
         "rounds_used": 5,
-        "participants": ["claude-sonnet", "gpt-4"],
+        "participants": ["claude-sonnet", "gpt-6-astra"],
         "messages": [
             {"agent": "claude-sonnet", "content": "Python.", "role": "proposer", "round": 1},
-            {"agent": "gpt-4", "content": "Rust.", "role": "proposer", "round": 1},
+            {"agent": "gpt-6-astra", "content": "Rust.", "role": "proposer", "round": 1},
             {"agent": "claude-sonnet", "content": "Still Python.", "role": "proposer", "round": 2},
-            {"agent": "gpt-4", "content": "Still Rust.", "role": "proposer", "round": 2},
+            {"agent": "gpt-6-astra", "content": "Still Rust.", "role": "proposer", "round": 2},
         ],
         "proposals": {
             "claude-sonnet": "Python is the best.",
-            "gpt-4": "Rust is the best.",
+            "gpt-6-astra": "Rust is the best.",
         },
         "agent_failures": {},
         "metadata": {},
@@ -219,14 +229,14 @@ class TestAgentDiagnostics:
         assert agents["claude-sonnet"]["status"] == "success"
         assert agents["claude-sonnet"]["provider"] == "anthropic"
 
-        # gpt-4: 3 critiques (rounds 1, 2, 3)
-        assert agents["gpt-4"]["critiques"] == 3
-        assert agents["gpt-4"]["status"] == "success"
-        assert agents["gpt-4"]["provider"] == "openai"
+        # gpt-6-astra: 3 critiques (rounds 1, 2, 3)
+        assert agents["gpt-6-astra"]["critiques"] == 3
+        assert agents["gpt-6-astra"]["status"] == "success"
+        assert agents["gpt-6-astra"]["provider"] == "openai"
 
-        # gemini-pro: 2 proposals (rounds 1, 2)
-        assert agents["gemini-pro"]["proposals"] == 2
-        assert agents["gemini-pro"]["provider"] == "google"
+        # gemini-3.1-pro-preview: 2 proposals (rounds 1, 2)
+        assert agents["gemini-3.1-pro-preview"]["proposals"] == 2
+        assert agents["gemini-3.1-pro-preview"]["provider"] == "google"
 
     def test_failed_agents_detected(self, failed_debate):
         """Test that failed agents are properly marked."""
@@ -238,17 +248,17 @@ class TestAgentDiagnostics:
         data = _parse_response(result)
         agents = {a["name"]: a for a in data["agents"]}
 
-        assert agents["gpt-4"]["status"] == "failed"
-        assert "API key invalid" in agents["gpt-4"]["error"]
-        assert agents["mistral-large"]["status"] == "failed"
-        assert "timeout" in agents["mistral-large"]["error"].lower()
+        assert agents["gpt-6-astra"]["status"] == "failed"
+        assert "API key invalid" in agents["gpt-6-astra"]["error"]
+        assert agents["mistral-large-2512"]["status"] == "failed"
+        assert "timeout" in agents["mistral-large-2512"]["error"].lower()
 
     def test_agents_with_zero_participation_marked_timeout(self):
         """Test that agents with no messages are marked as timeout."""
         debate = {
             "debate_id": "d1",
             "status": "concluded",
-            "participants": ["claude", "gpt-4"],
+            "participants": ["claude", "gpt-6-astra"],
             "messages": [
                 {"agent": "claude", "content": "Hello", "role": "proposer", "round": 1},
             ],
@@ -263,7 +273,7 @@ class TestAgentDiagnostics:
         data = _parse_response(result)
         agents = {a["name"]: a for a in data["agents"]}
 
-        assert agents["gpt-4"]["status"] == "timeout"
+        assert agents["gpt-6-astra"]["status"] == "timeout"
         assert agents["claude"]["status"] == "success"
 
     def test_agent_from_messages_not_in_participants(self):
@@ -297,8 +307,8 @@ class TestAgentDiagnostics:
         agents = {a["name"]: a for a in data["agents"]}
 
         assert agents["claude-sonnet"]["rounds_participated"] == 3
-        assert agents["gpt-4"]["rounds_participated"] == 3
-        assert agents["gemini-pro"]["rounds_participated"] == 2
+        assert agents["gpt-6-astra"]["rounds_participated"] == 3
+        assert agents["gemini-3.1-pro-preview"]["rounds_participated"] == 2
 
 
 class TestConsensusDiagnostics:
@@ -374,7 +384,7 @@ class TestSuggestionGeneration:
         data = _parse_response(result)
 
         suggestions = data["suggestions"]
-        # mistral-large had a timeout error
+        # mistral-large-2512 had a timeout error
         assert any("timeout" in s.lower() for s in suggestions)
 
     def test_no_consensus_suggestion(self, no_consensus_debate):
@@ -427,7 +437,7 @@ class TestSuggestionGeneration:
             "debate_id": "d4",
             "status": "failed",
             "consensus_reached": False,
-            "participants": ["claude", "gpt-4"],
+            "participants": ["claude", "gpt-6-astra"],
             "messages": [],
             "agent_failures": {},
             "metadata": {},
@@ -514,10 +524,10 @@ class TestProviderInference:
         from aragora.server.handlers.debates.diagnostics import _infer_provider
 
         assert _infer_provider("claude-sonnet") == "anthropic"
-        assert _infer_provider("gpt-4") == "openai"
-        assert _infer_provider("gemini-pro") == "google"
+        assert _infer_provider("gpt-6-astra") == "openai"
+        assert _infer_provider("gemini-3.1-pro-preview") == "google"
         assert _infer_provider("grok") == "xai"
-        assert _infer_provider("mistral-large") == "mistral"
+        assert _infer_provider("mistral-large-2512") == "mistral"
         assert _infer_provider("deepseek") == "openrouter"
 
     def test_unknown_provider(self):
@@ -581,7 +591,7 @@ class TestEdgeCases:
         debate = {
             "debate_id": "str-agents",
             "status": "concluded",
-            "participants": "claude,gpt-4,gemini",
+            "participants": "claude,gpt-6-astra,gemini",
             "messages": [],
             "agent_failures": {},
             "metadata": {},
@@ -595,7 +605,7 @@ class TestEdgeCases:
 
         agent_names = [a["name"] for a in data["agents"]]
         assert "claude" in agent_names
-        assert "gpt-4" in agent_names
+        assert "gpt-6-astra" in agent_names
         assert "gemini" in agent_names
 
     def test_agent_failure_as_string(self):

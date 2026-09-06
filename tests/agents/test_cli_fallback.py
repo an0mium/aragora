@@ -227,7 +227,7 @@ class TestMultipleCLIAgents:
         "agent_class,agent_name,model",
         [
             (ClaudeAgent, "claude", "claude-3"),
-            (GeminiCLIAgent, "gemini", "gemini-pro"),
+            (GeminiCLIAgent, "gemini", "gemini-3.1-pro-preview"),
             (CodexAgent, "codex", "codex"),
         ],
     )
@@ -241,7 +241,7 @@ class TestMultipleCLIAgents:
         "agent_class,agent_name,model",
         [
             (ClaudeAgent, "claude", "claude-3"),
-            (GeminiCLIAgent, "gemini", "gemini-pro"),
+            (GeminiCLIAgent, "gemini", "gemini-3.1-pro-preview"),
             (CodexAgent, "codex", "codex"),
         ],
     )

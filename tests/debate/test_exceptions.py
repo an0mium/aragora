@@ -90,9 +90,9 @@ class TestAgentCircuitOpenError:
         assert "circuit breaker" in str(exc).lower()
 
     def test_with_agent_name(self):
-        exc = AgentCircuitOpenError(agent_name="gpt-4")
-        assert "gpt-4" in str(exc)
-        assert exc.agent_name == "gpt-4"
+        exc = AgentCircuitOpenError(agent_name="gpt-6-astra")
+        assert "gpt-6-astra" in str(exc)
+        assert exc.agent_name == "gpt-6-astra"
 
     def test_is_debate_error(self):
         assert issubclass(AgentCircuitOpenError, DebateError)

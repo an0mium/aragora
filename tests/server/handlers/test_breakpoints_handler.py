@@ -68,7 +68,7 @@ def mock_breakpoint():
     bp.snapshot.round_num = 3
     bp.snapshot.task = "Analyze market trends"
     bp.snapshot.current_confidence = 0.45
-    bp.snapshot.agent_names = ["claude", "gpt-4", "gemini"]
+    bp.snapshot.agent_names = ["claude", "gpt-6-astra", "gemini"]
 
     return bp
 

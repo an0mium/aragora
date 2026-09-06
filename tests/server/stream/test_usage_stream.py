@@ -56,7 +56,7 @@ def sample_event():
         total_tokens=150,
         cost_usd=Decimal("0.0015"),
         provider="anthropic",
-        model="claude-3-opus",
+        model="claude-fable-5-1",
         debate_id="debate-001",
         operation="proposal",
     )
@@ -187,7 +187,7 @@ class TestUsageStreamEvent:
         assert d["total_tokens"] == 150
         assert d["cost_usd"] == "0.0015"
         assert d["provider"] == "anthropic"
-        assert d["model"] == "claude-3-opus"
+        assert d["model"] == "claude-fable-5-1"
         assert d["debate_id"] == "debate-001"
         assert d["operation"] == "proposal"
         assert d["budget_used_pct"] == 0.0
@@ -636,7 +636,7 @@ class TestGlobalEmitterFunctions:
             tokens_out=50,
             cost_usd=Decimal("0.015"),
             provider="openai",
-            model="gpt-4",
+            model="gpt-6-astra",
         )
 
         assert event.tenant_id == "tenant-1"
@@ -645,7 +645,7 @@ class TestGlobalEmitterFunctions:
         assert event.total_tokens == 150
         assert event.cost_usd == Decimal("0.015")
         assert event.provider == "openai"
-        assert event.model == "gpt-4"
+        assert event.model == "gpt-6-astra"
         assert len(received) == 1
 
     @pytest.mark.asyncio
@@ -658,7 +658,7 @@ class TestGlobalEmitterFunctions:
             tokens_out=500,
             cost_usd=Decimal("0.15"),
             provider="anthropic",
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             workspace_id="workspace-1",
             user_id="user-1",
             debate_id="debate-1",

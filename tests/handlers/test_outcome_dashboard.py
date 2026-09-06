@@ -84,7 +84,7 @@ class MockAgentPerformance:
     agent_id: str = "agent-001"
     agent_name: str = "claude"
     provider: str = "anthropic"
-    model: str = "claude-3-opus"
+    model: str = "claude-fable-5-1"
     debates_participated: int = 50
     messages_sent: int = 200
     avg_response_time_ms: float = 1500.0

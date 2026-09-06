@@ -131,7 +131,7 @@ describe('GauntletLive', () => {
       mockHookReturn.status = 'streaming';
       mockHookReturn.agents = new Map([
         ['claude', { name: 'claude', role: 'attacker', status: 'active', attackCount: 5, probeCount: 10 }],
-        ['gpt-4', { name: 'gpt-4', role: 'analyst', status: 'idle', attackCount: 3, probeCount: 8 }],
+        ['gpt-6-astra', { name: 'gpt-6-astra', role: 'analyst', status: 'idle', attackCount: 3, probeCount: 8 }],
       ]);
     });
 
@@ -145,7 +145,7 @@ describe('GauntletLive', () => {
       render(<GauntletLive {...defaultProps} />);
 
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.getByText('gpt-4')).toBeInTheDocument();
+      expect(screen.getByText('gpt-6-astra')).toBeInTheDocument();
     });
 
     it('displays agent attack and probe counts', () => {
@@ -185,7 +185,7 @@ describe('GauntletLive', () => {
           category: 'data-leak',
           title: 'Information Disclosure',
           description: 'Sensitive data exposed',
-          source: 'gpt-4',
+          source: 'gpt-6-astra',
         },
       ];
     });

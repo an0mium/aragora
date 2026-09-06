@@ -52,7 +52,7 @@ class TestSelectProvidersWithDetails:
         router = ProviderRouter()
         # Record enough data to exceed MIN_DEBATES_FOR_METRICS (10)
         for _ in range(5):
-            router.record_outcome("claude-sonnet-4", quality=0.9, cost=0.15)
+            router.record_outcome("claude-sonnet-5", quality=0.9, cost=0.15)
         for _ in range(5):
             router.record_outcome("gpt-4o", quality=0.85, cost=0.10)
         for _ in range(5):
@@ -79,8 +79,8 @@ class TestSelectProvidersWithDetails:
         result = router.select_providers_with_details(num_agents=3, budget=0.06)
         provider_names = [r["provider"] for r in result]
         assert "deepseek-r1" in provider_names
-        # claude-sonnet-4 and gpt-4o cost more than 0.02 per agent
-        assert "claude-sonnet-4" not in provider_names
+        # claude-sonnet-5 and gpt-4o cost more than 0.02 per agent
+        assert "claude-sonnet-5" not in provider_names
         assert "gpt-4o" not in provider_names
 
     def test_zero_budget_no_providers(self):
@@ -94,7 +94,7 @@ class TestSelectProvidersWithDetails:
         router = self._make_router_with_data()
         result = router.select_providers_with_details(num_agents=10, budget=1000.0)
         provider_names = {r["provider"] for r in result}
-        assert "claude-sonnet-4" in provider_names
+        assert "claude-sonnet-5" in provider_names
         assert "gpt-4o" in provider_names
         assert "deepseek-r1" in provider_names
 
@@ -117,7 +117,7 @@ class TestSelectProvidersWithDetails:
         provider_names = {r["provider"] for r in result}
         # deepseek-r1 has quality 0.7, below threshold
         assert "deepseek-r1" not in provider_names
-        assert "claude-sonnet-4" in provider_names
+        assert "claude-sonnet-5" in provider_names
 
     def test_quality_scores_in_range(self):
         """Quality scores should be in [0, 1]."""

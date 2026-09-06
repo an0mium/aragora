@@ -1575,8 +1575,8 @@ class TestAnswerQuestionAsync:
             return_value=detected
             or [
                 ("anthropic", "claude-3-7-sonnet"),
-                ("openai", "gpt-4o"),
-                ("mistral", "mistral-large"),
+                ("openai", "gpt-6-astra"),
+                ("mistral", "mistral-large-2512"),
             ]
         )
 

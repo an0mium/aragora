@@ -253,8 +253,8 @@ class TestAgentToDictCalibration:
         from aragora.server.handlers.base import agent_to_dict
 
         agent = MagicMock()
-        agent.name = "gpt-4"
-        agent.agent_name = "gpt-4"
+        agent.name = "gpt-6-astra"
+        agent.agent_name = "gpt-6-astra"
         agent.elo = 1550
         agent.wins = 20
         agent.losses = 10
@@ -263,7 +263,7 @@ class TestAgentToDictCalibration:
         agent.games_played = 32
         agent.matches = 32
         result = agent_to_dict(agent)
-        assert result["name"] == "gpt-4"
+        assert result["name"] == "gpt-6-astra"
         assert result["elo"] == 1550
         assert "calibration" not in result
 

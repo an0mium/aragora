@@ -180,14 +180,14 @@ class TestResolvePlaygroundAgents:
 
     def test_openrouter_tags_converted(self):
         tags = [
-            "openrouter:anthropic/claude-sonnet-4",
-            "openrouter:openai/gpt-4o",
+            "openrouter:anthropic/claude-sonnet-5",
+            "openrouter:openai/gpt-6-astra",
             "openrouter:google/gemini-2.0-flash-001",
         ]
         result = _resolve_playground_agents(tags)
         expected = (
-            "openrouter|anthropic/claude-sonnet-4,"
-            "openrouter|openai/gpt-4o,"
+            "openrouter|anthropic/claude-sonnet-5,"
+            "openrouter|openai/gpt-6-astra,"
             "openrouter|google/gemini-2.0-flash-001"
         )
         assert result == expected
@@ -198,10 +198,15 @@ class TestResolvePlaygroundAgents:
         assert result == "anthropic-api,openai-api,mistral-api"
 
     def test_mixed_tags(self):
-        tags = ["anthropic-api", "openrouter:openai/gpt-4o", "openrouter:deepseek/deepseek-v4-pro"]
+        tags = [
+            "anthropic-api",
+            "openrouter:openai/gpt-6-astra",
+            "openrouter:deepseek/deepseek-v4-pro-0813",
+        ]
         result = _resolve_playground_agents(tags)
         assert (
-            result == "anthropic-api,openrouter|openai/gpt-4o,openrouter|deepseek/deepseek-v4-pro"
+            result
+            == "anthropic-api,openrouter|openai/gpt-6-astra,openrouter|deepseek/deepseek-v4-pro-0813"
         )
 
     def test_resolved_agents_parse_with_agent_spec(self):

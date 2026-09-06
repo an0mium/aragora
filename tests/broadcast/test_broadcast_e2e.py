@@ -40,22 +40,22 @@ class MockDebateTrace:
 
     def __post_init__(self):
         if self.agents is None:
-            self.agents = ["claude-3-opus", "gpt-4", "gemini-pro"]
+            self.agents = ["claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview"]
         if self.messages is None:
             self.messages = [
                 {
                     "role": "proposer",
-                    "agent": "claude-3-opus",
+                    "agent": "claude-fable-5-1",
                     "content": "AI systems should have human oversight...",
                 },
                 {
                     "role": "critic",
-                    "agent": "gpt-4",
+                    "agent": "gpt-6-astra",
                     "content": "I agree with the core premise but...",
                 },
                 {
                     "role": "synthesizer",
-                    "agent": "gemini-pro",
+                    "agent": "gemini-3.1-pro-preview",
                     "content": "Building on both perspectives...",
                 },
             ]

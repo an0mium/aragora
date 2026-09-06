@@ -424,7 +424,7 @@ class TestDemoMode:
         assert len(result["agents"]) == 4
         agent_names = [a["name"] for a in result["agents"]]
         assert "claude" in agent_names
-        assert "gpt-4" in agent_names
+        assert "gpt-6-astra" in agent_names
         client.close()
 
     def test_demo_rankings(self) -> None:

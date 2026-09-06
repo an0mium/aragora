@@ -1222,7 +1222,7 @@ class TestOpenAIModelMapping:
             agent = OpenAIAPIAgent(api_key="test-key", model=legacy_model)
             assert agent.get_fallback_model() == "openai/gpt-6-astra"
         # Small/cheap legacy spellings upgrade to the Terra value tier.
-        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-4o-mini")
+        agent = OpenAIAPIAgent(api_key="test-key", model="gpt-5.6-terra")
         assert agent.get_fallback_model() == "openai/gpt-5.6-terra"
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):

@@ -1566,7 +1566,7 @@ class TestEdgeCases:
             critique_id="crit-1",
             proposal_id="prop-1",
             content="This needs improvement",
-            model="gpt-4",
+            model="gpt-6-astra",
             round_number=2,
             severity="moderate",
         )

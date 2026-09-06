@@ -59,7 +59,7 @@ class MockDebateContext:
         self.env.task = f"Test task for {self.debate_id}"
         self.agents = [
             MagicMock(name="claude"),
-            MagicMock(name="gpt-4"),
+            MagicMock(name="gpt-6-astra"),
         ]
 
         self.result = MagicMock()

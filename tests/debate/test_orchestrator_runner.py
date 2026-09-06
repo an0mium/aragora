@@ -955,7 +955,7 @@ class TestHandleDebateCompletion:
         mock_arena.agents[1].metrics = None
         mock_arena.agents[1].provider = None
         mock_arena.agents[1].agent_type = "openai"
-        mock_arena.agents[1].model = "gpt-4o-mini"
+        mock_arena.agents[1].model = "gpt-5.6-terra"
         mock_arena.agents[1].total_tokens_in = 90
         mock_arena.agents[1].total_tokens_out = 45
 
@@ -1039,7 +1039,7 @@ class TestHandleDebateCompletion:
         assert activity_calls["agent-1"]["tokens_out"] == 45
         assert activity_calls["agent-1"]["cost"] == Decimal("0.33")
         assert activity_calls["agent-1"]["provider"] == "openai"
-        mock_calculate_cost.assert_called_once_with("openai", "gpt-4o-mini", 90, 45)
+        mock_calculate_cost.assert_called_once_with("openai", "gpt-5.6-terra", 90, 45)
 
     @pytest.mark.asyncio
     async def test_record_debate_telemetry_swallows_noncritical_failures(
@@ -1363,7 +1363,7 @@ class TestHandleDebateCompletion:
 
         for idx, agent in enumerate(mock_arena.agents[:2]):
             agent.provider = "anthropic"
-            agent.model = "claude-sonnet-4"
+            agent.model = "claude-sonnet-5"
             agent.total_tokens_in = (idx + 1) * 100
             agent.total_tokens_out = (idx + 1) * 25
 
@@ -1453,7 +1453,7 @@ class TestHandleDebateCompletion:
         for idx, agent in enumerate(mock_arena.agents):
             agent.name = f"agent-{idx}"
             agent.provider = "anthropic"
-            agent.model = "claude-sonnet-4"
+            agent.model = "claude-sonnet-5"
             agent.total_tokens_in = 0
             agent.total_tokens_out = 0
 

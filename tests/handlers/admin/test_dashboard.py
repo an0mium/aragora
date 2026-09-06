@@ -142,8 +142,8 @@ SAMPLE_ROWS = [
 
 SAMPLE_RATINGS = [
     MockRating("claude-opus", 1250, 14, 6, 0, 0.7, 20),
-    MockRating("gpt-4", 1200, 12, 6, 0, 0.65, 18),
-    MockRating("mistral-large", 1100, 6, 6, 0, 0.5, 12),
+    MockRating("gpt-6-astra", 1200, 12, 6, 0, 0.65, 18),
+    MockRating("mistral-large-2512", 1100, 6, 6, 0, 0.5, 12),
 ]
 
 

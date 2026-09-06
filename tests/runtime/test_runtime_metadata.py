@@ -47,7 +47,7 @@ class TestModelConfig(unittest.TestCase):
     def test_custom_values(self):
         """Should accept custom values."""
         config = ModelConfig(
-            model_id="claude-3-opus",
+            model_id="claude-fable-5-1",
             provider="anthropic",
             version="2024-01",
             temperature=0.5,
@@ -69,13 +69,13 @@ class TestModelConfigProviderInference(unittest.TestCase):
 
     def test_infer_anthropic_from_claude(self):
         """Should infer anthropic from Claude models."""
-        self.assertEqual(ModelConfig._infer_provider("claude-3-opus"), "anthropic")
+        self.assertEqual(ModelConfig._infer_provider("claude-fable-5-1"), "anthropic")
         self.assertEqual(ModelConfig._infer_provider("claude-2.1"), "anthropic")
         self.assertEqual(ModelConfig._infer_provider("Claude-3-Sonnet"), "anthropic")
 
     def test_infer_google_from_gemini(self):
         """Should infer google from Gemini models."""
-        self.assertEqual(ModelConfig._infer_provider("gemini-pro"), "google")
+        self.assertEqual(ModelConfig._infer_provider("gemini-3.1-pro-preview"), "google")
         self.assertEqual(ModelConfig._infer_provider("Gemini-1.5-Flash"), "google")
 
     def test_infer_codex(self):
@@ -110,7 +110,7 @@ class TestModelConfigFromAgent(unittest.TestCase):
     def test_from_agent_with_system_prompt(self):
         """Should hash system prompt."""
         agent = MagicMock()
-        agent.model = "claude-3-opus"
+        agent.model = "claude-fable-5-1"
         agent.system_prompt = "You are a helpful assistant."
 
         config = ModelConfig.from_agent(agent)
@@ -391,7 +391,7 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         agent1.system_prompt = None
 
         agent2 = MagicMock()
-        agent2.model = "claude-3-opus"
+        agent2.model = "claude-fable-5-1"
         agent2.system_prompt = "Be helpful"
 
         arena.agents = [agent1, agent2]
@@ -404,7 +404,7 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         self.assertEqual(meta.max_rounds, 4)
         self.assertEqual(len(meta.agent_configs), 2)
         self.assertEqual(meta.agent_configs[0].model_id, "gpt-4")
-        self.assertEqual(meta.agent_configs[1].model_id, "claude-3-opus")
+        self.assertEqual(meta.agent_configs[1].model_id, "claude-fable-5-1")
 
 
 class TestMetadataStore(unittest.TestCase):
@@ -568,7 +568,7 @@ class TestMetadataStoreEdgeCases(unittest.TestCase):
         agents = [
             ModelConfig(model_id="gpt-4", provider="openai", temperature=0.5),
             ModelConfig(model_id="claude-3", provider="anthropic", temperature=0.8),
-            ModelConfig(model_id="gemini-pro", provider="google", temperature=0.6),
+            ModelConfig(model_id="gemini-3.1-pro-preview", provider="google", temperature=0.6),
         ]
         meta = DebateMetadata(
             debate_id="debate-123",

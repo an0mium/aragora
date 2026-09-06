@@ -202,7 +202,7 @@ def sample_proxy_request():
         method="POST",
         url="https://api.openai.com/v1/chat/completions",
         headers={"Authorization": "Bearer sk-test", "Content-Type": "application/json"},
-        body=b'{"model": "gpt-4"}',
+        body=b'{"model": "gpt-6-astra"}',
         tenant_id="tenant-123",
         correlation_id="corr-abc",
     )
@@ -1053,11 +1053,11 @@ class TestRequestSanitizer:
         assert sanitizer.sanitize_body_for_logging(None) == ""
 
     def test_body_redacts_api_key(self, sanitizer):
-        b = b'{"api_key": "sk-123", "model": "gpt-4"}'
+        b = b'{"api_key": "sk-123", "model": "gpt-6-astra"}'
         r = sanitizer.sanitize_body_for_logging(b)
         assert "sk-123" not in r
         assert '"[REDACTED]"' in r
-        assert "gpt-4" in r
+        assert "gpt-6-astra" in r
 
     def test_body_redacts_password(self, sanitizer):
         assert "secret123" not in sanitizer.sanitize_body_for_logging(b'{"password": "secret123"}')
@@ -1662,10 +1662,10 @@ class TestEnterpriseProxyRequest:
             framework="openai",
             method="POST",
             path="/v1/chat/completions",
-            json={"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "gpt-6-astra", "messages": [{"role": "user", "content": "hi"}]},
         )
         kw = s.request.call_args[1]
-        assert json.loads(kw["data"])["model"] == "gpt-4"
+        assert json.loads(kw["data"])["model"] == "gpt-6-astra"
         assert kw["headers"]["Content-Type"] == "application/json"
 
     @pytest.mark.asyncio

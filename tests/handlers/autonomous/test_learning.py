@@ -125,7 +125,9 @@ def _make_pattern(
     obj.evidence_count = evidence_count
     obj.first_seen = first_seen or datetime(2026, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
     obj.last_seen = last_seen or datetime(2026, 2, 1, 12, 0, 0, tzinfo=timezone.utc)
-    obj.agents_involved = agents_involved if agents_involved is not None else ["claude", "gpt-4"]
+    obj.agents_involved = (
+        agents_involved if agents_involved is not None else ["claude", "gpt-6-astra"]
+    )
     obj.topics = topics if topics is not None else ["architecture", "testing"]
     return obj
 
@@ -224,7 +226,7 @@ class TestGetAgentRatings:
 
     @pytest.mark.asyncio
     async def test_ratings_multiple_agents(self, install_learner):
-        ratings = {"claude": 1700.0, "gpt-4": 1550.0, "gemini": 1480.0}
+        ratings = {"claude": 1700.0, "gpt-6-astra": 1550.0, "gemini": 1480.0}
         install_learner.elo_updater.get_all_ratings.return_value = ratings
         req = _make_request()
         resp = await LearningHandler.get_agent_ratings(req)
@@ -233,7 +235,7 @@ class TestGetAgentRatings:
         data = await _parse(resp)
         assert data["count"] == 3
         assert data["ratings"]["claude"] == 1700.0
-        assert data["ratings"]["gpt-4"] == 1550.0
+        assert data["ratings"]["gpt-6-astra"] == 1550.0
         assert data["ratings"]["gemini"] == 1480.0
 
     @pytest.mark.asyncio
@@ -549,8 +551,8 @@ class TestGetAllCalibrations:
     @pytest.mark.asyncio
     async def test_all_calibrations_multiple(self, install_learner):
         cal1 = _make_calibration(agent_id="claude", elo_rating=1700.0)
-        cal2 = _make_calibration(agent_id="gpt-4", elo_rating=1550.0)
-        install_learner.get_all_calibrations.return_value = {"claude": cal1, "gpt-4": cal2}
+        cal2 = _make_calibration(agent_id="gpt-6-astra", elo_rating=1550.0)
+        install_learner.get_all_calibrations.return_value = {"claude": cal1, "gpt-6-astra": cal2}
 
         req = _make_request()
         resp = await LearningHandler.get_all_calibrations(req)
@@ -559,7 +561,7 @@ class TestGetAllCalibrations:
         data = await _parse(resp)
         assert data["count"] == 2
         assert "claude" in data["calibrations"]
-        assert "gpt-4" in data["calibrations"]
+        assert "gpt-6-astra" in data["calibrations"]
 
     @pytest.mark.asyncio
     async def test_all_calibrations_null_last_updated(self, install_learner):
@@ -689,16 +691,16 @@ class TestRecordDebateOutcome:
         install_learner.on_debate_completed.return_value = event
         install_learner.elo_updater.get_rating.side_effect = lambda a: {
             "claude": 1650.0,
-            "gpt-4": 1550.0,
+            "gpt-6-astra": 1550.0,
         }.get(a, 1500.0)
 
         req = _make_request(
             method="POST",
             body={
                 "debate_id": "debate-42",
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
                 "winner": "claude",
-                "votes": {"claude": 5, "gpt-4": 3},
+                "votes": {"claude": 5, "gpt-6-astra": 3},
                 "consensus_reached": True,
                 "topics": ["architecture"],
             },
@@ -712,7 +714,7 @@ class TestRecordDebateOutcome:
         assert data["event"]["event_type"] == "debate_completed"
         assert data["event"]["applied"] is True
         assert data["updated_ratings"]["claude"] == 1650.0
-        assert data["updated_ratings"]["gpt-4"] == 1550.0
+        assert data["updated_ratings"]["gpt-6-astra"] == 1550.0
 
     @pytest.mark.asyncio
     async def test_debate_outcome_no_winner(self, install_learner):
@@ -723,7 +725,7 @@ class TestRecordDebateOutcome:
             method="POST",
             body={
                 "debate_id": "debate-43",
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
                 "consensus_reached": False,
                 "topics": ["testing"],
             },
@@ -762,7 +764,7 @@ class TestRecordDebateOutcome:
         req = _make_request(
             method="POST",
             body={
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
             },
         )
         resp = await LearningHandler.record_debate_outcome(req)
@@ -1367,7 +1369,7 @@ class TestGetPatterns:
         assert p["evidence_count"] == 5
         assert p["first_seen"] == "2026-01-15T10:00:00+00:00"
         assert p["last_seen"] == "2026-02-01T12:00:00+00:00"
-        assert p["agents_involved"] == ["claude", "gpt-4"]
+        assert p["agents_involved"] == ["claude", "gpt-6-astra"]
         assert p["topics"] == ["architecture", "testing"]
 
     @pytest.mark.asyncio

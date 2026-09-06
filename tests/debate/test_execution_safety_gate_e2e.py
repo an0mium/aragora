@@ -181,7 +181,7 @@ async def test_e2e_reason_provider_diversity_below_minimum() -> None:
     arena = _make_arena(
         agents=[
             SimpleNamespace(name="gpt1", model="gpt-4.1", agent_type="openai-api"),
-            SimpleNamespace(name="gpt2", model="o3-mini", agent_type="openai-api"),
+            SimpleNamespace(name="gpt2", model="gpt-5.6-terra", agent_type="openai-api"),
         ],
         config_overrides={
             "execution_gate_min_provider_diversity": 2,
@@ -269,7 +269,7 @@ async def test_e2e_reason_suspicious_unanimity_risk() -> None:
     arena = _make_arena(
         agents=[
             SimpleNamespace(name="gpt1", model="gpt-4.1", agent_type="openai-api"),
-            SimpleNamespace(name="gpt2", model="o3-mini", agent_type="openai-api"),
+            SimpleNamespace(name="gpt2", model="gpt-5.6-terra", agent_type="openai-api"),
         ],
         config_overrides={
             "execution_gate_min_provider_diversity": 1,

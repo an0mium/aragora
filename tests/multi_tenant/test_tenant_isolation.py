@@ -178,7 +178,7 @@ class TestUsageTrackingTenantIsolation:
             tokens_in=10000,
             tokens_out=5000,
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
         )
         usage_tracker.record(event_a)
 

@@ -280,14 +280,14 @@ class TestGetSpendByAgent:
     async def test_groups_by_agent_name(self, analytics, mock_tracker):
         mock_tracker._usage_buffer = [
             _make_usage(agent_name="claude", cost_usd=4.0),
-            _make_usage(agent_name="gpt-4", cost_usd=2.0),
+            _make_usage(agent_name="gpt-6-astra", cost_usd=2.0),
             _make_usage(agent_name="claude", cost_usd=1.0),
         ]
 
         result = await analytics.get_spend_by_agent("ws-1")
 
         assert result["claude"] == pytest.approx(5.0, abs=0.01)
-        assert result["gpt-4"] == pytest.approx(2.0, abs=0.01)
+        assert result["gpt-6-astra"] == pytest.approx(2.0, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_falls_back_to_agent_id(self, analytics, mock_tracker):

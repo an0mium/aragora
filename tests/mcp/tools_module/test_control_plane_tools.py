@@ -53,7 +53,7 @@ class TestRegisterAgentTool:
         mock_agent.capabilities = {"debate", "code"}
         mock_agent.status = MagicMock()
         mock_agent.status.value = "available"
-        mock_agent.model = "claude-3-opus"
+        mock_agent.model = "claude-fable-5-1"
         mock_agent.provider = "anthropic"
         mock_agent.registered_at = 1700000000.0
         mock_coordinator.register_agent.return_value = mock_agent
@@ -66,7 +66,7 @@ class TestRegisterAgentTool:
             result = await register_agent_tool(
                 agent_id="claude-test",
                 capabilities="debate,code",
-                model="claude-3-opus",
+                model="claude-fable-5-1",
                 provider="anthropic",
             )
 

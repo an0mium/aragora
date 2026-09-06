@@ -286,7 +286,7 @@ class TestEventEmission:
         await stream_server.emit_agent_registered(
             agent_id="agent-1",
             capabilities=["debate", "analysis"],
-            model="gpt-4",
+            model="gpt-6-astra",
             provider="openai",
         )
 
@@ -294,7 +294,7 @@ class TestEventEmission:
         assert sent_data["type"] == "agent_registered"
         assert sent_data["data"]["agent_id"] == "agent-1"
         assert sent_data["data"]["capabilities"] == ["debate", "analysis"]
-        assert sent_data["data"]["model"] == "gpt-4"
+        assert sent_data["data"]["model"] == "gpt-6-astra"
         assert sent_data["data"]["provider"] == "openai"
 
     @pytest.mark.asyncio

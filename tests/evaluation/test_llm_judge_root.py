@@ -236,7 +236,7 @@ class TestEvaluationResult:
         result = EvaluationResult(
             response_id="resp-123",
             use_case="debate",
-            judge_model="claude-sonnet-4-20250514",
+            judge_model="claude-sonnet-5",
             summary="Good response overall",
             strengths=["Clear", "Well-reasoned"],
             weaknesses=["Lacks evidence"],
@@ -393,7 +393,7 @@ class TestJudgeConfig:
         """Test default configuration."""
         config = JudgeConfig()
 
-        assert config.model == "claude-sonnet-4-20250514"
+        assert config.model == "claude-sonnet-5"
         assert config.temperature == 0.0
         assert config.max_tokens == 4000
         assert config.use_case == "default"
@@ -403,13 +403,13 @@ class TestJudgeConfig:
     def test_config_custom(self):
         """Test custom configuration."""
         config = JudgeConfig(
-            model="gpt-4o",
+            model="gpt-6-astra",
             use_case="debate",
             pass_threshold=4.0,
             dimensions=[EvaluationDimension.REASONING, EvaluationDimension.EVIDENCE],
         )
 
-        assert config.model == "gpt-4o"
+        assert config.model == "gpt-6-astra"
         assert config.use_case == "debate"
         assert config.pass_threshold == 4.0
         assert len(config.dimensions) == 2
@@ -437,7 +437,7 @@ class TestLLMJudge:
         """Test creating judge with defaults."""
         judge = LLMJudge()
 
-        assert judge._config.model == "claude-sonnet-4-20250514"
+        assert judge._config.model == "claude-sonnet-5"
         assert len(judge._dimensions) == 8
         assert judge._weights == DEFAULT_WEIGHTS
 

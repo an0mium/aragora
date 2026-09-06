@@ -479,7 +479,7 @@ class TestSimilarDebatesEndpoint:
         mock_consensus.conclusion = "Needs regulation"
         mock_consensus.strength.value = "strong"
         mock_consensus.confidence = 0.92
-        mock_consensus.participating_agents = ["claude", "gpt-4"]
+        mock_consensus.participating_agents = ["claude", "gpt-6-astra"]
         mock_consensus.timestamp = datetime(2025, 6, 15, 10, 0, 0)
 
         mock_result = MagicMock()
@@ -505,7 +505,7 @@ class TestSimilarDebatesEndpoint:
         assert entry["confidence"] == 0.92
         assert entry["similarity"] == 0.87
         assert entry["dissent_count"] == 1
-        assert entry["agents"] == ["claude", "gpt-4"]
+        assert entry["agents"] == ["claude", "gpt-6-astra"]
         assert "2025-06-15" in entry["timestamp"]
 
     @patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True)
@@ -857,11 +857,11 @@ class TestDissentsEndpoint:
 
         mock_record = MagicMock()
         mock_record.content = "Disagreement"
-        mock_record.agent_id = "gpt-4"
+        mock_record.agent_id = "gpt-6-astra"
         mock_record.confidence = 0.5
         mock_record.reasoning = None
 
-        dissent_data = json.dumps({"content": "Disagreement", "agent_id": "gpt-4"})
+        dissent_data = json.dumps({"content": "Disagreement", "agent_id": "gpt-6-astra"})
         mock_db.return_value = _mock_db_conn(
             rows=[
                 (dissent_data, None, None),

@@ -77,7 +77,7 @@ class TestCatalogProjection:
     def test_soaking_but_active_models_are_still_candidates(self) -> None:
         """Final review #7: the routing roster must see the current
         frontier. Before the fix `gpt-6-astra` (the OpenAI default) was
-        excluded for soaking while retired `gpt-5.5` was offered."""
+        excluded for soaking while retired `gpt-6-astra` was offered."""
         table, _as_of = _snapshot_and_as_of()
         soaking = [s for s in CATALOG.values() if s.soak_until is not None and not s.retired]
         assert soaking, "fixture assumption: the catalog carries a soaking active row"

@@ -223,7 +223,7 @@ class TestAgentHealthSummary:
             last_heartbeat=datetime(2026, 1, 1, tzinfo=timezone.utc),
         )
         degraded_agent = FakeAgentHealth(
-            agent_name="gpt-4",
+            agent_name="gpt-6-astra",
             total_requests=100,
             failed_requests=20,
         )
@@ -231,7 +231,7 @@ class TestAgentHealthSummary:
         mock_watchdog = MagicMock()
         mock_watchdog.get_all_health.return_value = {
             "claude-opus": healthy_agent,
-            "gpt-4": degraded_agent,
+            "gpt-6-astra": degraded_agent,
         }
 
         with patch(f"{_MOD}._get_watchdog", return_value=mock_watchdog):
