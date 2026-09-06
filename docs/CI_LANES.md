@@ -59,21 +59,30 @@ no longer waits for `baseline-determinism`; that job and its other consumers rem
 Runner queue time, classification, and the short umbrella job are not bounded by
 the worker timeout, so the end-to-end target must be measured, not inferred.
 
-The `test-fast-gate` umbrella always runs and accepts only `success` or `skipped`
-from the worker matrix. Failure, cancellation, and unknown results fail closed.
-On draft PRs, the workers skip and the umbrella succeeds; that does not certify
-that tests executed. On ready PRs, relevance filtering selects matching shards.
-`Tests` keeps its PR path filter, nightly `0 4 * * *` schedule, manual
+`Tests` runs on every PR against `main`, with no trigger-level `paths` or
+`paths-ignore` filter. The former 19-pattern trigger allowlist now lives in
+`test-shard-scope`'s `in_scope` filter, pinned by
+`tests/ci/test_fast_gate_workflows.py`. Its `in_scope` output is true on PRs
+only when a changed file matches the allowlist, and true on every non-PR event.
+The classifier runs on drafts too. Every PR root job and the fast workers
+gate on this output; out-of-scope PRs cascade-skip all other work, including
+the always-running summaries and audits. The umbrella is green in about one
+minute on these PRs. `Tests` keeps its nightly `0 4 * * *` schedule, manual
 `workflow_dispatch`, and original concurrency group. It has no push trigger.
 
-`.github/workflows/test-fast-gate-companion.yml` implements the
-skipped-required-check companion pattern. Its PR `paths-ignore` exactly mirrors
-`test.yml`'s `paths`, with identical branch and activity filters. Its only job is
-named `test-fast-gate` and exits 0 without checkout or credentials, including on
-draft PRs. Thus a docs-only or other out-of-scope PR still receives a successful
-check instead of waiting forever for a filtered-out workflow. Mixed in-scope and
-out-of-scope changes can trigger both workflows; the real test gate still runs.
-Keep the two path lists synchronized (the workflow regression tests enforce this).
+The `test-fast-gate` umbrella always runs after the classifier and worker matrix.
+It requires successful classification, then accepts successful in-scope workers
+on ready PRs or non-PR runs, skipped out-of-scope workers, or skipped in-scope
+workers only on drafts. Failure, cancellation, missing/unknown results, and
+skipped in-scope workers on ready PRs fail closed. A green draft gate does not
+certify that tests executed. On ready PRs, relevance filtering selects matching shards.
+
+A second producer of the `test-fast-gate` check-run name must never be reintroduced.
+GitHub's observed latest-completed-wins behaviour honours the most recently
+completed same-named check run. It creates an umbrella's check run only after
+its `needs` finish, so a companion's early success on a mixed-path PR could
+satisfy the required check for minutes before the real gate even exists.
+Keeping exactly one producer in `test.yml` closes that window.
 
 `.github/workflows/test-debate-shards.yml`, named **Tests (debate shards)**,
 runs `debate-phases`, `debate-1`, `debate-2`, and `debate-3` on pushes to `main`,
@@ -90,7 +99,7 @@ M10 records this exact command in its PR body but **does not execute it**.
 Only the separate M11 Tier-4 settlement may execute it, after explicit operator
 authorization, M4 has merged, and at least three scheduled `Tests` runs on
 `main` show the fully executed gate green within the target duration. M11 also
-verifies the companion's out-of-scope PR check. Until then, the six checks above
+verifies the single workflow's out-of-scope PR check. Until then, the six checks above
 and `strict: false` remain unchanged.
 
 Write this JSON body to `/tmp/aragora-readiness/required-checks.json` at settlement:
@@ -201,9 +210,10 @@ Reviewers and dashboards sometimes look at `gh run list --branch main` and concl
 
 2. **`TestFixer Auto`** is explicitly disabled in code (`if: github.event_name == 'workflow_dispatch'`) because the auto-fix loop caused CI thrash (push → cancel → restart). Re-enable via manual `workflow_dispatch` for targeted fix runs only. Generates ~14 skipped runs per 100.
 
-3. **`Tests`** triggers on path-filtered PRs, schedule, and manual dispatch, not
-push. A docs-only PR correctly skips `Tests`, while the companion supplies
-`test-fast-gate` success. `Tests (debate shards)` runs on main pushes, schedule,
+3. **`Tests`** triggers on every PR against `main`, schedule, and manual dispatch,
+not push. An out-of-scope docs-only PR runs `test-shard-scope`, cascade-skips
+the workers, and gets `test-fast-gate` success from the same workflow.
+`Tests (debate shards)` runs on main pushes, schedule,
 and dispatch only. Other workflows retain their own event filters.
 
 **Healthy main-branch CI looks like:**
@@ -229,4 +239,4 @@ gh pr checks <PR-NUMBER>
 
 - `failure` on `Main Required Checks Auto Revert` — the auto-revert script itself broke
 - Sustained `failure` on PR-time `Lint` / `SDK Parity Check` — actual quality regression
-- `Tests` workflow not running for a PR that touches `aragora/**` — path filter or trigger drift
+- `Tests` workflow not running for a PR against `main`, or in-scope workers skipped on a ready PR: trigger or scope-gate drift
