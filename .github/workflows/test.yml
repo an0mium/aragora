@@ -36,7 +36,8 @@ jobs:
   # ============================================================
   # Test Tier Architecture (#180)
   # ============================================================
-  # PR tier (test-fast):       <5 min target, parallel by category
+  # Future required PR gate:   test-fast-gate, 10-min worker cap
+  # PR tier (test-fast):       parallel by category, longer diagnostic cap
   #   Markers excluded: slow, load, e2e, integration, benchmark, performance
   # Compat matrix (test):      Full OS/Python matrix, coverage gates
   # Nightly tier (nightly-slow): slow + load + e2e tests, 600s timeout
@@ -569,11 +570,11 @@ jobs:
 
   # ==========================================================================
   # test-shard-scope (NEW): classify which test-fast shards must run for this
-  # change. Heavy shards (debate, server-handlers, handlers) skip when no
+  # change. Heavy shards (server-handlers, handlers) skip when no
   # relevant code/test paths changed; their job still reports success so the
   # `needs: test-fast` downstream gates remain satisfied.
   #
-  # Triggered always on push/schedule; scope-filtered only on pull_request.
+  # Scope-filtered only on pull_request; all shards run on schedule/dispatch.
   # The `core` filter, when matched, forces ALL shards to run (covers
   # workflow/script/dependency/version edits that touch the whole repo).
   # ==========================================================================
@@ -610,12 +611,6 @@ jobs:
             agents:
               - 'aragora/agents/**'
               - 'tests/agents/**'
-            debate:
-              - 'aragora/debate/**'
-              - 'tests/debate/**'
-              - 'aragora/agents/**'
-              - 'aragora/memory/**'
-              - 'aragora/reasoning/**'
             reasoning:
               - 'aragora/rlm/**'
               - 'aragora/reasoning/**'
@@ -681,12 +676,8 @@ jobs:
   # Fast parallel tests by category (Ubuntu only, primary Python)
   #
   # Sub-sharding history:
-  #   2026-04-25: Heavy shards split to fit within 30-min runner cap.
-  #     - debate (1 shard, 30+ min) -> debate-am, debate-nz, debate-phases
-  #   2026-07-15: debate-am re-saturated (28-30+ min, cancelled on main sched
-  #     run 29390230325 and PR #9245 run 29293412959 despite the #9280
-  #     rebalance). Re-split into 4 balanced shards: debate-phases + debate-1/2/3
-  #     (~11.5 min pytest each). Boundaries in scripts/ci_resolve_test_shard.py.
+  #   Heavy shards split to fit within 30-min runner cap.
+  #     Debate shards now live in test-debate-shards.yml (main/nightly/manual).
   #     - server (1 shard, 23 min)  -> server-handlers-am, server-handlers-nz, server-rest
   #     - handlers (1 shard, 26 min) -> handlers-features, handlers-amk-no-features, handlers-lz
   #   Path-filter (test-shard-scope) added: PRs touching only docs/CI/integration
@@ -696,10 +687,10 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.category.timeout }}
-    needs: [baseline-determinism, test-shard-scope]
+    needs: [test-shard-scope]
     strategy:
       fail-fast: false
-      matrix:
+      matrix: &fast-shards
         category:
           # Light shards (unchanged from prior 9-shard layout)
           - name: agents
@@ -725,31 +716,6 @@ jobs:
           - name: infra
             pytest_args: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
             scope: infra
-            timeout: 30
-
-          # debate: 4 balanced sub-shards (~11.5 min pytest each, measured
-          # 2026-07-15). debate-phases = tests/debate/ subdirs + first range
-          # of top-level files; debate-1/2/3 = remaining contiguous ranges.
-          # Boundaries live in scripts/ci_resolve_test_shard.py.
-          - name: debate-phases
-            pytest_args: ""
-            resolver: debate-phases
-            scope: debate
-            timeout: 30
-          - name: debate-1
-            pytest_args: ""
-            resolver: debate-1
-            scope: debate
-            timeout: 30
-          - name: debate-2
-            pytest_args: ""
-            resolver: debate-2
-            scope: debate
-            timeout: 30
-          - name: debate-3
-            pytest_args: ""
-            resolver: debate-3
-            scope: debate
             timeout: 30
 
           # server (was 1 shard at 23 min, now 3 sub-shards)
@@ -794,7 +760,7 @@ jobs:
             scope: handlers
             timeout: 30
 
-    steps:
+    steps: &fast-shard-steps
       - name: Resolve shard relevance
         id: relevance
         shell: bash
@@ -826,7 +792,9 @@ jobs:
 
       - name: Checkout
         if: steps.relevance.outputs.should_run == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Verify checkout integrity
         if: steps.relevance.outputs.should_run == 'true'
@@ -893,7 +861,7 @@ jobs:
           pytest ${{ steps.shard_paths.outputs.args }} \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=120 \
-            -n auto \
+            -n 4 \
             --dist loadscope \
             -v \
             --tb=short \
@@ -906,6 +874,40 @@ jobs:
         if: steps.relevance.outputs.should_run != 'true'
         run: |
           echo "::notice::Shard ${{ matrix.category.name }} skipped: scope '${{ matrix.category.scope }}' not in changed scopes"
+
+  # Share the shard census and execution with test-fast, without waiting for
+  # baseline-determinism. The longer diagnostic lane retains its existing cap.
+  test-fast-gate-run:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [test-shard-scope]
+    strategy:
+      fail-fast: false
+      matrix: *fast-shards
+    steps: *fast-shard-steps
+
+  test-fast-gate:
+    needs: [test-fast-gate-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate fast gate result
+        shell: bash
+        env:
+          WORKER_RESULT: ${{ needs.test-fast-gate-run.result }}
+        run: |
+          set -euo pipefail
+          case "$WORKER_RESULT" in
+            success|skipped)
+              echo "Fast gate concluded '$WORKER_RESULT'."
+              ;;
+            *)
+              echo "::error::Fast gate concluded '$WORKER_RESULT'; expected success or skipped. Failing closed."
+              exit 1
+              ;;
+          esac
 
   epistemic-settlement-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
