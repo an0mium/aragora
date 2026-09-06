@@ -1482,7 +1482,7 @@ class TestOutputChannelRouting:
 
         with patch("aiohttp.ClientSession") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_client.return_value.__aexit__ = AsyncMock()
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             await handler._send_to_webhook(channel, result)
 
@@ -1510,7 +1510,7 @@ class TestOutputChannelRouting:
 
         with patch("aiohttp.ClientSession") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_client.return_value.__aexit__ = AsyncMock()
+            mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Should not raise, just log warning
             await handler._send_to_webhook(channel, result)

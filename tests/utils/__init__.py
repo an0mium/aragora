@@ -12,6 +12,11 @@ These utilities solve common test infrastructure issues:
 3. Unclear error messages on timeouts
 """
 
+from tests.utils.aiohttp_mocks import (
+    make_async_context_manager,
+    make_mock_client_session,
+    make_mock_response,
+)
 from tests.utils.async_helpers import (
     DEFAULT_TIMEOUT,
     AsyncTestContext,
@@ -42,6 +47,10 @@ __all__ = [
     "run_with_cancellation",
     "gather_with_timeout",
     "AsyncTestContext",
+    # aiohttp mock builders (see aiohttp_mocks.py for the __aexit__ gotcha)
+    "make_async_context_manager",
+    "make_mock_client_session",
+    "make_mock_response",
     # State reset helpers
     "unset_env_vars",
     "invalidate_legacy_config_module",
