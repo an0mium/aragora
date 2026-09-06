@@ -274,6 +274,22 @@ class AgentSettings(BaseSettings):
         ),
     )
 
+    # Default max_tokens cap for a STREAMED Anthropic call (frontier-model-
+    # refresh, 2026-09-04). ``generate_stream`` takes no caller max_tokens, so
+    # this is the only place that path's output ceiling can be set: the
+    # payload gets min(catalog max_output_tokens, this). 64k is the shipped
+    # default; lower it to cap per-streamed-call output spend without editing
+    # the catalog. Non-streaming keeps its own 16k default.
+    anthropic_stream_max_tokens: int = Field(
+        default=64_000,
+        ge=1,
+        alias="ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS",
+        description=(
+            "Default max_tokens cap for streamed Anthropic calls; the payload uses "
+            "min(catalog max_output_tokens, this value)"
+        ),
+    )
+
     @property
     def default_agent_list(self) -> list[str]:
         """Get default agents as a list."""

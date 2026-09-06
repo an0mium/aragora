@@ -61,6 +61,81 @@ def test_anthropic_payload_default_max_tokens_streaming() -> None:
     assert payload["max_tokens"] == 64000
 
 
+def test_anthropic_stream_max_tokens_setting_lowers_the_streamed_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``generate_stream`` takes no caller max_tokens, so the streamed default
+    IS the per-call output ceiling. ``ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS`` is
+    the operator's knob for it (finding C-P3 on #9989)."""
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.config.settings import get_settings
+
+    monkeypatch.setenv("ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS", "8000")
+    get_settings.cache_clear()
+    try:
+        agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+        assert agent._build_payload("hello", stream=True)["max_tokens"] == 8000
+        # Non-streaming keeps its own 16k default -- the knob is stream-only.
+        assert agent._build_payload("hello")["max_tokens"] == 16_000
+    finally:
+        get_settings.cache_clear()
+
+
+def test_anthropic_stream_max_tokens_setting_still_capped_by_the_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Configuring more output than the model can emit changes nothing."""
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.config.settings import get_settings
+
+    monkeypatch.setenv("ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS", "900000")
+    get_settings.cache_clear()
+    try:
+        agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+        assert agent._build_payload("hello", stream=True)["max_tokens"] == 128_000
+    finally:
+        get_settings.cache_clear()
+
+
+def test_anthropic_stream_max_tokens_setting_does_not_override_an_explicit_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """It is a DEFAULT, not a policy ceiling: a caller that names a value
+    still gets it (capped only by the catalog)."""
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+    from aragora.config.settings import get_settings
+
+    monkeypatch.setenv("ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS", "8000")
+    get_settings.cache_clear()
+    try:
+        agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+        payload = agent._build_payload("hello", max_tokens=32_000, stream=True)
+        assert payload["max_tokens"] == 32_000
+    finally:
+        get_settings.cache_clear()
+
+
+def test_anthropic_stream_cap_falls_back_to_64k_when_settings_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stub or unimportable config must not silently shrink every streamed
+    answer -- the shipped default stands."""
+    import builtins
+
+    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+
+    agent = AnthropicAPIAgent(name="a", model="claude-fable-5-1", api_key="test-key")
+    real_import = builtins.__import__
+
+    def _blow_up(name: str, *args: object, **kwargs: object) -> object:
+        if name == "aragora.config":
+            raise ImportError("simulated config import failure")
+        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(builtins, "__import__", _blow_up)
+    assert agent._stream_max_tokens_cap() == 64_000
+
+
 def test_anthropic_payload_caller_value_capped_at_catalog_max() -> None:
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 

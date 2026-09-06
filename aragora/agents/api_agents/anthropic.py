@@ -58,7 +58,9 @@ DEFAULT_MODEL = FABLE_51_DIRECT
 # historical default, unchanged by the Task 7 request-shape hardening).
 _UNKNOWN_MODEL_DEFAULT_MAX_TOKENS = 4096
 # Default max_tokens caps for a cataloged model when the caller does not pass
-# one explicitly: min(catalog max_output_tokens, this cap).
+# one explicitly: min(catalog max_output_tokens, this cap). The STREAM cap is
+# the shipped default for ``ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS`` and the
+# value used when settings cannot be read; see _stream_max_tokens_cap.
 _DEFAULT_MAX_TOKENS_NON_STREAM = 16_000
 _DEFAULT_MAX_TOKENS_STREAM = 64_000
 
@@ -481,6 +483,28 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             self.model,
         )
 
+    def _stream_max_tokens_cap(self) -> int:
+        """Default ``max_tokens`` cap for a STREAMED call, from settings.
+
+        ``generate_stream`` exposes no caller-facing ``max_tokens``, so on
+        that path the default IS the ceiling: raising it from a flat 4096 to
+        64k is a 16x per-call output-spend change an operator had no way to
+        undo (finding C-P3 on #9989). ``ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS``
+        is that knob. It only lowers the *default*; the catalog's
+        ``max_output_tokens`` still caps the result in
+        :meth:`_resolve_max_tokens`, so configuring more than the model can
+        emit changes nothing. Settings unavailable (import cycle at startup,
+        a stub config) falls back to the shipped 64k rather than silently
+        shrinking every streamed answer.
+        """
+        try:
+            from aragora.config import get_settings
+
+            configured = int(get_settings().agent.anthropic_stream_max_tokens)
+        except (ImportError, AttributeError, TypeError, ValueError):
+            return _DEFAULT_MAX_TOKENS_STREAM
+        return configured if configured > 0 else _DEFAULT_MAX_TOKENS_STREAM
+
     def _resolve_max_tokens(self, requested: int | None, *, stream: bool) -> int:
         """Resolve the ``max_tokens`` payload value.
 
@@ -488,15 +512,19 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
           respecting whatever the caller explicitly requested (uncapped —
           there is no catalog ceiling to enforce).
         * Cataloged model, caller passed nothing: ``min(catalog
-          max_output_tokens, 64_000 if stream else 16_000)``.
+          max_output_tokens, cap)``, where ``cap`` is 16_000 non-streaming
+          and :meth:`_stream_max_tokens_cap` (default 64_000, settable via
+          ``ARAGORA_ANTHROPIC_STREAM_MAX_TOKENS``) when streaming.
         * Cataloged model, caller passed a value: respected, but capped at
-          the catalog's ``max_output_tokens``.
+          the catalog's ``max_output_tokens``. The stream setting does NOT
+          override an explicit caller value — it is a default, not a policy
+          ceiling.
         """
         spec = spec_or_none(self.model)
         if spec is None:
             return requested if requested is not None else _UNKNOWN_MODEL_DEFAULT_MAX_TOKENS
         if requested is None:
-            cap = _DEFAULT_MAX_TOKENS_STREAM if stream else _DEFAULT_MAX_TOKENS_NON_STREAM
+            cap = self._stream_max_tokens_cap() if stream else _DEFAULT_MAX_TOKENS_NON_STREAM
             return min(spec.max_output_tokens, cap)
         return min(requested, spec.max_output_tokens)
 
