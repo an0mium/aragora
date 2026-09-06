@@ -344,6 +344,26 @@ class TestRunSync:
         assert cancelled == [True]
         assert closed == [True]
 
+    def test_fallback_reports_task_failures_during_shutdown(self):
+        reported: list[dict[str, object]] = []
+
+        async def _fails_on_cancel() -> None:
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                raise RuntimeError("cleanup failed") from None
+
+        async def _work() -> str:
+            loop = asyncio.get_running_loop()
+            loop.set_exception_handler(lambda _loop, ctx: reported.append(ctx))
+            asyncio.ensure_future(_fails_on_cancel())
+            return "shutdown"
+
+        assert _run_sync_without_runner(_work()) == "shutdown"
+        assert len(reported) == 1
+        assert isinstance(reported[0]["exception"], RuntimeError)
+        assert "shutdown" in str(reported[0]["message"])
+
     def test_fallback_propagates_exceptions_and_still_closes_loop(self):
         seen: dict[str, object] = {}
 

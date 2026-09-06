@@ -17,8 +17,12 @@ whereas the *declared* floor is what governs a fresh ``pip install aragora``.
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
+
+import pytest
+
+# The 3.10 floor shard collects tests/config/; tomllib arrived in 3.11.
+tomllib = pytest.importorskip("tomllib")
 
 _PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 

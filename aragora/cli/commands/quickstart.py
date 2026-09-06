@@ -152,6 +152,18 @@ def _run_sync_without_runner(coro: Any) -> Any:
                 task.cancel()
             if pending:
                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            for task in pending:
+                if task.cancelled():
+                    continue
+                task_exc = task.exception()
+                if task_exc is not None:
+                    loop.call_exception_handler(
+                        {
+                            "message": "unhandled exception during quickstart shutdown",
+                            "exception": task_exc,
+                            "task": task,
+                        }
+                    )
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.run_until_complete(loop.shutdown_default_executor())
         finally:
