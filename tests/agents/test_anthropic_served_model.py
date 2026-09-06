@@ -230,3 +230,146 @@ class TestParserCapture:
         assert parser.served_model is None
         parser._capture_message_start_model({"type": "message_start", "message": {"model": "x"}})
         assert parser.served_model == "x"
+
+
+class TestServedModelLogSpansTheWholeDebate:
+    """A receipt's served-model claim is debate-wide, so the record must be.
+
+    Finding C-P2 on #9989 (merge-gate, round 6). ``last_served_model`` is
+    reset on every call, so a debate whose round-1 proposal was answered by
+    the server-side fallback and whose round-2 critique was answered as asked
+    ended with ``last_served_model is None`` -- and the receipt then claimed
+    that every agent answered as asked while a different model had written
+    part of the decision.
+    """
+
+    @pytest.mark.asyncio
+    async def test_fallback_then_normal_keeps_both(self, agent) -> None:
+        with _session_patch(
+            _json_response({"model": _SERVED, "content": [{"type": "text", "text": "a"}]})
+        ):
+            await agent.generate("round 1")
+        with _session_patch(
+            _json_response({"model": _REQUESTED, "content": [{"type": "text", "text": "b"}]})
+        ):
+            await agent.generate("round 2")
+
+        # The last-call view says "answered as asked" -- truthfully, for that
+        # one call. The debate-wide view must not.
+        assert agent.last_served_model is None
+        assert agent.served_model_log == [
+            {"requested": _REQUESTED, "served": _SERVED, "fallback": True},
+            {"requested": _REQUESTED, "served": _REQUESTED, "fallback": False},
+        ]
+
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        assert collect_served_models([agent]) == {
+            agent.name: {
+                "requested": _REQUESTED,
+                "served": [_SERVED, _REQUESTED],
+                "calls": 2,
+                "fallback_calls": 1,
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_every_call_answered_as_asked_records_no_entry(self, agent) -> None:
+        for _ in range(3):
+            with _session_patch(
+                _json_response({"model": _REQUESTED, "content": [{"type": "text", "text": "x"}]})
+            ):
+                await agent.generate("prompt")
+
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        assert len(agent.served_model_log) == 3
+        assert collect_served_models([agent]) == {}
+
+    @pytest.mark.asyncio
+    async def test_a_call_that_echoed_no_model_still_counts(self, agent) -> None:
+        """``calls`` is the number of answered calls, not the number of
+        observed model ids -- a response with no ``model`` field contributes
+        no served id but did happen."""
+        with _session_patch(_json_response({"content": [{"type": "text", "text": "a"}]})):
+            await agent.generate("round 1")
+        with _session_patch(
+            _json_response({"model": _SERVED, "content": [{"type": "text", "text": "b"}]})
+        ):
+            await agent.generate("round 2")
+
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        assert agent.served_model_log[0] == {
+            "requested": _REQUESTED,
+            "served": None,
+            "fallback": False,
+        }
+        assert collect_served_models([agent]) == {
+            agent.name: {
+                "requested": _REQUESTED,
+                "served": [_SERVED],
+                "calls": 2,
+                "fallback_calls": 1,
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_repeated_fallback_is_counted_once_in_served(self, agent) -> None:
+        for _ in range(2):
+            with _session_patch(
+                _json_response({"model": _SERVED, "content": [{"type": "text", "text": "x"}]})
+            ):
+                await agent.generate("prompt")
+
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        assert collect_served_models([agent])[agent.name] == {
+            "requested": _REQUESTED,
+            "served": [_SERVED],
+            "calls": 2,
+            "fallback_calls": 2,
+        }
+
+    @pytest.mark.asyncio
+    async def test_the_log_is_a_copy(self, agent) -> None:
+        with _session_patch(
+            _json_response({"model": _SERVED, "content": [{"type": "text", "text": "a"}]})
+        ):
+            await agent.generate("prompt")
+        snapshot = agent.served_model_log
+        snapshot.clear()
+        assert len(agent.served_model_log) == 1
+        agent.served_model_log[0]["served"] = "tampered"
+        assert agent.served_model_log[0]["served"] == _SERVED
+
+    @pytest.mark.asyncio
+    async def test_reset_starts_a_fresh_debate(self, agent) -> None:
+        with _session_patch(
+            _json_response({"model": _SERVED, "content": [{"type": "text", "text": "a"}]})
+        ):
+            await agent.generate("debate 1")
+        assert agent.served_model_log
+
+        agent.reset_served_model_log()
+
+        from aragora.debate.orchestrator_runner import collect_served_models
+
+        assert agent.served_model_log == []
+        assert agent.last_served_model is None
+        assert collect_served_models([agent]) == {}
+
+    @pytest.mark.asyncio
+    async def test_streaming_calls_land_in_the_same_log(self, agent) -> None:
+        events = [
+            '{"type": "message_start", "message": {"model": "%s"}}' % _SERVED,
+            '{"type": "content_block_delta", "delta": {"type": "text_delta", "text": "hi"}}',
+        ]
+        with _session_patch(_sse_response(events)):
+            [c async for c in agent.generate_stream("prompt")]
+        with _session_patch(
+            _json_response({"model": _REQUESTED, "content": [{"type": "text", "text": "b"}]})
+        ):
+            await agent.generate("prompt")
+
+        assert [entry["fallback"] for entry in agent.served_model_log] == [True, False]

@@ -238,6 +238,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         self.thinking_budget = thinking_budget
         self._last_thinking_trace: str | None = None
         self._last_served_model: str | None = None
+        # Ordered (requested, served) observation per successful call, for
+        # the CURRENT debate. See _note_served_model / reset_served_model_log.
+        self._served_model_log: list[dict[str, Any]] = []
 
     @property
     def last_thinking_trace(self) -> str | None:
@@ -248,8 +251,50 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     def last_served_model(self) -> str | None:
         """Model the server actually answered with on the most recent
         generation, when it DIFFERED from the requested id; ``None``
-        otherwise. See :meth:`_note_served_model`."""
+        otherwise. See :meth:`_note_served_model`.
+
+        Last-call-only by construction. A receipt covers a whole debate, so
+        it reads :attr:`served_model_log` instead — this property answers
+        only "what happened on the last call".
+        """
         return self._last_served_model
+
+    @property
+    def served_model_log(self) -> list[dict[str, Any]]:
+        """Every ``(requested, served)`` observation made since the last
+        :meth:`reset_served_model_log`, oldest first.
+
+        One entry per call that produced a response, as
+        ``{"requested": <id we asked for>, "served": <id the server echoed,
+        or None when it echoed nothing>, "fallback": <bool>}``. ``fallback``
+        carries THIS agent's catalog-aware verdict on the pair (see
+        :meth:`_is_same_model`) so a consumer never has to re-decide whether
+        two spellings name one model.
+
+        A debate makes several calls per agent, and
+        :attr:`last_served_model` remembers only the last one: a round-1
+        proposal answered by the server-side fallback followed by a round-2
+        critique answered as asked left the receipt claiming no fallback ever
+        happened, while a different model had in fact written part of the
+        decision (finding C-P2 on #9989). The log is what
+        ``aragora.debate.orchestrator_runner.collect_served_models`` reads.
+
+        Returns a copy: mutating it cannot corrupt the agent's record.
+        """
+        return [dict(entry) for entry in self._served_model_log]
+
+    def reset_served_model_log(self) -> None:
+        """Start a fresh debate-scoped served-model record.
+
+        Called by the debate runner at debate start. Agents are supplied by
+        the caller and are commonly reused across debates (the Arena keeps
+        whatever list it was constructed with, and ``arena.run()`` can be
+        called more than once), so a fresh agent per debate is NOT
+        guaranteed and the log has to be cleared explicitly or one debate's
+        fallback would be reported in the next debate's receipt.
+        """
+        self._served_model_log.clear()
+        self._last_served_model = None
 
     @staticmethod
     def _is_same_model(requested: str, served: str) -> bool:
@@ -292,10 +337,19 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         IS recorded: an unrecognized answer is exactly the case a receipt
         must not silently absorb.
 
-        Reset to ``None`` on every call, so a stale value from an earlier
-        generation can never be attributed to this one.
+        EVERY call is appended to :attr:`served_model_log` -- matching and
+        differing alike, and a call the server answered without echoing any
+        model id at all (``served is None``) too, so the call count stays
+        truthful. ``_last_served_model`` is additionally reset to ``None`` on
+        every call, so a stale value from an earlier generation can never be
+        attributed to this one; the debate-wide claim comes from the log, not
+        from that single value (finding C-P2 on #9989).
         """
-        if not served or self._is_same_model(self.model, served):
+        is_fallback = bool(served) and not self._is_same_model(self.model, served or "")
+        self._served_model_log.append(
+            {"requested": self.model, "served": served, "fallback": is_fallback}
+        )
+        if not is_fallback or served is None:
             self._last_served_model = None
             return
         self._last_served_model = served

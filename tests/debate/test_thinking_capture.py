@@ -379,7 +379,7 @@ class TestServedModelCollection:
         answered_as_asked.last_served_model = None
 
         assert collect_served_models([swapped, answered_as_asked]) == {
-            "claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+            "claude-1": {"requested": "claude-fable-5-1", "served": ["claude-opus-4-8"]}
         }
 
     def test_agents_without_the_property_are_skipped(self) -> None:
@@ -410,8 +410,51 @@ class TestServedModelCollection:
 
         agent._note_served_model("claude-opus-4-8")  # server-side fallback
         assert collect_served_models([agent]) == {
-            "test-claude": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+            "test-claude": {
+                "requested": "claude-fable-5-1",
+                # Both models did part of the work; the receipt names both.
+                "served": ["claude-fable-5-1", "claude-opus-4-8"],
+                "calls": 2,
+                "fallback_calls": 1,
+            }
         }
+
+
+class TestServedModelLogResetAtDebateStart:
+    """Agents are reused across debates, so the debate-scoped log has to be
+    cleared explicitly (finding C-P2 on #9989)."""
+
+    @patch("aragora.agents.api_agents.anthropic.get_primary_api_key", return_value="fake-key")
+    def test_reset_clears_a_previous_debates_record(self, _mock_key: MagicMock) -> None:
+        from aragora.debate.orchestrator_runner import (
+            collect_served_models,
+            reset_served_model_logs,
+        )
+
+        agent = AnthropicAPIAgent(name="test-claude", model="claude-fable-5-1")
+        agent._note_served_model("claude-opus-4-8")
+        assert collect_served_models([agent])
+
+        reset_served_model_logs([agent])
+
+        assert agent.served_model_log == []
+        assert collect_served_models([agent]) == {}
+
+    def test_agents_without_a_log_are_skipped(self) -> None:
+        from aragora.debate.orchestrator_runner import reset_served_model_logs
+
+        plain = MagicMock(spec=[])
+        plain.name = "gpt-agent"
+        reset_served_model_logs([plain])  # must not raise
+
+    def test_a_raising_reset_does_not_break_debate_start(self) -> None:
+        from aragora.debate.orchestrator_runner import reset_served_model_logs
+
+        agent = MagicMock()
+        agent.name = "flaky"
+        agent.reset_served_model_log = MagicMock(side_effect=RuntimeError("boom"))
+        reset_served_model_logs([agent])  # must not raise
+        agent.reset_served_model_log.assert_called_once()
 
 
 class TestDecisionReceiptServedModels:

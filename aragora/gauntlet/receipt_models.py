@@ -710,14 +710,19 @@ class DecisionReceipt:
 
     # Models the providers ACTUALLY answered with, when that differed from
     # the id the debate asked for (optional). Maps agent name ->
-    # {"requested": <id>, "served": <id>}. Anthropic's server-side refusal
-    # fallback -- enabled by default for Fable 5.1 / Opus 5 -- can legitimately
-    # answer a request with a different model, and a receipt that attributes
-    # the decision to the requested id is then wrong about which model made
-    # it. Additive: None means "not recorded" and serialization omits the key
-    # entirely, so receipts written before this field stay byte-identical and
-    # their artifact_hash is unchanged.
-    served_models: dict[str, dict[str, str]] | None = None
+    # {"requested": <id>, "served": [<distinct ids the server echoed>],
+    # "calls": <n>, "fallback_calls": <m>} -- the claim is debate-wide, so it
+    # carries every model that answered any call plus how many of them were
+    # swaps, not just whichever model answered last (finding C-P2 on #9989).
+    # "calls"/"fallback_calls" are absent for a source that cannot count them
+    # (an unpinned CLI agent, a third-party agent exposing only its last
+    # served model). Anthropic's server-side refusal fallback -- enabled by
+    # default for Fable 5.1 / Opus 5 -- can legitimately answer a request with
+    # a different model, and a receipt that attributes the decision to the
+    # requested id is then wrong about which model made it. Additive: None
+    # means "not recorded" and serialization omits the key entirely, so
+    # receipts written before this field stay byte-identical.
+    served_models: dict[str, dict[str, Any]] | None = None
 
     # Knowledge Mound operations performed during this debate (optional)
     # Tracks queries, retrievals, and injection counts for cross-debate visibility

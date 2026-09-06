@@ -1765,7 +1765,7 @@ class TestServedModelsReachTheResultMetadata:
         await handle_debate_completion(mock_arena, execution_state)
 
         assert execution_state.ctx.result.metadata["served_models"] == {
-            "claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+            "claude-1": {"requested": "claude-fable-5-1", "served": ["claude-opus-4-8"]}
         }
         # The agent's own metadata surface agrees with what was attached.
         assert swapped.get_metadata()["served_model"] == "claude-opus-4-8"
@@ -1788,7 +1788,7 @@ class TestServedModelsReachTheResultMetadata:
         await handle_debate_completion(mock_arena, execution_state)
 
         assert execution_state.ctx.result.metadata["served_models"] == {
-            "claude-1": {"requested": "claude-fable-5-1", "served": "claude-opus-4-8"}
+            "claude-1": {"requested": "claude-fable-5-1", "served": ["claude-opus-4-8"]}
         }
 
     @pytest.mark.asyncio
@@ -1849,7 +1849,7 @@ class TestUnpinnedCLIAgentsAreNotAttributedAModel:
         assert agent.model == model
         assert agent.metadata["model_pinned_on_wire"] is False
         assert collect_served_models([agent]) == {
-            registry_name: {"requested": model, "served": UNKNOWN_CLI_DEFAULT_MODEL}
+            registry_name: {"requested": model, "served": [UNKNOWN_CLI_DEFAULT_MODEL]}
         }
         assert UNKNOWN_CLI_DEFAULT_MODEL != model
 
@@ -1874,5 +1874,5 @@ class TestUnpinnedCLIAgentsAreNotAttributedAModel:
         await handle_debate_completion(mock_arena, execution_state)
 
         assert execution_state.ctx.result.metadata["served_models"] == {
-            "qwen-cli": {"requested": "qwen3-coder", "served": UNKNOWN_CLI_DEFAULT_MODEL}
+            "qwen-cli": {"requested": "qwen3-coder", "served": [UNKNOWN_CLI_DEFAULT_MODEL]}
         }

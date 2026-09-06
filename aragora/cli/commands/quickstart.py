@@ -1253,10 +1253,13 @@ def _extract_thinking_traces(result: Any) -> dict[str, str] | None:
     return None
 
 
-def _extract_served_models(result: Any) -> dict[str, dict[str, str]] | None:
-    """Extract per-agent (requested, served) model pairs from debate result
-    metadata. Populated by the debate runner only for agents whose provider
-    answered with a DIFFERENT model than the one requested."""
+def _extract_served_models(result: Any) -> dict[str, dict[str, Any]] | None:
+    """Extract the per-agent served-model record from debate result metadata.
+
+    Populated by the debate runner only for agents whose provider answered
+    with a DIFFERENT model than the one requested on at least one call; see
+    ``aragora.debate.orchestrator_runner.collect_served_models`` for the
+    entry shape."""
     metadata = getattr(result, "metadata", None)
     if isinstance(metadata, dict):
         served = metadata.get("served_models")
