@@ -5,10 +5,11 @@ Status: design, binding for the four `p4b-handlers-batch-*` features and
 (2026-09-05). Every count below was produced by a command in this document
 or in `scripts/`, never estimated.
 
-Batch status: batch 1 (§5, 45 files: 42 moves + 3 retirements) landed the
-shim machinery (`MOVED_MODULES`, `_MovedModuleFinder`, the `__getattr__`
-branch), `scripts/ci/check_moved_handler_shim.py`, and the §8 readiness
-fix; flat root 186 -> 141. Batches 2 to 4 pending.
+Batch status: batch 1 is PR #10000 (Tier 3, settlement-batched per §7):
+the 45 files of §5 (42 moves + 3 retirements), the shim machinery
+(`MOVED_MODULES`, `_MovedModuleFinder`, the `__getattr__` branch),
+`scripts/ci/check_moved_handler_shim.py`, and the §8 readiness fix; flat
+root 186 -> 141 at its head. Batches 2 to 4 pending.
 
 Goal (VAL-P4B-001): `git ls-files ':(glob)aragora/server/handlers/*.py' | grep -v '__init__\.py$' | wc -l`
 drops from **186** to **< 20** without losing a single registered handler
@@ -281,10 +282,11 @@ Negative control with the `__getattr__`-only variant: forms 1 and 2 raise
 `ModuleNotFoundError` on first use, which is exactly what the runtime
 consumers in §3.2 would hit.
 
-Row 9 is reproducible against the live tree: batch 1 committed the
-contract's probe verbatim as `scripts/ci/check_moved_handler_shim.py`, so
-`python3 scripts/ci/check_moved_handler_shim.py <basename>` (one basename
-per process) must print `PASS <basename>` for every `MOVED_MODULES` key.
+Row 9 is reproducible against the live tree: batch 1 (PR #10000) commits
+the contract's probe verbatim as `scripts/ci/check_moved_handler_shim.py`,
+so `python3 scripts/ci/check_moved_handler_shim.py <basename>` (one
+basename per process) must print `PASS <basename>` for every
+`MOVED_MODULES` key.
 
 Item 10 has a consequence for VAL-P4B-007: the warning fires once per
 process per module. The contract's probe runs one `python3` per sampled
@@ -635,7 +637,8 @@ into the PR body. `$ENV` below means
 
 1. **Red first (rule c), on the pre-move commit.** For each file in the
    batch, `python3 scripts/ci/check_moved_handler_shim.py <basename>` (the
-   VAL-P4B-007 probe script, verbatim from the contract; batch 1 landed it)
+   VAL-P4B-007 probe script, verbatim from the contract, committed by
+   batch 1 in PR #10000; `/tmp/p4val/t7.py` until that lands)
    must FAIL with an `AssertionError` listing no DeprecationWarning
    because the old path still imports cleanly. Capture the failure once per
    batch, not per file, if the output is long.
@@ -842,10 +845,10 @@ names `connectors.management`); anchor with `handlers\.<name>(\.|\b)` and
 exclude `<name>\.` when re-measuring a name that collides with a package.
 
 The VAL-P4B-007 probe (`/tmp/p4val/t7.py`) is defined verbatim in the
-validation contract and is machine-local by design. Batch 1 committed an
-identical copy as `scripts/ci/check_moved_handler_shim.py` (the only
-textual difference is the `import` statement split across three lines for
-ruff E401) so §6 steps 1 and 6 are reproducible in CI; the script keeps the
-contract's `warnings.simplefilter("always")`, which is what makes the
+validation contract and is machine-local by design. Batch 1 (PR #10000)
+commits an identical copy as `scripts/ci/check_moved_handler_shim.py` (the
+only textual difference is the `import` statement split across three lines
+for ruff E401) so §6 steps 1 and 6 are reproducible in CI; the script keeps
+the contract's `warnings.simplefilter("always")`, which is what makes the
 finder's warning visible when the import happens inside a helper rather
 than `__main__`.
