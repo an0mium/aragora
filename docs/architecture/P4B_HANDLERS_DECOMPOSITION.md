@@ -5,6 +5,11 @@ Status: design, binding for the four `p4b-handlers-batch-*` features and
 (2026-09-05). Every count below was produced by a command in this document
 or in `scripts/`, never estimated.
 
+Batch status: batch 1 (§5, 45 files: 42 moves + 3 retirements) landed the
+shim machinery (`MOVED_MODULES`, `_MovedModuleFinder`, the `__getattr__`
+branch), `scripts/ci/check_moved_handler_shim.py`, and the §8 readiness
+fix; flat root 186 -> 141. Batches 2 to 4 pending.
+
 Goal (VAL-P4B-001): `git ls-files ':(glob)aragora/server/handlers/*.py' | grep -v '__init__\.py$' | wc -l`
 drops from **186** to **< 20** without losing a single registered handler
 (VAL-P4B-005/006) and with every moved module still importable from its old
@@ -275,6 +280,11 @@ fresh interpreter per case:
 Negative control with the `__getattr__`-only variant: forms 1 and 2 raise
 `ModuleNotFoundError` on first use, which is exactly what the runtime
 consumers in §3.2 would hit.
+
+Row 9 is reproducible against the live tree: batch 1 committed the
+contract's probe verbatim as `scripts/ci/check_moved_handler_shim.py`, so
+`python3 scripts/ci/check_moved_handler_shim.py <basename>` (one basename
+per process) must print `PASS <basename>` for every `MOVED_MODULES` key.
 
 Item 10 has a consequence for VAL-P4B-007: the warning fires once per
 process per module. The contract's probe runs one `python3` per sampled
@@ -624,8 +634,9 @@ into the PR body. `$ENV` below means
 (VAL-P4B-006 machine quirk: without it botocore prompts for MFA at import).
 
 1. **Red first (rule c), on the pre-move commit.** For each file in the
-   batch, `python3 /tmp/p4val/t7.py <basename>` (the VAL-P4B-007 probe
-   script, verbatim from the contract) must FAIL with "no DeprecationWarning"
+   batch, `python3 scripts/ci/check_moved_handler_shim.py <basename>` (the
+   VAL-P4B-007 probe script, verbatim from the contract; batch 1 landed it)
+   must FAIL with an `AssertionError` listing no DeprecationWarning
    because the old path still imports cleanly. Capture the failure once per
    batch, not per file, if the output is long.
 2. **Move.** `git mv aragora/server/handlers/<f>.py aragora/server/handlers/<dir>/<f>.py`.
@@ -640,15 +651,31 @@ into the PR body. `$ENV` below means
    `handler_registry/*.py` to the new dotted path. Append the
    `MOVED_MODULES` entries. Run the §2.3 invariant script; the two counts on
    its first line must match the pre-move run and it must print no `BROKEN`.
+   Also rewrite this batch's relative imports inside the
+   `if TYPE_CHECKING:` block of `handlers/__init__.py` (`from .<f> import
+   ...` -> `from .<dir>.<f> import ...`). That block is type-only, so the
+   step-5 `rg` (which matches dotted absolute paths) never lists it and it
+   goes stale silently; the finder does not serve relative imports either.
+   Verify with `rg -n "^\s+from \.(<f1>|<f2>|...) import" aragora/server/handlers/__init__.py`
+   printing nothing, and `mypy --ignore-missing-imports --follow-imports=skip aragora/server/handlers/__init__.py`
+   passing. (`python3 -c 'import typing; typing.TYPE_CHECKING=True; import aragora.server.handlers'`
+   is not usable as the check: on today's tree it fails before reaching
+   the block with a pydantic circular import, `cannot import name 'BaseModel'
+   from partially initialized module 'pydantic'`, identically on `origin/main`.)
 4. **Boot probe (VAL-P4B-006).**
    `$ENV python3 -c "from aragora.server.unified_server import run_unified_server; print('ok')" </dev/null; echo "exit=$?"`
    must print `ok` and `exit=0`. Then
    `$ENV python3 -c "import logging; logging.basicConfig(level=logging.WARNING); from aragora.server.unified_server import UnifiedHandler; UnifiedHandler._init_handlers()" 2>&1 | grep -c 'Failed to import'`
    must print `0`.
 5. **Rewrite runtime consumers of the old path.**
-   `rg -n "aragora\.server\.handlers\.(<f1>|<f2>|...)\b" aragora/ scripts/ | rg -v "handlers/(_lazy_imports|__init__)\.py|handler_registry/"`
+   `rg -n "aragora\.server\.handlers\.(<f1>|<f2>|...)\b|from aragora\.server\.handlers import .*\b(<f1>|<f2>|...)\b" aragora/ scripts/ | rg -v "handlers/(_lazy_imports|__init__)\.py|handler_registry/"`
    lists every runtime import, `importlib` string and `sys.modules.get`
-   key for the batch's files. Rewrite each to the new dotted path in the
+   key for the batch's files. The second alternation catches the bare
+   package form, which the dotted pattern alone misses: today
+   `aragora/server/handlers/review_queue.py:51` does
+   `from aragora.server.handlers import review_queue_brief` (a batch-4
+   mover) and would go through the package `__getattr__` shim on every
+   request without it. Rewrite each to the new dotted path in the
    same PR (the finder keeps them working, §3.3, but a per-request
    `DeprecationWarning` is log noise). Also rewrite the `from ..X import`
    lines in §4.6 for the batch's files. Then run
@@ -663,12 +690,16 @@ into the PR body. `$ENV` below means
    crash boot rather than silently disable its routes; verified on the
    prototype). Test consumers (`import`, `from ... import`, `patch(...)`
    strings) may stay on the old path.
-6. **Green shim probe (VAL-P4B-007).** `python3 /tmp/p4val/t7.py <basename>`
+6. **Green shim probe (VAL-P4B-007).** `python3 scripts/ci/check_moved_handler_shim.py <basename>`
    must print `PASS <basename>` for every file in the batch, including
    retired ones other than `connectors`. Then for every basename that is
-   also a directory name after the move (`ls aragora/server/handlers/ | sort | uniq -d`
-   over stripped `.py` suffixes) confirm the list is empty; a match means a
-   dead shim entry (§3.4).
+   also a directory name after the move,
+   `ls aragora/server/handlers/ | sed 's/\.py$//' | sort | uniq -d`
+   must print only `connectors` (the pre-existing flat/package pair from
+   §4.4, retired in batch 4); any other line names a `MOVED_MODULES` key
+   that a same-named package shadows, i.e. a dead shim entry (§3.4). The
+   `sed` is what makes the check fire: without stripping `.py`, a file and
+   a directory never compare equal and the list is always empty.
 7. **Handler-specific tests.** For every target dir touched:
    `set -o pipefail; python3 -m pytest tests/handlers/<dir> tests/server/handlers/<dir> -q -p no:cacheprovider --timeout=120 </dev/null 2>&1 | tail -3`
    plus every test file named in the batch's "test refs" column that lives
@@ -728,7 +759,7 @@ directory-scoped pytest tails.
 
 | Batch | Files | LOC | Target dirs | Theme | Settlement note |
 |---|---|---|---|---|---|
-| 1 | 45 | 19,170 | admin, analytics, analytics_dashboard, auth, compliance, metrics, oauth, observability, public, security | ops, health, compliance, auth | Owns `admin/health/`, so it carries the k8s readiness fix (§8). Includes all three stub retirements and `status_page`. |
+| 1 | 45 | 19,170 | admin, analytics, analytics_dashboard, auth, compliance, metrics, oauth, observability, public, security | ops, health, compliance, auth | Owns `admin/health/`, so it carries the k8s readiness fix (§8). Includes the three batch-1 retirements from §4.4 (`analytics_metrics`, `compliance_handler`, `status_page`); `slack` and `connectors` retire with batch 4 (§5). |
 | 2 | 41 | 21,276 | agents, debates, decisions, evolution, memory, tasks, verification | core debate loop | Highest test density (debates alone has 16 movers); `debates/__init__.py` enumerates 21 modules and must be edited. |
 | 3 | 45 | 30,292 | canvas, catalog (new), email, finance (new), gateway, inbox, integrations, openclaw, pipeline, shared_inbox, workflows | pipeline, integrations, SME verticals | Creates the two new subdirs; rewrites `stream/servers_route_registration.py:42` (`accounting`); `canvas_pipeline.py` (2600 LOC) carries its size-baseline row. |
 | 4 | 42 | 33,760 | autonomous, billing, codebase, control_plane, demo, gauntlet, governance, knowledge, notifications, orchestration, sme, streaming, voice, webhooks, workspace | governance, autonomy, remaining verticals | Holds the two path-frozen files (`platform_config.py` PR #9989, `webhook_management.py` PR #9853) and `connectors.py`; re-census before opening. Rewrites the six `workspace_module` runtime imports (§3.2). `playground.py` (4256 LOC) carries its size and bandit baseline rows. |
@@ -811,8 +842,10 @@ names `connectors.management`); anchor with `handlers\.<name>(\.|\b)` and
 exclude `<name>\.` when re-measuring a name that collides with a package.
 
 The VAL-P4B-007 probe (`/tmp/p4val/t7.py`) is defined verbatim in the
-validation contract and is machine-local by design. Batch 1 commits an
-identical copy as `scripts/ci/check_moved_handler_shim.py` so steps 1 and 6
-are reproducible in CI; the script must keep the contract's
-`warnings.simplefilter("always")`, which is what makes the finder's warning
-visible when the import happens inside a helper rather than `__main__`.
+validation contract and is machine-local by design. Batch 1 committed an
+identical copy as `scripts/ci/check_moved_handler_shim.py` (the only
+textual difference is the `import` statement split across three lines for
+ruff E401) so §6 steps 1 and 6 are reproducible in CI; the script keeps the
+contract's `warnings.simplefilter("always")`, which is what makes the
+finder's warning visible when the import happens inside a helper rather
+than `__main__`.
