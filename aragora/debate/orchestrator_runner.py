@@ -1956,15 +1956,25 @@ async def handle_debate_completion(
                     len(thinking_traces),
                 )
 
-    # Collect the model each provider ACTUALLY answered with, when it
-    # differed from the id we asked for. Anthropic's server-side refusal
-    # fallback (on by default for Fable 5.1 / Opus 5) can legitimately answer
-    # with a different model, and a receipt that attributes the decision to
-    # the requested id is then wrong about which model made it. The claim is
-    # debate-wide, so it is computed from each agent's debate-scoped per-call
-    # log (cleared at debate start) rather than from its last call: an empty
-    # dict here means "no agent was ever answered by a different model at any
-    # point in this debate".
+    # Collect the model each provider ACTUALLY answered with, whenever that
+    # was not the id we asked for. Two ways it happens, and the block names
+    # both: a provider answered with a DIFFERENT model (Anthropic's
+    # server-side refusal fallback, on by default for Fable 5.1 / Opus 5), or
+    # the requested id never reached the provider at all because the agent's
+    # CLI takes no model flag -- recorded as UNKNOWN_CLI_DEFAULT_MODEL,
+    # "unknown (CLI default)", because a receipt must be able to say
+    # "unknown" rather than guess. Either way a receipt that attributes the
+    # decision to the requested id is wrong about which model made it.
+    #
+    # The claim is debate-wide, so it comes from each agent's debate-scoped
+    # per-call log (cleared at debate start) rather than from its last call:
+    # an agent whose round-1 proposal fell back and whose round-2 critique
+    # did not is two models' work, and reading the last call reported "no
+    # fallback" (finding C-P2). An empty dict here therefore means BOTH
+    # things: every agent's model reached its provider, and every provider
+    # answered as asked, on every call of this debate. Non-empty entries
+    # carry "calls"/"fallback_calls" when the source can count them --
+    # see collect_served_models and _served_models_from_log.
     if ctx.result and arena.agents:
         served_models = collect_served_models(arena.agents)
         if served_models:
