@@ -634,3 +634,89 @@ def test_module_docstring_documents_the_period_vs_hyphen_split() -> None:
     doc = mod.__doc__ or ""
     assert "direct_id" in doc and "openrouter_id" in doc
     assert "claude-fable-5-1" in doc and "anthropic/claude-fable-5.1" in doc
+
+
+# ---------------------------------------------------------------------------
+# Sweep gap 2 (wave-6 ruling on #9989) — a collision freeze is per FILE, so a
+# frozen module used to be swept out of agreement with its own tests:
+# aragora/harnesses/codex.py kept its historical default while
+# tests/harnesses/test_codex.py was rewritten to the frontier one.
+# ---------------------------------------------------------------------------
+
+
+def _write(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+def test_collision_in_a_module_freezes_its_name_matched_test(tmp_path: Path) -> None:
+    module = _write(
+        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        'FAMILY = {\n    "claude-sonnet-4": "anthropic",\n    "claude-sonnet-5": "anthropic",\n}\n',
+    )
+    paired = _write(
+        tmp_path / "tests" / "fixture" / "test_aragora_fixture_mod.py",
+        'def test_default():\n    assert MOD.FAMILY["claude-sonnet-4"] == "anthropic"\n',
+    )
+    module_text, paired_text = module.read_text(), paired.read_text()
+
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert module.read_text() == module_text, "the colliding module was rewritten"
+    assert paired.read_text() == paired_text, (
+        "the module's paired test was swept out of agreement with the frozen module"
+    )
+
+
+def test_collision_in_a_module_freezes_a_test_that_imports_it(tmp_path: Path) -> None:
+    """The pairing is not only by name: a test that imports the module by its
+    dotted path looks its historical spellings up just as exactly."""
+    _write(
+        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        'FAMILY = {"claude-sonnet-4": "a", "claude-sonnet-5": "a"}\n',
+    )
+    importer = _write(
+        tmp_path / "tests" / "fixture" / "test_unrelated_name.py",
+        "from aragora.aragora_fixture_mod import FAMILY\n\n\ndef test_it():\n"
+        '    assert FAMILY["claude-sonnet-4"] == "a"\n',
+    )
+    original = importer.read_text()
+
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert importer.read_text() == original
+
+
+def test_an_unrelated_test_is_still_rewritten(tmp_path: Path) -> None:
+    """The freeze follows the pairing, not the whole tests tree."""
+    _write(
+        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        'FAMILY = {"claude-sonnet-4": "a", "claude-sonnet-5": "a"}\n',
+    )
+    unrelated = _write(
+        tmp_path / "tests" / "fixture" / "test_something_else.py",
+        'MODEL = "claude-sonnet-4"\n',
+    )
+
+    r = _run("--paths", str(tmp_path), "--write", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, r.stderr
+    assert unrelated.read_text() == 'MODEL = "claude-sonnet-5"\n'
+
+
+def test_check_reports_the_pairing_on_the_collision_line(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        'FAMILY = {"claude-sonnet-4": "a", "claude-sonnet-5": "a"}\n',
+    )
+    paired = _write(
+        tmp_path / "tests" / "fixture" / "test_aragora_fixture_mod.py",
+        'MODEL = "claude-sonnet-4"\n',
+    )
+
+    r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
+    assert r.returncode == 0, f"a frozen pairing must not gate the sweep:\n{r.stdout}"
+    assert "(already present) (frozen with it: " in r.stdout
+    assert str(paired) in r.stdout
+    # The inherited freeze must also keep the test out of the offender list.
+    assert "0 retired literal(s) outside allowlist" in r.stdout

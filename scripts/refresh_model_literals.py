@@ -393,16 +393,25 @@ class Collision(NamedTuple):
       one replacement, so rewriting both merges them;
     * ``True`` -- ONE retired spelling whose replacement id is ALREADY
       written in this file, so rewriting it merges the two.
+
+    ``paired_tests`` are the test files frozen ALONG WITH this source (see
+    ``_paired_tests``); it is empty for a collision in a test file or in a
+    module with no paired test.
     """
 
     new_id: str
     olds: tuple[str, ...]
     already_present: bool
+    paired_tests: tuple[str, ...] = ()
 
     def describe(self) -> str:
         """The ``--check`` collision line's payload."""
         line = f"{','.join(self.olds)} -> {self.new_id}"
-        return f"{line} (already present)" if self.already_present else line
+        if self.already_present:
+            line += " (already present)"
+        if self.paired_tests:
+            line += f" (frozen with it: {', '.join(self.paired_tests)})"
+        return line
 
 
 def _mentions(text: str, ident: str) -> bool:
@@ -454,6 +463,57 @@ def _collisions(lines: list[str]) -> tuple[Collision, ...]:
         if len(olds) > 1 or already_present:
             out.append(Collision(new_id, tuple(sorted(olds)), already_present))
     return tuple(out)
+
+
+def _is_test_module(f: Path) -> bool:
+    """True for a ``tests/**/test_*.py`` file."""
+    return f.suffix == ".py" and f.name.startswith("test_") and "tests" in f.resolve().parts
+
+
+def _module_dotted(f: Path) -> str | None:
+    """``aragora.pkg.mod`` for a module inside the ``aragora`` package, else None.
+
+    Matched on the LAST ``aragora`` path component so a checkout that itself
+    lives under a directory named ``aragora`` (this repo's worktrees do)
+    still yields the package-relative dotted name.
+    """
+    if f.suffix != ".py":
+        return None
+    parts = f.resolve().parts
+    if "aragora" not in parts:
+        return None
+    idx = len(parts) - 1 - parts[::-1].index("aragora")
+    tail = list(parts[idx:-1])
+    if f.stem != "__init__":
+        tail.append(f.stem)
+    return ".".join(tail) if len(tail) > 1 else None
+
+
+def _paired_tests(module: Path, dotted: str, test_texts: dict[Path, str]) -> tuple[Path, ...]:
+    """Test files that must freeze together with ``module``.
+
+    A collision freeze is per FILE, so freezing ``aragora/harnesses/codex.py``
+    without ``tests/harnesses/test_codex.py`` left the test asserting a
+    default the source no longer had -- the source kept its historical
+    spellings while its test was swept to the frontier ones (2026-09-05
+    repo-wide re-sweep, reported as sweep gap 2; wave-6 ruling on #9989).
+
+    Two pairings, both deliberately over-approximating in the SAFE direction
+    (freezing a test that did not need it leaves a literal as written; the
+    unsafe direction breaks a lookup):
+
+    * NAME -- ``tests/**/test_<mod>*.py`` for the module's own file stem;
+    * IMPORT -- any test whose text names the module by its dotted path,
+      which covers ``from aragora.pkg.mod import x``, ``import
+      aragora.pkg.mod`` and ``patch("aragora.pkg.mod.x")`` alike.
+
+    Only tests that themselves contain a retired literal are candidates
+    (``test_texts`` is built from those): a test with nothing to rewrite has
+    nothing to freeze.
+    """
+    prefix = f"test_{module.stem}"
+    paired = [t for t, text in test_texts.items() if t.name.startswith(prefix) or dotted in text]
+    return tuple(sorted(paired, key=lambda p: p.as_posix()))
 
 
 def _is_skip_path(f: Path) -> bool:
@@ -568,6 +628,14 @@ def main(argv: list[str] | None = None) -> int:
     # an offender — see _collisions(). One entry per (file, target id).
     collisions: list[tuple[str, Collision]] = []
     changed = 0
+
+    # Read every scanned file ONCE and keep only the ones that name a retired
+    # literal at all: a module's collision can freeze spellings in its paired
+    # TESTS (see _paired_tests), which is a decision about one file that
+    # depends on other files, so the whole candidate set has to be in hand
+    # before any of it is rewritten. Insertion order is iter_files()'s sorted
+    # order, so --check output stays deterministic.
+    candidates: dict[Path, list[str]] = {}
     for f in iter_files(a.paths):
         try:
             text = f.read_text(encoding="utf-8")
@@ -580,9 +648,28 @@ def main(argv: list[str] | None = None) -> int:
         # ``keepends`` so --write can rejoin the file byte-for-byte: line
         # endings (and the presence or absence of a trailing newline) must
         # survive a rewrite that touches only some lines.
-        lines = text.splitlines(keepends=True)
+        candidates[f] = text.splitlines(keepends=True)
+
+    # Collisions per file, then the source -> paired-test freezes they imply.
+    test_texts = {f: "".join(lines) for f, lines in candidates.items() if _is_test_module(f)}
+    collided_by_file: dict[Path, tuple[Collision, ...]] = {}
+    inherited: dict[Path, set[str]] = {}
+    for f, lines in candidates.items():
         collided = _collisions(lines)
-        frozen = frozenset(lit for c in collided for lit in c.olds)
+        dotted = None if _is_test_module(f) else _module_dotted(f)
+        if collided and dotted is not None:
+            paired = _paired_tests(f, dotted, test_texts)
+            spellings = {lit for c in collided for lit in c.olds}
+            for t_path in paired:
+                inherited.setdefault(t_path, set()).update(spellings)
+            collided = tuple(
+                c._replace(paired_tests=tuple(str(t_path) for t_path in paired)) for c in collided
+            )
+        collided_by_file[f] = collided
+
+    for f, lines in candidates.items():
+        collided = collided_by_file[f]
+        frozen = frozenset(lit for c in collided for lit in c.olds) | inherited.get(f, set())
         collisions.extend((str(f), c) for c in collided)
         if a.check:
             for i, line in enumerate(lines, 1):
@@ -594,7 +681,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             rewritten = [_rewrite_line(line, frozen) for line in lines]
             new = "".join(rewritten)
-            if new != text:
+            if new != "".join(lines):
                 f.write_text(new, encoding="utf-8")
                 changed += 1
 
