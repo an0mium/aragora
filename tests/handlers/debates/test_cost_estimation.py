@@ -822,3 +822,66 @@ class TestModuleConstants:
 
         assert "estimate_debate_cost" in cost_estimation.__all__
         assert "handle_estimate_cost" in cost_estimation.__all__
+
+
+class TestBreakdownSumsToSubtotal:
+    """``input_cost_usd + output_cost_usd`` must equal ``subtotal_usd``.
+
+    Finding O-P2 on #9989: the breakdown re-derived the two halves from the
+    flat ``PROVIDER_PRICING`` rows while the subtotal came from the
+    tier-aware pricer, so past a model's documented long-context threshold
+    the user-facing breakdown contradicted its own total -- 150 rounds of
+    ``gpt-6-astra`` reported a 15.01 subtotal against a 9.005 breakdown.
+    """
+
+    @staticmethod
+    def _assert_identity(result: dict) -> None:
+        for row in result["breakdown_by_model"]:
+            assert row["input_cost_usd"] + row["output_cost_usd"] == pytest.approx(
+                row["subtotal_usd"], abs=1e-6
+            ), row
+
+    def test_long_context_tier_breakdown_sums(self):
+        """The exact case from the finding: past gpt-6-astra's 272k input
+        threshold, where the tiered rate and the flat row diverge."""
+        from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
+
+        result = estimate_debate_cost(num_agents=1, num_rounds=150, model_types=["gpt-6-astra"])
+        row = result["breakdown_by_model"][0]
+        # The tier really is engaged here -- otherwise this proves nothing.
+        flat_input_cost = row["estimated_input_tokens"] / 1_000_000 * 10.0
+        assert row["input_cost_usd"] > flat_input_cost
+        self._assert_identity(result)
+
+    def test_short_debate_breakdown_sums(self):
+        from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
+
+        self._assert_identity(estimate_debate_cost(num_agents=3, num_rounds=3))
+
+    def test_every_default_model_breakdown_sums(self):
+        from aragora.server.handlers.debates.cost_estimation import (
+            DEFAULT_MODELS,
+            estimate_debate_cost,
+        )
+
+        for model in DEFAULT_MODELS:
+            for rounds in (1, 9, 150):
+                self._assert_identity(
+                    estimate_debate_cost(num_agents=1, num_rounds=rounds, model_types=[model])
+                )
+
+    def test_unknown_model_breakdown_sums(self):
+        """The openrouter/default fallback path holds the identity too."""
+        from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
+
+        self._assert_identity(
+            estimate_debate_cost(num_agents=1, num_rounds=9, model_types=["not-a-real-model"])
+        )
+
+    def test_total_equals_the_sum_of_the_subtotals(self):
+        from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
+
+        result = estimate_debate_cost(num_agents=3, num_rounds=150)
+        assert sum(r["subtotal_usd"] for r in result["breakdown_by_model"]) == pytest.approx(
+            result["total_estimated_cost_usd"], abs=1e-3
+        )

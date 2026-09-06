@@ -135,17 +135,18 @@ def estimate_debate_cost(
 
         cost = calculate_token_cost(provider, model_key, input_tokens, output_tokens)
 
-        # Decompose into input/output cost for the breakdown
-        provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
-        input_key = model_key if model_key in provider_prices else "default"
-        output_key = (
-            f"{model_key}-output" if f"{model_key}-output" in provider_prices else "default-output"
-        )
-        input_price = provider_prices.get(input_key, Decimal("2.00"))
-        output_price = provider_prices.get(output_key, Decimal("8.00"))
-
-        input_cost = (Decimal(input_tokens) / Decimal("1000000")) * input_price
-        output_cost = (Decimal(output_tokens) / Decimal("1000000")) * output_price
+        # Decompose into input/output cost for the breakdown. The two halves
+        # MUST sum to the subtotal, so both come from the same tier-aware
+        # pricer the subtotal did. Reading the flat PROVIDER_PRICING rows
+        # directly ignored the long-context tier: a 150-round debate on
+        # gpt-6-astra (past its 272k threshold) reported subtotal 15.01
+        # against an input+output of 9.005 -- a user-facing breakdown that
+        # contradicted its own total (finding O-P2 on #9989). Deriving the
+        # output half by subtraction makes the identity hold by construction
+        # for every model, tiered or flat, exactly as the wave-3 fix to
+        # aragora/server/fastapi/routes/costs.py does.
+        input_cost = calculate_token_cost(provider, model_key, input_tokens, 0)
+        output_cost = cost - input_cost
 
         breakdown.append(
             {
