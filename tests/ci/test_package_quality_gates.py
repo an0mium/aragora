@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import tomllib
 from pathlib import Path
@@ -58,3 +59,63 @@ def test_root_no_longer_exempts_package_modules() -> None:
         "aragora_debate.styled_mock",
         "aragora_verify.verifier",
     }
+
+
+@pytest.mark.parametrize("package", ["debate", "verify"])
+def test_package_coverage_gate_uses_its_own_module_and_recorded_floor(package: str) -> None:
+    config = tomllib.loads((ROOT / f"aragora-{package}/pyproject.toml").read_text())["tool"]
+    assert 0 < config["coverage"]["report"]["fail_under"] <= 100
+    assert config["pytest"]["ini_options"]["python_files"] == ["test_*.py"]
+    assert config["pytest"]["ini_options"]["python_functions"] == ["test_*"]
+    assert config["pytest"]["ini_options"]["testpaths"] == ["tests"]
+    assert config["pytest"]["ini_options"]["asyncio_mode"] == "auto"
+    result = subprocess.run(
+        ["make", "-n", f"readiness-test-{package}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert f"pytest aragora-{package}/tests" in result.stdout
+    assert f"--cov=aragora_{package}" in result.stdout
+    assert "--cov=aragora " not in result.stdout
+    assert "--cov-fail-under=$fail_under" in result.stdout
+    assert f'open("aragora-{package}/pyproject.toml","rb")' in result.stdout
+    assert "--durations=10" in result.stdout
+    assert "--junitxml=" in result.stdout
+
+
+@pytest.mark.parametrize("package", ["debate", "verify"])
+def test_package_lint_wires_source_ratchets_and_documented_baselines(package: str) -> None:
+    config = tomllib.loads((ROOT / f"aragora-{package}/pyproject.toml").read_text())["tool"]
+    assert config["deptry"]["optional_dependencies_dev_groups"] == ["dev"]
+    assert "pep621_dev_dependency_groups" not in config["deptry"]
+    assert config["deptry"]["known_first_party"] == [f"aragora_{package}"]
+    assert not config["deptry"].get("ignore")
+    result = subprocess.run(
+        ["make", "-n", f"readiness-lint-{package}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    for command in (
+        f"ruff check aragora-{package}",
+        f"ruff format --check aragora-{package}",
+        f"vulture aragora-{package}/src --min-confidence 80",
+        f"cd aragora-{package} && deptry src",
+        f"aragora-{package}/src --threshold",
+        f"check_file_sizes.py --glob 'aragora-{package}/src/**/*.py'",
+    ):
+        assert command in result.stdout
+    assert "npx --yes jscpd@" in result.stdout
+    docs = (ROOT / "docs/TECH_DEBT.md").read_text()
+    for tool in ("vulture", "file-sizes"):
+        path = f"scripts/baselines/{package}-{tool}.json"
+        assert f"--baseline {path}" in result.stdout
+        data = json.loads((ROOT / path).read_text())
+        findings = data["files" if tool == "file-sizes" else "findings"]
+        row = next(line for line in docs.splitlines() if f"`{path}`" in line)
+        assert int(row.split("|")[3].strip()) == len(findings)

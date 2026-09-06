@@ -385,6 +385,8 @@ JSCPD_VERSION ?= 5.1.1
 # Coverage floor for readiness-test-root, read from [tool.coverage.report]
 # fail_under in pyproject.toml so the Makefile and pytest agree on one number.
 READINESS_ROOT_COV_FAIL_UNDER = $$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["tool"]["coverage"]["report"]["fail_under"])')
+READINESS_DEBATE_COV_FAIL_UNDER = $$(python3 -c 'import tomllib; print(tomllib.load(open("aragora-debate/pyproject.toml","rb"))["tool"]["coverage"]["report"]["fail_under"])')
+READINESS_VERIFY_COV_FAIL_UNDER = $$(python3 -c 'import tomllib; print(tomllib.load(open("aragora-verify/pyproject.toml","rb"))["tool"]["coverage"]["report"]["fail_under"])')
 
 READINESS_T0 = start=$$(date +%s)
 READINESS_DONE = echo "[readiness] $@ ok ($$(( $$(date +%s) - start ))s)"
@@ -457,7 +459,20 @@ readiness-test-root:
 readiness-lint-debate:
 	@$(READINESS_T0); \
 	command -v ruff >/dev/null 2>&1 || { echo "SKIP debate: ruff not found (put .venv/bin on PATH)"; exit 0; }; \
-	cd aragora-debate && ruff check . && ruff format --check . && \
+	command -v python3 >/dev/null 2>&1 || { echo "SKIP debate: python3 not found"; exit 0; }; \
+	command -v vulture >/dev/null 2>&1 || { echo "SKIP debate: vulture not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v deptry >/dev/null 2>&1 || { echo "SKIP debate: deptry not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v npx >/dev/null 2>&1 || { echo "SKIP debate: npx not found"; exit 0; }; \
+	command -v git >/dev/null 2>&1 || { echo "SKIP debate: git not found"; exit 0; }; \
+	ruff check aragora-debate && ruff format --check aragora-debate && \
+	python3 scripts/ci/check_tool_baseline.py --tool vulture \
+		--baseline scripts/baselines/debate-vulture.json \
+		--report-json "$(READINESS_REPORT_DIR)/debate-vulture.report.json" \
+		-- vulture aragora-debate/src --min-confidence 80 && \
+	(cd aragora-debate && deptry src) && \
+	npx --yes jscpd@$(JSCPD_VERSION) aragora-debate/src --threshold 4.06 --output "$(READINESS_REPORT_DIR)/debate-jscpd" && \
+	python3 scripts/ci/check_file_sizes.py --glob 'aragora-debate/src/**/*.py' \
+		--baseline scripts/baselines/debate-file-sizes.json && \
 	$(READINESS_DONE)
 
 readiness-typecheck-debate:
@@ -470,14 +485,30 @@ readiness-typecheck-debate:
 readiness-test-debate:
 	@$(READINESS_T0); \
 	command -v pytest >/dev/null 2>&1 || { echo "SKIP debate: pytest not found (put .venv/bin on PATH)"; exit 0; }; \
-	cd aragora-debate && pytest tests -q -p no:randomly && \
+	command -v python3 >/dev/null 2>&1 || { echo "SKIP debate: python3 not found"; exit 0; }; \
+	mkdir -p "$(READINESS_JUNIT_DIR)" && \
+	fail_under=$(READINESS_DEBATE_COV_FAIL_UNDER) && \
+	pytest aragora-debate/tests -q -p no:randomly -n 4 --timeout=120 --cov=aragora_debate --cov-config=aragora-debate/pyproject.toml --cov-fail-under=$$fail_under --durations=10 --junitxml="$(READINESS_JUNIT_DIR)/debate.xml" && \
 	$(READINESS_DONE)
 
 # --- verify (aragora-verify/, src layout, own [tool.ruff]) ------------------
 readiness-lint-verify:
 	@$(READINESS_T0); \
 	command -v ruff >/dev/null 2>&1 || { echo "SKIP verify: ruff not found (put .venv/bin on PATH)"; exit 0; }; \
-	cd aragora-verify && ruff check . && ruff format --check . && \
+	command -v python3 >/dev/null 2>&1 || { echo "SKIP verify: python3 not found"; exit 0; }; \
+	command -v vulture >/dev/null 2>&1 || { echo "SKIP verify: vulture not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v deptry >/dev/null 2>&1 || { echo "SKIP verify: deptry not found (put .venv/bin on PATH)"; exit 0; }; \
+	command -v npx >/dev/null 2>&1 || { echo "SKIP verify: npx not found"; exit 0; }; \
+	command -v git >/dev/null 2>&1 || { echo "SKIP verify: git not found"; exit 0; }; \
+	ruff check aragora-verify && ruff format --check aragora-verify && \
+	python3 scripts/ci/check_tool_baseline.py --tool vulture \
+		--baseline scripts/baselines/verify-vulture.json \
+		--report-json "$(READINESS_REPORT_DIR)/verify-vulture.report.json" \
+		-- vulture aragora-verify/src --min-confidence 80 && \
+	(cd aragora-verify && deptry src) && \
+	npx --yes jscpd@$(JSCPD_VERSION) aragora-verify/src --threshold 0.5 --output "$(READINESS_REPORT_DIR)/verify-jscpd" && \
+	python3 scripts/ci/check_file_sizes.py --glob 'aragora-verify/src/**/*.py' \
+		--baseline scripts/baselines/verify-file-sizes.json && \
 	$(READINESS_DONE)
 
 readiness-typecheck-verify:
@@ -490,7 +521,10 @@ readiness-typecheck-verify:
 readiness-test-verify:
 	@$(READINESS_T0); \
 	command -v pytest >/dev/null 2>&1 || { echo "SKIP verify: pytest not found (put .venv/bin on PATH)"; exit 0; }; \
-	cd aragora-verify && pytest tests -q -p no:randomly && \
+	command -v python3 >/dev/null 2>&1 || { echo "SKIP verify: python3 not found"; exit 0; }; \
+	mkdir -p "$(READINESS_JUNIT_DIR)" && \
+	fail_under=$(READINESS_VERIFY_COV_FAIL_UNDER) && \
+	pytest aragora-verify/tests -q -p no:randomly -n 4 --timeout=120 --cov=aragora_verify --cov-config=aragora-verify/pyproject.toml --cov-fail-under=$$fail_under --durations=10 --junitxml="$(READINESS_JUNIT_DIR)/verify.xml" && \
 	$(READINESS_DONE)
 
 # --- live (aragora/live, Next.js) -------------------------------------------

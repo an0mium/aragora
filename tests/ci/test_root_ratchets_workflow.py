@@ -134,8 +134,9 @@ def test_debt_register_covers_baselines_both_ways_and_counts() -> None:
         data = json.loads(path.read_text())
         if isinstance(data.get("tool"), str) and isinstance(data.get("findings"), dict):
             expected[path.relative_to(ROOT).as_posix()] = len(data["findings"])
-    legacy = "scripts/baselines/file_size_baseline.json"
-    expected[legacy] = len(json.loads((ROOT / legacy).read_text())["files"])
+        elif path.name == "file_size_baseline.json" or path.name.endswith("-file-sizes.json"):
+            assert isinstance(data["files"], dict)
+            expected[path.relative_to(ROOT).as_posix()] = len(data["files"])
     assert rows == expected
     for phrase in (
         "check_todo_ratchet.py",

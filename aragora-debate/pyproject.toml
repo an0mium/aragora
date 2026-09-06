@@ -78,6 +78,23 @@ packages = ["src/aragora_debate"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["aragora_debate"]
+
+[tool.coverage.report]
+# Full package suite: 91.10% lines (2026-09-06), minus one point.
+fail_under = 90.10
+precision = 2
+
+[tool.deptry]
+known_first_party = ["aragora_debate"]
+optional_dependencies_dev_groups = ["dev"]
+
+[tool.deptry.package_module_name_map]
+google-genai = "google"
 
 [tool.ruff]
 extend = "../pyproject.toml"

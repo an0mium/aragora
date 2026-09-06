@@ -105,7 +105,22 @@ packages = ["src/aragora_verify"]
 "src/aragora_verify/odr_schema.json" = "aragora_verify/odr_schema.json"
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["aragora_verify"]
+
+[tool.coverage.report]
+# Full package suite: 90.26% lines (2026-09-06), minus one point.
+fail_under = 89.26
+precision = 2
+
+[tool.deptry]
+known_first_party = ["aragora_verify"]
+optional_dependencies_dev_groups = ["dev"]
 
 # Inherit the root policy, with stricter naming/complexity and package-relative
 # test exemptions.

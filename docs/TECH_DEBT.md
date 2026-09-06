@@ -23,6 +23,26 @@ key; the runner also enforces each key's occurrence count.
 | Legacy TODO/FIXME/HACK/XXX (`scripts/todo_audit.py`); case-insensitive comment-start markers in `aragora/**/*.py`; `lint.yml` job `todo-audit`, push-only in the normal PR/push flow (the unchanged non-PR condition also admits manual/merge-group runs). Both TODO mechanisms coexist until a later cleanup | `aragora/.todo_baseline` | 1 | Python core maintainers | `python scripts/todo_audit.py --mode count --root aragora` (inspect count; baseline changes require separate review) |
 | Deptry (DEP002 ignore count; also one DEP004 exception, DEP001/DEP003 disabled) | `pyproject.toml` `[tool.deptry]` | 1 | Python core maintainers | `deptry .` (review per-rule exceptions in config, no generated baseline) |
 | jscpd 5.1.1 (Python, `minTokens` 70, hard 2.1% line threshold; 4,221 sources / 1,938 clones) | `.jscpd.json`; no `root-jscpd.json`, threshold-only | 2.0001% lines | Python core maintainers | `npx --yes jscpd@5.1.1 --config .jscpd.json` (measure, no baseline regeneration) |
+| Debate Vulture (confidence 80) | `scripts/baselines/debate-vulture.json` | 0 | Debate package maintainers | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/debate-vulture.json --update -- vulture aragora-debate/src --min-confidence 80` |
+| Debate file size (2,000 lines) | `scripts/baselines/debate-file-sizes.json` | 0 | Debate package maintainers | `python scripts/ci/check_file_sizes.py --glob 'aragora-debate/src/**/*.py' --baseline scripts/baselines/debate-file-sizes.json --freeze` |
+| Verify Vulture (confidence 80) | `scripts/baselines/verify-vulture.json` | 0 | Verify package maintainers | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/verify-vulture.json --update -- vulture aragora-verify/src --min-confidence 80` |
+| Verify file size (2,000 lines) | `scripts/baselines/verify-file-sizes.json` | 0 | Verify package maintainers | `python scripts/ci/check_file_sizes.py --glob 'aragora-verify/src/**/*.py' --baseline scripts/baselines/verify-file-sizes.json --freeze` |
+
+Package gates run through `make readiness-lint-debate readiness-lint-verify`.
+Both use the shared Vulture runner and the file-size checker's existing
+`files` census format (`--freeze`, not `--update`). Deptry scans only `src`
+from each package directory, classifies `dev` as development dependencies,
+and enables all rules without suppressions. Debate maps the `google-genai`
+distribution to its `google` import namespace.
+
+Package duplication gates reuse the root `.jscpd.json` settings and
+`JSCPD_VERSION` pin, with explicit source paths and thresholds in the
+Makefile. At adoption, debate measured 3.5589% duplicated lines across
+16 sources (9 clones), and verify measured 0% across 6 sources (0 clones).
+Thresholds are the measured percentages plus 0.5 points, rounded to two
+decimals: 4.06% and 0.5%. `make readiness-lint-debate readiness-lint-verify`
+regenerates their jscpd reports under `READINESS_REPORT_DIR`; confirm the
+reported source counts are nonzero when remeasuring.
 
 Run checks through `make readiness-lint-root`. Shared-runner JSON reports go
 to `READINESS_REPORT_DIR` (default `/tmp/aragora-readiness/ratchet-reports`).
