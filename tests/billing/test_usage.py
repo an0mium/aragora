@@ -231,9 +231,11 @@ class TestCalculateTokenCost:
     def test_kimi_provider_matches_moonshot_bucket(self):
         """ "kimi" is the live provider label OpenRouterAgent.agent_type uses
         for the Kimi agent classes (aragora/agents/api_agents/openrouter.py),
-        while the catalog rows are family/provider "moonshot". Without a
-        dedicated "kimi" bucket (aragora/models/pricing_mirror.py::_bucketed),
-        this silently fell back to the openrouter default rate.
+        while the catalog rows carry family "moonshot" (kimi-k3's own
+        ``provider`` is "openrouter" -- that row is reached only through
+        OpenRouter). Without a dedicated "kimi" bucket
+        (aragora/models/pricing_mirror.py::_bucketed), this silently fell
+        back to the openrouter default rate.
 
         "kimi-k3" now ALSO resolves correctly under any other provider
         label via calculate_token_cost's catalog fallback (the 2026-09-05

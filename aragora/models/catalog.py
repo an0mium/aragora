@@ -427,7 +427,21 @@ CATALOG: dict[str, ModelSpec] = {
         ),
         ModelSpec(
             canonical_id="kimi-k3",
-            provider="moonshot",
+            # "openrouter", not "moonshot": ``provider`` records how a row is
+            # REACHED (see ``direct_id`` above and ``_pricing_provider`` in
+            # aragora/server/handlers/debates/cost_estimation.py), and Aragora
+            # reaches Kimi K3 only through OpenRouter -- KimiK3Agent and
+            # KimiThinkingAgent are OpenRouterAgent subclasses pinned to this
+            # row's ``openrouter_id``, and credential_validator requires
+            # OPENROUTER_API_KEY for it. The one agent that calls
+            # api.moonshot.cn directly (KimiLegacyAgent) pins Moonshot's own
+            # "moonshot-v1-8k" code precisely because no live call has
+            # confirmed the native endpoint accepts a bare "kimi-k3". Claiming
+            # a native Moonshot transport made ``direct_id`` read as a verified
+            # native code, which is what let the literal sweep rewrite that
+            # legacy Moonshot pin onto it (wave-6 ruling, sweep gap 3, #9989).
+            # ``family`` stays "moonshot": lineage is not transport.
+            provider="openrouter",
             family="moonshot",
             direct_id="kimi-k3",
             openrouter_id="moonshotai/kimi-k3",

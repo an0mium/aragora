@@ -213,25 +213,52 @@ def test_skip_dirs_apply_only_below_the_scan_root(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------------------
 # Unresolvable literals (2026-09-05 merge-gate fix wave, finding C-P3 on
-# #9989): a BARE literal whose current row is reachable only through
-# OpenRouter has no real native id. ``ModelSpec.direct_id`` is a documented
-# placeholder on those rows, so rewriting the bare literal to it would swap a
-# working native model code for a slug that 400s on the native endpoint.
+# #9989; generalized by the wave-6 ruling, sweep gap 3): a BARE literal whose
+# successor row is served by a DIFFERENT provider than the literal's own
+# native API has no real native id to be rewritten to. ``ModelSpec.direct_id``
+# is a documented placeholder on such a row, so rewriting the bare literal to
+# it would swap a working native model code for one the native endpoint has
+# never been shown to accept.
 # ---------------------------------------------------------------------------
 
 
-def test_replacement_returns_none_for_openrouter_only_bare_literals() -> None:
+def test_replacement_returns_none_when_the_successor_has_no_native_transport() -> None:
     mod = _load_module()
-    # Both resolve to rows whose provider is "openrouter".
+    # All three resolve to rows whose provider is "openrouter" -- no native
+    # transport at all, so direct_id is a placeholder.
     assert mod.replacement("deepseek-v4-pro") is None
     assert mod.replacement("qwen3-coder") is None
-    # A bare literal whose row has a REAL native provider still rewrites.
-    assert mod.replacement("moonshot-v1-8k") == "kimi-k3"
-    # And the OpenRouter-slug SHAPE always rewrites, openrouter-only or not.
+    # Moonshot's own legacy code: KimiLegacyAgent sends it to api.moonshot.cn,
+    # and the kimi-k3 row it upgrades to is reached only through OpenRouter.
+    assert mod.replacement("moonshot-v1-8k") is None
+    # And the OpenRouter-slug SHAPE always rewrites, native transport or not.
     assert mod.replacement("deepseek/deepseek-v4-pro") == "deepseek/deepseek-v4-pro-0813"
+    # A bare literal whose successor IS natively served still rewrites.
+    assert mod.replacement("gpt-4o") == "gpt-5.6-terra"
+    assert mod.replacement("o1-mini") == "gpt-5.6-terra"
 
 
-def test_write_leaves_openrouter_only_bare_literals_untouched(tmp_path: Path) -> None:
+def test_replacement_returns_none_across_a_provider_change() -> None:
+    """The guard is provider-vs-provider, not a hardcoded "openrouter" test.
+
+    ``qwen3.7-max`` has a catalog row of its own on Alibaba, so the sweep can
+    see that it is a NATIVE Alibaba code; its successor row is served by
+    OpenRouter, so no rewrite of it can stay a working Alibaba code.
+    """
+    from aragora.models.catalog import CATALOG, spec_or_none
+    from aragora.models.upgrade_map import UPGRADES
+
+    mod = _load_module()
+    assert mod._native_provider("qwen3.7-max") == "alibaba"
+    assert CATALOG[UPGRADES["qwen3.7-max"]].provider == "openrouter"
+    assert mod.replacement("qwen3.7-max") is None
+    # A spelling the catalog does not record at all yields no evidence of a
+    # conflict, so it keeps rewriting.
+    assert spec_or_none("gpt-4o") is None
+    assert mod._native_provider("gpt-4o") is None
+
+
+def test_write_leaves_bare_literals_without_a_native_successor_untouched(tmp_path: Path) -> None:
     f = tmp_path / "cli.py"
     original = (
         'DEEPSEEK = "deepseek-v4-pro"\n'
@@ -245,7 +272,7 @@ def test_write_leaves_openrouter_only_bare_literals_untouched(tmp_path: Path) ->
     assert f.read_text() == (
         'DEEPSEEK = "deepseek-v4-pro"\n'
         'QWEN = "qwen3-coder"\n'
-        'KIMI = "kimi-k3"\n'
+        'KIMI = "moonshot-v1-8k"\n'
         'SLUG = "deepseek/deepseek-v4-pro-0813"\n'
     )
 
@@ -255,7 +282,7 @@ def test_check_reports_unresolvable_separately_and_does_not_fail(tmp_path: Path)
     f.write_text('DEEPSEEK = "deepseek-v4-pro"\nQWEN = "qwen3-coder"\n')
     r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, f"unresolvable literals must not gate the sweep:\n{r.stdout}"
-    assert "unresolvable: native spelling of an OpenRouter-only row" in r.stdout
+    assert "unresolvable: bare spelling with no native id on its successor row" in r.stdout
     assert "unresolvable model id deepseek-v4-pro" in r.stdout
     assert "unresolvable model id qwen3-coder" in r.stdout
     assert "0 retired literal(s) outside allowlist" in r.stdout

@@ -35,8 +35,11 @@ reported by ``--check`` in its own section that does NOT affect the exit
 code (only "offenders" do):
 
 * **unresolvable** — a bare (native-shaped) spelling whose current row is
-  reachable only through OpenRouter has no real native id to be rewritten
-  to. ``--write`` leaves it exactly as written. See ``replacement()``.
+  served by a DIFFERENT provider than the literal's own native API: the
+  row is reachable only through OpenRouter, or the literal's own catalog
+  row names another native provider. Either way there is no real native id
+  to rewrite to. ``--write`` leaves it exactly as written. See
+  ``replacement()``.
 * **collision** — a rewrite that would collapse two pieces of text in one
   file onto a single id: either two DISTINCT retired spellings that share
   a replacement, or ONE retired spelling whose replacement id is ALREADY
@@ -63,7 +66,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.models.catalog import CATALOG  # noqa: E402
+from aragora.models.catalog import CATALOG, spec_or_none  # noqa: E402
 from aragora.models.upgrade_map import RETIRED_PATTERN, TOKEN_CHAR, UPGRADES  # noqa: E402
 
 SKIP_DIRS = {".git", "node_modules", ".worktrees", "__pycache__", ".venv", "dist", "build"}
@@ -296,28 +299,55 @@ def _is_guarded(
     return False
 
 
+def _native_provider(old: str) -> str | None:
+    """The provider whose OWN API is known to accept ``old`` as a model code.
+
+    ``None`` when the catalog has no row for the spelling at all, which is
+    the usual case for a retired id (``gpt-4o``, ``o1-mini``): the sweep then
+    has no evidence of a conflict and treats the literal as a native code of
+    its target row's provider, exactly as it always did.
+    """
+    spec = spec_or_none(old)
+    return None if spec is None else spec.provider
+
+
 def replacement(old: str) -> str | None:
     """Current literal for a retired spelling, or ``None`` when the retired
     literal has no honest replacement in the SHAPE it was written in.
 
     An OpenRouter slug (contains ``/``) is rewritten to the new slug; a bare
-    id to the new direct id. The exception is a BARE literal whose target
-    row has ``provider == "openrouter"`` — a family Aragora reaches only
-    through OpenRouter. ``ModelSpec.direct_id`` is a documented placeholder
-    on those rows, "NOT a code any native endpoint would accept" (see the
-    field's docstring in aragora/models/catalog.py), so rewriting e.g. the
-    deliberately-kept ``deepseek-cli`` default ``deepseek-v4-pro`` to
-    ``deepseek-v4-pro-0813`` would swap a working native model code for a
-    slug that 400s on the native API (2026-09-05 merge-gate finding C-P3 on
-    #9989). Such a literal is left exactly as written by ``--write`` and
-    reported by ``--check`` as UNRESOLVABLE rather than as an offender: it
-    is a real gap (the catalog owes that family a native row), but it is not
-    something this sweep can fix, so it must not gate the sweep.
+    id to the new direct id — but ONLY when the target row is served by the
+    same provider whose native API the literal addresses. ``ModelSpec.
+    direct_id`` is a real native code only on a row a native endpoint
+    actually serves; everywhere else it is a documented placeholder, "NOT a
+    code any native endpoint would accept" (see the field's docstring in
+    aragora/models/catalog.py). Two ways the providers disagree:
+
+    * the target row's ``provider`` is ``"openrouter"`` — the row has no
+      native transport at all, so rewriting e.g. the deliberately-kept
+      ``deepseek-cli`` default ``deepseek-v4-pro`` to
+      ``deepseek-v4-pro-0813`` would swap a working native model code for a
+      slug that 400s on the native API (2026-09-05 merge-gate finding C-P3
+      on #9989), and rewriting Moonshot's own ``moonshot-v1-8k`` onto
+      ``kimi-k3`` does the same to the one agent that calls api.moonshot.cn
+      directly (wave-6 ruling, sweep gap 3);
+    * the literal's OWN catalog row names a DIFFERENT native provider than
+      its successor row does — ``qwen3.7-max`` is an Alibaba code whose
+      successor Aragora reaches through OpenRouter, so no rewrite of it can
+      stay a working Alibaba code.
+
+    Such a literal is left exactly as written by ``--write`` and reported by
+    ``--check`` as UNRESOLVABLE rather than as an offender: it is a real gap
+    (the catalog owes that family a native row), but it is not something
+    this sweep can fix, so it must not gate the sweep.
     """
     spec = CATALOG[UPGRADES[old]]
     if "/" in old:
         return spec.openrouter_id
     if spec.provider == "openrouter":
+        return None
+    native = _native_provider(old)
+    if native is not None and native != spec.provider:
         return None
     return spec.direct_id
 
@@ -692,7 +722,7 @@ def main(argv: list[str] | None = None) -> int:
         for path, ln, lit in offenders:
             print(f"{path}:{ln}: retired model id {lit}")
         if unresolvable:
-            print("unresolvable: native spelling of an OpenRouter-only row")
+            print("unresolvable: bare spelling with no native id on its successor row")
             for path, ln, lit in unresolvable:
                 print(f"{path}:{ln}: unresolvable model id {lit}")
         if collisions:
