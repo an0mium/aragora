@@ -56,7 +56,13 @@ dependencies = [
 
 [project.optional-dependencies]
 schema = ["jsonschema>=4.0"]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.0.0,<8.0",
+    "pytest-randomly>=4.0.1,<6.0",
+    "pytest-xdist>=3.8.0,<4.0",
+    "pytest-timeout>=2.4.0,<3.0",
+]
 
 [project.scripts]
 aragora-verify = "aragora_verify.cli:main"
