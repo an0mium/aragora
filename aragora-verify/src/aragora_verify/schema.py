@@ -306,7 +306,7 @@ def _validate_extensions(errors: list[str], doc: dict[str, Any], schema: dict[st
             spec = spec.get("oneOf", [spec])[0]
         if not isinstance(value, dict) or value.get("status") == "absent":
             continue
-        if spec.get("additionalProperties") is False:
+        if path and spec.get("additionalProperties") is False:
             for key in value.keys() - spec["properties"].keys():
                 errors.append(f"{path or 'receipt'}.{key}: unknown member")
         for key in keys:

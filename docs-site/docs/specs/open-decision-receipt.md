@@ -210,10 +210,10 @@ These additions preserve the meaning and required-ness of every v0.1 member.
 | `subject.head_sha` | `subject` | string | Exact reviewed head. |
 | `subject.base_sha` | `subject` | string | Recorded base, when available. |
 | `reasoning.observations[]` | `reasoning` | object | `kind` (timeout/failure/rerun), `family`, `detail`; only alongside a real source reasoning summary, never an absent marker. |
-| `signatures[].{issuer,role,signed_at,expires_at}` | signature items | string | Reserved for the signature-metadata change: issuer, role (emitter/reviewer/attestor/notary), signing time and optional expiry (RFC 3339 UTC). |
 
 Gate-level dissent (`present`/`dissenting_agents`/`verdicts[].blocking`) and severity-level findings (`findings`/`severity_max`/`dissent.blocking`) are independent notions, never derived from each other.
-A v0.1 document carries none of these members.
+An emitter MUST NOT write any of these members into a v0.1 document (§8, rule 5).
+The schema and the verifiers of this revision do not yet reject them on a v0.1 document; version-scoped rejection (failing check `schema_conformance`, detail `<path>: not in profile 0.1`) follows in the next revision of this staged rollout (§9.5).
 
 ## 5. Canonicalization and hashing — RFC 8785 (JCS)
 
@@ -310,7 +310,7 @@ An emitter conforms to ODR v0.1 or v0.2 iff:
    be absent is non-conformant even if schema-valid;
 3. hashing and signing use the JCS basis of §5;
 4. `signatures` is `[]` and `routing.status` is `"reserved"`.
-5. a v0.2 document carries only members defined in §4.10 beyond the v0.1 members; a v0.1 document carries none of them.
+5. it writes no §4.10 member into a v0.1 document and no member outside §2 and §4.10 into a v0.2 document — non-conformant even if schema-valid in this revision (verifier-side rejection follows, §4.10).
 
 A verifier conforms iff it validates the schema, recomputes `odr_digest` from
 JCS bytes, and treats `"undisclosed"`/absent markers as *weakening* rather
