@@ -45,8 +45,9 @@ logger = logging.getLogger(__name__)
 # a quality score. "flagship" and "fallback" are both top-band (an Opus-line
 # fallback is not a cheaper model, just an older one); "code" is the middle
 # band; "value" is the cheap/fast band the analyzer downgrades TO. The
-# quality numbers stay just under the hand-tuned legacy scores so a
-# generated row never outranks a curated one at equal price.
+# quality numbers sit just under the hand-tuned legacy scores so that among
+# DISTINCT keys at equal price a curated row still sorts first; where the two
+# layers name the SAME id the catalog row wins outright (see MODEL_TIERS).
 _CATALOG_TIER_BANDS: dict[str, tuple[int, float]] = {
     "flagship": (1, 0.95),
     "fallback": (1, 0.90),
@@ -82,11 +83,12 @@ def _catalog_tier_rows() -> dict[str, dict[str, Any]]:
 
 
 # Model capability tiers for downgrade analysis. Hand-curated HISTORICAL
-# rows (kept verbatim, and they WIN a key collision: tier and quality are
-# hand-tuned judgements, not catalog facts) plus one generated row per
-# active catalog model, so the analyzer can actually recommend a current
-# frontier model instead of only the 2024-era roster it shipped with
-# (2026-09-04 controller ruling, wave 3).
+# rows kept verbatim, so a spelling the catalog does not carry (an alias, a
+# retired id, a 2024-era model) still resolves to a tier instead of being
+# skipped by the analyzer, plus one generated row per active catalog model,
+# so the analyzer can actually recommend a current frontier model instead of
+# only the 2024-era roster it shipped with (2026-09-04 controller ruling,
+# wave 3).
 _LEGACY_MODEL_TIERS: dict[str, dict[str, Any]] = {
     # Tier 1: Most capable (complex reasoning, coding)
     "claude-fable-5": {"tier": 1, "provider": "anthropic", "quality": 1.0},
@@ -117,7 +119,15 @@ _LEGACY_MODEL_TIERS: dict[str, dict[str, Any]] = {
     "gemini-3.5-flash": {"tier": 3, "provider": "google", "quality": 0.72},
 }
 
-MODEL_TIERS: dict[str, dict[str, Any]] = {**_catalog_tier_rows(), **_LEGACY_MODEL_TIERS}
+# Catalog rows WIN a key collision; the legacy layer only fills spellings the
+# catalog lacks. A hand-written row is a snapshot of what a model was when
+# somebody typed it, so once a legacy key is (or is renamed onto) a live
+# catalog id, the catalog is the fresher fact: leaving the legacy row on top
+# silently shadowed the generated one and priced a live model at its
+# historical band -- claude-opus-5 and claude-haiku-4-5-20251001 both landed
+# on hand-tuned quality scores their own catalog tiers contradict (wave-6
+# ruling, tables, on #9989).
+MODEL_TIERS: dict[str, dict[str, Any]] = {**_LEGACY_MODEL_TIERS, **_catalog_tier_rows()}
 
 # Task complexity indicators
 SIMPLE_TASK_INDICATORS = [
