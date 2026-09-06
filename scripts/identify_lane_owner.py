@@ -1563,16 +1563,34 @@ def _safe_worktree_absent_noop_proof(
         and "missing_path" in blockers
         and classification == "absent_noop"
     )
+    clean_inactive = (
+        payload.get("exists") is True
+        and payload.get("tracked_worktree") is True
+        and payload.get("dirty") is False
+        and payload.get("active_session") is False
+        and bool(str(payload.get("branch") or "").strip())
+    )
     if absent_noop:
         return {
             "path": path,
             "absent_noop": True,
+            "clean_inactive": False,
+            "source": "safe_worktree_cleanup.inspect",
+            "classification": classification,
+        }
+    if clean_inactive:
+        return {
+            "path": path,
+            "absent_noop": False,
+            "clean_inactive": True,
+            "branch": str(payload["branch"]).strip(),
             "source": "safe_worktree_cleanup.inspect",
             "classification": classification,
         }
     return {
         "path": path,
         "absent_noop": False,
+        "clean_inactive": False,
         "reason": "worktree_not_absent_noop",
         "exists": payload.get("exists"),
         "classification": classification,
@@ -1845,13 +1863,13 @@ def build_worktree_reference_preservation_proof(
 ) -> dict[str, Any] | None:
     """Prove a bare worktree reference is not evidence of local-only work.
 
-    Fail closed unless the recorded worktree is absent/noop by
-    ``safe_worktree_cleanup.py inspect`` and either the desired head is
-    preserved upstream by an exact remote branch or merged PR commit
-    list. For a terminal no-record lane, an absent registered worktree plus
-    a remote branch is sufficient only when the corresponding local branch
-    is absent or has the exact same tip. A divergent local branch, lookup
-    failure, or dirty/local-work marker remains blocking.
+    Fail closed unless ``safe_worktree_cleanup.py inspect`` reports each
+    recorded worktree absent/noop or clean, inactive, and on the recorded
+    branch, and the corresponding commit is preserved upstream. For a
+    terminal no-record lane, the remote branch is sufficient only when the
+    local branch is absent or has the exact same tip. A present clean
+    worktree additionally requires exact local/remote branch equality.
+    Divergence, lookup failure, or dirty/local-work markers remain blocking.
     """
 
     paths = _worktree_reference_paths(lane, ledger_entry)
@@ -1875,7 +1893,10 @@ def build_worktree_reference_preservation_proof(
         _safe_worktree_absent_noop_proof(path, repo_root=repo_root, runner=runner)
         for _, path in paths
     ]
-    if not all(item.get("absent_noop") is True for item in inspections):
+    if not all(
+        item.get("absent_noop") is True or item.get("clean_inactive") is True
+        for item in inspections
+    ):
         return {
             "available": False,
             "reason": "worktree_not_absent_noop",
@@ -1891,6 +1912,15 @@ def build_worktree_reference_preservation_proof(
         return {
             "available": False,
             "reason": "branch_unavailable",
+            "worktree_paths": [path for _, path in paths],
+            "worktree_inspections": inspections,
+        }
+    clean_worktrees = [item for item in inspections if item.get("clean_inactive") is True]
+    if any(item.get("branch") != branch for item in clean_worktrees):
+        return {
+            "available": False,
+            "reason": "worktree_branch_mismatch",
+            "branch": branch,
             "worktree_paths": [path for _, path in paths],
             "worktree_inspections": inspections,
         }
@@ -1923,8 +1953,20 @@ def build_worktree_reference_preservation_proof(
                     "worktree_paths": [path for _, path in paths],
                     "worktree_inspections": inspections,
                 }
+            if clean_worktrees and local.get("status") != "exists":
+                return {
+                    "available": False,
+                    "reason": "local_branch_missing_for_present_worktree",
+                    "branch": branch,
+                    "remote": remote,
+                    "local": local,
+                    "worktree_paths": [path for _, path in paths],
+                    "worktree_inspections": inspections,
+                }
             method = (
-                "remote_branch_matches_local_branch_no_record"
+                "remote_branch_matches_clean_worktree_no_record"
+                if clean_worktrees
+                else "remote_branch_matches_local_branch_no_record"
                 if local.get("status") == "exists"
                 else "remote_branch_only_no_local_record"
             )
@@ -1961,6 +2003,19 @@ def build_worktree_reference_preservation_proof(
 
     remote = _remote_branch_head(branch, repo_root=repo_root, runner=runner)
     if remote.get("status") == "exists":
+        if clean_worktrees:
+            local = _local_branch_head(branch, repo_root=repo_root, runner=runner)
+            if local.get("status") != "exists" or local.get("head_sha") != remote.get("head_sha"):
+                return {
+                    "available": False,
+                    "reason": "clean_worktree_branch_not_preserved",
+                    "branch": branch,
+                    "desired_head_sha": desired_head,
+                    "remote": remote,
+                    "local": local,
+                    "worktree_paths": [path for _, path in paths],
+                    "worktree_inspections": inspections,
+                }
         if remote.get("head_sha") == desired_head:
             return {
                 "available": True,
