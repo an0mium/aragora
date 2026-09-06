@@ -241,7 +241,7 @@ class WorkflowPattern(ABC):
         colors = {
             "claude": "#7c3aed",  # Purple
             "gpt4": "#10b981",  # Green
-            "gpt-4": "#10b981",
+            "gpt-6-astra": "#10b981",
             "gemini": "#3b82f6",  # Blue
             "mistral": "#f59e0b",  # Amber
             "grok": "#ef4444",  # Red

@@ -112,7 +112,7 @@ payload = PropulsionPayload(
 
     # Routing hints
     routing_key="claude-team",
-    agent_affinity="claude-3-opus",  # Prefer specific agent
+    agent_affinity="claude-fable-5-1",  # Prefer specific agent
 
     # Retry configuration
     max_attempts=3,

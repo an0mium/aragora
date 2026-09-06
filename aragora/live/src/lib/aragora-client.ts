@@ -2024,7 +2024,7 @@ class DocumentsAPI {
     return this.http.post('/api/audit/sessions', {
       document_ids: options.document_ids,
       audit_types: options.audit_types || ['security', 'compliance', 'consistency', 'quality'],
-      model: options.model || 'gemini-1.5-flash',
+      model: options.model || 'gemini-3.8-flash',
     });
   }
 

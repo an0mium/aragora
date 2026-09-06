@@ -569,7 +569,7 @@ class AuditScheduler:
                 document_ids=document_ids,
                 audit_types=job.config.audit_types if job.config.audit_types else None,
                 name=f"Scheduled: {job.config.name}",
-                model=job.config.custom_config.get("model", "gemini-1.5-flash"),
+                model=job.config.custom_config.get("model", "gemini-3.8-flash"),
             )
 
             run.session_id = session.id

@@ -92,7 +92,7 @@ async def simple_batch(client: AragoraAsyncClient) -> BatchResult:
         try:
             debate = await client.debates.create(
                 task=task,
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
                 rounds=2,
             )
             item.debate_id = debate["debate_id"]
@@ -204,9 +204,9 @@ async def batch_api(client: AragoraAsyncClient) -> dict[str, Any]:
     print("\n=== Batch API ===\n")
 
     tasks = [
-        {"task": "What is the best web framework?", "agents": ["claude", "gpt-4"]},
-        {"task": "What database should we use?", "agents": ["claude", "gpt-4"]},
-        {"task": "How should we structure our API?", "agents": ["claude", "gpt-4"]},
+        {"task": "What is the best web framework?", "agents": ["claude", "gpt-6-astra"]},
+        {"task": "What database should we use?", "agents": ["claude", "gpt-6-astra"]},
+        {"task": "How should we structure our API?", "agents": ["claude", "gpt-6-astra"]},
     ]
 
     print(f"Creating batch with {len(tasks)} debates...")

@@ -204,7 +204,7 @@ interface TournamentsClientInterface {
  * const tournament = await client.tournaments.create({
  *   name: 'Weekly Championship',
  *   format: 'single_elimination',
- *   participants: ['claude', 'gpt-4', 'gemini', 'grok'],
+ *   participants: ['claude', 'gpt-6-astra', 'gemini', 'grok'],
  * });
  *
  * // Start the tournament
@@ -222,7 +222,7 @@ interface TournamentsClientInterface {
  * // Submit a match result
  * await client.tournaments.submitResult(tournamentId, matchId, {
  *   winner: 'claude',
- *   loser: 'gpt-4',
+ *   loser: 'gpt-6-astra',
  *   score: { winner: 3, loser: 1 },
  * });
  *
@@ -291,7 +291,7 @@ export class TournamentsAPI {
    *   name: 'AI Championship 2024',
    *   description: 'Annual AI agent tournament',
    *   format: 'double_elimination',
-   *   participants: ['claude', 'gpt-4', 'gemini', 'grok', 'mistral'],
+   *   participants: ['claude', 'gpt-6-astra', 'gemini', 'grok', 'mistral'],
    *   config: {
    *     debate_rounds: 3,
    *     consensus_type: 'majority',
@@ -535,7 +535,7 @@ export class TournamentsAPI {
    *   'match-456',
    *   {
    *     winner: 'claude',
-   *     loser: 'gpt-4',
+   *     loser: 'gpt-6-astra',
    *     score: { winner: 3, loser: 1 },
    *     notes: 'Decisive victory in round 3'
    *   }
@@ -628,7 +628,7 @@ export class TournamentsAPI {
    *
    * @example
    * ```typescript
-   * await client.tournaments.withdraw('tournament-123', 'gpt-4', 'API quota exceeded');
+   * await client.tournaments.withdraw('tournament-123', 'gpt-6-astra', 'API quota exceeded');
    * ```
    */
   async withdraw(
@@ -712,7 +712,7 @@ export class TournamentsAPI {
    *   method: 'manual',
    *   seeds: [
    *     { participant: 'claude', seed: 1 },
-   *     { participant: 'gpt-4', seed: 2 },
+   *     { participant: 'gpt-6-astra', seed: 2 },
    *     { participant: 'gemini', seed: 3 },
    *     { participant: 'grok', seed: 4 }
    *   ]

@@ -94,13 +94,13 @@ def _get_ai_agent() -> Any | None:
     try:
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-        return AnthropicAPIAgent(model="claude-sonnet-4-5-20250929")
+        return AnthropicAPIAgent(model="claude-sonnet-5")
     except (ImportError, OSError, ValueError):
         pass
     try:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        return OpenAIAPIAgent(model="gpt-4o-mini")
+        return OpenAIAPIAgent(model="gpt-5.6-terra")
     except (ImportError, OSError, ValueError):
         pass
     return None

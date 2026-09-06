@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 # the handler lightweight and free of heavy dependencies.
 _PROVIDER_CONFIG: dict[str, tuple[tuple[str, ...], str]] = {
     "anthropic": (("ANTHROPIC_API_KEY",), "claude-opus-5"),
-    "openai": (("OPENAI_API_KEY",), "gpt-5.3"),
-    "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-v4-pro"),
+    "openai": (("OPENAI_API_KEY",), "gpt-6-astra"),
+    "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-v4-pro-0813"),
     "mistral": (("MISTRAL_API_KEY",), "mistral-large-2512"),
     "gemini": (("GEMINI_API_KEY", "GOOGLE_API_KEY"), "gemini-3.1-pro-preview"),
-    "xai": (("XAI_API_KEY", "GROK_API_KEY"), "grok-4-latest"),
+    "xai": (("XAI_API_KEY", "GROK_API_KEY"), "grok-4.6"),
 }
 
 # A debate requires at least one of these core providers. OpenRouter counts as

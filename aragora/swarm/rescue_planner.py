@@ -55,7 +55,7 @@ class ActionPlan:
 
 # Default model for rescue planning — frontier tier ($5/$25 per MTok)
 _DEFAULT_MODEL = "anthropic/claude-opus-5"
-_FALLBACK_MODEL = "deepseek/deepseek-v4-pro"
+_FALLBACK_MODEL = "deepseek/deepseek-v4-pro-0813"
 
 _SYSTEM_PROMPT = """\
 You are a rescue planner for an autonomous software execution system.

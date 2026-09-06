@@ -183,7 +183,7 @@ async def run_debate():
         claude_agent = AgentRegistry.create(
             "anthropic-api",
             name="strategic-consultant",
-            model="claude-opus-4-5-20251101",
+            model="claude-fable-5-1",
             role="proposer",
             use_cache=False,
             timeout=300,  # 5 min timeout per response
@@ -201,7 +201,7 @@ async def run_debate():
         gpt_agent = AgentRegistry.create(
             "openai-api",
             name="cfo-advisor",
-            model="gpt-5.3",
+            model="gpt-6-astra",
             role="critic",
             use_cache=False,
             timeout=300,
@@ -233,7 +233,7 @@ async def run_debate():
         grok_agent = AgentRegistry.create(
             "grok",
             name="risk-analyst",
-            model="grok-4",
+            model="grok-4.6",
             role="critic",
             use_cache=False,
             timeout=300,
@@ -461,7 +461,7 @@ What's the probability of success for each option?
             agent2 = AgentRegistry.create(
                 "grok",
                 name="analyst-2",
-                model="grok-4",
+                model="grok-4.6",
                 role="critic",
                 use_cache=False,
                 timeout=300,

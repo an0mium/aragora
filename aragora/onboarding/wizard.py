@@ -296,7 +296,7 @@ class OnboardingWizard:
                         {
                             "name": "default_agent",
                             "type": "select",
-                            "options": ["claude", "gpt-4", "gemini"],
+                            "options": ["claude", "gpt-6-astra", "gemini"],
                         },
                         {"name": "notifications", "type": "checkbox", "default": True},
                         {"name": "timezone", "type": "timezone"},
@@ -552,7 +552,7 @@ class OnboardingWizard:
 
         # Check required fields
         for field_spec in step.fields:
-            field_name = field_spec.get("name")
+            field_name: Any = field_spec.get("name")
             if field_spec.get("required") and not data.get(field_name):
                 errors.append(f"Field '{field_name}' is required")
 

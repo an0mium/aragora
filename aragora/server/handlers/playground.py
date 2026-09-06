@@ -75,10 +75,10 @@ _ESTIMATED_COST_PER_DEBATE = 0.04  # ~$0.04 for 4 parallel LLM calls
 # Each agent gets a different model architecture for genuine adversarial diversity.
 OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("analyst", "anthropic/claude-opus-5"),
-    ("critic", "openai/gpt-5.4"),
+    ("critic", "openai/gpt-6-astra"),
     ("synthesizer", "google/gemini-3.1-pro"),
     ("contrarian", "mistralai/mistral-large-latest"),
-    ("auditor", "deepseek/deepseek-v4-pro"),
+    ("auditor", "deepseek/deepseek-v4-pro-0813"),
 ]
 
 # IP -> list of timestamps
@@ -834,7 +834,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 # Oracle LLM responses — direct API calls for intelligent answers
 # ---------------------------------------------------------------------------
 
-_ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
+_ORACLE_MODEL_ANTHROPIC = "claude-sonnet-5"
 _ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-5"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
@@ -868,14 +868,14 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     # _get_available_tentacle_models resolves which key is available at runtime.
     {
         "provider": "anthropic",
-        "model": "claude-sonnet-4-6",
+        "model": "claude-sonnet-5",
         "name": "claude",
         "env": "ANTHROPIC_API_KEY",
         "openrouter_model": "anthropic/claude-sonnet-4-6",
     },
     {
         "provider": "openai",
-        "model": "gpt-5.4",
+        "model": "gpt-6-astra",
         "name": "gpt",
         "env": "OPENAI_API_KEY",
         "openrouter_model": "openai/gpt-4.1",
@@ -889,17 +889,17 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "google",
-        "model": "gemini-3.1-pro",
+        "model": "gemini-3.1-pro-preview",
         "name": "gemini",
         "env": "GEMINI_API_KEY",
         "openrouter_model": "google/gemini-3.1-pro",
     },
     {
         "provider": "openrouter",
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "deepseek/deepseek-v4-pro-0813",
         "name": "deepseek",
         "env": "OPENROUTER_API_KEY",
-        "openrouter_model": "deepseek/deepseek-v4-pro",
+        "openrouter_model": "deepseek/deepseek-v4-pro-0813",
     },
     {
         "provider": "openrouter",
@@ -3269,7 +3269,7 @@ class PlaygroundHandler(BaseHandler):
 
             agent = _Anthropic(
                 name="tldr-synth",
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5",
             )
         except (ImportError, RuntimeError, ValueError, OSError) as exc:
             logger.debug("Anthropic agent unavailable for TL;DR: %s", exc)
@@ -4078,8 +4078,8 @@ def _get_available_live_agents(count: int) -> list[str]:
 def _resolve_playground_agents(agent_tags: list[str]) -> str:
     """Convert playground agent tags to comma-separated string for DebateFactory.
 
-    Tags like 'openrouter:anthropic/claude-sonnet-4' become
-    'openrouter|anthropic/claude-sonnet-4' so DebateFactory can parse them as
+    Tags like 'openrouter:anthropic/claude-sonnet-5' become
+    'openrouter|anthropic/claude-sonnet-5' so DebateFactory can parse them as
     provider + model instead of treating the combined string as a provider name.
     Tags like 'anthropic-api' pass through unchanged.
     """

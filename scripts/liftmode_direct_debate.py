@@ -149,7 +149,7 @@ async def run_direct_debate():
         grok = AgentRegistry.create(
             "grok",
             name="cfo-advisor",
-            model="grok-4",
+            model="grok-4.6",
             role="critic",
             use_cache=False,
             timeout=300,

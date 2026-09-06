@@ -55,7 +55,7 @@ class WorkflowOrchestrator:
         agents = [
             Agent(
                 name="compliance_expert",
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-5",
                 persona=AgentPersona(
                     role="Compliance Officer",
                     expertise=["GDPR", "CCPA", "data privacy", "regulatory compliance"],
@@ -63,11 +63,11 @@ class WorkflowOrchestrator:
                     priorities=["legal compliance", "risk mitigation"],
                 ),
                 vote_weight=1.5,
-                fallback=Agent(name="claude_fallback", model="gpt-4o"),
+                fallback=Agent(name="claude_fallback", model="gpt-6-astra"),
             ),
             Agent(
                 name="security_architect",
-                model="gpt-4o",
+                model="gpt-6-astra",
                 persona=AgentPersona(
                     role="Security Architect",
                     expertise=["encryption", "access control", "threat modeling"],
@@ -78,7 +78,7 @@ class WorkflowOrchestrator:
             ),
             Agent(
                 name="ml_engineer",
-                model="gemini-2.0-flash",
+                model="gemini-3.8-flash",
                 persona=AgentPersona(
                     role="ML Engineer",
                     expertise=["machine learning", "data pipelines", "MLOps"],

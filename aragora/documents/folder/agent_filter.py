@@ -8,7 +8,7 @@ enhancement on top of pattern-based filtering.
 Example usage:
     from aragora.documents.folder.agent_filter import AgentFileFilter
 
-    filter = AgentFileFilter(model="gemini-2.0-flash")
+    filter = AgentFileFilter(model="gemini-3.8-flash")
     decisions = await filter.filter_batch(
         files=scan_result.included_files,
         prompt="Only include financial reports and legal contracts",
@@ -401,7 +401,7 @@ Provide a decision for every file listed above."""
 
 
 def get_agent_filter(
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-3.8-flash",
     batch_size: int = AgentFileFilter.DEFAULT_BATCH_SIZE,
 ) -> AgentFileFilter:
     """

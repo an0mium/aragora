@@ -26,7 +26,7 @@ from aragora.rlm import AragoraRLM, DebateContextAdapter, HAS_OFFICIAL_RLM
 # Check if official RLM is available
 if HAS_OFFICIAL_RLM:
     # Create RLM instance with official library
-    rlm = AragoraRLM(backend="openai", model="gpt-4o")
+    rlm = AragoraRLM(backend="openai", model="gpt-6-astra")
     adapter = DebateContextAdapter(rlm)
 
     # Query a debate
@@ -47,7 +47,7 @@ else:
 from aragora.rlm import DebateContextAdapter, create_aragora_rlm
 
 # Create RLM for debate analysis
-rlm = create_aragora_rlm(backend="anthropic", model="claude-3-5-sonnet-20241022")
+rlm = create_aragora_rlm(backend="anthropic", model="claude-sonnet-5")
 adapter = DebateContextAdapter(rlm)
 
 # Load a debate result
@@ -103,7 +103,7 @@ from aragora.rlm import RLMConfig, DecompositionStrategy
 config = RLMConfig(
     # Model configuration
     root_model="claude",          # Primary model
-    sub_model="gpt-4o-mini",      # Model for sub-calls (cheaper)
+    sub_model="gpt-5.6-terra",      # Model for sub-calls (cheaper)
 
     # Recursion limits
     max_depth=2,                  # Maximum recursion depth
@@ -201,7 +201,7 @@ Main RLM interface for Aragora integration.
 ```python
 rlm = AragoraRLM(
     backend="openai",           # "openai", "anthropic", "local"
-    model="gpt-4o",             # Model identifier
+    model="gpt-6-astra",             # Model identifier
     config=RLMConfig(),         # Optional configuration
 )
 

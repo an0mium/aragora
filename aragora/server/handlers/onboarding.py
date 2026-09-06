@@ -413,14 +413,14 @@ QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
             "security_scan_starter",
             "quick_question_starter",
         ],
-        "default_agents": ["claude", "gpt-4", "gemini"],
+        "default_agents": ["claude", "gpt-6-astra", "gemini"],
         "default_rounds": ONBOARDING_FAST_ROUNDS,
         "focus_areas": ["architecture", "code_quality", "performance"],
     },
     QuickStartProfile.SECURITY.value: {
         "default_template": "security_scan_starter",
         "suggested_templates": ["security_scan_starter", "policy_review_starter"],
-        "default_agents": ["claude", "gpt-4", "gemini", "grok"],
+        "default_agents": ["claude", "gpt-6-astra", "gemini", "grok"],
         "default_rounds": ONBOARDING_DEEP_ROUNDS,
         "focus_areas": ["vulnerabilities", "compliance", "access_control"],
     },
@@ -431,7 +431,7 @@ QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
             "vendor_eval_starter",
             "policy_review_starter",
         ],
-        "default_agents": ["claude", "gpt-4"],
+        "default_agents": ["claude", "gpt-6-astra"],
         "default_rounds": ONBOARDING_QUICK_ROUNDS,
         "focus_areas": ["strategy", "roi", "risk"],
     },
@@ -442,14 +442,14 @@ QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
             "vendor_eval_starter",
             "quick_question_starter",
         ],
-        "default_agents": ["claude", "gpt-4", "gemini"],
+        "default_agents": ["claude", "gpt-6-astra", "gemini"],
         "default_rounds": ONBOARDING_FAST_ROUNDS,
         "focus_areas": ["user_experience", "feasibility", "market_fit"],
     },
     QuickStartProfile.COMPLIANCE.value: {
         "default_template": "policy_review_starter",
         "suggested_templates": ["policy_review_starter", "security_scan_starter"],
-        "default_agents": ["claude", "gpt-4", "gemini", "grok"],
+        "default_agents": ["claude", "gpt-6-astra", "gemini", "grok"],
         "default_rounds": ONBOARDING_DEEP_ROUNDS,
         "focus_areas": ["regulations", "audit", "documentation"],
     },
@@ -461,7 +461,7 @@ QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
             "sme_tool_selection",
             "sme_budget_allocation",
         ],
-        "default_agents": ["claude", "gpt-4"],
+        "default_agents": ["claude", "gpt-6-astra"],
         "default_rounds": ONBOARDING_FAST_ROUNDS,
         "focus_areas": ["team_decisions", "vendor_selection", "policy", "project_planning"],
         "budget_enabled": True,
@@ -1110,7 +1110,7 @@ async def handle_quick_debate(
         # Determine agents based on profile or template
         if profile and profile in QUICK_START_CONFIGS:
             config = QUICK_START_CONFIGS[profile]
-            agents = config.get("default_agents", ["claude", "gpt-4"])
+            agents = config.get("default_agents", ["claude", "gpt-6-astra"])
         else:
             # Use minimal agents for quick onboarding
             agents = ["anthropic-api", "openai-api"]

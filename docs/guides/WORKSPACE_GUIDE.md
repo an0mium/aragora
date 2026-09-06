@@ -294,7 +294,7 @@ ws = WorkspaceManager()
 pool = await fabric.create_pool(
     pool_id="pool-backend",
     name="Backend Pool",
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     min_agents=2,
     max_agents=10,
 )

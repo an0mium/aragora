@@ -78,7 +78,7 @@ blocker — but record it.)
 
 **Reviewer harness:** claude
 **Model family:** claude
-**Model id:** claude-opus-4
+**Model id:** claude-fable-5-1
 **Receipt artifact:** <local path or URL to the saved review>
 
 Independent model review (adversarial dogfood recheck) of head <FULL_HEAD_SHA>.
@@ -94,7 +94,7 @@ carries the lineage:
 
 **Reviewer harness:** factory
 **Model family:** openai
-**Model id:** gpt-5.5
+**Model id:** gpt-6-astra
 **Receipt artifact:** <...>
 
 Independent model review (adversarial cross-author recheck) ...

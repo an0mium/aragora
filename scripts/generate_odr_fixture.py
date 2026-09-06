@@ -94,7 +94,7 @@ def build_sample_receipt() -> DecisionReceipt:
             role="proposer",
             round=2,
             provider="anthropic",
-            model="claude-opus-4",
+            model="claude-fable-5-1",
         ),
         AgentResponseRecord(
             agent="gpt5",
@@ -106,7 +106,7 @@ def build_sample_receipt() -> DecisionReceipt:
             role="critic",
             round=2,
             provider="openai",
-            model="gpt-5",
+            model="gpt-6-astra",
         ),
         AgentResponseRecord(
             agent="gemini",
@@ -117,7 +117,7 @@ def build_sample_receipt() -> DecisionReceipt:
             role="critic",
             round=2,
             provider="google",
-            model="gemini-2.5-pro",
+            model="gemini-3.1-pro-preview",
         ),
     ]
 

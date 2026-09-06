@@ -58,8 +58,8 @@ ELEVENLABS_VOICES = {
 
 # OpenRouter fallback models for each provider
 FALLBACK_MODELS = {
-    "anthropic-api": "anthropic/claude-sonnet-4",
-    "openai-api": "openai/gpt-4o",
+    "anthropic-api": "anthropic/claude-sonnet-5",
+    "openai-api": "openai/gpt-6-astra",
     "gemini": "google/gemini-3.1-pro-preview",
     "grok": "x-ai/grok-2-1212",
     "mistral-api": "mistralai/mistral-large-2411",

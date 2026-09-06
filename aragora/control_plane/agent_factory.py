@@ -147,7 +147,7 @@ class AgentFactory:
         Checks, in order:
         1. metadata.agent_type (explicit override in agent metadata)
         2. provider field mapped via PROVIDER_TO_AGENT_TYPE
-        3. model field heuristic (e.g., "claude-3-opus" -> "anthropic-api")
+        3. model field heuristic (e.g., "claude-fable-5-1" -> "anthropic-api")
 
         Args:
             agent_info: Agent metadata from the control plane registry

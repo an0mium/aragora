@@ -15,7 +15,7 @@ from aragora.agents.api_agents import (
 )
 
 # Create an agent with automatic fallback
-agent = AnthropicAPIAgent(name="claude-debate", model="claude-opus-4-5-20251101")
+agent = AnthropicAPIAgent(name="claude-debate", model="claude-fable-5-1")
 
 # Generate a response
 response = await agent.generate("Analyze the trade-offs of microservices vs monoliths")
@@ -93,10 +93,10 @@ Agent (core.py)
 
 | Provider | Agent Class | Default Model | Env Var | Capabilities |
 |----------|-------------|---------------|---------|--------------|
-| Anthropic | `AnthropicAPIAgent` | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
+| Anthropic | `AnthropicAPIAgent` | claude-fable-5-1 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
 | OpenAI | `OpenAIAPIAgent` | gpt-5.3 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
-| Google | `GeminiAgent` | gemini-3-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
-| xAI | `GrokAgent` | grok-4-latest | `XAI_API_KEY` | Streaming, Fallback |
+| Google | `GeminiAgent` | gemini-3.1-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
+| xAI | `GrokAgent` | grok-4.6 | `XAI_API_KEY` | Streaming, Fallback |
 | Mistral | `MistralAPIAgent` | mistral-large-2512 | `MISTRAL_API_KEY` | Streaming, Fallback |
 | Mistral | `CodestralAgent` | codestral-latest | `MISTRAL_API_KEY` | Code-optimized |
 
@@ -111,10 +111,10 @@ Agent (core.py)
 | `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
 | `QwenAgent` | qwen3.8-max | Alibaba's frontier model |
 | `QwenMaxAgent` | qwen3.8-max | 1M-context frontier model |
-| `MistralAgent` | mistral-large-2411 | Via OpenRouter |
+| `MistralAgent` | mistral-large-2512 | Via OpenRouter |
 | `YiAgent` | yi-large | 01.AI flagship |
 | `KimiK3Agent` | kimi-k3 | Latest frontier Kimi model on OpenRouter |
-| `KimiThinkingAgent` | kimi-k2-thinking | Reasoning model |
+| `KimiThinkingAgent` | kimi-k3 | Reasoning model |
 | `SonarAgent` | sonar-reasoning-pro | Advanced reasoning + web search |
 | `CommandRAgent` | command-a | Tool use and RAG |
 | `JambaAgent` | jamba-large-1.7 | SSM-Transformer hybrid |
@@ -193,18 +193,18 @@ When a provider fails (rate limit, quota exceeded, auth error), agents automatic
 agent = AnthropicAPIAgent(enable_fallback=True)
 
 # Fallback chain for OpenRouter models
-# qwen/qwen3-235b -> deepseek/deepseek-v4-pro -> openai/gpt-5.3-chat
+# qwen/qwen3-235b -> deepseek/deepseek-v4-pro-0813 -> openai/gpt-5.3-chat
 ```
 
 #### Fallback Model Chain
 
 ```python
 OPENROUTER_FALLBACK_MODELS = {
-    "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro",
-    "deepseek/deepseek-v4-pro": "openai/gpt-5.3-chat",
+    "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro-0813",
+    "deepseek/deepseek-v4-pro-0813": "openai/gpt-5.3-chat",
     "moonshotai/kimi-k3": "anthropic/claude-opus-5",
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-5",
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
+    "moonshotai/kimi-k3": "anthropic/claude-opus-5",
+    "meta/muse-spark-1.3": "openai/gpt-5.6-terra",
     # ... more mappings
 }
 ```
@@ -520,7 +520,7 @@ if await agent.is_available():
 from aragora.agents.api_agents import OpenRouterAgent, DeepSeekAgent
 
 # Generic OpenRouter with any model
-agent = OpenRouterAgent(model="anthropic/claude-3.5-sonnet")
+agent = OpenRouterAgent(model="anthropic/claude-sonnet-5")
 
 # Or use model-specific class for defaults
 agent = DeepSeekAgent()  # Uses deepseek-v4-pro

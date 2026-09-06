@@ -218,7 +218,7 @@ def create_vendor_evaluation_workflow(
                 name="Multi-Agent Evaluation",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "topic": f"Should we proceed with {vendor_name}?",
                     "rounds": 3,
                     "criteria": criteria,
@@ -334,7 +334,7 @@ def create_tool_selection_workflow(
                 name="Tool Comparison Debate",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4", "gemini"],
+                    "agents": ["claude", "gpt-6-astra", "gemini"],
                     "topic": f"Which {category} tool is best: {', '.join(candidates)}?",
                     "rounds": 4,
                     "requirements": reqs,

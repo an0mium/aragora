@@ -67,7 +67,7 @@ steps:
       topic: "Allocate {total_budget} budget for {budget_period} across priorities. Analysis: {step.analyze_budget_context}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
       rounds: 2
       consensus: qualified_majority
       evaluation_criteria:

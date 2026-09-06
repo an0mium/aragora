@@ -18,7 +18,7 @@ genuine drift keeps being reported by the default (advisory) mode where it
 can be adjudicated on its own.
 
 Provider reprices are real and frequent: three were caught by adversarial
-review in a single week (gpt-5.5 2.50/10 -> 5/30; qwen3.7-max 1.25/3.75 ->
+review in a single week (gpt-6-astra 2.50/10 -> 5/30; qwen3.7-max 1.25/3.75 ->
 1.475/4.425; kimi-k2.7-code 0.72 -> 0.75). This tool makes that discovery
 mechanical instead of review-driven.
 """

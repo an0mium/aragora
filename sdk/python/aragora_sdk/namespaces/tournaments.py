@@ -33,7 +33,7 @@ class TournamentsAPI:
         >>> tournament = client.tournaments.create(
         ...     name="Weekly Championship",
         ...     format="single_elimination",
-        ...     participants=["claude", "gpt-4", "gemini", "grok"]
+        ...     participants=["claude", "gpt-6-astra", "gemini", "grok"]
         ... )
         >>> standings = client.tournaments.get_standings(tournament["id"])
     """

@@ -1511,21 +1511,21 @@ API (direct):
 |------|---------------|-------|
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
 | `openai-api` | gpt-5.3 | OpenAI API, streaming |
-| `gemini` | gemini-3-pro-preview | Google API, streaming |
-| `grok` | grok-4-latest | xAI API, streaming |
+| `gemini` | gemini-3.1-pro-preview | Google API, streaming |
+| `grok` | grok-4.6 | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
 | `codestral` | codestral-latest | Mistral code model |
 | `ollama` | llama3.2 | Local Ollama |
 | `lm-studio` | local-model | Local LM Studio |
-| `kimi` | moonshot-v1-8k | Moonshot API |
+| `kimi` | kimi-k3 | Moonshot API |
 
 OpenRouter:
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `openrouter` | deepseek/deepseek-v4-pro | Model via `model` parameter |
-| `deepseek` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro |
-| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
-| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
+| `openrouter` | deepseek/deepseek-v4-pro-0813 | Model via `model` parameter |
+| `deepseek` | deepseek/deepseek-v4-pro-0813 | DeepSeek V4 Pro |
+| `deepseek-r1` | deepseek/deepseek-v4-pro-0813 | DeepSeek V4 Pro compatibility alias |
+| `llama` | meta/muse-spark-1.3 | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
 | `qwen` | qwen/qwen3.8-max | Qwen 3.8 Max |
 | `qwen-max` | qwen/qwen3.8-max | Qwen 3.8 Max |
@@ -1538,8 +1538,8 @@ CLI:
 | `claude` | claude-opus-4-5-20251101 | Claude CLI |
 | `codex` | gpt-5.3-codex | Codex CLI |
 | `openai` | gpt-5.3 | OpenAI CLI |
-| `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
-| `grok-cli` | grok-4-latest | Grok CLI |
+| `gemini-cli` | gemini-3.1-pro-preview | Gemini CLI |
+| `grok-cli` | grok-4.6 | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
 | `deepseek-cli` | deepseek-v4-pro | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |

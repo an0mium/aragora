@@ -23,7 +23,7 @@ aragora = AragoraClientSync(
     base_url="https://api.aragora.ai",
     api_key="your-aragora-api-key"
 )
-llm = OpenAI(model="gpt-4", temperature=0)
+llm = OpenAI(model="gpt-6-astra", temperature=0)
 
 def debate_query(question: str) -> str:
     """
@@ -37,7 +37,7 @@ def debate_query(question: str) -> str:
     """
     result = aragora.create_debate(
         question=question,
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3
     )
 
@@ -98,7 +98,7 @@ def debate_with_context(question: str, context: str = "") -> str:
 
     result = aragora.create_debate(
         question=full_question,
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2
     )
 
@@ -127,7 +127,7 @@ debate_tool = FunctionTool.from_defaults(
 # Create agent with both tools
 agent = ReActAgent.from_tools(
     tools=[rag_tool, debate_tool],
-    llm=OpenAI(model="gpt-4"),
+    llm=OpenAI(model="gpt-6-astra"),
     verbose=True,
     system_prompt="""You are a decision support assistant.
     First search documents for relevant facts, then use the debate tool
@@ -176,7 +176,7 @@ class DebateValidatedQueryEngine(CustomQueryEngine):
 
         result = self.aragora.create_debate(
             question=validation_query,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2
         )
 
@@ -221,7 +221,7 @@ async def async_debate(question: str) -> str:
     async with AragoraClient(api_key="your-key") as client:
         result = await client.create_debate(
             question=question,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
         )
 
         while True:

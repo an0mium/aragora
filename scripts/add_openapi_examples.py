@@ -16,7 +16,7 @@ ENDPOINT_EXAMPLES = {
                 "application/json": {
                     "example": {
                         "question": "Should we adopt TypeScript for our backend services?",
-                        "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                        "agents": ["claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview"],
                         "rounds": 3,
                         "consensus_threshold": 0.7,
                         "workspace_id": "ws_abc123",
@@ -34,7 +34,7 @@ ENDPOINT_EXAMPLES = {
                             "id": "dbt_xyz789",
                             "status": "active",
                             "question": "Should we adopt TypeScript for our backend services?",
-                            "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "agents": ["claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview"],
                             "current_round": 1,
                             "total_rounds": 3,
                             "created_at": "2024-01-15T10:30:00Z",
@@ -54,7 +54,7 @@ ENDPOINT_EXAMPLES = {
                             "id": "dbt_xyz789",
                             "status": "completed",
                             "question": "Should we adopt TypeScript for our backend services?",
-                            "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "agents": ["claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview"],
                             "current_round": 3,
                             "total_rounds": 3,
                             "created_at": "2024-01-15T10:30:00Z",
@@ -64,15 +64,15 @@ ENDPOINT_EXAMPLES = {
                             "confidence": 0.85,
                             "proposals": [
                                 {
-                                    "agent": "claude-3-opus",
+                                    "agent": "claude-fable-5-1",
                                     "content": "TypeScript offers significant benefits...",
                                     "round": 1,
                                 }
                             ],
                             "votes": {
-                                "claude-3-opus": "approve",
-                                "gpt-4": "approve",
-                                "gemini-pro": "approve",
+                                "claude-fable-5-1": "approve",
+                                "gpt-6-astra": "approve",
+                                "gemini-3.1-pro-preview": "approve",
                             },
                         }
                     }
@@ -88,7 +88,7 @@ ENDPOINT_EXAMPLES = {
                     "example": {
                         "debate_id": "dbt_xyz789",
                         "attack_types": ["adversarial", "edge_case", "contradiction"],
-                        "defender_agent": "claude-3-opus",
+                        "defender_agent": "claude-fable-5-1",
                         "max_iterations": 5,
                         "confidence_threshold": 0.8,
                     }
@@ -156,7 +156,7 @@ ENDPOINT_EXAMPLES = {
                         "example": {
                             "agents": [
                                 {
-                                    "id": "claude-3-opus",
+                                    "id": "claude-fable-5-1",
                                     "name": "Claude 3 Opus",
                                     "provider": "anthropic",
                                     "capabilities": ["reasoning", "coding", "analysis"],
@@ -164,7 +164,7 @@ ENDPOINT_EXAMPLES = {
                                     "elo_rating": 1850,
                                 },
                                 {
-                                    "id": "gpt-4",
+                                    "id": "gpt-6-astra",
                                     "name": "GPT-4",
                                     "provider": "openai",
                                     "capabilities": ["reasoning", "coding", "creative"],
@@ -194,7 +194,11 @@ ENDPOINT_EXAMPLES = {
                             "risk_score": 0.15,
                             "checksum": "sha256:abc123...",
                             "created_at": "2024-01-15T10:35:00Z",
-                            "participants": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "participants": [
+                                "claude-fable-5-1",
+                                "gpt-6-astra",
+                                "gemini-3.1-pro-preview",
+                            ],
                             "consensus_proof": {
                                 "type": "supermajority",
                                 "threshold": 0.7,
@@ -286,21 +290,21 @@ ENDPOINT_EXAMPLES = {
                         "example": {
                             "rankings": [
                                 {
-                                    "agent": "claude-3-opus",
+                                    "agent": "claude-fable-5-1",
                                     "elo": 1850,
                                     "wins": 142,
                                     "losses": 58,
                                     "rank": 1,
                                 },
                                 {
-                                    "agent": "gpt-4",
+                                    "agent": "gpt-6-astra",
                                     "elo": 1820,
                                     "wins": 135,
                                     "losses": 65,
                                     "rank": 2,
                                 },
                                 {
-                                    "agent": "gemini-pro",
+                                    "agent": "gemini-3.1-pro-preview",
                                     "elo": 1780,
                                     "wins": 120,
                                     "losses": 80,

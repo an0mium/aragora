@@ -386,14 +386,14 @@ Language code:"""
         try:
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            return AnthropicAPIAgent(model="claude-3-haiku-20240307")
+            return AnthropicAPIAgent(model="claude-haiku-4-5-20251001")
         except ImportError:
             pass
 
         try:
             from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-            return OpenAIAPIAgent(model="gpt-4o-mini")
+            return OpenAIAPIAgent(model="gpt-5.6-terra")
         except ImportError:
             pass
 

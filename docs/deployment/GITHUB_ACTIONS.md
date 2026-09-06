@@ -145,10 +145,10 @@ env:
 
 | Agent | Model | Best For |
 |-------|-------|----------|
-| `anthropic-api` | claude-opus-4-5-20251101 | Security analysis, nuanced review |
-| `openai-api` | gpt-5.3 | Code quality, performance |
+| `anthropic-api` | claude-fable-5-1 | Security analysis, nuanced review |
+| `openai-api` | gpt-6-astra | Code quality, performance |
 | `mistral-api` | mistral-large-2512 | European compliance, fast |
-| `gemini` | gemini-3-pro-preview | Architecture, scalability |
+| `gemini` | gemini-3.1-pro-preview | Architecture, scalability |
 | `openrouter` | model parameter | Cost-effective fallback |
 
 ### Scheduled Audits

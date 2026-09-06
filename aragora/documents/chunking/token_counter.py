@@ -13,7 +13,7 @@ Usage:
     tokens = counter.count("Hello world", model="gpt-4")
 
     # Count tokens for Claude (approximation)
-    tokens = counter.count("Hello world", model="claude-3-opus")
+    tokens = counter.count("Hello world", model="claude-fable-5-1")
 
     # Get appropriate encoder for model
     encoder = counter.get_encoder("gpt-4")

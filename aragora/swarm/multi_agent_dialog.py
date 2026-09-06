@@ -287,7 +287,7 @@ class AgentSpec:
     #
     # These factories pin a specific model on a specific CLI surface
     # so a single round can dispatch e.g. claude-opus, claude-sonnet,
-    # gpt-5.4, gemini-3.1-pro, kimi-k2.5 in parallel.
+    # gpt-6-astra, gemini-3.1-pro-preview, kimi-k3 in parallel.
 
     @classmethod
     def with_model(
@@ -354,7 +354,7 @@ class AgentSpec:
     def droid_gpt5(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """GPT-5.4 via the ``droid`` CLI."""
         return cls.with_model(
-            "droid", "gpt-5.4", name="droid-gpt5", timeout_seconds=timeout_seconds
+            "droid", "gpt-6-astra", name="droid-gpt5", timeout_seconds=timeout_seconds
         )
 
     @classmethod
@@ -371,7 +371,7 @@ class AgentSpec:
     def droid_kimi(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """Kimi K2.5 (Chinese frontier) via the ``droid`` CLI."""
         return cls.with_model(
-            "droid", "kimi-k2.5", name="droid-kimi", timeout_seconds=timeout_seconds
+            "droid", "kimi-k3", name="droid-kimi", timeout_seconds=timeout_seconds
         )
 
     @classmethod

@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS usage_metrics (
     tenant_id TEXT,              -- Aragora tenant
     debate_id UUID,              -- Associated debate
     provider TEXT NOT NULL,      -- anthropic, openai, etc.
-    model TEXT NOT NULL,         -- claude-3-opus, gpt-4, etc.
+    model TEXT NOT NULL,         -- claude-fable-5-1, gpt-6-astra, etc.
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     cost_usd DECIMAL(10,6) NOT NULL DEFAULT 0,

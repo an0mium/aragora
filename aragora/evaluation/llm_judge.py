@@ -511,7 +511,7 @@ class JudgeConfig:
     """Configuration for LLM judge."""
 
     # Model settings
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-5"
     temperature: float = 0.0  # Low temp for consistency
     max_tokens: int = 4000
 
@@ -526,7 +526,7 @@ class JudgeConfig:
 
     # Multi-judge settings
     use_multiple_judges: bool = False
-    secondary_model: str = "gpt-4o"
+    secondary_model: str = "gpt-6-astra"
 
     # Workspace isolation
     workspace_id: str | None = None

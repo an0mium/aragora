@@ -31,7 +31,7 @@ def main() -> None:
     # Create a debate
     debate = client.debates.create(
         task="What is the best programming language for building web APIs?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=3,
         consensus="majority",
     )

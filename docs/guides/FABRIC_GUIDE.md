@@ -30,7 +30,7 @@ fabric = AgentFabric(config=config)
 
 # Spawn an agent
 agent = await fabric.spawn(AgentConfig(
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     name="code-review-agent",
 ))
 
@@ -87,7 +87,7 @@ from aragora.fabric import AgentFabric, AgentPool
 pool = await fabric.create_pool(
     pool_id="pool-frontend",
     name="Frontend Agents",
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     min_agents=2,
     max_agents=10,
 )
@@ -142,7 +142,7 @@ lifecycle = LifecycleManager()
 
 # Spawn agent
 agent = await lifecycle.spawn(AgentConfig(
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     name="worker-1",
     capabilities=["code", "test", "review"],
 ))
@@ -279,7 +279,7 @@ await hooks.complete_hook(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `model` | str | Model identifier (claude-3-opus, etc.) |
+| `model` | str | Model identifier (claude-fable-5-1, etc.) |
 | `name` | str | Agent display name |
 | `capabilities` | list | List of capabilities |
 | `isolation` | IsolationConfig | Isolation settings |
@@ -334,7 +334,7 @@ rig = await ws.create_rig(name="backend")
 
 pool = await fabric.create_pool(
     pool_id="pool-backend",
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     min_agents=2,
 )
 
@@ -394,14 +394,14 @@ task = await fabric.schedule(
 # Create pools for different workloads
 review_pool = await fabric.create_pool(
     pool_id="pool-review",
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     min_agents=2,
     max_agents=5,
 )
 
 code_pool = await fabric.create_pool(
     pool_id="pool-code",
-    model="claude-3-opus",
+    model="claude-fable-5-1",
     min_agents=3,
     max_agents=10,
 )

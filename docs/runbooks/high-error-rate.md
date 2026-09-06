@@ -31,7 +31,7 @@ jq 'select(.status >= 400)' /var/log/aragora/app.log | head -20
 # Test AI provider connectivity
 curl -s https://api.anthropic.com/v1/messages -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "content-type: application/json" \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":1,"messages":[{"role":"user","content":"test"}]}'
+  -d '{"model":"claude-sonnet-5","max_tokens":1,"messages":[{"role":"user","content":"test"}]}'
 
 # Test Redis
 redis-cli ping

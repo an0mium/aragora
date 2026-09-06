@@ -25,7 +25,7 @@ Usage with Real RLM:
 
     if HAS_OFFICIAL_RLM:
         # Real RLM - context in REPL, LLM writes code to query
-        rlm = AragoraRLM(backend="openai", model="gpt-4o")
+        rlm = AragoraRLM(backend="openai", model="gpt-6-astra")
         adapter = DebateContextAdapter(rlm)
         answer = await adapter.query_debate(
             "What were the main disagreements?",

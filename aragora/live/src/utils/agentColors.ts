@@ -64,7 +64,7 @@ export const AGENT_COLORS: Record<string, AgentColorScheme> = {
 
 /**
  * Get colors for an agent by name, using prefix matching.
- * This ensures any variant (e.g., "grok-explorer", "claude-3-opus") gets the right color.
+ * This ensures any variant (e.g., "grok-explorer", "claude-fable-5-1") gets the right color.
  *
  * @param agentName - The agent/model name to look up
  * @returns The color scheme for the agent

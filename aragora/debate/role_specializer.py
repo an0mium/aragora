@@ -174,9 +174,9 @@ class AHMADRoleSpecializer:
         # Get team composition
         team = specializer.assign_roles(
             roles=roles,
-            available_agents=["claude", "gpt-4", "gemini", "deepseek-r1"],
-            elo_scores={"claude": 1600, "gpt-4": 1580, ...},
-            calibration_scores={"claude": 0.15, "gpt-4": 0.18, ...},
+            available_agents=["claude", "gpt-6-astra", "gemini", "deepseek-r1"],
+            elo_scores={"claude": 1600, "gpt-6-astra": 1580, ...},
+            calibration_scores={"claude": 0.15, "gpt-6-astra": 0.18, ...},
         )
 
         for assignment in team.assignments:

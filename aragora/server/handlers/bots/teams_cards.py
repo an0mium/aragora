@@ -20,7 +20,7 @@ Usage:
     card = create_debate_card(
         debate_id="debate-123",
         topic="Should we adopt microservices?",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         progress=50,
     )
 """

@@ -435,7 +435,7 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
     const colors: Record<string, string> = {
       claude: '#00ffff',
       gpt4: '#10b981',
-      'gpt-4': '#10b981',
+      'gpt-6-astra': '#10b981',
       gemini: '#a855f7',
       grok: '#ef4444',
       mistral: '#f59e0b',

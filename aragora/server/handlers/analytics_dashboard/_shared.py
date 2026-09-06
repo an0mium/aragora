@@ -134,7 +134,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     "elo": 1847,
                 },
                 {
-                    "agent_id": "gpt-4o",
+                    "agent_id": "gpt-6-astra",
                     "name": "GPT-4o",
                     "debates": 38,
                     "win_rate": 0.71,
@@ -155,7 +155,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     "elo": 1715,
                 },
                 {
-                    "agent_id": "mistral-large",
+                    "agent_id": "mistral-large-2512",
                     "name": "Mistral Large",
                     "debates": 28,
                     "win_rate": 0.58,
@@ -168,11 +168,11 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
             "analysis": {
                 "total_cost_usd": 12.47,
                 "cost_by_model": {
-                    "claude-opus-4": 5.82,
-                    "gpt-4o": 3.91,
+                    "claude-fable-5-1": 5.82,
+                    "gpt-6-astra": 3.91,
                     "claude-opus-4-8": 1.64,
                     "gemini-1.5-pro": 0.78,
-                    "mistral-large": 0.32,
+                    "mistral-large-2512": 0.32,
                 },
                 "cost_by_debate_type": {"structured": 8.12, "freeform": 3.05, "tournament": 1.30},
                 "projected_monthly_cost": 18.70,
@@ -191,10 +191,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                 "total_spend_usd": 12.47,
                 "agents": [
                     {"agent": "claude-opus", "spend_usd": 5.82, "debates": 42},
-                    {"agent": "gpt-4o", "spend_usd": 3.91, "debates": 38},
+                    {"agent": "gpt-6-astra", "spend_usd": 3.91, "debates": 38},
                     {"agent": "claude-sonnet", "spend_usd": 1.64, "debates": 40},
                     {"agent": "gemini-pro", "spend_usd": 0.78, "debates": 35},
-                    {"agent": "mistral-large", "spend_usd": 0.32, "debates": 28},
+                    {"agent": "mistral-large-2512", "spend_usd": 0.32, "debates": 28},
                 ],
                 "budget_utilization_pct": 62.4,
             },
@@ -236,13 +236,13 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
             },
             "by_agent": {
                 "claude-opus": 168200,
-                "gpt-4o": 124600,
+                "gpt-6-astra": 124600,
                 "gemini-pro": 72400,
                 "claude-sonnet": 38900,
-                "mistral-large": 22700,
+                "mistral-large-2512": 22700,
             },
             "by_model": {
-                "claude-opus-4": 168200,
+                "claude-fable-5-1": 168200,
                 "gpt-4o-2024-11": 124600,
                 "gemini-1.5-pro": 72400,
                 "claude-opus-4-8": 38900,
@@ -276,7 +276,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
             "demo": True,
             "flips": [
                 {
-                    "agent": "gpt-4o",
+                    "agent": "gpt-6-astra",
                     "topic": "Rate limiting",
                     "from": "reject",
                     "to": "approve",
@@ -290,7 +290,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     "date": "2026-02-18",
                 },
                 {
-                    "agent": "mistral-large",
+                    "agent": "mistral-large-2512",
                     "topic": "Cost model",
                     "from": "reject",
                     "to": "approve",
@@ -302,10 +302,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
             "demo": True,
             "consistency": [
                 {"agent": "claude-opus", "consistency_score": 0.94},
-                {"agent": "gpt-4o", "consistency_score": 0.87},
+                {"agent": "gpt-6-astra", "consistency_score": 0.87},
                 {"agent": "gemini-pro", "consistency_score": 0.82},
                 {"agent": "claude-sonnet", "consistency_score": 0.90},
-                {"agent": "mistral-large", "consistency_score": 0.85},
+                {"agent": "mistral-large-2512", "consistency_score": 0.85},
             ],
         },
         "/api/analytics/flips/trends": {

@@ -96,7 +96,7 @@ class AgentAnalyticsMixin:
         {
             "total_flips": 150,
             "by_type": {"contradiction": 45, "retraction": 20, ...},
-            "by_agent": {"claude": 30, "gpt-4": 25, ...},
+            "by_agent": {"claude": 30, "gpt-6-astra": 25, ...},
             "recent_24h": 12
         }
         """

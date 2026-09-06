@@ -25,7 +25,7 @@ async function main() {
   // Create a debate
   const debate = await client.debates.create({
     task: 'What is the best programming language for building web APIs?',
-    agents: ['claude', 'gpt-4'],
+    agents: ['claude', 'gpt-6-astra'],
     protocol: {
       rounds: 3,
       consensus: 'majority',

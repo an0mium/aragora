@@ -140,7 +140,7 @@ async function main() {
           type: 'debate',
           config: {
             task: 'Analyze the proposal: {{input.proposal}}',
-            agents: ['claude', 'gpt-4'],
+            agents: ['claude', 'gpt-6-astra'],
             rounds: 2,
             consensus: 'majority',
           },

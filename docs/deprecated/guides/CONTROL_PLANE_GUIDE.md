@@ -85,7 +85,7 @@ Request body:
   "task_type": "debate",
   "payload": {
     "topic": "Design a rate limiter",
-    "agents": ["claude", "gpt-4", "codex"],
+    "agents": ["claude", "gpt-6-astra", "codex"],
     "rounds": 3
   },
   "priority": "high",
@@ -295,7 +295,7 @@ task = await client.submit_task(
     task_type="debate",
     payload={
         "topic": "Design a caching strategy",
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-6-astra"],
     },
     priority="high",
 )

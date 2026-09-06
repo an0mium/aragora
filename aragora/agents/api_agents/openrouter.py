@@ -225,7 +225,7 @@ class OpenRouterAgent(APIAgent):
     - ai21/jamba-large-1.7 (Jamba Large 1.7)
     - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
     - anthropic/claude-opus-5
-    - openai/gpt-5.5
+    - openai/gpt-6-astra
     """
 
     def __init__(

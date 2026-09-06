@@ -21,7 +21,7 @@ Usage:
     validator = MultiPartyValidator()
     request = await validator.create_validation_request(
         item_id="km_123",
-        validators=["claude", "gpt-4", "gemini"],
+        validators=["claude", "gpt-6-astra", "gemini"],
         quorum=2,
     )
     await validator.submit_vote(request.request_id, "claude", vote)

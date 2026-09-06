@@ -91,8 +91,8 @@ _agent_limiter = RateLimiter(requests_per_minute=60)
 _ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
 # Per-provider OpenRouter fallback targets, derived from aragora.config.
 # model_pins (frontier-model-refresh, 2026-09-04). The previous hand-written
-# slugs had drifted to retired/nonexistent spellings (openai/gpt-4.1-mini,
-# google/gemini-3-flash-preview, x-ai/grok-4.5).
+# slugs had drifted to retired/nonexistent spellings (openai/gpt-5.6-terra,
+# google/gemini-3.8-flash, x-ai/grok-4.6).
 _OPENROUTER_FALLBACK_MODELS = {
     "anthropic-api": FABLE_51_VIA_OPENROUTER,
     "openai-api": GPT6_ASTRA_VIA_OPENROUTER,

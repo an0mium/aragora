@@ -846,7 +846,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             "content-type": "application/json",
                         },
                         json={
-                            "model": "claude-3-haiku-20240307",  # Fast, cheap model for categorization
+                            "model": "claude-haiku-4-5-20251001",  # Fast, cheap model for categorization
                             "max_tokens": 50,
                             "messages": [{"role": "user", "content": prompt}],
                         },
@@ -874,7 +874,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
                             cost_usd=0.00025,  # ~$0.25/M tokens for Haiku
                             provider="anthropic",
-                            model="claude-3-haiku-20240307",
+                            model="claude-haiku-4-5-20251001",
                         )
                         try:
                             return ExpenseCategory(category_text)
@@ -893,7 +893,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             "Content-Type": "application/json",
                         },
                         json={
-                            "model": "gpt-4o-mini",  # Fast, cheap model
+                            "model": "gpt-5.6-terra",  # Fast, cheap model
                             "max_tokens": 50,
                             "messages": [{"role": "user", "content": prompt}],
                         },
@@ -925,7 +925,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             tokens=usage.get("total_tokens", 0),
                             cost_usd=0.00015,  # ~$0.15/M tokens for GPT-4o-mini
                             provider="openai",
-                            model="gpt-4o-mini",
+                            model="gpt-5.6-terra",
                         )
                         try:
                             return ExpenseCategory(category_text)

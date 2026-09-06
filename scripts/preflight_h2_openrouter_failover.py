@@ -56,15 +56,15 @@ H2_PANEL_SLOTS: tuple[H2PanelSlot, ...] = (
     H2PanelSlot(
         "openai-frontier",
         (
-            H2ProviderAttempt("openai", "gpt-5.5", "openai", "gpt-5.5", "OPENAI_API_KEY"),
+            H2ProviderAttempt("openai", "gpt-6-astra", "openai", "gpt-6-astra", "OPENAI_API_KEY"),
             H2ProviderAttempt(
                 "openai",
-                "gpt-5.5",
+                "gpt-6-astra",
                 "openrouter",
-                "openai/gpt-5.5",
+                "openai/gpt-6-astra",
                 "OPENROUTER_API_KEY",
                 fallback_used=True,
-                fallback_for="openai:gpt-5.5",
+                fallback_for="openai:gpt-6-astra",
                 fallback_reason="direct_openai_unavailable",
             ),
         ),
@@ -74,9 +74,9 @@ H2_PANEL_SLOTS: tuple[H2PanelSlot, ...] = (
         (
             H2ProviderAttempt(
                 "gemini",
-                "gemini-3-pro-preview",
+                "gemini-3.1-pro-preview",
                 "gemini",
-                "gemini-3-pro-preview",
+                "gemini-3.1-pro-preview",
                 "GEMINI_API_KEY",
             ),
             H2ProviderAttempt(
@@ -86,7 +86,7 @@ H2_PANEL_SLOTS: tuple[H2PanelSlot, ...] = (
                 "google/gemini-3.1-pro-preview",
                 "OPENROUTER_API_KEY",
                 fallback_used=True,
-                fallback_for="gemini:gemini-3-pro-preview",
+                fallback_for="gemini:gemini-3.1-pro-preview",
                 fallback_reason="direct_gemini_unavailable",
             ),
             H2ProviderAttempt(
@@ -96,14 +96,14 @@ H2_PANEL_SLOTS: tuple[H2PanelSlot, ...] = (
                 "~google/gemini-pro-latest",
                 "OPENROUTER_API_KEY",
                 fallback_used=True,
-                fallback_for="gemini:gemini-3-pro-preview",
+                fallback_for="gemini:gemini-3.1-pro-preview",
                 fallback_reason="direct_gemini_unavailable",
             ),
         ),
     ),
     H2PanelSlot(
         "xai-direct",
-        (H2ProviderAttempt("xai", "grok-4-latest", "xai", "grok-4-latest", "XAI_API_KEY"),),
+        (H2ProviderAttempt("xai", "grok-4.6", "xai", "grok-4.6", "XAI_API_KEY"),),
     ),
     H2PanelSlot(
         "mistral-direct",

@@ -52,7 +52,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
     events = [
         {
             "id": "evt-001",
-            "agent_name": "claude-3-opus",
+            "agent_name": "claude-fable-5-1",
             "event_type": "persona_change",
             "timestamp": _iso(now - 2 * 3600),
             "description": "Persona shifted from 'cautious analyst' to 'balanced synthesizer' after 15 debate cycles",
@@ -66,7 +66,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-002",
-            "agent_name": "gpt-4-turbo",
+            "agent_name": "gpt-6-astra",
             "event_type": "prompt_modification",
             "timestamp": _iso(now - 5 * 3600),
             "description": "System prompt updated to emphasize evidence-based reasoning over rhetoric",
@@ -80,7 +80,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-003",
-            "agent_name": "gemini-pro",
+            "agent_name": "gemini-3.1-pro-preview",
             "event_type": "elo_adjustment",
             "timestamp": _iso(now - 8 * 3600),
             "description": "ELO recalibrated after tournament bracket reset",
@@ -94,7 +94,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-004",
-            "agent_name": "mistral-large",
+            "agent_name": "mistral-large-2512",
             "event_type": "nomic_proposal",
             "timestamp": _iso(now - 12 * 3600),
             "description": "Nomic Loop proposed persona evolution toward devil's advocate specialization",
@@ -108,7 +108,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-005",
-            "agent_name": "claude-3-opus",
+            "agent_name": "claude-fable-5-1",
             "event_type": "prompt_modification",
             "timestamp": _iso(now - 24 * 3600),
             "description": "Added structured output formatting directives for consensus synthesis",
@@ -122,7 +122,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-006",
-            "agent_name": "grok-2",
+            "agent_name": "grok-4.6",
             "event_type": "rollback",
             "timestamp": _iso(now - 36 * 3600),
             "description": "Rolled back persona change after 8% consensus rate drop in last 10 debates",
@@ -181,7 +181,7 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
     return {
         "agents": [
             {
-                "agent_name": "claude-3-opus",
+                "agent_name": "claude-fable-5-1",
                 "provider": "anthropic",
                 "current_elo": 1435,
                 "trend": _make_trend(1378, [12, 8, -5, 15, 7, 8, 12]),
@@ -190,7 +190,7 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
                 "total_debates": 47,
             },
             {
-                "agent_name": "gpt-4-turbo",
+                "agent_name": "gpt-6-astra",
                 "provider": "openai",
                 "current_elo": 1380,
                 "trend": _make_trend(1403, [-8, -5, 10, -12, 5, -5, -8]),
@@ -199,7 +199,7 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
                 "total_debates": 52,
             },
             {
-                "agent_name": "gemini-pro",
+                "agent_name": "gemini-3.1-pro-preview",
                 "provider": "google",
                 "current_elo": 1312,
                 "trend": _make_trend(1360, [-10, -8, -5, -10, -3, -2, -10]),
@@ -208,7 +208,7 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
                 "total_debates": 38,
             },
             {
-                "agent_name": "mistral-large",
+                "agent_name": "mistral-large-2512",
                 "provider": "mistral",
                 "current_elo": 1290,
                 "trend": _make_trend(1252, [8, 5, 7, 3, 4, 3, 8]),

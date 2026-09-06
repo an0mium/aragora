@@ -53,7 +53,7 @@ class FolderUploadConfig:
 
     # Agent-based filtering (optional)
     enable_agent_filter: bool = False
-    agent_filter_model: str = "gemini-2.0-flash"  # Fast, cheap model
+    agent_filter_model: str = "gemini-3.8-flash"  # Fast, cheap model
     agent_filter_prompt: str = ""  # Custom relevance criteria
     agent_filter_batch_size: int = 50  # Files per agent call
 

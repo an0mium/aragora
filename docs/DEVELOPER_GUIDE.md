@@ -28,7 +28,7 @@ async def main():
         # Run a debate and wait for completion
         debate = await client.debates.run(
             task="Should we adopt microservices architecture?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             max_rounds=3
         )
         print(f"Consensus: {debate.consensus.conclusion}")
@@ -45,7 +45,7 @@ const client = createClient({ baseUrl: 'http://localhost:8080' });
 
 const debate = await client.createDebate({
   task: 'Should we adopt microservices architecture?',
-  agents: ['claude', 'gpt-4'],
+  agents: ['claude', 'gpt-6-astra'],
   max_rounds: 3
 });
 

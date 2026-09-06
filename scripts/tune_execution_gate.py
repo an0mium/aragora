@@ -127,7 +127,7 @@ def _build_scenarios() -> list[Scenario]:
                 ("claude", "claude-opus-4-1", "anthropic-api"),
                 ("gpt", "gpt-4.1", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
-                ("grok", "grok-4-latest", "grok"),
+                ("grok", "grok-4.6", "grok"),
             ),
         ),
         Scenario(
@@ -147,7 +147,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=True,
             agents=(
                 ("gpt", "gpt-4.1", "openai-api"),
-                ("llama", "meta-llama/llama-3.3-70b-instruct", "openrouter"),
+                ("llama", "meta/muse-spark-1.3", "openrouter"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
         ),
@@ -158,7 +158,7 @@ def _build_scenarios() -> list[Scenario]:
             agents=(
                 ("gpt1", "gpt-4.1", "openai-api"),
                 ("gpt2", "gpt-4o", "openai-api"),
-                ("gpt3", "o3-mini", "openai-api"),
+                ("gpt3", "gpt-5.6-terra", "openai-api"),
             ),
             confidence=0.93,
         ),
@@ -212,7 +212,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=False,
             agents=(
                 ("gpt1", "gpt-4.1", "openai-api"),
-                ("gpt2", "o3-mini", "openai-api"),
+                ("gpt2", "gpt-5.6-terra", "openai-api"),
             ),
             confidence=0.96,
         ),
@@ -221,9 +221,9 @@ def _build_scenarios() -> list[Scenario]:
             description="Combined taint and low-diversity compromise.",
             expected_allow=False,
             agents=(
-                ("llama1", "meta-llama/llama-3.3-70b-instruct", "openrouter"),
-                ("llama2", "meta-llama/llama-3.3-70b-instruct", "openrouter"),
-                ("llama3", "meta-llama/llama-3.3-70b-instruct", "openrouter"),
+                ("llama1", "meta/muse-spark-1.3", "openrouter"),
+                ("llama2", "meta/muse-spark-1.3", "openrouter"),
+                ("llama3", "meta/muse-spark-1.3", "openrouter"),
             ),
             confidence=0.95,
             context_taint=True,

@@ -27,7 +27,7 @@ const VERTICALS: Vertical[] = [
     description: 'Code review, security analysis, and architecture design',
     expertiseAreas: ['Code Review', 'Security Analysis', 'Architecture Design', 'Performance'],
     complianceFrameworks: ['OWASP', 'CWE'],
-    defaultModel: 'claude-sonnet-4',
+    defaultModel: 'claude-sonnet-5',
     icon: '💻',
   },
   {
@@ -36,7 +36,7 @@ const VERTICALS: Vertical[] = [
     description: 'Contract analysis, compliance review, and regulatory matters',
     expertiseAreas: ['Contract Analysis', 'Regulatory Compliance', 'Risk Assessment', 'Privacy Law'],
     complianceFrameworks: ['GDPR', 'CCPA', 'HIPAA'],
-    defaultModel: 'claude-sonnet-4',
+    defaultModel: 'claude-sonnet-5',
     icon: '⚖️',
   },
   {
@@ -45,7 +45,7 @@ const VERTICALS: Vertical[] = [
     description: 'Clinical analysis, HIPAA compliance, and medical research',
     expertiseAreas: ['Clinical Documentation', 'Medical Research', 'HIPAA Compliance', 'PHI Protection'],
     complianceFrameworks: ['HIPAA', 'HITECH', 'FDA 21 CFR 11'],
-    defaultModel: 'claude-sonnet-4',
+    defaultModel: 'claude-sonnet-5',
     icon: '🏥',
   },
   {
@@ -54,7 +54,7 @@ const VERTICALS: Vertical[] = [
     description: 'Financial analysis, audit review, and SOX compliance',
     expertiseAreas: ['Financial Statement Analysis', 'Audit', 'SOX Compliance', 'Internal Controls'],
     complianceFrameworks: ['SOX', 'GAAP', 'PCAOB'],
-    defaultModel: 'claude-sonnet-4',
+    defaultModel: 'claude-sonnet-5',
     icon: '📊',
   },
   {
@@ -63,7 +63,7 @@ const VERTICALS: Vertical[] = [
     description: 'Methodology analysis, literature review, and statistical review',
     expertiseAreas: ['Research Methodology', 'Statistical Analysis', 'Literature Review', 'Ethics'],
     complianceFrameworks: ['IRB', 'CONSORT', 'PRISMA'],
-    defaultModel: 'claude-sonnet-4',
+    defaultModel: 'claude-sonnet-5',
     icon: '🔬',
   },
 ];

@@ -831,7 +831,7 @@ class DebateController:
             # Wrap API call with 5 second timeout
             response = await asyncio.wait_for(
                 client.messages.create(
-                    model="claude-3-5-haiku-20241022",
+                    model="claude-haiku-4-5-20251001",
                     max_tokens=300,
                     messages=[
                         {

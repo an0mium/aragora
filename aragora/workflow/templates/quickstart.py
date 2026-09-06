@@ -37,7 +37,7 @@ def create_yes_no_workflow(
         question: Yes/No question to answer
         context: Additional context for the decision
         confidence_threshold: Minimum confidence for auto-decision
-        agents: Agents to use (defaults to claude + gpt-4)
+        agents: Agents to use (defaults to claude + gpt-6-astra)
 
     Returns:
         WorkflowDefinition for yes/no decision
@@ -49,7 +49,7 @@ def create_yes_no_workflow(
         )
     """
     workflow_id = f"yesno_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    agent_list = agents or ["claude", "gpt-4"]
+    agent_list = agents or ["claude", "gpt-6-astra"]
 
     return WorkflowDefinition(
         id=workflow_id,
@@ -145,7 +145,7 @@ def create_pros_cons_workflow(
             name="List Cons",
             step_type="agent",
             config={
-                "agent_type": "gpt-4",
+                "agent_type": "gpt-6-astra",
                 "prompt_template": f"List top {max_items} disadvantages of: {topic}",
             },
             next_steps=["weight"] if weighted else ["synthesize"],
@@ -243,7 +243,7 @@ def create_risk_assessment_workflow(
             name="Identify Risks",
             step_type="debate",
             config={
-                "agents": ["claude", "gpt-4"],
+                "agents": ["claude", "gpt-6-astra"],
                 "topic": f"What are the risks of: {scenario}",
                 "rounds": 2,
                 "categories": categories,
@@ -388,7 +388,7 @@ def create_brainstorm_workflow(
                 name="Expand Ideas",
                 step_type="debate",
                 config={
-                    "agents": ["claude", "gpt-4"],
+                    "agents": ["claude", "gpt-6-astra"],
                     "topic": "Which ideas have the most potential?",
                     "rounds": 2,
                 },

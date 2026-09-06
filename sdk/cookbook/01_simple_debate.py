@@ -24,9 +24,9 @@ async def run_simple_debate(topic: str, dry_run: bool = False) -> dict:
 
     # Define our three agents - each brings a different perspective
     agents = [
-        Agent(name="claude", model="claude-sonnet-4-20250514"),
-        Agent(name="gpt", model="gpt-4o"),
-        Agent(name="gemini", model="gemini-2.0-flash"),
+        Agent(name="claude", model="claude-sonnet-5"),
+        Agent(name="gpt", model="gpt-6-astra"),
+        Agent(name="gemini", model="gemini-3.8-flash"),
     ]
 
     # Configure the debate

@@ -65,7 +65,7 @@ The goal is to make phase_implement more reliable and effective.""",
     # All three as competing visionaries
     claude_agent = ClaudeAgent(
         name="claude-code-advocate",
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         role="proposer",
         timeout=600,  # Doubled from 300
     )
@@ -79,7 +79,7 @@ Be specific about implementation details."""
 
     codex_agent = CodexAgent(
         name="codex-advocate",
-        model="o3",
+        model="gpt-6-astra",
         role="proposer",
         timeout=600,  # Doubled from 300
     )
@@ -96,7 +96,7 @@ and propose solutions to address them."""
     if gemini_key:
         synthesizer = GeminiCLIAgent(
             name="gemini-synthesizer",
-            model="gemini-3-pro",
+            model="gemini-3.1-pro-preview",
             role="synthesizer",
             timeout=600,  # Doubled from 300
         )
@@ -113,7 +113,7 @@ Synthesize a concrete recommendation."""
     else:
         synthesizer = ClaudeAgent(
             name="neutral-synthesizer",
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-5",
             role="synthesizer",
             timeout=600,  # Doubled from 300
         )

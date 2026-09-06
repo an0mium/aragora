@@ -78,12 +78,12 @@ _PROVIDER_SPECS: dict[str, dict[str, Any]] = {
     },
     "openai": {
         "agent_type": "openai-api",
-        "model": "gpt-4o-mini",
+        "model": "gpt-5.6-terra",
         "env_vars": ("OPENAI_API_KEY",),
     },
     "gemini": {
         "agent_type": "gemini",
-        "model": "gemini-2.0-flash",
+        "model": "gemini-3.8-flash",
         "env_vars": ("GEMINI_API_KEY",),
     },
     "mistral": {

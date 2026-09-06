@@ -67,7 +67,7 @@ agent = canvas.add_node(
     CanvasNodeType.AGENT,
     position=Position(100, 100),
     label="Claude",
-    data={"model": "claude-3-opus"},
+    data={"model": "claude-fable-5-1"},
 )
 
 # Add a debate node

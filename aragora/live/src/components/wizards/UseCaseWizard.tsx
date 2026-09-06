@@ -53,7 +53,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '<',
     category: 'security',
     defaults: { auditType: 'security', depth: 'thorough' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'deepseek-v4-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'deepseek-v4-pro'],
     endpoint: '/api/reviews',
     rounds: 2,
   },
@@ -64,7 +64,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '>',
     category: 'security',
     defaults: { scanType: 'comprehensive' },
-    suggestedAgents: ['claude-sonnet', 'gpt-4o', 'mistral-large'],
+    suggestedAgents: ['claude-sonnet', 'gpt-6-astra', 'mistral-large-2512'],
     endpoint: '/api/gauntlet/api',
     rounds: 3,
   },
@@ -75,7 +75,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: 'G',
     category: 'compliance',
     defaults: { framework: 'gdpr', regions: ['eu'] },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'gemini-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'gemini-3.1-pro-preview'],
     endpoint: '/api/gauntlet/gdpr',
     rounds: 2,
   },
@@ -86,7 +86,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: 'H',
     category: 'compliance',
     defaults: { framework: 'hipaa' },
-    suggestedAgents: ['claude-opus', 'gpt-4o'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra'],
     endpoint: '/api/gauntlet/hipaa',
     rounds: 2,
   },
@@ -97,7 +97,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '%',
     category: 'architecture',
     defaults: { mode: 'adversarial', intensity: 'high' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'grok-4-latest', 'deepseek-v4-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'grok-4.6', 'deepseek-v4-pro'],
     endpoint: '/api/gauntlet',
     rounds: 3,
   },
@@ -108,7 +108,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '!',
     category: 'architecture',
     defaults: { analysisType: 'root-cause' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'gemini-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'gemini-3.1-pro-preview'],
     endpoint: '/api/gauntlet/incident',
     rounds: 2,
   },
@@ -119,7 +119,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '?',
     category: 'research',
     defaults: { mode: 'synthesis' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'gemini-pro', 'deepseek-v4-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'gemini-3.1-pro-preview', 'deepseek-v4-pro'],
     endpoint: '/api/debate',
     rounds: 3,
   },
@@ -130,7 +130,7 @@ export const USE_CASE_TEMPLATES: UseCaseTemplate[] = [
     icon: '[',
     category: 'decisions',
     defaults: { mode: 'matrix', format: 'comparison' },
-    suggestedAgents: ['claude-opus', 'gpt-4o', 'gemini-pro'],
+    suggestedAgents: ['claude-opus', 'gpt-6-astra', 'gemini-3.1-pro-preview'],
     endpoint: '/api/debates/matrix',
     rounds: 2,
   },
@@ -498,7 +498,7 @@ function ConfigureStep({
             type="text"
             value={(formData.agents as string) || ''}
             onChange={e => updateField('agents', e.target.value)}
-            placeholder="claude-opus,gpt-4o,gemini-pro"
+            placeholder="claude-opus,gpt-6-astra,gemini-3.1-pro-preview"
             className="
               w-full px-3 py-2 bg-bg border border-[var(--accent)]/30
               text-text font-theme-data text-sm

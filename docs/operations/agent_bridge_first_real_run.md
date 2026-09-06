@@ -23,9 +23,9 @@ That's exactly the kind of cross-cutting question a single harness tends to miss
 
 | Role | Harness | Model | Why |
 |---|---|---|---|
-| `implementer` | `codex` | `gpt-5.4` | Owned step B (scheduler/`ThresholdUpdateReceipt`) — defends design choices |
-| `reviewer` | `claude_code` | `claude-opus-4-7` | Independent-perspective second opinion; code reading + thesis-alignment check |
-| `synthesist` *(optional, third turn)* | `droid` | `claude-opus-4-7` | Reconciles implementer + reviewer if they disagree; produces a settlement note |
+| `implementer` | `codex` | `gpt-6-astra` | Owned step B (scheduler/`ThresholdUpdateReceipt`) — defends design choices |
+| `reviewer` | `claude_code` | `claude-fable-5-1` | Independent-perspective second opinion; code reading + thesis-alignment check |
+| `synthesist` *(optional, third turn)* | `droid` | `claude-fable-5-1` | Reconciles implementer + reviewer if they disagree; produces a settlement note |
 
 The implementer/reviewer pairing is the minimum viable adversarial cross-check. The synthesist is optional but lets us validate the 3-actor footer chain in one run.
 
@@ -98,9 +98,9 @@ curl -sX POST http://localhost:8080/api/v1/agent-bridge/runs \
   -d '{
     "task": "Cross-check the #6608 closure path end-to-end (see docs/operations/agent_bridge_first_real_run.md)",
     "actors": [
-      {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
-      {"role": "reviewer", "harness": "claude_code", "model": "claude-opus-4-7"},
-      {"role": "synthesist", "harness": "droid", "model": "claude-opus-4-7"}
+      {"role": "implementer", "harness": "codex", "model": "gpt-6-astra"},
+      {"role": "reviewer", "harness": "claude_code", "model": "claude-fable-5-1"},
+      {"role": "synthesist", "harness": "droid", "model": "claude-fable-5-1"}
     ]
   }' | jq .
 

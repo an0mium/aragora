@@ -142,7 +142,7 @@ async def task_scheduling(client: AragoraAsyncClient) -> None:
         schedule="0 9 * * MON",  # Every Monday at 9 AM (cron)
         config={
             "task": "Weekly team retrospective - what went well?",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "rounds": 3,
         },
         metadata={

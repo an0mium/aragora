@@ -23,7 +23,7 @@ async def run_custom_agents_debate(topic: str, dry_run: bool = False) -> dict:
     # Define specialized agent personas
     security_expert = Agent(
         name="security_analyst",
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-5",
         persona=AgentPersona(
             role="Security Expert",
             expertise=["cybersecurity", "threat modeling", "compliance"],
@@ -36,7 +36,7 @@ async def run_custom_agents_debate(topic: str, dry_run: bool = False) -> dict:
 
     performance_expert = Agent(
         name="performance_engineer",
-        model="gpt-4o",
+        model="gpt-6-astra",
         persona=AgentPersona(
             role="Performance Engineer",
             expertise=["scalability", "optimization", "distributed systems"],
@@ -48,7 +48,7 @@ async def run_custom_agents_debate(topic: str, dry_run: bool = False) -> dict:
 
     ux_advocate = Agent(
         name="ux_advocate",
-        model="gemini-2.0-flash",
+        model="gemini-3.8-flash",
         persona=AgentPersona(
             role="User Experience Advocate",
             expertise=["user research", "accessibility", "usability"],

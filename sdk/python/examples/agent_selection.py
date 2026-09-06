@@ -55,7 +55,7 @@ def main() -> None:
 
     # Compare specific agents
     print("\n=== Agent Comparison ===\n")
-    comparison = client.agents.compare(["claude", "gpt-4"])
+    comparison = client.agents.compare(["claude", "gpt-6-astra"])
 
     for agent_data in comparison.get("agents", []):
         agent_id = agent_data.get("agent_id", "unknown")

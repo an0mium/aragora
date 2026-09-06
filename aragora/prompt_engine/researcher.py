@@ -85,7 +85,7 @@ class PromptResearcher:
 
             self._agent = AnthropicAPIAgent(
                 name="researcher",
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5",
                 thinking_budget=8000,
             )
             return self._agent

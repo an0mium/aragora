@@ -166,7 +166,7 @@ v1:
 ```json
 {
   "topic": "Should we use microservices?",
-  "agents": ["claude", "gpt-4"],
+  "agents": ["claude", "gpt-6-astra"],
   "max_rounds": 3
 }
 ```
@@ -175,7 +175,7 @@ v2:
 ```json
 {
   "task": "Should we use microservices?",
-  "agents": ["claude", "gpt-4"],
+  "agents": ["claude", "gpt-6-astra"],
   "rounds": 3,
   "consensus": "majority",
   "auto_select": false

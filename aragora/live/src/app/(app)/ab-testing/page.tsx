@@ -277,7 +277,7 @@ export default function ABTestingPage() {
                     value={createForm.agent}
                     onChange={(e) => setCreateForm({ ...createForm, agent: e.target.value })}
                     required
-                    placeholder="e.g., claude-3-opus"
+                    placeholder="e.g., claude-fable-5-1"
                     className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
                   />
                 </div>

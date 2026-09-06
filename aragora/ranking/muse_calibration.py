@@ -84,12 +84,12 @@ class MUSECalculator:
         # After collecting agent responses
         responses = {
             "claude": {"answer": "A", "confidence": 0.9, "distribution": [0.9, 0.1]},
-            "gpt-4": {"answer": "A", "confidence": 0.8, "distribution": [0.8, 0.2]},
+            "gpt-6-astra": {"answer": "A", "confidence": 0.8, "distribution": [0.8, 0.2]},
             "gemini": {"answer": "B", "confidence": 0.7, "distribution": [0.3, 0.7]},
         }
 
         # Historical calibration (Brier scores, lower = better)
-        calibration = {"claude": 0.15, "gpt-4": 0.18, "gemini": 0.25}
+        calibration = {"claude": 0.15, "gpt-6-astra": 0.18, "gemini": 0.25}
 
         result = calculator.calculate_ensemble_uncertainty(responses, calibration)
         print(f"Consensus confidence: {result.consensus_confidence}")

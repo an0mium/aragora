@@ -308,7 +308,7 @@ class DebateFactory:
             # explicit model was requested
             model = spec.model
             if model is None and role in ("synthesizer", "judge"):
-                model = "claude-opus-4-7"
+                model = "claude-fable-5-1"
                 logger.info(
                     "Using %s for %s role (strongest available model)",
                     model,

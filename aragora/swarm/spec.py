@@ -273,14 +273,14 @@ class SwarmSpec:
             ),
             ExtractionProvider(
                 agent_type="openai-api",
-                model="gpt-5.4",
+                model="gpt-6-astra",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("OPENAI_API_KEY",),
             ),
             ExtractionProvider(
                 agent_type="gemini",
-                model="gemini-3.1-pro",
+                model="gemini-3.1-pro-preview",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),

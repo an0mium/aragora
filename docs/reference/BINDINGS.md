@@ -297,8 +297,8 @@ Group agents for pool-based routing:
 # Register a pool of agents
 router.register_agent_pool("fast-agents", [
     "claude-haiku",
-    "gpt-4o-mini",
-    "gemini-flash",
+    "gpt-5.6-terra",
+    "gemini-3.8-flash",
 ])
 
 # Create binding that uses the pool

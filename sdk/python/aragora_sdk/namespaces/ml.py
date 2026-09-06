@@ -42,7 +42,7 @@ class MLAPI:
         >>> # Get agent routing recommendation
         >>> routing = client.ml.route(
         ...     task="Implement a caching layer",
-        ...     available_agents=["claude", "gpt-4", "codex"],
+        ...     available_agents=["claude", "gpt-6-astra", "codex"],
         ...     team_size=3,
         ... )
         >>> print(routing["selected_agents"])

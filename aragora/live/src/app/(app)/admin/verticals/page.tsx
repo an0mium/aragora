@@ -236,7 +236,7 @@ function ModelConfigEditor({
           type="text"
           value={config.preferred_model || ''}
           onChange={(e) => onChange({ ...config, preferred_model: e.target.value || undefined })}
-          placeholder="e.g., claude-3-opus-20240229"
+          placeholder="e.g., claude-fable-5-1"
           className="w-full bg-bg border border-[var(--accent)]/30 text-[var(--acid-cyan)] font-theme-data text-xs px-2 py-1.5 focus:border-[var(--accent)] focus:outline-none placeholder:text-text-muted/30"
         />
       </div>

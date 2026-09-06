@@ -209,7 +209,7 @@ def validate_genome_id(genome_id: str) -> tuple[bool, str | None]:
 
 
 def validate_agent_name_with_version(agent: str) -> tuple[bool, str | None]:
-    """Validate an agent name that may include version dots (e.g., claude-3.5-sonnet).
+    """Validate an agent name that may include version dots (e.g., claude-sonnet-5).
 
     Args:
         agent: Agent name to validate

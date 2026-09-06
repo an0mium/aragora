@@ -90,15 +90,15 @@ when CLI providers were technically available.
 | Family | Wired in `api_agents/` | Recognized today? | Proposed for quorum |
 |---|---|---|---|
 | Anthropic / Claude | ✓ `anthropic/claude-opus-4.7` | ✓ `claude` | ✓ keep |
-| OpenAI | ✓ `openai/gpt-5.5` | **✗ NOT recognized** | ✓ add |
+| OpenAI | ✓ `openai/gpt-6-astra` | **✗ NOT recognized** | ✓ add |
 | Google Gemini | ✓ `google/gemini-3.1-pro-preview` | ✓ `gemini` | ✓ keep |
 | Gemini 3.5 Flash | not yet pinned | ✓ via `gemini` | ✓ wire as routing alias |
 | xAI Grok 4 | ✓ `x-ai/grok-4` | ✓ `grok` | ✓ keep |
 | xAI Grok 4.3 | not yet pinned | ✓ via `grok` | ✓ wire as routing alias |
 | Mistral | ✓ `mistralai/mistral-large-*` | **✗ NOT recognized** | ✓ add (EU-jurisdiction routing only) |
 | DeepSeek | ✓ `deepseek/deepseek-v3.2 / r1 / v4-pro` | **✗ NOT recognized** | ✓ add |
-| Qwen | ✓ `qwen/qwen3-max / 235b / 3.5-plus` | **✗ NOT recognized** | ✓ add |
-| Kimi (Moonshot) | ✓ `moonshotai/kimi-k2.6 / k2.5 / thinking` | **✗ NOT recognized** | ✓ add |
+| Qwen | ✓ `qwen/qwen3.8-2.4t-a95b / 235b / 3.5-plus` | **✗ NOT recognized** | ✓ add |
+| Kimi (Moonshot) | ✓ `moonshotai/kimi-k3 / k2.5 / thinking` | **✗ NOT recognized** | ✓ add |
 | Yi (01.AI) | ✓ `01-ai/yi-large` | **✗ NOT recognized** | ✓ add |
 | Codex (vendor name) | n/a (CLI) | ✓ `codex` | ✓ keep |
 | Tesla / Harvey / Factory | n/a (vendor names) | ✓ pinned | ✓ keep |
@@ -302,7 +302,7 @@ they can be required CI for any future change to the recognizer.
    helper additions in `aragora/cli/commands/review_queue.py` as
    appropriately scoped, with the family/tier rules above?
 2. **Family additions:** should `yi`, `glm`, `minimax`, `hermes`,
-   `gemini-3.5-flash`, `grok-4.3` all be wired? Or some subset?
+   `gemini-3.8-flash`, `grok-4.3` all be wired? Or some subset?
 3. **Tier 3 "advisory-only" framing:** is Chinese-family advisory
    posting OK at Tier 3 (just not counted toward quorum), or should
    Tier 3 paths suppress Chinese reviewers entirely?
@@ -353,12 +353,12 @@ Verify against provider docs/API listings and document any mismatch":
 
 | Family | Repo pin (default) | Provider-official current | Status | Action for PR-A2 |
 |---|---|---|---|---|
-| Anthropic | `anthropic/claude-opus-4.7` (in `api_agents/anthropic.py`) | `claude-opus-4-7` (Opus 4.7 GA per Anthropic blog 2026-04-16) | ✓ **aligned** | none — repo pin matches provider |
-| OpenAI | `openai/gpt-5.5` (alias destination in `api_agents/openrouter.py`) | `gpt-5.5` (flagship per OpenAI API docs) | ✓ **aligned** | none |
-| Google Gemini | `google/gemini-3.1-pro-preview` (default in `api_agents/gemini.py`) | `gemini-3-pro` (still GA) and `gemini-3.5-flash` (GA 2026-05-20, agentic-tier) | ⚠ **repo does not yet pin 3.5 Flash** | PR-A2 routing alias addition: wire `gemini-3.5-flash` as the agentic-task routing target; keep `gemini-3.1-pro-preview` for reasoning/long-context |
+| Anthropic | `anthropic/claude-opus-4.7` (in `api_agents/anthropic.py`) | `claude-fable-5-1` (Opus 4.7 GA per Anthropic blog 2026-04-16) | ✓ **aligned** | none — repo pin matches provider |
+| OpenAI | `openai/gpt-6-astra` (alias destination in `api_agents/openrouter.py`) | `gpt-5.5` (flagship per OpenAI API docs) | ✓ **aligned** | none |
+| Google Gemini | `google/gemini-3.1-pro-preview` (default in `api_agents/gemini.py`) | `gemini-3.1-pro-preview` (still GA) and `gemini-3.8-flash` (GA 2026-05-20, agentic-tier) | ⚠ **repo does not yet pin 3.5 Flash** | PR-A2 routing alias addition: wire `gemini-3.8-flash` as the agentic-task routing target; keep `gemini-3.1-pro-preview` for reasoning/long-context |
 | xAI Grok | `x-ai/grok-4` (default in `api_agents/grok.py`; `grok-4.2` noted as "not yet on OpenRouter") | `grok-4.3` (launched 2026-04-30, ~40% cheaper than 4.20, on OpenRouter) | ⚠ **repo does not yet pin 4.3** | PR-A2 routing alias addition: wire `grok-4.3` for policy/governance reviewer slot; keep `grok-4` for back-compat alias |
 | Mistral | `mistralai/mistral-large-*` | (operator's posture: retained for EU/regulatory diversity; not a preferred capability reviewer) | aligned | none on pin; tier-policy demotion captured in principles doc |
-| Open-weight (DeepSeek/Qwen/Kimi/Yi) | various (`deepseek/v3.2`, `qwen/qwen3-max`, `moonshotai/kimi-k2.6`, `01-ai/yi-large`) | match provider model pages | aligned | recognizer additions only |
+| Open-weight (DeepSeek/Qwen/Kimi/Yi) | various (`deepseek/v3.2`, `qwen/qwen3.8-2.4t-a95b`, `moonshotai/kimi-k3`, `01-ai/yi-large`) | match provider model pages | aligned | recognizer additions only |
 | GLM / MiniMax / Hermes | not yet wired | `z-ai/glm-4.6`, `minimax/minimax-m2`, `nousresearch/hermes-4-405b` | new wirings needed | wire in `api_agents/openrouter.py` alongside recognizer additions |
 
 Sources checked: Anthropic Claude Opus page

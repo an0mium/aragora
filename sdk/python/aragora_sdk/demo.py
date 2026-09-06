@@ -27,10 +27,10 @@ def _ts() -> str:
 # ---------------------------------------------------------------------------
 
 _DEMO_AGENTS = [
-    {"name": "claude", "model": "claude-sonnet-4-6", "elo": 1520, "wins": 34, "losses": 12},
+    {"name": "claude", "model": "claude-sonnet-5", "elo": 1520, "wins": 34, "losses": 12},
     {"name": "gpt-4", "model": "gpt-4.1", "elo": 1495, "wins": 30, "losses": 16},
     {"name": "gemini", "model": "gemini-3.1-pro-preview", "elo": 1480, "wins": 28, "losses": 18},
-    {"name": "grok", "model": "grok-4-latest", "elo": 1460, "wins": 25, "losses": 21},
+    {"name": "grok", "model": "grok-4.6", "elo": 1460, "wins": 25, "losses": 21},
 ]
 
 

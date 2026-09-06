@@ -31,12 +31,12 @@ class AgentSelectionAPI:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
         >>> plugins = client.agent_selection.list_plugins()
         >>> scores = client.agent_selection.score_agents(
-        ...     agents=["claude", "gpt-4", "gemini"],
+        ...     agents=["claude", "gpt-6-astra", "gemini"],
         ...     context="security code review",
         ...     dimensions=["accuracy", "speed", "cost"],
         ... )
         >>> team = client.agent_selection.select_team(
-        ...     pool=["claude", "gpt-4", "gemini", "mistral"],
+        ...     pool=["claude", "gpt-6-astra", "gemini", "mistral"],
         ...     task_requirements={"domain": "security", "complexity": "high"},
         ...     team_size=3,
         ... )
@@ -296,7 +296,7 @@ class AsyncAgentSelectionAPI:
         >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
         ...     plugins = await client.agent_selection.list_plugins()
         ...     scores = await client.agent_selection.score_agents(
-        ...         agents=["claude", "gpt-4", "gemini"],
+        ...         agents=["claude", "gpt-6-astra", "gemini"],
         ...         context="security code review",
         ...         dimensions=["accuracy", "speed", "cost"],
         ...     )

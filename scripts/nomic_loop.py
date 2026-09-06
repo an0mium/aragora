@@ -3294,14 +3294,14 @@ Never propose removing the nomic loop or core debate infrastructure."""
         if use_api_grok:
             self.grok = GrokAgent(
                 name="grok-lateral-thinker",
-                model="grok-4",  # Grok 4 full
+                model="grok-4.6",  # Grok 4 full
                 role="proposer",
                 timeout=1200,  # Doubled to 20 min for thorough codebase exploration
             )
         else:
             self.grok = GrokCLIAgent(
                 name="grok-lateral-thinker",
-                model="grok-4",  # Grok 4 full
+                model="grok-4.6",  # Grok 4 full
                 role="proposer",
                 timeout=1200,  # Doubled to 20 min for thorough codebase exploration
             )

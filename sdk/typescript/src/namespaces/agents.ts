@@ -167,7 +167,7 @@ export interface AgentsClientInterface {
  * const profile = await client.agents.getProfile('claude');
  *
  * // Get head-to-head stats
- * const h2h = await client.agents.getHeadToHead('claude', 'gpt-4');
+ * const h2h = await client.agents.getHeadToHead('claude', 'gpt-6-astra');
  * ```
  */
 export class AgentsAPI {

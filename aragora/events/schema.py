@@ -30,7 +30,7 @@ Usage:
     payload = DebateStartPayload(
         debate_id="d-123",
         question="What is the best approach?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
     )
     event = StreamEvent(type=StreamEventType.DEBATE_START, data=payload.to_dict())
 """

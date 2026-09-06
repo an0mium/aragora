@@ -2056,7 +2056,7 @@ class AHMADRoleSpecializer:
             'reasoning': 0.95, 'accuracy': 0.9, 'creativity': 0.85,
             'explanation': 0.9, 'structure': 0.85, 'integration': 0.9
         },
-        'gpt-4': {
+        'gpt-6-astra': {
             'reasoning': 0.9, 'accuracy': 0.85, 'creativity': 0.9,
             'explanation': 0.85, 'structure': 0.9, 'integration': 0.85
         },

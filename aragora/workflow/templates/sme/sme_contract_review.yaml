@@ -70,7 +70,7 @@ steps:
       topic: "Review this {contract_type} with {counterparty} for risks and negotiation points. Terms: {step.extract_terms}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
       rounds: 3
       consensus: qualified_majority
       evaluation_criteria:

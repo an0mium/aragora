@@ -169,8 +169,8 @@ class UsageAnalyticsMixin:
                 "openai": {"cost": "45.50", "percentage": 36.3}
             },
             "by_model": {
-                "claude-opus-4": {"cost": "60.00", "tokens": 400000},
-                "gpt-4": {"cost": "45.50", "tokens": 200000}
+                "claude-fable-5-1": {"cost": "60.00", "tokens": 400000},
+                "gpt-6-astra": {"cost": "45.50", "tokens": 200000}
             },
             "generated_at": "2026-01-23T12:00:00Z"
         }

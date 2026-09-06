@@ -65,7 +65,7 @@ steps:
       topic: "Prioritize these features for maximum business impact: {step.analyze_features}"
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - mistral
       rounds: 3
       consensus: qualified_majority

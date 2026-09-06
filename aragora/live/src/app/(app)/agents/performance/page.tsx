@@ -87,7 +87,7 @@ function ModelComparisonChart({ agents }: { agents: AgentPerformanceEntry[] }) {
   const grouped = useMemo(() => {
     const map: Record<string, { totalElo: number; totalWinRate: number; totalCal: number; count: number }> = {};
     agents.forEach((a) => {
-      // Extract model provider from agent name (e.g., "claude-opus" -> "claude", "gpt-4" -> "gpt")
+      // Extract model provider from agent name (e.g., "claude-opus" -> "claude", "gpt-6-astra" -> "gpt")
       const provider = a.name.split('-')[0] || a.name;
       if (!map[provider]) {
         map[provider] = { totalElo: 0, totalWinRate: 0, totalCal: 0, count: 0 };

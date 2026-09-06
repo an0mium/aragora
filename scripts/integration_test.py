@@ -65,7 +65,7 @@ def _build_agents(mode: str, keys: dict[str, str]) -> list:
         agents.append(
             AnthropicAPIAgent(
                 name="claude",
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-5",
                 role="proposer",
                 api_key=keys["anthropic"],
                 enable_fallback=False,
@@ -78,7 +78,7 @@ def _build_agents(mode: str, keys: dict[str, str]) -> list:
         agents.append(
             OpenAIAPIAgent(
                 name="gpt",
-                model="gpt-4o-mini",
+                model="gpt-5.6-terra",
                 role="critic",
                 api_key=keys["openai"],
                 enable_fallback=False,

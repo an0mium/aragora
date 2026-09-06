@@ -189,7 +189,7 @@ Include proper type hints and docstrings."""
         if self._codex is None:
             self._codex = CodexAgent(
                 name="codex-specialist",
-                model="o3",
+                model="gpt-6-astra",
                 role="implementer",
                 timeout=self.codex_timeout,
             )
@@ -1272,7 +1272,7 @@ Be concise and actionable."""
             # Use codex with extended timeout for review
             self._codex = CodexAgent(
                 name="codex-reviewer",
-                model="o3",
+                model="gpt-6-astra",
                 role="critic",
                 timeout=timeout,
             )

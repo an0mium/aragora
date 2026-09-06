@@ -336,7 +336,7 @@ const client = new AragoraClient({
 // Start a debate
 const debate = await client.debates.create({
   topic: 'Should we implement feature X?',
-  agents: ['claude', 'gpt-4o', 'gemini-pro'],
+  agents: ['claude', 'gpt-6-astra', 'gemini-3.1-pro-preview'],
   protocol: { rounds: 3, consensus: 'majority' },
 });
 

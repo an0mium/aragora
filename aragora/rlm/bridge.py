@@ -172,7 +172,7 @@ class RLMBackendConfig:
 
     backend: str = "openai"  # openai, anthropic, openrouter, litellm
     model_name: str = "gpt-4o"
-    sub_model_name: str = "gpt-4o-mini"
+    sub_model_name: str = "gpt-5.6-terra"
     fallback_backend: str | None = None
     fallback_model_name: str | None = None
 

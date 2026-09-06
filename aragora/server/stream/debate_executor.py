@@ -84,7 +84,7 @@ _ENV_VAR_RE = re.compile(r"[A-Z][A-Z0-9_]+")
 # Per-provider OpenRouter fallback targets. Derived from aragora.config.
 # model_pins (frontier-model-refresh, 2026-09-04) rather than hand-written
 # slugs: the previous literals had drifted to retired/nonexistent spellings
-# (openai/gpt-5.3, google/gemini-3-flash-preview, x-ai/grok-4.1-fast) that a
+# (openai/gpt-6-astra, google/gemini-3.8-flash, x-ai/grok-4.6) that a
 # live fallback would 404 on, and nothing here failed loudly when they did.
 _OPENROUTER_FALLBACK_MODELS = {
     "anthropic-api": FABLE_51_VIA_OPENROUTER,

@@ -29,7 +29,7 @@ def run_debate(query: str) -> str:
     """Run a multi-agent debate on a topic and return the consensus."""
     result = aragora.create_debate(
         question=query,
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3
     )
 
@@ -54,7 +54,7 @@ debate_tool = Tool(
 )
 
 # Create agent with the debate tool
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+llm = ChatOpenAI(model="gpt-6-astra", temperature=0)
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a helpful assistant that can run multi-agent debates for complex decisions."),
     ("human", "{input}"),
@@ -87,7 +87,7 @@ class AragoraDebateChain:
             base_url="https://api.aragora.ai",
             api_key=aragora_api_key
         )
-        self.llm = ChatOpenAI(model="gpt-4")
+        self.llm = ChatOpenAI(model="gpt-6-astra")
 
     def run(self, question: str, context: str = "") -> dict:
         # First, refine the question using LLM
@@ -105,7 +105,7 @@ Refined question:"""
         # Run the debate
         result = self.aragora.create_debate(
             question=refined.strip(),
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-6-astra", "gemini"],
             rounds=3
         )
 
@@ -155,7 +155,7 @@ from aragora import AragoraClient
 class DebateInput(BaseModel):
     question: str = Field(description="The question to debate")
     agents: list[str] = Field(
-        default=["claude", "gpt-4"],
+        default=["claude", "gpt-6-astra"],
         description="AI agents to participate"
     )
     rounds: int = Field(default=3, description="Number of debate rounds")

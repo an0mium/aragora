@@ -1058,7 +1058,7 @@ class AragoraClient:
         Example:
             debate, stream = await client.create_debate_and_stream(
                 task="Should we use microservices?",
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
             )
             print(f"Created debate: {debate['debate_id']}")
             async for event in stream:

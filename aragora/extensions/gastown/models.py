@@ -140,7 +140,7 @@ class WorkspaceConfig:
     description: str = ""
     max_rigs: int = 10
     max_agents_per_rig: int = 5
-    default_model: str = "claude-3-opus"
+    default_model: str = "claude-fable-5-1"
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

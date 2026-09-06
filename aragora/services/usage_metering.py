@@ -19,7 +19,7 @@ Usage:
         org_id="org_123",
         input_tokens=1000,
         output_tokens=500,
-        model="claude-opus-4",
+        model="claude-fable-5-1",
     )
 
     # Record debate usage

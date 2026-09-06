@@ -383,8 +383,8 @@ def upgrade_retired_model_id(model: str) -> str:
     """Rewrite a RETIRED or known-dead model id to its current spelling.
 
     A native API agent sends ``model`` straight to its provider endpoint, so
-    an explicitly configured id the provider has since retired (``gpt-5.5``,
-    ``grok-4-latest``) fails the call rather than upgrading — the 2026-09-05
+    an explicitly configured id the provider has since retired (``gpt-6-astra``,
+    ``grok-4.6``) fails the call rather than upgrading — the 2026-09-05
     merge-gate finding O-P2a on #9989. This rewrites exactly two classes of
     id and nothing else:
 

@@ -55,7 +55,7 @@ class ChunkingConfig:
     max_chunk_size: int = 2048
 
     # Model for token counting
-    model: str = "gpt-4"
+    model: str = "gpt-6-astra"
 
     # Whether to preserve paragraph boundaries
     preserve_paragraphs: bool = True
@@ -1145,7 +1145,7 @@ def get_chunking_strategy(
     strategy_type: ChunkingStrategyType = "semantic",
     chunk_size: int = 512,
     overlap: int = 50,
-    model: str = "gpt-4",
+    model: str = "gpt-6-astra",
     **kwargs,
 ) -> ChunkingStrategy:
     """

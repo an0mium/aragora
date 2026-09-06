@@ -42,7 +42,7 @@ class AragoraDebateAgent(ConversableAgent):
         try:
             result = self.aragora.create_debate(
                 question=question,
-                agents=["claude", "gpt-4", "gemini"],
+                agents=["claude", "gpt-6-astra", "gemini"],
                 rounds=3
             )
 
@@ -75,7 +75,7 @@ class AragoraDebateAgent(ConversableAgent):
 debate_agent = AragoraDebateAgent(
     name="Debate Coordinator",
     aragora_api_key="your-aragora-api-key",
-    llm_config={"config_list": [{"model": "gpt-4"}]}
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]}
 )
 
 user = UserProxyAgent(
@@ -103,20 +103,20 @@ aragora = AragoraClientSync(api_key="your-key")
 architect = AssistantAgent(
     name="Architect",
     system_message="You are a software architect. Propose system designs.",
-    llm_config={"config_list": [{"model": "gpt-4"}]}
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]}
 )
 
 security_expert = AssistantAgent(
     name="SecurityExpert",
     system_message="You are a security expert. Review designs for vulnerabilities.",
-    llm_config={"config_list": [{"model": "gpt-4"}]}
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]}
 )
 
 def validate_with_debate(proposal: str) -> str:
     """Validate a proposal through Aragora debate."""
     result = aragora.create_debate(
         question=f"Evaluate this proposal for potential issues: {proposal}",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2
     )
 
@@ -131,7 +131,7 @@ validator = AssistantAgent(
     name="Validator",
     system_message="""You validate proposals using multi-agent debate.
     Call the validate_with_debate function with the proposal text.""",
-    llm_config={"config_list": [{"model": "gpt-4"}]},
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]},
     function_map={"validate_with_debate": validate_with_debate}
 )
 
@@ -150,7 +150,7 @@ group_chat = GroupChat(
 
 manager = GroupChatManager(
     groupchat=group_chat,
-    llm_config={"config_list": [{"model": "gpt-4"}]}
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]}
 )
 
 # Start the conversation
@@ -182,7 +182,7 @@ def get_decision_receipt(question: str, options: list[str]) -> dict:
 
     result = aragora.create_debate(
         question=formatted_question,
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3
     )
 
@@ -204,7 +204,7 @@ decision_agent = AssistantAgent(
     name="DecisionMaker",
     system_message="""You help make important decisions using multi-agent debate.
     Use the get_decision_receipt function to get validated decisions.""",
-    llm_config={"config_list": [{"model": "gpt-4"}]},
+    llm_config={"config_list": [{"model": "gpt-6-astra"}]},
     function_map={"get_decision_receipt": get_decision_receipt}
 )
 

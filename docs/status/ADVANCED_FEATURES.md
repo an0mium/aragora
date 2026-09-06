@@ -71,7 +71,7 @@ from aragora.rlm import AragoraRLM, RLMBackendConfig, RLMConfig
 backend_config = RLMBackendConfig(
     backend="openai",           # openai, anthropic, openrouter, litellm
     model_name="gpt-4o",
-    sub_model_name="gpt-4o-mini",  # Cheaper model for sub-calls
+    sub_model_name="gpt-5.6-terra",  # Cheaper model for sub-calls
     environment_type="local",   # local, docker, modal
     environment_timeout=120,
     max_depth=1,                # Maximum recursion depth
@@ -126,7 +126,7 @@ RLM maintains content at multiple abstraction levels for efficient navigation:
 from aragora.rlm import DebateContextAdapter, create_aragora_rlm
 
 # Create RLM for debate analysis
-rlm = create_aragora_rlm(backend="anthropic", model="claude-3-5-sonnet-20241022")
+rlm = create_aragora_rlm(backend="anthropic", model="claude-sonnet-5")
 adapter = DebateContextAdapter(rlm)
 
 # Load a debate result

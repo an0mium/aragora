@@ -235,7 +235,7 @@ The `rlm_backend` parameter on `RLMCognitiveLoadLimiter`, `RLMCognitiveLoadLimit
 
 | Deprecated | Replacement |
 |-----------|-------------|
-| `RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-4o")` | `RLMCognitiveLoadLimiter(rlm_model="gpt-4o")` |
+| `RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-6-astra")` | `RLMCognitiveLoadLimiter(rlm_model="gpt-6-astra")` |
 | `create_rlm_limiter(rlm_backend="anthropic")` | `create_rlm_limiter(rlm_model="claude")` |
 
 **Source:** `aragora/debate/cognitive_limiter_rlm.py` lines 152-174, 318-336

@@ -534,7 +534,7 @@ export default function UncertaintyPage() {
                     type="text"
                     value={selectedAgent}
                     onChange={(e) => setSelectedAgent(e.target.value)}
-                    placeholder="claude, gpt-4, etc."
+                    placeholder="claude, gpt-6-astra, etc."
                     className="flex-1 bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                   />
                   <button

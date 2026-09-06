@@ -33,7 +33,7 @@ interface DemoDebate {
 const DEMO_DEBATE: DemoDebate = {
   id: 'demo_showcase_001',
   topic: 'Should our startup adopt AI-powered code review as a mandatory step in our CI/CD pipeline?',
-  agents: ['claude-sonnet', 'gpt-4o', 'gemini-pro', 'mistral-large', 'grok-2'],
+  agents: ['claude-sonnet', 'gpt-6-astra', 'gemini-3.1-pro-preview', 'mistral-large-2512', 'grok-4.6'],
   rounds: 2,
   consensus_reached: true,
   confidence: 0.82,
@@ -52,7 +52,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'proposal',
-      agent: 'gpt-4o',
+      agent: 'gpt-6-astra',
       model: 'GPT-4o',
       content:
         'Mandatory is too strong. AI review tools have 15-25% false positive rates on complex codebases. Making it mandatory creates alert fatigue and slows velocity. Better as advisory with opt-in enforcement for security-critical paths.',
@@ -62,7 +62,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'critique',
-      agent: 'gemini-pro',
+      agent: 'gemini-3.1-pro-preview',
       model: 'Gemini Pro',
       content:
         'Both proposals miss the cost dimension. AI review at scale costs $0.02-0.15 per PR. For a team doing 200 PRs/week, that is $200-1,500/month. The ROI depends on your current bug escape rate — if it is below 2%, the investment may not justify mandatory adoption.',
@@ -72,7 +72,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'critique',
-      agent: 'mistral-large',
+      agent: 'mistral-large-2512',
       model: 'Mistral Large',
       content:
         'I challenge the 34% claim. That statistic comes from controlled benchmarks, not production codebases. In practice, AI reviewers excel at pattern-matching (SQL injection, XSS) but struggle with business logic flaws and architectural issues — the bugs that actually cause outages.',
@@ -82,7 +82,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'proposal',
-      agent: 'grok-2',
+      agent: 'grok-4.6',
       model: 'Grok 2',
       content:
         'The framing is wrong. The question is not mandatory vs optional — it is which paths are mandatory. Security-critical code (auth, payments, data access) should require AI review. Feature code should get advisory review. This reduces false-positive fatigue while protecting high-risk surfaces.',
@@ -102,7 +102,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'vote',
-      agent: 'gpt-4o',
+      agent: 'gpt-6-astra',
       model: 'GPT-4o',
       content: 'Agreed. Tiered enforcement addresses my velocity concern while maintaining security coverage.',
       round: 2,
@@ -112,7 +112,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'vote',
-      agent: 'gemini-pro',
+      agent: 'gemini-3.1-pro-preview',
       model: 'Gemini Pro',
       content: 'Support, with the caveat that ROI should be measured after 90 days to validate the cost-benefit.',
       round: 2,
@@ -122,7 +122,7 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'vote',
-      agent: 'mistral-large',
+      agent: 'mistral-large-2512',
       model: 'Mistral Large',
       content: 'Conditional support. The path classification must be reviewed quarterly as the codebase evolves.',
       round: 2,
@@ -149,19 +149,19 @@ const DEMO_DEBATE: DemoDebate = {
 
 const AGENT_COLORS: Record<string, string> = {
   'claude-sonnet': '#b794f6',
-  'gpt-4o': '#68d391',
-  'gemini-pro': '#63b3ed',
-  'mistral-large': '#f6ad55',
-  'grok-2': '#fc8181',
+  'gpt-6-astra': '#68d391',
+  'gemini-3.1-pro-preview': '#63b3ed',
+  'mistral-large-2512': '#f6ad55',
+  'grok-4.6': '#fc8181',
   system: '#00ff41',
 };
 
 const AGENT_ICONS: Record<string, string> = {
   'claude-sonnet': '\u2726',
-  'gpt-4o': '\u25C6',
-  'gemini-pro': '\u25C8',
-  'mistral-large': '\u25B2',
-  'grok-2': '\u2605',
+  'gpt-6-astra': '\u25C6',
+  'gemini-3.1-pro-preview': '\u25C8',
+  'mistral-large-2512': '\u25B2',
+  'grok-4.6': '\u2605',
   system: '\u2713',
 };
 

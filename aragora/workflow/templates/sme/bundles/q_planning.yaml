@@ -46,7 +46,7 @@ steps:
     config:
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
       rounds: 2
       consensus_mode: synthesis
       prompt_template: |
@@ -79,7 +79,7 @@ steps:
     config:
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
       rounds: 3
       consensus_mode: weighted
@@ -118,7 +118,7 @@ steps:
     config:
       agents:
         - claude
-        - gpt-4
+        - gpt-6-astra
         - gemini
       rounds: 3
       consensus_mode: weighted

@@ -155,7 +155,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
     def _get_auth_context(self, handler: Any) -> Any | None:
         """Extract authorization context from the request."""
-        if not RBAC_AVAILABLE or extract_user_from_request is None:
+        if not RBAC_AVAILABLE or extract_user_from_request is None or AuthorizationContext is None:
             return None
 
         try:
@@ -739,8 +739,8 @@ class TeamsIntegrationHandler(BaseHandler):
             if not agent_list:
                 agent_list = [
                     {"name": "anthropic-api", "model": "claude-3"},
-                    {"name": "openai-api", "model": "gpt-4"},
-                    {"name": "gemini", "model": "gemini-pro"},
+                    {"name": "openai-api", "model": "gpt-6-astra"},
+                    {"name": "gemini", "model": "gemini-3.1-pro-preview"},
                 ]
 
             connector = get_teams_connector()

@@ -57,10 +57,10 @@ DEBATES = [
 ]
 AGENTS = [  # (name, elo, wins, losses, draws, debates)
     ("claude-opus", 1782, 47, 12, 6, 65),
-    ("gpt-4o", 1721, 41, 17, 7, 65),
+    ("gpt-6-astra", 1721, 41, 17, 7, 65),
     ("gemini-pro", 1654, 35, 22, 8, 65),
-    ("mistral-large", 1598, 30, 25, 10, 65),
-    ("grok-2", 1543, 27, 28, 10, 65),
+    ("mistral-large-2512", 1598, 30, 25, 10, 65),
+    ("grok-4.6", 1543, 27, 28, 10, 65),
     ("deepseek-v4-pro", 1487, 23, 31, 11, 65),
     ("llama-405b", 1412, 18, 35, 12, 65),
     ("qwen-72b", 1356, 14, 39, 12, 65),
@@ -77,7 +77,7 @@ RISKS = [
     ("medium", "Consensus confidence below SLO target for architecture debates"),
     ("low", "ELO variance increasing for deepseek-v4-pro over last 20 matches"),
 ]
-TOURN_AGENTS = ["claude-opus", "gpt-4o", "gemini-pro", "mistral-large"]
+TOURN_AGENTS = ["claude-opus", "gpt-6-astra", "gemini-pro", "mistral-large-2512"]
 _DEMO_LIKE = "demo_%"
 
 PIPELINES = [
@@ -617,10 +617,10 @@ def seed_analytics(clear: bool) -> int:
     agent_names = [a[0] for a in AGENTS]
     providers = {
         "claude-opus": ("anthropic", "claude-opus-5"),
-        "gpt-4o": ("openai", "gpt-4o"),
+        "gpt-6-astra": ("openai", "gpt-6-astra"),
         "gemini-pro": ("google", "gemini-2.5-pro"),
-        "mistral-large": ("mistral", "mistral-large-latest"),
-        "grok-2": ("xai", "grok-2"),
+        "mistral-large-2512": ("mistral", "mistral-large-latest"),
+        "grok-4.6": ("xai", "grok-4.6"),
         "deepseek-v4-pro": ("deepseek", "deepseek-v4-pro"),
         "llama-405b": ("openrouter", "meta-llama/llama-3.1-405b"),
         "qwen-72b": ("openrouter", "qwen/qwen-72b-chat"),

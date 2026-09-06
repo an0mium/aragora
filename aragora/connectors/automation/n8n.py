@@ -251,7 +251,7 @@ class N8NConnector(AutomationConnector):
                 "displayName": "Agents",
                 "name": "agents",
                 "type": "multiOptions",
-                "default": ["claude", "gpt-4"],
+                "default": ["claude", "gpt-6-astra"],
                 "displayOptions": {
                     "show": {
                         "resource": ["debate"],
@@ -260,7 +260,7 @@ class N8NConnector(AutomationConnector):
                 },
                 "options": [
                     {"name": "Claude", "value": "claude"},
-                    {"name": "GPT-4", "value": "gpt-4"},
+                    {"name": "GPT-4", "value": "gpt-6-astra"},
                     {"name": "Gemini", "value": "gemini"},
                     {"name": "Grok", "value": "grok"},
                     {"name": "Mistral", "value": "mistral"},

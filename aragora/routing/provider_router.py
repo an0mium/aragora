@@ -59,8 +59,8 @@ MIN_DEBATES_FOR_METRICS = 10
 # Default round-robin order when insufficient data is available: the
 # cold-start roster. Derived from aragora.config.model_pins (frontier-model-
 # refresh, 2026-09-04) rather than hand-written ids, which had drifted to a
-# roster that was 100% retired spellings (claude-sonnet-4, gpt-4o,
-# mistral-large, gemini-2.0-flash, claude-opus-4) — so a cold-start debate
+# roster that was 100% retired spellings (claude-sonnet-5, gpt-6-astra,
+# mistral-large-2512, gemini-3.8-flash, claude-fable-5-1) — so a cold-start debate
 # could not see the current frontier at all. Canonical ids, because
 # _round_robin_selection filters this list by membership in
 # provider_config's pricing table, which is keyed by canonical id.

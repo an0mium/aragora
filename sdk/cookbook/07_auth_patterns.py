@@ -63,7 +63,7 @@ async def jwt_authentication_example(dry_run: bool = False) -> dict:
     result = await client.run_debate(
         DebateConfig(
             topic="JWT auth test",
-            agents=[Agent(name="claude", model="claude-sonnet-4-20250514")],
+            agents=[Agent(name="claude", model="claude-sonnet-5")],
             rounds=1,
         )
     )
@@ -98,7 +98,7 @@ async def api_key_authentication_example(dry_run: bool = False) -> dict:
     result = await client.run_debate(
         DebateConfig(
             topic="API key auth test",
-            agents=[Agent(name="claude", model="claude-sonnet-4-20250514")],
+            agents=[Agent(name="claude", model="claude-sonnet-5")],
             rounds=1,
         )
     )

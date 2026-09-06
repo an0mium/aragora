@@ -17,7 +17,7 @@ Usage:
     # Record token usage
     await meter.record_token_usage(
         provider="anthropic",
-        model="claude-opus-4",
+        model="claude-fable-5-1",
         tokens_in=1000,
         tokens_out=500,
         debate_id="debate_123",

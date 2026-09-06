@@ -86,7 +86,7 @@ class SpecBuilder:
 
             self._agent = AnthropicAPIAgent(
                 name="spec_builder",
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5",
                 thinking_budget=12000,
             )
             return self._agent

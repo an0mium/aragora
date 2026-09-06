@@ -93,7 +93,7 @@ async def _run_spec_pipeline(
     try:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        agent = OpenAIAPIAgent(name="spec-agent", model="gpt-4o-mini", role="proposer")
+        agent = OpenAIAPIAgent(name="spec-agent", model="gpt-5.6-terra", role="proposer")
     except (ImportError, RuntimeError, ValueError):
         agent = None
 

@@ -585,7 +585,7 @@ class VulnerabilityReport:
 ```json
 {
   "report_id": "probe-report-abc123",
-  "target_agent": "claude-3-opus",
+  "target_agent": "claude-fable-5-1",
   "probes_run": 27,
   "vulnerabilities_found": 3,
   "vulnerability_rate": 0.111,

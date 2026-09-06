@@ -71,7 +71,7 @@ class AgentInfo:
         agent_id: Unique identifier for the agent
         capabilities: Set of capabilities this agent provides
         status: Current agent status
-        model: Underlying model (e.g., "claude-3-opus", "gpt-4")
+        model: Underlying model (e.g., "claude-fable-5-1", "gpt-6-astra")
         provider: Model provider (e.g., "anthropic", "openai")
         metadata: Additional agent metadata
         registered_at: When the agent registered
@@ -213,7 +213,7 @@ class AgentRegistry:
         await registry.register(
             agent_id="claude-3",
             capabilities=["debate", "code"],
-            model="claude-3-opus",
+            model="claude-fable-5-1",
             provider="anthropic",
         )
 

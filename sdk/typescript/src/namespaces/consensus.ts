@@ -375,7 +375,7 @@ export class ConsensusAPI {
    *   task: 'Should we adopt microservices?',
    *   proposals: [
    *     { agent: 'claude', content: 'Yes, microservices improve scalability.' },
-   *     { agent: 'gpt-4', content: 'Yes, but with careful service boundaries.' },
+   *     { agent: 'gpt-6-astra', content: 'Yes, but with careful service boundaries.' },
    *   ],
    *   threshold: 0.7,
    * });

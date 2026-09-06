@@ -86,8 +86,8 @@ CLAUDE_IDENTITY = ModelIdentity(
 )
 OPENAI_IDENTITY = ModelIdentity(
     family="openai",
-    requested_model="gpt-5.6-sol",
-    expected_resolved_model="gpt-5.6-sol",
+    requested_model="gpt-6-astra",
+    expected_resolved_model="gpt-6-astra",
     transport="vibeproxy-required",
     protocol="openai-chat",
     catalog_owner="openai",

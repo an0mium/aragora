@@ -317,27 +317,27 @@ export interface AgentSelectionClientInterface {
  *
  * // Score agents for a task
  * const scores = await client.agentSelection.scoreAgents({
- *   agents: ['claude', 'gpt-4', 'gemini'],
+ *   agents: ['claude', 'gpt-6-astra', 'gemini'],
  *   context: 'security code review',
  *   dimensions: ['accuracy', 'speed', 'cost'],
  * });
  *
  * // Get the best agent
  * const best = await client.agentSelection.getBestAgent({
- *   pool: ['claude', 'gpt-4', 'gemini'],
+ *   pool: ['claude', 'gpt-6-astra', 'gemini'],
  *   task_type: 'code_review',
  * });
  *
  * // Select a team
  * const team = await client.agentSelection.selectTeam({
- *   pool: ['claude', 'gpt-4', 'gemini', 'mistral'],
+ *   pool: ['claude', 'gpt-6-astra', 'gemini', 'mistral'],
  *   task_requirements: { domain: 'security', complexity: 'high' },
  *   team_size: 3,
  * });
  *
  * // Assign roles to team members
  * const roles = await client.agentSelection.assignRoles({
- *   members: ['claude', 'gpt-4'],
+ *   members: ['claude', 'gpt-6-astra'],
  *   roles: ['lead', 'reviewer'],
  * });
  *

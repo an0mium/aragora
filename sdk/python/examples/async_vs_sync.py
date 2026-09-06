@@ -49,7 +49,7 @@ def sync_example() -> dict[str, Any]:
     print("Creating debate...")
     debate = client.debates.create(
         task="What is the best approach to learn a new programming language?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-6-astra"],
         rounds=2,
     )
     print(f"Created: {debate['debate_id']}")
@@ -94,7 +94,7 @@ async def async_example() -> dict[str, Any]:
         print("Creating debate...")
         debate = await client.debates.create(
             task="What is the best approach to learn a new programming language?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-6-astra"],
             rounds=2,
         )
         print(f"Created: {debate['debate_id']}")
@@ -136,7 +136,7 @@ async def concurrent_operations() -> None:
         tasks = [
             client.debates.create(
                 task=f"Question {i}: What makes code readable?",
-                agents=["claude", "gpt-4"],
+                agents=["claude", "gpt-6-astra"],
                 rounds=1,
             )
             for i in range(1, 4)

@@ -144,7 +144,7 @@ input RegisterAgentInput {
     """List of agent capabilities"""
     capabilities: [String!]!
 
-    """Model name (e.g., 'gpt-4', 'claude-3')"""
+    """Model name (e.g., 'gpt-6-astra', 'claude-3')"""
     model: String!
 
     """Provider name (e.g., 'openai', 'anthropic')"""

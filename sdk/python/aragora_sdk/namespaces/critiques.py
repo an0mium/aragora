@@ -93,7 +93,7 @@ class CritiquesAPI:
         Get reputation data for a specific agent.
 
         Args:
-            agent_name: The agent identifier (e.g., "claude", "gpt-4").
+            agent_name: The agent identifier (e.g., "claude", "gpt-6-astra").
 
         Returns:
             Agent reputation data or null if agent not found.
@@ -153,7 +153,7 @@ class AsyncCritiquesAPI:
         Get reputation data for a specific agent.
 
         Args:
-            agent_name: The agent identifier (e.g., "claude", "gpt-4").
+            agent_name: The agent identifier (e.g., "claude", "gpt-6-astra").
 
         Returns:
             Agent reputation data or null if agent not found.

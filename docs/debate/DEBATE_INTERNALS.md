@@ -72,7 +72,7 @@ service = DebateService.get_instance()
 # Create and run debate
 debate_id = await service.create_debate(
     topic="AI regulation",
-    agents=["gpt-4", "claude-3", "gemini"],
+    agents=["gpt-6-astra", "claude-3", "gemini"],
     rounds=3
 )
 

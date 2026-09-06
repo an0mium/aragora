@@ -128,8 +128,8 @@ class AgentCapabilities:
                 max_context=32000,
                 elo_rating=1000,
             ),
-            "mistral-large": cls(
-                agent_id="mistral-large",
+            "mistral-large-2512": cls(
+                agent_id="mistral-large-2512",
                 strengths=[TaskType.CODING, TaskType.REASONING],
                 speed_tier=2,
                 cost_tier=2,

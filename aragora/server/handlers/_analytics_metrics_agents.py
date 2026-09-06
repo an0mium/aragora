@@ -238,7 +238,7 @@ class AgentAnalyticsMixin:
 
         Response:
         {
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "comparison": [
                 {
                     "agent_name": "claude",
@@ -347,7 +347,7 @@ class AgentAnalyticsMixin:
 
         Response:
         {
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-6-astra"],
             "time_range": "30d",
             "granularity": "daily",
             "trends": {
@@ -355,7 +355,7 @@ class AgentAnalyticsMixin:
                     {"period": "2026-01-01", "elo": 1640, "games": 5},
                     ...
                 ],
-                "gpt-4": [...]
+                "gpt-6-astra": [...]
             },
             "generated_at": "2026-01-23T12:00:00Z"
         }

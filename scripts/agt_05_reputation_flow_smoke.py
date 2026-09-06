@@ -80,7 +80,7 @@ SMOKE_QUESTIONS: list[tuple[str, str, float]] = [
 
 SMOKE_AGENT_PREDICTIONS: dict[str, list[float]] = {
     "claude-opus-5": [0.90, 0.85, 0.10],
-    "gpt-4.1": [0.60, 0.55, 0.45],
+    "gpt-6-astra": [0.60, 0.55, 0.45],
     "demo-anti": [0.10, 0.05, 0.90],
 }
 

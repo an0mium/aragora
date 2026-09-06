@@ -445,7 +445,7 @@ class AgentDashboardHandler(SecureHandler):
                 task["priority"] = priority
 
             # Move to position
-            if position is not None and task_index != position:
+            if position is not None and task_index is not None and task_index != position:
                 _task_queue.pop(task_index)
                 _task_queue.insert(min(position, len(_task_queue)), task)
 
@@ -595,7 +595,7 @@ class AgentDashboardHandler(SecureHandler):
                 "id": "agent-gemini-scanner",
                 "name": "Gemini 3 Pro Scanner",
                 "type": "scanner",
-                "model": "gemini-3-pro",
+                "model": "gemini-3.1-pro-preview",
                 "status": "active",
                 "role": "Full document analysis",
                 "capabilities": ["security", "compliance", "quality"],
@@ -610,7 +610,7 @@ class AgentDashboardHandler(SecureHandler):
                 "id": "agent-claude-reasoner",
                 "name": "Claude Reasoner",
                 "type": "reasoner",
-                "model": "claude-3.5-sonnet",
+                "model": "claude-sonnet-5",
                 "status": "active",
                 "role": "Deep analysis and verification",
                 "capabilities": ["reasoning", "verification", "consistency"],
@@ -625,7 +625,7 @@ class AgentDashboardHandler(SecureHandler):
                 "id": "agent-gpt-verifier",
                 "name": "GPT-4 Verifier",
                 "type": "verifier",
-                "model": "gpt-4-turbo",
+                "model": "gpt-6-astra",
                 "status": "idle",
                 "role": "Adversarial verification",
                 "capabilities": ["verification", "adversarial"],

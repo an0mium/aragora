@@ -18,7 +18,7 @@
  * // Create a debate
  * const debate = await client.createDebate({
  *   task: 'Should we use TypeScript or JavaScript?',
- *   agents: ['claude', 'gpt-4', 'gemini'],
+ *   agents: ['claude', 'gpt-6-astra', 'gemini'],
  *   rounds: 3
  * });
  *

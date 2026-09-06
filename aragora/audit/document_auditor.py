@@ -199,7 +199,7 @@ class AuditSession:
 
     # Configuration
     audit_types: list[AuditType] = field(default_factory=lambda: [AuditType.ALL])
-    model: str = "gemini-3-pro"
+    model: str = "gemini-3.1-pro-preview"
     max_tokens_per_call: int = 500000
 
     # Status
@@ -312,7 +312,7 @@ class AuditSession:
             total_chunks=data.get("total_chunks", 0),
             processed_chunks=data.get("processed_chunks", 0),
             audit_types=audit_types,
-            model=data.get("model", "gemini-3-pro"),
+            model=data.get("model", "gemini-3.1-pro-preview"),
             max_tokens_per_call=data.get("max_tokens_per_call", 500000),
             status=AuditStatus(data.get("status", "pending")),
             progress=data.get("progress", 0.0),
@@ -332,9 +332,9 @@ class AuditConfig:
     """Configuration for document auditing."""
 
     # Model settings
-    primary_model: str = "gemini-3-pro"  # Large context for initial scan
-    verification_model: str = "claude-3.5-sonnet"  # Deep reasoning for verification
-    adversarial_model: str = "gpt-4-turbo"  # Adversarial checking
+    primary_model: str = "gemini-3.1-pro-preview"  # Large context for initial scan
+    verification_model: str = "claude-sonnet-5"  # Deep reasoning for verification
+    adversarial_model: str = "gpt-6-astra"  # Adversarial checking
 
     # Processing settings
     max_tokens_per_call: int = 500000

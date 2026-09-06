@@ -146,7 +146,7 @@ interface OrchestrationClientInterface {
  * // Sync deliberation (waits for completion)
  * const syncResult = await client.orchestration.deliberateSync({
  *   question: 'Which testing framework should we use?',
- *   agents: ['claude', 'gpt-4'],
+ *   agents: ['claude', 'gpt-6-astra'],
  *   maxRounds: 3,
  * });
  * console.log(`Consensus: ${syncResult.consensus}`);

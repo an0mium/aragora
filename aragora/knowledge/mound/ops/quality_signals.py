@@ -20,8 +20,8 @@ Usage:
     signals = engine.compute_quality_signals(
         item_id="km_123",
         raw_confidence=0.85,
-        contributors=["claude", "gpt-4"],
-        contributor_ratings={"claude": rating1, "gpt-4": rating2},
+        contributors=["claude", "gpt-6-astra"],
+        contributor_ratings={"claude": rating1, "gpt-6-astra": rating2},
     )
     print(f"Calibrated: {signals.calibrated_confidence:.2f}")
 """

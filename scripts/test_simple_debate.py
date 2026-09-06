@@ -76,7 +76,7 @@ async def main():
     agent2 = AgentRegistry.create(
         "grok",
         name="agent2",
-        model="grok-4",
+        model="grok-4.6",
         role="critic",
         use_cache=False,
         timeout=60,

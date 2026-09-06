@@ -34,7 +34,7 @@ async def create_debate_for_explanation(
 
     debate = await client.debates.create(
         task="Should our startup adopt a microservices architecture or stay with a monolith?",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-6-astra", "gemini"],
         rounds=3,
         consensus="weighted",
         # Enable explainability tracking

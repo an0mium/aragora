@@ -163,7 +163,7 @@ Example response:
 Debate Complete: Should we adopt microservices?
 
 ✓ Consensus: Yes (82% confidence)
-★★★★☆ Rounds: 3 | Participants: claude, gpt-4
+★★★★☆ Rounds: 3 | Participants: claude, gpt-6-astra
 
 Conclusion: Based on the debate, microservices architecture is
 recommended for better scalability and independent deployments...

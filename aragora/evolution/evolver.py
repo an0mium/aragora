@@ -589,7 +589,7 @@ Return ONLY the refined prompt, no explanations."""
                             "Content-Type": "application/json",
                         },
                         json={
-                            "model": "gpt-4o",
+                            "model": "gpt-6-astra",
                             "max_tokens": 2048,
                             "messages": [{"role": "user", "content": refinement_prompt}],
                         },

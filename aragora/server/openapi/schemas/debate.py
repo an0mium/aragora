@@ -72,7 +72,7 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                     ]
                 },
                 "description": "List of agent specs to participate. If empty, auto_select is used.",
-                "example": ["claude", "gpt-4", "gemini"],
+                "example": ["claude", "gpt-6-astra", "gemini"],
                 "minItems": 0,
                 "maxItems": 8,
             },
@@ -279,7 +279,7 @@ DEBATE_SCHEMAS: dict[str, Any] = {
         "required": ["task"],
         "example": {
             "task": "Should we adopt microservices architecture for our e-commerce platform?",
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "rounds": 9,
             "consensus": "judge",
             "context": "We have 1M daily active users and need 99.9% uptime.",
@@ -312,7 +312,7 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "Agents participating in the debate",
-                "example": ["claude", "gpt-4", "gemini"],
+                "example": ["claude", "gpt-6-astra", "gemini"],
             },
             "websocket_url": {
                 "type": "string",
@@ -335,7 +335,7 @@ DEBATE_SCHEMAS: dict[str, Any] = {
             "debate_id": "deb_abc123xyz",
             "status": "running",
             "task": "Should we adopt microservices architecture?",
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-6-astra", "gemini"],
             "websocket_url": "wss://api.aragora.ai/ws/debates/deb_abc123xyz",
             "estimated_duration": 120,
         },
