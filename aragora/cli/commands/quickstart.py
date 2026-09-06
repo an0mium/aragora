@@ -139,11 +139,11 @@ def _run_sync_without_runner(coro: Any) -> Any:
 
     ``asyncio.Runner`` exists only from Python 3.11, and the advertised floor
     is 3.10. Cleanup mirrors ``asyncio.Runner.close`` so the fallback path
-    does not leak pending tasks or async generators.
+    does not leak pending tasks or async generators. Like ``Runner`` with a
+    ``loop_factory``, the policy's current loop is left untouched.
     """
     loop = _quickstart_loop_factory()
     try:
-        asyncio.set_event_loop(loop)
         return loop.run_until_complete(coro)
     finally:
         try:
@@ -167,7 +167,6 @@ def _run_sync_without_runner(coro: Any) -> Any:
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.run_until_complete(loop.shutdown_default_executor())
         finally:
-            asyncio.set_event_loop(None)
             loop.close()
 
 

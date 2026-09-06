@@ -19,10 +19,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
-# The 3.10 floor shard collects tests/config/; tomllib arrived in 3.11.
-tomllib = pytest.importorskip("tomllib")
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 floor shard; tomli ships with pytest there.
+    import tomli as tomllib  # type: ignore[no-redef]
 
 _PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 

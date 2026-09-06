@@ -364,6 +364,20 @@ class TestRunSync:
         assert isinstance(reported[0]["exception"], RuntimeError)
         assert "shutdown" in str(reported[0]["message"])
 
+    def test_fallback_leaves_policy_loop_untouched(self):
+        outer = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(outer)
+
+            async def _work() -> bool:
+                return asyncio.get_running_loop() is not outer
+
+            assert _run_sync_without_runner(_work()) is True
+            assert asyncio.get_event_loop_policy().get_event_loop() is outer
+        finally:
+            asyncio.set_event_loop(None)
+            outer.close()
+
     def test_fallback_propagates_exceptions_and_still_closes_loop(self):
         seen: dict[str, object] = {}
 
