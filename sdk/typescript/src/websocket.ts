@@ -489,7 +489,12 @@ export async function* streamDebate(
   // Handle errors
   const unsubError = ws.on('error', (error) => {
     if (ended) return;
-    terminalError = error;
+    // A transport error commonly precedes close; type it immediately rather than
+    // waiting for a close callback that cleanup may already have detached.
+    // Low-level parse errors can contain raw frames, so do not copy their text.
+    terminalError = error instanceof ConnectionError
+      ? error
+      : new ConnectionError('WebSocket stream failed');
     ended = true;
     wake();
   });

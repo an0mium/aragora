@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AragoraClient } from '../client';
-import { ConnectionError } from '../errors';
+import { ConnectionError, isRetryableError } from '../errors';
 import { AragoraWebSocket, streamDebate, streamDebateById } from '../websocket';
 import type { WebSocketEvent } from '../types';
 
@@ -114,7 +114,39 @@ describe('streamDebate terminal delivery', () => {
     socket.message(event('agent_message', 'two'));
     socket.onerror?.();
     expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
-    await expect(stream.next()).rejects.toThrow('WebSocket error');
+    await expect(stream.next()).rejects.toBeInstanceOf(ConnectionError);
+  });
+
+  it.each(['same-turn', 'later-turn'] as const)('types an error followed by %s close after draining accepted work', async (timing) => {
+    const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
+    const stream = streamDebate(config);
+    const first = stream.next();
+    const socket = FakeSocket.latest;
+    socket.open();
+    socket.message(event('agent_message', 'one'));
+    await first;
+    socket.message(event('agent_message', 'two'));
+    socket.onerror?.();
+    if (timing === 'later-turn') await vi.advanceTimersByTimeAsync(0);
+    socket.drop();
+    expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
+    const failure = await stream.next().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ConnectionError);
+    expect(isRetryableError(failure)).toBe(true);
+    checkCleanup(socket, off);
+  });
+
+  it('reports a malformed frame without exposing its raw payload in the error', async () => {
+    const stream = streamDebate(config);
+    const first = stream.next();
+    const socket = FakeSocket.latest;
+    socket.open();
+    socket.message(event('agent_message'));
+    await first;
+    socket.onmessage?.({ data: 'private malformed payload' });
+    const failure = await stream.next().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ConnectionError);
+    expect(String(failure)).not.toContain('private malformed payload');
   });
 
   it('rejects a waiting pull on transport error', async () => {
@@ -124,7 +156,7 @@ describe('streamDebate terminal delivery', () => {
     socket.open();
     socket.message(event('agent_message'));
     await first;
-    const rejected = expect(stream.next()).rejects.toThrow('WebSocket error');
+    const rejected = expect(stream.next()).rejects.toBeInstanceOf(ConnectionError);
     socket.onerror?.();
     await rejected;
     expect(socket.close).toHaveBeenCalledOnce();
@@ -147,7 +179,7 @@ describe('streamDebate terminal delivery', () => {
     const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
     const stream = streamDebate(config);
     const first = stream.next();
-    const rejected = expect(first).rejects.toThrow('WebSocket error');
+    const rejected = expect(first).rejects.toBeInstanceOf(ConnectionError);
     const socket = FakeSocket.latest;
     socket.onerror?.();
     await rejected;
