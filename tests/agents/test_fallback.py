@@ -20,6 +20,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.agents.fallback import QuotaFallbackMixin
+
 
 # =============================================================================
 # QUOTA_ERROR_KEYWORDS Tests
@@ -65,8 +67,14 @@ class TestQuotaErrorKeywords:
 # =============================================================================
 
 
-class MockAgentWithMixin:
-    """Mock agent class using QuotaFallbackMixin."""
+class MockAgentWithMixin(QuotaFallbackMixin):
+    """Mock agent class using QuotaFallbackMixin.
+
+    Really inherits the mixin rather than binding one method onto a bare
+    class: ``get_fallback_model`` now calls a sibling method on ``self``
+    (the stranded-map warning), so a partial graft would only be testing
+    the graft.
+    """
 
     OPENROUTER_MODEL_MAP = {
         "gpt-4o": "openai/gpt-4o",
@@ -93,13 +101,7 @@ class TestQuotaFallbackMixin:
         round 1, item 3), not the (vestigial) OPENROUTER_MODEL_MAP class
         attribute: "gpt-4o" is a legacy OpenAI spelling that upgrades to
         the current frontier."""
-        from aragora.agents.fallback import QuotaFallbackMixin
-
         agent = MockAgentWithMixin(model="gpt-4o")
-        # Add mixin method
-        agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
-            agent, MockAgentWithMixin
-        )
 
         result = agent.get_fallback_model()
 
@@ -118,27 +120,62 @@ class TestQuotaFallbackMixin:
         while every other legacy Claude spelling upgraded correctly. Now that
         it is cataloged, the fallback is its OWN OpenRouter slug.
         """
-        from aragora.agents.fallback import QuotaFallbackMixin
-
         for spelling in ("claude-haiku-4-5-20251001", "claude-haiku-4-5", "claude-haiku-4.5"):
             agent = MockAgentWithMixin(model=spelling)
-            agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
-                agent, MockAgentWithMixin
-            )
             assert agent.get_fallback_model() == "anthropic/claude-haiku-4.5", spelling
 
     def test_get_fallback_model_uses_default(self):
         """Test getting fallback model falls back to default."""
-        from aragora.agents.fallback import QuotaFallbackMixin
-
         agent = MockAgentWithMixin(model="unknown-model")
-        agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
-            agent, MockAgentWithMixin
-        )
 
         result = agent.get_fallback_model()
 
         assert result == "anthropic/claude-sonnet-4"
+
+    def test_stranded_openrouter_model_map_warns_once_per_class(self, caplog) -> None:
+        """A subclass that still defines OPENROUTER_MODEL_MAP silently lost
+        its mapping at the catalog-first refresh. It now gets exactly one
+        WARNING -- not silence, and not one per fallback activation
+        (finding C-P3 on #9989)."""
+        import logging
+
+        from aragora.agents import fallback as fallback_mod
+
+        key = f"{MockAgentWithMixin.__module__}.{MockAgentWithMixin.__qualname__}"
+        was_warned = key in fallback_mod._WARNED_STRANDED_MODEL_MAPS
+        fallback_mod._WARNED_STRANDED_MODEL_MAPS.discard(key)
+        try:
+            with caplog.at_level(logging.WARNING, logger="aragora.agents.fallback"):
+                for _ in range(3):
+                    assert (
+                        MockAgentWithMixin(model="gpt-4o").get_fallback_model()
+                        == "openai/gpt-5.6-terra"
+                    )
+            warnings = [
+                r.getMessage() for r in caplog.records if "OPENROUTER_MODEL_MAP" in r.getMessage()
+            ]
+            assert len(warnings) == 1, warnings
+            assert "ignored" in warnings[0]
+            assert "get_fallback_model" in warnings[0]
+            assert key in warnings[0]
+        finally:
+            if not was_warned:
+                fallback_mod._WARNED_STRANDED_MODEL_MAPS.discard(key)
+
+    def test_empty_openrouter_model_map_does_not_warn(self, caplog) -> None:
+        """The base class's empty default is the normal case, not a mistake:
+        every in-repo agent would otherwise warn on every fallback."""
+        import logging
+
+        class _NoMapAgent(QuotaFallbackMixin):
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+
+            def __init__(self) -> None:
+                self.model = "gpt-4o"
+
+        with caplog.at_level(logging.WARNING, logger="aragora.agents.fallback"):
+            _NoMapAgent().get_fallback_model()
+        assert not [r for r in caplog.records if "OPENROUTER_MODEL_MAP" in r.getMessage()]
 
     def test_is_quota_error_429(self):
         """Test 429 status is detected as quota error."""

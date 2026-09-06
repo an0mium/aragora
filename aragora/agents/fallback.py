@@ -61,6 +61,11 @@ logger = logging.getLogger(__name__)
 _session_cb_module: Any = None
 _session_cb_import_attempted = False
 
+# Subclasses already warned that their ``OPENROUTER_MODEL_MAP`` is dead code.
+# Keyed by qualified class name so the warning fires once per subclass rather
+# than once per agent instance or once per fallback activation.
+_WARNED_STRANDED_MODEL_MAPS: set[str] = set()
+
 
 def _get_session_cb():
     """Lazily import and return the SessionCircuitBreaker singleton, or None."""
@@ -158,7 +163,9 @@ class QuotaFallbackMixin:
     """
 
     # Retained only for backwards compatibility with third-party subclasses
-    # that still define one: get_fallback_model() no longer reads it.
+    # that still define one: get_fallback_model() no longer reads it, and a
+    # subclass that still populates it is warned once (see
+    # _warn_once_if_model_map_is_stranded).
     OPENROUTER_MODEL_MAP: dict[str, str] = {}
     DEFAULT_FALLBACK_MODEL: str = OPUS_5_VIA_OPENROUTER
 
@@ -234,6 +241,38 @@ class QuotaFallbackMixin:
 
     # ------------------------------------------------------------------
 
+    def _warn_once_if_model_map_is_stranded(self) -> None:
+        """Warn a subclass whose ``OPENROUTER_MODEL_MAP`` is no longer read.
+
+        Before the catalog-first refresh (frontier-model-refresh,
+        2026-09-04) that map chose the fallback target. ``get_fallback_model``
+        now resolves through the catalog and never reads it, so a subclass
+        that still populates one has silently lost its mapping. No in-repo
+        subclass does; an out-of-tree one would get no signal at all, which
+        is the whole finding (C-P3 on #9989).
+
+        Once per class, keyed by qualified name: this runs on every fallback
+        activation, and a per-call warning would drown the log line that
+        matters. Read from the INSTANCE so a per-instance override is caught
+        too, but keyed by class so many agents of one type warn once.
+        """
+        model_map = getattr(self, "OPENROUTER_MODEL_MAP", None)
+        if not model_map:
+            return
+        cls = type(self)
+        key = f"{cls.__module__}.{cls.__qualname__}"
+        if key in _WARNED_STRANDED_MODEL_MAPS:
+            return
+        _WARNED_STRANDED_MODEL_MAPS.add(key)
+        logger.warning(
+            "%s defines a non-empty OPENROUTER_MODEL_MAP (%d entries), which is ignored "
+            "since the catalog-first refresh; see get_fallback_model. Fallback targets now "
+            "come from the model catalog: add or correct the catalog row for your model, "
+            "or set DEFAULT_FALLBACK_MODEL for one that has no row.",
+            key,
+            len(model_map),
+        )
+
     def get_fallback_model(self) -> str:
         """OpenRouter fallback target for the current model.
 
@@ -246,6 +285,7 @@ class QuotaFallbackMixin:
         ``OPENROUTER_MODEL_MAP`` -- every subclass now upgrades every
         legacy/retired spelling, not just a hand-enumerated subset).
         """
+        self._warn_once_if_model_map_is_stranded()
         model = getattr(self, "model", "")
         spec = spec_or_none(resolve_model_id(model))
         return spec.openrouter_id if spec is not None else self.DEFAULT_FALLBACK_MODEL
