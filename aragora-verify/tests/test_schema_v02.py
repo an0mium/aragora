@@ -4,7 +4,6 @@ import copy
 import json
 from pathlib import Path
 
-import jsonschema
 import pytest
 
 from aragora_verify import schema
@@ -14,6 +13,7 @@ from _fixtures import valid_odr
 
 @pytest.mark.parametrize("version,profile_version", [("0.1", "0.2"), ("0.2", "0.1")])
 def test_schema_pairs_version_and_profile(monkeypatch, version, profile_version):
+    jsonschema = pytest.importorskip("jsonschema")
     doc = json.loads(
         (
             Path(__file__).resolve().parents[2]
