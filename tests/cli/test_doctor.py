@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.utils.async_helpers import close_coroutine_then
+
 from aragora.cli.doctor import (
     check_api_keys,
     check_environment,
@@ -608,12 +610,12 @@ class TestCheckServer:
         mock_session = MagicMock()
         mock_context = MagicMock()
         mock_context.__aenter__ = AsyncMock(side_effect=ConnectionError("Connection refused"))
-        mock_context.__aexit__ = AsyncMock()
+        mock_context.__aexit__ = AsyncMock(return_value=False)
         mock_session.get.return_value = mock_context
 
         mock_client_session = MagicMock()
         mock_client_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_client_session.__aexit__ = AsyncMock()
+        mock_client_session.__aexit__ = AsyncMock(return_value=False)
 
         with patch("aiohttp.ClientSession", return_value=mock_client_session):
             result = await check_server()
@@ -628,14 +630,14 @@ class TestCheckServer:
 
         mock_response_ctx = MagicMock()
         mock_response_ctx.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response_ctx.__aexit__ = AsyncMock()
+        mock_response_ctx.__aexit__ = AsyncMock(return_value=False)
 
         mock_session = MagicMock()
         mock_session.get.return_value = mock_response_ctx
 
         mock_client_session = MagicMock()
         mock_client_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_client_session.__aexit__ = AsyncMock()
+        mock_client_session.__aexit__ = AsyncMock(return_value=False)
 
         with patch("aiohttp.ClientSession", return_value=mock_client_session):
             result = await check_server()
@@ -773,7 +775,10 @@ class TestMain:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
         # Make asyncio.run raise an exception
-        with patch("asyncio.run", side_effect=RuntimeError("Test error")):
+        with patch(
+            "asyncio.run",
+            side_effect=close_coroutine_then(raise_=RuntimeError("Test error")),
+        ):
             result = main()
 
         captured = capsys.readouterr()
