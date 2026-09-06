@@ -698,13 +698,16 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def test_collision_in_a_module_freezes_its_name_matched_test(tmp_path: Path) -> None:
+def test_collision_in_a_module_freezes_its_mirrored_test(tmp_path: Path) -> None:
+    """The name pairing is MIRRORED: ``aragora/<pkg>/<mod>.py`` freezes
+    ``tests/<pkg>/test_<mod>*.py`` and nothing else of that name elsewhere
+    (wave-6 re-review, minor 2)."""
     module = _write(
-        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        tmp_path / "aragora" / "fixturepkg" / "aragora_fixture_mod.py",
         'FAMILY = {\n    "claude-sonnet-4": "anthropic",\n    "claude-sonnet-5": "anthropic",\n}\n',
     )
     paired = _write(
-        tmp_path / "tests" / "fixture" / "test_aragora_fixture_mod.py",
+        tmp_path / "tests" / "fixturepkg" / "test_aragora_fixture_mod.py",
         'def test_default():\n    assert MOD.FAMILY["claude-sonnet-4"] == "anthropic"\n',
     )
     module_text, paired_text = module.read_text(), paired.read_text()
@@ -754,11 +757,11 @@ def test_an_unrelated_test_is_still_rewritten(tmp_path: Path) -> None:
 
 def test_check_reports_the_pairing_on_the_collision_line(tmp_path: Path) -> None:
     _write(
-        tmp_path / "aragora" / "aragora_fixture_mod.py",
+        tmp_path / "aragora" / "fixturepkg" / "aragora_fixture_mod.py",
         'FAMILY = {"claude-sonnet-4": "a", "claude-sonnet-5": "a"}\n',
     )
     paired = _write(
-        tmp_path / "tests" / "fixture" / "test_aragora_fixture_mod.py",
+        tmp_path / "tests" / "fixturepkg" / "test_aragora_fixture_mod.py",
         'MODEL = "claude-sonnet-4"\n',
     )
 
@@ -824,3 +827,229 @@ def test_legacy_table_sources_and_their_tests_are_frozen(tmp_path: Path) -> None
 
     r = _run("--paths", str(tmp_path), "--check", "--allowlist", str(tmp_path / "none.txt"))
     assert r.returncode == 0, f"frozen _LEGACY_* paths were reported as offenders: {r.stdout}"
+
+
+# ---------------------------------------------------------------------------
+# The provider-vs-provider leg of replacement(), pinned to FIXTURE rows.
+#
+# Wave-6 re-review, minor 1: asserting it through whichever real row happens
+# to straddle two providers today (``qwen3.7-max``) means the day the catalog
+# gives that family a native successor, the assertion still passes while
+# exercising nothing. These pin the branch itself.
+# ---------------------------------------------------------------------------
+
+
+def _fixture_spec(canonical_id: str, provider: str) -> Any:
+    from aragora.models.catalog import ModelSpec
+
+    return ModelSpec(
+        canonical_id=canonical_id,
+        provider=provider,
+        direct_id=f"{canonical_id}-native",
+        openrouter_id=f"{provider}/{canonical_id}",
+        input_per_mtok=1.0,
+        output_per_mtok=2.0,
+        context_window=100_000,
+        max_output_tokens=8_000,
+        release_date="2026-01-01",
+    )
+
+
+def test_replacement_is_none_when_the_successor_changes_native_provider() -> None:
+    """The literal is a native code of provider A; its successor is served
+    natively by provider B. No rewrite of it can stay a working A code."""
+    mod = _load_module()
+    successor = _fixture_spec("newmodel", "othercorp")
+    assert (
+        mod.replacement(
+            "oldmodel",
+            catalog={"newmodel": successor},
+            upgrades={"oldmodel": "newmodel"},
+            spec_lookup=lambda _id: _fixture_spec("oldmodel", "acme"),
+        )
+        is None
+    )
+
+
+def test_replacement_rewrites_when_both_rows_name_the_same_provider() -> None:
+    """The positive control for the same branch: same provider on both sides
+    and the bare literal DOES rewrite, to the successor's native code."""
+    mod = _load_module()
+    successor = _fixture_spec("newmodel", "acme")
+    assert (
+        mod.replacement(
+            "oldmodel",
+            catalog={"newmodel": successor},
+            upgrades={"oldmodel": "newmodel"},
+            spec_lookup=lambda _id: _fixture_spec("oldmodel", "acme"),
+        )
+        == "newmodel-native"
+    )
+
+
+def test_replacement_rewrites_when_the_literal_has_no_row_of_its_own() -> None:
+    """No row for the literal is no EVIDENCE of a conflict, so the sweep
+    keeps rewriting -- the usual case for a retired id."""
+    mod = _load_module()
+    assert (
+        mod.replacement(
+            "oldmodel",
+            catalog={"newmodel": _fixture_spec("newmodel", "acme")},
+            upgrades={"oldmodel": "newmodel"},
+            spec_lookup=lambda _id: None,
+        )
+        == "newmodel-native"
+    )
+
+
+def test_replacement_is_none_when_the_successor_has_no_native_row_at_all() -> None:
+    """The other unresolvable leg, also on fixtures: an openrouter-only
+    successor has a placeholder direct_id, not a native code."""
+    mod = _load_module()
+    assert (
+        mod.replacement(
+            "oldmodel",
+            catalog={"newmodel": _fixture_spec("newmodel", "openrouter")},
+            upgrades={"oldmodel": "newmodel"},
+            spec_lookup=lambda _id: None,
+        )
+        is None
+    )
+    # ...but the SLUG shape rewrites regardless of native transport.
+    assert (
+        mod.replacement(
+            "vendor/oldmodel",
+            catalog={"newmodel": _fixture_spec("newmodel", "openrouter")},
+            upgrades={"vendor/oldmodel": "newmodel"},
+        )
+        == "openrouter/newmodel"
+    )
+
+
+# ---------------------------------------------------------------------------
+# _paired_tests: mirrored path OR a parsed import, never a bare substring.
+#
+# Wave-6 re-review, minor 2. The old rule paired on file stem anywhere in the
+# tree and on ``dotted in text``, so a module dragged in same-named tests of
+# OTHER packages and any file that merely MENTIONED its dotted path.
+# ---------------------------------------------------------------------------
+
+
+def _paired_names(mod: Any, module: Path, dotted: str, tests: dict[Path, str]) -> set[str]:
+    return {p.name for p in mod._paired_tests(module, dotted, tests)}
+
+
+def test_paired_tests_matches_the_mirrored_path(tmp_path: Path) -> None:
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "aragora" / "harnesses" / "codex.py"
+    mirrored = repo / "tests" / "harnesses" / "test_codex.py"
+    for p in (module, mirrored):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("")
+
+    assert _paired_names(mod, module, "aragora.harnesses.codex", {mirrored: 'X = "gpt-4o"\n'}) == {
+        "test_codex.py"
+    }
+
+
+def test_paired_tests_rejects_the_same_stem_in_another_package(tmp_path: Path) -> None:
+    """The negative case: ``tests/cli/test_codex.py`` tests a DIFFERENT
+    module that happens to share a name, and freezing it on the harness
+    module's collision froze literals for no reason."""
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "aragora" / "harnesses" / "codex.py"
+    elsewhere = repo / "tests" / "cli" / "test_codex.py"
+    for p in (module, elsewhere):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("")
+
+    assert mod._paired_tests(module, "aragora.harnesses.codex", {elsewhere: 'X = "gpt-4o"\n'}) == ()
+
+
+def test_paired_tests_mirrors_a_module_outside_the_package(tmp_path: Path) -> None:
+    """``scripts/consult_claude.py`` mirrors to ``tests/scripts/`` -- the
+    package-root strip must not swallow a non-package module's own dir."""
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "scripts" / "consult_claude.py"
+    mirrored = repo / "tests" / "scripts" / "test_consult_claude.py"
+    for p in (module, mirrored):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("")
+
+    assert _paired_names(mod, module, "scripts.consult_claude", {mirrored: 'X = "gpt-4o"\n'}) == {
+        "test_consult_claude.py"
+    }
+
+
+def test_paired_tests_accepts_every_import_shape(tmp_path: Path) -> None:
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "aragora" / "ml" / "agent_router.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text("")
+
+    shapes = {
+        "test_a.py": "import aragora.ml.agent_router\nX = 'gpt-4o'\n",
+        "test_b.py": "from aragora.ml.agent_router import Router\nX = 'gpt-4o'\n",
+        "test_c.py": "from aragora.ml import agent_router\nX = 'gpt-4o'\n",
+        "test_d.py": "patch('aragora.ml.agent_router.Router')\nX = 'gpt-4o'\n",
+    }
+    texts = {}
+    for name, text in shapes.items():
+        p = repo / "tests" / "unrelated" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        texts[p] = text
+
+    assert _paired_names(mod, module, "aragora.ml.agent_router", texts) == set(shapes)
+
+
+def test_paired_tests_rejects_a_mere_mention(tmp_path: Path) -> None:
+    """The negative case for the import leg. ``tests/unit/test_ml_module.py``
+    only ever writes the dotted path inside ``assert "aragora.ml.agent_router"
+    not in sys.modules`` -- an assertion that the module is NOT imported --
+    and a comment or docstring mention is no reference either. A longer
+    dotted path that merely starts with this one is a different module."""
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "aragora" / "ml" / "agent_router.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text("")
+
+    non_references = {
+        "test_not_imported.py": (
+            'import sys\nassert "aragora.ml.agent_router" not in sys.modules\nX = "gpt-4o"\n'
+        ),
+        "test_comment.py": "# see aragora.ml.agent_router for the mapping\nX = 'gpt-4o'\n",
+        "test_docstring.py": '"""Mirrors aragora.ml.agent_router."""\nX = "gpt-4o"\n',
+        "test_longer.py": "from aragora.ml.agent_router_legacy import R\nX = 'gpt-4o'\n",
+    }
+    texts = {}
+    for name, text in non_references.items():
+        p = repo / "tests" / "unit" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        texts[p] = text
+
+    assert mod._paired_tests(module, "aragora.ml.agent_router", texts) == ()
+
+
+def test_paired_tests_falls_back_to_substring_for_unparseable_text(tmp_path: Path) -> None:
+    """A syntactically broken test still over-freezes -- the safe direction."""
+    mod = _load_module()
+    repo = (tmp_path / "repo").resolve()
+    module = repo / "aragora" / "ml" / "agent_router.py"
+    module.parent.mkdir(parents=True, exist_ok=True)
+    module.write_text("")
+
+    broken = repo / "tests" / "unit" / "test_broken.py"
+    broken.parent.mkdir(parents=True, exist_ok=True)
+    text = "def (:\nfrom aragora.ml.agent_router import R\nX = 'gpt-4o'\n"
+    broken.write_text(text)
+
+    assert _paired_names(mod, module, "aragora.ml.agent_router", {broken: text}) == {
+        "test_broken.py"
+    }

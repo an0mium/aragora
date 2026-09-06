@@ -57,10 +57,13 @@ code (only "offenders" do):
 from __future__ import annotations
 
 import argparse
+import ast
+import os
 import re
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -331,19 +334,33 @@ def _is_guarded(
     return False
 
 
-def _native_provider(old: str) -> str | None:
+def _native_provider(
+    old: str,
+    *,
+    spec_lookup: Callable[[str], Any] | None = None,
+) -> str | None:
     """The provider whose OWN API is known to accept ``old`` as a model code.
 
     ``None`` when the catalog has no row for the spelling at all, which is
     the usual case for a retired id (``gpt-4o``, ``o1-mini``): the sweep then
     has no evidence of a conflict and treats the literal as a native code of
     its target row's provider, exactly as it always did.
+
+    ``spec_lookup`` exists so a test can exercise the provider-vs-provider
+    leg against a FIXTURE row instead of whichever real row happens to have
+    two providers today; see ``replacement``.
     """
-    spec = spec_or_none(old)
+    spec = (spec_lookup or spec_or_none)(old)
     return None if spec is None else spec.provider
 
 
-def replacement(old: str) -> str | None:
+def replacement(
+    old: str,
+    *,
+    catalog: Mapping[str, Any] | None = None,
+    upgrades: Mapping[str, str] | None = None,
+    spec_lookup: Callable[[str], Any] | None = None,
+) -> str | None:
     """Current literal for a retired spelling, or ``None`` when the retired
     literal has no honest replacement in the SHAPE it was written in.
 
@@ -372,13 +389,23 @@ def replacement(old: str) -> str | None:
     ``--check`` as UNRESOLVABLE rather than as an offender: it is a real gap
     (the catalog owes that family a native row), but it is not something
     this sweep can fix, so it must not gate the sweep.
+
+    ``catalog`` / ``upgrades`` / ``spec_lookup`` default to the real tables
+    and exist only so a test can pin the second bullet -- the
+    provider-vs-provider leg -- to FIXTURE rows. Reading it off the live
+    catalog means the test asserts about whichever row happens to straddle
+    two providers today: the day ``qwen3.7-max`` gains a native successor
+    row, that assertion still passes while exercising nothing (wave-6
+    re-review, minor 1).
     """
-    spec = CATALOG[UPGRADES[old]]
+    catalog = CATALOG if catalog is None else catalog
+    upgrades = UPGRADES if upgrades is None else upgrades
+    spec = catalog[upgrades[old]]
     if "/" in old:
         return spec.openrouter_id
     if spec.provider == "openrouter":
         return None
-    native = _native_provider(old)
+    native = _native_provider(old, spec_lookup=spec_lookup)
     if native is not None and native != spec.provider:
         return None
     return spec.direct_id
@@ -551,6 +578,86 @@ def _module_dotted(f: Path) -> str | None:
     return ".".join(tail) if len(tail) > 1 else None
 
 
+def _mirrors(module: Path, test: Path) -> bool:
+    """True when ``test`` sits at ``module``'s mirrored location.
+
+    ``aragora/<pkg path>/<mod>.py`` mirrors to
+    ``tests/<pkg path>/test_<mod>*.py``: the package root maps onto the
+    ``tests/`` root, so ``aragora/harnesses/codex.py`` pairs with
+    ``tests/harnesses/test_codex.py`` and with nothing else named
+    ``test_codex*.py`` elsewhere in the tree. A module outside the package
+    keeps its own first component (``scripts/consult_claude.py`` ->
+    ``tests/scripts/test_consult_claude.py``).
+
+    Both paths are read relative to their COMMON ANCESTOR rather than to
+    ``REPO_ROOT`` or to a path component literally named ``aragora``: the
+    sweep accepts ``--paths`` anywhere (its own tests scan a tmp tree), and
+    this checkout itself lives under a directory named ``aragora``, so
+    scanning for the component would put every non-package module several
+    directories "inside" the package.
+    """
+    m, t = module.resolve(), test.resolve()
+    try:
+        root = Path(os.path.commonpath([m, t]))
+        module_dirs = m.relative_to(root).parts[:-1]
+        test_dirs = t.relative_to(root).parts[:-1]
+    except ValueError:
+        return False
+    if not test_dirs or test_dirs[0] != "tests":
+        return False
+    if module_dirs[:1] == ("aragora",):
+        module_dirs = module_dirs[1:]
+    return test_dirs[1:] == module_dirs
+
+
+def _references_module(text: str, dotted: str) -> bool:
+    """True when ``text`` really REFERENCES the module ``dotted``.
+
+    Parsed, not grepped. A raw ``dotted in text`` also fired on a mention in
+    a comment or a docstring, and on any longer dotted path that merely
+    starts with this one -- ``aragora.pkg.mod`` matching a file that only
+    names ``aragora.pkg.model`` (wave-6 re-review, minor 2). Two forms count:
+
+    * an ``import``/``from`` statement that pulls in the module itself or a
+      name out of it;
+    * a string CONSTANT passed as a call argument that names the module or
+      an attribute of it -- ``patch("aragora.pkg.mod.thing")``, the way a
+      test binds itself to a module without importing it. Restricted to call
+      arguments so a docstring that happens to name the module does not
+      count.
+
+    A file that will not parse falls back to the substring test: this
+    over-approximates in the SAFE direction (freezing a test that did not
+    need it leaves a literal as written; the unsafe direction breaks a
+    lookup), and a syntactically broken test is not the place to get clever.
+    """
+    prefix = f"{dotted}."
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return dotted in text
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(alias.name == dotted or alias.name.startswith(prefix) for alias in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if base == dotted or base.startswith(prefix):
+                return True
+            # ``from aragora.pkg import mod`` -- the module is the NAME.
+            if any(f"{base}.{alias.name}" == dotted for alias in node.names):
+                return True
+        elif isinstance(node, ast.Call):
+            for arg in [*node.args, *(kw.value for kw in node.keywords)]:
+                if (
+                    isinstance(arg, ast.Constant)
+                    and isinstance(arg.value, str)
+                    and (arg.value == dotted or arg.value.startswith(prefix))
+                ):
+                    return True
+    return False
+
+
 def _paired_tests(module: Path, dotted: str, test_texts: dict[Path, str]) -> tuple[Path, ...]:
     """Test files that must freeze together with ``module``.
 
@@ -560,21 +667,31 @@ def _paired_tests(module: Path, dotted: str, test_texts: dict[Path, str]) -> tup
     spellings while its test was swept to the frontier ones (2026-09-05
     repo-wide re-sweep, reported as sweep gap 2; wave-6 ruling on #9989).
 
-    Two pairings, both deliberately over-approximating in the SAFE direction
-    (freezing a test that did not need it leaves a literal as written; the
-    unsafe direction breaks a lookup):
+    Two pairings:
 
-    * NAME -- ``tests/**/test_<mod>*.py`` for the module's own file stem;
-    * IMPORT -- any test whose text names the module by its dotted path,
-      which covers ``from aragora.pkg.mod import x``, ``import
-      aragora.pkg.mod`` and ``patch("aragora.pkg.mod.x")`` alike.
+    * MIRRORED PATH -- ``tests/<package path>/test_<mod>*.py`` (see
+      ``_mirrors``). Name alone was too loose:
+      ``aragora/server/openapi/endpoints/debates.py`` dragged in every
+      ``test_debates*.py`` in the tree -- the client's, the SDK's, the
+      FastAPI routes' -- none of which asserts anything that module's
+      collision freeze protects (wave-6 re-review, minor 2);
+    * IMPORT -- a test that really references the module, verified by
+      parsing it rather than by substring (see ``_references_module``).
+
+    Both still over-approximate in the SAFE direction: a test that imports
+    the module for one unrelated helper is frozen too, which only ever
+    leaves a literal as written.
 
     Only tests that themselves contain a retired literal are candidates
     (``test_texts`` is built from those): a test with nothing to rewrite has
     nothing to freeze.
     """
     prefix = f"test_{module.stem}"
-    paired = [t for t, text in test_texts.items() if t.name.startswith(prefix) or dotted in text]
+    paired = [
+        t
+        for t, text in test_texts.items()
+        if (t.name.startswith(prefix) and _mirrors(module, t)) or _references_module(text, dotted)
+    ]
     return tuple(sorted(paired, key=lambda p: p.as_posix()))
 
 
