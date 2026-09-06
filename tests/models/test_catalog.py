@@ -108,9 +108,9 @@ def test_by_any_id_resolves_every_spelling() -> None:
 
 
 # Catalog rows whose OpenRouter slug is DELISTED from the live catalog, so
-# ``scripts/model_catalog_drift.py --refresh`` (the only writer of
-# catalog_snapshot.json -- the file is never hand-edited) cannot produce a row
-# for them. Their rates come from the model provider's own published pricing
+# ``scripts/model_catalog_drift.py`` (its ``--refresh`` and ``--add-missing``
+# modes are the only writers of catalog_snapshot.json -- the file is never
+# hand-edited) cannot produce a row for them. Their rates come from the model provider's own published pricing
 # instead, recorded per entry. Every entry must be a RETIRED row: a live model
 # missing from the snapshot is a genuine gap, not an exemption.
 _DELISTED_FROM_OPENROUTER: dict[str, str] = {

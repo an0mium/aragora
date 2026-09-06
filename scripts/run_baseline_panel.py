@@ -724,7 +724,14 @@ def main(argv: list[str] | None = None) -> int:
             ),
             f"Request-shape flags: panel={json.dumps(header['panel'], sort_keys=True)}; "
             f"judge={json.dumps(header['judge'], sort_keys=True)}.",
-            f"Judge: {JUDGE_MODEL} (a DIFFERENT family than the panel) at temperature 0.0.",
+            (
+                f"Judge: {JUDGE_MODEL} (a DIFFERENT family than the panel) at temperature 0.0."
+                if header["judge"]["supports_sampling_params"]
+                else f"Judge: {JUDGE_MODEL} (a DIFFERENT family than the panel); "
+                "NO temperature was sent -- its catalog row sets "
+                "supports_sampling_params=False, so the judge ran at the "
+                "provider's default decoding, not at 0.0."
+            ),
             "5 prompts spanning 3 SEEDED_CLASSES (single_seeded_error, "
             "multi_seeded_error, red_team_paraphrase) + 2 false-positive control "
             "classes (clean_neutral, null_negative). N_seeded_trials = 18 "
