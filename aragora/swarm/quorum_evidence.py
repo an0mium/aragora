@@ -64,6 +64,26 @@ from aragora.swarm import merge_quorum_io
 if TYPE_CHECKING:
     from aragora.agents.transports.claude_vibeproxy import ClaudeVibeProxyAttempt
 
+# Direct (non-OpenRouter) catalog ids for the frontier reviewer/harness pins,
+# equal to aragora.config.model_pins.FABLE_51_DIRECT / GPT6_ASTRA_DIRECT and
+# aragora.models.catalog.CATALOG["claude-fable-5-1"/"gpt-6-astra"].direct_id.
+# Deliberately hardcoded rather than imported from either module: this module
+# (via aragora.cli.commands.review_queue, which re-exports several names from
+# it) is the Tier-4 "canonical exact-ref policy" module that
+# tests/governance/test_contract_drift_measurement_authority_tier.py requires
+# to (a) import cleanly under `python -I -S` (isolated, stdlib-only, no
+# third-party packages -- aragora.config.model_pins pulls in
+# aragora.config.secrets, which needs pydantic) and (b) never grow its
+# reachable-module closure with anything outside the Tier-4-classified
+# authority set (aragora.models.catalog is not currently classified Tier 4,
+# so importing it here -- even just for CATALOG -- fails that check too).
+# tests/models/test_reachable_defaults.py is the staleness guard: it resolves
+# every value here (and in _OPENROUTER_REVIEWER_MODELS below) against the live
+# catalog from ordinary test-process imports, which are NOT part of this
+# module's reachable closure, so a retired/renamed id is still caught by CI.
+_FABLE_51_DIRECT = "claude-fable-5-1"
+_GPT6_ASTRA_DIRECT = "gpt-6-astra"
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,6 +118,11 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "gemini": "google",
     "openai": "openai",
     "mistral": "mistral",
+    # Meta (Llama/Muse) has no subscription CLI, so it reviews OpenRouter-direct
+    # like deepseek/qwen/kimi (see _OPENROUTER_DIRECT_FAMILIES); jurisdiction-wise
+    # it is Western (WESTERN_FAMILIES) but not frontier-grade, mirroring mistral
+    # and hermes (advisory-only at Tier 3-4; never in WESTERN_FRONTIER_FAMILIES).
+    "meta": "meta",
     "deepseek": "deepseek",
     "qwen": "qwen",
     "kimi": "moonshot",
@@ -116,9 +141,16 @@ FAMILY_PROVIDERS: dict[str, str] = {
 # by governance tests so a newly recognized family cannot be left unclassified
 # (an unclassified family would silently default to full Tier 0-1 counting).
 #
-# WESTERN_FAMILIES count toward Tier 3-4 quorums (the spec's Anthropic, OpenAI,
-# xAI, Mistral, Nous Hermes) and satisfy the Tier-2 at-least-one-Western condition.
-WESTERN_FAMILIES: frozenset[str] = frozenset(("claude", "openai", "grok", "mistral", "hermes"))
+# WESTERN_FAMILIES (the spec's Anthropic, OpenAI, xAI, Mistral, Nous Hermes,
+# Meta) satisfy the Tier-2 at-least-one-Western condition. Only the
+# frontier-grade subset (TIER_3_4_COUNTED_FAMILIES: claude, openai, grok)
+# counts toward a Tier 3-4 quorum; mistral, hermes, and meta are Western but
+# advisory-only at Tier 3-4 (meta added alongside deepseek/qwen/kimi as an
+# OpenRouter-direct reviewer family, 2026-09-04 frontier refresh — Western
+# jurisdiction, not frontier-grade, so never in WESTERN_FRONTIER_FAMILIES).
+WESTERN_FAMILIES: frozenset[str] = frozenset(
+    ("claude", "openai", "grok", "mistral", "hermes", "meta")
+)
 
 # Chinese-routed families count toward Tier 0-2 quorums (Tier 2 additionally
 # requires at least one Western family alongside) and are advisory-only (posted,
@@ -370,6 +402,7 @@ FAMILY_DISPLAY: dict[str, str] = {
     "gemini": "Gemini",
     "openai": "OpenAI",
     "mistral": "Mistral",
+    "meta": "Meta",
     "deepseek": "DeepSeek",
     "qwen": "Qwen",
     "kimi": "Kimi",
@@ -415,7 +448,26 @@ _FAMILY_ALIASES: dict[str, str] = {
     # so a future Gemini agent cannot be added without a mapping.
     "gemini-cli": "gemini",
     "antigravity": "gemini",
+    # OpenRouter provider-slug prefixes (distinct from the FAMILY_PROVIDERS
+    # display values "xai"/"moonshot" above): the reviewer map's slugs are
+    # ``<openrouter-provider>/<model-id>`` and canonical_family below resolves
+    # the provider segment through this table when no model-id marker matches.
+    "anthropic": "claude",
+    "x-ai": "grok",
+    "moonshotai": "kimi",
 }
+
+#: Model-id substrings recognized directly, checked before falling back to the
+#: provider-prefix alias above. Frontier catalog ids are unambiguous strings
+#: (2026-09-04 refresh), so a substring match is sufficient and works whether
+#: ``name`` is a bare model id (``"gpt-6-astra"``) or the model-id half of an
+#: OpenRouter slug (``"openai/gpt-6-astra"``).
+_FAMILY_ID_MARKERS: tuple[tuple[str, str], ...] = (
+    ("claude-fable", "claude"),
+    ("gpt-6", "openai"),
+    ("grok-4.6", "grok"),
+    ("muse-spark", "meta"),
+)
 
 
 def canonical_family(name: str) -> str:
@@ -424,19 +476,37 @@ def canonical_family(name: str) -> str:
     This is the only normalization that should be used for routing, validation,
     and quorum counting. ``canonical_family("Codex") == canonical_family("openai")``
     so the two never count as separate families.
+
+    Also resolves an OpenRouter-style slug (``<provider>/<model-id>``, e.g. the
+    reviewer map's ``"anthropic/claude-fable-5.1"``) or a bare frontier model id
+    (``"gpt-6-astra"``) to its canonical family: first by a known model-id
+    marker (:data:`_FAMILY_ID_MARKERS`), then by the provider prefix (aliased
+    same as above), so ``canonical_family(_OPENROUTER_REVIEWER_MODELS[fam])
+    == fam`` for every mapped family.
     """
     fam = name.strip().lower()
-    return _FAMILY_ALIASES.get(fam, fam)
+    if fam in _FAMILY_ALIASES:
+        return _FAMILY_ALIASES[fam]
+    provider, sep, model_id = fam.partition("/")
+    haystack = model_id if sep else fam
+    for needle, family in _FAMILY_ID_MARKERS:
+        if needle in haystack:
+            return family
+    if sep:
+        return _FAMILY_ALIASES.get(provider, provider)
+    return fam
 
 
-# Default reviewer pair: the two western-frontier families (claude→opus-5,
-# openai→gpt-5.5). Chosen as the strongest, most-aligned adversarial reviewers so
-# a substantial diff can actually clear a 2-signal quorum. Tier 3-4 requires two
-# distinct families from TIER_3_4_COUNTED_FAMILIES (claude, openai, grok); grok
-# remains available via --reviewers and counts at Tier 3-4, though it empirically
-# tends to reopen an advisory nitpick loop on large diffs. mistral and hermes are
-# Western but advisory-only at Tier 3-4; gemini is advisory-only everywhere
-# (2026-07-16 roster directive). Override per-run with --reviewers.
+# Default reviewer pair: the two western-frontier families (claude→Claude Fable
+# 5.1, openai→GPT-6 Astra; see model_pins.FABLE_51_DIRECT/GPT6_ASTRA_DIRECT and
+# the 2026-09-04 frontier refresh). Chosen as the strongest, most-aligned
+# adversarial reviewers so a substantial diff can actually clear a 2-signal
+# quorum. Tier 3-4 requires two distinct families from TIER_3_4_COUNTED_FAMILIES
+# (claude, openai, grok); grok remains available via --reviewers and counts at
+# Tier 3-4, though it empirically tends to reopen an advisory nitpick loop on
+# large diffs. mistral, hermes, and meta are Western but advisory-only at Tier
+# 3-4; gemini is advisory-only everywhere (2026-07-16 roster directive).
+# Override per-run with --reviewers.
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "openai")
 
 #: Families that have a grounded (agent/CLI) reviewer transport available — one that
@@ -562,10 +632,17 @@ _CLI_PROBE_TIMEOUT = 90
 _CLI_PROBE_TIMEOUT_ENV = "ARAGORA_REVIEWER_PROBE_TIMEOUT_SECONDS"
 _CLI_PROBE_PROMPT = "Reply with exactly: OK"
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
+# Explicit model override for the claude CLI reviewer (see
+# _claude_reviewer_command): the profile's settings.json is not load-bearing
+# enough for a merge-gate reviewer, so the argv always names a model.
+_CLAUDE_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_MODEL"
 _CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
 _CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
 _CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
-_CODEX_DEFAULT_MODELS = ("gpt-5.5", "gpt-5")
+# Founder decision 2026-09-04 (chat, recorded on #9069): GPT-6 Astra drives
+# reviewer evidence from day two, overriding the 14-day soak rule once. Soak
+# metadata on the catalog row is unchanged for every other consumer.
+_CODEX_DEFAULT_MODELS = (_GPT6_ASTRA_DIRECT, "gpt-5.6-terra")
 _CODEX_DEFAULT_MODEL = _CODEX_DEFAULT_MODELS[0]
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
@@ -1996,14 +2073,38 @@ def _claude_empty_mcp_config_file() -> Iterator[Path]:
         path.unlink(missing_ok=True)
 
 
+def _claude_reviewer_model() -> str:
+    """Resolve the claude CLI reviewer's model, honoring an env override.
+
+    Defaults to :data:`_FABLE_51_DIRECT` (Claude Fable 5.1, the 2026-09-04
+    frontier refresh). The profile's ``settings.json`` default model is NOT
+    load-bearing enough for a merge-gate reviewer -- it can drift silently
+    per-profile -- so the argv always names a model explicitly.
+    """
+    override = os.environ.get(_CLAUDE_MODEL_ENV, "").strip()
+    return override or _FABLE_51_DIRECT
+
+
 def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     """Argv for the merge-gate claude reviewer with MCP servers disabled.
 
     The reviewer only reads a diff to emit a verdict, so it needs no MCP
     servers. Disabling them avoids claude's startup MCP handshake, which blocks
     until the full timeout when a local MCP server is wedged.
+
+    The model is passed explicitly via ``--model`` (see
+    :func:`_claude_reviewer_model`) rather than left to the invoking profile's
+    ``settings.json`` default.
     """
-    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
+    return [
+        "claude",
+        "-p",
+        "--strict-mcp-config",
+        "--mcp-config",
+        str(mcp_config_path),
+        "--model",
+        _claude_reviewer_model(),
+    ]
 
 
 #: Credential-wall signatures across the subscription CLIs (issue #9241 B4). All
@@ -2346,40 +2447,56 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
     return _run_api_agent("gemini", prompt)
 
 
-# Same-tier OpenRouter model per family for the failure-only fallback. Slugs are
-# verified against the live OpenRouter catalogue; a per-family override is read
-# from ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so a stale slug never silently
-# no-ops the fallback. Mapped to the highest-quality slug per family so a fallback
-# review is as trustworthy as the subscription path it replaces.
+# Same-tier OpenRouter model per family for the failure-only fallback. Slugs
+# are verified against the model catalog (aragora/models/catalog.py) by
+# tests/models/test_reachable_defaults.py, not imported from it directly: this
+# module is the Tier-4 "canonical exact-ref policy" import closure
+# (tests/governance/test_contract_drift_measurement_authority_tier.py), which
+# must stay both hermetically importable (`python -I -S`, no third-party
+# packages) and confined to Tier-4-classified modules -- aragora.models.catalog
+# is neither, so hardcoding here and letting the reachable-defaults test (an
+# ordinary, out-of-closure test import) catch drift is the safe alternative. A
+# per-family override is read from ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so
+# a stale slug never silently no-ops the fallback. Mapped to the highest-quality
+# slug per family so a fallback review is as trustworthy as the subscription
+# path it replaces.
+#
+# Founder decision 2026-09-04 (chat, recorded on #9069): GPT-6 Astra drives
+# reviewer evidence from day two, overriding the 14-day soak rule once. Soak
+# metadata on the catalog row is unchanged for every other consumer.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
-    "claude": "anthropic/claude-fable-5",
-    # openai holds at gpt-5.5 by #9075's deliberate decision (Sol stays out of
-    # the reviewer harness until it clears the 14-day availability rule).
-    "openai": "openai/gpt-5.5",
-    "grok": "x-ai/grok-4.5",
+    "claude": "anthropic/claude-fable-5.1",
+    "openai": "openai/gpt-6-astra",
+    "grok": "x-ai/grok-4.6",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
-    "deepseek": "deepseek/deepseek-v4-pro",
-    # The reliability record deferred these upgrades pending catalog entries;
-    # aragora/models/catalog.py now carries both (qwen3.7-max, kimi-k2.7-code),
-    # so the deferral no longer applies. Override per-run via
-    # ARAGORA_OPENROUTER_REVIEWER_MODELS.
-    "qwen": "qwen/qwen3.7-max",
-    "kimi": "moonshotai/kimi-k2.7-code",
+    "deepseek": "deepseek/deepseek-v4-pro-0813",
+    "qwen": "qwen/qwen3.8-2.4t-a95b",
+    "kimi": "moonshotai/kimi-k3",
+    "meta": "meta/muse-spark-1.3",
     "glm": "z-ai/glm-5.2",
     "minimax": "minimax/minimax-m3",
-    "tencent": "tencent/hy3",
-    "bytedance": "bytedance-seed/seed-2.0-lite",
+    # tencent/bytedance are deliberately NOT mapped here: neither has a priced,
+    # active catalog row (test_reachable_defaults.py requires every reachable
+    # default to be one), so routing them through OpenRouter would silently
+    # egress to an unpriced/unverified slug. They stay recognized families
+    # (FAMILY_PROVIDERS, FAMILY_DISPLAY, _FAMILY_ALIASES) so historical evidence
+    # comments still parse, and _run_openrouter_reviewer/_openrouter_reviewer_model
+    # fail closed with a clear "no OpenRouter model mapped" error (not a
+    # KeyError) if either is ever requested via --reviewers.
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
 # lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
-# quorum when the premium subscription CLIs are quota-/auth-blocked.
+# quorum when the premium subscription CLIs are quota-/auth-blocked. tencent and
+# bytedance are excluded (no mapped model above); requesting them falls through
+# to the native-API branch of default_reviewer_runner, which fails closed with a
+# clear "Unknown agent type" ReviewerResult rather than a silent no-op route.
 _OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset(
-    {"deepseek", "qwen", "kimi", "glm", "minimax", "tencent", "bytedance"}
+    {"deepseek", "qwen", "kimi", "meta", "glm", "minimax"}
 )
 
 

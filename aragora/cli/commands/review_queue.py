@@ -135,6 +135,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "gemini",
     "grok",
     "mistral",
+    "meta",
     "deepseek",
     "qwen",
     "kimi",
@@ -172,6 +173,15 @@ DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "gemini": ("gemini", "google", "antigravity"),
     "grok": ("grok", "xai"),
     "mistral": ("mistral", "codestral"),
+    # Bounded, not a bare "meta": an unbounded substring match makes "metadata"
+    # (a heading like "## Round 3 metadata summary") a false-positive meta
+    # identity, which can also spuriously conflict with a genuinely-disclosed
+    # "Model family:" value elsewhere in the same comment (#9069 round-1
+    # review, 2026-09-05). "meta " / "meta/" / "meta-" each require a
+    # non-letter boundary after "meta" (the collector's own heading is
+    # "## Meta independent model review", matched by "meta "; the reviewer
+    # map's slug "meta/muse-spark-1.3" is matched by "meta/").
+    "meta": ("meta ", "meta/", "meta-", "muse-spark"),
     "deepseek": ("deepseek",),
     "qwen": ("qwen",),
     "kimi": ("kimi", "moonshot"),
@@ -4420,6 +4430,9 @@ def _normalize_model_reviewer_id(value: str) -> str:
         ("grok", ("grok", "xai")),
         ("gemini", ("gemini", "google", "antigravity")),
         ("mistral", ("mistral", "codestral")),
+        # Bounded like DIRECT_MODEL_FAMILY_MARKERS above -- a bare "meta"
+        # substring falsely matches "metadata".
+        ("meta", ("meta ", "meta/", "meta-", "muse-spark")),
         ("deepseek", ("deepseek",)),
         ("qwen", ("qwen",)),
         ("kimi", ("kimi", "moonshot")),

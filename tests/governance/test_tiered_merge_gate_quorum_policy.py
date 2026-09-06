@@ -38,11 +38,15 @@ from aragora.swarm.quorum_evidence import (
 
 def test_western_families_match_spec():
     # docs/REVIEW_AUTHORITY_PRINCIPLES.md: Anthropic, OpenAI, xAI, Mistral,
-    # Nous Hermes (by canonical family id). Google (gemini) was demoted to
+    # Nous Hermes, Meta (by canonical family id). Google (gemini) was demoted to
     # advisory-only by the 2026-07-16 founder roster directive (see
     # docs/governance/records/20260716T2200Z-gemini-reviewer-reliability-record.md);
-    # its reviews still post and remain readable but do not count.
-    assert WESTERN_FAMILIES == frozenset({"claude", "openai", "grok", "mistral", "hermes"})
+    # its reviews still post and remain readable but do not count. Meta joined
+    # the Western set in the 2026-09-04 frontier refresh (muse-spark reviews
+    # OpenRouter-direct like deepseek/qwen/kimi); it is Western jurisdiction but
+    # not frontier-grade, so it is never in WESTERN_FRONTIER_FAMILIES and stays
+    # out of TIER_3_4_COUNTED_FAMILIES like mistral and hermes.
+    assert WESTERN_FAMILIES == frozenset({"claude", "openai", "grok", "mistral", "hermes", "meta"})
     assert "gemini" not in WESTERN_FAMILIES
 
 
@@ -145,11 +149,11 @@ def test_tier3_4_are_western_only_counted(tier):
 def test_tier3_4_counted_families_excludes_mistral_hermes_and_gemini():
     """TIER_3_4_COUNTED_FAMILIES is the frontier-grade Western subset."""
     assert TIER_3_4_COUNTED_FAMILIES == {"claude", "openai", "grok"}
-    # Strict subset of the broader Western set (which mistral/hermes remain in
-    # for the Tier 2 "at least one Western" bar).
+    # Strict subset of the broader Western set (which mistral/hermes/meta
+    # remain in for the Tier 2 "at least one Western" bar).
     assert TIER_3_4_COUNTED_FAMILIES < WESTERN_FAMILIES
-    assert {"mistral", "hermes"} & TIER_3_4_COUNTED_FAMILIES == set()
-    assert {"mistral", "hermes"} <= WESTERN_FAMILIES
+    assert {"mistral", "hermes", "meta"} & TIER_3_4_COUNTED_FAMILIES == set()
+    assert {"mistral", "hermes", "meta"} <= WESTERN_FAMILIES
 
 
 def test_tier3_4_counted_families_disjoint_from_advisory_only():
