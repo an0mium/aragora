@@ -164,7 +164,7 @@ repos:
     hooks:
       - id: tsc-check
         name: TypeScript type check (frontend)
-        entry: bash -c 'cd aragora/live && npx tsc --noEmit'
+        entry: bash scripts/tsc_check_hook.sh
         language: system
         pass_filenames: false
         files: ^aragora/live/src/.*\.(ts|tsx)$
