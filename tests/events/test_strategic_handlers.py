@@ -27,9 +27,9 @@ class TestRiskWarningToHealth:
     """Test risk warning → health registry degradation handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_component(self, make_event):
         handler = self._get_handler()
@@ -127,9 +127,9 @@ class TestGenesisToControlPlane:
     """Test genesis events → control plane registry sync handler."""
 
     def _get_handler(self):
-        from aragora.events.cross_subscribers.handlers.strategic import StrategicHandlersMixin
+        from aragora.events.cross_subscribers.manager import CrossSubscriberManager
 
-        return StrategicHandlersMixin()
+        return CrossSubscriberManager()
 
     def test_skips_when_no_agent_id(self, make_event):
         handler = self._get_handler()
@@ -236,7 +236,8 @@ class TestApprovalToKMReinforcement:
     """Test approval approved → KM confidence reinforcement handler.
 
     Relocated to ``KnowledgeEventSubscriber`` (P4a Batch E2c): it is
-    knowledge-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    knowledge-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -312,7 +313,8 @@ class TestBudgetAlertToTeamSelection:
     """Test budget alert → team selection constraint handler.
 
     Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
-    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -380,7 +382,8 @@ class TestAlertEscalatedToWorkflowBrake:
     """Test alert escalated → workflow emergency brake handler.
 
     Relocated to ``WorkflowEventSubscriber`` (P4a Batch E5): it is
-    workflow-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    workflow-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):
@@ -397,9 +400,9 @@ class TestAlertEscalatedToWorkflowBrake:
                 "alert_id": "alert_1",
             },
         )
-        with patch("aragora.workflow.engine.get_workflow_engine") as mock_get:
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_get.assert_not_called()
+            pause_all.assert_not_called()
 
     def test_pauses_workflows_on_critical(self, make_event):
         handler = self._get_handler()
@@ -412,14 +415,13 @@ class TestAlertEscalatedToWorkflowBrake:
             },
         )
 
-        mock_engine = MagicMock()
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=mock_engine):
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_engine.pause_all.assert_called_once()
-            call_kwargs = mock_engine.pause_all.call_args[1]
+            pause_all.assert_called_once()
+            call_kwargs = pause_all.call_args[1]
             assert "Database connection pool" in call_kwargs["reason"]
 
-    def test_falls_back_to_emergency_stop(self, make_event):
+    def test_pauses_workflows_on_emergency(self, make_event):
         handler = self._get_handler()
         event = make_event(
             StreamEventType.ALERT_ESCALATED,
@@ -430,12 +432,9 @@ class TestAlertEscalatedToWorkflowBrake:
             },
         )
 
-        mock_engine = MagicMock(spec=[])
-        mock_engine.emergency_stop = MagicMock()
-        # Remove pause_all so fallback triggers
-        with patch("aragora.workflow.engine.get_workflow_engine", return_value=mock_engine):
+        with patch("aragora.workflow.engine.WorkflowEngine.pause_all") as pause_all:
             handler._handle_alert_escalated_to_workflow_brake(event)
-            mock_engine.emergency_stop.assert_called_once()
+            pause_all.assert_called_once()
 
     def test_graceful_on_import_error(self, make_event):
         handler = self._get_handler()
@@ -458,7 +457,8 @@ class TestMetaLearningToTeamSelection:
     """Test meta-learning → team selection recalibration handler.
 
     Relocated to ``DebateEventSubscriber`` (P4a Batch E4): it is
-    debate-coupled, unlike the rest of ``StrategicHandlersMixin``.
+    debate-coupled, unlike ``CrossSubscriberManager``'s other
+    domain-free built-in handlers.
     """
 
     def _get_handler(self):

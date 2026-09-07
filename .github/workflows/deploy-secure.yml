@@ -118,7 +118,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24.18.0"
           cache: 'npm'
           cache-dependency-path: aragora/live/package-lock.json
 
@@ -141,7 +141,7 @@ jobs:
         run: |
           # Run from repo root; Vercel project rootDirectory is configured server-side.
           npx vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-          DEPLOY_URL=$(npx vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
+          DEPLOY_URL=$(npx vercel deploy --archive=tgz --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deployed URL: $DEPLOY_URL"
         env:

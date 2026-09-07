@@ -105,11 +105,14 @@ function resolveSourcePath(srcRelPath) {
 
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
+  // `docs-site/docs/enterprise/positioning.md` is intentionally hand-maintained
+  // as a redirect-style stub after archiving `docs/status/COMMERCIAL_POSITIONING.md`.
+
   // =========================================================================
   // Getting Started
   // =========================================================================
-  'GETTING_STARTED.md': 'getting-started/overview.md',
-  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
+  'guides/GETTING_STARTED.md': 'getting-started/overview.md',
+  'quickstart.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -178,6 +181,8 @@ const DOC_MAP = {
   'SDK_CONSOLIDATION.md': 'guides/sdk-consolidation.md',
   'LIBRARY_USAGE.md': 'guides/library-usage.md',
   'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
+  'GITHUB_ACTION_SETUP.md': 'guides/github-action-setup.md',
+  'guides/github-actions-review.md': 'guides/github-actions-review.md',
 
   // =========================================================================
   // API Reference
@@ -189,6 +194,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
+  'api/SUPPORTED_SURFACE.md': 'api/supported-surface.md',
   'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',
@@ -205,7 +211,6 @@ const DOC_MAP = {
   'STREAMING_DEPLOYMENT.md': 'deployment/streaming.md',
   'deployment/ASYNC_GATEWAY.md': 'deployment/async-gateway.md',
   'deployment/CONTAINER_VOLUMES.md': 'deployment/container-volumes.md',
-  'deployment/DOCKER.md': 'deployment/docker.md',
   'PRODUCTION_DEPLOYMENT.md': 'deployment/production-deployment.md',
   'DATABASE_SETUP.md': 'deployment/database-setup.md',
   'DATABASE.md': 'deployment/database.md',
@@ -259,7 +264,6 @@ const DOC_MAP = {
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
   'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
   'PRICING.md': 'enterprise/pricing.md',
-  'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
   'SSO_SETUP.md': 'enterprise/sso.md',
@@ -348,6 +352,7 @@ const DOC_MAP = {
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
+  'COLD_REVIEWER_GUIDE.md': 'contributing/cold-reviewer-guide.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
@@ -390,6 +395,66 @@ const DOC_MAP = {
   'plans/2026-03-07-conductor-control-plane.md':
     'contributing/conductor-control-plane-implementation-spec.md',
   'workflow/MARKETPLACE.md': 'guides/marketplace.md',
+
+  // =========================================================================
+  // Specifications
+  //
+  // docs/specs/** design/governance specs. Intra-directory links between these
+  // files (e.g. 'TAMPER_EVIDENT_TRAIL.md' from OPEN_DECISION_RECEIPT.md) resolve
+  // via the source-relative lookup below, not through this table directly.
+  // =========================================================================
+  'specs/ADVISORY_REVIEW_RECOGNIZABLE_HEADER.md':
+    'specs/advisory-review-recognizable-header.md',
+  'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
+    'specs/aragora-roadmap-revision-advocates.md',
+  'specs/CHINESE_ROUTED_REVIEWER_FAMILIES_9071.md':
+    'specs/chinese-routed-reviewer-families-9071.md',
+  'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
+  'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
+  'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
+  'specs/LOCAL_ADVOCATE_TRAINING_PIPELINE.md': 'specs/local-advocate-training-pipeline.md',
+  'specs/MODEL_DISSENT_SEVERITY_GATE.md': 'specs/model-dissent-severity-gate.md',
+  'specs/MODEL_LINEAGE_DISCLOSURE.md': 'specs/model-lineage-disclosure.md',
+  'specs/MODEL_QUORUM_FAMILY_EXPANSION.md': 'specs/model-quorum-family-expansion.md',
+  'specs/OPEN_DECISION_RECEIPT.md': 'specs/open-decision-receipt.md',
+  'specs/QUORUM_EVIDENCE_RETRIGGER.md': 'specs/quorum-evidence-retrigger.md',
+  'specs/RECEIPT_LINEAGE_RECONCILIATION.md': 'specs/receipt-lineage-reconciliation.md',
+  'specs/TAMPER_EVIDENT_TRAIL.md': 'specs/tamper-evident-trail.md',
+  'specs/TIER4_SETTLEMENT_PROBE_TIMEOUT_REPORTING.md':
+    'specs/tier4-settlement-probe-timeout-reporting.md',
+  'specs/TIERED_MERGE_GATE_QUORUM_POLICY.md': 'specs/tiered-merge-gate-quorum-policy.md',
+  'specs/odr-native-mapping.md': 'specs/odr-native-mapping.md',
+
+  // =========================================================================
+  // Reference
+  //
+  // docs/reference/** technical reference material, mirrored as its own
+  // `reference/` category (parallel to Specifications above). Several files
+  // in this directory intentionally have no entry here because they already
+  // resolve through a pre-existing DOC_MAP entry elsewhere -- see
+  // ACCOUNTING.md, ADMIN.md, BILLING.md, BILLING_UNITS.md, CONTROL_PLANE.md,
+  // DATABASE.md, DATABASE_SCHEMA.md, DEPENDENCIES.md, DEPRECATION_POLICY.md,
+  // DOCUMENTS.md, ENVIRONMENT.md, HANDLERS.md, and LIBRARY_USAGE.md above
+  // (resolveSourcePath()'s basename fallback), plus reference/CLI_REFERENCE.md
+  // under API Reference. Adding a second reference/ entry for those would
+  // publish the same content at two docs-site URLs.
+  // =========================================================================
+  'reference/BINDINGS.md': 'reference/bindings.md',
+  'reference/BREAKING_CHANGES.md': 'reference/breaking-changes.md',
+  'reference/CANONICAL_STORES.md': 'reference/canonical-stores.md',
+  'reference/CREDITS.md': 'reference/credits.md',
+  'reference/ENVIRONMENT_COMPLETE.md': 'reference/environment-complete.md',
+  'reference/ERROR_CODES.md': 'reference/error-codes.md',
+  'reference/ERROR_HANDLING.md': 'reference/error-handling.md',
+  'reference/ERROR_TRACKING.md': 'reference/error-tracking.md',
+  'reference/IMPLEMENT.md': 'reference/implement.md',
+  // Not reference/index.md: that filename is reserved for the auto-generated
+  // category index createIndexFile() writes below, which would otherwise
+  // silently overwrite this file's synced content.
+  'reference/INDEX.md': 'reference/reference-index.md',
+  'reference/INSTALL_MATRIX.md': 'reference/install-matrix.md',
+  'reference/ROOT_ALLOWLIST.md': 'reference/root-allowlist.md',
+  'reference/TYPE_CHECKING.md': 'reference/type-checking.md',
 
   // =========================================================================
   // Additional Missing Files (commonly referenced)
@@ -467,18 +532,67 @@ function extractTitle(content) {
 }
 
 function escapeUrlParamBracesOutsideCodeFences(content) {
-  let inFence = false;
+  let fenceDepth = 0;
+  let inBraceList = false;
   return content
     .split('\n')
     .map(line => {
       if (/^\s*```/.test(line)) {
-        inFence = !inFence;
+        if (fenceDepth === 0) {
+          fenceDepth = 1;
+        } else if (/^\s*```\S+/.test(line)) {
+          fenceDepth += 1;
+        } else {
+          fenceDepth = Math.max(0, fenceDepth - 1);
+        }
         return line;
       }
-      if (inFence) {
+      if (fenceDepth > 0) {
         return line;
       }
-      return line.replace(/\{([\w-]+)\}/g, '\\{$1\\}');
+
+      let escaped = '';
+      let inInlineCode = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '`') {
+          inInlineCode = !inInlineCode;
+          escaped += char;
+          continue;
+        }
+        const rest = line.slice(index + 1);
+        const urlParam = rest.match(/^([\w-]+)\}/);
+        if (char === '{' && urlParam) {
+          escaped += `\\{${urlParam[1]}\\}`;
+          index += urlParam[1].length + 1;
+          continue;
+        }
+        if (inInlineCode) {
+          escaped += char;
+          continue;
+        }
+        if (inBraceList) {
+          if (char === '}') {
+            escaped += '\\}';
+            inBraceList = false;
+          } else {
+            escaped += char;
+          }
+          continue;
+        }
+        if (char !== '{') {
+          escaped += char;
+          continue;
+        }
+
+        if (rest.includes(',')) {
+          escaped += '\\{';
+          inBraceList = true;
+          continue;
+        }
+        escaped += char;
+      }
+      return escaped;
     })
     .join('\n');
 }
@@ -505,10 +619,49 @@ const REPO_BLOB_BASE = 'https://github.com/synaptent/aragora/blob/main';
 const REPO_MARKDOWN_LINKS = {
   '../README.md': `${REPO_BLOB_BASE}/README.md`,
   'README.md': `${REPO_BLOB_BASE}/docs/README.md`,
+  // METRICS.md is auto-regenerated and not published to docs-site; repo-relative
+  // links from any docs/ page must resolve to the canonical repo copy.
+  'METRICS.md': `${REPO_BLOB_BASE}/docs/METRICS.md`,
   '../aragora/mcp/README.md': `${REPO_BLOB_BASE}/aragora/mcp/README.md`,
   'algorithms/README.md': `${REPO_BLOB_BASE}/docs/algorithms/README.md`,
   '../deploy/README.md': `${REPO_BLOB_BASE}/deploy/README.md`,
   '../aragora/gauntlet/README.md': 'guides/gauntlet.md',
+  '../aragora-verify/README.md': `${REPO_BLOB_BASE}/aragora-verify/README.md`,
+  // RECEIPT_CONTRACT.md is operator-gated (canonical receipt-lineage statement) --
+  // point off-site rather than adding a DOC_MAP mirror entry for it.
+  'RECEIPT_CONTRACT.md': `${REPO_BLOB_BASE}/docs/RECEIPT_CONTRACT.md`,
+  // Neither is in DOC_MAP (charters.yaml isn't even markdown), so ARCHITECTURE.md's
+  // bare links to its siblings would otherwise survive unrewritten and 404.
+  'architecture/INTENDED_ARCHITECTURE.md':
+    `${REPO_BLOB_BASE}/docs/architecture/INTENDED_ARCHITECTURE.md`,
+  'architecture/charters.yaml': `${REPO_BLOB_BASE}/docs/architecture/charters.yaml`,
+  // reference/INSTALL_MATRIX.md links to these files; none are in DOC_MAP
+  // (two are outside docs/ entirely), so its links to them would otherwise
+  // survive unrewritten and 404.
+  'architecture/PACKAGING_AND_DISTRIBUTION.md':
+    `${REPO_BLOB_BASE}/docs/architecture/PACKAGING_AND_DISTRIBUTION.md`,
+  'PACKAGING.md': `${REPO_BLOB_BASE}/docs/PACKAGING.md`,
+  'SDK_QUICKSTART_PYTHON.md': `${REPO_BLOB_BASE}/docs/SDK_QUICKSTART_PYTHON.md`,
+  '../DEVELOPMENT.md': `${REPO_BLOB_BASE}/DEVELOPMENT.md`,
+  '../INSTALL.md': `${REPO_BLOB_BASE}/INSTALL.md`,
+  // reference/INDEX.md links to these two; neither is in DOC_MAP, so its
+  // links to them would otherwise survive unrewritten and 404.
+  'CAPABILITY_MATRIX.md': `${REPO_BLOB_BASE}/docs/CAPABILITY_MATRIX.md`,
+  'debate/EXECUTION_SAFETY_GATE.md': `${REPO_BLOB_BASE}/docs/debate/EXECUTION_SAFETY_GATE.md`,
+  // reference/BREAKING_CHANGES.md links to these four; none are in DOC_MAP
+  // (the migrations/ target is under docs/deprecated/, deliberately outside
+  // the mirror), so its links to them would otherwise survive unrewritten
+  // and 404.
+  'status/MIGRATION_V1_TO_V2.md': `${REPO_BLOB_BASE}/docs/status/MIGRATION_V1_TO_V2.md`,
+  'deprecated/migrations/MIGRATION_0.8_to_1.0.md':
+    `${REPO_BLOB_BASE}/docs/deprecated/migrations/MIGRATION_0.8_to_1.0.md`,
+  'templates/breaking_change_template.md':
+    `${REPO_BLOB_BASE}/docs/templates/breaking_change_template.md`,
+  'deployment/RELEASE_NOTES.md': `${REPO_BLOB_BASE}/docs/deployment/RELEASE_NOTES.md`,
+  '../CHANGELOG.md': `${REPO_BLOB_BASE}/CHANGELOG.md`,
+  // reference/ERROR_HANDLING.md links to this; not in DOC_MAP, so its link
+  // would otherwise survive unrewritten and 404.
+  'resilience/RESILIENCE_PATTERNS.md': `${REPO_BLOB_BASE}/docs/resilience/RESILIENCE_PATTERNS.md`,
 };
 const SOURCE_SPECIFIC_REPO_MARKDOWN_LINKS = {
   'guides/SDK_CONSOLIDATION.md|README.md': `${REPO_BLOB_BASE}/sdk/typescript/README.md`,
@@ -831,6 +984,36 @@ Explore the documentation in this section to learn more.${itemsList}
   console.log(`  ✓ Created index: ${category}/index.md`);
 }
 
+function docsSpecsItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('specs/') && dest.startsWith('specs/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function docsReferenceItems() {
+  return Object.entries(DOC_MAP)
+    .filter(([src, dest]) => src.startsWith('reference/') && dest.startsWith('reference/'))
+    .map(([src, dest]) => {
+      const resolved = resolveSourcePath(src);
+      const content = resolved ? fs.readFileSync(resolved.srcPath, 'utf8') : '';
+      const title = content ? extractTitle(content) : path.basename(dest, '.md');
+      return {
+        title,
+        path: `./${path.basename(dest, '.md')}`,
+      };
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
 // Main sync function
 function syncDocs() {
   console.log('\\n📚 Syncing documentation...\\n');
@@ -869,10 +1052,26 @@ function syncDocs() {
     { path: 'advanced', title: 'Advanced Topics', desc: 'Advanced features and internals' },
     { path: 'analysis', title: 'Analysis & Metrics', desc: 'Performance analysis and benchmarks' },
     { path: 'contributing', title: 'Contributing', desc: 'How to contribute to Aragora' },
+    {
+      path: 'specs',
+      title: 'Specifications',
+      desc: 'Design and governance specifications for receipts, quorum policy, and related protocols',
+    },
+    {
+      path: 'reference',
+      title: 'Reference',
+      desc: 'Technical reference material covering configuration, environment variables, error codes, and other detailed references',
+    },
   ];
 
   for (const cat of categories) {
-    createIndexFile(cat.path, cat.title, cat.desc);
+    const items =
+      cat.path === 'specs'
+        ? docsSpecsItems()
+        : cat.path === 'reference'
+          ? docsReferenceItems()
+          : [];
+    createIndexFile(cat.path, cat.title, cat.desc, items);
   }
 
   console.log(`\\n✅ Done! Synced ${synced} files, skipped ${skipped} (not found)\\n`);

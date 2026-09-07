@@ -1,0 +1,52 @@
+{
+  "receipt_id": "ctl-b4-8768-b15dd673",
+  "gauntlet_id": "close-the-loop-20260701/B4",
+  "timestamp": "2026-07-01T23:39:14.571840+00:00",
+  "input_summary": "Batch B4 (#8760) harvest engine PR #8768 @ b15dd673; quorum 2-0 posted.",
+  "input_hash": "9e0f558b9880fb4d1c9ce334078217bf98c4f4c8c1995a5997817c1a0ca72bdc",
+  "risk_summary": {
+    "tier": 2
+  },
+  "attacks_attempted": 2,
+  "attacks_successful": 2,
+  "probes_run": 2,
+  "vulnerabilities_found": 5,
+  "vulnerability_details": [
+    {
+      "round": 1,
+      "families": "claude+openai",
+      "finding": "apply-path idempotency (issues before ledger; signal re-emission) + 3 P3s",
+      "disposition": "repaired at b15dd673 (per-issue ledger append, signal dedup, guards); re-gate PASS 2-0"
+    }
+  ],
+  "verdict": "PASS",
+  "confidence": 0.9,
+  "robustness_score": 0.85,
+  "verdict_reasoning": "Tier-2 settlement: 2-0 heterogeneous quorum at exact head after one repaired dissent round; 32 tests green; dry-run demo classified 173 items with zero mutations; write paths hard-refuse close/delete/merge/comment.",
+  "dissenting_views": [],
+  "consensus_proof": null,
+  "provenance_chain": [],
+  "agent_responses": [],
+  "cost_summary": null,
+  "settlement_metadata": {
+    "run": "close-the-loop-20260701",
+    "batch": "B4",
+    "quorum": {
+      "families": [
+        "claude",
+        "openai"
+      ],
+      "supportive": 2,
+      "dissenting": 0,
+      "head_sha": "b15dd673494fbdf7989ec1faf48f6a444b631983",
+      "evidence_posted": true
+    },
+    "operator_authorization": "https://github.com/synaptent/aragora/issues/8762#issuecomment-4860561852"
+  },
+  "settlement_status": "settled_tier2_autonomous",
+  "explainability": null,
+  "thinking_traces": null,
+  "schema_version": "1.1",
+  "artifact_hash": "b828773151caba4f83e6911cbc37a9e1517978c94c0af1f65d2db05bcda34c18",
+  "config_used": {}
+}

@@ -1353,10 +1353,32 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "has_uncommitted_changes",
     "uncommitted",
     "unpushed_commits",
+    "possible_unpushed_work",
+    "branch_ahead_of_origin_main",
+    "unique_commits_ahead",
     "local_changes",
     "local_work",
     "dirty",
+    "dirty_worktree",
+    "worktree_dirty",
 )
+_UPSTREAM_PRESERVABLE_LOCAL_WORK_CLAIM_KEYS = (
+    "branch_ahead_of_origin_main",
+    "unique_commits_ahead",
+)
+_FALSE_LOCAL_WORK_CLAIM_STRINGS = {
+    "",
+    "0",
+    "false",
+    "no",
+    "none",
+    "null",
+    "[]",
+    "{}",
+    "clean",
+    "verified-clean",
+    "verified_clean",
+}
 
 _SHA_RE = re.compile(r"\b[0-9a-f]{40}\b")
 _PRESERVATION_GIT_TIMEOUT_SECONDS = 10.0
@@ -1441,13 +1463,39 @@ def _normal_state_root(path: Path) -> Path:
 
 
 def _local_work_claim_indication(
-    lane: dict[str, Any], ledger_entry: dict[str, Any] | None
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+    *,
+    local_work_preservation: dict[str, Any] | None = None,
+    include_preservable_branch_claims: bool = True,
 ) -> str | None:
+    upstream_preserved = _proof_has_upstream_preservation(local_work_preservation)
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
-            if record.get(key):
+            if key in _UPSTREAM_PRESERVABLE_LOCAL_WORK_CLAIM_KEYS:
+                if not include_preservable_branch_claims or upstream_preserved:
+                    continue
+            if _truthy_local_work_claim(record.get(key)):
                 return f"{source_name} claims local work ({key})"
     return None
+
+
+def _truthy_local_work_claim(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized not in _FALSE_LOCAL_WORK_CLAIM_STRINGS
+    return bool(value)
+
+
+def _proof_has_upstream_preservation(proof: dict[str, Any] | None) -> bool:
+    if not proof or proof.get("available") is not True:
+        return False
+    upstream_preservation = proof.get("upstream_preservation")
+    return isinstance(upstream_preservation, dict) and upstream_preservation.get("proven") is True
 
 
 def _worktree_reference_paths(
@@ -1465,7 +1513,7 @@ def _proof_covers_worktree_paths(
     proof: dict[str, Any] | None,
     paths: list[tuple[str, str]],
 ) -> bool:
-    if not proof or proof.get("available") is not True:
+    if not _proof_has_upstream_preservation(proof):
         return False
     proven_paths = {str(path) for path in proof.get("worktree_paths") or []}
     return all(path in proven_paths for _, path in paths)
@@ -1506,7 +1554,8 @@ def _safe_worktree_absent_noop_proof(
 
     safety = payload.get("cleanup_safety")
     classification = safety.get("classification") if isinstance(safety, dict) else None
-    blockers = payload.get("blockers") if isinstance(payload.get("blockers"), list) else []
+    payload_blockers = payload.get("blockers")
+    blockers: list[Any] = payload_blockers if isinstance(payload_blockers, list) else []
     absent_noop = (
         payload.get("exists") is False
         and payload.get("dirty") is not True
@@ -1771,16 +1820,23 @@ def build_worktree_reference_preservation_proof(
     """Prove a bare worktree reference is not evidence of local-only work.
 
     Fail closed unless the recorded worktree is absent/noop by
-    ``safe_worktree_cleanup.py inspect`` and the desired head is
+    ``safe_worktree_cleanup.py inspect`` and either the desired head is
     preserved upstream by an exact remote branch or merged PR commit
-    list. Dirty/local-work markers are never discounted.
+    list. A terminal no-record lane with a remote branch anchor remains
+    visible in the returned proof, but it is not proven preservation and
+    cannot discount a possible local worktree tip. Dirty/local-work
+    markers are never discounted.
     """
 
     paths = _worktree_reference_paths(lane, ledger_entry)
     if not paths:
         return None
 
-    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    local_claim = _local_work_claim_indication(
+        lane,
+        ledger_entry,
+        include_preservable_branch_claims=False,
+    )
     if local_claim:
         return {
             "available": False,
@@ -1813,10 +1869,37 @@ def build_worktree_reference_preservation_proof(
             "worktree_inspections": inspections,
         }
     if not desired_head:
+        remote = _remote_branch_head(branch, repo_root=repo_root, runner=runner)
+        lane_status = str((ledger_entry or {}).get("status") or lane.get("status") or "")
+        if (
+            remote.get("status") == "exists"
+            and lane_status.strip().lower() in TERMINAL_LANE_STATUSES
+        ):
+            remote_head = remote.get("head_sha")
+            return {
+                "available": True,
+                "branch": branch,
+                "desired_head_sha": None,
+                "desired_head_source": "not_recorded",
+                "lane_status": lane_status.strip().lower(),
+                "worktree_paths": [path for _, path in paths],
+                "worktree_inspections": inspections,
+                "upstream_preservation": {
+                    "proven": False,
+                    "method": "remote_branch_anchor_no_local_record",
+                    "remote_head_sha": remote_head,
+                    "scope": "remote branch anchors the terminal lane but does not prove an unknown local tip",
+                },
+            }
         return {
             "available": False,
-            "reason": "desired_head_unavailable",
+            "reason": (
+                "desired_head_unavailable_non_terminal_lane"
+                if remote.get("status") == "exists"
+                else "desired_head_unavailable"
+            ),
             "branch": branch,
+            "remote": remote,
             "worktree_paths": [path for _, path in paths],
             "worktree_inspections": inspections,
         }
@@ -1893,7 +1976,11 @@ def _local_work_indication(
     explicit preservation proof for a bare worktree reference.
     """
 
-    local_claim = _local_work_claim_indication(lane, ledger_entry)
+    local_claim = _local_work_claim_indication(
+        lane,
+        ledger_entry,
+        local_work_preservation=local_work_preservation,
+    )
     if local_claim:
         return local_claim
     worktree_paths = _worktree_reference_paths(lane, ledger_entry)
@@ -1977,8 +2064,8 @@ def assess_owner_liveness(
     # Lease anchor: the most recent timestamp across the owner record,
     # the matched heartbeat, and the ledger entry. Conservative — any
     # recent signal keeps the owner "live".
-    owner_timestamp_keys = _OWNER_RECORD_TIMESTAMP_KEYS
-    ledger_timestamp_keys = _LEDGER_TIMESTAMP_KEYS
+    owner_timestamp_keys: tuple[str, ...] = _OWNER_RECORD_TIMESTAMP_KEYS
+    ledger_timestamp_keys: tuple[str, ...] = _LEDGER_TIMESTAMP_KEYS
     if heartbeat_terminal:
         owner_timestamp_keys = tuple(
             key for key in _OWNER_RECORD_TIMESTAMP_KEYS if key != "last_heartbeat_at"
@@ -2051,10 +2138,16 @@ def assess_owner_liveness(
                 method = (
                     (local_work_preservation or {}).get("upstream_preservation", {}).get("method")
                 )
-                conditions.append(
-                    "recorded worktree reference is absent/noop and preserved upstream"
-                    + (f" via {method}" if method else "")
-                )
+                if method == "remote_branch_anchor_no_local_record":
+                    conditions.append(
+                        "recorded worktree reference is absent/noop; no local-work claim "
+                        "or desired head was recorded; terminal lane branch still exists remotely"
+                    )
+                else:
+                    conditions.append(
+                        "recorded worktree reference is absent/noop and preserved upstream"
+                        + (f" via {method}" if method else "")
+                    )
             else:
                 conditions.append("no worktree or local-work claim on the owner record")
             advisory = {

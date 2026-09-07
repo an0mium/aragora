@@ -45,7 +45,7 @@ This is not a theoretical approach. Multi-agent deliberation research (including
 | **Decision receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
 | **Calibrated trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
 | **Hollow consensus detection** | The Trickster catches cases where models agree without genuine reasoning |
-| **Institutional memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (42 adapters) |
+| **Institutional memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (46 adapter files; canonical count in [`docs/METRICS.md`](METRICS.md)) |
 | **Channel delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
 
 ---
@@ -54,7 +54,7 @@ This is not a theoretical approach. Multi-agent deliberation research (including
 
 ### 1. Multi-Model Consensus with Heterogeneous Providers
 
-Aragora runs 43 agent types across 6+ LLM providers (Anthropic, OpenAI, Google, xAI, Mistral, and OpenRouter giving access to DeepSeek, Qwen, Llama, and more). Each model brings different training data, different failure modes, and different strengths. When models with genuinely different knowledge bases converge after adversarial challenge, the result is more trustworthy than any single model's output.
+Aragora runs 46 agent types (35 allowlisted for production runtime use) across 6+ LLM providers (Anthropic, OpenAI, Google, xAI, Mistral, and OpenRouter giving access to DeepSeek, Qwen, Llama, and more). Canonical counts live in [`docs/METRICS.md`](METRICS.md). Each model brings different training data, different failure modes, and different strengths. When models with genuinely different knowledge bases converge after adversarial challenge, the result is more trustworthy than any single model's output.
 
 The system automatically falls back to OpenRouter when primary providers hit rate limits, ensuring debates complete even under load.
 
@@ -88,7 +88,7 @@ Aragora includes an autonomous self-improvement system where agents debate impro
 
 The MetaPlanner uses multiple codebase signal sources for self-directed goal generation, and now automatically extracts improvement goals from debate outcome patterns -- when debates consistently show low consensus or recurring failure modes, the system self-directs toward fixing those weaknesses.
 
-This is how the platform grew from a debate engine to 3,000+ modules with 210,000+ tests. No competitor has anything equivalent -- it is a structural advantage that compounds over time.
+This is how the platform grew from a debate engine to a large modular codebase (canonical module and test counts live in [`docs/METRICS.md`](METRICS.md)). No competitor has anything equivalent -- it is a structural advantage that compounds over time.
 
 ---
 
@@ -160,6 +160,16 @@ No well-funded competitor builds adversarial decision vetting. They build cooper
 
 ---
 
+## The oversight ring is the product
+
+Large agent-factory experiments keep surfacing the same operating constraint: agent throughput is easier to scale than review throughput -- the human ability to conceptualize what the system is doing. Scaling agents without scaling oversight just moves the queue.
+
+Aragora is built for that exact checkpoint. Decision receipts, adversarial multi-model quorums, operator decision tokens, and digest reports are instruments for human oversight -- they compress what the machine did into something a person can actually judge. Orchestras before factories: an orchestra keeps a human conductor.
+
+Autonomy then ratchets up per tier as trust accumulates (the executor arming path) -- never by removing the conductor.
+
+---
+
 ## Get Started
 
 ```bash
@@ -180,7 +190,7 @@ aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api,g
 aragora serve
 ```
 
-Full documentation: [Getting Started Guide](guides/GETTING_STARTED.md) | [Developer Quickstart](QUICKSTART_DEVELOPER.md) | [API Reference](./api/API_REFERENCE.md)
+Full documentation: [Getting Started Guide](guides/GETTING_STARTED.md) | [Developer Quickstart](quickstart.md) | [API Reference](./api/API_REFERENCE.md)
 
 ---
 

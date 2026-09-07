@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from aragora.queue.workers.consensus_healing_worker import (
+from aragora.memory.consensus_healing_worker import (
     ConsensusHealingWorker,
     HealingAction,
     HealingCandidate,

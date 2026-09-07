@@ -18,12 +18,13 @@ Integration Flow:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 from collections.abc import Callable, Coroutine
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,358 @@ class SecuritySeverity(str, Enum):
     INFO = "info"
 
 
+SECRET_FINDING_TYPES = frozenset(
+    {
+        "secret",
+        "secrets",
+        "credential",
+        "credentials",
+        "token",
+        "api_key",
+        "apikey",
+    }
+)
+SECRET_INDICATOR_TERMS = (
+    "secret",
+    "credential",
+    "credentials",
+    "token",
+    "api key",
+    "api_key",
+    "apikey",
+    "password",
+    "private key",
+    "access key",
+)
+SECRET_VALUE_TERMS = (
+    "api key",
+    "api_key",
+    "apikey",
+    "api token",
+    "access token",
+    "auth token",
+    "bearer token",
+    "github token",
+    "gitlab token",
+    "slack token",
+    "private key",
+    "access key",
+    "client secret",
+    "secret key",
+)
+SECRET_METADATA_RULE_KEYS = frozenset({"check_id", "rule", "rule_id", "rule_name"})
+SECRET_METADATA_CONTENT_KEYS = frozenset({"message", "snippet"})
+SECRET_SENSITIVE_METADATA_KEYS = frozenset(
+    {
+        "access_key",
+        "access_token",
+        "api_key",
+        "api_token",
+        "apikey",
+        "auth_token",
+        "bearer_token",
+        "client_secret",
+        "credential",
+        "credentials",
+        "github_token",
+        "gitlab_token",
+        "matched_secret",
+        "password",
+        "private_key",
+        "raw_secret",
+        "secret",
+        "secret_key",
+        "secret_value",
+        "slack_token",
+        "token",
+    }
+)
+SECRET_CATEGORY_TERMS = ("secret", "secrets", "credential", "credentials")
+SECRET_RULE_TERMS = (
+    "credential",
+    "credentials",
+    "api key",
+    "api_key",
+    "apikey",
+    "github token",
+    "gitlab token",
+    "slack token",
+    "private key",
+    "access key",
+    "client secret",
+    "secret key",
+)
+SECRET_EXPOSURE_TERMS = (
+    "hardcoded",
+    "hard coded",
+    "embedded",
+    "plaintext",
+    "plain text",
+    "committed",
+)
+SECRET_VALUE_EXPOSURE_TERMS = (
+    "exposed",
+    "exposure",
+    "leaked",
+)
+SAFE_SECRET_TYPES = frozenset(
+    {
+        "access_key",
+        "access_token",
+        "api_key",
+        "api_token",
+        "auth_token",
+        "aws_access_key",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "bearer_token",
+        "client_secret",
+        "credential",
+        "credentials",
+        "github_token",
+        "gitlab_token",
+        "hardcoded_credential",
+        "password",
+        "private_key",
+        "secret_key",
+        "slack_token",
+        "token",
+        "unknown",
+    }
+)
+
+
+SECRET_FINDING_TEXT_KEYS = ("title", "description", "recommendation")
+
+
+def _finding_dict(finding: Any) -> dict[str, Any]:
+    if isinstance(finding, dict):
+        return dict(finding)
+    to_dict = getattr(finding, "to_dict", None)
+    if callable(to_dict):
+        return dict(to_dict())
+    return {}
+
+
+def _finding_metadata(finding: Any, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = data or _finding_dict(finding)
+    metadata = data.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = getattr(finding, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return metadata
+
+
+def _iter_text_values(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        values: list[str] = []
+        for nested in value.values():
+            values.extend(_iter_text_values(nested))
+        return values
+    if isinstance(value, (list, tuple, set)):
+        values = []
+        for nested in value:
+            values.extend(_iter_text_values(nested))
+        return values
+    if value is None:
+        return []
+    return [str(value)]
+
+
+def _has_secret_indicator(value: Any) -> bool:
+    for text in _iter_text_values(value):
+        normalized = text.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+        compact = normalized.replace(" ", "")
+        for term in SECRET_INDICATOR_TERMS:
+            normalized_term = term.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+            if normalized_term in normalized or normalized_term.replace(" ", "") in compact:
+                return True
+    return False
+
+
+def _text_has_any_term(text: str, terms: tuple[str, ...]) -> bool:
+    normalized = text.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+    compact = normalized.replace(" ", "")
+    for term in terms:
+        normalized_term = term.lower().replace("-", " ").replace(".", " ").replace("_", " ")
+        if normalized_term in normalized or normalized_term.replace(" ", "") in compact:
+            return True
+    return False
+
+
+def _has_secret_category_signature(value: Any) -> bool:
+    return any(_text_has_any_term(text, SECRET_CATEGORY_TERMS) for text in _iter_text_values(value))
+
+
+def _metadata_key_has_secret_signature(key: Any) -> bool:
+    key_name = str(key).lower()
+    return key_name in SECRET_SENSITIVE_METADATA_KEYS or _text_has_any_term(
+        key_name, SECRET_VALUE_TERMS
+    )
+
+
+def _has_secret_metadata_key_signature(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if _metadata_key_has_secret_signature(key):
+                return True
+            if _has_secret_metadata_key_signature(nested):
+                return True
+    elif isinstance(value, (list, tuple, set)):
+        return any(_has_secret_metadata_key_signature(nested) for nested in value)
+    return False
+
+
+def safe_secret_type(value: Any) -> str:
+    """Return an allowlisted secret type label safe for logs and prompts."""
+    if value is None:
+        return "unknown"
+    normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in SAFE_SECRET_TYPES:
+        return normalized
+    return "unknown"
+
+
+def _has_secret_rule_signature(value: Any) -> bool:
+    for text in _iter_text_values(value):
+        if _text_has_any_term(text, SECRET_RULE_TERMS):
+            return True
+        if _has_secret_content_signature(text):
+            return True
+    return False
+
+
+def _has_secret_content_signature(value: Any) -> bool:
+    for text in _iter_text_values(value):
+        if _text_has_any_term(text, SECRET_EXPOSURE_TERMS) and _has_secret_indicator(text):
+            return True
+        if _text_has_any_term(text, SECRET_VALUE_EXPOSURE_TERMS) and _text_has_any_term(
+            text, SECRET_VALUE_TERMS
+        ):
+            return True
+        if "=" in text and _text_has_any_term(text, SECRET_VALUE_TERMS):
+            return True
+    return False
+
+
+def _has_secret_metadata_signature(metadata: dict[str, Any]) -> bool:
+    if "secret_type" in metadata:
+        return True
+    if _has_secret_metadata_key_signature(metadata):
+        return True
+
+    for key, value in metadata.items():
+        key_name = str(key).lower()
+        if _metadata_key_has_secret_signature(key_name):
+            return True
+        if key_name in {"category", "categories", "tags"}:
+            if _has_secret_category_signature(value):
+                return True
+            continue
+        if key_name in SECRET_METADATA_RULE_KEYS and _has_secret_rule_signature(value):
+            return True
+        if key_name in SECRET_METADATA_CONTENT_KEYS and _has_secret_content_signature(value):
+            return True
+    return False
+
+
+def _has_secret_finding_text_signature(finding: Any, data: dict[str, Any]) -> bool:
+    values = []
+    for key in SECRET_FINDING_TEXT_KEYS:
+        value = data.get(key, getattr(finding, key, None))
+        if value:
+            values.append(value)
+    return _has_secret_content_signature(values)
+
+
+def redacted_security_metadata_dict(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Serialize event metadata without exposing secret-like material."""
+    if not _has_secret_metadata_signature(metadata):
+        return metadata
+    return {"secret_type": safe_secret_type(metadata.get("secret_type"))}
+
+
+def is_secret_finding(
+    finding: Any,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> bool:
+    """Return whether a finding contains secret-like material."""
+    data = _finding_dict(finding)
+    finding_type = str(data.get("finding_type") or getattr(finding, "finding_type", "")).lower()
+    if finding_type in SECRET_FINDING_TYPES:
+        return True
+
+    metadata = _finding_metadata(finding, data)
+    if _has_secret_metadata_signature(metadata):
+        return True
+
+    if event_metadata and _has_secret_metadata_signature(event_metadata):
+        return True
+
+    if _has_secret_finding_text_signature(finding, data):
+        return True
+
+    return False
+
+
+def redacted_security_finding_dict(
+    finding: Any,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Serialize a finding while redacting secret-like material."""
+    data = _finding_dict(finding)
+    if not is_secret_finding(finding, event_metadata=event_metadata):
+        return data
+
+    metadata = _finding_metadata(finding, data)
+    return {
+        "id": data.get("id"),
+        "finding_type": "secret",
+        "severity": data.get("severity"),
+        "title": "Secret finding",
+        "description": "[redacted secret finding description]",
+        "file_path": data.get("file_path", getattr(finding, "file_path", None)),
+        "line_number": data.get("line_number", getattr(finding, "line_number", None)),
+        "cve_id": None,
+        "package_name": None,
+        "package_version": None,
+        "recommendation": "Rotate or revoke the exposed credential and remove it from history.",
+        "metadata": {"secret_type": safe_secret_type(metadata.get("secret_type"))},
+    }
+
+
+def redacted_security_finding(
+    finding: SecurityFinding,
+    *,
+    event_metadata: dict[str, Any] | None = None,
+) -> SecurityFinding:
+    """Return a redacted copy when a finding is secret-like."""
+    if not is_secret_finding(finding, event_metadata=event_metadata):
+        return finding
+
+    data = redacted_security_finding_dict(finding, event_metadata=event_metadata)
+    severity_value = data.get("severity") or SecuritySeverity.HIGH.value
+    try:
+        severity = SecuritySeverity(str(severity_value))
+    except ValueError:
+        severity = SecuritySeverity.HIGH
+
+    return SecurityFinding(
+        id=str(data.get("id") or uuid.uuid4()),
+        finding_type="secret",
+        severity=severity,
+        title=str(data["title"]),
+        description=str(data["description"]),
+        file_path=data.get("file_path"),
+        line_number=data.get("line_number"),
+        recommendation=str(data["recommendation"]),
+        metadata=dict(data["metadata"]),
+    )
+
+
 @dataclass
 class SecurityFinding:
     """Represents a security finding that may trigger a debate."""
@@ -91,7 +444,7 @@ class SecurityFinding:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        data = {
             "id": self.id,
             "finding_type": self.finding_type,
             "severity": self.severity.value,
@@ -105,6 +458,10 @@ class SecurityFinding:
             "recommendation": self.recommendation,
             "metadata": self.metadata,
         }
+        if is_secret_finding(data):
+            return redacted_security_finding_dict(data)
+        data["metadata"] = redacted_security_metadata_dict(self.metadata)
+        return data
 
 
 @dataclass
@@ -138,6 +495,7 @@ class SecurityEvent:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
+        finding_event_metadata = self.metadata if len(self.findings) == 1 else None
         return {
             "id": self.id,
             "event_type": self.event_type.value,
@@ -147,12 +505,15 @@ class SecurityEvent:
             "repository": self.repository,
             "scan_id": self.scan_id,
             "workspace_id": self.workspace_id,
-            "findings": [f.to_dict() for f in self.findings],
+            "findings": [
+                redacted_security_finding_dict(f, event_metadata=finding_event_metadata)
+                for f in self.findings
+            ],
             "debate_requested": self.debate_requested,
             "debate_id": self.debate_id,
             "debate_question": self.debate_question,
             "correlation_id": self.correlation_id,
-            "metadata": self.metadata,
+            "metadata": redacted_security_metadata_dict(self.metadata),
         }
 
     @property
@@ -175,6 +536,95 @@ class SecurityEvent:
 
 # Type alias for event handlers
 SecurityEventHandler = Callable[[SecurityEvent], Coroutine[Any, Any, None]]
+
+# Type alias for the domain-coupled security debate runner. Registered by
+# aragora.debate.security_response (see register_security_debate_runner) so
+# this module can auto-trigger debates without importing aragora.debate or
+# aragora.agents directly.
+SecurityDebateRunner = Callable[..., Coroutine[Any, Any, str | None]]
+
+
+class _UnsetRunner:
+    """Sentinel type marking a runner registry that was never explicitly set."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<UNSET security debate runner>"
+
+
+_UNSET_RUNNER = _UnsetRunner()
+
+# Tri-state registry: _UNSET_RUNNER (never set -> no domain-side composition
+# root has registered the default runner yet), None (explicitly cleared via
+# register_security_debate_runner(None) -> auto-debate stays disabled until a
+# runner is registered again), or a SecurityDebateRunner callable. This module
+# never imports aragora.debate itself (see _trigger_security_debate below);
+# the default runner is registered by aragora.debate.security_response and
+# its own composition roots, never lazily from here.
+_security_debate_runner: SecurityDebateRunner | None | _UnsetRunner = _UNSET_RUNNER
+
+
+def register_security_debate_runner(runner: SecurityDebateRunner | None) -> None:
+    """Register the callback used to run security debates.
+
+    Composition roots (aragora.debate.security_response and its own
+    composition roots - see that module's docstring) call this to install the
+    default runner, or to install/clear an explicit override. Passing None
+    explicitly clears the registry and disables auto-debate until a runner is
+    registered again. Default runner registration uses
+    _register_default_security_debate_runner so it does not clobber an
+    explicit hook or an explicit clear.
+    """
+    global _security_debate_runner
+    _security_debate_runner = runner
+
+
+def _register_default_security_debate_runner(
+    runner: SecurityDebateRunner,
+) -> SecurityDebateRunner | None:
+    """Register the default runner only when the registry was never set.
+
+    Neither an explicit runner nor an explicit None-clear is clobbered.
+    """
+    global _security_debate_runner
+    if isinstance(_security_debate_runner, _UnsetRunner):
+        _security_debate_runner = runner
+    return get_security_debate_runner()
+
+
+def get_security_debate_runner() -> SecurityDebateRunner | None:
+    """Get the currently registered security debate runner, if any."""
+    if isinstance(_security_debate_runner, _UnsetRunner):
+        return None
+    return _security_debate_runner
+
+
+def _accepted_security_debate_runner_kwargs(
+    runner: SecurityDebateRunner,
+    *,
+    confidence_threshold: float,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Return debate options accepted by a custom runner.
+
+    Older integrations registered ``async def runner(event)`` callbacks. The
+    default runner accepts the newer keyword options, but custom callbacks should
+    not break critical event delivery merely because they have not adopted them.
+    """
+    options = {
+        "confidence_threshold": confidence_threshold,
+        "timeout_seconds": timeout_seconds,
+    }
+    try:
+        parameters = inspect.signature(runner).parameters
+    except (TypeError, ValueError):
+        return options
+
+    if any(param.kind is inspect.Parameter.VAR_KEYWORD for param in parameters.values()):
+        return options
+
+    return {name: value for name, value in options.items() if name in parameters}
 
 
 class SecurityEventEmitter:
@@ -201,6 +651,7 @@ class SecurityEventEmitter:
         self,
         enable_auto_debate: bool = True,
         debate_confidence_threshold: float = 0.7,
+        debate_timeout_seconds: int = 300,
         workspace_id: str | None = None,
     ):
         """
@@ -215,6 +666,7 @@ class SecurityEventEmitter:
         self._global_handlers: list[SecurityEventHandler] = []
         self._enable_auto_debate = enable_auto_debate
         self._debate_confidence_threshold = debate_confidence_threshold
+        self._debate_timeout_seconds = debate_timeout_seconds
         self._workspace_id = workspace_id
         self._pending_debates: dict[str, asyncio.Task] = {}
         self._event_history: list[SecurityEvent] = []
@@ -316,7 +768,7 @@ class SecurityEventEmitter:
             return False
 
         # Already has a debate
-        if event.debate_id:
+        if event.debate_id or event.debate_requested:
             return False
 
         # Check severity threshold
@@ -340,14 +792,32 @@ class SecurityEventEmitter:
             Debate ID if triggered, None otherwise
         """
         try:
-            debate_id = await trigger_security_debate(
-                event=event,
+            runner = get_security_debate_runner()
+            if runner is None:
+                logger.warning(
+                    "No security debate runner registered; skipping auto-debate for %s. "
+                    "A composition root must call "
+                    "aragora.events.security_events.register_security_debate_runner() "
+                    "(aragora.debate.security_response registers a default runner at "
+                    "import time; ensure it or an equivalent composition root has run).",
+                    event.id,
+                )
+                return None
+
+            runner_kwargs = _accepted_security_debate_runner_kwargs(
+                runner,
                 confidence_threshold=self._debate_confidence_threshold,
+                timeout_seconds=self._debate_timeout_seconds,
             )
+            if runner_kwargs:
+                debate_id = await runner(event, **runner_kwargs)
+            else:
+                debate_id = await runner(event)
 
             if debate_id:
                 event.debate_requested = True
                 event.debate_id = debate_id
+                finding_event_metadata = event.metadata if len(event.findings) == 1 else None
 
                 # Emit debate started event
                 debate_event = SecurityEvent(
@@ -356,7 +826,10 @@ class SecurityEventEmitter:
                     repository=event.repository,
                     scan_id=event.scan_id,
                     workspace_id=event.workspace_id,
-                    findings=event.findings,
+                    findings=[
+                        redacted_security_finding(f, event_metadata=finding_event_metadata)
+                        for f in event.findings
+                    ],
                     debate_id=debate_id,
                     correlation_id=event.correlation_id,
                 )
@@ -364,7 +837,7 @@ class SecurityEventEmitter:
 
             return debate_id
 
-        except (RuntimeError, ValueError, OSError) as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError, OSError) as e:
             logger.exception("Failed to trigger security debate: %s", e)
             return None
 
@@ -412,194 +885,6 @@ class SecurityEventEmitter:
 # =============================================================================
 # Debate Integration
 # =============================================================================
-
-
-def build_security_debate_question(event: SecurityEvent) -> str:
-    """
-    Build a debate question from security findings.
-
-    Args:
-        event: Security event with findings
-
-    Returns:
-        Formatted debate question
-    """
-    findings = event.findings[:5]  # Limit to top 5 findings
-
-    if not findings:
-        return f"Analyze and recommend remediation for security findings in {event.repository or 'the codebase'}."
-
-    # Group by type
-    vulns = [f for f in findings if f.finding_type == "vulnerability"]
-    secrets = [f for f in findings if f.finding_type == "secret"]
-
-    question_parts = []
-
-    if vulns:
-        vuln_summary = ", ".join(f"{v.cve_id or v.title} in {v.package_name}" for v in vulns[:3])
-        question_parts.append(f"vulnerabilities ({vuln_summary})")
-
-    if secrets:
-        secret_types = set(s.metadata.get("secret_type", "unknown") for s in secrets)
-        question_parts.append(f"exposed secrets ({', '.join(secret_types)})")
-
-    findings_str = " and ".join(question_parts)
-
-    return (
-        f"Analyze the following critical security findings and provide remediation recommendations:\n\n"
-        f"Repository: {event.repository or 'Unknown'}\n"
-        f"Findings: {findings_str}\n\n"
-        f"Details:\n"
-        + "\n".join(
-            f"- {f.severity.value.upper()}: {f.title} - {f.description[:200]}" for f in findings
-        )
-        + "\n\n"
-        "What is the recommended prioritized remediation plan, considering:\n"
-        "1. Immediate mitigations (quick wins)\n"
-        "2. Root cause fixes\n"
-        "3. Preventive measures for future\n"
-        "4. Impact on existing functionality"
-    )
-
-
-async def trigger_security_debate(
-    event: SecurityEvent,
-    confidence_threshold: float = 0.7,
-    agents: list[Any] | None = None,
-    timeout_seconds: int = 300,
-) -> str | None:
-    """
-    Trigger a multi-agent debate for security remediation.
-
-    Args:
-        event: Security event with findings
-        confidence_threshold: Minimum consensus confidence
-        agents: Optional list of agents (uses defaults if None)
-        timeout_seconds: Maximum debate duration
-
-    Returns:
-        Debate ID if triggered, None if failed
-    """
-    try:
-        from aragora.core import Environment, DebateResult
-        from aragora.debate.protocol import DebateProtocol
-        from aragora.debate.orchestrator import Arena
-
-        # Build debate question
-        question = build_security_debate_question(event)
-        event.debate_question = question
-
-        # Create environment
-        env = Environment(
-            task=question,
-            context=cast(
-                str,
-                {
-                    "security_event_id": event.id,
-                    "repository": event.repository,
-                    "scan_id": event.scan_id,
-                    "findings": [f.to_dict() for f in event.findings],
-                },
-            ),
-        )
-
-        # Create protocol for security debates
-        protocol = DebateProtocol(
-            rounds=3,
-            consensus="majority",
-            convergence_detection=True,
-            convergence_threshold=0.85,
-            timeout_seconds=timeout_seconds,
-        )
-
-        # Get default agents if none provided
-        if agents is None:
-            agents = await _get_security_debate_agents()
-
-        if not agents:
-            logger.warning("No agents available for security debate")
-            return None
-
-        # Generate debate ID
-        debate_id = f"security_debate_{uuid.uuid4().hex[:12]}"
-
-        # Run debate
-        arena = Arena(
-            environment=env,
-            agents=agents,
-            protocol=protocol,
-            org_id=event.workspace_id or "default",
-        )
-
-        logger.info("[Security] Starting debate %s for %s findings", debate_id, len(event.findings))
-
-        result: DebateResult = await arena.run()
-
-        logger.info(
-            f"[Security] Debate {debate_id} completed: "
-            f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
-        )
-
-        # Store result for later retrieval
-        await _store_security_debate_result(debate_id, event, result)
-
-        return debate_id
-
-    except ImportError as e:
-        logger.warning("Arena not available for security debate: %s", e)
-        return None
-    except (RuntimeError, ValueError, TypeError, OSError) as e:
-        logger.exception("Failed to run security debate: %s", e)
-        return None
-
-
-async def _get_security_debate_agents() -> list[Any]:
-    """Get agents suitable for security debates."""
-    try:
-        from aragora.agents.factory import get_available_agents
-
-        # Get available agents with security expertise preference
-        agents = await get_available_agents(
-            capabilities=["security", "code_analysis"],
-            min_count=2,
-            max_count=4,
-        )
-        return agents
-    except ImportError:
-        # Fall back to basic agent creation
-        try:
-            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent as AnthropicAgent
-            from aragora.agents.api_agents.openai import OpenAIAPIAgent as OpenAIAgent
-
-            agents = []
-
-            try:
-                agents.append(
-                    AnthropicAgent(
-                        name="claude-security",
-                        model="claude-opus-4-8",
-                    )
-                )
-            except (ValueError, RuntimeError) as e:
-                logger.debug("Could not create Anthropic security agent: %s", e)
-
-            try:
-                agents.append(
-                    OpenAIAgent(
-                        name="gpt-security",
-                        model="gpt-4o",
-                    )
-                )
-            except (ValueError, RuntimeError) as e:
-                logger.debug("Could not create OpenAI security agent: %s", e)
-
-            return agents
-        except ImportError:
-            logger.debug("Could not import agent modules for security debate")
-            return []
-    except ImportError:
-        logger.debug("Could not import agent availability module")
-        return []
 
 
 # Storage for debate results (in-memory, replace with database in production)
@@ -852,9 +1137,10 @@ __all__ = [
     "SecurityEventHandler",
     "get_security_emitter",
     "set_security_emitter",
-    # Debate integration
-    "trigger_security_debate",
-    "build_security_debate_question",
+    # Debate integration (domain-free hook; runner lives in aragora.debate.security_response)
+    "SecurityDebateRunner",
+    "register_security_debate_runner",
+    "get_security_debate_runner",
     "get_security_debate_result",
     "list_security_debates",
     # Convenience functions

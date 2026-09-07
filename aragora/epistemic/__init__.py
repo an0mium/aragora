@@ -106,8 +106,10 @@ from .gauntlet_crux_bridge import (
 from .decay_monitor import (
     DecayReason,
     DecaySignal,
+    EpistemicDecayBatchReport,
     compute_decay_impact_set,
     evaluate_unit,
+    evaluate_units,
 )
 from .world_event import (
     WorldEventKind,
@@ -192,6 +194,7 @@ from .genealogy_report import (
     build_genealogy_report,
 )
 from .truth_map import (
+    ArbitrationRow,
     OrgTruthMapReport,
     build_truth_map,
     build_truth_map_from_manifests,
@@ -263,6 +266,7 @@ __all__ = [
     "garden_outstanding_crux",
     "garden_resolved_crux",
     "run_gardening_pass",
+    "ArbitrationRow",
     "build_truth_map",
     "build_truth_map_from_manifests",
     "CodeUnitGenealogy",
@@ -282,8 +286,10 @@ __all__ = [
     "enable_epistemic_followup",
     "enable_repair_pipeline",
     "epistemic_followup_enabled",
+    "EpistemicDecayBatchReport",
     "compute_decay_impact_set",
     "evaluate_unit",
+    "evaluate_units",
     "WorldEventKind",
     "WorldStateEvent",
     "claims_affected_by_event",

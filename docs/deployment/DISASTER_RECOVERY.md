@@ -717,11 +717,9 @@ asyncio.run(check())
 
 # Recover specific job types
 python -c "
-from aragora.queue.workers import (
-    recover_interrupted_transcriptions,
-    recover_interrupted_gauntlets,
-    recover_interrupted_routing,
-)
+from aragora.queue.workers import recover_interrupted_transcriptions
+from aragora.server.workers.gauntlet_worker import recover_interrupted_gauntlets
+from aragora.server.workers.routing_worker import recover_interrupted_routing
 import asyncio
 
 async def recover():
@@ -856,14 +854,14 @@ Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Sl
 
 **Scenario:** Multiple stale or failed consensus states
 
-The consensus healing worker (`aragora/queue/workers/consensus_healing_worker.py`) automatically identifies and heals problematic consensus states.
+The consensus healing worker (`aragora/memory/consensus_healing_worker.py`) automatically identifies and heals problematic consensus states.
 
 **Manual Healing:**
 
 ```bash
 # Start consensus healing with custom config
 python -c "
-from aragora.queue.workers import (
+from aragora.memory.consensus_healing_worker import (
     ConsensusHealingWorker,
     HealingConfig,
     HealingAction,
@@ -897,7 +895,7 @@ asyncio.run(heal())
 
 # Force archive old stale debates
 python -c "
-from aragora.queue.workers import get_consensus_healing_worker
+from aragora.memory.consensus_healing_worker import get_consensus_healing_worker
 import asyncio
 
 async def archive_stale():
@@ -960,11 +958,9 @@ Add to your application startup sequence:
 
 async def run_recovery_hooks():
     """Run automated recovery on startup."""
-    from aragora.queue.workers import (
-        recover_interrupted_transcriptions,
-        recover_interrupted_gauntlets,
-        recover_interrupted_routing,
-    )
+    from aragora.queue.workers import recover_interrupted_transcriptions
+    from aragora.server.workers.gauntlet_worker import recover_interrupted_gauntlets
+    from aragora.server.workers.routing_worker import recover_interrupted_routing
     from aragora.workflow.nodes.human_checkpoint import HumanCheckpointNode
 
     # Recover interrupted jobs
@@ -977,7 +973,7 @@ async def run_recovery_hooks():
     await checkpoint.recover_pending_approvals()
 
     # Start consensus healing (background)
-    from aragora.queue.workers import start_consensus_healing
+    from aragora.memory.consensus_healing_worker import start_consensus_healing
     await start_consensus_healing()
 ```
 

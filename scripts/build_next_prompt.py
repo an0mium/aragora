@@ -52,6 +52,7 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
+MERGE_READY_PROMPT_MERGE_STATE_STATUSES = {"CLEAN"}
 POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
 UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "1|2|3",
@@ -136,15 +137,34 @@ def _repo_runner(repo_root: Path) -> CommandRunner:
 
 
 def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
+    text = (result.stdout or "").strip()
+    if text:
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            if result.returncode == 0:
+                return {"raw": text}
+        else:
+            if result.returncode != 0:
+                if not isinstance(payload, dict):
+                    return {
+                        "error": result.stderr.strip()
+                        or f"command failed with return code {result.returncode}",
+                        "returncode": result.returncode,
+                        "payload": payload,
+                    }
+                payload = dict(payload)
+                # Overwrite (not setdefault): a child that exits nonzero must not
+                # mask the failure via a stale "returncode": 0 in its own stdout.
+                payload["returncode"] = result.returncode
+                if not payload.get("error"):
+                    payload["error"] = result.stderr.strip() or (
+                        f"command failed with return code {result.returncode}"
+                    )
+            return payload
     if result.returncode != 0:
         return {"error": result.stderr.strip(), "returncode": result.returncode}
-    text = (result.stdout or "").strip()
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return {"raw": text}
+    return {}
 
 
 def _run_json(command: list[str], command_runner: CommandRunner) -> Any:
@@ -1018,9 +1038,73 @@ def _select_merge_ready_entry(merge_packet: Any, *, pr: int | None = None) -> di
     return _merge_packet_entry(merge_packet, target_pr)
 
 
+def _selected_merge_ready_pr_number(merge_packet: Any, *, pr: int | None = None) -> int | None:
+    entry = _select_merge_ready_entry(merge_packet, pr=pr)
+    try:
+        return int(entry.get("pr_number"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _live_pr_metadata_blocker(
+    live_pr: Any,
+    *,
+    pr_number: int,
+    expected_head: str,
+) -> str:
+    if live_pr is None:
+        return f"live PR metadata for PR #{pr_number} is missing"
+    if not isinstance(live_pr, dict) or not live_pr:
+        return f"live PR metadata for PR #{pr_number} is missing or malformed"
+    if live_pr.get("error"):
+        return f"live PR metadata for PR #{pr_number} is unavailable: {live_pr.get('error')}"
+    try:
+        live_number = int(live_pr.get("number"))
+    except (TypeError, ValueError):
+        return f"live PR metadata for PR #{pr_number} is missing a parseable number"
+    if live_number != pr_number:
+        return f"live PR metadata number {live_number} does not match requested PR #{pr_number}"
+    state = str(live_pr.get("state") or "").upper()
+    if state != "OPEN":
+        return f"PR #{pr_number} is not open in live metadata: state={state or 'unknown'}"
+    if bool(live_pr.get("isDraft")):
+        return f"PR #{pr_number} is draft in live metadata"
+    live_head = str(live_pr.get("headRefOid") or "")
+    if not live_head:
+        return f"live PR metadata for PR #{pr_number} is missing an exact head"
+    if live_head != expected_head:
+        return (
+            f"live PR head {live_head} does not match merge-packet head {expected_head} "
+            f"for PR #{pr_number}"
+        )
+    mergeable = str(live_pr.get("mergeable") or "").upper()
+    merge_state = str(live_pr.get("mergeStateStatus") or "").upper()
+    if mergeable != "MERGEABLE" or merge_state not in MERGE_READY_PROMPT_MERGE_STATE_STATUSES:
+        return (
+            f"PR #{pr_number} is not settlement-stable in live metadata: "
+            f"mergeable={mergeable or 'unknown'}, mergeStateStatus={merge_state or 'unknown'}"
+        )
+    return ""
+
+
 def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> str:
     if not isinstance(merge_packet, dict) or not merge_packet:
         return "merge-packet is missing or malformed"
+    if merge_packet.get("transport_blocked") or merge_packet.get("status") == "transport_blocked":
+        kind = _prompt_one_line(merge_packet.get("error_kind")) or "unknown transport"
+        detail = _prompt_one_line(merge_packet.get("error")) or "live GitHub transport unavailable"
+        preserve = "; preserve_no_mutate=true" if merge_packet.get("preserve_no_mutate") else ""
+        return f"merge-packet transport blocked ({kind}): {detail}{preserve}"
+    if merge_packet.get("error"):
+        detail = _prompt_one_line(merge_packet.get("error")) or "command failed without details"
+        return f"merge-packet is unavailable: {detail}"
+    if "returncode" in merge_packet:
+        try:
+            returncode = int(merge_packet["returncode"])
+        except (TypeError, ValueError):
+            return "merge-packet has an invalid command return code"
+        if returncode != 0:
+            return f"merge-packet command failed with return code {returncode}"
     entry = _select_merge_ready_entry(merge_packet, pr=pr)
     if not entry:
         target = f"PR #{pr}" if pr is not None else "admin_squash_order"
@@ -1043,6 +1127,13 @@ def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> 
         return f"merge-packet ready entry for PR #{pr_number} is missing a parseable tier"
     if tier >= 3:
         return f"PR #{pr_number} is Tier {tier}, not an autonomous merge-ready prompt target"
+    live_blocker = _live_pr_metadata_blocker(
+        merge_packet.get("live_pr"),
+        pr_number=pr_number,
+        expected_head=str(entry.get("head_sha") or entry.get("headRefOid") or ""),
+    )
+    if live_blocker:
+        return live_blocker
     return ""
 
 
@@ -1294,9 +1385,23 @@ def build_merge_ready_packet(
         command.extend(["--limit", str(limit)])
     command.append("--json")
     packet = _run_json(command, runner)
-    return (
-        packet if isinstance(packet, dict) else {"error": "merge-packet did not return an object"}
-    )
+    if not isinstance(packet, dict):
+        return {"error": "merge-packet did not return an object"}
+    pr_number = _selected_merge_ready_pr_number(packet, pr=pr)
+    if pr_number is not None:
+        packet = dict(packet)
+        packet["live_pr"] = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr_number),
+                "--json",
+                "number,state,isDraft,headRefOid,mergeable,mergeStateStatus,url",
+            ],
+            runner,
+        )
+    return packet
 
 
 def build_merge_ready_prompt(

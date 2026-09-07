@@ -80,7 +80,7 @@ class TestTierMovementEventEmission:
 
         mock_manager = MagicMock()
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             return_value=mock_manager,
         ):
             tracker.record_tier_movement(
@@ -104,7 +104,7 @@ class TestTierMovementEventEmission:
 
         mock_manager = MagicMock()
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             return_value=mock_manager,
         ):
             tracker.record_tier_movement(
@@ -128,7 +128,7 @@ class TestTierMovementEventEmission:
 
         mock_manager = MagicMock()
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             return_value=mock_manager,
         ):
             tracker.record_tier_movement(
@@ -147,7 +147,7 @@ class TestTierMovementEventEmission:
 
         mock_manager = MagicMock()
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             return_value=mock_manager,
         ):
             tracker.record_tier_movement(
@@ -163,7 +163,7 @@ class TestTierMovementEventEmission:
     def test_db_write_succeeds_even_when_event_emission_fails(self, tracker):
         """Database write completes even if event dispatch raises."""
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             side_effect=RuntimeError("no manager"),
         ):
             tracker.record_tier_movement(
@@ -222,7 +222,7 @@ class TestEventEmissionGracefulDegradation:
     def test_graceful_on_dispatcher_runtime_error(self, tracker):
         """Event emission gracefully handles RuntimeError from dispatcher."""
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             side_effect=RuntimeError("dispatcher not initialized"),
         ):
             # Should not raise
@@ -250,7 +250,7 @@ class TestEventEmissionGracefulDegradation:
         # Create a manager that raises AttributeError on dispatch
         bad_manager = MagicMock(spec=[])  # No attributes at all
         with patch(
-            "aragora.events.cross_subscribers.get_cross_subscriber_manager",
+            "aragora.debate.event_subscribers.bootstrap_debate_event_subscribers",
             return_value=bad_manager,
         ):
             # Should not raise
@@ -268,3 +268,110 @@ class TestEventEmissionGracefulDegradation:
                 ("mem_ae",),
             )
             assert cursor.fetchone() is not None
+
+
+class TestBareCallerReachesRelocatedReactions:
+    """Regression test for P4a E8 Problem #1.
+
+    ``record_tier_movement`` is reached from pure-library tier-management paths
+    with no Arena/bootstrap caller upstream (e.g. continuum tier consolidation).
+    Before the E8 fix it dispatched through the bare
+    ``get_cross_subscriber_manager()`` accessor: a manager that had never been
+    bootstrapped elsewhere in the process had zero of the relocated
+    ``aragora.knowledge.event_subscribers`` reactions applied, so the
+    tier-movement event was silently dropped. This must fail before the fix
+    (bare accessor -> no reactions wired) and pass after (domain-subset
+    bootstrap wires ``tier_promotion_to_knowledge`` /
+    ``tier_demotion_to_revalidation`` even with no prior bootstrap caller).
+    """
+
+    @pytest.fixture()
+    def tracker(self, tmp_path):
+        db_path = str(tmp_path / "test_analytics.db")
+        with patch("aragora.memory.tier_analytics.resolve_db_path", return_value=db_path):
+            from aragora.memory.tier_analytics import TierAnalyticsTracker
+
+            return TierAnalyticsTracker(db_path=db_path)
+
+    def test_bare_promotion_call_fires_knowledge_reaction(self, tracker):
+        """A bare (un-bootstrapped) promotion call still invokes the relocated
+        tier_promotion_to_knowledge reaction, not just an empty manager."""
+        from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+        from aragora.events.types import StreamEventType
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
+
+        reset_cross_subscriber_manager()
+        try:
+            with patch.object(
+                KnowledgeEventSubscriber,
+                "_handle_tier_promotion_to_knowledge",
+                autospec=True,
+            ) as mock_handler:
+                tracker.record_tier_movement(
+                    memory_id="mem_bare_promo",
+                    from_tier=MemoryTier.SLOW,
+                    to_tier=MemoryTier.FAST,
+                    reason="bare_caller",
+                )
+
+            mock_handler.assert_called_once()
+            event = mock_handler.call_args[0][1]
+            assert event.type == StreamEventType.MEMORY_TIER_PROMOTION
+            assert event.data["memory_id"] == "mem_bare_promo"
+        finally:
+            reset_cross_subscriber_manager()
+
+    def test_bare_demotion_call_fires_knowledge_reaction(self, tracker):
+        """A bare (un-bootstrapped) demotion call still invokes the relocated
+        tier_demotion_to_revalidation reaction."""
+        from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+        from aragora.events.types import StreamEventType
+        from aragora.knowledge.event_subscribers import KnowledgeEventSubscriber
+
+        reset_cross_subscriber_manager()
+        try:
+            with patch.object(
+                KnowledgeEventSubscriber,
+                "_handle_tier_demotion_to_revalidation",
+                autospec=True,
+            ) as mock_handler:
+                tracker.record_tier_movement(
+                    memory_id="mem_bare_demo",
+                    from_tier=MemoryTier.FAST,
+                    to_tier=MemoryTier.SLOW,
+                    reason="bare_caller",
+                )
+
+            mock_handler.assert_called_once()
+            event = mock_handler.call_args[0][1]
+            assert event.type == StreamEventType.MEMORY_TIER_DEMOTION
+            assert event.data["memory_id"] == "mem_bare_demo"
+        finally:
+            reset_cross_subscriber_manager()
+
+    def test_bare_call_registers_reactions_on_global_manager(self, tracker):
+        """The bare call path also leaves the process-wide manager singleton
+        with the relocated reactions applied (not just this call's dispatch)."""
+        from aragora.events.cross_subscribers import (
+            get_cross_subscriber_manager,
+            reset_cross_subscriber_manager,
+        )
+        from aragora.events.types import StreamEventType
+
+        reset_cross_subscriber_manager()
+        try:
+            tracker.record_tier_movement(
+                memory_id="mem_bare_reg",
+                from_tier=MemoryTier.SLOW,
+                to_tier=MemoryTier.FAST,
+                reason="bare_caller",
+            )
+
+            manager = get_cross_subscriber_manager()
+            names = [
+                name
+                for name, _ in manager._subscribers.get(StreamEventType.MEMORY_TIER_PROMOTION, [])
+            ]
+            assert "tier_promotion_to_knowledge" in names
+        finally:
+            reset_cross_subscriber_manager()

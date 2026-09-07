@@ -1,8 +1,16 @@
 """Quickstart: run a multi-agent debate with zero API keys."""
 
 import asyncio
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
+import sys
+from pathlib import Path
+
+try:
+    from aragora_debate import Arena, StyledMockAgent
+except ModuleNotFoundError:
+    debate_src = Path(__file__).resolve().parents[1] / "aragora-debate" / "src"
+    if debate_src.is_dir():
+        sys.path.insert(0, str(debate_src))
+    from aragora_debate import Arena, StyledMockAgent
 
 agents = [
     StyledMockAgent("analyst", style="supportive"),

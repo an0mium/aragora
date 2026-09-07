@@ -13,6 +13,7 @@ Checks:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import sys
 from dataclasses import dataclass
@@ -171,23 +172,30 @@ def check_packages() -> list[HealthCheck]:
         except Exception as exc:  # noqa: BLE001 - doctor should surface broken imports, not crash
             checks.append((pkg, f"MISSING ({type(exc).__name__})", False))
 
+    def _optional_package_check(pkg: str, label: str) -> None:
+        # Optional probes must be presence checks only. Importing native-heavy
+        # packages like torch can segfault or exhaust CI workers before doctor
+        # can report a useful health summary.
+        try:
+            available = importlib.util.find_spec(pkg) is not None
+        except Exception as exc:  # noqa: BLE001 - diagnostic probe must not crash doctor
+            checks.append((label, f"not installed ({type(exc).__name__})", None))
+            return
+
+        if available:
+            checks.append((label, "installed", True))
+        else:
+            checks.append((label, "not installed", None))
+
     # Optional ML packages
     optional_ml = ["torch", "transformers", "sentence_transformers"]
     for pkg in optional_ml:
-        try:
-            __import__(pkg)
-            checks.append((f"{pkg} (ML)", "installed", True))
-        except Exception as exc:  # noqa: BLE001 - optional imports may fail due broken transitive deps
-            checks.append((f"{pkg} (ML)", f"not installed ({type(exc).__name__})", None))
+        _optional_package_check(pkg, f"{pkg} (ML)")
 
     # Optional integrations
     optional_int = ["redis", "asyncpg", "boto3", "opentelemetry"]
     for pkg in optional_int:
-        try:
-            __import__(pkg)
-            checks.append((f"{pkg} (integration)", "installed", True))
-        except Exception as exc:  # noqa: BLE001 - doctor should not crash on broken optional deps
-            checks.append((f"{pkg} (integration)", f"not installed ({type(exc).__name__})", None))
+        _optional_package_check(pkg, f"{pkg} (integration)")
 
     return checks
 
@@ -256,10 +264,21 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
                 )
             )
         else:
-            detail = "NO API KEY SET"
             if report.discovery_errors:
-                detail += f" ({'; '.join(report.discovery_errors)})"
-            checks.append(("LLM Provider", detail, False))
+                detail = f"credential discovery failed ({'; '.join(report.discovery_errors)})"
+                checks.append(("LLM Provider", detail, False))
+            elif validate_live:
+                checks.append(
+                    ("LLM Provider", "NO API KEY SET; live validation unavailable", False)
+                )
+            else:
+                checks.append(
+                    (
+                        "LLM Provider",
+                        "not configured (offline/demo mode available; required for live debates)",
+                        None,
+                    )
+                )
 
     return checks
 

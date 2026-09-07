@@ -97,12 +97,22 @@ class EvidenceComment:
             or ``""`` when the comment does not count.
         is_dogfood: Whether the comment contributes adversarial-dogfood
             evidence (``evidence-lint`` returned non-empty ``dogfood_evidence``).
+        reviewer_signals: Distinct model families carried by GENUINE
+            model-review signal items (``evidence-lint``'s ``reviewer_signals``
+            list, never ``dogfood_evidence``). ``reviewer_id`` can be
+            dogfood-attributed, so it must not feed requirements that the live
+            gate derives from review signals only (the western-frontier check).
+            ``None`` means provenance is unknown (legacy/hand-built records):
+            consumers fall back to ``reviewer_id`` so pre-provenance callers
+            keep their behavior; ``()`` affirmatively means "no genuine
+            reviewer signal" (e.g. a dogfood-only comment).
     """
 
     created_at: str
     would_count: bool
     reviewer_id: str = ""
     is_dogfood: bool = False
+    reviewer_signals: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -117,13 +127,20 @@ class QuorumRun:
 
 @dataclass(frozen=True)
 class RerunDecision:
-    """Whether A1 should re-run the gate for a PR."""
+    """Whether A1 should re-run the gate for a PR.
+
+    ``needs_adjudication`` is set when the per-PR round budget is exhausted:
+    the correct next step is a net-value adjudication decision (merge-as-is /
+    one bounded round / close / restructure), not another rerun. Callers use
+    this structured flag instead of sniffing the reason string.
+    """
 
     pr_number: int
     should_rerun: bool
     reason: str
     run_id: int | None = None
     next_prompt: str = ""
+    needs_adjudication: bool = False
 
 
 @dataclass(frozen=True)
@@ -177,6 +194,29 @@ def counted_reviewer_ids(comments: list[EvidenceComment]) -> list[str]:
         if comment.would_count and comment.reviewer_id:
             ids.add(comment.reviewer_id)
     return sorted(ids)
+
+
+def counted_reviewer_signal_families(comments: list[EvidenceComment]) -> set[str]:
+    """Distinct counted families backed by GENUINE model-review signals.
+
+    Mirrors the live gate's signal-only derivation (review_queue computes
+    ``has_western_frontier_signal`` from ``reviewer_signals`` with an EMPTY
+    dogfood list), so a dogfood-only counted identity never satisfies a
+    review-signal requirement. Provenance-unaware records
+    (``reviewer_signals is None`` — legacy or hand-built) fall back to
+    ``reviewer_id`` so existing callers keep their behavior; an explicit empty
+    tuple affirmatively means "no genuine reviewer signal".
+    """
+    families: set[str] = set()
+    for comment in comments:
+        if not comment.would_count:
+            continue
+        if comment.reviewer_signals is None:
+            if comment.reviewer_id:
+                families.add(comment.reviewer_id)
+            continue
+        families.update(family for family in comment.reviewer_signals if family)
+    return families
 
 
 def plan_rerun(
@@ -235,10 +275,15 @@ def plan_rerun(
         return decide(False, "quorum run already postdates the newest countable evidence")
 
     if pr_round_budget and pr_rounds_consumed >= pr_round_budget:
-        return decide(
-            False,
-            f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
-            "rounds across head drift); net-value adjudication required, not another rerun",
+        return RerunDecision(
+            pr_number=pr_number,
+            should_rerun=False,
+            reason=(
+                f"PR round budget exhausted ({pr_rounds_consumed}/{pr_round_budget} repair "
+                "rounds across head drift); net-value adjudication required, not another rerun"
+            ),
+            run_id=run.run_id if run else None,
+            needs_adjudication=True,
         )
     if reruns_this_head >= max_reruns_per_head:
         return decide(False, f"max reruns reached for this head ({max_reruns_per_head})")
@@ -425,9 +470,14 @@ def summarize_settlement(
     advisory_only = bool(set(ids) - counted)
     # Tiered gate ON: a Tier 1-2 PR settles on ONE western-frontier signal (claude/openai),
     # so a lone non-frontier signal must not be reported as sufficient (mirrors the gate's
-    # western_frontier_satisfied check).
+    # western_frontier_satisfied check). Like the gate, the frontier requirement is
+    # derived from GENUINE model-review signals only (review_queue computes
+    # has_western_frontier_signal from reviewer_signals with an EMPTY dogfood list):
+    # a dogfood-only counted identity satisfies the dogfood leg below but must not
+    # advance the western-frontier advice (VAL-P4A-024).
+    counted_signal_families = rule.counted_families(counted_reviewer_signal_families(comments))
     needs_western_frontier = rule.requires_western_frontier and not (
-        counted & WESTERN_FRONTIER_FAMILIES
+        counted_signal_families & WESTERN_FRONTIER_FAMILIES
     )
     needs_western = rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES)
 

@@ -2,17 +2,20 @@
 Job queue workers for async task processing.
 
 Workers:
-- GauntletWorker: Processes gauntlet stress-testing jobs
 - TranscriptionWorker: Processes audio/video transcription jobs
-- RoutingWorker: Processes debate result routing jobs
+
+GauntletWorker and ConsensusHealingWorker live outside this package:
+``aragora.server.workers.gauntlet_worker`` (interface layer, imports
+``server.stream.gauntlet_emitter``) and
+``aragora.memory.consensus_healing_worker`` (domain layer, imports
+``memory.consensus``) respectively (docs/architecture/P4A_EVENTS_QUEUE_INVERSION.md
+§6.2, §10 Q3). RoutingWorker and TestFixerWorker also live outside this
+package: ``aragora.server.workers.routing_worker`` (interface layer, imports
+``server.debate_origin`` + ``integrations.email_reply_loop``) and
+``aragora.nomic.testfixer.queue_worker`` (application layer, imports
+``nomic.testfixer.http_api``) respectively (§10 Q4).
 """
 
-from aragora.queue.workers.gauntlet_worker import (
-    GauntletWorker,
-    JOB_TYPE_GAUNTLET,
-    enqueue_gauntlet_job,
-    recover_interrupted_gauntlets,
-)
 from aragora.queue.workers.transcription_worker import (
     TranscriptionWorker,
     JOB_TYPE_TRANSCRIPTION,
@@ -22,32 +25,8 @@ from aragora.queue.workers.transcription_worker import (
     enqueue_transcription_job,
     recover_interrupted_transcriptions,
 )
-from aragora.queue.workers.routing_worker import (
-    RoutingWorker,
-    JOB_TYPE_ROUTING,
-    JOB_TYPE_ROUTING_DEBATE,
-    JOB_TYPE_ROUTING_EMAIL,
-    enqueue_routing_job,
-    recover_interrupted_routing,
-)
-from aragora.queue.workers.consensus_healing_worker import (
-    ConsensusHealingWorker,
-    HealingAction,
-    HealingCandidate,
-    HealingConfig,
-    HealingReason,
-    HealingResult,
-    get_consensus_healing_worker,
-    start_consensus_healing,
-    stop_consensus_healing,
-)
 
 __all__ = [
-    # Gauntlet
-    "GauntletWorker",
-    "JOB_TYPE_GAUNTLET",
-    "enqueue_gauntlet_job",
-    "recover_interrupted_gauntlets",
     # Transcription
     "TranscriptionWorker",
     "JOB_TYPE_TRANSCRIPTION",
@@ -56,21 +35,4 @@ __all__ = [
     "JOB_TYPE_TRANSCRIPTION_YOUTUBE",
     "enqueue_transcription_job",
     "recover_interrupted_transcriptions",
-    # Routing
-    "RoutingWorker",
-    "JOB_TYPE_ROUTING",
-    "JOB_TYPE_ROUTING_DEBATE",
-    "JOB_TYPE_ROUTING_EMAIL",
-    "enqueue_routing_job",
-    "recover_interrupted_routing",
-    # Consensus Healing
-    "ConsensusHealingWorker",
-    "HealingAction",
-    "HealingCandidate",
-    "HealingConfig",
-    "HealingReason",
-    "HealingResult",
-    "get_consensus_healing_worker",
-    "start_consensus_healing",
-    "stop_consensus_healing",
 ]

@@ -230,9 +230,7 @@ def test_chain_anchored_variant_exits_zero_with_warn(
 def test_chain_not_anchored_variant_exits_one_with_not_anchored_detail(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    rc = main(
-        [str(SIGNED), "--pubkey", str(PUBKEY), "--chain", str(CHAIN_NOT_ANCHORED), "--json"]
-    )
+    rc = main([str(SIGNED), "--pubkey", str(PUBKEY), "--chain", str(CHAIN_NOT_ANCHORED), "--json"])
     assert rc == 1
     payload = json.loads(capsys.readouterr().out)
     checks_by_name = {c["name"]: c for c in payload["checks"]}

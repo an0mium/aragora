@@ -563,13 +563,13 @@ class TestBuild:
             assert call_kwargs["loop_id"] == "build-test"
 
     def test_build_passes_none_for_unconfigured(self, builder):
-        """Test build passes None for unconfigured options."""
+        """Test build fills only options that have safe defaults."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
             MockArena.return_value = Mock()
             builder.build()
 
             call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["protocol"] is None
+            assert isinstance(call_kwargs["protocol"], DebateProtocol)
             assert call_kwargs["memory"] is None
             assert call_kwargs["elo_system"] is None
 

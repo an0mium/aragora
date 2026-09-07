@@ -143,7 +143,7 @@ def worker_health_status(handler: Any) -> HandlerResult:
 
     # Check consensus healing worker
     try:
-        from aragora.queue.workers import get_consensus_healing_worker
+        from aragora.memory.consensus_healing_worker import get_consensus_healing_worker
 
         healing_worker = get_consensus_healing_worker()
         if healing_worker:
