@@ -320,7 +320,7 @@ HANDLER_MODULES: dict[str, str] = {
     "UsageMeteringHandler": "aragora.server.handlers.usage_metering",
     "VerticalsHandler": "aragora.server.handlers.verticals",
     "VoiceHandler": "aragora.server.handlers.voice.handler",
-    "WebhookHandler": "aragora.server.handlers.webhooks",
+    "WebhookHandler": "aragora.server.handlers.webhook_management",
     "WorkflowHandler": "aragora.server.handlers.workflows",
     "WorkspaceHandler": "aragora.server.handlers.workspace",
     # Workflow templates handlers

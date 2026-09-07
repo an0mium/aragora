@@ -211,7 +211,6 @@ const DOC_MAP = {
   'STREAMING_DEPLOYMENT.md': 'deployment/streaming.md',
   'deployment/ASYNC_GATEWAY.md': 'deployment/async-gateway.md',
   'deployment/CONTAINER_VOLUMES.md': 'deployment/container-volumes.md',
-  'deployment/DOCKER.md': 'deployment/docker.md',
   'PRODUCTION_DEPLOYMENT.md': 'deployment/production-deployment.md',
   'DATABASE_SETUP.md': 'deployment/database-setup.md',
   'DATABASE.md': 'deployment/database.md',
@@ -408,6 +407,8 @@ const DOC_MAP = {
     'specs/advisory-review-recognizable-header.md',
   'specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md':
     'specs/aragora-roadmap-revision-advocates.md',
+  'specs/CHINESE_ROUTED_REVIEWER_FAMILIES_9071.md':
+    'specs/chinese-routed-reviewer-families-9071.md',
   'specs/ESSAY_REFINEMENT_PIPELINE.md': 'specs/essay-refinement-pipeline.md',
   'specs/FINDING_SEVERITY_GATE.md': 'specs/finding-severity-gate.md',
   'specs/INDEPENDENT_VERIFIER_GUIDE.md': 'specs/independent-verifier-guide.md',
