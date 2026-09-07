@@ -847,12 +847,13 @@ class TestCmdQuickstart:
                 0.01,
             )
 
-            with pytest.raises(RuntimeError, match="Live debate timed out"):
+            with pytest.raises(RuntimeError, match="Live debate timed out") as exc_info:
                 await _run_live_debate(
                     "Should we ship the quickstart path?",
                     [("openai-api", "gpt-4o")],
                     rounds=2,
                 )
+            assert isinstance(exc_info.value.__cause__, asyncio.TimeoutError)
 
     @pytest.mark.asyncio
     async def test_run_live_debate_uses_bounded_quickstart_profile(self):
