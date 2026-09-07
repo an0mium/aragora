@@ -263,7 +263,7 @@ class TestReadinessProbeFast:
 
         with (
             patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}),
-            patch("aragora.utils.redis_config.get_redis_pool", return_value=object()),
+            patch("aragora.utils.redis_config.redis_pool_initialized", return_value=True),
         ):
             result = readiness_probe_fast(handler)
 
@@ -283,7 +283,30 @@ class TestReadinessProbeFast:
 
         with (
             patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}),
-            patch("aragora.utils.redis_config.get_redis_pool", return_value=None),
+            patch("aragora.utils.redis_config.redis_pool_initialized", return_value=False),
+        ):
+            result = readiness_probe_fast(handler)
+
+        body = json.loads(result.body.decode("utf-8"))
+        assert body["checks"]["redis_pool"] is False
+
+    def test_readiness_fast_never_builds_redis_pool(self, monkeypatch):
+        """The fast probe must not call get_redis_pool (it pings the network on first use)."""
+        from aragora.server.handlers.admin.health.kubernetes import readiness_probe_fast
+
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+        monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
+        handler = MockHandler(storage=MagicMock(), elo_system=MagicMock())
+
+        mock_degraded = MagicMock()
+        mock_degraded.is_degraded.return_value = False
+
+        def _must_not_be_called():
+            raise AssertionError("readiness_probe_fast called get_redis_pool")
+
+        with (
+            patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}),
+            patch("aragora.utils.redis_config.get_redis_pool", side_effect=_must_not_be_called),
         ):
             result = readiness_probe_fast(handler)
 

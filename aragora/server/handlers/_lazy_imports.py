@@ -751,6 +751,7 @@ MOVED_MODULES: dict[str, str] = {
     "spend_analytics": "aragora.server.handlers.analytics.spend_analytics",
     "spend_analytics_dashboard": "aragora.server.handlers.analytics_dashboard.spend_analytics_dashboard",
     "sso": "aragora.server.handlers.auth.sso",
+    "status_page": "aragora.server.handlers.public.status_page",
     "system_health": "aragora.server.handlers.admin.system_health",
     "system_intelligence": "aragora.server.handlers.admin.system_intelligence",
     "threat_intel": "aragora.server.handlers.security.threat_intel",
