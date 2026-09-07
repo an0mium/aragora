@@ -5,7 +5,7 @@ description: Next Steps (Canonical)
 
 # Next Steps (Canonical)
 
-Last updated: 2026-07-20
+Last updated: 2026-09-07
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](./canonical-goals) defines what Aragora is and why.
@@ -15,7 +15,33 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-**The live execution spine is the Open Decision Receipt (ODR) tranche — ODR-1..7, epic [#8223](https://github.com/synaptent/aragora/issues/8223)** — adopted 2026-06-11 in [FEATURE_GAP_LIST — Active Direction](./feature-gap-list#active-direction--open-decision-receipt-odr-june-2026). That pivot supersedes the earlier framing of this section, which named the Foreman/`B0` proof loop as the sole gate. The Foreman/`B0` obligations are not cancelled: they are held open in the background (see the subsection below) and must not regress, but they are maintenance truth, not the execution priority.
+### Successor gate declared 2026-09-07
+
+**The live execution spine is the Receipt-First Mission, epic [#9966](https://github.com/synaptent/aragora/issues/9966)** (adopted 2026-09-03, baseline ref `23909906e8`). It supersedes the external-proof month (Jul 9 → Aug 9) as the dated frame, and it absorbs the open ODR tranche obligations below. Progress is measured only by the epic's ten exit metrics and six guardrails; `scripts/receipt_first_scoreboard.py` is the measuring instrument and every mission PR names the row it moves. Closes stage-gate drift [#9805](https://github.com/synaptent/aragora/issues/9805).
+
+Mission state as declared (checked 2026-09-07 against `origin/main` `ebe1bfd262`):
+
+| Milestone | Scope | State |
+|---|---|---|
+| M0 | scoreboard, import-cycle repair, Atlas v1, release 2.10.0, drift paydown batch 1 | Done except batch 1: v2.10.0 tagged 2026-09-04 ([#9977](https://github.com/synaptent/aragora/pull/9977)); Atlas v1 merged ([#9951](https://github.com/synaptent/aragora/pull/9951)); mutual import cycles 144 → 138 (≤140); batch 1 [#9979](https://github.com/synaptent/aragora/pull/9979) operator-settled 2026-09-07, merge pending the settlement status |
+| M1 | ODR v0.2 schema + vectors, `aragora-verify` 0.2.0, file-based signing keys | In flight: signing-key loader merged ([#9984](https://github.com/synaptent/aragora/pull/9984)); v0.2 core emitter [#9988](https://github.com/synaptent/aragora/pull/9988) parked; packaging fix [#10010](https://github.com/synaptent/aragora/pull/10010) open; vectors and 0.2.0 not started |
+| M2 | dissent visibility, Atlas v2, release 2.11.0 | Started: advisory summaries [#10016](https://github.com/synaptent/aragora/pull/10016) under ruling 11 |
+| M3 | hosted receipts, public receipt endpoints, `api.aragora.ai` cutover on [#9391](https://github.com/synaptent/aragora/issues/9391) | Not started; blocked on the production-hosting decision |
+| M4 | external proof (receipts release, demo repo), release 2.12.0 | Not started |
+
+**External-proof month outcome by week (recorded, not re-litigated):**
+
+- W2 (Jul 16–23): shipped — Art.14 human-oversight attestation ([#9417](https://github.com/synaptent/aragora/pull/9417)), crux cards phase 1 ([#9414](https://github.com/synaptent/aragora/pull/9414)). ODR-6 [#8230](https://github.com/synaptent/aragora/issues/8230) closed 2026-07-23 and ODR-4 [#8227](https://github.com/synaptent/aragora/issues/8227) closed 2026-07-28.
+- W3 (Jul 23–30): **slipped** — the EU AI Act GPAI/Art-50 bundle was not published by Jul 30 (drift [#9699](https://github.com/synaptent/aragora/issues/9699)); ODR-2 [#8225](https://github.com/synaptent/aragora/issues/8225) did not close (signing shipped in [#8542](https://github.com/synaptent/aragora/pull/8542), file-based keys in [#9984](https://github.com/synaptent/aragora/pull/9984); PQC hybrid remains deferred).
+- W4 (Jul 30 – Aug 9): **slipped** — the enterprise decision-brief demo did not land.
+
+**Where the ODR obligations now live.** ODR-2 closes with mission M1 (`aragora-verify` 0.2.0 verifying v0.2 vectors from a clean venv is the exit condition). The EU AI Act GPAI/Art-50 bundle and the enterprise decision-brief demo are not in the mission's milestone list: they are **parked, not cancelled**, and re-enter only by an explicit operator decision recorded on [#9966](https://github.com/synaptent/aragora/issues/9966). Epic [#8223](https://github.com/synaptent/aragora/issues/8223) stays open until ODR-2 closes, then closes with PQC recorded as deferred.
+
+**Stage-Gate Conductor rule (supersedes the ODR/external-proof-month carve-out below):** Receipt-First mission work — any PR that names an exit-metric row or guardrail on [#9966](https://github.com/synaptent/aragora/issues/9966), M0–M6 — is execution against the current gate, not drift. The Foreman/`B0` proof loop remains background maintenance truth exactly as the subsection below states. Planning-truth deferrals (`AGT-*`, `DIC-13..22`, `RS-11..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`) are unchanged: no gate that permits their promotion has opened. The Conductor should compare live execution against this frame and against the mission scoreboard, and should post to the rolling monthly anchor only when a finding changes.
+
+### Previous gate (2026-06-11 → 2026-09-07), retained for continuity
+
+**The live execution spine was the Open Decision Receipt (ODR) tranche — ODR-1..7, epic [#8223](https://github.com/synaptent/aragora/issues/8223)** — adopted 2026-06-11 in [FEATURE_GAP_LIST — Active Direction](./feature-gap-list#active-direction--open-decision-receipt-odr-june-2026). That pivot supersedes the earlier framing of this section, which named the Foreman/`B0` proof loop as the sole gate. The Foreman/`B0` obligations are not cancelled: they are held open in the background (see the subsection below) and must not regress, but they are maintenance truth, not the execution priority.
 
 ODR tranche state (checked 2026-07-20):
 
@@ -170,7 +196,7 @@ Observer rule for this tranche:
 
 ## 30-Day Success Metric
 
-The current dated 30-day frame is the external-proof month (Jul 9 → Aug 9) in [2026-07-09-thirty-day-external-proof-month](../plans/2026-07-09-thirty-day-external-proof-month.md), including its weekly kill-switch metrics. The metric below is the standing Foreman/proof-loop target that predates it and remains the background truth bar:
+The current dated frame is the Receipt-First mission's exit-metric table on [#9966](https://github.com/synaptent/aragora/issues/9966) (ten metrics, frozen baseline column, scoreboard posts at each milestone). The external-proof month (Jul 9 → Aug 9, [2026-07-09-thirty-day-external-proof-month](../plans/2026-07-09-thirty-day-external-proof-month.md)) closed with W3/W4 slipped as recorded in the Current Gate section. The metric below is the standing Foreman/proof-loop target that predates both and remains the background truth bar:
 
 - fixed benchmark corpus of bounded issues
 - context-enriched workers complete **>=50%** of that corpus without human rescue
@@ -240,8 +266,9 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ### Do now
 
-- ODR tranche closure per the external-proof month plan: ODR-2 ([#8225](https://github.com/synaptent/aragora/issues/8225)), ODR-4 ([#8227](https://github.com/synaptent/aragora/issues/8227)), ODR-6 ([#8230](https://github.com/synaptent/aragora/issues/8230))
-- EU AI Act GPAI/Art-50 bundle published by Jul 30 (W3 gate)
+- Receipt-First mission [#9966](https://github.com/synaptent/aragora/issues/9966), in milestone order: M1 (ODR v0.2 + vectors + `aragora-verify` 0.2.0, closes ODR-2 [#8225](https://github.com/synaptent/aragora/issues/8225)), M2 (dissent visibility, Atlas v2, 2.11.0), M3 (hosted receipts; needs the [#9391](https://github.com/synaptent/aragora/issues/9391) hosting decision), M4 (external proof, 2.12.0)
+- Contract-drift paydown batches (exit metric row 10) and the guardrail ceilings, every batch
+- Operator settlement of ready Tier 3-4 mission PRs within one working day of the packet comment, so workers are not parked on rulings
 - `CS-01..03` (background)
 - observer truth on current `main` (background)
 - benchmark publication freshness and completeness (background)
