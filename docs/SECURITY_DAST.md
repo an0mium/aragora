@@ -95,7 +95,14 @@ Scanner-generated query values may be rejected before integration dispatch.
 For example, `/gusto/employees?active=true` and
 `/gusto/payrolls?start_date=start_date&end_date=end_date&processed=true` return
 400 rather than the plain-GET 503 above. Timestamp-disclosure rule 10096 can flag
-the error timestamps on these responses (and on `/api/v1/agents`); it remains
+these responses (and `/api/v1/agents?include_stats=false`). The value it reports,
+`1780272000`, is not a runtime error timestamp: it is the deliberately public
+`Deprecation: @1780272000` header on these v1 responses, the Unix epoch of the
+announced v1 sunset date 2026-06-01T00:00:00Z (`V1_DEPRECATION_TIMESTAMP` in
+`aragora/server/versioning/constants.py`, emitted by
+`aragora/server/middleware/deprecation.py`; the 400 is sent before handler
+dispatch, so it carries this form rather than `Deprecation: true`). The separate
+`Sunset` header carries the same date as an HTTP-date. The finding remains
 visible as WARN, not suppressed.
 
 ## Run locally with Docker
