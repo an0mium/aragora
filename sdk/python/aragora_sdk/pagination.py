@@ -28,14 +28,19 @@ def _named_page(
     total = response.get("total")
     if total is not None and (type(total) is not int or total < 0):
         raise AragoraError("Invalid pagination response: expected non-negative total")
+    next_offset = offset + len(items)
+    if total is not None and (next_offset > total or (not items and next_offset < total)):
+        raise AragoraError("Invalid pagination response: inconsistent total")
     if "has_more" in response:
         has_more = response["has_more"]
         if not isinstance(has_more, bool) or (has_more and not items):
             raise AragoraError("Invalid pagination response: inconsistent has_more")
+        if total is not None and has_more != (next_offset < total):
+            raise AragoraError("Invalid pagination response: inconsistent has_more")
         # Servers may clamp the requested limit; a short page can still continue.
         exhausted = not has_more
     elif total is not None:
-        exhausted = not items or offset + len(items) >= total
+        exhausted = next_offset >= total
     else:
         exhausted = len(items) < page_size
     return items, total, exhausted

@@ -84,6 +84,51 @@ async def test_total_without_has_more_retains_short_page_remainder(client_api: A
 @pytest.mark.parametrize(
     "page",
     [
+        {"debates": [], "total": 2},
+        {"debates": [], "total": 2, "has_more": False},
+        {"debates": [{"id": "private-payload"}], "total": 2, "has_more": False},
+        {"debates": [{"id": "private-payload"}], "total": 1, "has_more": True},
+        {"debates": [{"id": "private-payload"}], "total": 0},
+    ],
+)
+async def test_contradictory_metadata_fails_before_page_state_changes(
+    client_api: Any, page: Any
+) -> None:
+    client, api = client_api
+    client.request.return_value = page
+    paginator = api.list_all()
+    with pytest.raises(AragoraError) as error:
+        await pull(paginator)
+    assert "private-payload" not in str(error.value)
+    assert error.value.response_body is None
+    assert paginator.total is None
+    assert paginator._offset == 0
+    assert not paginator._buffer
+    assert not paginator._exhausted
+
+
+@pytest.mark.parametrize("metadata", [{}, {"has_more": False}])
+async def test_contradictory_later_page_preserves_delivered_work_and_offset(
+    client_api: Any, metadata: Any
+) -> None:
+    client, api = client_api
+    client.request.side_effect = [
+        {"debates": [{"id": "a"}], "total": 2, "has_more": True},
+        {"debates": [], "total": 2, **metadata},
+        {"debates": [{"id": "b"}], "total": 2, "has_more": False},
+    ]
+    paginator = api.list_all()
+    assert await pull(paginator) == {"id": "a"}
+    with pytest.raises(AragoraError):
+        await pull(paginator)
+    assert paginator.total == 2
+    assert await collect(paginator) == [{"id": "b"}]
+    assert [c.kwargs["params"]["offset"] for c in client.request.call_args_list] == [0, 1, 1]
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
         {"debates": [], "total": 0, "has_more": False},
         {"debates": []},
     ],
