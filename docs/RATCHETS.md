@@ -208,6 +208,7 @@ appends its baselines here, one row per file:
 | `scripts/baselines/root-ruff-complexity.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | `scripts/baselines/root-vulture.json` | `readiness-lint-root` | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
 | `scripts/baselines/root-mypy-overrides.json` | `readiness-lint-root` | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
+| `scripts/baselines/root-mypy-full.json` | `bash scripts/test_tiers.sh typecheck` (required `typecheck`) | `python scripts/ci/mypy_with_baseline.py --baseline scripts/baselines/root-mypy-full.json --update -- aragora/ --config-file=pyproject.toml --ignore-missing-imports --show-error-codes --no-pretty --no-color-output --python-version=3.11 --platform=linux --no-site-packages` |
 | `scripts/baselines/root-todo.json` | `readiness-lint-root` | `python scripts/ci/check_todo_ratchet.py --baseline scripts/baselines/root-todo.json --update` |
 | `scripts/baselines/file_size_baseline.json` (legacy format) | `readiness-lint-root` | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 
@@ -258,6 +259,29 @@ lands in a later feature, which replaces the marked comment in place.
   root regardless of cwd. Exit codes: 0 subset, 1 growth (added names printed),
   2 baseline/config/usage error. `--update` creates or shrinks the baseline;
   growth requires `--update --allow-grow --reason "<why>"`.
+- **Required full mypy tier.** `bash scripts/test_tiers.sh typecheck` calls
+  `scripts/ci/mypy_with_baseline.py --baseline scripts/baselines/root-mypy-full.json`.
+  This mode uses the shared JSON ratchet, not the legacy `.mypy-baseline`
+  filter (which remains available without `--baseline`). Use mypy **2.1.0**,
+  pinned in `lint.yml`'s `typecheck-run` install and enforced by the wrapper.
+  `TYPECHECK_PYTHON` selects the interpreter; CI passes the same interpreter
+  used to install mypy. Locally it defaults to `python` on PATH.
+  The full `aragora/` graph, including `aragora/live/**/*.py`, retains the
+  configured internal import following. Python 3.11/Linux and
+  `--no-site-packages` make the census independent of locally installed
+  optional SDKs and third-party stubs; external unresolvable imports are
+  `Any` under `--ignore-missing-imports`. The changed-file gate still checks
+  against installed stubs. This is not a replacement for dependency-specific
+  integration typing.
+  The shared parser accepts both `file:line: error:` and
+  `file:line:column: error:`; notes do not count. Before filtering, the wrapper
+  requires parsed occurrences to equal mypy's summary and validates its exit
+  status, so truncated output or tool failures cannot pass or shrink debt.
+  It prints both the raw count and the **NEW error occurrence** count (not
+  distinct keys). Normal runs never rewrite the baseline; the table's
+  `--update` command is shrink-only and byte-identical at an unchanged HEAD.
+  Exit codes: 0 no new errors, 1 new errors/refused growth, 2 baseline/usage
+  error, 3 wrong/missing mypy version or failed/incomplete tool run.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
   runner with `--tool todo`: case-sensitive matching lines in `*.py` under
   `aragora/`, `scripts/`, and `tests/`, including untracked files and strings,

@@ -447,7 +447,7 @@ jobs:
       - name: Install mypy and type stubs
         run: |
           "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user -e .
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
+          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy==2.1.0 types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
 
       - name: Resolve phase-1 typecheck plan
         id: typecheck_plan
@@ -502,9 +502,11 @@ jobs:
 
       - name: Run full typecheck tier
         if: steps.typecheck_plan.outputs.mode == 'full'
+        env:
+          TYPECHECK_PYTHON: ${{ steps.typecheck_python.outputs.python_bin }}
         run: PATH="$HOME/.local/bin:$PATH" bash scripts/test_tiers.sh typecheck
         shell: bash
-        # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
+        # Required shrink-only baseline, with raw and NEW counts in the log.
 
       - name: Run changed-file typecheck gate
         if: steps.typecheck_plan.outputs.mode == 'changed'

@@ -18,6 +18,7 @@ key; the runner also enforces each key's occurrence count.
 | Ruff complexity (C901, max 15) | `scripts/baselines/root-ruff-complexity.json` | 744 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool ruff --baseline scripts/baselines/root-ruff-complexity.json --update -- ruff check aragora --select C901 --output-format concise` |
 | Vulture (confidence 80) | `scripts/baselines/root-vulture.json` | 67 | Python core maintainers | `python scripts/ci/check_tool_baseline.py --tool vulture --baseline scripts/baselines/root-vulture.json --update -- vulture aragora --min-confidence 80` |
 | Mypy untyped-definition exemptions | `scripts/baselines/root-mypy-overrides.json` | 859 | Python core maintainers | `python scripts/ci/check_mypy_overrides.py --baseline scripts/baselines/root-mypy-overrides.json --update` |
+| Mypy full required tier (2.1.0; 1,733 occurrences) | `scripts/baselines/root-mypy-full.json` | 1342 | Python core maintainers | `python scripts/ci/mypy_with_baseline.py --baseline scripts/baselines/root-mypy-full.json --update -- aragora/ --config-file=pyproject.toml --ignore-missing-imports --show-error-codes --no-pretty --no-color-output --python-version=3.11 --platform=linux --no-site-packages` |
 | File size (2,000 lines); M2 re-adoption 32 → 35: `aragora/server/handlers/receipts.py`, `aragora/swarm/preflight.py`, `aragora/swarm/quorum_evidence.py` exceeded the limit while the checker was unwired | `scripts/baselines/file_size_baseline.json` | 35 | Python core maintainers | `python scripts/ci/check_file_sizes.py --baseline scripts/baselines/file_size_baseline.json --freeze` |
 | TODO/FIXME (`check_todo_ratchet.py`); case-sensitive matching lines in `aragora/ scripts/ tests/` `*.py`, strings and comments; excludes `docs/`, `baselines/` directories (including `scripts/baselines/`), and its own source. Both TODO mechanisms coexist until a later cleanup | `scripts/baselines/root-todo.json` | 200 | Python core maintainers | `python scripts/ci/check_todo_ratchet.py --baseline scripts/baselines/root-todo.json --update` |
 | Legacy TODO/FIXME/HACK/XXX (`scripts/todo_audit.py`); case-insensitive comment-start markers in `aragora/**/*.py`; `lint.yml` job `todo-audit`, push-only in the normal PR/push flow (the unchanged non-PR condition also admits manual/merge-group runs). Both TODO mechanisms coexist until a later cleanup | `aragora/.todo_baseline` | 1 | Python core maintainers | `python scripts/todo_audit.py --mode count --root aragora` (inspect count; baseline changes require separate review) |
@@ -55,6 +56,14 @@ reports. It is independent of required-check umbrellas. The existing
 
 ## Known debt items
 
+- The required full mypy tier adopts 1,342 keys / 1,733 occurrences with
+  mypy 2.1.0. It previously reported zero because its grep required a column
+  number that mypy did not print. The wrapper now verifies the raw count
+  against mypy's summary and fails on any NEW occurrence. The census checks
+  the full internal graph with a fixed Python 3.11/Linux target and without
+  ambient third-party packages, making the same baseline reproducible on
+  developer machines and CI; see [RATCHETS.md](RATCHETS.md). The separate
+  changed-file gate retains installed-stub checking.
 - At adoption, ruff 0.14.14 reports 216 naming occurrences across 191 keys
   and 750 complexity occurrences across 744 keys. C901 is enabled only in
   the readiness ratchet, not the default ruff selection.
