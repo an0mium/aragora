@@ -106,7 +106,7 @@ def compose_advisory_dissent_summary(outcome: CollectOutcome | dict, *, head_sha
     summary += " Severity labels only; not a merge decision."
     flags = [item.get("severity_gated") for item in items]
     if any(flag is False for flag in flags):
-        regime = "severity-gated dissent OFF; a P2 finding blocks the merge gate by default."
+        regime = "severity-gated dissent OFF; a changes-requested verdict blocks the merge gate whatever its findings."
     elif all(flag is True for flag in flags):
         regime = "severity-gated dissent ON; P2/P3 findings are advisory to the merge gate."
     else:

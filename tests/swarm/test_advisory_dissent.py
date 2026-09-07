@@ -159,7 +159,7 @@ def test_findings_mirror_gate_reader(raw):
         ([True, True], "severity-gated dissent ON; P2/P3 findings are advisory to the merge gate."),
         (
             [True, False],
-            "severity-gated dissent OFF; a P2 finding blocks the merge gate by default.",
+            "severity-gated dissent OFF; a changes-requested verdict blocks the merge gate whatever its findings.",
         ),
         ([None, None], "unknown (outcome carries no severity_gated field)."),
     ],
