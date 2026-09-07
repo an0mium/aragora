@@ -27,6 +27,33 @@ const event = (type: WebSocketEvent['type'], content: string = type, debateId = 
 const done = { done: true, value: undefined };
 
 describe('streamDebate terminal delivery', () => {
+  it.each([
+    [1000, false], [1001, true], [1002, false], [1003, false], [1005, false],
+    [1006, true], [1007, false], [1008, false], [1009, false], [1010, false],
+    [1011, true], [1012, true], [1013, true], [1015, false],
+    [4003, false], [4029, true], [4999, false],
+  ])('exposes close %i with retryable=%s after buffered work', async (code, retryable) => {
+    for (const waiting of [false, true]) {
+      const stream = streamDebateById(config, 'debate-1');
+      const first = stream.next();
+      const socket = FakeSocket.latest;
+      socket.open(); socket.message(event('agent_message', 'first')); await first;
+      socket.message(event('agent_message', 'saved'));
+      if (waiting) expect((await stream.next()).value).toEqual(event('agent_message', 'saved'));
+      const pending = waiting ? stream.next().catch((error: unknown) => error) : undefined;
+      socket.drop(code as number);
+      if (!waiting) expect((await stream.next()).value).toEqual(event('agent_message', 'saved'));
+      const failure = waiting ? await pending : await stream.next().catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(ConnectionError);
+      expect(failure).toMatchObject({ code: `WS_CLOSE_${code}`, errorCode: `WS_CLOSE_${code}`, retryable, responseBody: { code } });
+      expect(isRetryableError(failure)).toBe(retryable);
+      expect(JSON.stringify(failure)).not.toContain('untrusted remote reason');
+      expect(socket.close).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(await stream.next()).toEqual(done);
+    }
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal('WebSocket', FakeSocket);

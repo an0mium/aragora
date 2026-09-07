@@ -391,6 +391,9 @@ function getEventDebateId(event: WebSocketEvent): string | undefined {
   );
 }
 
+// Transient RFC WebSocket closes plus Aragora's application rate-limit close.
+const RETRYABLE_WEBSOCKET_CLOSE_CODES = new Set([1001, 1006, 1011, 1012, 1013, 4029]);
+
 /**
  * Create an async iterable stream for debate events.
  *
@@ -405,17 +408,19 @@ function getEventDebateId(event: WebSocketEvent): string | undefined {
  *
  * @example
  * ```typescript
- * import { streamDebate } from '@aragora/sdk';
+ * import { ConnectionError, streamDebate } from '@aragora/sdk';
  *
  * const config = { baseUrl: 'http://localhost:8080' };
  * const stream = streamDebate(config, { debateId: 'my-debate-id' });
  *
- * for await (const event of stream) {
- *   console.log(`${event.type}:`, event.data);
- *
- *   if (event.type === 'debate_end') {
- *     break;
+ * try {
+ *   for await (const event of stream) {
+ *     console.log(`${event.type}:`, event.data);
  *   }
+ * } catch (error) {
+ *   if (!(error instanceof ConnectionError)) throw error;
+ *   console.warn('Stream interrupted; debate completion is unknown', error.code);
+ *   // Retry eligibility does not guarantee replay. Do not restart blindly.
  * }
  * ```
  *
@@ -424,9 +429,7 @@ function getEventDebateId(event: WebSocketEvent): string | undefined {
  * // Stream all events (no filter)
  * const stream = streamDebate({ baseUrl: 'http://localhost:8080' });
  *
- * for await (const event of stream) {
- *   console.log(event);
- * }
+ * // Consume with the same try/catch shown above.
  * ```
  */
 export async function* streamDebate(
@@ -504,9 +507,10 @@ export async function* streamDebate(
     if (ended) return;
     terminalError = new ConnectionError(
       'WebSocket disconnected before a terminal debate event',
+      `WS_CLOSE_${code}`,
       undefined,
-      undefined,
-      { code }
+      { code },
+      RETRYABLE_WEBSOCKET_CLOSE_CODES.has(code)
     );
     ended = true;
     wake();
@@ -559,11 +563,7 @@ export async function* streamDebate(
  * const config = { baseUrl: 'http://localhost:8080' };
  * const stream = streamDebateById(config, 'debate-123');
  *
- * for await (const event of stream) {
- *   if (event.type === 'agent_message') {
- *     console.log(`${event.data.agent}: ${event.data.content}`);
- *   }
- * }
+ * // Consume with streamDebate's try/catch example; interruptions throw here too.
  * ```
  */
 export function streamDebateById(
