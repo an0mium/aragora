@@ -222,6 +222,8 @@ async def handle_list_invoices(
     """
     List payable invoices with filters.
 
+    Date filters must be scalar ISO strings; repeated/list values return 400.
+
     GET /api/v1/accounting/ap/invoices
     Query params: {
         vendor_id: str (optional),
@@ -252,7 +254,7 @@ async def handle_list_invoices(
             start_date = datetime.fromisoformat(data["start_date"])
         if data.get("end_date"):
             end_date = datetime.fromisoformat(data["end_date"])
-    except ValueError:
+    except (TypeError, ValueError):
         return error_response("Dates must be in ISO format", status=400)
 
     try:

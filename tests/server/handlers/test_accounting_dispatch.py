@@ -15,6 +15,7 @@ import pytest
 from aragora.server.handlers import accounting, ap_automation, ar_automation
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.invoices import InvoiceHandler
+from aragora.server.handlers.utils.params import parse_query_params
 
 
 def request(body: bytes = b"") -> SimpleNamespace:
@@ -102,6 +103,51 @@ async def test_ar_invoices_anonymous_401() -> None:
 
 async def test_ar_invoices_authenticated_200() -> None:
     await check_get("ar", "invoices", 200, "invoices")
+
+
+async def invoice_query(area: str, query: dict[str, Any]) -> HandlerResult:
+    cls = ap_automation.APAutomationHandler if area == "ap" else ar_automation.ARAutomationHandler
+    result = await cls({}).handle(f"/api/v1/accounting/{area}/invoices", query, request())
+    assert isinstance(result, HandlerResult)
+    return result
+
+
+@pytest.mark.parametrize(
+    "area,query_string",
+    [
+        pytest.param(area, query, id=f"test_{area}_invoices_{case}_400")
+        for area in ("ap", "ar")
+        for case, query in [
+            ("limit_not_int", "limit=abc"),
+            ("limit_zero", "limit=0"),
+            ("limit_too_large", "limit=5000"),
+            ("offset_negative", "offset=-1"),
+            ("offset_not_int", "offset=abc"),
+            ("repeated_start_date", "start_date=2026-01-01&start_date=2026-01-02"),
+            ("repeated_end_date", "end_date=2026-01-01&end_date=2026-01-02"),
+            ("bad_iso_date", "start_date=yesterday"),
+            ("bad_iso_end_date", "end_date=yesterday"),
+        ]
+    ],
+)
+async def test_invoice_query_validation_400(area: str, query_string: str) -> None:
+    query = parse_query_params(query_string)
+    if "&" in query_string:
+        # The HTTP query parser preserves repeated keys as lists, not scalars.
+        assert next(iter(query.values())) == ["2026-01-01", "2026-01-02"]
+    result = await invoice_query(area, query)
+    assert result.status_code == 400
+    body = json.loads(result.body)
+    assert isinstance(body["error"], str) and body["error"]
+
+
+@pytest.mark.parametrize("area", ["ap", "ar"], ids=["ap", "ar"])
+async def test_invoice_query_well_formed_filters_200(area: str) -> None:
+    result = await invoice_query(area, parse_query_params("limit=5&offset=0&start_date=2026-01-01"))
+    assert result.status_code == 200
+    body = json.loads(result.body)
+    assert "error" not in body
+    assert body["data"] == {"invoices": [], "total": 0, "limit": 5, "offset": 0}
 
 
 @pytest.mark.parametrize("status,expected", [("unpaid", ["2"]), ("partial", ["3"]), ("paid", [])])

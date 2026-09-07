@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.handler_registry import HandlerRegistryMixin
+from aragora.server.handler_registry import HANDLER_REGISTRY, HandlerRegistryMixin
 from aragora.server.handler_registry.admin import ADMIN_HANDLER_REGISTRY
 from aragora.server.handler_registry.core import RouteIndex, _DeferredImport
 from aragora.server.handlers.base import BaseHandler, HandlerResult
@@ -99,6 +99,34 @@ def test_collection_routes_remain_visible_to_contract_discovery() -> None:
         routes = get_handler_routes()
     assert "/api/v1/accounting/invoices" in routes
     assert "/api/v1/accounting/expenses" in routes
+
+
+def test_route_owners_full_registry() -> None:
+    """Index all class-level routes without constructors needing live services."""
+    handlers = {}
+    for name, ref in HANDLER_REGISTRY:
+        cls = ref.resolve() if isinstance(ref, _DeferredImport) else ref
+        assert inspect.isclass(cls), name  # Failed imports must not silently lose claims.
+        assert name not in handlers, name
+        handlers[name] = cls
+    assert len(handlers) == len(HANDLER_REGISTRY)
+    index = RouteIndex()
+    index.build(SimpleNamespace(**handlers), HANDLER_REGISTRY)
+
+    owners = {
+        "/api/v1/accounting/invoices": "_invoice_handler",
+        "/api/v1/accounting/expenses": "_expense_handler",
+        "/api/v1/accounting/ap/invoices": "_ap_automation_handler",
+        "/api/v1/accounting/ar/invoices": "_ar_automation_handler",
+        "/api/v1/accounting/status": "_accounting_integration_handler",
+    }
+    for path, owner in owners.items():
+        assert path in index._exact_routes
+        match = index.get_handler(path)
+        assert match is not None and match[0] == owner, (path, match)
+    for path, (owner, _) in index._exact_routes.items():
+        if path.startswith("/api/v1/accounting"):
+            assert owner in ATTRS, (path, owner)
 
 
 def test_none_result_yields_500_handler_no_result() -> None:

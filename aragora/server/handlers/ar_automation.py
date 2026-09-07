@@ -180,6 +180,8 @@ async def handle_list_invoices(
     """
     List AR invoices with filters.
 
+    Date filters must be scalar ISO strings; repeated/list values return 400.
+
     GET /api/v1/accounting/ar/invoices
     Query params: {
         customer_id: str (optional),
@@ -217,11 +219,18 @@ async def handle_list_invoices(
                 start_date = datetime.fromisoformat(data["start_date"])
             if data.get("end_date"):
                 end_date = datetime.fromisoformat(data["end_date"])
-        except ValueError:
-            return error_response("Invalid date format. Use ISO 8601.", 400)
+        except (TypeError, ValueError):
+            return error_response("Invalid date format. Use ISO 8601.", status=400)
 
-        limit = max(1, min(int(data.get("limit", 100)), 1000))
-        offset = max(0, int(data.get("offset", 0)))
+        try:
+            limit = int(data.get("limit", 100))
+            offset = int(data.get("offset", 0))
+            if limit < 1 or limit > 1000:
+                return error_response("limit must be 1-1000", status=400)
+            if offset < 0:
+                return error_response("offset must be non-negative", status=400)
+        except (TypeError, ValueError):
+            return error_response("limit and offset must be integers", status=400)
 
         async with _ar_circuit_breaker.protected_call():
             invoices = await ar.list_invoices(
