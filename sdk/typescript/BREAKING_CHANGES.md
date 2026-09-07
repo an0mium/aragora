@@ -16,6 +16,13 @@ events before ending. A socket close without a genuine terminal event throws
 Wrap `for await` in `try/catch` (see the [streaming example](../../docs/guides/SDK_QUICKSTART_TYPESCRIPT.md#real-time-streaming)).
 Close errors expose `WS_CLOSE_<number>` via `error.code`/`error.errorCode` and the
 numeric value via `error.responseBody.code`, without the raw remote reason.
+A native transport error may precede close: the iterator retains close diagnostics
+for up to 1,000 ms after the first error; repeated errors do not restart the window.
+If no close arrives, it throws a sanitized, non-retryable `ConnectionError` without
+a close code. Parsing errors fail immediately and are also non-retryable. Here,
+non-retryable means explicit caller handling is required, not proof of permanence.
+Buffered events still drain; an accepted genuine terminal event before finalization
+takes precedence. Close arriving after finalization cannot revise the outcome.
 `isRetryableError` respects the new optional fifth `ConnectionError` constructor
 argument, `retryable` (default `true` for existing callers). Only close codes
 1001,1006,1011,1012,1013,4029 are retryable; all others, including premature1000,

@@ -100,6 +100,11 @@ try {
 
 Accepted events drain before a transport failure is thrown; disconnection is not
 `debate_end`. Close errors expose `WS_CLOSE_<number>` and numeric `responseBody.code`.
+A transport error waits up to 1,000 ms for close details; repeated errors do not
+extend that window. If close never arrives, the sanitized error has no close code
+and is non-retryable; parsing errors fail immediately and are also non-retryable.
+Handle these explicitly rather than assuming the failure is permanent. A genuine
+terminal event accepted before finalization still wins, and buffered events drain.
 `isRetryableError(error)` reports eligibility, not automatic retry or guaranteed
 replay. This iterator never resumes after closure. If reconnecting is appropriate,
 use bounded backoff and account for possible gaps or duplicates; do not restart blindly.

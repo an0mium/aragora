@@ -26,6 +26,9 @@ import { ConnectionError } from './errors';
 // Keep Node fallback local to this file without requiring global @types/node.
 declare const require: (moduleName: string) => unknown;
 
+// Keep native transport provenance internal; parser errors use the same public event.
+const transportErrors = new WeakSet<Error>();
+
 export type WebSocketState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export interface WebSocketOptions {
@@ -149,6 +152,7 @@ export class AragoraWebSocket {
 
         this.ws!.onerror = (_event) => {
           const error = new Error('WebSocket error');
+          transportErrors.add(error);
           this.emit('error', error);
           if (this.state === 'connecting') {
             reject(error);
@@ -393,6 +397,8 @@ function getEventDebateId(event: WebSocketEvent): string | undefined {
 
 // Transient RFC WebSocket closes plus Aragora's application rate-limit close.
 const RETRYABLE_WEBSOCKET_CLOSE_CODES = new Set([1001, 1006, 1011, 1012, 1013, 4029]);
+// Fixed stream contract: allow a subsequent close to supply diagnostics, but never hang.
+const CLOSE_OBSERVATION_TIMEOUT_MS = 1000;
 
 /**
  * Create an async iterable stream for debate events.
@@ -401,6 +407,9 @@ const RETRYABLE_WEBSOCKET_CLOSE_CODES = new Set([1001, 1006, 1011, 1012, 1013, 4
  * The stream handles connection and cleanup, draining accepted events before ending.
  * A disconnect without a server terminal event raises ConnectionError after draining;
  * it does not imply debate completion or resume this iterator on reconnection.
+ * A native transport error allows up to 1,000 ms for authoritative close details.
+ * Without close details, the error has no close code and is not retryable. Parsing
+ * errors fail immediately. Repeated transport errors do not extend the window.
  *
  * @param config - Aragora configuration (baseUrl, apiKey, etc.)
  * @param options - Stream options including optional debateId filter
@@ -436,19 +445,28 @@ export async function* streamDebate(
   config: AragoraConfig,
   options: StreamOptions = {}
 ): AsyncGenerator<WebSocketEvent, void, unknown> {
-  const ws = new AragoraWebSocket(config, options);
+  const ws = new AragoraWebSocket(config, { ...options, autoReconnect: false });
   const eventQueue: WebSocketEvent[] = [];
   let wakeNext: (() => void) | null = null;
   let ended = false;
   let terminalError: Error | null = null;
+  let closeObservationTimer: ReturnType<typeof setTimeout> | null = null;
   let signalEnd: () => void;
   const terminalSignal = new Promise<void>((resolve) => {
     signalEnd = resolve;
   });
   const { debateId } = options;
 
+  const clearCloseObservation = () => {
+    if (closeObservationTimer !== null) {
+      clearTimeout(closeObservationTimer);
+      closeObservationTimer = null;
+    }
+  };
+
   const wake = () => {
     if (ended) {
+      clearCloseObservation();
       signalEnd();
       // Let connect's onerror finish rejecting before disconnect changes its state.
       // Cleanup must not depend on when a paused consumer requests another event.
@@ -492,12 +510,24 @@ export async function* streamDebate(
   // Handle errors
   const unsubError = ws.on('error', (error) => {
     if (ended) return;
-    // A transport error commonly precedes close; type it immediately rather than
-    // waiting for a close callback that cleanup may already have detached.
-    // Low-level parse errors can contain raw frames, so do not copy their text.
-    terminalError = error instanceof ConnectionError
-      ? error
-      : new ConnectionError('WebSocket stream failed');
+    if (transportErrors.has(error)) {
+      if (closeObservationTimer === null) {
+        closeObservationTimer = setTimeout(() => {
+          if (ended) return;
+          terminalError = new ConnectionError(
+            'WebSocket stream failed without close details',
+            undefined, undefined, undefined, false
+          );
+          ended = true;
+          wake();
+        }, CLOSE_OBSERVATION_TIMEOUT_MS);
+      }
+      return;
+    }
+    // Parser errors need no close callback and can contain raw frames. Never copy text.
+    terminalError = new ConnectionError(
+      'WebSocket stream failed', undefined, undefined, undefined, false
+    );
     ended = true;
     wake();
   });
@@ -520,6 +550,7 @@ export async function* streamDebate(
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    clearCloseObservation();
     unsubMessage();
     unsubError();
     unsubDisconnect();
@@ -530,7 +561,13 @@ export async function* streamDebate(
   try {
     // Setup failures need the same cleanup as iterator termination.
     // A close-before-open need not reject the low-level connection promise.
-    await Promise.race([ws.connect(debateId), terminalSignal]);
+    const connected = ws.connect(debateId).catch((error: unknown) => {
+      // The marked error already started close observation; connect rejection must
+      // not finalize the iterator before the authoritative close or bounded fallback.
+      if (error instanceof Error && transportErrors.has(error)) return terminalSignal;
+      throw error;
+    });
+    await Promise.race([connected, terminalSignal]);
     while (true) {
       if (eventQueue.length > 0) {
         yield eventQueue.shift()!;

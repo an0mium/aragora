@@ -141,25 +141,39 @@ describe('streamDebate terminal delivery', () => {
     socket.message(event('agent_message', 'two'));
     socket.onerror?.();
     expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
+    await vi.advanceTimersByTimeAsync(1000);
     await expect(stream.next()).rejects.toBeInstanceOf(ConnectionError);
   });
 
-  it.each(['same-turn', 'later-turn'] as const)('types an error followed by %s close after draining accepted work', async (timing) => {
+  it.each([1006, 1008, 4003, 4029].flatMap((code) =>
+    ['connecting', 'waiting', 'paused'].flatMap((phase) =>
+      [0, 10].map((delay) => [code, phase, delay] as const))))(
+    'preserves error-before-close %i in %s with delay %i', async (code, phase, delay) => {
     const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
     const stream = streamDebate(config);
     const first = stream.next();
     const socket = FakeSocket.latest;
-    socket.open();
-    socket.message(event('agent_message', 'one'));
-    await first;
-    socket.message(event('agent_message', 'two'));
+    let pending: Promise<unknown> = first.catch((error: unknown) => error);
+    if (phase !== 'connecting') {
+      socket.open(); socket.message(event('agent_message', 'one')); await first;
+      socket.message(event('agent_message', 'two'));
+      if (phase === 'waiting') {
+        expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
+        pending = stream.next().catch((error: unknown) => error);
+      }
+    }
     socket.onerror?.();
-    if (timing === 'later-turn') await vi.advanceTimersByTimeAsync(0);
-    socket.drop();
-    expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
-    const failure = await stream.next().catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(delay);
+    socket.drop(code);
+    if (phase === 'paused') {
+      expect((await stream.next()).value).toEqual(event('agent_message', 'two'));
+      pending = stream.next().catch((error: unknown) => error);
+    }
+    const failure = await pending;
     expect(failure).toBeInstanceOf(ConnectionError);
-    expect(isRetryableError(failure)).toBe(true);
+    expect(failure).toMatchObject({ code: `WS_CLOSE_${code}`, errorCode: `WS_CLOSE_${code}`, responseBody: { code } });
+    expect(isRetryableError(failure)).toBe(code === 1006 || code === 4029);
+    expect(JSON.stringify(failure)).not.toContain('untrusted remote reason');
     checkCleanup(socket, off);
   });
 
@@ -174,9 +188,11 @@ describe('streamDebate terminal delivery', () => {
     const failure = await stream.next().catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(ConnectionError);
     expect(String(failure)).not.toContain('private malformed payload');
+    expect(isRetryableError(failure)).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('rejects a waiting pull on transport error', async () => {
+  it('rejects a waiting pull after the transport close-observation deadline', async () => {
     const stream = streamDebate(config);
     const first = stream.next();
     const socket = FakeSocket.latest;
@@ -185,6 +201,7 @@ describe('streamDebate terminal delivery', () => {
     await first;
     const rejected = expect(stream.next()).rejects.toBeInstanceOf(ConnectionError);
     socket.onerror?.();
+    await vi.advanceTimersByTimeAsync(1000);
     await rejected;
     expect(socket.close).toHaveBeenCalledOnce();
   });
@@ -209,6 +226,7 @@ describe('streamDebate terminal delivery', () => {
     const rejected = expect(first).rejects.toBeInstanceOf(ConnectionError);
     const socket = FakeSocket.latest;
     socket.onerror?.();
+    await vi.advanceTimersByTimeAsync(1000);
     await rejected;
     checkCleanup(socket, off);
   });
@@ -250,7 +268,8 @@ describe('streamDebate terminal delivery', () => {
     checkCleanup(socket, off);
   });
 
-  it.each(['return', 'throw'] as const)('cleans up on consumer %s after a delivered event', async (method) => {
+  it.each(['return', 'throw'].flatMap((method) => [false, true].map((fault) => [method, fault] as const)))(
+    'cleans up on consumer %s after a delivered event, observing close=%s', async (method, fault) => {
     const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
     const stream = streamDebate(config);
     const first = stream.next();
@@ -258,6 +277,7 @@ describe('streamDebate terminal delivery', () => {
     socket.open();
     socket.message(event('agent_message'));
     await first;
+    if (fault) socket.onerror?.();
     if (method === 'return') {
       expect(await stream.return()).toEqual(done);
     } else {
@@ -265,6 +285,82 @@ describe('streamDebate terminal delivery', () => {
       await expect(stream.throw(failure)).rejects.toBe(failure);
     }
     checkCleanup(socket, off);
+  });
+
+  it.each(['connecting', 'waiting', 'paused'])('bounds repeated errors and ignores a late close in %s', async (phase) => {
+    const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
+    const stream = streamDebate(config);
+    let settled = false;
+    let pending: Promise<unknown> = stream.next().catch((error: unknown) => error);
+    const socket = FakeSocket.latest;
+    if (phase !== 'connecting') {
+      socket.open(); socket.message(event('agent_message')); await pending;
+      pending = phase === 'waiting' ? stream.next().catch((error: unknown) => error) : new Promise(() => {});
+    }
+    void pending.then(() => { settled = true; });
+    socket.onerror?.();
+    await vi.advanceTimersByTimeAsync(500); socket.onerror?.();
+    await vi.advanceTimersByTimeAsync(499);
+    expect(settled).toBe(false); expect(socket.close).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    checkCleanup(socket, off); // Even a paused consumer releases the transport.
+    if (phase === 'paused') pending = stream.next().catch((error: unknown) => error);
+    const failure = await pending;
+    expect(failure).toBeInstanceOf(ConnectionError);
+    expect(isRetryableError(failure)).toBe(false);
+    expect(failure).toMatchObject({ code: undefined, errorCode: undefined, responseBody: undefined });
+    const before = JSON.stringify(failure);
+    socket.drop(4029); socket.onerror?.(); await vi.advanceTimersByTimeAsync(1000);
+    expect(JSON.stringify(failure)).toBe(before); checkCleanup(socket, off);
+  });
+
+  it.each([true, false])('finalizes once at the deadline, close callback first=%s', async (closeFirst) => {
+    const stream = streamDebate(config);
+    const first = stream.next(); const socket = FakeSocket.latest;
+    socket.open(); socket.message(event('agent_message')); await first;
+    const pending = stream.next().catch((error: unknown) => error);
+    if (closeFirst) setTimeout(() => socket.drop(4029), 1000);
+    socket.onerror?.();
+    if (!closeFirst) setTimeout(() => socket.drop(4029), 1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    const failure = await pending;
+    expect(failure).toBeInstanceOf(ConnectionError);
+    expect(isRetryableError(failure)).toBe(closeFirst);
+    expect((failure as ConnectionError).code).toBe(closeFirst ? 'WS_CLOSE_4029' : undefined);
+    expect(socket.close).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['debate_end', 'error'] as const)('lets genuine %s win during close observation', async (terminal) => {
+    const off = vi.spyOn(AragoraWebSocket.prototype, 'off');
+    const stream = streamDebate(config);
+    const first = stream.next(); const socket = FakeSocket.latest;
+    socket.open(); socket.message(event('agent_message')); await first;
+    socket.message(event('agent_message', 'saved')); socket.onerror?.();
+    await vi.advanceTimersByTimeAsync(500); socket.message(event(terminal));
+    await vi.advanceTimersByTimeAsync(0); checkCleanup(socket, off);
+    expect((await stream.next()).value).toEqual(event('agent_message', 'saved'));
+    expect((await stream.next()).value).toEqual(event(terminal));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await stream.next()).toEqual(done);
+  });
+
+  it('keeps constructor failures immediate rather than awaiting close', async () => {
+    const failure = new Error('setup failed');
+    vi.stubGlobal('WebSocket', class { constructor() { throw failure; } });
+    await expect(streamDebate(config).next()).rejects.toBe(failure);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('preserves standalone callback errors and automatic reconnection', async () => {
+    const socketClient = new AragoraWebSocket(config, { reconnectDelay: 10 });
+    const errors = vi.fn(); socketClient.on('error', errors);
+    const connect = socketClient.connect(); const socket = FakeSocket.latest;
+    const rejected = expect(connect).rejects.toThrow('WebSocket error');
+    socket.onerror?.(); await rejected;
+    expect(errors).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+    socket.drop(); await vi.advanceTimersByTimeAsync(10);
+    expect(FakeSocket.latest).not.toBe(socket);
+    socketClient.disconnect(); expect(vi.getTimerCount()).toBe(0);
   });
 
   it.each(['by-id', 'client', 'all'] as const)('preserves %s wrapper filtering and server event payloads', async (wrapper) => {
