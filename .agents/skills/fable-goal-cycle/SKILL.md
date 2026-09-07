@@ -41,11 +41,18 @@ standard — something that takes frontier judgment to WRITE but only ordinary
 intelligence to APPLY (charters, rubrics, playbooks, skills, checkers). Test:
 could a cheaper model redo this artifact tomorrow? If yes, rank it lower.
 
+Wrong-hill disclosure: before ranking goals, if the standing mission metric
+itself is the wrong hill — mis-specified, superseded by events, or clearly
+worse than an adjacent goal — the consult is expected to say so FIRST in a
+dedicated 'WRONG HILL' section with one-paragraph evidence, and propose the
+better goal. Misalignment disclosure is invited and costs nothing; grinding a
+bad metric costs cycles.
+
 Useful flags: `--dry-run` (build the packet only — inspect it before spending
 a consult), `--context-file <path>` (repeatable; include a redacted cycle
 report or steering note only after placing it under
 `.aragora/goal-cycle-context/`), `--since-hours 48`, `--skip-digest`,
-`--timeout 1200`, `--model claude-opus-4-8`.
+`--timeout 1200`, `--model claude-opus-5`.
 
 Exit codes: `0` ok, `2` consult failed/timed out, `5` response lacked a
 `## NEXT PROMPT` block (raw response is still saved).

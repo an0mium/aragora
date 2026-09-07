@@ -1179,6 +1179,11 @@ class Arena(ArenaDelegatesMixin):
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results."""
+        if self.protocol.consensus == "crux_finder":
+            from aragora.debate.crux_mode import require_crux_finder_enabled
+
+            require_crux_finder_enabled()
+
         try:
             if self.protocol.timeout_seconds > 0:
                 try:

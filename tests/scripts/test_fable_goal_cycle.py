@@ -6,12 +6,27 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
+from aragora.agents.transports.vibeproxy import TransportMode
+from scripts import consult_claude
+
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "fable_goal_cycle.py"
 SPEC = importlib.util.spec_from_file_location("fable_goal_cycle_under_test", SCRIPT)
 assert SPEC and SPEC.loader
 fable_goal_cycle = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(fable_goal_cycle)
+
+
+@pytest.fixture(autouse=True)
+def _default_direct_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
+
+
+def test_consult_budget_constants_follow_canonical_transport_definitions() -> None:
+    assert fable_goal_cycle.CONSULT_FALLBACK_MODEL == consult_claude.FALLBACK_MODEL
+    assert fable_goal_cycle.MODEL_TRANSPORT_MODES == frozenset(mode.value for mode in TransportMode)
 
 
 def test_extract_next_prompt_uses_final_section_heading() -> None:
@@ -120,6 +135,24 @@ def test_build_packet_accepts_conductor_cycles_context_file(tmp_path: Path) -> N
     assert "OPERATOR CONTEXT MISSING" not in packet
 
 
+def test_build_packet_accepts_operator_context_file(tmp_path: Path) -> None:
+    context_dir = tmp_path / ".aragora" / "operator-context"
+    context_dir.mkdir(parents=True)
+    context_file = context_dir / "cycle_report.md"
+    context_file.write_text("cycle 177: C13 RETIRE-PRESERVE", encoding="utf-8")
+
+    packet = fable_goal_cycle.build_packet(
+        {"sections": {}, "gaps": []},
+        "standing mission",
+        [context_file],
+        since_hours=24,
+        root=tmp_path,
+    )
+
+    assert "cycle 177: C13 RETIRE-PRESERVE" in packet
+    assert "OPERATOR CONTEXT MISSING" not in packet
+
+
 def test_build_packet_truncates_large_conductor_cycles_context_file(tmp_path: Path) -> None:
     context_dir = tmp_path / ".aragora" / "conductor_cycles"
     context_dir.mkdir(parents=True)
@@ -184,6 +217,7 @@ def test_build_packet_aggregate_truncation_preserves_closed_fences() -> None:
 def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     context_file = tmp_path / "cycle_report.md"
     context_file.write_text("TOKEN=secret", encoding="utf-8")
+    allowed_roots = " or ".join(str(subdir) for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS)
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {}, "gaps": []},
@@ -194,10 +228,9 @@ def test_build_packet_refuses_sensitive_context_path(tmp_path: Path) -> None:
     )
 
     assert "OPERATOR CONTEXT MISSING" in packet
-    assert (
-        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
-        in packet
-    )
+    assert f"context file must be under {allowed_roots}" in packet
+    for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS:
+        assert str(subdir) in packet
     assert "TOKEN=secret" not in packet
 
 
@@ -213,6 +246,7 @@ def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) 
         context_file.symlink_to(sensitive)
     except OSError:
         return
+    allowed_roots = " or ".join(str(subdir) for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS)
 
     packet = fable_goal_cycle.build_packet(
         {"sections": {}, "gaps": []},
@@ -223,10 +257,9 @@ def test_build_packet_refuses_symlink_to_sensitive_context_path(tmp_path: Path) 
     )
 
     assert "OPERATOR CONTEXT MISSING" in packet
-    assert (
-        "context file must be under .aragora/goal-cycle-context or .aragora/conductor_cycles"
-        in packet
-    )
+    assert f"context file must be under {allowed_roots}" in packet
+    for subdir in fable_goal_cycle.SAFE_CONTEXT_SUBDIRS:
+        assert str(subdir) in packet
     assert "TOKEN=secret" not in packet
 
 
@@ -377,3 +410,153 @@ def test_run_consult_rejects_success_without_text(monkeypatch, tmp_path: Path) -
 
     assert result["ok"] is False
     assert "without text" in result["error"]
+
+
+def test_run_consult_direct_mode_does_not_budget_proxy_attempts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "direct")
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert command[command.index("--overall-timeout") + 1] == "25.0"
+    assert captured["timeout"] == 85.0
+
+
+def test_run_consult_prefer_mode_budgets_unique_proxy_models(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-prefer")
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        fable_goal_cycle.CONSULT_FALLBACK_MODEL,
+        timeout=12.5,
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert command[command.index("--overall-timeout") + 1] == "25.0"
+    assert captured["timeout"] == 85.0
+
+
+def test_run_consult_required_mode_excludes_unreachable_fallbacks(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        return True, json.dumps({"ok": False, "error": "proxy unavailable"})
+
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-required")
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+        openrouter_fallback=True,
+    )
+
+    command = captured["command"]
+    assert result["ok"] is False
+    assert command[command.index("--overall-timeout") + 1] == "25.0"
+    assert captured["timeout"] == 85.0
+
+
+def test_run_consult_empty_transport_uses_direct_default(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "")
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert command[command.index("--overall-timeout") + 1] == "25.0"
+    assert captured["timeout"] == 85.0
+
+
+def test_run_consult_rejects_invalid_transport_without_running(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("ARAGORA_MODEL_TRANSPORT", "vibeproxy-require")
+    monkeypatch.setattr(
+        fable_goal_cycle,
+        "_run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+    )
+
+    assert result == {
+        "ok": False,
+        "error": "invalid ARAGORA_MODEL_TRANSPORT: vibeproxy-require",
+    }
+
+
+def test_run_consult_can_enable_openrouter_fallback(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, timeout, cwd=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        captured["cwd"] = cwd
+        return True, json.dumps({"ok": True, "text": "advice"})
+
+    monkeypatch.setattr(fable_goal_cycle, "_run", fake_run)
+
+    result = fable_goal_cycle.run_consult(
+        tmp_path / "consult_claude.py",
+        tmp_path / "packet.md",
+        "claude-fable-5",
+        timeout=12.5,
+        openrouter_fallback=True,
+        openrouter_model="anthropic/claude-test",
+    )
+
+    command = captured["command"]
+    assert result["ok"] is True
+    assert "--openrouter-fallback" in command
+    assert command[command.index("--openrouter-model") + 1] == "anthropic/claude-test"
+    assert command[command.index("--overall-timeout") + 1] == "37.5"
+    assert captured["timeout"] == 97.5

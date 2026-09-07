@@ -45,6 +45,10 @@ from aragora.swarm.merge_quorum_io import (  # noqa: E402
     list_open_prs,
     run,
 )
+from aragora.swarm.convergence_ledger import (  # noqa: E402
+    DEFAULT_LEDGER_PATH,
+    ConvergenceLedger,
+)
 from aragora.swarm.merge_quorum_reconcile import (  # noqa: E402
     QuorumRun,
     RerunDecision,
@@ -54,6 +58,23 @@ from aragora.swarm.merge_quorum_reconcile import (  # noqa: E402
 )
 
 DEFAULT_STATE_FILE = Path.home() / ".aragora" / "merge_quorum_reconcile_state.json"
+
+# Per-PR repair-round budget that survives head drift (issue #9042, Tier-4
+# preapproved). 0 = DISABLED (default): behavior is byte-identical to the
+# pre-#9042 reconciler. Enable via --pr-round-budget or ARAGORA_PR_ROUND_BUDGET.
+_PR_ROUND_BUDGET_ENV = "ARAGORA_PR_ROUND_BUDGET"
+
+
+def _default_pr_round_budget() -> int:
+    raw = os.getenv(_PR_ROUND_BUDGET_ENV, "0").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        print(
+            f"warning: ignoring non-integer {_PR_ROUND_BUDGET_ENV}={raw!r}",
+            file=sys.stderr,
+        )
+        return 0
 
 
 _MAX_STATE_ENTRIES = 500
@@ -116,6 +137,8 @@ def evaluate_pr(
     state: dict[str, Any],
     cooldown_seconds: int,
     max_reruns: int,
+    pr_rounds_consumed: int = 0,
+    pr_round_budget: int = 0,
 ) -> tuple[RerunDecision, QuorumRun | None]:
     ctx = fetch_pr_context(repo, pr)
     head_sha = ctx["head_sha"]
@@ -133,6 +156,8 @@ def evaluate_pr(
         cooldown_seconds=cooldown_seconds,
         max_reruns_per_head=max_reruns,
         has_real_required_failure=ctx["has_real_required_failure"],
+        pr_rounds_consumed=pr_rounds_consumed,
+        pr_round_budget=pr_round_budget,
     )
     if decision.should_rerun and quorum_run is not None:
         ci_packet = fetch_quorum_run_packet_classification(
@@ -168,6 +193,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=200, help="Max open PRs to walk")
     parser.add_argument("--cooldown-minutes", type=int, default=10)
     parser.add_argument("--max-reruns", type=int, default=3, help="Max reruns per head SHA")
+    parser.add_argument(
+        "--pr-round-budget",
+        type=int,
+        default=_default_pr_round_budget(),
+        help=(
+            "Per-PR repair-round budget that survives head drift (issue #9042). "
+            "0 = disabled (default; behavior unchanged). When exhausted, the PR is "
+            "flagged needs_adjudication instead of re-run — route it to net-value "
+            f"adjudication. Env default: {_PR_ROUND_BUDGET_ENV}."
+        ),
+    )
+    parser.add_argument(
+        "--convergence-ledger",
+        type=Path,
+        default=DEFAULT_LEDGER_PATH,
+        help="Path to the per-PR convergence ledger (used only when budget > 0)",
+    )
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--apply", action="store_true", help="Execute reruns (default: dry-run)")
     parser.add_argument("--json", action="store_true", help="Emit the plan as JSON")
@@ -180,8 +222,15 @@ def main(argv: list[str] | None = None) -> int:
     state = _load_state(args.state_file)
     prs = [args.pr] if args.pr else list_open_prs(args.repo, limit=args.limit, author=args.author)
 
+    # PR-keyed round budget (issue #9042): the ledger counts *distinct heads*
+    # per PR, so a repair commit consumes budget instead of resetting it. Only
+    # touched when the budget is enabled — budget 0 never opens the ledger.
+    budget = max(0, args.pr_round_budget)
+    ledger = ConvergenceLedger(args.convergence_ledger) if budget else None
+
     plan: list[dict[str, Any]] = []
     for pr in prs:
+        rounds_consumed = ledger.rounds(pr) if ledger else 0
         try:
             decision, quorum_run = evaluate_pr(
                 args.repo,
@@ -190,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
                 state=state,
                 cooldown_seconds=args.cooldown_minutes * 60,
                 max_reruns=args.max_reruns,
+                pr_rounds_consumed=rounds_consumed,
+                pr_round_budget=budget,
             )
         except RuntimeError as exc:
             plan.append({"pr": pr, "error": str(exc)})
@@ -203,6 +254,19 @@ def main(argv: list[str] | None = None) -> int:
         }
         if decision.next_prompt:
             record["next_prompt"] = decision.next_prompt
+        if ledger:
+            record["pr_rounds_consumed"] = rounds_consumed
+            record["pr_round_budget"] = budget
+        if decision.needs_adjudication:
+            # Budget exhausted: the PR needs a net-value DECISION (merge-as-is /
+            # one bounded round / close / restructure), not another rerun. The
+            # adjudication itself runs in the evidence path (quorum_evidence +
+            # ARAGORA_ENABLE_REVIEW_ADJUDICATOR, #8748/#8749) or by the operator;
+            # its outcome is recorded via ConvergenceLedger.record_adjudication.
+            record["needs_adjudication"] = True
+            existing = ledger.get(pr) if ledger else None
+            if existing and existing.adjudication:
+                record["adjudication"] = existing.adjudication
         if decision.should_rerun and args.apply and quorum_run is not None:
             if execute_rerun(args.repo, quorum_run.run_id):
                 record["applied"] = True
@@ -211,6 +275,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 head_state["count"] = int(head_state.get("count", 0)) + 1
                 head_state["last_rerun_at"] = now.isoformat()
+                if ledger:
+                    # A new head = one repair round; re-running the same head
+                    # appends history without consuming budget.
+                    ledger.record_round(pr, quorum_run.head_sha)
         plan.append(record)
 
     if args.apply:
@@ -223,7 +291,12 @@ def main(argv: list[str] | None = None) -> int:
             if "error" in record:
                 print(f"PR #{record['pr']}: ERROR {record['error']}")
                 continue
-            flag = "RERUN" if record["should_rerun"] else "skip"
+            if record.get("needs_adjudication"):
+                flag = "ADJUDICATE"
+            elif record["should_rerun"]:
+                flag = "RERUN"
+            else:
+                flag = "skip"
             applied = " (applied)" if record["applied"] else ""
             print(f"PR #{record['pr']}: {flag}{applied} — {record['reason']}")
     return 0

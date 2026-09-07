@@ -555,45 +555,25 @@ class _UnsetRunner:
 
 _UNSET_RUNNER = _UnsetRunner()
 
-# Tri-state registry: _UNSET_RUNNER (never set -> the default runner may be
-# lazily imported and registered), None (explicitly cleared via
+# Tri-state registry: _UNSET_RUNNER (never set -> no domain-side composition
+# root has registered the default runner yet), None (explicitly cleared via
 # register_security_debate_runner(None) -> auto-debate stays disabled until a
-# runner is registered again), or a SecurityDebateRunner callable.
+# runner is registered again), or a SecurityDebateRunner callable. This module
+# never imports aragora.debate itself (see _trigger_security_debate below);
+# the default runner is registered by aragora.debate.security_response and
+# its own composition roots, never lazily from here.
 _security_debate_runner: SecurityDebateRunner | None | _UnsetRunner = _UNSET_RUNNER
-
-
-def _ensure_default_security_debate_runner_registered() -> SecurityDebateRunner | None:
-    """Import the default debate runner on demand for cold event consumers.
-
-    Only fires when the registry was never explicitly set. An explicit
-    ``register_security_debate_runner(None)`` clear sticks: this function will
-    NOT re-register the default, so auto-debate stays disabled until a runner
-    is registered again.
-    """
-    if not isinstance(_security_debate_runner, _UnsetRunner):
-        return _security_debate_runner
-
-    try:
-        from aragora.debate import security_response
-    except ImportError as exc:
-        logger.debug("Default security debate runner is not importable: %s", exc)
-    else:
-        runner = getattr(security_response, "trigger_security_debate", None)
-        if runner is not None:
-            _register_default_security_debate_runner(runner)
-
-    return get_security_debate_runner()
 
 
 def register_security_debate_runner(runner: SecurityDebateRunner | None) -> None:
     """Register the callback used to run security debates.
 
-    Composition roots can use this to install or clear an explicit runner.
-    Passing None explicitly clears the registry and disables auto-debate until
-    a runner is registered again -- the lazy default import
-    (_ensure_default_security_debate_runner_registered) only fires when the
-    registry was never set. Default runner imports use
-    _register_default_security_debate_runner so they do not clobber an
+    Composition roots (aragora.debate.security_response and its own
+    composition roots - see that module's docstring) call this to install the
+    default runner, or to install/clear an explicit override. Passing None
+    explicitly clears the registry and disables auto-debate until a runner is
+    registered again. Default runner registration uses
+    _register_default_security_debate_runner so it does not clobber an
     explicit hook or an explicit clear.
     """
     global _security_debate_runner
@@ -645,34 +625,6 @@ def _accepted_security_debate_runner_kwargs(
         return options
 
     return {name: value for name, value in options.items() if name in parameters}
-
-
-def build_security_debate_question(event: SecurityEvent) -> str:
-    """Compatibility wrapper for the relocated security debate question builder."""
-    from aragora.debate.security_response import (
-        build_security_debate_question as _build_security_debate_question,
-    )
-
-    return _build_security_debate_question(event)
-
-
-async def trigger_security_debate(
-    event: SecurityEvent,
-    confidence_threshold: float = 0.7,
-    agents: list[Any] | None = None,
-    timeout_seconds: int = 300,
-) -> str | None:
-    """Compatibility wrapper for the relocated security debate runner."""
-    from aragora.debate.security_response import (
-        trigger_security_debate as _trigger_security_debate,
-    )
-
-    return await _trigger_security_debate(
-        event,
-        confidence_threshold=confidence_threshold,
-        agents=agents,
-        timeout_seconds=timeout_seconds,
-    )
 
 
 class SecurityEventEmitter:
@@ -842,10 +794,12 @@ class SecurityEventEmitter:
         try:
             runner = get_security_debate_runner()
             if runner is None:
-                runner = _ensure_default_security_debate_runner_registered()
-            if runner is None:
                 logger.warning(
-                    "No security debate runner registered; skipping auto-debate for %s",
+                    "No security debate runner registered; skipping auto-debate for %s. "
+                    "A composition root must call "
+                    "aragora.events.security_events.register_security_debate_runner() "
+                    "(aragora.debate.security_response registers a default runner at "
+                    "import time; ensure it or an equivalent composition root has run).",
                     event.id,
                 )
                 return None
@@ -1187,8 +1141,6 @@ __all__ = [
     "SecurityDebateRunner",
     "register_security_debate_runner",
     "get_security_debate_runner",
-    "build_security_debate_question",
-    "trigger_security_debate",
     "get_security_debate_result",
     "list_security_debates",
     # Convenience functions

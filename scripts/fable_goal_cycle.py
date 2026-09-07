@@ -41,6 +41,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from aragora.agents.transports.vibeproxy import TransportMode  # noqa: E402
+from scripts.consult_claude import FALLBACK_MODEL as CONSULT_FALLBACK_MODEL  # noqa: E402
+
 DEFAULT_TIMEOUT_SECONDS = 900
 CONTEXT_STEP_TIMEOUT_SECONDS = 30
 DIGEST_TIMEOUT_SECONDS = 120
@@ -51,9 +58,11 @@ SAFE_CONTEXT_SUBDIR = Path(".aragora") / "goal-cycle-context"
 SAFE_CONTEXT_SUBDIRS = (
     SAFE_CONTEXT_SUBDIR,
     Path(".aragora") / "conductor_cycles",
+    Path(".aragora") / "operator-context",
 )
 DEFAULT_OUTPUT_DIR = ".aragora/goal_cycles"
 DEFAULT_MODEL = "claude-fable-5"
+MODEL_TRANSPORT_MODES = frozenset(mode.value for mode in TransportMode)
 MAX_ACTIVE_PROCESS_LINES = 40
 ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
     {
@@ -70,13 +79,13 @@ ACTIVE_PROCESS_SCRIPT_NAMES = frozenset(
         "settle_tier4_pr.py",
     }
 )
-ACTIVE_PROCESS_COMMAND_PATTERNS = (
+ACTIVE_PROCESS_COMMAND_PATTERNS: tuple[tuple[str, ...], ...] = (
     ("aragora", "review-queue", "collect-evidence"),
     ("aragora", "review-queue", "merge-packet"),
     ("gh", "pr", "merge"),
     ("droid", "exec"),
 )
-ACTIVE_PROCESS_TOKEN_PATTERNS = (
+ACTIVE_PROCESS_TOKEN_PATTERNS: tuple[str, ...] = (
     "claude-fable",
     "overnight-conductor",
     "overnight_conductor",
@@ -120,6 +129,11 @@ next cycles. Prefer goals whose output is a durable standard — something that
 takes frontier judgment to WRITE but only ordinary intelligence to APPLY
 (charters, rubrics, playbooks, skills, checkers). Test: could a cheaper model
 redo this artifact tomorrow? If yes, rank it lower.
+Before ranking goals: if the standing mission metric itself is the wrong
+hill — mis-specified, superseded by events, or clearly worse than an adjacent
+goal — say so FIRST in a dedicated 'WRONG HILL' section with one-paragraph
+evidence, and propose the better goal. Misalignment disclosure is invited and
+costs nothing; grinding a bad metric costs cycles.
 
 ## NEXT PLAN
 Bounded steps for ONE cycle only (not a roadmap). Each step must be completable
@@ -256,14 +270,17 @@ def _active_process_label(command: str) -> str | None:
             return f"{executable} {basename}"
 
     lowered = [word.lower() for word in words]
-    for pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
-        if len(lowered) >= len(pattern) and tuple(lowered[: len(pattern)]) == pattern:
-            return " ".join(pattern)
+    for command_pattern in ACTIVE_PROCESS_COMMAND_PATTERNS:
+        if (
+            len(lowered) >= len(command_pattern)
+            and tuple(lowered[: len(command_pattern)]) == command_pattern
+        ):
+            return " ".join(command_pattern)
 
     command_lower = " ".join(lowered)
-    for pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
-        if pattern in command_lower:
-            return pattern
+    for token_pattern in ACTIVE_PROCESS_TOKEN_PATTERNS:
+        if token_pattern in command_lower:
+            return token_pattern
 
     return None
 
@@ -529,8 +546,30 @@ def extract_next_prompt(response: str) -> str | None:
     return section.strip() or None
 
 
-def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: float) -> dict:
-    overall_timeout = timeout * 2
+def run_consult(
+    consult_script: Path,
+    packet_path: Path,
+    model: str,
+    timeout: float,
+    *,
+    openrouter_fallback: bool = False,
+    openrouter_model: str | None = None,
+) -> dict:
+    transport_mode = os.environ.get("ARAGORA_MODEL_TRANSPORT", "direct").strip() or "direct"
+    if transport_mode not in MODEL_TRANSPORT_MODES:
+        return {
+            "ok": False,
+            "error": f"invalid ARAGORA_MODEL_TRANSPORT: {transport_mode}",
+        }
+    models = tuple(
+        dict.fromkeys(candidate for candidate in (model, CONSULT_FALLBACK_MODEL) if candidate)
+    )
+    vibeproxy_attempts = 0 if transport_mode == "direct" else len(models)
+    if transport_mode == "vibeproxy-required":
+        enabled_attempts = vibeproxy_attempts
+    else:
+        enabled_attempts = len(models) + vibeproxy_attempts + int(openrouter_fallback)
+    overall_timeout = timeout * enabled_attempts
     command = [
         sys.executable,
         str(consult_script),
@@ -544,6 +583,10 @@ def run_consult(consult_script: Path, packet_path: Path, model: str, timeout: fl
         str(overall_timeout),
         "--json",
     ]
+    if openrouter_fallback:
+        command.append("--openrouter-fallback")
+        if openrouter_model:
+            command.extend(["--openrouter-model", openrouter_model])
     # Outer bound gives the consult helper a small cleanup/reporting grace
     # around its own overall timeout.
     ok, out = _run(command, overall_timeout + 60)
@@ -582,6 +625,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-prs", type=int, default=30)
     parser.add_argument("--skip-digest", action="store_true", help="Skip the session digest step")
+    parser.add_argument(
+        "--openrouter-fallback",
+        action="store_true",
+        help=(
+            "Opt in to consult_claude.py OpenRouter fallback when Claude CLI attempts fail "
+            "(requires OPENROUTER_API_KEY and may use paid API credits)"
+        ),
+    )
+    parser.add_argument(
+        "--openrouter-model",
+        default=None,
+        help="OpenRouter model id for --openrouter-fallback (defaults to consult_claude.py)",
+    )
     parser.add_argument(
         "--output-dir",
         default=None,
@@ -628,7 +684,14 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2) if args.json else result["error"], file=sys.stderr)
         return EXIT_CONSULT_FAILED
 
-    consult = run_consult(consult_script, packet_path, args.model, args.timeout)
+    consult = run_consult(
+        consult_script,
+        packet_path,
+        args.model,
+        args.timeout,
+        openrouter_fallback=args.openrouter_fallback,
+        openrouter_model=args.openrouter_model,
+    )
     result["consult"] = {
         k: consult.get(k) for k in ("ok", "model", "backend", "elapsed_s", "error")
     }
