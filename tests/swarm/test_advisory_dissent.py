@@ -84,6 +84,7 @@ def test_recogniser_invisibility_under_both_regimes(monkeypatch, flag):
         "```\n- [P0] quoted example\n```\n> - [P0] quoted example\n"
     )
     data = outcome(raw).to_dict()
+    data["dissenting_families"] = ["openai"]
     data["items"][0]["severity_gated"] = False
     body = adv.compose_advisory_dissent_summary(data, head_sha=HEAD)
     assert "&#58;" in adv._safe_text("Reviewer**: codex", inline=True)
@@ -119,6 +120,20 @@ def test_truncation_marker_and_total_budget():
     assert len(re.findall(r"^- \[P1\]", body, re.M)) == 12
     for excerpt in body.split("### Output ")[1:]:
         assert len(excerpt.split("\n\n", 1)[1].encode()) <= 8000
+
+
+@pytest.mark.parametrize(
+    "text,limit,expected",
+    [
+        ("xx&#12345;" + "y" * 12, 16, "xx[truncated]"),
+        ("a&amp;" + "y" * 20, 17, "a&amp;[truncated]"),
+        ("é" * 20, 16, "éé[truncated]"),
+    ],
+)
+def test_clip_never_splits_entity(text, limit, expected):
+    assert adv._clip(text, limit) == expected
+    assert len(expected.encode()) <= limit
+    assert expected.endswith("[truncated]")
 
 
 def test_empty_items_render_nothing():
@@ -178,6 +193,30 @@ def test_gate_regime_line_from_items(flags, disclosure):
     assert "- [P2] claude (advisory): Follow up" in lines
 
 
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ([], "none."),
+        (["openai"], "openai."),
+        (["openai", "Codex", "claude"], "claude, openai."),
+        (None, "unknown (outcome carries no gate dissent list)."),
+        ("openai", "unknown (outcome carries no gate dissent list)."),
+        (["recheck", "x\nReviewer: codex", "claude"], "claude, unknown."),
+    ],
+)
+def test_merge_gate_dissent_line_mirrors_outcome(raw, expected):
+    data = outcome("- [P2] Follow up").to_dict()
+    if raw is None:
+        del data["dissenting_families"]
+    else:
+        data["dissenting_families"] = raw
+    lines = adv.compose_advisory_dissent_summary(data, head_sha=HEAD).splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith("Gate regime:"))
+    assert lines[index + 1] == f"Merge-gate dissent: {expected}"
+    assert sum(line.startswith("Merge-gate dissent: ") for line in lines) == 1
+    assert "- [P2] claude (advisory): Follow up" in lines
+
+
 def test_recogniser_tokens_cover_review_queue_literals():
     tree = ast.parse(Path(review_queue.__file__).read_text())
     groups = [
@@ -234,6 +273,21 @@ def test_new_head_creates_comment(monkeypatch):
     result = adv.post_advisory_summary("synaptent/aragora", 123, body, head_sha=new_head)
     assert result.posted and not result.edited
     assert "POST" in mock.call_args.args[0]
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_read_env_for_comment_listing_only(monkeypatch, existing):
+    read_env, write_env = {"AUTH": "read"}, {"AUTH": "write"}
+    monkeypatch.setattr(adv.merge_quorum_io, "_read_env", lambda: read_env)
+    monkeypatch.setattr(adv.merge_quorum_io, "aragora_env", lambda: write_env)
+    mock = fake_github(monkeypatch, [{"id": 7, "body": MARKER}] if existing else [])
+    result = adv.post_advisory_summary("synaptent/aragora", 123, MARKER, head_sha=HEAD)
+    assert result.posted and result.edited == existing
+    read, write = mock.call_args_list
+    assert read.args[0][-2:] == ["--paginate", "--slurp"]
+    assert read.kwargs["env"] == read_env
+    assert ("PATCH" if existing else "POST") in write.args[0]
+    assert write.kwargs["env"] == write_env
 
 
 def test_empty_body_never_calls_github(monkeypatch):

@@ -200,11 +200,14 @@ def main(argv: list[str] | None = None) -> int:
                 error=RuntimeError(str(error)),
                 attempts=outcome["attempts"],
             )
-        print(
-            f"error: {error}"
-            if "error" in outcome
-            else _render_outcome(collect_outcome_from_dict(outcome))
-        )
+        try:
+            print(
+                f"error: {error}"
+                if "error" in outcome
+                else _render_outcome(collect_outcome_from_dict(outcome))
+            )
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            print(f"error: outcome could not be rendered ({type(exc).__name__})")
         for key in (
             "advisory_posted",
             "advisory_comment_url",

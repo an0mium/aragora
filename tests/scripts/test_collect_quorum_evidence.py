@@ -151,6 +151,28 @@ def test_text_output_keeps_collection_and_advisory_fields(collected, capsys):
     assert "advisory_posted: False" in text and "advisory_reason:" in text
 
 
+@pytest.mark.parametrize("malformed", ["empty_item", "foreign_mode", "missing_target"])
+def test_text_output_malformed_object_never_tracebacks(collected, capsys, malformed):
+    data, _, poster = collected
+    if malformed == "empty_item":
+        data["items"] = [{}]
+    elif malformed == "foreign_mode":
+        data["mode"] = "foreign"
+    else:
+        del data["repo"], data["pr_number"]
+    assert cli.main(ARGS) == 2
+    captured = capsys.readouterr()
+    assert captured.out.splitlines() == [
+        "error: outcome could not be rendered (ValueError)",
+        "  advisory_posted: False",
+        "  advisory_comment_url: None",
+        "  advisory_reason: --post-advisory-summary not enabled",
+        "  advisory_edited: False",
+    ]
+    assert "Traceback" not in captured.err
+    poster.assert_not_called()
+
+
 def test_collect_failure_payload(collected, capsys):
     data, _, poster = collected
     data.clear()
