@@ -102,7 +102,42 @@ def _run_subprocess(
     return completed
 
 
-def _build_local_wheel(source: Path, wheel_dir: Path, *, env: dict[str, str]) -> Path:
+def _venv_python(root: Path) -> Path:
+    return root / "Scripts" / "python.exe" if sys.platform == "win32" else root / "bin" / "python"
+
+
+def _prepare_build_environment(workspace: Path, *, env: dict[str, str]) -> Path:
+    """Fetch locked build tools before the offline build/runtime boundary."""
+    uv = shutil.which("uv")
+    assert uv, "uv is required for the installed-CLI fixture"
+    build_root = workspace / "build-env"
+    prepare_env = dict(env)
+    for name in ("PIP_NO_INDEX", "UV_OFFLINE"):
+        prepare_env.pop(name, None)
+    prepare_env["UV_PROJECT_ENVIRONMENT"] = str(build_root)
+    _run_subprocess(
+        [
+            uv,
+            "sync",
+            "--locked",
+            "--extra",
+            "test",
+            "--no-dev",
+            "--no-install-project",
+            "--python",
+            sys.executable,
+            "--project",
+            str(_REPO_ROOT),
+        ],
+        cwd=workspace,
+        env=prepare_env,
+    )
+    return _venv_python(build_root)
+
+
+def _build_local_wheel(
+    source: Path, wheel_dir: Path, *, build_python: Path, env: dict[str, str]
+) -> Path:
     uv = shutil.which("uv")
     assert uv, "uv is required for an offline, isolated local wheel build"
     before = set(wheel_dir.glob("*.whl"))
@@ -111,6 +146,9 @@ def _build_local_wheel(source: Path, wheel_dir: Path, *, env: dict[str, str]) ->
             uv,
             "build",
             "--offline",
+            "--no-build-isolation",
+            "--python",
+            str(build_python),
             "--wheel",
             "--out-dir",
             str(wheel_dir),
@@ -135,23 +173,31 @@ def installed_public_wedge(
     constraints = workspace / "locked-constraints.txt"
     secure_store = workspace / "empty-api-key-store.json"
     wheel_dir.mkdir()
+    cache_dir = workspace / "uv-cache"
+    cache_dir.mkdir()
 
     build_env = _offline_subprocess_env(secure_store=secure_store)
     build_env.pop("PYTHONPATH", None)
-    build_env.update({"PIP_NO_INDEX": "1", "UV_OFFLINE": "1", "UV_PYTHON_DOWNLOADS": "never"})
-    root_wheel = _build_local_wheel(_REPO_ROOT, wheel_dir, env=build_env)
-    verifier_wheel = _build_local_wheel(_REPO_ROOT / "aragora-verify", wheel_dir, env=build_env)
+    build_env.update(
+        {
+            "PIP_NO_INDEX": "1",
+            "UV_OFFLINE": "1",
+            "UV_PYTHON_DOWNLOADS": "never",
+            "UV_CACHE_DIR": str(cache_dir),
+        }
+    )
+    build_python = _prepare_build_environment(workspace, env=build_env)
+    root_wheel = _build_local_wheel(_REPO_ROOT, wheel_dir, build_python=build_python, env=build_env)
+    verifier_wheel = _build_local_wheel(
+        _REPO_ROOT / "aragora-verify", wheel_dir, build_python=build_python, env=build_env
+    )
 
     _run_subprocess(
         [sys.executable, "-m", "venv", str(runtime_root)],
         cwd=workspace,
         env=build_env,
     )
-    runtime_python = (
-        runtime_root / "Scripts" / "python.exe"
-        if sys.platform == "win32"
-        else runtime_root / "bin" / "python"
-    )
+    runtime_python = _venv_python(runtime_root)
     uv = shutil.which("uv")
     assert uv
     _run_subprocess(
@@ -224,6 +270,80 @@ def _verify_receipt_file(receipt_path: Path, capsys) -> str:
     out = capsys.readouterr().out
     assert exc.value.code == 0, f"verify exited {exc.value.code}; output:\n{out}"
     return out
+
+
+def test_build_preparation_uses_locked_private_environment(tmp_path, monkeypatch):
+    cache_dir = tmp_path / "uv-cache"
+    cache_dir.mkdir()
+    env = _offline_subprocess_env(secure_store=tmp_path / "keys.json")
+    env.update({"UV_CACHE_DIR": str(cache_dir), "UV_OFFLINE": "1", "PIP_NO_INDEX": "1"})
+    original_env = dict(env)
+    calls = []
+
+    def capture(command, *, cwd, env):
+        calls.append((command, cwd, env))
+        assert not list(cache_dir.iterdir())
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/tools/uv")
+    monkeypatch.setattr(sys.modules[__name__], "_run_subprocess", capture)
+    build_python = _prepare_build_environment(tmp_path, env=env)
+
+    command, cwd, prepare_env = calls[0]
+    assert len(calls) == 1
+    assert command == [
+        "/tools/uv",
+        "sync",
+        "--locked",
+        "--extra",
+        "test",
+        "--no-dev",
+        "--no-install-project",
+        "--python",
+        sys.executable,
+        "--project",
+        str(_REPO_ROOT),
+    ]
+    assert cwd == tmp_path
+    assert prepare_env["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "build-env")
+    assert prepare_env["UV_CACHE_DIR"] == str(cache_dir)
+    assert "UV_OFFLINE" not in prepare_env
+    assert "PIP_NO_INDEX" not in prepare_env
+    assert build_python == _venv_python(tmp_path / "build-env")
+    assert env == original_env
+
+
+def test_wheel_build_uses_prepared_python_offline(tmp_path, monkeypatch):
+    build_python = _venv_python(tmp_path / "build-env")
+    wheel_dir = tmp_path / "wheels"
+    wheel_dir.mkdir()
+    env = {"UV_OFFLINE": "1", "PIP_NO_INDEX": "1"}
+    calls = []
+
+    def capture(command, *, cwd, env):
+        calls.append((command, cwd, env))
+        (wheel_dir / "example-1.0-py3-none-any.whl").touch()
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/tools/uv")
+    monkeypatch.setattr(sys.modules[__name__], "_run_subprocess", capture)
+    result = _build_local_wheel(tmp_path, wheel_dir, build_python=build_python, env=env)
+
+    command, cwd, build_env = calls[0]
+    assert len(calls) == 1
+    assert command == [
+        "/tools/uv",
+        "build",
+        "--offline",
+        "--no-build-isolation",
+        "--python",
+        str(build_python),
+        "--wheel",
+        "--out-dir",
+        str(wheel_dir),
+        str(tmp_path),
+    ]
+    assert build_env == env
+    assert cwd == tmp_path
+    assert result.name == "example-1.0-py3-none-any.whl"
 
 
 def test_demo_receipt_verifies_end_to_end(tmp_path, capsys):
