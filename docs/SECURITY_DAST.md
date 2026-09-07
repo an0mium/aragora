@@ -9,8 +9,9 @@ The M4 DAST workflow uses an isolated demo backend, without production credentia
 | Non-draft server/API PR | ZAP baseline spider (`-m 1 -I`), then passive OpenAPI scan (`-S -I -T 3`) | Small curated GET surface; warn-only findings |
 | Nightly | Full canonical OpenAPI spec, active scan | 30-minute job cap; warn-only findings |
 
-Draft PRs skip these scans. ZAP actions must disable issue writing and failing on
-findings (`allow_issue_writing: false`, `fail_action: false`), retain separate
+Draft PRs skip these scans; marking a PR ready triggers the lane. The small smoke
+lane also runs nightly alongside the full scan. ZAP actions disable issue writing
+and failing on findings (`allow_issue_writing: false`, `fail_action: false`), retain separate
 HTML/JSON reports, and use `-c rules.tsv` in both lanes. Spec-regeneration drift
 is a job failure, not a tolerated finding. See [CI lanes](CI_LANES.md).
 Do not run the full active scan against production or as a local PR smoke test.
@@ -85,7 +86,17 @@ The seven key regression paths are the six AP/AR paths (401) and `/connect`
 (503 `not_configured`). None may return **500** or **`handler_no_result`**.
 Only the listed integration paths may produce the expected 503s. Record any
 rule-100000 instances and inspect status/body, rather than ignoring the whole
-rule. A 401 is not a rule-100000 server-error instance.
+rule. A 401 is not a server-error instance (`100000-2`). Current ZAP images may
+include 400/401 responses as informational client-error instances (`100000-1`)
+under the same plugin id 100000 in JSON reports. Enumerate both variants, but do
+not confuse the client-error entries with 5xx server errors.
+
+Scanner-generated query values may be rejected before integration dispatch.
+For example, `/gusto/employees?active=true` and
+`/gusto/payrolls?start_date=start_date&end_date=end_date&processed=true` return
+400 rather than the plain-GET 503 above. Timestamp-disclosure rule 10096 can flag
+the error timestamps on these responses (and on `/api/v1/agents`); it remains
+visible as WARN, not suppressed.
 
 ## Run locally with Docker
 
