@@ -138,6 +138,22 @@ def test_collect_failure_payload(collected, capsys):
     poster.assert_not_called()
 
 
+def test_transport_failure_keeps_text_context(collected, capsys):
+    data, _, poster = collected
+    error = quorum.CollectPreflightTransportError(
+        repo="synaptent/aragora",
+        pr=123,
+        phase="fetch_pr_context",
+        error=RuntimeError("network unavailable"),
+        attempts=3,
+    )
+    data.clear()
+    data.update(error.to_dict())
+    assert cli.main(ARGS) == 2
+    assert capsys.readouterr().out.splitlines()[0] == f"error: {error}"
+    poster.assert_not_called()
+
+
 def test_help_lists_existing_and_new_flags(collected, capsys):
     with pytest.raises(SystemExit) as exc:
         cli.main(["--help"])

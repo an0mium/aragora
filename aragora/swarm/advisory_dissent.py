@@ -11,6 +11,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from typing import Any
 
@@ -182,7 +183,11 @@ def post_advisory_summary(repo: str, pr: int, body: str, *, head_sha: str) -> Ad
         pages = json.loads(result.stdout)
         comments = [comment for page in pages for comment in page]
         existing = next(
-            (c for c in comments if str(c.get("body") or "").split("\n", 1)[0] == marker),
+            (
+                c
+                for c in comments
+                if str(c.get("body") or "").split("\n", 1)[0].rstrip("\r") == marker
+            ),
             None,
         )
         if existing is not None:
@@ -197,7 +202,14 @@ def post_advisory_summary(repo: str, pr: int, body: str, *, head_sha: str) -> Ad
             raise RuntimeError("could not deliver advisory summary")
         url = json.loads(result.stdout)["html_url"]
         return AdvisoryPostResult(True, url, None, existing is not None)
-    except Exception as exc:
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        KeyError,
+    ) as exc:
         # Do not copy subprocess stderr (which may contain credentials) into JSON.
         return AdvisoryPostResult(
             False, None, f"advisory delivery failed ({type(exc).__name__})", False

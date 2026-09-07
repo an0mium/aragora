@@ -143,8 +143,9 @@ def fake_github(monkeypatch, comments):
     return mock
 
 
-def test_idempotent_same_head_edits(monkeypatch):
-    mock = fake_github(monkeypatch, [{"id": 7, "body": MARKER + "\nold"}])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_idempotent_same_head_edits(monkeypatch, newline):
+    mock = fake_github(monkeypatch, [{"id": 7, "body": MARKER + newline + "old"}])
     result = adv.post_advisory_summary(
         "synaptent/aragora",
         123,

@@ -69,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     _hydrate_provider_secrets()
     from aragora.swarm.quorum_evidence import (
         DEFAULT_FAMILIES,
+        CollectPreflightTransportError,
         _render_outcome,
         collect_outcome_from_dict,
         run_collect_cli,
@@ -168,8 +169,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_output:
         print(json.dumps(outcome, indent=2))
     else:
+        error = outcome.get("error")
+        if outcome.get("transport_blocked"):
+            error = CollectPreflightTransportError(
+                repo=outcome["repo"],
+                pr=outcome["pr_number"],
+                phase=outcome["phase"],
+                error=RuntimeError(str(error)),
+                attempts=outcome["attempts"],
+            )
         print(
-            f"error: {outcome['error']}"
+            f"error: {error}"
             if "error" in outcome
             else _render_outcome(collect_outcome_from_dict(outcome))
         )
