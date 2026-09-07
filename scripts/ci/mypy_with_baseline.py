@@ -4,11 +4,16 @@
 Required full tier
 ------------------
 ``--baseline scripts/baselines/root-mypy-full.json`` selects the shared JSON
-ratchet (check_tool_baseline), pinned to mypy 2.1.0. It checks diagnostic counts
-against mypy's summary before filtering, prints raw and NEW error occurrences,
-and supports shrink-only ``--update`` (an unchanged snapshot is not rewritten).
+ratchet (check_tool_baseline), pinned to mypy 2.1.0 running on a CPython 3.11
+host. mypy parses with the host interpreter's ``ast`` (``--python-version``
+selects the target only), so the baseline's line attribution, and therefore its
+keys, are host-parser specific; any other host is refused before mypy runs. It
+checks diagnostic counts against mypy's summary before filtering, prints raw and
+NEW error occurrences, and supports shrink-only ``--update`` (an unchanged
+snapshot is not rewritten).
 Exit codes: 0 no new errors; 1 new errors/update growth; 2 baseline/usage error;
-3 wrong/missing mypy version, tool failure or incomplete diagnostic output.
+3 wrong/missing mypy version, wrong host Python version, tool failure or
+incomplete diagnostic output.
 Without --baseline the legacy pre-push/.mypy-baseline interface is unchanged.
 
 Purpose
@@ -68,6 +73,10 @@ from check_tool_baseline import (  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASELINE_PATH = REPO_ROOT / ".mypy-baseline"
 MYPY_VERSION = "2.1.0"
+# The host major.minor that generated the JSON baseline. Must equal
+# [tool.mypy] python_version, the --python-version flag in scripts/test_tiers.sh
+# and the setup-python-safe pin of lint.yml's typecheck-run job.
+HOST_PYTHON_VERSION = "3.11"
 DEFAULT_MYPY_ARGS: tuple[str, ...] = (
     "aragora/",
     "scripts/",
@@ -76,12 +85,25 @@ DEFAULT_MYPY_ARGS: tuple[str, ...] = (
 )
 
 
+def _host_python_version() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
 def _json_gate(mypy_args: tuple[str, ...], baseline_path: Path, *, update: bool) -> int:
     """Validate a complete mypy run, then reuse the shared shrink-only ratchet."""
     try:
         installed = version("mypy")
         if installed != MYPY_VERSION:
             raise ToolFailed(f"mypy=={MYPY_VERSION} required; found {installed}")
+        host = _host_python_version()
+        if host != HOST_PYTHON_VERSION:
+            raise ToolFailed(
+                f"CPython {HOST_PYTHON_VERSION} host required; found {host} at {sys.executable}. "
+                "mypy parses with the host interpreter's ast (--python-version selects the "
+                "target only), so the baseline's line attribution and keys are specific to a "
+                f"{HOST_PYTHON_VERSION} host. Run the tier under {HOST_PYTHON_VERSION}; "
+                "regenerating the baseline under another host is not a fix."
+            )
         baseline = (
             Baseline(tool="mypy", findings={}, exists=False)
             if update and not baseline_path.exists()
@@ -172,7 +194,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Run mypy and filter through mypy-baseline.",
         epilog=(
             "With --baseline: exit 0 no new errors; 1 new errors/update growth; "
-            "2 baseline/usage error; 3 wrong/missing mypy or incomplete/failed run."
+            "2 baseline/usage error; 3 wrong/missing mypy, wrong host Python "
+            f"(CPython {HOST_PYTHON_VERSION} required) or incomplete/failed run."
         ),
         add_help=True,
     )

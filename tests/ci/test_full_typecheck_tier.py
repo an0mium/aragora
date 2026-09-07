@@ -27,8 +27,9 @@ def wrapper(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
-    # Unit tests fake the tool, including its version, not the ambient test venv.
+    # Unit tests fake the tool, including its version and host, not the ambient test venv.
     monkeypatch.setattr(module, "version", lambda name: "2.1.0")
+    monkeypatch.setattr(module, "_host_python_version", lambda: "3.11")
     return module
 
 
@@ -162,6 +163,62 @@ def test_wrong_mypy_pin_fails_before_running(
     monkeypatch.setattr(wrapper, "run_tool", lambda *args: pytest.fail("must not run mypy"))
     assert invoke(wrapper, "--update") == 3
     assert "2.1.0" in capsys.readouterr().err
+
+
+def test_json_gate_refuses_foreign_host_interpreter(
+    wrapper: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_run(wrapper, monkeypatch, output(diagnostic()))
+    assert invoke(wrapper, "--update") == 0
+    capsys.readouterr()
+    baseline = tmp_path / BASELINE
+    before = baseline.read_bytes()
+    monkeypatch.setattr(wrapper, "_host_python_version", lambda: "3.12")
+    monkeypatch.setattr(wrapper, "run_tool", lambda *args: pytest.fail("must not run mypy"))
+    for options in ((), ("--update",)):
+        assert invoke(wrapper, *options) == 3
+        captured = capsys.readouterr()
+        assert "3.12" in captured.err
+        assert "3.11" in captured.err
+        assert sys.executable in captured.err
+        assert "Found " not in captured.out
+        assert " NEW " not in captured.out
+        assert baseline.read_bytes() == before
+
+
+def test_typecheck_host_pin_is_single_sourced(wrapper: ModuleType) -> None:
+    import tomllib
+
+    job = yaml.safe_load((ROOT / ".github/workflows/lint.yml").read_text())["jobs"]["typecheck-run"]
+    steps = job["steps"]
+    setup_index = next(
+        i for i, s in enumerate(steps) if s.get("uses") == "./.github/actions/setup-python-safe"
+    )
+    resolve_index = next(i for i, s in enumerate(steps) if s.get("id") == "typecheck_python")
+    assert setup_index < resolve_index
+    workflow_pin = steps[setup_index]["with"]["python-version"]
+    resolve = steps[resolve_index]["run"]
+    assert "python_bin=" in resolve
+    assert "::error::" in resolve
+    assert "exit 1" in resolve
+    assert '!= "3.11"' in resolve
+    assert not any("python3.12" in step.get("run", "") for step in steps)
+    assert not any("python3.13" in step.get("run", "") for step in steps)
+
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    tier = (ROOT / "scripts/test_tiers.sh").read_text()
+    case = tier[tier.index("  typecheck)") : tier.index(";;", tier.index("  typecheck)"))]
+    assert "--python-version=3.11" in case
+
+    assert (
+        workflow_pin
+        == wrapper.HOST_PYTHON_VERSION
+        == pyproject["tool"]["mypy"]["python_version"]
+        == "3.11"
+    )
 
 
 @pytest.mark.parametrize("status", [0, 1, 2, 3])

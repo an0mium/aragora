@@ -264,8 +264,24 @@ lands in a later feature, which replaces the marked comment in place.
   This mode uses the shared JSON ratchet, not the legacy `.mypy-baseline`
   filter (which remains available without `--baseline`). Use mypy **2.1.0**,
   pinned in `lint.yml`'s `typecheck-run` install and enforced by the wrapper.
-  `TYPECHECK_PYTHON` selects the interpreter; CI passes the same interpreter
-  used to install mypy. Locally it defaults to `python` on PATH.
+  **Host pin.** The census is reproducible only under a CPython **3.11 host**:
+  mypy parses with the host interpreter's `ast`, and `--python-version=3.11`
+  selects the target only, never the parser. Line attribution, and therefore
+  the `path::<line-hash>::rule` keys, can move on another host. Example: the
+  three `union-attr` errors inside the multi-line f-string at
+  `aragora/debate/phases/analytics_phase.py:494-497` sit on line 495 (x3) under
+  3.11 but on 495/496/496 under 3.12, which the ratchet reports as 2 NEW
+  errors. The wrapper's JSON mode therefore exits 3 on any host other than
+  3.11 before running mypy (`HOST_PYTHON_VERSION` in
+  `scripts/ci/mypy_with_baseline.py`, kept equal to `[tool.mypy] python_version`
+  and the tier's `--python-version` flag); regenerating the baseline under
+  another host is not a fix. CI pins the host through
+  `./.github/actions/setup-python-safe` with `python-version: "3.11"` and the
+  job's `Resolve Python runtime` step hard-fails on anything else.
+  `TYPECHECK_PYTHON` still selects the interpreter locally (default `python`
+  on PATH); point it at a 3.11 interpreter with mypy 2.1.0 installed. A warm
+  `.mypy_cache/3.11` can hide host drift, so proofs about the census should
+  start from an empty `MYPY_CACHE_DIR`.
   The full `aragora/` graph, including `aragora/live/**/*.py`, retains the
   configured internal import following. Python 3.11/Linux and
   `--no-site-packages` make the census independent of locally installed
@@ -281,7 +297,8 @@ lands in a later feature, which replaces the marked comment in place.
   distinct keys). Normal runs never rewrite the baseline; the table's
   `--update` command is shrink-only and byte-identical at an unchanged HEAD.
   Exit codes: 0 no new errors, 1 new errors/refused growth, 2 baseline/usage
-  error, 3 wrong/missing mypy version or failed/incomplete tool run.
+  error, 3 wrong/missing mypy version, wrong host Python version, or
+  failed/incomplete tool run.
 - **TODO/FIXME ratchet (M2).** `scripts/ci/check_todo_ratchet.py` wraps this
   runner with `--tool todo`: case-sensitive matching lines in `*.py` under
   `aragora/`, `scripts/`, and `tests/`, including untracked files and strings,
